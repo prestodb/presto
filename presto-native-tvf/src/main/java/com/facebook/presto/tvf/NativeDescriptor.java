@@ -28,7 +28,8 @@ import static java.util.Objects.requireNonNull;
 /**
  * Native descriptor for table function return type.
  */
-public final class NativeDescriptor {
+public final class NativeDescriptor
+{
     private final List<NativeField> fields;
 
     /**
@@ -38,7 +39,8 @@ public final class NativeDescriptor {
      */
     @JsonCreator
     public NativeDescriptor(
-            @JsonProperty("fields") final List<NativeField> fields) {
+            @JsonProperty("fields") final List<NativeField> fields)
+    {
         requireNonNull(fields, "fields is null");
         checkArgument(!fields.isEmpty(), "descriptor has no fields");
         this.fields = unmodifiableList(fields);
@@ -50,7 +52,8 @@ public final class NativeDescriptor {
      * @return the list of fields
      */
     @JsonProperty
-    public List<NativeField> getFields() {
+    public List<NativeField> getFields()
+    {
         return fields;
     }
 
@@ -61,7 +64,8 @@ public final class NativeDescriptor {
      * @return true if equal
      */
     @Override
-    public boolean equals(final Object o) {
+    public boolean equals(final Object o)
+    {
         if (this == o) {
             return true;
         }
@@ -78,14 +82,16 @@ public final class NativeDescriptor {
      * @return the hash code
      */
     @Override
-    public int hashCode() {
+    public int hashCode()
+    {
         return Objects.hash(fields);
     }
 
     /**
      * Represents a field in the native descriptor.
      */
-    public static final class NativeField {
+    public static final class NativeField
+    {
         private final Optional<String> name;
         private final Optional<TypeSignature> typeSignature;
 
@@ -99,7 +105,8 @@ public final class NativeDescriptor {
         public NativeField(
                 @JsonProperty("name") final Optional<String> name,
                 @JsonProperty("typeSignature")
-                final Optional<TypeSignature> typeSignature) {
+                final Optional<TypeSignature> typeSignature)
+        {
             this.name = requireNonNull(name, "name is null");
             this.typeSignature = requireNonNull(typeSignature,
                     "typeSignature is null");
@@ -111,7 +118,8 @@ public final class NativeDescriptor {
          * @return the field name
          */
         @JsonProperty
-        public Optional<String> getName() {
+        public Optional<String> getName()
+        {
             return name;
         }
 
@@ -121,7 +129,8 @@ public final class NativeDescriptor {
          * @return the type signature
          */
         @JsonProperty
-        public Optional<TypeSignature> getTypeSignature() {
+        public Optional<TypeSignature> getTypeSignature()
+        {
             return typeSignature;
         }
 
@@ -132,7 +141,8 @@ public final class NativeDescriptor {
          * @return true if equal
          */
         @Override
-        public boolean equals(final Object o) {
+        public boolean equals(final Object o)
+        {
             if (this == o) {
                 return true;
             }
@@ -150,7 +160,8 @@ public final class NativeDescriptor {
          * @return the hash code
          */
         @Override
-        public int hashCode() {
+        public int hashCode()
+        {
             return Objects.hash(name, typeSignature);
         }
     }

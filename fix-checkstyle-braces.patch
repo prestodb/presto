@@ -1,0 +1,977 @@
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ConnectorTableMetadata.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ConnectorTableMetadata.java
+index b7d6359c01..b81dbf597a 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ConnectorTableMetadata.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ConnectorTableMetadata.java
+@@ -26,7 +26,8 @@ import static java.util.Objects.requireNonNull;
+ /**
+  * Metadata for connector table function.
+  */
+-public final class ConnectorTableMetadata {
++public final class ConnectorTableMetadata
++{
+     private final QualifiedObjectName functionName;
+     private final Map<String, Argument> arguments;
+ 
+@@ -41,7 +42,8 @@ public final class ConnectorTableMetadata {
+             @JsonProperty("functionName")
+             final QualifiedObjectName functionName,
+             @JsonProperty("arguments")
+-            final Map<String, Argument> arguments) {
++            final Map<String, Argument> arguments)
++    {
+         this.functionName = requireNonNull(functionName,
+                 "functionName is null");
+         this.arguments = ImmutableMap.copyOf(
+@@ -54,7 +56,8 @@ public final class ConnectorTableMetadata {
+      * @return the function name
+      */
+     @JsonProperty("functionName")
+-    public QualifiedObjectName getFunctionName() {
++    public QualifiedObjectName getFunctionName()
++    {
+         return functionName;
+     }
+ 
+@@ -64,7 +67,8 @@ public final class ConnectorTableMetadata {
+      * @return the arguments map
+      */
+     @JsonProperty
+-    public Map<String, Argument> getArguments() {
++    public Map<String, Argument> getArguments()
++    {
+         return arguments;
+     }
+ }
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ForWorkerInfo.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ForWorkerInfo.java
+index 98dc3a8759..f662a321b4 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ForWorkerInfo.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ForWorkerInfo.java
+@@ -24,5 +24,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
+  */
+ @Retention(RUNTIME)
+ @BindingAnnotation
+-public @interface ForWorkerInfo {
++public @interface ForWorkerInfo
++{
+ }
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/HttpClientHolder.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/HttpClientHolder.java
+index e25a453fad..c5f0a90abe 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/HttpClientHolder.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/HttpClientHolder.java
+@@ -18,13 +18,16 @@ import com.facebook.airlift.http.client.HttpClient;
+ /**
+  * Holder for HTTP client instance.
+  */
+-public final class HttpClientHolder {
++public final class HttpClientHolder
++{
+     private static HttpClient httpClient;
+ 
+     /**
+      * Private constructor to prevent instantiation.
+      */
+-    private HttpClientHolder() { }
++    private HttpClientHolder()
++    {
++    }
+ 
+     /**
+      * Sets the HTTP client.
+@@ -32,7 +35,8 @@ public final class HttpClientHolder {
+      * @param httpClient the HTTP client
+      */
+     public static void setHttpClient(
+-            @ForWorkerInfo final HttpClient httpClient) {
++            @ForWorkerInfo final HttpClient httpClient)
++    {
+         HttpClientHolder.httpClient = httpClient;
+     }
+ 
+@@ -41,7 +45,8 @@ public final class HttpClientHolder {
+      *
+      * @return the HTTP client
+      */
+-    public static HttpClient getHttpClient() {
++    public static HttpClient getHttpClient()
++    {
+         return httpClient;
+     }
+ }
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/JsonBasedTableFunctionMetadata.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/JsonBasedTableFunctionMetadata.java
+index b8957476cf..235d8fe0b1 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/JsonBasedTableFunctionMetadata.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/JsonBasedTableFunctionMetadata.java
+@@ -28,7 +28,8 @@ import static java.util.Objects.requireNonNull;
+ /**
+  * JSON-based metadata for table functions.
+  */
+-public final class JsonBasedTableFunctionMetadata {
++public final class JsonBasedTableFunctionMetadata
++{
+     private final List<ArgumentSpecification> arguments;
+     private final ReturnTypeSpecification returnTypeSpecification;
+     private final QualifiedObjectName functionName;
+@@ -48,7 +49,8 @@ public final class JsonBasedTableFunctionMetadata {
+             @JsonProperty("arguments")
+             final List<ArgumentSpecification> arguments,
+             @JsonProperty("returnTypeSpecification")
+-            final ReturnTypeSpecification returnTypeSpecification) {
++            final ReturnTypeSpecification returnTypeSpecification)
++    {
+         this.functionName = requireNonNull(functionName,
+                 "functionName is null");
+         this.arguments = Collections.unmodifiableList(
+@@ -65,7 +67,8 @@ public final class JsonBasedTableFunctionMetadata {
+      * @return the qualified object name
+      */
+     @JsonProperty
+-    public QualifiedObjectName getQualifiedObjectName() {
++    public QualifiedObjectName getQualifiedObjectName()
++    {
+         return functionName;
+     }
+ 
+@@ -75,7 +78,8 @@ public final class JsonBasedTableFunctionMetadata {
+      * @return the list of argument specifications
+      */
+     @JsonProperty
+-    public List<ArgumentSpecification> getArguments() {
++    public List<ArgumentSpecification> getArguments()
++    {
+         return arguments;
+     }
+ 
+@@ -85,7 +89,8 @@ public final class JsonBasedTableFunctionMetadata {
+      * @return the return type specification
+      */
+     @JsonProperty
+-    public ReturnTypeSpecification getReturnTypeSpecification() {
++    public ReturnTypeSpecification getReturnTypeSpecification()
++    {
+         return returnTypeSpecification;
+     }
+ }
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ManualNativeTableFunctionHandleJsonHandler.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ManualNativeTableFunctionHandleJsonHandler.java
+index 7406b35e03..932bfd697f 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ManualNativeTableFunctionHandleJsonHandler.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ManualNativeTableFunctionHandleJsonHandler.java
+@@ -24,7 +24,8 @@ import static java.util.Objects.requireNonNull;
+  * This is a temporary solution to manually convert a
+  * NativeTableFunctionHandle JSON.
+  */
+-public final class ManualNativeTableFunctionHandleJsonHandler {
++public final class ManualNativeTableFunctionHandleJsonHandler
++{
+     private final String type;
+     private final String serializedTableFunctionHandle;
+     private final QualifiedObjectName functionName;
+@@ -42,7 +43,8 @@ public final class ManualNativeTableFunctionHandleJsonHandler {
+             @JsonProperty("serializedTableFunctionHandle")
+             final String serializedTableFunctionHandle,
+             @JsonProperty("functionName")
+-            final QualifiedObjectName functionName) {
++            final QualifiedObjectName functionName)
++    {
+         this.type = requireNonNull(type, "type is null");
+         this.serializedTableFunctionHandle = requireNonNull(
+                 serializedTableFunctionHandle,
+@@ -57,7 +59,8 @@ public final class ManualNativeTableFunctionHandleJsonHandler {
+      * @return the type
+      */
+     @JsonProperty("@type")
+-    public String getType() {
++    public String getType()
++    {
+         return type;
+     }
+ 
+@@ -67,7 +70,8 @@ public final class ManualNativeTableFunctionHandleJsonHandler {
+      * @return the serialized table function handle
+      */
+     @JsonProperty
+-    public String getSerializedTableFunctionHandle() {
++    public String getSerializedTableFunctionHandle()
++    {
+         return serializedTableFunctionHandle;
+     }
+ 
+@@ -77,7 +81,8 @@ public final class ManualNativeTableFunctionHandleJsonHandler {
+      * @return the function name
+      */
+     @JsonProperty("functionName")
+-    public QualifiedObjectName getFunctionName() {
++    public QualifiedObjectName getFunctionName()
++    {
+         return functionName;
+     }
+ }
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeConnectorTableFunction.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeConnectorTableFunction.java
+index dedb309f8f..b8a3193f86 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeConnectorTableFunction.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeConnectorTableFunction.java
+@@ -66,7 +66,8 @@ import static java.util.Objects.requireNonNull;
+  * Native implementation of connector table function.
+  */
+ public final class NativeConnectorTableFunction
+-        extends AbstractConnectorTableFunction {
++        extends AbstractConnectorTableFunction
++{
+     private static final String TVF_ANALYZE_ENDPOINT = "/v1/tvf/analyze";
+     private static final int HTTP_OK = 200;
+     private static final JsonCodec<ConnectorTableMetadata>
+@@ -106,7 +107,8 @@ public final class NativeConnectorTableFunction
+             final TypeManager typeManager,
+             final QualifiedObjectName functionName,
+             final List<ArgumentSpecification> arguments,
+-            final ReturnTypeSpecification returnTypeSpecification) {
++            final ReturnTypeSpecification returnTypeSpecification)
++    {
+         super("builtin",
+                 functionName.getObjectName(),
+                 arguments,
+@@ -133,7 +135,8 @@ public final class NativeConnectorTableFunction
+     public TableFunctionAnalysis analyze(
+             final ConnectorSession session,
+             final ConnectorTransactionHandle transaction,
+-            final Map<String, Argument> arguments) {
++            final Map<String, Argument> arguments)
++    {
+         return httpClient.execute(
+                 getWorkerRequest(arguments),
+                 new AnalyzeResponseHandler(
+@@ -148,7 +151,8 @@ public final class NativeConnectorTableFunction
+      * @return the request
+      */
+     private Request getWorkerRequest(
+-            final Map<String, Argument> arguments) {
++            final Map<String, Argument> arguments)
++    {
+         return preparePost()
+                 .setUri(getWorkerLocation(nodeManager,
+                         TVF_ANALYZE_ENDPOINT))
+@@ -167,7 +171,8 @@ public final class NativeConnectorTableFunction
+      * Serializer for Block objects.
+      */
+     private static final class BlockSerializer
+-            extends JsonSerializer<Block> {
++            extends JsonSerializer<Block>
++    {
+         private final BlockEncodingSerde blockEncodingSerde;
+ 
+         /**
+@@ -176,7 +181,8 @@ public final class NativeConnectorTableFunction
+          * @param blockEncodingSerde the block encoding serde
+          */
+         public BlockSerializer(
+-                final BlockEncodingSerde blockEncodingSerde) {
++                final BlockEncodingSerde blockEncodingSerde)
++        {
+             this.blockEncodingSerde = requireNonNull(blockEncodingSerde,
+                     "blockEncodingSerde is null");
+         }
+@@ -194,7 +200,8 @@ public final class NativeConnectorTableFunction
+                 final Block block,
+                 final JsonGenerator jsonGenerator,
+                 final SerializerProvider serializerProvider)
+-                throws IOException {
++                throws IOException
++        {
+             SliceOutput output = new DynamicSliceOutput(
+                     toIntExact(block.getSizeInBytes()
+                             + block.getEncodingName().length()
+@@ -214,7 +221,8 @@ public final class NativeConnectorTableFunction
+      */
+     private static final class AnalyzeResponseHandler
+             implements ResponseHandler<TableFunctionAnalysis,
+-            RuntimeException> {
++            RuntimeException>
++    {
+         /**
+          * JSON codec for native table function analysis.
+          */
+@@ -232,7 +240,8 @@ public final class NativeConnectorTableFunction
+          */
+         AnalyzeResponseHandler(
+                 final JsonCodec<NativeTableFunctionAnalysis> codec,
+-                final TypeManager typeManager) {
++                final TypeManager typeManager)
++        {
+             this.codec = requireNonNull(codec, "codec is null");
+             this.typeManager = requireNonNull(typeManager,
+                     "typeManager is null");
+@@ -248,7 +257,8 @@ public final class NativeConnectorTableFunction
+         @Override
+         public TableFunctionAnalysis handleException(
+                 final Request request,
+-                final Exception exception) {
++                final Exception exception)
++        {
+             throw new PrestoException(
+                     TABLE_FUNCTION_ANALYSIS_FAILED,
+                     "Failed to analyze function: "
+@@ -266,7 +276,8 @@ public final class NativeConnectorTableFunction
+         @Override
+         public TableFunctionAnalysis handle(
+                 final Request request,
+-                final Response response) {
++                final Response response)
++        {
+             try {
+                 String body = CharStreams.toString(
+                         new InputStreamReader(
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeDescriptor.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeDescriptor.java
+index 0f8c078a50..2c1728f048 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeDescriptor.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeDescriptor.java
+@@ -28,7 +28,8 @@ import static java.util.Objects.requireNonNull;
+ /**
+  * Native descriptor for table function return type.
+  */
+-public final class NativeDescriptor {
++public final class NativeDescriptor
++{
+     private final List<NativeField> fields;
+ 
+     /**
+@@ -38,7 +39,8 @@ public final class NativeDescriptor {
+      */
+     @JsonCreator
+     public NativeDescriptor(
+-            @JsonProperty("fields") final List<NativeField> fields) {
++            @JsonProperty("fields") final List<NativeField> fields)
++    {
+         requireNonNull(fields, "fields is null");
+         checkArgument(!fields.isEmpty(), "descriptor has no fields");
+         this.fields = unmodifiableList(fields);
+@@ -50,7 +52,8 @@ public final class NativeDescriptor {
+      * @return the list of fields
+      */
+     @JsonProperty
+-    public List<NativeField> getFields() {
++    public List<NativeField> getFields()
++    {
+         return fields;
+     }
+ 
+@@ -61,7 +64,8 @@ public final class NativeDescriptor {
+      * @return true if equal
+      */
+     @Override
+-    public boolean equals(final Object o) {
++    public boolean equals(final Object o)
++    {
+         if (this == o) {
+             return true;
+         }
+@@ -78,14 +82,16 @@ public final class NativeDescriptor {
+      * @return the hash code
+      */
+     @Override
+-    public int hashCode() {
++    public int hashCode()
++    {
+         return Objects.hash(fields);
+     }
+ 
+     /**
+      * Represents a field in the native descriptor.
+      */
+-    public static final class NativeField {
++    public static final class NativeField
++    {
+         private final Optional<String> name;
+         private final Optional<TypeSignature> typeSignature;
+ 
+@@ -99,7 +105,8 @@ public final class NativeDescriptor {
+         public NativeField(
+                 @JsonProperty("name") final Optional<String> name,
+                 @JsonProperty("typeSignature")
+-                final Optional<TypeSignature> typeSignature) {
++                final Optional<TypeSignature> typeSignature)
++        {
+             this.name = requireNonNull(name, "name is null");
+             this.typeSignature = requireNonNull(typeSignature,
+                     "typeSignature is null");
+@@ -111,7 +118,8 @@ public final class NativeDescriptor {
+          * @return the field name
+          */
+         @JsonProperty
+-        public Optional<String> getName() {
++        public Optional<String> getName()
++        {
+             return name;
+         }
+ 
+@@ -121,7 +129,8 @@ public final class NativeDescriptor {
+          * @return the type signature
+          */
+         @JsonProperty
+-        public Optional<TypeSignature> getTypeSignature() {
++        public Optional<TypeSignature> getTypeSignature()
++        {
+             return typeSignature;
+         }
+ 
+@@ -132,7 +141,8 @@ public final class NativeDescriptor {
+          * @return true if equal
+          */
+         @Override
+-        public boolean equals(final Object o) {
++        public boolean equals(final Object o)
++        {
+             if (this == o) {
+                 return true;
+             }
+@@ -150,7 +160,8 @@ public final class NativeDescriptor {
+          * @return the hash code
+          */
+         @Override
+-        public int hashCode() {
++        public int hashCode()
++        {
+             return Objects.hash(name, typeSignature);
+         }
+     }
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTVFProvider.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTVFProvider.java
+index 7c8c4f109e..a58ac0d8f1 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTVFProvider.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTVFProvider.java
+@@ -56,7 +56,8 @@ import static java.util.Objects.requireNonNull;
+  * Native implementation of TVF provider.
+  */
+ public final class NativeTVFProvider
+-        implements TVFProvider {
++        implements TVFProvider
++{
+     private static final int MAX_RETRIES = 10;
+     private static final long RETRY_DELAY_MS =
+             Duration.ofMinutes(1).toMillis();
+@@ -85,7 +86,8 @@ public final class NativeTVFProvider
+     public NativeTVFProvider(
+             final NodeManager nodeManager,
+             @ForWorkerInfo final HttpClient httpClient,
+-            final TypeManager typeManager) {
++            final TypeManager typeManager)
++    {
+         this.nodeManager = requireNonNull(nodeManager,
+                 "nodeManager is null");
+         this.typeManager = requireNonNull(typeManager,
+@@ -114,7 +116,8 @@ public final class NativeTVFProvider
+      * @return the list of connector table functions
+      */
+     @Override
+-    public List<ConnectorTableFunction> getTableFunctions() {
++    public List<ConnectorTableFunction> getTableFunctions()
++    {
+         return memoizedTableFunctionsSupplier.get();
+     }
+ 
+@@ -127,7 +130,8 @@ public final class NativeTVFProvider
+      */
+     public static URI getWorkerLocation(
+             final NodeManager nodeManager,
+-            final String endpoint) {
++            final String endpoint)
++    {
+         Node workerNode = null;
+         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+             Set<Node> workerNodes = nodeManager.getWorkerNodes();
+@@ -170,7 +174,8 @@ public final class NativeTVFProvider
+      * @return the extracted reason or full message if not found
+      */
+     public static String extractReasonFromVeloxError(
+-            final String errorMessage) {
++            final String errorMessage)
++    {
+         String[] lines = errorMessage.split("\n");
+         for (String line : lines) {
+             String trimmed = line.trim();
+@@ -187,7 +192,8 @@ public final class NativeTVFProvider
+      * @return the HTTP client
+      */
+     @VisibleForTesting
+-    public HttpClient getHttpClient() {
++    public HttpClient getHttpClient()
++    {
+         return httpClient;
+     }
+ 
+@@ -197,7 +203,8 @@ public final class NativeTVFProvider
+      * @return the list of connector table functions
+      */
+     private synchronized List<ConnectorTableFunction>
+-            loadConnectorTableFunctions() {
++            loadConnectorTableFunctions()
++    {
+         Map<String, JsonBasedTableFunctionMetadata>
+                 connectorTableFunctions;
+         try {
+@@ -228,7 +235,8 @@ public final class NativeTVFProvider
+     private synchronized NativeConnectorTableFunction
+             createNativeConnectorTableFunction(
+                     final JsonBasedTableFunctionMetadata
+-                            connectorTableFunction) {
++                            connectorTableFunction)
++    {
+         return new NativeConnectorTableFunction(
+                 httpClient,
+                 nodeManager,
+@@ -242,7 +250,8 @@ public final class NativeTVFProvider
+      * Deserializer for Type objects.
+      */
+     private static final class TypeDeserializer
+-            extends FromStringDeserializer<Type> {
++            extends FromStringDeserializer<Type>
++    {
+         private final TypeManager typeManager;
+ 
+         /**
+@@ -251,7 +260,8 @@ public final class NativeTVFProvider
+          * @param typeManager the type manager
+          */
+         @Inject
+-        public TypeDeserializer(final TypeManager typeManager) {
++        public TypeDeserializer(final TypeManager typeManager)
++        {
+             super(Type.class);
+             this.typeManager = requireNonNull(typeManager,
+                     "typeManager is null");
+@@ -267,7 +277,8 @@ public final class NativeTVFProvider
+         @Override
+         protected Type _deserialize(
+                 final String value,
+-                final DeserializationContext context) {
++                final DeserializationContext context)
++        {
+             return typeManager.getType(parseTypeSignature(value));
+         }
+     }
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTVFProviderFactory.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTVFProviderFactory.java
+index 4325fc8249..0b6abcaeac 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTVFProviderFactory.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTVFProviderFactory.java
+@@ -33,7 +33,8 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
+  * {@link TvfPlugin#getTVFProviderFactories()}.
+  */
+ public final class NativeTVFProviderFactory
+-        implements TVFProviderFactory {
++        implements TVFProviderFactory
++{
+     protected static final String NAME = "system";
+ 
+     private static final NativeTableFunctionHandle.Resolver
+@@ -48,7 +49,8 @@ public final class NativeTVFProviderFactory
+      * @return the name
+      */
+     @Override
+-    public String getName() {
++    public String getName()
++    {
+         return NAME;
+     }
+ 
+@@ -59,7 +61,8 @@ public final class NativeTVFProviderFactory
+      */
+     @Override
+     public TableFunctionHandleResolver
+-            getTableFunctionHandleResolver() {
++            getTableFunctionHandleResolver()
++    {
+         return HANDLE_RESOLVER;
+     }
+ 
+@@ -70,7 +73,8 @@ public final class NativeTVFProviderFactory
+      */
+     @Override
+     public TableFunctionSplitResolver
+-            getTableFunctionSplitResolver() {
++            getTableFunctionSplitResolver()
++    {
+         return SPLIT_RESOLVER;
+     }
+ 
+@@ -84,7 +88,8 @@ public final class NativeTVFProviderFactory
+     @Override
+     public TVFProvider createTVFProvider(
+             final Map<String, String> config,
+-            final TVFProviderContext context) {
++            final TVFProviderContext context)
++    {
+         try {
+             Bootstrap app = new Bootstrap(
+                     new NativeTVFProviderModule(
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTVFProviderModule.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTVFProviderModule.java
+index d2176cff21..57a48af6b2 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTVFProviderModule.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTVFProviderModule.java
+@@ -25,7 +25,8 @@ import static java.util.Objects.requireNonNull;
+  * Guice module for native TVF provider.
+  */
+ public final class NativeTVFProviderModule
+-        implements Module {
++        implements Module
++{
+     private final NodeManager nodeManager;
+     private final TypeManager typeManager;
+ 
+@@ -37,7 +38,8 @@ public final class NativeTVFProviderModule
+      */
+     public NativeTVFProviderModule(
+             final NodeManager nodeManager,
+-            final TypeManager typeManager) {
++            final TypeManager typeManager)
++    {
+         this.nodeManager = requireNonNull(nodeManager,
+                 "nodeManager is null");
+         this.typeManager = requireNonNull(typeManager,
+@@ -50,7 +52,8 @@ public final class NativeTVFProviderModule
+      * @param binder the Guice binder
+      */
+     @Override
+-    public void configure(final Binder binder) {
++    public void configure(final Binder binder)
++    {
+         binder.bind(NodeManager.class).toInstance(nodeManager);
+         binder.bind(TypeManager.class).toInstance(typeManager);
+         binder.bind(NativeTVFProvider.class).in(Scopes.SINGLETON);
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionAnalysis.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionAnalysis.java
+index 5d03959a2d..d685a6a7f0 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionAnalysis.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionAnalysis.java
+@@ -31,7 +31,8 @@ import static java.util.Objects.requireNonNull;
+ /**
+  * Native implementation of table function analysis.
+  */
+-public final class NativeTableFunctionAnalysis {
++public final class NativeTableFunctionAnalysis
++{
+     private final Map<String, List<Integer>> requiredColumns;
+     private final Optional<NativeDescriptor> returnedType;
+     private final NativeTableFunctionHandle handle;
+@@ -51,7 +52,8 @@ public final class NativeTableFunctionAnalysis {
+             @JsonProperty("requiredColumns")
+             final Map<String, List<Integer>> requiredColumns,
+             @JsonProperty("handle")
+-            final NativeTableFunctionHandle handle) {
++            final NativeTableFunctionHandle handle)
++    {
+         this.returnedType = requireNonNull(returnedType,
+                 "returnedType is null");
+         this.requiredColumns = Collections.unmodifiableMap(
+@@ -69,7 +71,8 @@ public final class NativeTableFunctionAnalysis {
+      * @return the returned type descriptor
+      */
+     @JsonProperty
+-    public Optional<NativeDescriptor> getReturnedType() {
++    public Optional<NativeDescriptor> getReturnedType()
++    {
+         return returnedType;
+     }
+ 
+@@ -79,7 +82,8 @@ public final class NativeTableFunctionAnalysis {
+      * @return map from table argument name to list of required column indexes
+      */
+     @JsonProperty
+-    public Map<String, List<Integer>> getRequiredColumns() {
++    public Map<String, List<Integer>> getRequiredColumns()
++    {
+         return requiredColumns;
+     }
+ 
+@@ -89,7 +93,8 @@ public final class NativeTableFunctionAnalysis {
+      * @return the native table function handle
+      */
+     @JsonProperty
+-    public NativeTableFunctionHandle getHandle() {
++    public NativeTableFunctionHandle getHandle()
++    {
+         return handle;
+     }
+ 
+@@ -100,7 +105,8 @@ public final class NativeTableFunctionAnalysis {
+      * @return the table function analysis
+      */
+     public TableFunctionAnalysis toTableFunctionAnalysis(
+-            final TypeManager typeManager) {
++            final TypeManager typeManager)
++    {
+         Descriptor descriptor = null;
+         if (returnedType.isPresent()) {
+             descriptor = new Descriptor(
+@@ -128,7 +134,8 @@ public final class NativeTableFunctionAnalysis {
+      */
+     private static List<Descriptor.Field> convertToDescriptorFields(
+             final List<NativeDescriptor.NativeField> nativeFields,
+-            final TypeManager typeManager) {
++            final TypeManager typeManager)
++    {
+         return nativeFields.stream()
+                 .map(field -> new Descriptor.Field(
+                         field.getName().filter(name -> !name.isEmpty()),
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionHandle.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionHandle.java
+index cc0086a2b6..6e542bd46f 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionHandle.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionHandle.java
+@@ -53,7 +53,8 @@ import static java.util.Objects.requireNonNull;
+  * Native implementation of table function handle.
+  */
+ public final class NativeTableFunctionHandle
+-        implements ConnectorTableFunctionHandle {
++        implements ConnectorTableFunctionHandle
++{
+     private static final String TVF_SPLITS_ENDPOINT = "/v1/tvf/splits";
+     private static final int HTTP_OK = 200;
+ 
+@@ -71,7 +72,8 @@ public final class NativeTableFunctionHandle
+             @JsonProperty("serializedTableFunctionHandle")
+             final String serializedTableFunctionHandle,
+             @JsonProperty("functionName")
+-            final QualifiedObjectName functionName) {
++            final QualifiedObjectName functionName)
++    {
+         this.serializedTableFunctionHandle = requireNonNull(
+                 serializedTableFunctionHandle,
+                 "serializedTableFunctionHandle is null");
+@@ -85,7 +87,8 @@ public final class NativeTableFunctionHandle
+      * @return the serialized table function handle
+      */
+     @JsonProperty
+-    public String getSerializedTableFunctionHandle() {
++    public String getSerializedTableFunctionHandle()
++    {
+         return serializedTableFunctionHandle;
+     }
+ 
+@@ -95,7 +98,8 @@ public final class NativeTableFunctionHandle
+      * @return the function name
+      */
+     @JsonProperty("functionName")
+-    public QualifiedObjectName getFunctionName() {
++    public QualifiedObjectName getFunctionName()
++    {
+         return functionName;
+     }
+ 
+@@ -111,7 +115,8 @@ public final class NativeTableFunctionHandle
+     public ConnectorSplitSource getSplits(
+             final ConnectorTransactionHandle transaction,
+             final ConnectorSession session,
+-            final NodeManager nodeManager) {
++            final NodeManager nodeManager)
++    {
+         return new FixedSplitSource(
+                 getHttpClient().execute(
+                         prepareSplitsPostRequest(nodeManager, this),
+@@ -127,7 +132,8 @@ public final class NativeTableFunctionHandle
+      */
+     private static Request prepareSplitsPostRequest(
+             final NodeManager nodeManager,
+-            final NativeTableFunctionHandle nativeTableFunctionHandle) {
++            final NativeTableFunctionHandle nativeTableFunctionHandle)
++    {
+         String handleType = NativeTVFProviderFactory.NAME + ":"
+                 + NativeTableFunctionHandle.class.getName();
+         return preparePost()
+@@ -151,7 +157,8 @@ public final class NativeTableFunctionHandle
+      * Resolver for native table function handles.
+      */
+     public static final class Resolver
+-            implements TableFunctionHandleResolver {
++            implements TableFunctionHandleResolver
++    {
+         /**
+          * Gets the table function handle classes.
+          *
+@@ -159,7 +166,8 @@ public final class NativeTableFunctionHandle
+          */
+         @Override
+         public Set<Class<? extends ConnectorTableFunctionHandle>>
+-                getTableFunctionHandleClasses() {
++                getTableFunctionHandleClasses()
++        {
+             return ImmutableSet.of(NativeTableFunctionHandle.class);
+         }
+     }
+@@ -169,7 +177,8 @@ public final class NativeTableFunctionHandle
+      */
+     private static final class SplitResponseHandler
+             implements ResponseHandler<List<NativeTableFunctionSplit>,
+-            RuntimeException> {
++            RuntimeException>
++    {
+         private final JsonCodec<List<NativeTableFunctionSplit>> codec =
+                 listJsonCodec(NativeTableFunctionSplit.class);
+ 
+@@ -183,7 +192,8 @@ public final class NativeTableFunctionHandle
+         @Override
+         public List<NativeTableFunctionSplit> handleException(
+                 final Request request,
+-                final Exception exception) {
++                final Exception exception)
++        {
+             throw new PrestoException(INVALID_ARGUMENTS,
+                     "Failed to get splits: " + exception.getMessage(),
+                     exception);
+@@ -199,7 +209,8 @@ public final class NativeTableFunctionHandle
+         @Override
+         public List<NativeTableFunctionSplit> handle(
+                 final Request request,
+-                final Response response) {
++                final Response response)
++        {
+             try {
+                 String body = CharStreams.toString(
+                         new InputStreamReader(
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionSplit.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionSplit.java
+index acea2614d1..302adfea84 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionSplit.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionSplit.java
+@@ -32,7 +32,8 @@ import static java.util.Objects.requireNonNull;
+  * Native implementation of table function split.
+  */
+ public final class NativeTableFunctionSplit
+-        implements ConnectorSplit {
++        implements ConnectorSplit
++{
+     private final String serializedTableFunctionSplitHandle;
+ 
+     /**
+@@ -43,7 +44,8 @@ public final class NativeTableFunctionSplit
+     @JsonCreator
+     public NativeTableFunctionSplit(
+             @JsonProperty("serializedTableFunctionSplitHandle")
+-            final String serializedTableFunctionSplitHandle) {
++            final String serializedTableFunctionSplitHandle)
++    {
+         this.serializedTableFunctionSplitHandle = requireNonNull(
+                 serializedTableFunctionSplitHandle,
+                 "serializedTableFunctionSplitHandle is null");
+@@ -55,7 +57,8 @@ public final class NativeTableFunctionSplit
+      * @return the node selection strategy
+      */
+     @Override
+-    public NodeSelectionStrategy getNodeSelectionStrategy() {
++    public NodeSelectionStrategy getNodeSelectionStrategy()
++    {
+         return NodeSelectionStrategy.NO_PREFERENCE;
+     }
+ 
+@@ -67,7 +70,8 @@ public final class NativeTableFunctionSplit
+      */
+     @Override
+     public List<HostAddress> getPreferredNodes(
+-            final NodeProvider nodeProvider) {
++            final NodeProvider nodeProvider)
++    {
+         return Collections.emptyList();
+     }
+ 
+@@ -77,7 +81,8 @@ public final class NativeTableFunctionSplit
+      * @return the split info
+      */
+     @Override
+-    public Object getInfo() {
++    public Object getInfo()
++    {
+         return null;
+     }
+ 
+@@ -87,7 +92,8 @@ public final class NativeTableFunctionSplit
+      * @return the serialized split handle
+      */
+     @JsonProperty
+-    public String getSerializedTableFunctionSplitHandle() {
++    public String getSerializedTableFunctionSplitHandle()
++    {
+         return serializedTableFunctionSplitHandle;
+     }
+ 
+@@ -95,7 +101,8 @@ public final class NativeTableFunctionSplit
+      * Resolver for native table function splits.
+      */
+     public static final class Resolver
+-            implements TableFunctionSplitResolver {
++            implements TableFunctionSplitResolver
++    {
+         /**
+          * Gets the table function split classes.
+          *
+@@ -103,7 +110,8 @@ public final class NativeTableFunctionSplit
+          */
+         @Override
+         public Set<Class<? extends ConnectorSplit>>
+-                getTableFunctionSplitClasses() {
++                getTableFunctionSplitClasses()
++        {
+             return ImmutableSet.of(NativeTableFunctionSplit.class);
+         }
+     }
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeWorkerCommunicationModule.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeWorkerCommunicationModule.java
+index 9eae0d6ec7..3de0b07933 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeWorkerCommunicationModule.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeWorkerCommunicationModule.java
+@@ -25,7 +25,8 @@ import static java.util.Objects.requireNonNull;
+  * Guice module for native worker communication.
+  */
+ public final class NativeWorkerCommunicationModule
+-        implements Module {
++        implements Module
++{
+     private final AuthClientConfigs authClientConfigs;
+ 
+     /**
+@@ -34,7 +35,8 @@ public final class NativeWorkerCommunicationModule
+      * @param authClientConfigs the auth client configurations
+      */
+     public NativeWorkerCommunicationModule(
+-            final AuthClientConfigs authClientConfigs) {
++            final AuthClientConfigs authClientConfigs)
++    {
+         this.authClientConfigs = requireNonNull(authClientConfigs,
+                 "authClientConfigs is null");
+     }
+@@ -45,7 +47,8 @@ public final class NativeWorkerCommunicationModule
+      * @param binder the Guice binder
+      */
+     @Override
+-    public void configure(final Binder binder) {
++    public void configure(final Binder binder)
++    {
+         bindInternalAuth(binder, authClientConfigs);
+         httpClientBinder(binder).bindHttpClient("worker",
+                 ForWorkerInfo.class);
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ServingCatalog.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ServingCatalog.java
+index 2c6328c7d6..1bef34a3c8 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ServingCatalog.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/ServingCatalog.java
+@@ -29,5 +29,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
+ @Retention(RUNTIME)
+ @Target({FIELD, PARAMETER, METHOD})
+ @Qualifier
+-public @interface ServingCatalog {
++public @interface ServingCatalog
++{
+ }
+diff --git a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/TvfPlugin.java b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/TvfPlugin.java
+index 1ddc207e00..afba0d7d13 100644
+--- a/presto-native-tvf/src/main/java/com/facebook/presto/tvf/TvfPlugin.java
++++ b/presto-native-tvf/src/main/java/com/facebook/presto/tvf/TvfPlugin.java
+@@ -21,14 +21,16 @@ import com.google.common.collect.ImmutableList;
+  * Plugin for native table-valued functions.
+  */
+ public final class TvfPlugin
+-        implements CoordinatorPlugin {
++        implements CoordinatorPlugin
++{
+     /**
+      * Gets the TVF provider factories.
+      *
+      * @return the TVF provider factories
+      */
+     @Override
+-    public Iterable<TVFProviderFactory> getTVFProviderFactories() {
++    public Iterable<TVFProviderFactory> getTVFProviderFactories()
++    {
+         return ImmutableList.of(new NativeTVFProviderFactory());
+     }
+ }

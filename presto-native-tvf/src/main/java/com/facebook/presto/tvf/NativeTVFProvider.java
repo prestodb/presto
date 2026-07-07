@@ -56,7 +56,8 @@ import static java.util.Objects.requireNonNull;
  * Native implementation of TVF provider.
  */
 public final class NativeTVFProvider
-        implements TVFProvider {
+        implements TVFProvider
+{
     private static final int MAX_RETRIES = 10;
     private static final long RETRY_DELAY_MS =
             Duration.ofMinutes(1).toMillis();
@@ -85,7 +86,8 @@ public final class NativeTVFProvider
     public NativeTVFProvider(
             final NodeManager nodeManager,
             @ForWorkerInfo final HttpClient httpClient,
-            final TypeManager typeManager) {
+            final TypeManager typeManager)
+    {
         this.nodeManager = requireNonNull(nodeManager,
                 "nodeManager is null");
         this.typeManager = requireNonNull(typeManager,
@@ -114,7 +116,8 @@ public final class NativeTVFProvider
      * @return the list of connector table functions
      */
     @Override
-    public List<ConnectorTableFunction> getTableFunctions() {
+    public List<ConnectorTableFunction> getTableFunctions()
+    {
         return memoizedTableFunctionsSupplier.get();
     }
 
@@ -127,7 +130,8 @@ public final class NativeTVFProvider
      */
     public static URI getWorkerLocation(
             final NodeManager nodeManager,
-            final String endpoint) {
+            final String endpoint)
+    {
         Node workerNode = null;
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             Set<Node> workerNodes = nodeManager.getWorkerNodes();
@@ -170,7 +174,8 @@ public final class NativeTVFProvider
      * @return the extracted reason or full message if not found
      */
     public static String extractReasonFromVeloxError(
-            final String errorMessage) {
+            final String errorMessage)
+    {
         String[] lines = errorMessage.split("\n");
         for (String line : lines) {
             String trimmed = line.trim();
@@ -187,7 +192,8 @@ public final class NativeTVFProvider
      * @return the HTTP client
      */
     @VisibleForTesting
-    public HttpClient getHttpClient() {
+    public HttpClient getHttpClient()
+    {
         return httpClient;
     }
 
@@ -197,7 +203,8 @@ public final class NativeTVFProvider
      * @return the list of connector table functions
      */
     private synchronized List<ConnectorTableFunction>
-            loadConnectorTableFunctions() {
+            loadConnectorTableFunctions()
+    {
         Map<String, JsonBasedTableFunctionMetadata>
                 connectorTableFunctions;
         try {
@@ -228,7 +235,8 @@ public final class NativeTVFProvider
     private synchronized NativeConnectorTableFunction
             createNativeConnectorTableFunction(
                     final JsonBasedTableFunctionMetadata
-                            connectorTableFunction) {
+                            connectorTableFunction)
+    {
         return new NativeConnectorTableFunction(
                 httpClient,
                 nodeManager,
@@ -242,7 +250,8 @@ public final class NativeTVFProvider
      * Deserializer for Type objects.
      */
     private static final class TypeDeserializer
-            extends FromStringDeserializer<Type> {
+            extends FromStringDeserializer<Type>
+    {
         private final TypeManager typeManager;
 
         /**
@@ -251,7 +260,8 @@ public final class NativeTVFProvider
          * @param typeManager the type manager
          */
         @Inject
-        public TypeDeserializer(final TypeManager typeManager) {
+        public TypeDeserializer(final TypeManager typeManager)
+        {
             super(Type.class);
             this.typeManager = requireNonNull(typeManager,
                     "typeManager is null");
@@ -267,7 +277,8 @@ public final class NativeTVFProvider
         @Override
         protected Type _deserialize(
                 final String value,
-                final DeserializationContext context) {
+                final DeserializationContext context)
+        {
             return typeManager.getType(parseTypeSignature(value));
         }
     }

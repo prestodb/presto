@@ -21,14 +21,16 @@ import com.google.common.collect.ImmutableList;
  * Plugin for native table-valued functions.
  */
 public final class TvfPlugin
-        implements CoordinatorPlugin {
+        implements CoordinatorPlugin
+{
     /**
      * Gets the TVF provider factories.
      *
      * @return the TVF provider factories
      */
     @Override
-    public Iterable<TVFProviderFactory> getTVFProviderFactories() {
+    public Iterable<TVFProviderFactory> getTVFProviderFactories()
+    {
         return ImmutableList.of(new NativeTVFProviderFactory());
     }
 }

@@ -24,5 +24,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  */
 @Retention(RUNTIME)
 @BindingAnnotation
-public @interface ForWorkerInfo {
+public @interface ForWorkerInfo
+{
 }

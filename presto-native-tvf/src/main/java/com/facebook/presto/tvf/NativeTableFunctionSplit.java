@@ -32,7 +32,8 @@ import static java.util.Objects.requireNonNull;
  * Native implementation of table function split.
  */
 public final class NativeTableFunctionSplit
-        implements ConnectorSplit {
+        implements ConnectorSplit
+{
     private final String serializedTableFunctionSplitHandle;
 
     /**
@@ -43,7 +44,8 @@ public final class NativeTableFunctionSplit
     @JsonCreator
     public NativeTableFunctionSplit(
             @JsonProperty("serializedTableFunctionSplitHandle")
-            final String serializedTableFunctionSplitHandle) {
+            final String serializedTableFunctionSplitHandle)
+    {
         this.serializedTableFunctionSplitHandle = requireNonNull(
                 serializedTableFunctionSplitHandle,
                 "serializedTableFunctionSplitHandle is null");
@@ -55,7 +57,8 @@ public final class NativeTableFunctionSplit
      * @return the node selection strategy
      */
     @Override
-    public NodeSelectionStrategy getNodeSelectionStrategy() {
+    public NodeSelectionStrategy getNodeSelectionStrategy()
+    {
         return NodeSelectionStrategy.NO_PREFERENCE;
     }
 
@@ -67,7 +70,8 @@ public final class NativeTableFunctionSplit
      */
     @Override
     public List<HostAddress> getPreferredNodes(
-            final NodeProvider nodeProvider) {
+            final NodeProvider nodeProvider)
+    {
         return Collections.emptyList();
     }
 
@@ -77,7 +81,8 @@ public final class NativeTableFunctionSplit
      * @return the split info
      */
     @Override
-    public Object getInfo() {
+    public Object getInfo()
+    {
         return null;
     }
 
@@ -87,7 +92,8 @@ public final class NativeTableFunctionSplit
      * @return the serialized split handle
      */
     @JsonProperty
-    public String getSerializedTableFunctionSplitHandle() {
+    public String getSerializedTableFunctionSplitHandle()
+    {
         return serializedTableFunctionSplitHandle;
     }
 
@@ -95,7 +101,8 @@ public final class NativeTableFunctionSplit
      * Resolver for native table function splits.
      */
     public static final class Resolver
-            implements TableFunctionSplitResolver {
+            implements TableFunctionSplitResolver
+    {
         /**
          * Gets the table function split classes.
          *
@@ -103,7 +110,8 @@ public final class NativeTableFunctionSplit
          */
         @Override
         public Set<Class<? extends ConnectorSplit>>
-                getTableFunctionSplitClasses() {
+                getTableFunctionSplitClasses()
+        {
             return ImmutableSet.of(NativeTableFunctionSplit.class);
         }
     }

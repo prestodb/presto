@@ -25,7 +25,8 @@ import static java.util.Objects.requireNonNull;
  * Guice module for native worker communication.
  */
 public final class NativeWorkerCommunicationModule
-        implements Module {
+        implements Module
+{
     private final AuthClientConfigs authClientConfigs;
 
     /**
@@ -34,7 +35,8 @@ public final class NativeWorkerCommunicationModule
      * @param authClientConfigs the auth client configurations
      */
     public NativeWorkerCommunicationModule(
-            final AuthClientConfigs authClientConfigs) {
+            final AuthClientConfigs authClientConfigs)
+    {
         this.authClientConfigs = requireNonNull(authClientConfigs,
                 "authClientConfigs is null");
     }
@@ -45,7 +47,8 @@ public final class NativeWorkerCommunicationModule
      * @param binder the Guice binder
      */
     @Override
-    public void configure(final Binder binder) {
+    public void configure(final Binder binder)
+    {
         bindInternalAuth(binder, authClientConfigs);
         httpClientBinder(binder).bindHttpClient("worker",
                 ForWorkerInfo.class);

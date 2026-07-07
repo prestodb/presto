@@ -31,7 +31,8 @@ import static java.util.Objects.requireNonNull;
 /**
  * Native implementation of table function analysis.
  */
-public final class NativeTableFunctionAnalysis {
+public final class NativeTableFunctionAnalysis
+{
     private final Map<String, List<Integer>> requiredColumns;
     private final Optional<NativeDescriptor> returnedType;
     private final NativeTableFunctionHandle handle;
@@ -51,7 +52,8 @@ public final class NativeTableFunctionAnalysis {
             @JsonProperty("requiredColumns")
             final Map<String, List<Integer>> requiredColumns,
             @JsonProperty("handle")
-            final NativeTableFunctionHandle handle) {
+            final NativeTableFunctionHandle handle)
+    {
         this.returnedType = requireNonNull(returnedType,
                 "returnedType is null");
         this.requiredColumns = Collections.unmodifiableMap(
@@ -69,7 +71,8 @@ public final class NativeTableFunctionAnalysis {
      * @return the returned type descriptor
      */
     @JsonProperty
-    public Optional<NativeDescriptor> getReturnedType() {
+    public Optional<NativeDescriptor> getReturnedType()
+    {
         return returnedType;
     }
 
@@ -79,7 +82,8 @@ public final class NativeTableFunctionAnalysis {
      * @return map from table argument name to list of required column indexes
      */
     @JsonProperty
-    public Map<String, List<Integer>> getRequiredColumns() {
+    public Map<String, List<Integer>> getRequiredColumns()
+    {
         return requiredColumns;
     }
 
@@ -89,7 +93,8 @@ public final class NativeTableFunctionAnalysis {
      * @return the native table function handle
      */
     @JsonProperty
-    public NativeTableFunctionHandle getHandle() {
+    public NativeTableFunctionHandle getHandle()
+    {
         return handle;
     }
 
@@ -100,7 +105,8 @@ public final class NativeTableFunctionAnalysis {
      * @return the table function analysis
      */
     public TableFunctionAnalysis toTableFunctionAnalysis(
-            final TypeManager typeManager) {
+            final TypeManager typeManager)
+    {
         Descriptor descriptor = null;
         if (returnedType.isPresent()) {
             descriptor = new Descriptor(
@@ -128,7 +134,8 @@ public final class NativeTableFunctionAnalysis {
      */
     private static List<Descriptor.Field> convertToDescriptorFields(
             final List<NativeDescriptor.NativeField> nativeFields,
-            final TypeManager typeManager) {
+            final TypeManager typeManager)
+    {
         return nativeFields.stream()
                 .map(field -> new Descriptor.Field(
                         field.getName().filter(name -> !name.isEmpty()),

@@ -53,7 +53,8 @@ import static java.util.Objects.requireNonNull;
  * Native implementation of table function handle.
  */
 public final class NativeTableFunctionHandle
-        implements ConnectorTableFunctionHandle {
+        implements ConnectorTableFunctionHandle
+{
     private static final String TVF_SPLITS_ENDPOINT = "/v1/tvf/splits";
     private static final int HTTP_OK = 200;
 
@@ -71,7 +72,8 @@ public final class NativeTableFunctionHandle
             @JsonProperty("serializedTableFunctionHandle")
             final String serializedTableFunctionHandle,
             @JsonProperty("functionName")
-            final QualifiedObjectName functionName) {
+            final QualifiedObjectName functionName)
+    {
         this.serializedTableFunctionHandle = requireNonNull(
                 serializedTableFunctionHandle,
                 "serializedTableFunctionHandle is null");
@@ -85,7 +87,8 @@ public final class NativeTableFunctionHandle
      * @return the serialized table function handle
      */
     @JsonProperty
-    public String getSerializedTableFunctionHandle() {
+    public String getSerializedTableFunctionHandle()
+    {
         return serializedTableFunctionHandle;
     }
 
@@ -95,7 +98,8 @@ public final class NativeTableFunctionHandle
      * @return the function name
      */
     @JsonProperty("functionName")
-    public QualifiedObjectName getFunctionName() {
+    public QualifiedObjectName getFunctionName()
+    {
         return functionName;
     }
 
@@ -111,7 +115,8 @@ public final class NativeTableFunctionHandle
     public ConnectorSplitSource getSplits(
             final ConnectorTransactionHandle transaction,
             final ConnectorSession session,
-            final NodeManager nodeManager) {
+            final NodeManager nodeManager)
+    {
         return new FixedSplitSource(
                 getHttpClient().execute(
                         prepareSplitsPostRequest(nodeManager, this),
@@ -127,7 +132,8 @@ public final class NativeTableFunctionHandle
      */
     private static Request prepareSplitsPostRequest(
             final NodeManager nodeManager,
-            final NativeTableFunctionHandle nativeTableFunctionHandle) {
+            final NativeTableFunctionHandle nativeTableFunctionHandle)
+    {
         String handleType = NativeTVFProviderFactory.NAME + ":"
                 + NativeTableFunctionHandle.class.getName();
         return preparePost()
@@ -151,7 +157,8 @@ public final class NativeTableFunctionHandle
      * Resolver for native table function handles.
      */
     public static final class Resolver
-            implements TableFunctionHandleResolver {
+            implements TableFunctionHandleResolver
+    {
         /**
          * Gets the table function handle classes.
          *
@@ -159,7 +166,8 @@ public final class NativeTableFunctionHandle
          */
         @Override
         public Set<Class<? extends ConnectorTableFunctionHandle>>
-                getTableFunctionHandleClasses() {
+                getTableFunctionHandleClasses()
+        {
             return ImmutableSet.of(NativeTableFunctionHandle.class);
         }
     }
@@ -169,7 +177,8 @@ public final class NativeTableFunctionHandle
      */
     private static final class SplitResponseHandler
             implements ResponseHandler<List<NativeTableFunctionSplit>,
-            RuntimeException> {
+            RuntimeException>
+    {
         private final JsonCodec<List<NativeTableFunctionSplit>> codec =
                 listJsonCodec(NativeTableFunctionSplit.class);
 
@@ -183,7 +192,8 @@ public final class NativeTableFunctionHandle
         @Override
         public List<NativeTableFunctionSplit> handleException(
                 final Request request,
-                final Exception exception) {
+                final Exception exception)
+        {
             throw new PrestoException(INVALID_ARGUMENTS,
                     "Failed to get splits: " + exception.getMessage(),
                     exception);
@@ -199,7 +209,8 @@ public final class NativeTableFunctionHandle
         @Override
         public List<NativeTableFunctionSplit> handle(
                 final Request request,
-                final Response response) {
+                final Response response)
+        {
             try {
                 String body = CharStreams.toString(
                         new InputStreamReader(

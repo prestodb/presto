@@ -33,7 +33,8 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
  * {@link TvfPlugin#getTVFProviderFactories()}.
  */
 public final class NativeTVFProviderFactory
-        implements TVFProviderFactory {
+        implements TVFProviderFactory
+{
     protected static final String NAME = "system";
 
     private static final NativeTableFunctionHandle.Resolver
@@ -48,7 +49,8 @@ public final class NativeTVFProviderFactory
      * @return the name
      */
     @Override
-    public String getName() {
+    public String getName()
+    {
         return NAME;
     }
 
@@ -59,7 +61,8 @@ public final class NativeTVFProviderFactory
      */
     @Override
     public TableFunctionHandleResolver
-            getTableFunctionHandleResolver() {
+            getTableFunctionHandleResolver()
+    {
         return HANDLE_RESOLVER;
     }
 
@@ -70,7 +73,8 @@ public final class NativeTVFProviderFactory
      */
     @Override
     public TableFunctionSplitResolver
-            getTableFunctionSplitResolver() {
+            getTableFunctionSplitResolver()
+    {
         return SPLIT_RESOLVER;
     }
 
@@ -84,7 +88,8 @@ public final class NativeTVFProviderFactory
     @Override
     public TVFProvider createTVFProvider(
             final Map<String, String> config,
-            final TVFProviderContext context) {
+            final TVFProviderContext context)
+    {
         try {
             Bootstrap app = new Bootstrap(
                     new NativeTVFProviderModule(

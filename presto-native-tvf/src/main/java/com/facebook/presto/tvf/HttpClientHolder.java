@@ -18,13 +18,16 @@ import com.facebook.airlift.http.client.HttpClient;
 /**
  * Holder for HTTP client instance.
  */
-public final class HttpClientHolder {
+public final class HttpClientHolder
+{
     private static HttpClient httpClient;
 
     /**
      * Private constructor to prevent instantiation.
      */
-    private HttpClientHolder() { }
+    private HttpClientHolder()
+    {
+    }
 
     /**
      * Sets the HTTP client.
@@ -32,7 +35,8 @@ public final class HttpClientHolder {
      * @param httpClient the HTTP client
      */
     public static void setHttpClient(
-            @ForWorkerInfo final HttpClient httpClient) {
+            @ForWorkerInfo final HttpClient httpClient)
+    {
         HttpClientHolder.httpClient = httpClient;
     }
 
@@ -41,7 +45,8 @@ public final class HttpClientHolder {
      *
      * @return the HTTP client
      */
-    public static HttpClient getHttpClient() {
+    public static HttpClient getHttpClient()
+    {
         return httpClient;
     }
 }

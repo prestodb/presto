@@ -28,7 +28,8 @@ import static java.util.Objects.requireNonNull;
 /**
  * JSON-based metadata for table functions.
  */
-public final class JsonBasedTableFunctionMetadata {
+public final class JsonBasedTableFunctionMetadata
+{
     private final List<ArgumentSpecification> arguments;
     private final ReturnTypeSpecification returnTypeSpecification;
     private final QualifiedObjectName functionName;
@@ -48,7 +49,8 @@ public final class JsonBasedTableFunctionMetadata {
             @JsonProperty("arguments")
             final List<ArgumentSpecification> arguments,
             @JsonProperty("returnTypeSpecification")
-            final ReturnTypeSpecification returnTypeSpecification) {
+            final ReturnTypeSpecification returnTypeSpecification)
+    {
         this.functionName = requireNonNull(functionName,
                 "functionName is null");
         this.arguments = Collections.unmodifiableList(
@@ -65,7 +67,8 @@ public final class JsonBasedTableFunctionMetadata {
      * @return the qualified object name
      */
     @JsonProperty
-    public QualifiedObjectName getQualifiedObjectName() {
+    public QualifiedObjectName getQualifiedObjectName()
+    {
         return functionName;
     }
 
@@ -75,7 +78,8 @@ public final class JsonBasedTableFunctionMetadata {
      * @return the list of argument specifications
      */
     @JsonProperty
-    public List<ArgumentSpecification> getArguments() {
+    public List<ArgumentSpecification> getArguments()
+    {
         return arguments;
     }
 
@@ -85,7 +89,8 @@ public final class JsonBasedTableFunctionMetadata {
      * @return the return type specification
      */
     @JsonProperty
-    public ReturnTypeSpecification getReturnTypeSpecification() {
+    public ReturnTypeSpecification getReturnTypeSpecification()
+    {
         return returnTypeSpecification;
     }
 }

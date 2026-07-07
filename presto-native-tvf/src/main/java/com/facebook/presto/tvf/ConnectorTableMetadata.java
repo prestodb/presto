@@ -26,7 +26,8 @@ import static java.util.Objects.requireNonNull;
 /**
  * Metadata for connector table function.
  */
-public final class ConnectorTableMetadata {
+public final class ConnectorTableMetadata
+{
     private final QualifiedObjectName functionName;
     private final Map<String, Argument> arguments;
 
@@ -41,7 +42,8 @@ public final class ConnectorTableMetadata {
             @JsonProperty("functionName")
             final QualifiedObjectName functionName,
             @JsonProperty("arguments")
-            final Map<String, Argument> arguments) {
+            final Map<String, Argument> arguments)
+    {
         this.functionName = requireNonNull(functionName,
                 "functionName is null");
         this.arguments = ImmutableMap.copyOf(
@@ -54,7 +56,8 @@ public final class ConnectorTableMetadata {
      * @return the function name
      */
     @JsonProperty("functionName")
-    public QualifiedObjectName getFunctionName() {
+    public QualifiedObjectName getFunctionName()
+    {
         return functionName;
     }
 
@@ -64,7 +67,8 @@ public final class ConnectorTableMetadata {
      * @return the arguments map
      */
     @JsonProperty
-    public Map<String, Argument> getArguments() {
+    public Map<String, Argument> getArguments()
+    {
         return arguments;
     }
 }

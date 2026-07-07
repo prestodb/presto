@@ -66,7 +66,8 @@ import static java.util.Objects.requireNonNull;
  * Native implementation of connector table function.
  */
 public final class NativeConnectorTableFunction
-        extends AbstractConnectorTableFunction {
+        extends AbstractConnectorTableFunction
+{
     private static final String TVF_ANALYZE_ENDPOINT = "/v1/tvf/analyze";
     private static final int HTTP_OK = 200;
     private static final JsonCodec<ConnectorTableMetadata>
@@ -106,7 +107,8 @@ public final class NativeConnectorTableFunction
             final TypeManager typeManager,
             final QualifiedObjectName functionName,
             final List<ArgumentSpecification> arguments,
-            final ReturnTypeSpecification returnTypeSpecification) {
+            final ReturnTypeSpecification returnTypeSpecification)
+    {
         super("builtin",
                 functionName.getObjectName(),
                 arguments,
@@ -133,7 +135,8 @@ public final class NativeConnectorTableFunction
     public TableFunctionAnalysis analyze(
             final ConnectorSession session,
             final ConnectorTransactionHandle transaction,
-            final Map<String, Argument> arguments) {
+            final Map<String, Argument> arguments)
+    {
         return httpClient.execute(
                 getWorkerRequest(arguments),
                 new AnalyzeResponseHandler(
@@ -148,7 +151,8 @@ public final class NativeConnectorTableFunction
      * @return the request
      */
     private Request getWorkerRequest(
-            final Map<String, Argument> arguments) {
+            final Map<String, Argument> arguments)
+    {
         return preparePost()
                 .setUri(getWorkerLocation(nodeManager,
                         TVF_ANALYZE_ENDPOINT))
@@ -167,7 +171,8 @@ public final class NativeConnectorTableFunction
      * Serializer for Block objects.
      */
     private static final class BlockSerializer
-            extends JsonSerializer<Block> {
+            extends JsonSerializer<Block>
+    {
         private final BlockEncodingSerde blockEncodingSerde;
 
         /**
@@ -176,7 +181,8 @@ public final class NativeConnectorTableFunction
          * @param blockEncodingSerde the block encoding serde
          */
         public BlockSerializer(
-                final BlockEncodingSerde blockEncodingSerde) {
+                final BlockEncodingSerde blockEncodingSerde)
+        {
             this.blockEncodingSerde = requireNonNull(blockEncodingSerde,
                     "blockEncodingSerde is null");
         }
@@ -194,7 +200,8 @@ public final class NativeConnectorTableFunction
                 final Block block,
                 final JsonGenerator jsonGenerator,
                 final SerializerProvider serializerProvider)
-                throws IOException {
+                throws IOException
+        {
             SliceOutput output = new DynamicSliceOutput(
                     toIntExact(block.getSizeInBytes()
                             + block.getEncodingName().length()
@@ -214,7 +221,8 @@ public final class NativeConnectorTableFunction
      */
     private static final class AnalyzeResponseHandler
             implements ResponseHandler<TableFunctionAnalysis,
-            RuntimeException> {
+            RuntimeException>
+    {
         /**
          * JSON codec for native table function analysis.
          */
@@ -232,7 +240,8 @@ public final class NativeConnectorTableFunction
          */
         AnalyzeResponseHandler(
                 final JsonCodec<NativeTableFunctionAnalysis> codec,
-                final TypeManager typeManager) {
+                final TypeManager typeManager)
+        {
             this.codec = requireNonNull(codec, "codec is null");
             this.typeManager = requireNonNull(typeManager,
                     "typeManager is null");
@@ -248,7 +257,8 @@ public final class NativeConnectorTableFunction
         @Override
         public TableFunctionAnalysis handleException(
                 final Request request,
-                final Exception exception) {
+                final Exception exception)
+        {
             throw new PrestoException(
                     TABLE_FUNCTION_ANALYSIS_FAILED,
                     "Failed to analyze function: "
@@ -266,7 +276,8 @@ public final class NativeConnectorTableFunction
         @Override
         public TableFunctionAnalysis handle(
                 final Request request,
-                final Response response) {
+                final Response response)
+        {
             try {
                 String body = CharStreams.toString(
                         new InputStreamReader(

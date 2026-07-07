@@ -25,7 +25,8 @@ import static java.util.Objects.requireNonNull;
  * Guice module for native TVF provider.
  */
 public final class NativeTVFProviderModule
-        implements Module {
+        implements Module
+{
     private final NodeManager nodeManager;
     private final TypeManager typeManager;
 
@@ -37,7 +38,8 @@ public final class NativeTVFProviderModule
      */
     public NativeTVFProviderModule(
             final NodeManager nodeManager,
-            final TypeManager typeManager) {
+            final TypeManager typeManager)
+    {
         this.nodeManager = requireNonNull(nodeManager,
                 "nodeManager is null");
         this.typeManager = requireNonNull(typeManager,
@@ -50,7 +52,8 @@ public final class NativeTVFProviderModule
      * @param binder the Guice binder
      */
     @Override
-    public void configure(final Binder binder) {
+    public void configure(final Binder binder)
+    {
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(TypeManager.class).toInstance(typeManager);
         binder.bind(NativeTVFProvider.class).in(Scopes.SINGLETON);

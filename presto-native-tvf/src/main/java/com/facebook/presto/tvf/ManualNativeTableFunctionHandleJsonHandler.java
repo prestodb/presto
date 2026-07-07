@@ -24,7 +24,8 @@ import static java.util.Objects.requireNonNull;
  * This is a temporary solution to manually convert a
  * NativeTableFunctionHandle JSON.
  */
-public final class ManualNativeTableFunctionHandleJsonHandler {
+public final class ManualNativeTableFunctionHandleJsonHandler
+{
     private final String type;
     private final String serializedTableFunctionHandle;
     private final QualifiedObjectName functionName;
@@ -42,7 +43,8 @@ public final class ManualNativeTableFunctionHandleJsonHandler {
             @JsonProperty("serializedTableFunctionHandle")
             final String serializedTableFunctionHandle,
             @JsonProperty("functionName")
-            final QualifiedObjectName functionName) {
+            final QualifiedObjectName functionName)
+    {
         this.type = requireNonNull(type, "type is null");
         this.serializedTableFunctionHandle = requireNonNull(
                 serializedTableFunctionHandle,
@@ -57,7 +59,8 @@ public final class ManualNativeTableFunctionHandleJsonHandler {
      * @return the type
      */
     @JsonProperty("@type")
-    public String getType() {
+    public String getType()
+    {
         return type;
     }
 
@@ -67,7 +70,8 @@ public final class ManualNativeTableFunctionHandleJsonHandler {
      * @return the serialized table function handle
      */
     @JsonProperty
-    public String getSerializedTableFunctionHandle() {
+    public String getSerializedTableFunctionHandle()
+    {
         return serializedTableFunctionHandle;
     }
 
@@ -77,7 +81,8 @@ public final class ManualNativeTableFunctionHandleJsonHandler {
      * @return the function name
      */
     @JsonProperty("functionName")
-    public QualifiedObjectName getFunctionName() {
+    public QualifiedObjectName getFunctionName()
+    {
         return functionName;
     }
 }
