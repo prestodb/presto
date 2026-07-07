@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/TaskResource.h"
+#include <glog/logging.h>
 #include <presto_cpp/main/common/Exception.h>
 #include <typeinfo>
 #include "presto_cpp/main/common/Configs.h"
@@ -313,7 +314,10 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
             })
             .thenError(
                 folly::tag_t<std::exception>{},
-                [downstream, handlerState](auto&& e) {
+                [downstream, handlerState, taskId](auto&& e) {
+                  LOG(ERROR)
+                      << "Error creating/updating task " << taskId
+                      << ": " << e.what();
                   if (!handlerState->requestExpired()) {
                     http::sendErrorResponse(downstream, e.what());
                   }

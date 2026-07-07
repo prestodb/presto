@@ -65,6 +65,13 @@ AbstractClasses:
 UpdateFields:
   IcebergTableLayoutHandle:
     std::shared_ptr<RowExpression>: remainingPredicate
+  IcebergTypeAttributes:
+    bool: required
+  IcebergInsertTableHandle:
+    # FB-fork coordinator's IcebergInsertTableHandle omits this field (only
+    # presto-trunk's POJO has it, and the C++ worker never reads it). Model it
+    # as nullable so from_json tolerates its absence instead of throwing.
+    std::shared_ptr<bool>: fullRefreshRequired
 
 JavaClasses:
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/FileContent.java

@@ -275,6 +275,44 @@ TEST_F(PrestoToVeloxConnectorTest, icebergColumnHandleSimple) {
   EXPECT_TRUE(icebergHandle->field().children.empty());
 }
 
+// The protocol ColumnIdentity.typeAttributes (populated by the Java planner)
+// must be converted into the Velox IcebergColumnHandle's IcebergFieldMetadata
+// by toVeloxColumnHandle. Asserts a UUID column round-trips
+// required/binary-type/length, and that a column without typeAttributes yields
+// empty metadata.
+TEST_F(PrestoToVeloxConnectorTest, icebergColumnHandleTypeAttributes) {
+  auto uuidColumn = createIcebergColumnHandle("u", 5, "varbinary");
+  auto typeAttributes =
+      std::make_shared<protocol::iceberg::IcebergTypeAttributes>();
+  typeAttributes->required = std::make_shared<bool>(true);
+  typeAttributes->binaryType = std::make_shared<std::string>("UUID");
+  typeAttributes->length = std::make_shared<int>(16);
+  uuidColumn.columnIdentity.typeAttributes = typeAttributes;
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto handle =
+      icebergConnector.toVeloxColumnHandle(&uuidColumn, *typeParser_);
+  auto* icebergHandle =
+      dynamic_cast<connector::hive::iceberg::IcebergColumnHandle*>(
+          handle.get());
+  ASSERT_NE(icebergHandle, nullptr);
+
+  const auto& metadata = icebergHandle->icebergMetadata();
+  EXPECT_EQ(metadata.required, true);
+  EXPECT_EQ(metadata.binaryType, "UUID");
+  EXPECT_EQ(metadata.length, 16);
+
+  // A column without typeAttributes maps to empty metadata.
+  auto plainColumn = createIcebergColumnHandle("a", 1, "bigint");
+  auto plainHandle =
+      icebergConnector.toVeloxColumnHandle(&plainColumn, *typeParser_);
+  auto* plainIcebergHandle =
+      dynamic_cast<connector::hive::iceberg::IcebergColumnHandle*>(
+          plainHandle.get());
+  ASSERT_NE(plainIcebergHandle, nullptr);
+  EXPECT_TRUE(plainIcebergHandle->icebergMetadata().empty());
+}
+
 TEST_F(PrestoToVeloxConnectorTest, icebergColumnHandleNested) {
   protocol::iceberg::ColumnIdentity child1;
   child1.name = "child1";

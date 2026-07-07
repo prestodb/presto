@@ -34,11 +34,24 @@ extern void to_json(json& j, const TypeCategory& e);
 extern void from_json(const json& j, TypeCategory& e);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
+struct IcebergTypeAttributes {
+  std::shared_ptr<bool> required = {};
+  std::shared_ptr<String> longType = {};
+  std::shared_ptr<String> timestampUnit = {};
+  std::shared_ptr<String> binaryType = {};
+  std::shared_ptr<String> structType = {};
+  std::shared_ptr<Integer> length = {};
+};
+void to_json(json& j, const IcebergTypeAttributes& p);
+void from_json(const json& j, IcebergTypeAttributes& p);
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
 struct ColumnIdentity {
   int id = {};
   String name = {};
   TypeCategory typeCategory = {};
   List<ColumnIdentity> children = {};
+  std::shared_ptr<IcebergTypeAttributes> typeAttributes = {};
 };
 void to_json(json& j, const ColumnIdentity& p);
 void from_json(const json& j, ColumnIdentity& p);
@@ -303,7 +316,7 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   Map<String, String> storageProperties = {};
   List<SortField> sortOrder = {};
   std::shared_ptr<SchemaTableName> materializedViewName = {};
-  bool fullRefreshRequired = {};
+  std::shared_ptr<bool> fullRefreshRequired = {};
   List<String> insertedColumns = {};
 
   IcebergInsertTableHandle() noexcept;

@@ -102,6 +102,26 @@ void from_json(const json& j, TypeCategory& e) {
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
+void to_json(json& j, const IcebergTypeAttributes& p) {
+  j = json::object();
+  to_json_key(j, "required", p.required, "IcebergTypeAttributes", "bool", "required");
+  to_json_key(j, "longType", p.longType, "IcebergTypeAttributes", "String", "longType");
+  to_json_key(j, "timestampUnit", p.timestampUnit, "IcebergTypeAttributes", "String", "timestampUnit");
+  to_json_key(j, "binaryType", p.binaryType, "IcebergTypeAttributes", "String", "binaryType");
+  to_json_key(j, "structType", p.structType, "IcebergTypeAttributes", "String", "structType");
+  to_json_key(j, "length", p.length, "IcebergTypeAttributes", "Integer", "length");
+}
+
+void from_json(const json& j, IcebergTypeAttributes& p) {
+  from_json_key(j, "required", p.required, "IcebergTypeAttributes", "bool", "required");
+  from_json_key(j, "longType", p.longType, "IcebergTypeAttributes", "String", "longType");
+  from_json_key(j, "timestampUnit", p.timestampUnit, "IcebergTypeAttributes", "String", "timestampUnit");
+  from_json_key(j, "binaryType", p.binaryType, "IcebergTypeAttributes", "String", "binaryType");
+  from_json_key(j, "structType", p.structType, "IcebergTypeAttributes", "String", "structType");
+  from_json_key(j, "length", p.length, "IcebergTypeAttributes", "Integer", "length");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
 
 void to_json(json& j, const ColumnIdentity& p) {
   j = json::object();
@@ -121,6 +141,13 @@ void to_json(json& j, const ColumnIdentity& p) {
       "ColumnIdentity",
       "List<ColumnIdentity>",
       "children");
+  to_json_key(
+      j,
+      "typeAttributes",
+      p.typeAttributes,
+      "ColumnIdentity",
+      "IcebergTypeAttributes",
+      "typeAttributes");
 }
 
 void from_json(const json& j, ColumnIdentity& p) {
@@ -140,6 +167,13 @@ void from_json(const json& j, ColumnIdentity& p) {
       "ColumnIdentity",
       "List<ColumnIdentity>",
       "children");
+  from_json_key(
+      j,
+      "typeAttributes",
+      p.typeAttributes,
+      "ColumnIdentity",
+      "IcebergTypeAttributes",
+      "typeAttributes");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -2133,21 +2167,32 @@ void from_json(const json& j, IcebergSplit& p) {
       "IcebergSplit",
       "ChangelogSplitInfo",
       "changelogSplitInfo");
-  from_json_key(
-      j,
-      "dataSequenceNumber",
-      p.dataSequenceNumber,
-      "IcebergSplit",
-      "int64_t",
-      "dataSequenceNumber");
-  from_json_key(
-      j, "firstRowId", p.firstRowId, "IcebergSplit", "int64_t", "firstRowId");
-  from_json_key(
-      j,
-      "affinitySchedulingSectionSize",
-      p.affinitySchedulingSectionSize,
-      "IcebergSplit",
-      "int64_t",
-      "affinitySchedulingSectionSize");
+  if (j.count("dataSequenceNumber")) {
+    from_json_key(
+        j,
+        "dataSequenceNumber",
+        p.dataSequenceNumber,
+        "IcebergSplit",
+        "int64_t",
+        "dataSequenceNumber");
+  }
+  if (j.count("firstRowId")) {
+    from_json_key(
+        j,
+        "firstRowId",
+        p.firstRowId,
+        "IcebergSplit",
+        "int64_t",
+        "firstRowId");
+  }
+  if (j.count("affinitySchedulingSectionSize")) {
+    from_json_key(
+        j,
+        "affinitySchedulingSectionSize",
+        p.affinitySchedulingSectionSize,
+        "IcebergSplit",
+        "int64_t",
+        "affinitySchedulingSectionSize");
+  }
 }
 } // namespace facebook::presto::protocol::iceberg

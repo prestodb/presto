@@ -21,6 +21,7 @@
 
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
+#include "velox/connectors/hive/iceberg/IcebergFieldMetadata.h"
 #include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
@@ -271,6 +272,41 @@ std::optional<int32_t> tryParsePartitionSpecId(
   }
 }
 
+// Builds the Velox Iceberg V3 type-attribute tree (IcebergFieldMetadata) from
+// the protocol ColumnIdentity, walked in lockstep with toParquetField(). Each
+// protocol field is nullable; an absent typeAttributes (the common case) yields
+// an empty metadata node. The field id itself is carried separately via
+// toParquetField(), not stamped here.
+velox::connector::hive::iceberg::IcebergFieldMetadata toIcebergFieldMetadata(
+    const protocol::iceberg::ColumnIdentity& column) {
+  velox::connector::hive::iceberg::IcebergFieldMetadata metadata;
+  if (column.typeAttributes != nullptr) {
+    const auto& attributes = *column.typeAttributes;
+    if (attributes.required != nullptr) {
+      metadata.required = *attributes.required;
+    }
+    if (attributes.longType != nullptr) {
+      metadata.longType = *attributes.longType;
+    }
+    if (attributes.timestampUnit != nullptr) {
+      metadata.timestampUnit = *attributes.timestampUnit;
+    }
+    if (attributes.binaryType != nullptr) {
+      metadata.binaryType = *attributes.binaryType;
+    }
+    if (attributes.structType != nullptr) {
+      metadata.structType = *attributes.structType;
+    }
+    if (attributes.length != nullptr) {
+      metadata.length = *attributes.length;
+    }
+  }
+  metadata.children.reserve(column.children.size());
+  for (const auto& child : column.children) {
+    metadata.children.push_back(toIcebergFieldMetadata(child));
+  }
+  return metadata;
+}
 } // namespace
 
 std::unique_ptr<velox::connector::ConnectorSplit>
@@ -407,7 +443,8 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
       type,
       toParquetField(icebergColumn->columnIdentity),
       toRequiredSubfields(icebergColumn->requiredSubfields),
-      defaultValue);
+      defaultValue,
+      toIcebergFieldMetadata(icebergColumn->columnIdentity));
 }
 
 std::unique_ptr<velox::connector::ConnectorTableHandle>
