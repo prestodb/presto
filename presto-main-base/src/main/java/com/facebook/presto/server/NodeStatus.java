@@ -41,6 +41,8 @@ public class NodeStatus
     private final long heapUsed;
     private final long heapAvailable;
     private final long nonHeapUsed;
+    private final long asyncDataCacheBytes;
+    private final long queryMemoryBytes;
 
     @ThriftConstructor
     @JsonCreator
@@ -58,7 +60,9 @@ public class NodeStatus
             @JsonProperty("systemCpuLoad") double systemCpuLoad,
             @JsonProperty("heapUsed") long heapUsed,
             @JsonProperty("heapAvailable") long heapAvailable,
-            @JsonProperty("nonHeapUsed") long nonHeapUsed)
+            @JsonProperty("nonHeapUsed") long nonHeapUsed,
+            @JsonProperty("asyncDataCacheBytes") long asyncDataCacheBytes,
+            @JsonProperty("queryMemoryBytes") long queryMemoryBytes)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
@@ -74,6 +78,8 @@ public class NodeStatus
         this.heapUsed = heapUsed;
         this.heapAvailable = heapAvailable;
         this.nonHeapUsed = nonHeapUsed;
+        this.asyncDataCacheBytes = asyncDataCacheBytes;
+        this.queryMemoryBytes = queryMemoryBytes;
     }
 
     @ThriftField(1)
@@ -172,5 +178,19 @@ public class NodeStatus
     public long getNonHeapUsed()
     {
         return nonHeapUsed;
+    }
+
+    @ThriftField(15)
+    @JsonProperty
+    public long getAsyncDataCacheBytes()
+    {
+        return asyncDataCacheBytes;
+    }
+
+    @ThriftField(16)
+    @JsonProperty
+    public long getQueryMemoryBytes()
+    {
+        return queryMemoryBytes;
     }
 }
