@@ -34,6 +34,7 @@ namespace {
 class KllSketchTest : public AggregationTestBase {
  protected:
   void SetUp() override {
+    folly::SingletonVault::singleton()->registrationComplete();
     AggregationTestBase::SetUp();
     presto::functions::registerAllKllSketchFunctions("");
   }
