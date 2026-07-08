@@ -146,6 +146,10 @@ For S3 support, run
 
 #### JWT Authentication
 
+To enable JWT authentication support, add to the `PRESTO_OPTIONAL_FEATURES` environment variable:
+
+`export PRESTO_OPTIONAL_FEATURES="${PRESTO_OPTIONAL_FEATURES},jwt"`
+
 JWT authentication support needs the [JWT CPP](https://github.com/Thalhammer/jwt-cpp) library.
 This dependency can be installed by running the script below from the
 `presto/presto-native-execution` directory.
@@ -172,12 +176,21 @@ follow these steps:
 
 #### Arrow Flight Connector
 
+To enable Arrow Flight connector support, add to the `PRESTO_OPTIONAL_FEATURES` environment variable:
+
+`export PRESTO_OPTIONAL_FEATURES="${PRESTO_OPTIONAL_FEATURES},arrow-flight"`
+
 The Arrow Flight connector requires the Arrow Flight library. You can install this dependency
 by running the following script from the `presto/presto-native-execution` directory:
 
 `./scripts/setup-adapters.sh arrow_flight`
 
 #### NVIDIA cuDF GPU Support
+
+To enable support with [cuDF](https://github.com/facebookincubator/velox/tree/main/velox/experimental/cudf),
+add to the `PRESTO_OPTIONAL_FEATURES` environment variable:
+
+`export PRESTO_OPTIONAL_FEATURES="${PRESTO_OPTIONAL_FEATURES},cudf"`
 
 In some environments, the CUDA_ARCHITECTURES and CUDA_COMPILER must be explicitly set.
 The make command will look like:
