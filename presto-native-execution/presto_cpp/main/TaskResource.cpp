@@ -315,9 +315,8 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
             .thenError(
                 folly::tag_t<std::exception>{},
                 [downstream, handlerState, taskId](auto&& e) {
-                  LOG(ERROR)
-                      << "Error creating/updating task " << taskId
-                      << ": " << e.what();
+                  LOG(ERROR) << "Error creating/updating task " << taskId
+                             << ": " << e.what();
                   if (!handlerState->requestExpired()) {
                     http::sendErrorResponse(downstream, e.what());
                   }

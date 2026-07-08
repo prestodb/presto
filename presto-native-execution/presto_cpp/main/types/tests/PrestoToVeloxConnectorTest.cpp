@@ -290,8 +290,7 @@ TEST_F(PrestoToVeloxConnectorTest, icebergColumnHandleTypeAttributes) {
   uuidColumn.columnIdentity.typeAttributes = typeAttributes;
 
   IcebergPrestoToVeloxConnector icebergConnector("iceberg");
-  auto handle =
-      icebergConnector.toVeloxColumnHandle(&uuidColumn, *typeParser_);
+  auto handle = icebergConnector.toVeloxColumnHandle(&uuidColumn, *typeParser_);
   auto* icebergHandle =
       dynamic_cast<connector::hive::iceberg::IcebergColumnHandle*>(
           handle.get());
