@@ -14,6 +14,8 @@
 package com.facebook.presto.delta;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.units.MaxDataSize;
+import com.facebook.airlift.units.MinDataSize;
 import jakarta.validation.constraints.NotNull;
 
 public class DeltaConfig
@@ -78,6 +80,9 @@ public class DeltaConfig
         return this.deletionVectorsMaxSize;
     }
 
+    // there is no "minimum" defined size for deletion vectors, so we use 0MB as the minimum
+    @MaxDataSize("100MB")
+    @MinDataSize("0MB")
     @Config("delta.deletion-vectors-max-size")
     public DeltaConfig setDeletionVectorsMaxSize(int deletionVectorsMaxSize)
     {

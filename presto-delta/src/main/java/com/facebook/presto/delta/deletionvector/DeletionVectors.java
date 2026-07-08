@@ -30,7 +30,7 @@ import java.util.zip.CRC32;
 import java.util.zip.Checksum;
 
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_BAD_DATA;
-import static com.facebook.presto.delta.DeltaErrorCode.DELTA_PARQUET_SCHEMA_MISMATCH;
+import static com.facebook.presto.delta.DeltaErrorCode.DELTA_UNSUPPORTED_DATA_FORMAT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.delta.kernel.internal.deletionvectors.Base85Codec.decodeUUID;
@@ -59,19 +59,19 @@ public final class DeletionVectors
                 Path mergedPath = new Path(canonizedLocation + toFileName(deletionVector.getPathOrInlineDv()));
                 HadoopInputFile uuidInputFile = HadoopInputFile.fromPath(mergedPath, fileSystem.getConf());
                 if (!fileSystem.exists(uuidInputFile.getPath())) {
-                    throw new IllegalArgumentException("Unable to find 'u' type deletion vector by path: " + deletionVector.getPathOrInlineDv());
+                    throw new PrestoException(DELTA_BAD_DATA, "Unable to find 'u' type deletion vector by path: " + deletionVector.getPathOrInlineDv());
                 }
                 ByteBuffer uuidBuffer = readDeletionVector(uuidInputFile, deletionVector.getOffset().orElseThrow(), deletionVector.sizeInBytes(), maxDeletionVectorSize);
                 return deserializeDeletionVectors(uuidBuffer);
             case PATH_MARKER:
                 HadoopInputFile pathInputFile = HadoopInputFile.fromPath(new Path(deletionVector.getPathOrInlineDv()), fileSystem.getConf());
                 if (!fileSystem.exists(pathInputFile.getPath())) {
-                    throw new IllegalArgumentException("Unable to find 'p' type deletion vector by path: " + deletionVector.getPathOrInlineDv());
+                    throw new PrestoException(DELTA_BAD_DATA, "Unable to find 'p' type deletion vector by path: " + deletionVector.getPathOrInlineDv());
                 }
                 ByteBuffer pathBuffer = readDeletionVector(pathInputFile, deletionVector.getOffset().orElseThrow(), deletionVector.sizeInBytes(), maxDeletionVectorSize);
                 return deserializeDeletionVectors(pathBuffer);
             case INLINE_MARKER:
-                throw new PrestoException(DELTA_BAD_DATA, "Unsupported storage type for deletion vector: " + deletionVector.getStorageType());
+                throw new PrestoException(DELTA_UNSUPPORTED_DATA_FORMAT, "Unsupported storage type for deletion vector: " + deletionVector.getStorageType());
         }
         throw new IllegalArgumentException("Unexpected storage type: " + deletionVector.getStorageType());
     }
@@ -101,13 +101,13 @@ public final class DeletionVectors
             ByteBuffer buffer = ByteBuffer.wrap(data);
             int actualSize = buffer.getInt(0);
             if (actualSize != expectedSize) {
-                throw new PrestoException(DELTA_PARQUET_SCHEMA_MISMATCH,
+                throw new PrestoException(DELTA_BAD_DATA,
                         "The size of deletion vector %s expects %s but got %s"
                                 .formatted(inputFile.getPath().toString(), expectedSize, actualSize));
             }
             int checksum = buffer.getInt(SIZE_OF_INT + expectedSize);
             if (calculateChecksum(buffer.array(), buffer.arrayOffset() + SIZE_OF_INT, expectedSize) != checksum) {
-                throw new PrestoException(DELTA_PARQUET_SCHEMA_MISMATCH,
+                throw new PrestoException(DELTA_BAD_DATA,
                         "Checksum mismatch for deletion vector: " + inputFile.getPath().toString());
             }
             return buffer.slice(SIZE_OF_INT, expectedSize).order(LITTLE_ENDIAN);
