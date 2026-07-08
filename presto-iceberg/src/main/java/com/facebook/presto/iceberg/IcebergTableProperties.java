@@ -14,8 +14,10 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.JsonType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpecList;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.BiMap;
@@ -35,6 +37,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.iceberg.IcebergUtil.DERIVED_COLUMN_SPEC_JSON_CODEC;
 import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
@@ -95,6 +98,8 @@ public class IcebergTableProperties
     @Deprecated
     public static final String METRICS_MAX_INFERRED_COLUMN = "metrics_max_inferred_column";
     public static final String TARGET_SPLIT_SIZE = TableProperties.SPLIT_SIZE;
+
+    public static final String DERIVED_COLUMN_EXPRESSION_SPEC = "presto.derived-columns.spec.json";
 
     private static final String DEPRECATION_WARNING_MESSAGE = "The table property \"%s\" has been " +
             "deprecated. Please migrate to using \"%s\". This will become an error in future versions";
@@ -231,6 +236,15 @@ public class IcebergTableProperties
                         "Compression codec for ORC format",
                         null,
                         false))
+                .add(new PropertyMetadata<>(
+                        DERIVED_COLUMN_EXPRESSION_SPEC,
+                        "The full derived column specification for each derived column as a json",
+                        JsonType.JSON,
+                        DerivedColumnSpecList.class,
+                        null,
+                        true,
+                        value -> DERIVED_COLUMN_SPEC_JSON_CODEC.fromJson(value.toString()),
+                        DERIVED_COLUMN_SPEC_JSON_CODEC::toJson))
                 .build();
 
         deprecatedPropertyMetadata = baseTableProperties.stream()
@@ -307,6 +321,20 @@ public class IcebergTableProperties
     {
         List<String> partitioning = (List<String>) tableProperties.get(PARTITIONING_PROPERTY);
         return partitioning == null ? ImmutableList.of() : ImmutableList.copyOf(partitioning);
+    }
+
+    public static DerivedColumnSpecList getDerivedColumnSpec(Map<String, Object> tableProperties)
+    {
+        DerivedColumnSpecList derivedColumnSpecList = (DerivedColumnSpecList) tableProperties.get(DERIVED_COLUMN_EXPRESSION_SPEC);
+        if (derivedColumnSpecList == null) {
+            derivedColumnSpecList = new DerivedColumnSpecList(ImmutableList.of());
+        }
+        else {
+            if (derivedColumnSpecList.getDerivedColumnSpecs() == null) {
+                derivedColumnSpecList = new DerivedColumnSpecList(ImmutableList.of());
+            }
+        }
+        return derivedColumnSpecList;
     }
 
     @SuppressWarnings("unchecked")

@@ -26,6 +26,7 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -141,7 +142,9 @@ public class CreateTableTask
                 if (!column.isNullable() && !metadata.getConnectorCapabilities(session, connectorId).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
                     throw new SemanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", connectorId.getCatalogName(), column.getName());
                 }
-
+                if (column.getDefaultExpression().isPresent() && column.getDerivedColumnSpec().isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, column, "Both default expression and derived column expression cannot be set on the same column %s.", column.getName());
+                }
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
                 Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
                         connectorId,
@@ -151,12 +154,14 @@ public class CreateTableTask
                         metadata,
                         parameterLookup);
 
+                Optional<DerivedColumnSpec> derivedColumnSpec = normalizeDerivedColumnSpec(column, name);
                 columns.put(name, ColumnMetadata.builder()
                         .setName(name)
                         .setType(type)
                         .setNullable(column.isNullable())
                         .setComment(column.getComment().orElse(null))
                         .setProperties(columnProperties)
+                        .setDerivedColumnSpec(derivedColumnSpec)
                         .build());
             }
             else if (element instanceof LikeClause) {
@@ -238,6 +243,16 @@ public class CreateTableTask
             }
         }
         return immediateFuture(null);
+    }
+
+    static Optional<DerivedColumnSpec> normalizeDerivedColumnSpec(ColumnDefinition column, String name)
+    {
+        // Normalize the values for column name and Type
+        return column.getDerivedColumnSpec().map(derivedColumnSpec -> DerivedColumnSpec
+                .buildFrom(derivedColumnSpec)
+                .setDerivedColumnName(name)
+                .setDerivedColumnReturnType(parseTypeSignature(derivedColumnSpec.getDerivedColumnReturnType()).toString())
+                .build());
     }
 
     private static Map<String, Object> combineProperties(Set<String> specifiedPropertyKeys, Map<String, Object> defaultProperties, Map<String, Object> inheritedProperties)
