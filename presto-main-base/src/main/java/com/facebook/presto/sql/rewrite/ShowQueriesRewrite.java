@@ -98,7 +98,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.primitives.Primitives;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -166,6 +165,7 @@ import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -579,8 +579,7 @@ final class ShowQueriesRewrite
 
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
 
-                List<ColumnMetadata> allowedColumns = new ArrayList<>();
-                allowedColumns = accessControl.filterColumns(
+                List<ColumnMetadata> allowedColumns = accessControl.filterColumns(
                         session.getRequiredTransactionId(),
                         session.getIdentity(),
                         session.getAccessControlContext(),
@@ -591,18 +590,24 @@ final class ShowQueriesRewrite
                         .filter(column -> !column.isHidden())
                         .map(column -> {
                             List<Property> propertyNodes = buildProperties(toQualifiedName(objectName, Optional.of(column.getName())), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
-                            return new ColumnDefinition(
+                            return new ColumnDefinition(Optional.empty(),
                                     QueryUtil.quotedIdentifier(column.getName()),
                                     column.getType().getDisplayName(),
                                     column.isNullable() && !notNullColumns.contains(column.getName()),
                                     propertyNodes,
-                                    Optional.ofNullable(column.getComment().orElse(null)));
+                                    Optional.ofNullable(column.getComment().orElse(null)),
+                                    Optional.empty(),
+                                    column.getDerivedColumnSpec());
                         })
                         .collect(toList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
                 Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
-                List<Property> propertyNodes = buildProperties("table " + objectName, INVALID_TABLE_PROPERTY, properties, allTableProperties);
+                Set<String> hiddenProperties = allTableProperties.entrySet().stream().filter(x -> x.getValue().isHidden())
+                        .map(Map.Entry::getKey).collect(toImmutableSet());
+                Map<String, Object> nonHiddenProperties = properties.entrySet().stream().filter(x -> !hiddenProperties.contains(x.getKey()))
+                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                List<Property> propertyNodes = buildProperties("table " + objectName, INVALID_TABLE_PROPERTY, nonHiddenProperties, allTableProperties);
 
                 columns.addAll(connectorTableMetadata.getTableConstraintsHolder().getTableConstraints()
                         .stream()
