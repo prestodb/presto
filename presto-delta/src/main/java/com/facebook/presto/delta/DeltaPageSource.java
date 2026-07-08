@@ -54,12 +54,14 @@ public class DeltaPageSource
      * @param partitionValues Partition values (partition column -> partition value map).
      * @param dataPageSource  Initialized underlying file reader which returns the data for regular columns.
      * @param deletedRows   RoaringBitMapArray for filtering deleted rows.
+     * @param startingRowOffset Starting row offset for deletion vector positions (accounts for pruned row groups).
      */
     public DeltaPageSource(
             List<DeltaColumnHandle> columnHandles,
             Map<String, Block> partitionValues,
             ConnectorPageSource dataPageSource,
-            RoaringBitmapArray deletedRows)
+            RoaringBitmapArray deletedRows,
+            long startingRowOffset)
     {
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
@@ -67,61 +69,85 @@ public class DeltaPageSource
         this.deletedRows = deletedRows;
         this.deletedRowsArray = deletedRows != null ? deletedRows.toArray() : null;
         this.deletedRowsIndex = 0;
-        this.currentRowIndex = 0;
+        this.currentRowIndex = startingRowOffset;
     }
 
     @Override
     public Page getNextPage()
     {
+        // Fast-forward deleted rows that fall before our current starting offset
+        if (deletedRowsArray != null) {
+            while (deletedRowsIndex < deletedRowsArray.length && deletedRowsArray[deletedRowsIndex] < currentRowIndex) {
+                deletedRowsIndex++;
+            }
+        }
+
         try {
             while (true) {
                 Page dataPage = dataPageSource.getNextPage();
                 if (dataPage == null) {
-                    return null; // reader is done
+                    return null; // Reader is done
+                }
+
+                int positionCount = dataPage.getPositionCount();
+                if (positionCount == 0) {
+                    continue;
                 }
 
                 // if no deletion vector, process normally
-                if (deletedRows == null) {
+                if (deletedRows == null || deletedRowsArray == null || deletedRowsIndex >= deletedRowsArray.length) {
+                    currentRowIndex += positionCount;
                     return buildPageWithPartitions(dataPage);
                 }
 
-                // filter out deleted rows
-                int positionCount = dataPage.getPositionCount();
+                // check if the entire page falls before the next deleted row
+                long nextDeletedRow = deletedRowsArray[deletedRowsIndex];
+                long lastRowInPage = currentRowIndex + positionCount - 1;
+
+                if (lastRowInPage < nextDeletedRow) {
+                    currentRowIndex += positionCount;
+                    return buildPageWithPartitions(dataPage);
+                }
+
                 int[] selectedPositions = new int[positionCount];
                 int selectedCount = 0;
 
-                // iterate over the deleted rows array
-                long nextDeletedRow = deletedRowsIndex < deletedRowsArray.length ? deletedRowsArray[deletedRowsIndex] : -1;
+                int localDeletedRowsIndex = deletedRowsIndex;
+                int deletedRowsLength = deletedRowsArray.length;
+                long localCurrentRowIndex = currentRowIndex;
 
                 for (int position = 0; position < positionCount; position++) {
-                    if (currentRowIndex != nextDeletedRow) {
-                        selectedPositions[selectedCount++] = position;
+                    if (localCurrentRowIndex == nextDeletedRow) {
+                        localDeletedRowsIndex++;
+                        nextDeletedRow = localDeletedRowsIndex < deletedRowsLength ? deletedRowsArray[localDeletedRowsIndex] : -1;
                     }
                     else {
-                        deletedRowsIndex++;
-                        nextDeletedRow = deletedRowsIndex < deletedRowsArray.length ? deletedRowsArray[deletedRowsIndex] : -1;
+                        selectedPositions[selectedCount++] = position;
                     }
-                    currentRowIndex++;
+                    localCurrentRowIndex++;
                 }
 
-                // if all rows are deleted, continue to next page
+                this.deletedRowsIndex = localDeletedRowsIndex;
+                this.currentRowIndex = localCurrentRowIndex;
+
+                // if all rows in this page were deleted, skip to the next page
                 if (selectedCount == 0) {
                     continue;
                 }
 
-                // if no rows are deleted, return page as-is
+                // if no rows were actually deleted in this block
                 if (selectedCount == positionCount) {
                     return buildPageWithPartitions(dataPage);
                 }
 
                 // create a filtered page with only non-deleted rows
-                Block[] filteredBlocks = new Block[dataPage.getChannelCount()];
-                for (int channel = 0; channel < dataPage.getChannelCount(); channel++) {
+                int channelCount = dataPage.getChannelCount();
+                Block[] filteredBlocks = new Block[channelCount];
+                for (int channel = 0; channel < channelCount; channel++) {
                     filteredBlocks[channel] = dataPage.getBlock(channel).getPositions(selectedPositions, 0, selectedCount);
                 }
-                Page filteredDataPage = new Page(selectedCount, filteredBlocks);
 
-                return buildPageWithPartitions(filteredDataPage);
+                return buildPageWithPartitions(new Page(selectedCount, filteredBlocks));
             }
         }
         catch (PrestoException exception) {
