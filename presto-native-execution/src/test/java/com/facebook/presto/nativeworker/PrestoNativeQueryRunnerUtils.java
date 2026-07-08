@@ -728,6 +728,7 @@ public class PrestoNativeQueryRunnerUtils
         private String prestoServerPath;
         private int cacheMaxSize;
         private Optional<String> remoteFunctionServerUds = Optional.empty();
+        private Optional<String> remoteFunctionServerRestUrl = Optional.empty();
         private Optional<String> pluginDirectory = Optional.empty();
         private boolean failOnNestedLoopJoin;
         private boolean coordinatorSidecarEnabled;
@@ -736,8 +737,14 @@ public class PrestoNativeQueryRunnerUtils
         private boolean enableSsdCache;
         private boolean implicitCastCharNToVarchar;
         private boolean enableCudf;
+        private Optional<HttpsClientConfig> httpsClientConfig = Optional.empty();
 
         private ExternalWorkerLauncherBuilder() {}
+
+        public static ExternalWorkerLauncherBuilder builder()
+        {
+            return new ExternalWorkerLauncherBuilder();
+        }
 
         public ExternalWorkerLauncherBuilder setCatalogName(String catalogName)
         {
@@ -766,6 +773,12 @@ public class PrestoNativeQueryRunnerUtils
         public ExternalWorkerLauncherBuilder setRemoteFunctionServerUds(Optional<String> remoteFunctionServerUds)
         {
             this.remoteFunctionServerUds = requireNonNull(remoteFunctionServerUds, "remoteFunctionServerUds is null");
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setRemoteFunctionServerRestUrl(String remoteFunctionServerRestUrl)
+        {
+            this.remoteFunctionServerRestUrl = Optional.of(requireNonNull(remoteFunctionServerRestUrl, "remoteFunctionServerRestUrl is null"));
             return this;
         }
 
@@ -817,6 +830,12 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public ExternalWorkerLauncherBuilder setHttpsClientConfig(HttpsClientConfig httpsClientConfig)
+        {
+            this.httpsClientConfig = Optional.of(requireNonNull(httpsClientConfig, "httpsClientConfig is null"));
+            return this;
+        }
+
         public Optional<BiFunction<Integer, URI, Process>> build()
         {
             requireNonNull(prestoServerPath, "prestoServerPath must be set");
@@ -834,7 +853,21 @@ public class PrestoNativeQueryRunnerUtils
                             "plan-consistency-check-enabled=true%n" +
                             "system-memory-gb=4%n" +
                             "http-server.http.port=0%n", discoveryUri);
+                    // Write config file - use an ephemeral port for the worker.
+                    String configProperties = format("discovery.uri=%s%n" +
+                            "presto.version=testversion%n" +
+                            "plan-consistency-check-enabled=true%n" +
+                            "system-memory-gb=4%n" +
+                            "http-server.http.port=0%n", discoveryUri);
 
+                    if (coordinatorSidecarEnabled) {
+                        configProperties = format("%s%n" +
+                                "native-sidecar=true%n" +
+                                "presto.default-namespace=native.default%n", configProperties);
+                    }
+                    else if (builtInWorkerFunctionsEnabled) {
+                        configProperties = format("%s%nnative-sidecar=true%n", configProperties);
+                    }
                     if (coordinatorSidecarEnabled) {
                         configProperties = format("%s%n" +
                                 "native-sidecar=true%n" +
@@ -847,7 +880,17 @@ public class PrestoNativeQueryRunnerUtils
                     if (enableRuntimeMetricsCollection) {
                         configProperties = format("%s%nruntime-metrics-collection-enabled=true%n", configProperties);
                     }
+                    if (enableRuntimeMetricsCollection) {
+                        configProperties = format("%s%nruntime-metrics-collection-enabled=true%n", configProperties);
+                    }
 
+                    if (enableSsdCache) {
+                        Path ssdCacheDir = Paths.get(tempDirectoryPath + "/velox-ssd-cache");
+                        Files.createDirectories(ssdCacheDir);
+                        configProperties = format("%s%n" +
+                                "async-cache-ssd-gb=1%n" +
+                                "async-cache-ssd-path=%s/%n", configProperties, ssdCacheDir);
+                    }
                     if (enableSsdCache) {
                         Path ssdCacheDir = Paths.get(tempDirectoryPath + "/velox-ssd-cache");
                         Files.createDirectories(ssdCacheDir);
@@ -866,6 +909,36 @@ public class PrestoNativeQueryRunnerUtils
                                 configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
                     }
 
+                    if (remoteFunctionServerRestUrl.isPresent()) {
+                        configProperties = format("%s%n" +
+                                        "remote-function-server.rest.url=%s%n",
+                                configProperties, remoteFunctionServerRestUrl.get());
+                    }
+
+                    if (httpsClientConfig.isPresent()) {
+                        HttpsClientConfig https = httpsClientConfig.get();
+                        configProperties = format("%s%n" +
+                                        "http-server.https.enabled=true%n" +
+                                        "http-server.http2.enabled=false%n" +
+                                        "http-server.https.port=0%n" +
+                                        "https-cert-path=%s%n" +
+                                        "https-key-path=%s%n" +
+                                        "https-client-cert-key-path=%s%n" +
+                                        "https-client-ca-file=%s%n",
+                                configProperties,
+                                https.getCertPath(),
+                                https.getKeyPath(),
+                                https.getClientCertKeyPath(),
+                                https.getCaCertPath());
+
+                        if (https.getJwtSharedSecret().isPresent()) {
+                            configProperties = format("%s%n" +
+                                            "internal-communication.jwt.enabled=true%n" +
+                                            "internal-communication.shared-secret=%s%n",
+                                    configProperties, https.getJwtSharedSecret().get());
+                        }
+                    }
+
                     if (pluginDirectory.isPresent()) {
                         configProperties = format("%s%nplugin.dir=%s%n", configProperties, pluginDirectory.get());
                     }
@@ -873,7 +946,13 @@ public class PrestoNativeQueryRunnerUtils
                     if (failOnNestedLoopJoin) {
                         configProperties = format("%s%nvelox-plan-validator-fail-on-nested-loop-join=true%n", configProperties);
                     }
+                    if (failOnNestedLoopJoin) {
+                        configProperties = format("%s%nvelox-plan-validator-fail-on-nested-loop-join=true%n", configProperties);
+                    }
 
+                    if (implicitCastCharNToVarchar) {
+                        configProperties = format("%s%nchar-n-to-varchar-implicit-cast=true%n", configProperties);
+                    }
                     if (implicitCastCharNToVarchar) {
                         configProperties = format("%s%nchar-n-to-varchar-implicit-cast=true%n", configProperties);
                     }
@@ -883,7 +962,18 @@ public class PrestoNativeQueryRunnerUtils
                                 "cudf.enabled=true%n" +
                                 "cudf.debug_enabled=true", configProperties);
                     }
+                    if (enableCudf) {
+                        configProperties = format("%s%n" +
+                                "cudf.enabled=true%n" +
+                                "cudf.debug_enabled=true", configProperties);
+                    }
 
+                    Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
+                    Files.write(tempDirectoryPath.resolve("node.properties"),
+                            format("node.id=%s%n" +
+                                    "node.internal-address=127.0.0.1%n" +
+                                    "node.environment=testing%n" +
+                                    "node.location=test-location", UUID.randomUUID()).getBytes());
                     Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
                     Files.write(tempDirectoryPath.resolve("node.properties"),
                             format("node.id=%s%n" +
@@ -909,11 +999,35 @@ public class PrestoNativeQueryRunnerUtils
                             format("connector.name=%s%n" +
                                     "cache.enabled=true%n" +
                                     "cache.max-cache-size=32", connectorName).getBytes());
+                    Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
+                    Files.createDirectory(catalogDirectoryPath);
+                    if (cacheMaxSize > 0) {
+                        Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
+                                format("connector.name=%s%n" +
+                                        "cache.enabled=true%n" +
+                                        "cache.max-cache-size=%s", connectorName, cacheMaxSize).getBytes());
+                    }
+                    else {
+                        Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
+                                format("connector.name=%s", connectorName).getBytes());
+                    }
+
+                    // Add catalog with caching always enabled.
+                    Files.write(catalogDirectoryPath.resolve(format("%scached.properties", catalogName)),
+                            format("connector.name=%s%n" +
+                                    "cache.enabled=true%n" +
+                                    "cache.max-cache-size=32", connectorName).getBytes());
 
                     // Add a tpch catalog.
                     Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
                             format("connector.name=tpch%n").getBytes());
+                    // Add a tpch catalog.
+                    Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
+                            format("connector.name=tpch%n").getBytes());
 
+                    // Add a tpcds catalog.
+                    Files.write(catalogDirectoryPath.resolve("tpcds.properties"),
+                            format("connector.name=tpcds%n").getBytes());
                     // Add a tpcds catalog.
                     Files.write(catalogDirectoryPath.resolve("tpcds.properties"),
                             format("connector.name=tpcds%n").getBytes());
@@ -932,9 +1046,66 @@ public class PrestoNativeQueryRunnerUtils
         }
     }
 
+    /**
+     * HTTPS client certificate configuration for native workers.
+     */
+    public static class HttpsClientConfig
+    {
+        private final String certPath;
+        private final String keyPath;
+        private final String clientCertKeyPath;
+        private final String caCertPath;
+        private final Optional<String> jwtSharedSecret;
+
+        private HttpsClientConfig(
+                String certPath,
+                String keyPath,
+                String clientCertKeyPath,
+                String caCertPath,
+                Optional<String> jwtSharedSecret)
+        {
+            this.certPath = requireNonNull(certPath, "certPath is null");
+            this.keyPath = requireNonNull(keyPath, "keyPath is null");
+            this.clientCertKeyPath = requireNonNull(clientCertKeyPath, "clientCertKeyPath is null");
+            this.caCertPath = requireNonNull(caCertPath, "caCertPath is null");
+            this.jwtSharedSecret = requireNonNull(jwtSharedSecret, "jwtSharedSecret is null");
+        }
+
+        public static HttpsClientConfig of(String certPath, String keyPath, String clientCertKeyPath, String caCertPath)
+        {
+            return new HttpsClientConfig(certPath, keyPath, clientCertKeyPath, caCertPath, Optional.empty());
+        }
+
+        public HttpsClientConfig withJwt(String sharedSecret)
+        {
+            return new HttpsClientConfig(certPath, keyPath, clientCertKeyPath, caCertPath, Optional.of(sharedSecret));
+        }
+
+        public String getCertPath()
+        {
+            return certPath;
+        }
+        public String getKeyPath()
+        {
+            return keyPath;
+        }
+        public String getClientCertKeyPath()
+        {
+            return clientCertKeyPath;
+        }
+        public String getCaCertPath()
+        {
+            return caCertPath;
+        }
+        public Optional<String> getJwtSharedSecret()
+        {
+            return jwtSharedSecret;
+        }
+    }
+
     public static ExternalWorkerLauncherBuilder externalWorkerLauncherBuilder()
     {
-        return new ExternalWorkerLauncherBuilder();
+        return ExternalWorkerLauncherBuilder.builder();
     }
 
     public static void setupJsonFunctionNamespaceManager(QueryRunner queryRunner, String jsonFileName, String catalogName)
