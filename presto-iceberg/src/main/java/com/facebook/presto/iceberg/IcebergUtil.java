@@ -1393,6 +1393,9 @@ public final class IcebergUtil
                 }
                 propertiesBuilder.put(ORC_COMPRESSION, compressionCodec.getOrcCompressionKind().name());
                 break;
+            case NIMBLE:
+                // Nimble handles compression internally; no table property needed.
+                break;
         }
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
