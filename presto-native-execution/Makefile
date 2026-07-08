@@ -27,7 +27,7 @@ EXTRA_CMAKE_FLAGS ?= ""
 # Define comma for use in substitution
 comma := ,
 
-# New variable for comma-separated optional features
+# Comma-separated optional features
 PRESTO_OPTIONAL_FEATURES ?=
 
 # Process comma-separated features

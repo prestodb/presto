@@ -134,7 +134,7 @@ make release
 
 #### File System Support
 
-S3, GCS, HDFS,  and Azure support require their corresponding libraries.
+S3, GCS, HDFS, and Azure support require their corresponding libraries.
 S3 for example needs the [AWS SDK C++](https://github.com/aws/aws-sdk-cpp) library.
 This dependency can be installed by running the target platform build script
 from the `presto/presto-native-execution` directory.

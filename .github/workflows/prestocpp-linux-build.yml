@@ -49,9 +49,8 @@ jobs:
         source /opt/rh/gcc-toolset-14/enable
         cd presto-native-execution
         PRESTO_OPTIONAL_FEATURES="cudf,s3,gcs,hdfs,remote-functions,jwt" \
-        EXTRA_CMAKE_FLAGS="-DCMAKE_CUDA_ARCHITECTURES=75 -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER -DPRESTO_ENABLE_TESTING=OFF -DCMAKE_PREFIX_PATH=/usr/local -DThrift_ROOT=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DMAX_LINK_JOBS=4" \
-        USE_NINJA=1 make cmake BUILD_DIR=release BUILD_TYPE=Release
-        ninja -C _build/release -j 4
+        EXTRA_CMAKE_FLAGS="-DCMAKE_CUDA_ARCHITECTURES=75 -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER -DPRESTO_ENABLE_TESTING=OFF -DThrift_ROOT=/usr/local -DMAX_LINK_JOBS=4" \
+        NUM_THREADS=4 make release
 
     steps:
       # We cannot use the github action to free disk space from the runner
