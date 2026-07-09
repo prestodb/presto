@@ -475,7 +475,7 @@ jobs:
         env:
           # Build with the "common" target (-march=armv8-a+crc+crypto) for
           # broad ARM CPU compatibility rather than tuning to the local host.
-          # Our GitHub runner runs on AWS Graviton, so Velox's default target
+          # GitHub's arm64 runners run on AWS Graviton, so Velox's default target
           # "local" emits -mcpu=neoverse-n2, which SIGILLs on Apple Silicon
           # and other non-Neoverse cores. Small perf trade-off. See
           # docker-compose.yml.
