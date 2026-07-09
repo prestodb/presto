@@ -25,6 +25,7 @@ std::string announcementBody(
     const std::string& address,
     bool useHttps,
     int port,
+    const std::optional<int>& httpPort,
     const std::string& nodeVersion,
     const std::string& environment,
     const std::string& nodeLocation,
@@ -36,21 +37,27 @@ std::string announcementBody(
 
   const auto uriScheme = useHttps ? "https" : "http";
 
+  auto properties = nlohmann::json{
+      {"node_version", nodeVersion},
+      {"coordinator", false},
+      {"sidecar", sidecar},
+      {"connectorIds", folly::join(',', connectorIds)},
+      {"pool_type", nodePoolType},
+      {uriScheme, fmt::format("{}://{}:{}", uriScheme, address, port)}};
+
+  // Always announce both http and https URIs when both ports are available,
+  // so the node is discoverable regardless of the coordinator's
+  // internal-communication.https.required setting.
+  if (useHttps && httpPort.has_value()) {
+    properties["http"] = fmt::format("http://{}:{}", address, httpPort.value());
+  }
+
   nlohmann::json body = {
       {"environment", environment},
       {"pool", "general"},
       {"location", nodeLocation},
       {"services",
-       {{{"id", id},
-         {"type", "presto"},
-         {"properties",
-          {{"node_version", nodeVersion},
-           {"coordinator", false},
-           {"sidecar", sidecar},
-           {"connectorIds", folly::join(',', connectorIds)},
-           {"pool_type", nodePoolType},
-           {uriScheme,
-            fmt::format("{}://{}:{}", uriScheme, address, port)}}}}}}};
+       {{{"id", id}, {"type", "presto"}, {"properties", properties}}}}};
   return body.dump();
 }
 
@@ -76,6 +83,7 @@ Announcer::Announcer(
     const std::string& address,
     bool useHttps,
     int port,
+    const std::optional<int>& httpPort,
     const std::shared_ptr<CoordinatorDiscoverer>& coordinatorDiscoverer,
     const std::string& nodeVersion,
     const std::string& environment,
@@ -97,6 +105,7 @@ Announcer::Announcer(
           address,
           useHttps,
           port,
+          httpPort,
           nodeVersion,
           environment,
           nodeLocation,
