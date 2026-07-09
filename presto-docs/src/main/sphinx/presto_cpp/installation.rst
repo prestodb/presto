@@ -189,8 +189,7 @@ Create a ``docker-compose.yml`` file in the ``~/presto-lab`` directory to orches
    # docker-compose.yml
    services:
      coordinator:
-       image: public.ecr.aws/oss-presto/presto:latest
-       platform: linux/amd64
+       image: prestodb/presto:latest
        container_name: presto-coordinator
        hostname: coordinator
        ports:
@@ -200,8 +199,7 @@ Create a ``docker-compose.yml`` file in the ``~/presto-lab`` directory to orches
        restart: unless-stopped
 
      worker-1:
-       image: public.ecr.aws/oss-presto/presto-native:latest
-       platform: linux/amd64
+       image: prestodb/presto-native:latest
        container_name: prestissimo-worker-1
        hostname: worker-1
        depends_on:
@@ -211,8 +209,7 @@ Create a ``docker-compose.yml`` file in the ``~/presto-lab`` directory to orches
        restart: unless-stopped
 
      worker-2:
-       image: public.ecr.aws/oss-presto/presto-native:latest
-       platform: linux/amd64
+       image: prestodb/presto-native:latest
        container_name: prestissimo-worker-2
        hostname: worker-2
        depends_on:
@@ -223,8 +220,12 @@ Create a ``docker-compose.yml`` file in the ``~/presto-lab`` directory to orches
 
 * The coordinator service uses the standard Java Presto image (presto:latest).
 * The worker-1 and worker-2 services use the Prestissimo (C++ Native) image (presto-native:latest).
-* The setting ``platform: linux/amd64`` is essential for users running on Apple Silicon Macs.
 * The ``volumes`` section mounts your local configuration directories (``./coordinator/etc``, ``./worker-1/etc``) into the container's expected path (``/opt/presto-server/etc``).
+
+.. warning::
+
+   **arm64 only:** The pre-built ``presto-native`` image is built with ``-march=armv8-a+crc+crypto`` for broad compatibility (AWS Graviton, Apple M1, and newer). It is suitable for getting started, but leaves CPU-specific optimisations on the table. For production use, build a custom image with ``-march=native``.
+
 
 Start the Cluster and Verify
 ----------------------------
