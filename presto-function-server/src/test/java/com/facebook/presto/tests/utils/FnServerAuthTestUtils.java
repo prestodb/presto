@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
@@ -175,6 +176,7 @@ public class FnServerAuthTestUtils
                 .build();
     }
 
+    /** Java coordinator + Java workers, mTLS + JWT, valid cert. */
     public static DistributedQueryRunner createRunnerWithValidHttpsFnServer()
             throws Exception
     {
@@ -182,6 +184,7 @@ public class FnServerAuthTestUtils
                 getFunctionServerConfigWithAuth(findUnusedPort(), JWT_SHARED_SECRET, true), true);
     }
 
+    /** Java coordinator + Java workers, mTLS + JWT, wrong JWT secret on Function Server. */
     public static DistributedQueryRunner createRunnerWithInvalidJwtSecretOnFnServer()
             throws Exception
     {
@@ -190,8 +193,8 @@ public class FnServerAuthTestUtils
     }
 
     /**
-     * Create QueryRunner with Function Server that has no JWT in its configuration.
-     * Note that only the function-server has no JWT. Coordinator and Worker still have JWT included.
+     * Java coordinator + Java workers, mTLS + JWT on coordinator/workers,
+     * but Function Server has no JWT config at all.
      */
     public static DistributedQueryRunner createRunnerWithNoJwtOnFnServer()
             throws Exception
@@ -200,9 +203,7 @@ public class FnServerAuthTestUtils
                 getFunctionServerConfigWithAuth(findUnusedPort(), JWT_WRONG_SECRET, false), true);
     }
 
-    /**
-     * Create QueryRunner with Function Server, Coordinator, and Worker where all have mTLS-only configuration set.
-     */
+    /** Java coordinator + Java workers, mTLS only (no JWT on any node). */
     public static DistributedQueryRunner createRunnerWithOnlyMtls()
             throws Exception
     {
@@ -210,6 +211,7 @@ public class FnServerAuthTestUtils
                 getFunctionServerConfigWithAuth(findUnusedPort(), JWT_WRONG_SECRET, false), false);
     }
 
+    /** Java coordinator + Java workers, mTLS + JWT, invalid cert on Function Server. */
     public static DistributedQueryRunner createRunnerWithInvalidCertInFnServer()
             throws Exception
     {
@@ -217,6 +219,7 @@ public class FnServerAuthTestUtils
                 getFunctionServerConfigWithInvalidCert(findUnusedPort(), JWT_SHARED_SECRET), true);
     }
 
+    /** Java coordinator + native (C++) workers, mTLS + JWT, valid cert. */
     public static DistributedQueryRunner createNativeRunnerWithValidHttpsFnServer()
             throws Exception
     {
@@ -224,6 +227,7 @@ public class FnServerAuthTestUtils
                 getFunctionServerConfigWithAuth(findUnusedPort(), JWT_SHARED_SECRET, true), true);
     }
 
+    /** Java coordinator + native workers, mTLS + JWT, wrong JWT secret on Function Server. */
     public static DistributedQueryRunner createNativeRunnerWithWrongJwtSecretOnFnServer()
             throws Exception
     {
@@ -231,6 +235,10 @@ public class FnServerAuthTestUtils
                 getFunctionServerConfigWithAuth(findUnusedPort(), JWT_WRONG_SECRET, true), true);
     }
 
+    /**
+     * Java coordinator + native workers, mTLS + JWT on coordinator/workers,
+     * but Function Server has no JWT config at all.
+     */
     public static DistributedQueryRunner createNativeRunnerWithNoJwtOnFnServer()
             throws Exception
     {
@@ -238,6 +246,7 @@ public class FnServerAuthTestUtils
                 getFunctionServerConfigWithAuth(findUnusedPort(), JWT_WRONG_SECRET, false), true);
     }
 
+    /** Java coordinator + native workers, mTLS only (no JWT on any node). */
     public static DistributedQueryRunner createNativeRunnerWithOnlyMtls()
             throws Exception
     {
@@ -245,6 +254,7 @@ public class FnServerAuthTestUtils
                 getFunctionServerConfigWithAuth(findUnusedPort(), JWT_WRONG_SECRET, false), false);
     }
 
+    /** Java coordinator + native workers, mTLS + JWT, invalid cert on Function Server. */
     public static DistributedQueryRunner createNativeRunnerWithInvalidCertInFnServer()
             throws Exception
     {
@@ -253,8 +263,8 @@ public class FnServerAuthTestUtils
     }
 
     /**
-     * Create QueryRunner with coordinator-only execution (no workers) for testing
-     * coordinator→function-server communication directly.
+     * Creates a coordinator-only runner (no workers) for testing
+     * coordinator → function-server communication directly.
      */
     public static DistributedQueryRunner createCoordinatorOnlyRunnerWithMtlsAndJwt()
             throws Exception
@@ -313,12 +323,11 @@ public class FnServerAuthTestUtils
                         "rest-based-function-manager.rest.url", functionServerUri));
     }
 
-    private static String startFunctionServer(Map<String, String> functionServerConfig)
+    private static TestingFunctionServer startFunctionServer(Map<String, String> functionServerConfig)
     {
         TestingFunctionServer functionServer = new TestingFunctionServer(functionServerConfig);
-        String uri = convertToLocalhostUri(functionServer.getServerUri());
-        log.info("Function Server started at: %s", uri);
-        return uri;
+        log.info("Function Server started at: %s", functionServer.getServerUri());
+        return functionServer;
     }
 
     private static Session defaultTpchSession()
@@ -340,7 +349,13 @@ public class FnServerAuthTestUtils
     }
 
     /**
-     * Creates a Java-worker query runner with HTTPS.
+     * Creates a Java-worker {@link DistributedQueryRunner} with HTTPS/mTLS and optional JWT.
+     *
+     * <p>On any failure during construction both the function server and the query runner are
+     * closed via {@code closeAllSuppress} before the exception propagates, guaranteeing no
+     * port or thread leaks. On success the function server is registered via
+     * {@link DistributedQueryRunner#addCloseAction} so that it is stopped automatically when
+     * the runner is eventually closed by the test framework.
      */
     private static DistributedQueryRunner createHttpsQueryRunnerWithFnServer(
             Map<String, String> functionServerConfig,
@@ -349,32 +364,38 @@ public class FnServerAuthTestUtils
     {
         log.info("Creating HTTPS Java Query Runner");
 
-        String functionServerUri = startFunctionServer(functionServerConfig);
-
         ImmutableMap.Builder<String, String> extraPropertiesBuilder = ImmutableMap.<String, String>builder()
                 .putAll(getSharedMtlsProperties());
         if (includeJwt) {
             extraPropertiesBuilder.putAll(getJwtProperties(JWT_SHARED_SECRET));
         }
-
         Map<String, String> coordinatorProperties = ImmutableMap.<String, String>builder()
                 .putAll(buildCoordinatorProperties(includeJwt))
                 .put("node-scheduler.include-coordinator", "false")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultTpchSession())
-                .setNodeCount(2)
-                .setExtraProperties(extraPropertiesBuilder.build())
-                .setCoordinatorProperties(coordinatorProperties)
-                .build();
-
-        setupTpchAndFunctionNamespace(queryRunner, functionServerUri);
-        log.info("HTTPS Query runner created successfully");
-        return queryRunner;
+        TestingFunctionServer functionServer = startFunctionServer(functionServerConfig);
+        DistributedQueryRunner queryRunner = null;
+        try {
+            queryRunner = DistributedQueryRunner.builder(defaultTpchSession())
+                    .setNodeCount(2)
+                    .setExtraProperties(extraPropertiesBuilder.build())
+                    .setCoordinatorProperties(coordinatorProperties)
+                    .build();
+            setupTpchAndFunctionNamespace(queryRunner, convertToLocalhostUri(functionServer.getServerUri()));
+            queryRunner.addCloseAction(functionServer);
+            log.info("HTTPS Java query runner created successfully");
+            return queryRunner;
+        }
+        catch (Exception e) {
+            // Close whichever resources were successfully opened before re-throwing.
+            closeAllSuppress(e, queryRunner, functionServer);
+            throw e;
+        }
     }
 
     /**
-     * Creates a native-worker query runner with HTTPS.
+     * Creates a native-worker {@link DistributedQueryRunner} with HTTPS/mTLS and optional JWT.
      */
     private static DistributedQueryRunner createHttpsNativeQueryRunnerWithFnServer(
             Map<String, String> functionServerConfig,
@@ -393,29 +414,30 @@ public class FnServerAuthTestUtils
         }
         log.info("Using PRESTO_SERVER binary at %s", prestoServerPath);
 
-        String functionServerUri = startFunctionServer(functionServerConfig);
-
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultTpchSession())
-                .setNodeCount(1)
-                .setExtraProperties(NativeQueryRunnerUtils.getNativeWorkerSystemProperties())
-                .setCoordinatorProperties(buildCoordinatorProperties(includeJwt))
-                .setExternalWorkerLauncher(
-                        getHttpsNativeWorkerLauncher(prestoServerPath.toString(), functionServerUri, includeJwt))
-                .build();
-
+        TestingFunctionServer functionServer = startFunctionServer(functionServerConfig);
+        DistributedQueryRunner queryRunner = null;
         try {
+            String functionServerUri = convertToLocalhostUri(functionServer.getServerUri());
+            queryRunner = DistributedQueryRunner.builder(defaultTpchSession())
+                    .setNodeCount(1)
+                    .setExtraProperties(NativeQueryRunnerUtils.getNativeWorkerSystemProperties())
+                    .setCoordinatorProperties(buildCoordinatorProperties(includeJwt))
+                    .setExternalWorkerLauncher(
+                            getHttpsNativeWorkerLauncher(prestoServerPath.toString(), functionServerUri, includeJwt))
+                    .build();
             setupTpchAndFunctionNamespace(queryRunner, functionServerUri);
+            queryRunner.addCloseAction(functionServer);
             log.info("HTTPS Native query runner created successfully");
             return queryRunner;
         }
         catch (Exception e) {
-            queryRunner.close();
+            closeAllSuppress(e, queryRunner, functionServer);
             throw e;
         }
     }
 
     /**
-     * Creates a coordinator-only query runner with HTTPS.
+     * Creates a coordinator-only (no workers) {@link DistributedQueryRunner} with HTTPS/mTLS + JWT.
      */
     private static DistributedQueryRunner createCoordinatorOnlyHttpsRunnerWithFnServer(
             Map<String, String> functionServerConfig)
@@ -423,21 +445,27 @@ public class FnServerAuthTestUtils
     {
         log.info("Creating Coordinator-Only mTLS + JWT Query Runner");
 
-        String functionServerUri = startFunctionServer(functionServerConfig);
-
         Map<String, String> coordinatorProperties = ImmutableMap.<String, String>builder()
                 .putAll(getCoordinatorMtlsProperties())
                 .putAll(getJwtProperties(JWT_SHARED_SECRET))
                 .put("node-scheduler.include-coordinator", "true")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultTpchSession())
-                .setNodeCount(0)
-                .setCoordinatorProperties(coordinatorProperties)
-                .build();
-
-        setupTpchAndFunctionNamespace(queryRunner, functionServerUri);
-        log.info("Coordinator-only query runner created successfully");
-        return queryRunner;
+        TestingFunctionServer functionServer = startFunctionServer(functionServerConfig);
+        DistributedQueryRunner queryRunner = null;
+        try {
+            queryRunner = DistributedQueryRunner.builder(defaultTpchSession())
+                    .setNodeCount(0)
+                    .setCoordinatorProperties(coordinatorProperties)
+                    .build();
+            setupTpchAndFunctionNamespace(queryRunner, convertToLocalhostUri(functionServer.getServerUri()));
+            queryRunner.addCloseAction(functionServer);
+            log.info("Coordinator-only query runner created successfully");
+            return queryRunner;
+        }
+        catch (Exception e) {
+            closeAllSuppress(e, queryRunner, functionServer);
+            throw e;
+        }
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.http.server.HttpServerInfo;
 import com.facebook.airlift.http.server.HttpServerModule;
 import com.facebook.airlift.jaxrs.JaxrsModule;
@@ -24,6 +25,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,9 +35,10 @@ import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequi
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 
 public class TestingFunctionServer
+        implements Closeable
 {
     private final FunctionPluginManager functionPluginManager;
-    private final Injector injector;
+    private final LifeCycleManager lifeCycleManager;
     private final HttpServerInfo serverInfo;
 
     /**
@@ -53,11 +57,12 @@ public class TestingFunctionServer
                 new JaxrsModule());
 
         Bootstrap app = new Bootstrap(modules);
-        injector = app
+        Injector injector = app
                 .setRequiredConfigurationProperties(new HashMap<>(properties))
                 .initialize();
 
         functionPluginManager = injector.getInstance(FunctionPluginManager.class);
+        lifeCycleManager = injector.getInstance(LifeCycleManager.class);
         serverInfo = injector.getInstance(HttpServerInfo.class);
         log.info("======== REMOTE FUNCTION SERVER STARTED at: " + FunctionServer.getServerUri(serverInfo) + " =========");
     }
@@ -75,5 +80,24 @@ public class TestingFunctionServer
     public String getServerUri()
     {
         return FunctionServer.getServerUri(serverInfo).toString();
+    }
+
+    /**
+     * Stops the HTTP server and all Airlift-managed lifecycle components.
+     * Must be called when the server is no longer needed to release port and thread resources.
+     */
+    @Override
+    public void close()
+            throws IOException
+    {
+        try {
+            lifeCycleManager.stop();
+        }
+        catch (Exception e) {
+            if (e instanceof RuntimeException) {
+                throw e;
+            }
+            throw new IOException("Failed to stop TestingFunctionServer", e);
+        }
     }
 }
