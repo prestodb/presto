@@ -768,13 +768,19 @@ void PrestoServer::startServer(const std::vector<std::string>& catalogNames) {
             }
           }
 
+          // The task base URI (TaskStatus.self) must use the internal
+          // communication scheme, not merely whichever listener exists. When
+          // internal-communication.https.required is false, sslContext_ is null
+          // and internal peers speak plaintext; advertising an https:// self
+          // URI here would make the coordinator attempt a TLS handshake against
+          // the worker for task status/results and fail (PKIX/handshake error)
+          // even though the HTTPS listener is up for external clients.
           std::string taskUri;
-          if (httpsPort_.has_value()) {
+          if (sslContext_ != nullptr) {
             taskUri = fmt::format(
                 kTaskUriFormat, kHttps, address_, address.address.getPort());
           } else {
-            taskUri = fmt::format(
-                kTaskUriFormat, kHttp, address_, address.address.getPort());
+            taskUri = fmt::format(kTaskUriFormat, kHttp, address_, httpPort_);
           }
           taskManager_->setBaseUri(taskUri);
           break;
