@@ -273,6 +273,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kIncludeNodeInSpillPath, false),
           NUM_PROP(kOldTaskCleanUpMs, 60'000),
           BOOL_PROP(kEnableOldTaskCleanUp, true),
+          BOOL_PROP(kInternalCommunicationHttpsRequired, true),
           BOOL_PROP(kInternalCommunicationJwtEnabled, false),
           STR_PROP(kInternalCommunicationSharedSecret, ""),
           NUM_PROP(kInternalCommunicationJwtExpirationSeconds, 300),
@@ -1117,6 +1118,10 @@ int32_t SystemConfig::oldTaskCleanUpMs() const {
 
 bool SystemConfig::enableOldTaskCleanUp() const {
   return optionalProperty<bool>(kEnableOldTaskCleanUp).value();
+}
+
+bool SystemConfig::internalCommunicationHttpsRequired() const noexcept {
+  return optionalProperty<bool>(kInternalCommunicationHttpsRequired).value();
 }
 
 // The next three toggles govern the use of JWT for authentication
