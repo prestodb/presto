@@ -539,28 +539,40 @@ public class ContainerQueryRunnerUtils
         }
     }
 
+    /**
+     * Copies cert files from the presto-function-server test resources directory
+     * directly into testcontainers/certs/ so Testcontainers can mount them into
+     * containers at startup.
+     */
     public static void extractCertsToHostDir()
             throws IOException
     {
-        String[] certResources = {
-                "certs/function-server/function-server-keystore.jks",
-                "certs/coordinator/coordinator-keystore.jks",
-                "certs/worker/worker.crt",
-                "certs/worker/worker.key",
-                "certs/worker/worker-combined.pem",
-                "certs/ca/ca.crt",
-                "certs/truststore.jks"
+        String certsSourceDir = System.getProperty("user.dir") + "/../presto-function-server/src/test/resources/certs";
+
+        String[][] certFiles = {
+                {"function-server/function-server-keystore.jks", "function-server-keystore.jks"},
+                {"function-server/invalid-keystore.jks", "invalid-keystore.jks"},
+                {"coordinator/coordinator-keystore.jks", "coordinator-keystore.jks"},
+                {"worker/worker.crt", "worker.crt"},
+                {"worker/worker.key", "worker.key"},
+                {"worker/worker-combined.pem", "worker-combined.pem"},
+                {"ca/ca.crt", "ca.crt"},
+                {"truststore.jks", "truststore.jks"},
         };
 
-        for (String resource : certResources) {
-            java.net.URL url = ContainerQueryRunnerUtils.class.getClassLoader().getResource(resource);
-            if (url == null) {
-                throw new IllegalStateException("Cert resource not found on classpath: " + resource);
+        File destDir = new File("testcontainers/certs");
+        destDir.mkdirs();
+
+        for (String[] entry : certFiles) {
+            File source = new File(certsSourceDir + "/" + entry[0]);
+            if (!source.exists()) {
+                throw new IllegalStateException(
+                        "Cert file not found at: " + source.getAbsolutePath() + "\n" +
+                        "Generate the certs first and place them under " +
+                        "presto-function-server/src/test/resources/certs/");
             }
-            String filename = new File(url.getFile()).getName();
-            File destination = new File("testcontainers/certs/" + filename);
-            destination.getParentFile().mkdirs();
-            try (java.io.InputStream in = url.openStream();
+            File destination = new File(destDir, entry[1]);
+            try (java.io.InputStream in = new java.io.FileInputStream(source);
                     java.io.OutputStream out = new FileOutputStream(destination)) {
                 byte[] buf = new byte[4096];
                 int n;
