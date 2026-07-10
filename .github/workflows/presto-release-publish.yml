@@ -385,7 +385,7 @@ jobs:
       contents: read
     timeout-minutes: 10
     outputs:
-      COMMIT_SHA: ${{ steps.sha.outputs.commit_sha }}
+      commit_sha: ${{ steps.sha.outputs.commit_sha }}
     steps:
       - name: Validate REGISTRY
         run: |
@@ -460,7 +460,7 @@ jobs:
       - name: Set dependency image tag
         env:
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
-          COMMIT_SHA: ${{ needs.validate-native-release.outputs.COMMIT_SHA }}
+          COMMIT_SHA: ${{ needs.validate-native-release.outputs.commit_sha }}
           ARCH: ${{ matrix.arch }}
         run: |
           echo "DEPENDENCY_IMAGE=${REGISTRY}/${ORG_NAME}/presto-native-dependency:${RELEASE_TAG}-${COMMIT_SHA}-${ARCH}" >> ${GITHUB_ENV}
@@ -531,7 +531,7 @@ jobs:
         env:
           TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
-          COMMIT_SHA: ${{ needs.validate-native-release.outputs.COMMIT_SHA }}
+          COMMIT_SHA: ${{ needs.validate-native-release.outputs.commit_sha }}
         run: |
           DEP_TARGET=${REGISTRY}/${ORG_NAME}/presto-native-dependency
           tags=(--tag ${DEP_TARGET}:${RELEASE_TAG}-${COMMIT_SHA})
@@ -601,7 +601,7 @@ jobs:
         env:
           DEPENDENCY_IMAGE: ${{ github.event.inputs.dependency_image }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
-          COMMIT_SHA: ${{ needs.validate-native-release.outputs.COMMIT_SHA }}
+          COMMIT_SHA: ${{ needs.validate-native-release.outputs.commit_sha }}
           ARCH: ${{ matrix.arch }}
         run: |
           if [[ -n "${DEPENDENCY_IMAGE}" ]]; then
