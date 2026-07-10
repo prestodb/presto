@@ -94,6 +94,29 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
+    public static void createNativeWorkerMtlsConfigPropertiesWithFnServer(
+            int coordinatorPort,
+            int functionServerHttpsPort,
+            String nodeId,
+            String jwtSharedSecret)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("presto.version", "testversion");
+        properties.setProperty("http-server.http.port", "7777");
+        properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
+        properties.setProperty("system-memory-gb", "2");
+        properties.setProperty("remote-function-server.rest.url",
+                "https://presto-remote-function-server:" + functionServerHttpsPort);
+        properties.setProperty("https-cert-path", "/opt/presto-server/certs/worker.crt");
+        properties.setProperty("https-key-path", "/opt/presto-server/certs/worker.key");
+        properties.setProperty("https-client-cert-key-path", "/opt/presto-server/certs/worker-combined.pem");
+        properties.setProperty("https-client-ca-file", "/opt/presto-server/certs/ca.crt");
+        properties.setProperty("internal-communication.jwt.enabled", "true");
+        properties.setProperty("internal-communication.shared-secret", jwtSharedSecret);
+        createPropertiesFile("testcontainers/" + nodeId + "-mtls/etc/config.properties", properties);
+    }
+
     public static void createCoordinatorConfigProperties(int port)
             throws IOException
     {
@@ -116,6 +139,41 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
     }
 
+    public static void createCoordinatorMtlsConfigProperties(int port, String jwtSharedSecret)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("coordinator", "true");
+        properties.setProperty("presto.version", "testversion");
+        properties.setProperty("node-scheduler.include-coordinator", "false");
+        properties.setProperty("http-server.http.port", Integer.toString(port));
+        properties.setProperty("discovery-server.enabled", "true");
+        properties.setProperty("discovery.uri", "http://presto-coordinator:" + port);
+        properties.setProperty("list-built-in-functions-only", "false");
+        properties.setProperty("native-execution-enabled", "true");
+        properties.setProperty("http-server.https.enabled", "true");
+        properties.setProperty("http-server.https.port", "8443");
+        properties.setProperty("http-server.https.keystore.path", "/opt/presto-server/certs/coordinator-keystore.jks");
+        properties.setProperty("http-server.https.keystore.key", "changeit");
+        properties.setProperty("http-server.https.truststore.path", "/opt/presto-server/certs/truststore.jks");
+        properties.setProperty("http-server.https.truststore.key", "changeit");
+        properties.setProperty("internal-communication.https.required", "true");
+        properties.setProperty("internal-communication.https.keystore.path", "/opt/presto-server/certs/coordinator-keystore.jks");
+        properties.setProperty("internal-communication.https.keystore.key", "changeit");
+        properties.setProperty("internal-communication.https.trust-store-path", "/opt/presto-server/certs/truststore.jks");
+        properties.setProperty("internal-communication.https.trust-store-password", "changeit");
+        properties.setProperty("internal-communication.jwt.enabled", "true");
+        properties.setProperty("internal-communication.shared-secret", jwtSharedSecret);
+
+        Map<String, String> nativeWorkerProperties = NativeQueryRunnerUtils.getNativeWorkerSystemProperties();
+        for (Map.Entry<String, String> entry : nativeWorkerProperties.entrySet()) {
+            properties.setProperty(entry.getKey(), entry.getValue());
+        }
+
+        createPropertiesFile("testcontainers/coordinator-mtls/etc/config.properties", properties);
+    }
+
+
     public static void createRestRemoteProperties(int functionServerPort)
             throws IOException
     {
@@ -134,6 +192,22 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/coordinator/etc/function-namespace/remote.properties", properties);
     }
 
+    public static void createRestRemoteMtlsProperties(int functionServerHttpsPort)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("function-namespace-manager.name", "rest");
+        properties.setProperty("supported-function-languages", "Java");
+        properties.setProperty("function-implementation-type", "REST");
+        properties.setProperty("rest-based-function-manager.rest.url",
+                "https://presto-remote-function-server:" + functionServerHttpsPort);
+
+        String directoryPath = "testcontainers/coordinator-mtls/etc/function-namespace";
+        new File(directoryPath).mkdirs();
+
+        createPropertiesFile(directoryPath + "/remote.properties", properties);
+    }
+
     public static void createFunctionServerConfigProperties(int functionServerPort)
             throws IOException
     {
@@ -143,6 +217,25 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("parse-decimal-literals-as-double", "true");
 
         createPropertiesFile("testcontainers/function-server/etc/config.properties", properties);
+    }
+
+    public static void createFunctionServerMtlsConfigProperties(int functionServerHttpsPort, String jwtSharedSecret)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("http-server.http.enabled", "false");
+        properties.setProperty("http-server.https.enabled", "true");
+        properties.setProperty("http-server.https.port", String.valueOf(functionServerHttpsPort));
+        properties.setProperty("http-server.https.keystore.path", "/opt/function-server/certs/function-server-keystore.jks");
+        properties.setProperty("http-server.https.keystore.key", "changeit");
+        properties.setProperty("http-server.https.truststore.path", "/opt/function-server/certs/truststore.jks");
+        properties.setProperty("http-server.https.truststore.key", "changeit");
+        properties.setProperty("internal-communication.jwt.enabled", "true");
+        properties.setProperty("internal-communication.shared-secret", jwtSharedSecret);
+        properties.setProperty("regex-library", "RE2J");
+        properties.setProperty("parse-decimal-literals-as-double", "true");
+
+        createPropertiesFile("testcontainers/function-server-mtls/etc/config.properties", properties);
     }
 
     public static void createCoordinatorJvmConfig()
@@ -444,6 +537,38 @@ public class ContainerQueryRunnerUtils
                 return VarbinaryType.VARBINARY;
             default:
                 throw new UnsupportedOperationException("Unsupported type: " + typeName.toUpperCase());
+        }
+    }
+
+    public static void extractCertsToHostDir()
+            throws IOException
+    {
+        String[] certResources = {
+                "certs/function-server/function-server-keystore.jks",
+                "certs/coordinator/coordinator-keystore.jks",
+                "certs/worker/worker.crt",
+                "certs/worker/worker.key",
+                "certs/worker/worker-combined.pem",
+                "certs/ca/ca.crt",
+                "certs/truststore.jks"
+        };
+
+        for (String resource : certResources) {
+            java.net.URL url = ContainerQueryRunnerUtils.class.getClassLoader().getResource(resource);
+            if (url == null) {
+                throw new IllegalStateException("Cert resource not found on classpath: " + resource);
+            }
+            String filename = new File(url.getFile()).getName();
+            File destination = new File("testcontainers/certs/" + filename);
+            destination.getParentFile().mkdirs();
+            try (java.io.InputStream in = url.openStream();
+                    java.io.OutputStream out = new FileOutputStream(destination)) {
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = in.read(buf)) != -1) {
+                    out.write(buf, 0, n);
+                }
+            }
         }
     }
 }
