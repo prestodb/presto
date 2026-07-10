@@ -173,7 +173,6 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/coordinator-mtls/etc/config.properties", properties);
     }
 
-
     public static void createRestRemoteProperties(int functionServerPort)
             throws IOException
     {

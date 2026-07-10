@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.nativeworker;
 
-import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
