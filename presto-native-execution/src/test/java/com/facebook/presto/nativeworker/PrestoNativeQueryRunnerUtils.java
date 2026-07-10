@@ -1182,6 +1182,63 @@ public class PrestoNativeQueryRunnerUtils
         }
     }
 
+    /**
+     * HTTPS client certificate configuration for native workers.
+     */
+    public static class HttpsClientConfig
+    {
+        private final String certPath;
+        private final String keyPath;
+        private final String clientCertKeyPath;
+        private final String caCertPath;
+        private final Optional<String> jwtSharedSecret;
+
+        private HttpsClientConfig(
+                String certPath,
+                String keyPath,
+                String clientCertKeyPath,
+                String caCertPath,
+                Optional<String> jwtSharedSecret)
+        {
+            this.certPath = requireNonNull(certPath, "certPath is null");
+            this.keyPath = requireNonNull(keyPath, "keyPath is null");
+            this.clientCertKeyPath = requireNonNull(clientCertKeyPath, "clientCertKeyPath is null");
+            this.caCertPath = requireNonNull(caCertPath, "caCertPath is null");
+            this.jwtSharedSecret = requireNonNull(jwtSharedSecret, "jwtSharedSecret is null");
+        }
+
+        public static HttpsClientConfig of(String certPath, String keyPath, String clientCertKeyPath, String caCertPath)
+        {
+            return new HttpsClientConfig(certPath, keyPath, clientCertKeyPath, caCertPath, Optional.empty());
+        }
+
+        public HttpsClientConfig withJwt(String sharedSecret)
+        {
+            return new HttpsClientConfig(certPath, keyPath, clientCertKeyPath, caCertPath, Optional.of(sharedSecret));
+        }
+
+        public String getCertPath()
+        {
+            return certPath;
+        }
+        public String getKeyPath()
+        {
+            return keyPath;
+        }
+        public String getClientCertKeyPath()
+        {
+            return clientCertKeyPath;
+        }
+        public String getCaCertPath()
+        {
+            return caCertPath;
+        }
+        public Optional<String> getJwtSharedSecret()
+        {
+            return jwtSharedSecret;
+        }
+    }
+
     public static ExternalWorkerLauncherBuilder externalWorkerLauncherBuilder()
     {
         return ExternalWorkerLauncherBuilder.builder();

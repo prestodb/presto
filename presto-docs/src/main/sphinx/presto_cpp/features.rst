@@ -312,6 +312,10 @@ certificate against a trusted CA, and the Function Server verifies the worker's 
 certificate against the same CA. This provides strong mutual identity verification at the
 transport layer.
 
+The Function Server can now enforce mTLS at the application layer: any HTTPS request that
+arrives without a valid client certificate signed by the configured truststore CA is
+rejected with ``HTTP 401``. HTTP-only deployments are unaffected.
+
 The following properties are set in the native worker's ``config.properties``:
 
 ``https-cert-path``
@@ -390,21 +394,30 @@ to a Function Server using both mTLS and JWT:
 .. code-block:: properties
 
    # Function Server URL — must use https:// when mTLS is active
-   remote-function-server.rest.url=https://function-server.example.com:8443
+   remote-function-server.rest.url=https://function-server.example.com:9443
 
-   # mTLS — worker TLS server identity (used for coordinator→worker TLS)
+   # Worker TLS server identity (presented during coordinator→worker TLS)
+   http-server.https.enabled=true
+   http-server.https.port=7443
    https-cert-path=/etc/presto/certs/worker.crt
    https-key-path=/etc/presto/certs/worker.key
 
-   # mTLS — worker client identity presented to the Function Server
+   # Worker client identity presented to the Function Server during mTLS
    https-client-cert-key-path=/etc/presto/certs/worker-combined.pem
 
-   # mTLS — CA used to verify the Function Server's certificate
+   # CA used to verify the Function Server's certificate
    https-client-ca-file=/etc/presto/certs/ca.crt
 
-   # JWT — token-based request authentication
+   # JWT — sign outbound requests to the Function Server
    internal-communication.jwt.enabled=true
    internal-communication.shared-secret=<your-shared-secret>
+
+.. note::
+
+   The certificate passed via ``https-client-cert-key-path`` is a combined PEM file
+   containing both the ``CERTIFICATE`` and ``PRIVATE KEY`` blocks. The Function Server's
+   truststore must trust the CA that signed this certificate for the mTLS handshake to
+   succeed.
 
 The Function Server must be configured with a matching HTTPS keystore, truststore, and the
 same ``internal-communication.shared-secret``. See

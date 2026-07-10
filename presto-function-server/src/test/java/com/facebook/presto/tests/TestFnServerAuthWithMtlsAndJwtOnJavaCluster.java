@@ -16,17 +16,16 @@ package com.facebook.presto.tests;
 import com.facebook.presto.tests.utils.FnServerAuthTestUtils;
 
 /**
- * Tests secure authentication (mTLS + JWT) between a coordinator-only cluster
- * and the Function Server. Uses a coordinator-only query runner (no workers) to
- * exercise the coordinator → function-server call path in isolation.
+ * Runs all {@link AbstractTestFnServerAuth} test cases against a
+ * Java coordinator + Java worker cluster with mTLS + JWT.
  */
-public class TestFnServerAuthOnOnlyCoordinator
+public class TestFnServerAuthWithMtlsAndJwtOnJavaCluster
         extends AbstractTestFnServerAuth
 {
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        return FnServerAuthTestUtils.createCoordinatorOnlyRunnerWithMtlsAndJwt();
+        return FnServerAuthTestUtils.createJavaRunnerWithMtlsAndJwt();
     }
 }

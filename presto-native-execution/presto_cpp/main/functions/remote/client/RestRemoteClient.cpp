@@ -15,7 +15,6 @@
 #include "presto_cpp/main/functions/remote/client/RestRemoteClient.h"
 
 #include <folly/Uri.h>
-#include <proxygen/lib/http/HTTPMessage.h>
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -37,16 +36,17 @@ inline std::string getContentType(velox::functions::remote::PageFormat fmt) {
 RestRemoteClient::RestRemoteClient(const std::string& url) : url_(url) {
   memPool_ = memory::MemoryManager::getInstance()->addLeafPool();
   folly::Uri uri(url_);
-  proxygen::Endpoint endpoint(uri.host(), uri.port(), uri.scheme() == "https");
+  const bool useTls = uri.scheme() == "https";
+  proxygen::Endpoint endpoint(uri.host(), uri.port(), useTls);
   folly::SocketAddress addr(uri.host().c_str(), uri.port(), true);
 
   evbThread_ = std::make_unique<folly::ScopedEventBaseThread>("rest-client");
   auto systemConfig = SystemConfig::instance();
   auto httpClientOptions = systemConfig->httpClientOptions();
 
-  if (systemConfig->httpServerHttpsEnabled()) {
-    ciphers_ = systemConfig->httpsSupportedCiphers();
-    if (ciphers_.empty()) {
+  if (useTls) {
+    const std::string ciphers = systemConfig->httpsSupportedCiphers();
+    if (ciphers.empty()) {
       VELOX_USER_FAIL(
           "HTTPS is enabled for remote function server but ciphers are not configured. "
           "Set 'https-supported-ciphers' in config.properties");
@@ -59,10 +59,13 @@ RestRemoteClient::RestRemoteClient(const std::string& url) : url_(url) {
           "Set 'https-client-cert-key-path' in config.properties");
     }
 
+    const std::string caFile =
+        systemConfig->httpsClientCaFile().value_or("");
     sslContext_ = util::createSSLContext(
         optionalClientCertPath.value(),
-        ciphers_,
-        systemConfig->httpClientHttp2Enabled());
+        ciphers,
+        systemConfig->httpClientHttp2Enabled(),
+        caFile);
   }
 
   httpClient_ = std::make_shared<http::HttpClient>(

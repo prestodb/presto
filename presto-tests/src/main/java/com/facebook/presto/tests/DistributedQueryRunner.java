@@ -1165,9 +1165,7 @@ public class DistributedQueryRunner
     }
 
     /**
-     * Registers an {@link AutoCloseable} resource to be closed when this runner is closed.
-     * Useful for attaching side-car resources (e.g. a {@code TestingFunctionServer}) whose
-     * lifetime must be tied to this runner without subclassing or wrapping it.
+     * Registers a {@link Closeable} resource to be closed when this runner is closed.
      */
     public void addCloseAction(Closeable closeable)
     {

@@ -86,7 +86,7 @@ void PeriodicServiceInventoryManager::sendRequest() {
       // Check if discovery URI uses HTTPS before using SSL context
       bool useSSL = false;
       if (sslContext_ != nullptr) {
-        auto discoveryUri = SystemConfig::instance()->discoveryUri();
+        auto discoveryUri = systemConfig->discoveryUri();
         if (discoveryUri.has_value()) {
           auto uri = folly::Uri(discoveryUri.value());
           useSSL = (uri.scheme() == "https");
