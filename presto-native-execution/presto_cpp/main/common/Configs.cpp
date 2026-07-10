@@ -1295,7 +1295,7 @@ void GFlagConfig::applyFlags(
     const std::unordered_map<std::string, std::string>& configs) {
   static constexpr size_t kPrefixLen = kGflagPrefix.size();
   for (const auto& [key, value] : configs) {
-    if (key.substr(0, kPrefixLen) != kGflagPrefix) {
+    if (key.rfind(kGflagPrefix, 0) != 0) {
       continue;
     }
     // Strip "gflag." prefix and convert hyphens to underscores to get the
