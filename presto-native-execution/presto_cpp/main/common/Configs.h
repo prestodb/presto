@@ -1394,4 +1394,16 @@ class NodeConfig : public ConfigBase {
   std::string nodeLocation() const;
 };
 
+/// Applies gflag.* properties from a config file to Velox gflags.
+/// Strips the "gflag." prefix and converts hyphens to underscores to derive
+/// the flag name. Uses SET_FLAG_IF_DEFAULT so command-line flags take
+/// precedence.
+class GFlagConfig {
+ public:
+  static constexpr std::string_view kGflagPrefix{"gflag."};
+
+  static void applyFlags(
+      const std::unordered_map<std::string, std::string>& configs);
+};
+
 } // namespace facebook::presto

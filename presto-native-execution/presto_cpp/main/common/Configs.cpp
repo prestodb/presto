@@ -14,10 +14,12 @@
 
 #include "presto_cpp/main/common/Configs.h"
 #include <folly/system/HardwareConcurrency.h>
+#include <gflags/gflags.h>
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/core/QueryConfig.h"
 
+#include <algorithm>
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -1286,6 +1288,34 @@ std::string NodeConfig::nodeInternalAddress(
     VELOX_FAIL(
         "Node Internal Address or IP was not found in NodeConfigs. Default IP was not provided "
         "either.");
+  }
+}
+
+void GFlagConfig::applyFlags(
+    const std::unordered_map<std::string, std::string>& configs) {
+  static constexpr size_t kPrefixLen = kGflagPrefix.size();
+  for (const auto& [key, value] : configs) {
+    if (key.substr(0, kPrefixLen) != kGflagPrefix) {
+      continue;
+    }
+    // Strip "gflag." prefix and convert hyphens to underscores to get the
+    // flag name. e.g., "gflag.velox-memory-num-shared-leaf-pools" becomes
+    // "velox_memory_num_shared_leaf_pools".
+    auto flagName = key.substr(kPrefixLen);
+    std::replace(flagName.begin(), flagName.end(), '-', '_');
+
+    auto result = gflags::SetCommandLineOptionWithMode(
+        flagName.c_str(), value.c_str(), gflags::SET_FLAG_IF_DEFAULT);
+    if (result.empty()) {
+      PRESTO_STARTUP_LOG(WARNING)
+          << "Failed to set gflag '" << flagName
+          << "' from config property '" << key << "' with value '" << value
+          << "'";
+    } else {
+      PRESTO_STARTUP_LOG(INFO)
+          << "Set gflag '" << flagName << "' = '" << value
+          << "' from config.properties";
+    }
   }
 }
 
