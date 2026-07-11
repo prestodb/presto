@@ -47,6 +47,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
@@ -64,6 +65,7 @@ public class ContainerQueryRunner
     protected static final String BASE_DIR = System.getProperty("user.dir");
     protected static final int DEFAULT_COORDINATOR_PORT = 8080;
     protected static final int DEFAULT_FUNCTION_SERVER_PORT = 1122;
+    protected static final int DEFAULT_FUNCTION_SERVER_HTTPS_PORT = 8443;
     protected static final String TPCH_CATALOG = "tpch";
     protected static final String TINY_SCHEMA = "tiny";
     protected static final int DEFAULT_NUMBER_OF_WORKERS = 4;
@@ -78,15 +80,25 @@ public class ContainerQueryRunner
     protected GenericContainer<?> functionServer;
     protected int functionServerPort;
     protected boolean enableFunctionServer;
+    protected boolean enableMtls;
+    protected Optional<String> jwtSharedSecret;
     protected Connection connection;
 
     public ContainerQueryRunner()
             throws InterruptedException, IOException
     {
-        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS, DEFAULT_FUNCTION_SERVER_PORT, false);
+        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS,
+                DEFAULT_FUNCTION_SERVER_PORT, false, false, Optional.empty());
     }
 
     public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, int functionServerPort, boolean enableFunctionServer)
+            throws InterruptedException, IOException
+    {
+        this(coordinatorPort, catalog, schema, numberOfWorkers, functionServerPort, enableFunctionServer, false, Optional.empty());
+    }
+
+    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers,
+            int functionServerPort, boolean enableFunctionServer, boolean enableMtls, Optional<String> jwtSharedSecret)
             throws InterruptedException, IOException
     {
         this.coordinatorPort = coordinatorPort;
@@ -94,6 +106,8 @@ public class ContainerQueryRunner
         this.schema = schema;
         this.functionServerPort = functionServerPort;
         this.enableFunctionServer = enableFunctionServer;
+        this.enableMtls = enableMtls;
+        this.jwtSharedSecret = jwtSharedSecret;
 
         // Start function server first if enabled
         if (enableFunctionServer) {
@@ -145,16 +159,26 @@ public class ContainerQueryRunner
     {
         ContainerQueryRunnerUtils.createCoordinatorTpchProperties();
         ContainerQueryRunnerUtils.createCoordinatorTpcdsProperties();
-        ContainerQueryRunnerUtils.createCoordinatorConfigProperties(coordinatorPort);
         ContainerQueryRunnerUtils.createCoordinatorJvmConfig();
         ContainerQueryRunnerUtils.createCoordinatorLogProperties();
         ContainerQueryRunnerUtils.createCoordinatorNodeProperties();
-        ContainerQueryRunnerUtils.createCoordinatorEntryPointScript(); // Never run function server in coordinator
-        if (enableFunctionServer) {
-            ContainerQueryRunnerUtils.createRestRemoteProperties(functionServerPort);
+        ContainerQueryRunnerUtils.createCoordinatorEntryPointScript();
+
+        if (enableMtls) {
+            ContainerQueryRunnerUtils.createCoordinatorMtlsConfigProperties(
+                    coordinatorPort, jwtSharedSecret.orElseThrow(() -> new IllegalStateException("jwtSharedSecret required for mTLS")));
+            if (enableFunctionServer) {
+                ContainerQueryRunnerUtils.createRestRemoteMtlsProperties(functionServerPort);
+            }
+        }
+        else {
+            ContainerQueryRunnerUtils.createCoordinatorConfigProperties(coordinatorPort);
+            if (enableFunctionServer) {
+                ContainerQueryRunnerUtils.createRestRemoteProperties(functionServerPort);
+            }
         }
 
-        return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
+        GenericContainer<?> container = new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withNetwork(network)
                 .withNetworkAliases("presto-coordinator")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/etc"), "/opt/presto-server/etc")
@@ -162,32 +186,65 @@ public class ContainerQueryRunner
                 .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
                 .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)))
                 .withExposedPorts(coordinatorPort);
+
+        if (enableMtls) {
+            container.withCopyFileToContainer(
+                    MountableFile.forHostPath(BASE_DIR + "/testcontainers/certs"),
+                    "/opt/presto-server/certs");
+        }
+
+        return container;
     }
 
     protected GenericContainer<?> createNativeWorker(int port, String nodeId)
             throws IOException
     {
-        ContainerQueryRunnerUtils.createNativeWorkerConfigPropertiesWithFunctionServer(coordinatorPort, functionServerPort, nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerEntryPointScript(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);
-        return new GenericContainer<>(PRESTO_WORKER_IMAGE)
+
+        if (enableMtls) {
+            ContainerQueryRunnerUtils.createNativeWorkerMtlsConfigPropertiesWithFnServer(
+                    coordinatorPort, functionServerPort, nodeId,
+                    jwtSharedSecret.orElseThrow(() -> new IllegalStateException("jwtSharedSecret required for mTLS")));
+        }
+        else {
+            ContainerQueryRunnerUtils.createNativeWorkerConfigPropertiesWithFunctionServer(coordinatorPort, functionServerPort, nodeId);
+        }
+
+        GenericContainer<?> container = new GenericContainer<>(PRESTO_WORKER_IMAGE)
                 .withExposedPorts(port)
                 .withNetwork(network)
                 .withNetworkAliases(nodeId)
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/etc"), "/opt/presto-server/etc")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh")
                 .waitingFor(Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1));
+
+        if (enableMtls) {
+            container.withCopyFileToContainer(
+                    MountableFile.forHostPath(BASE_DIR + "/testcontainers/certs"),
+                    "/opt/presto-server/certs");
+        }
+
+        return container;
     }
 
     protected GenericContainer<?> createFunctionServer()
             throws IOException
     {
-        ContainerQueryRunnerUtils.createFunctionServerConfigProperties(functionServerPort);
         ContainerQueryRunnerUtils.createFunctionServerEntryPointScript();
 
-        // Reuse the coordinator image since it already contains the function server jar
-        return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
+        if (enableMtls) {
+            ContainerQueryRunnerUtils.extractCertsToHostDir();
+            ContainerQueryRunnerUtils.createFunctionServerMtlsConfigProperties(
+                    functionServerPort,
+                    jwtSharedSecret.orElseThrow(() -> new IllegalStateException("jwtSharedSecret required for mTLS")));
+        }
+        else {
+            ContainerQueryRunnerUtils.createFunctionServerConfigProperties(functionServerPort);
+        }
+
+        GenericContainer<?> container = new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withNetwork(network)
                 .withNetworkAliases("presto-remote-function-server")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/function-server/etc"), "/opt/function-server/etc")
@@ -195,6 +252,14 @@ public class ContainerQueryRunner
                 .waitingFor(Wait.forLogMessage(".*======== REMOTE FUNCTION SERVER STARTED at: .*", 1))
                 .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)))
                 .withExposedPorts(functionServerPort);
+
+        if (enableMtls) {
+            container.withCopyFileToContainer(
+                    MountableFile.forHostPath(BASE_DIR + "/testcontainers/certs"),
+                    "/opt/function-server/certs");
+        }
+
+        return container;
     }
 
     @Override

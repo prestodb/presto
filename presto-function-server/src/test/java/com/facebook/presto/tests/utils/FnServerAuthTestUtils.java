@@ -25,13 +25,17 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 
 import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
@@ -45,19 +49,8 @@ public class FnServerAuthTestUtils
 {
     private static final Logger log = Logger.get(FnServerAuthTestUtils.class);
 
-    /**
-     * Resolves the path to a certificate resource regardless of which module's working
-     * directory the test is running from. The certs are packaged into the presto-function-server
-     * test-jar under "certs/", so they are always findable via the classloader.
-     */
-    private static String certPath(String relativePath)
-    {
-        java.net.URL resource = FnServerAuthTestUtils.class.getClassLoader().getResource("certs/" + relativePath);
-        if (resource == null) {
-            throw new IllegalStateException("Certificate resource not found on classpath: certs/" + relativePath);
-        }
-        return new java.io.File(resource.getFile()).getAbsolutePath();
-    }
+    /** Cache of already-extracted cert files: resource path → host temp file path. */
+    private static final ConcurrentHashMap<String, String> CERT_CACHE = new ConcurrentHashMap<>();
 
     public static final String JWT_SHARED_SECRET = "supersecret";
     public static final String JWT_WRONG_SECRET = "wrongsecret";
@@ -78,6 +71,46 @@ public class FnServerAuthTestUtils
         }
         catch (IOException e) {
             throw new RuntimeException("Failed to find unused port", e);
+        }
+    }
+
+    /**
+     * Resolves the path to a certificate resource regardless of which module's working
+     * directory the test is running from. The certs are packaged into the presto-function-server
+     * test-jar under "certs/", so they are always findable via the classloader.
+     */
+    private static String certPath(String relativePath)
+    {
+        String resourceName = "certs/" + relativePath;
+        return CERT_CACHE.computeIfAbsent(resourceName, FnServerAuthTestUtils::extractCertResource);
+    }
+
+    private static String extractCertResource(String resourceName)
+    {
+        URL resource = FnServerAuthTestUtils.class.getClassLoader().getResource(resourceName);
+        if (resource == null) {
+            throw new IllegalStateException("Certificate resource not found on classpath: " + resourceName);
+        }
+        // If the resource is a plain file (not inside a JAR), return its path directly.
+        if ("file".equals(resource.getProtocol())) {
+            return Paths.get(resource.getFile()).toAbsolutePath().toString();
+        }
+        // Resource is inside a JAR — extract it to a temp file so the JVM can open it.
+        try {
+            String fileName = Paths.get(resourceName).getFileName().toString();
+            Path temp = Files.createTempFile("presto-cert-", "-" + fileName);
+            temp.toFile().deleteOnExit();
+            try (InputStream in = FnServerAuthTestUtils.class.getClassLoader().getResourceAsStream(resourceName)) {
+                if (in == null) {
+                    throw new IllegalStateException("Could not open resource stream for: " + resourceName);
+                }
+                Files.copy(in, temp, StandardCopyOption.REPLACE_EXISTING);
+            }
+            log.info("Extracted cert resource %s to temp file %s", resourceName, temp);
+            return temp.toAbsolutePath().toString();
+        }
+        catch (IOException e) {
+            throw new RuntimeException("Failed to extract cert resource: " + resourceName, e);
         }
     }
 
@@ -349,12 +382,12 @@ public class FnServerAuthTestUtils
     }
 
     /**
-     * Creates a Java-worker {@link DistributedQueryRunner} with HTTPS/mTLS and optional JWT.
+     * Creates a Java-worker with HTTPS/mTLS and optional JWT.
      *
      * <p>On any failure during construction both the function server and the query runner are
      * closed via {@code closeAllSuppress} before the exception propagates, guaranteeing no
      * port or thread leaks. On success the function server is registered via
-     * {@link DistributedQueryRunner#addCloseAction} so that it is stopped automatically when
+     * addCloseAction so that it is stopped automatically when
      * the runner is eventually closed by the test framework.
      */
     private static DistributedQueryRunner createHttpsQueryRunnerWithFnServer(

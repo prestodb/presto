@@ -114,7 +114,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("https-client-ca-file", "/opt/presto-server/certs/ca.crt");
         properties.setProperty("internal-communication.jwt.enabled", "true");
         properties.setProperty("internal-communication.shared-secret", jwtSharedSecret);
-        createPropertiesFile("testcontainers/" + nodeId + "-mtls/etc/config.properties", properties);
+        createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
     public static void createCoordinatorConfigProperties(int port)
