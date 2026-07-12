@@ -16,6 +16,7 @@
 #include <unordered_set>
 
 #include <folly/system/HardwareConcurrency.h>
+#include <gflags/gflags.h>
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/common/ConfigReader.h"
@@ -417,4 +418,47 @@ TEST_F(ConfigTest, prestoDefaultNamespacePrefix) {
   ASSERT_TRUE(validateDefaultNamespacePrefix(
       windowFunctions, prestoBuiltinFunctionPrefix));
 }
+DECLARE_int32(velox_memory_num_shared_leaf_pools);
+DECLARE_bool(velox_ssd_odirect);
+DECLARE_bool(avx2);
+
+TEST_F(ConfigTest, applyGFlags) {
+  auto origPools = FLAGS_velox_memory_num_shared_leaf_pools;
+  auto origSsd = FLAGS_velox_ssd_odirect;
+
+  applyGFlags({
+      {"gflag.velox-memory-num-shared-leaf-pools", "64"},
+      {"gflag.velox-ssd-odirect", "false"},
+      {"unrelated.property", "ignored"},
+  });
+
+  EXPECT_EQ(FLAGS_velox_memory_num_shared_leaf_pools, 64);
+  EXPECT_FALSE(FLAGS_velox_ssd_odirect);
+
+  FLAGS_velox_memory_num_shared_leaf_pools = origPools;
+  FLAGS_velox_ssd_odirect = origSsd;
+}
+
+TEST_F(ConfigTest, applyGFlagsIgnoresNonGflagKeys) {
+  auto origPools = FLAGS_velox_memory_num_shared_leaf_pools;
+
+  applyGFlags({{"velox-memory-num-shared-leaf-pools", "99"}});
+
+  EXPECT_EQ(FLAGS_velox_memory_num_shared_leaf_pools, origPools);
+}
+
+TEST_F(ConfigTest, applyGFlagsCommandLineTakesPrecedence) {
+  auto origAvx2 = FLAGS_avx2;
+
+  gflags::SetCommandLineOptionWithMode(
+      "avx2", "false", gflags::SET_FLAGS_VALUE);
+
+  applyGFlags({{"gflag.avx2", "true"}});
+
+  // SET_FLAG_IF_DEFAULT won't override a non-default flag.
+  EXPECT_FALSE(FLAGS_avx2);
+
+  FLAGS_avx2 = origAvx2;
+}
+
 } // namespace facebook::presto::test
