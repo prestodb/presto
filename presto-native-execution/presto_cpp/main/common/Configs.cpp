@@ -19,10 +19,10 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/core/QueryConfig.h"
 
-#include <algorithm>
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <algorithm>
 #include <limits>
 #if __has_include("filesystem")
 #include <filesystem>
@@ -1291,8 +1291,8 @@ std::string NodeConfig::nodeInternalAddress(
   }
 }
 
-void GFlagConfig::applyFlags(
-    const std::unordered_map<std::string, std::string>& configs) {
+void applyGFlags(const std::unordered_map<std::string, std::string>& configs) {
+  static constexpr std::string_view kGflagPrefix{"gflag."};
   static constexpr size_t kPrefixLen = kGflagPrefix.size();
   for (const auto& [key, value] : configs) {
     if (key.rfind(kGflagPrefix, 0) != 0) {
@@ -1308,13 +1308,11 @@ void GFlagConfig::applyFlags(
         flagName.c_str(), value.c_str(), gflags::SET_FLAG_IF_DEFAULT);
     if (result.empty()) {
       PRESTO_STARTUP_LOG(WARNING)
-          << "Failed to set gflag '" << flagName
-          << "' from config property '" << key << "' with value '" << value
-          << "'";
+          << "Failed to set gflag '" << flagName << "' from config property '"
+          << key << "' with value '" << value << "'";
     } else {
-      PRESTO_STARTUP_LOG(INFO)
-          << "Set gflag '" << flagName << "' = '" << value
-          << "' from config.properties";
+      PRESTO_STARTUP_LOG(INFO) << "Set gflag '" << flagName << "' = '" << value
+                               << "' from config.properties";
     }
   }
 }
