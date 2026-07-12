@@ -204,6 +204,18 @@ SessionProperties::SessionProperties() {
       util::boolToLowerCaseString(c.joinSpillEnabled()));
 
   addSessionProperty(
+      kHashProbeFinishEarlyOnEmptyBuild,
+      "Native Execution only. When the hash join build side is empty and the "
+      "join type cannot produce output without matched build rows, finish "
+      "the hash probe operator immediately and close the probe-side "
+      "ExchangeClient. This cancels upstream producer tasks whose output "
+      "would otherwise be received and dropped.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kHashProbeFinishEarlyOnEmptyBuild,
+      "true");
+
+  addSessionProperty(
       kWindowSpillEnabled,
       "Native Execution only. Enable window spilling on native engine",
       BOOLEAN(),
