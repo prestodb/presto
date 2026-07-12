@@ -170,7 +170,7 @@ public class ContainerQueryRunnerUtils
             properties.setProperty(entry.getKey(), entry.getValue());
         }
 
-        createPropertiesFile("testcontainers/coordinator-mtls/etc/config.properties", properties);
+        createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
     }
 
     public static void createRestRemoteProperties(int functionServerPort)
@@ -201,7 +201,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("rest-based-function-manager.rest.url",
                 "https://presto-remote-function-server:" + functionServerHttpsPort);
 
-        String directoryPath = "testcontainers/coordinator-mtls/etc/function-namespace";
+        String directoryPath = "testcontainers/coordinator/etc/function-namespace";
         new File(directoryPath).mkdirs();
 
         createPropertiesFile(directoryPath + "/remote.properties", properties);
@@ -234,7 +234,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("regex-library", "RE2J");
         properties.setProperty("parse-decimal-literals-as-double", "true");
 
-        createPropertiesFile("testcontainers/function-server-mtls/etc/config.properties", properties);
+        createPropertiesFile("testcontainers/function-server/etc/config.properties", properties);
     }
 
     public static void createCoordinatorJvmConfig()
