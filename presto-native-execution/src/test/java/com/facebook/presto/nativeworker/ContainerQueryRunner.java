@@ -186,14 +186,16 @@ public class ContainerQueryRunner
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/etc"), "/opt/presto-server/etc")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/entrypoint.sh"), "/opt/entrypoint.sh")
                 .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
-                .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)))
-                .withExposedPorts(coordinatorPort);
+                .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
 
         if (enableMtls) {
-            container.withExposedPorts(DEFAULT_COORDINATOR_HTTPS_PORT);
+            container.withExposedPorts(coordinatorPort, DEFAULT_COORDINATOR_HTTPS_PORT);
             container.withCopyFileToContainer(
                     MountableFile.forHostPath(BASE_DIR + "/testcontainers/certs"),
                     "/opt/presto-server/certs");
+        }
+        else {
+            container.withExposedPorts(coordinatorPort);
         }
 
         return container;
