@@ -387,14 +387,6 @@ void PrestoServer::initializeConfigs() {
         fmt::format("{}/config.properties", configDirectoryPath_));
     nodeConfig->initialize(
         fmt::format("{}/node.properties", configDirectoryPath_));
-    // GFlags in 'velox/flag_definitions/flags.cpp' can be set via config.
-    // Each GFlag name can be mapped to a config property by replacing '_' with
-    // '-' and prefixing with "gflag.".
-    // Example: FLAGS_velox_ssd_odirect -> gflag.velox-ssd-odirect
-    // Apply gflag.* properties from config.properties to gflags.
-    applyGFlags(
-        util::readConfig(
-            fmt::format("{}/config.properties", configDirectoryPath_)));
 
     httpPort_ = systemConfig->httpServerHttpPort();
     if (systemConfig->httpServerHttpsEnabled()) {
