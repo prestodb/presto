@@ -310,6 +310,8 @@ public class TestTypeSignature
         assertEquals(parseTypeSignature("timestamp(6) with time zone"), precisionSix);
 
         assertSignature("timestamp with time zone", "timestamp with time zone", ImmutableList.of());
+        assertSignature("timestamp(3) with time zone", "timestamp with time zone", ImmutableList.of(), "timestamp with time zone");
+        assertEquals(parseTypeSignature("timestamp(3) with time zone"), TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE.getTypeSignature());
         assertSignature("timestamp(0) with time zone", "timestamp with time zone", ImmutableList.of("0"));
         assertSignature("TIMESTAMP(9) WITH TIME ZONE", "timestamp with time zone", ImmutableList.of("9"), "timestamp(9) with time zone");
         assertSignature("array(timestamp(6) with time zone)", "array", ImmutableList.of("timestamp(6) with time zone"));

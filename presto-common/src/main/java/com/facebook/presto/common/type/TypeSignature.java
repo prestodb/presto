@@ -232,10 +232,15 @@ public class TypeSignature
         if (lowerCaseSignature.startsWith(StandardTypes.TIMESTAMP + "(")) {
             Matcher matcher = PARAMETRIC_TIMESTAMP_WITH_TIME_ZONE.matcher(lowerCaseSignature);
             if (matcher.matches()) {
-                return new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, parsePrecisionParameter(
+                TypeSignatureParameter precision = parsePrecisionParameter(
                         signature,
                         signature.substring(matcher.start(1), matcher.end(1)),
-                        literalCalculationParameters));
+                        literalCalculationParameters);
+                // The default precision canonicalizes to the parameterless signature carried by TIMESTAMP_WITH_TIME_ZONE.
+                if (precision.isLongLiteral() && precision.getLongLiteral() == TimestampWithTimeZoneType.DEFAULT_PRECISION) {
+                    return new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
+                }
+                return new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, precision);
             }
         }
 
