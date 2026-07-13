@@ -39,11 +39,19 @@ ifneq ($(PRESTO_OPTIONAL_FEATURES),)
   FEATURES_LIST := $(foreach feature,$(FEATURES_LIST),$(strip $(feature)))
 
   # Validate features
-  VALID_FEATURES := s3 hdfs gcs abfs parquet cudf remote-functions jwt arrow-flight spatial
+  VALID_FEATURES := s3 hdfs gcs abfs parquet cudf remote-functions jwt arrow-flight spatial no-parquet no-spatial
   INVALID_FEATURES := $(filter-out $(VALID_FEATURES),$(FEATURES_LIST))
 
   ifneq ($(INVALID_FEATURES),)
     $(error Invalid features in PRESTO_OPTIONAL_FEATURES: $(INVALID_FEATURES). Valid features are: $(VALID_FEATURES))
+  endif
+
+  # Conflict detection
+  ifneq ($(and $(filter parquet,$(FEATURES_LIST)),$(filter no-parquet,$(FEATURES_LIST))),)
+    $(error Conflicting features: both 'parquet' and 'no-parquet' specified in PRESTO_OPTIONAL_FEATURES)
+  endif
+  ifneq ($(and $(filter spatial,$(FEATURES_LIST)),$(filter no-spatial,$(FEATURES_LIST))),)
+    $(error Conflicting features: both 'spatial' and 'no-spatial' specified in PRESTO_OPTIONAL_FEATURES)
   endif
 
   # Map features to CMake flags
@@ -85,6 +93,15 @@ ifneq ($(PRESTO_OPTIONAL_FEATURES),)
 
   ifneq ($(filter spatial,$(FEATURES_LIST)),)
     EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_SPATIAL=ON
+  endif
+
+  # Disable default-ON features
+  ifneq ($(filter no-parquet,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_PARQUET=OFF
+  endif
+
+  ifneq ($(filter no-spatial,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_SPATIAL=OFF
   endif
 endif
 

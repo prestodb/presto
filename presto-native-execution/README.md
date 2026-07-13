@@ -113,6 +113,15 @@ PRESTO_OPTIONAL_FEATURES="s3,parquet,hdfs" make release
 | `jwt`              | JWT authentication      | OFF     |
 | `arrow-flight`     | Arrow Flight connector  | OFF     |
 | `spatial`          | Spatial support         | **ON**  |
+| `no-parquet`       | Disable Parquet support | —       |
+| `no-spatial`       | Disable Spatial support | —       |
+
+To explicitly disable a default-ON feature, use the `no-` prefix:
+
+```bash
+# Disable Parquet and Spatial (both ON by default)
+PRESTO_OPTIONAL_FEATURES="s3,no-parquet,no-spatial" make release
+```
 
 **Examples:**
 
