@@ -1307,12 +1307,11 @@ void applyGFlags(const std::unordered_map<std::string, std::string>& configs) {
     auto result = gflags::SetCommandLineOptionWithMode(
         flagName.c_str(), value.c_str(), gflags::SET_FLAG_IF_DEFAULT);
     if (result.empty()) {
-      PRESTO_STARTUP_LOG(WARNING)
-          << "Failed to set gflag '" << flagName << "' from config property '"
-          << key << "' with value '" << value << "'";
+      PRESTO_STARTUP_LOG(WARNING) << "Failed to set gflag '" << flagName
+                                  << "' from config property '" << key << "'";
     } else {
-      PRESTO_STARTUP_LOG(INFO) << "Set gflag '" << flagName << "' = '" << value
-                               << "' from config.properties";
+      PRESTO_STARTUP_LOG(INFO)
+          << "Set gflag '" << flagName << "' from config.properties";
     }
   }
 }
