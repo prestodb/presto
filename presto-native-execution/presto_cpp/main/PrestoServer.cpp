@@ -84,6 +84,7 @@
 #include "velox/serializers/UnsafeRowSerializer.h"
 
 #ifdef PRESTO_ENABLE_CUDF
+#include <cuda_runtime.h>
 #include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/ucx-exchange/Communicator.h"
@@ -1977,6 +1978,25 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
     queryMemoryBytes += pool.second.reservedBytes;
   }
 
+  // GPU device memory. cuDF/RMM allocations do not flow through Velox
+  // MemoryPools (see facebookincubator/velox#16138), so we query the device
+  // directly. Populated only when cuDF is compiled AND enabled at runtime;
+  // -1 sentinel otherwise (same convention as 'nonHeapUsed'). cudaMemGetInfo
+  // reports the whole device: 'used' reflects the RMM pool reservation, which
+  // is the right notion for "how full is the GPU".
+  int64_t gpuMemoryUsedBytes = -1;
+  int64_t gpuMemoryCapacityBytes = -1;
+#ifdef PRESTO_ENABLE_CUDF
+  if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
+    size_t gpuFree = 0;
+    size_t gpuTotal = 0;
+    if (cudaMemGetInfo(&gpuFree, &gpuTotal) == cudaSuccess) {
+      gpuMemoryCapacityBytes = static_cast<int64_t>(gpuTotal);
+      gpuMemoryUsedBytes = static_cast<int64_t>(gpuTotal - gpuFree);
+    }
+  }
+#endif
+
   protocol::NodeStatus nodeStatus{
       nodeId_,
       {nodeVersion_},
@@ -1993,7 +2013,9 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       nodeMemoryGb * 1024 * 1024 * 1024,
       nonHeapUsed,
       asyncDataCacheBytes,
-      queryMemoryBytes};
+      queryMemoryBytes,
+      gpuMemoryUsedBytes,
+      gpuMemoryCapacityBytes};
 
   return nodeStatus;
 }
