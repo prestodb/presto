@@ -8358,20 +8358,24 @@ void from_json(const json& j, NodeStatus& p) {
       "heapAvailable");
   from_json_key(
       j, "nonHeapUsed", p.nonHeapUsed, "NodeStatus", "int64_t", "nonHeapUsed");
-  from_json_key(
-      j,
-      "asyncDataCacheBytes",
-      p.asyncDataCacheBytes,
-      "NodeStatus",
-      "int64_t",
-      "asyncDataCacheBytes");
-  from_json_key(
-      j,
-      "queryMemoryBytes",
-      p.queryMemoryBytes,
-      "NodeStatus",
-      "int64_t",
-      "queryMemoryBytes");
+  if (j.count("asyncDataCacheBytes")) {
+    from_json_key(
+        j,
+        "asyncDataCacheBytes",
+        p.asyncDataCacheBytes,
+        "NodeStatus",
+        "int64_t",
+        "asyncDataCacheBytes");
+  }
+  if (j.count("queryMemoryBytes")) {
+    from_json_key(
+        j,
+        "queryMemoryBytes",
+        p.queryMemoryBytes,
+        "NodeStatus",
+        "int64_t",
+        "queryMemoryBytes");
+  }
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
