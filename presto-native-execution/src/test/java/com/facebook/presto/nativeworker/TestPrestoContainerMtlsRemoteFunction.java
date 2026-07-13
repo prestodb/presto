@@ -28,21 +28,19 @@ import static org.testng.Assert.assertEquals;
 public class TestPrestoContainerMtlsRemoteFunction
         extends AbstractTestQueryFramework
 {
-    private static final String JWT_SHARED_SECRET = "supersecret";
-
     @Override
     protected ContainerQueryRunner createQueryRunner()
             throws Exception
     {
         return new ContainerQueryRunner(
-                ContainerQueryRunner.DEFAULT_COORDINATOR_PORT,
+                ContainerQueryRunner.DEFAULT_COORDINATOR_HTTPS_PORT,
                 ContainerQueryRunner.TPCH_CATALOG,
                 ContainerQueryRunner.TINY_SCHEMA,
                 ContainerQueryRunner.DEFAULT_NUMBER_OF_WORKERS,
                 ContainerQueryRunner.DEFAULT_FUNCTION_SERVER_HTTPS_PORT,
                 true,
                 true,
-                Optional.of(JWT_SHARED_SECRET));
+                Optional.of(ContainerQueryRunner.JWT_SHARED_SECRET));
     }
 
     @Test

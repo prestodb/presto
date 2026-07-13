@@ -64,8 +64,10 @@ public class ContainerQueryRunner
     protected static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
     protected static final String BASE_DIR = System.getProperty("user.dir");
     protected static final int DEFAULT_COORDINATOR_PORT = 8080;
+    protected static final int DEFAULT_COORDINATOR_HTTPS_PORT = 8443;
     protected static final int DEFAULT_FUNCTION_SERVER_PORT = 1122;
     protected static final int DEFAULT_FUNCTION_SERVER_HTTPS_PORT = 8443;
+    protected static final String JWT_SHARED_SECRET = "supersecret";
     protected static final String TPCH_CATALOG = "tpch";
     protected static final String TINY_SCHEMA = "tiny";
     protected static final int DEFAULT_NUMBER_OF_WORKERS = 4;

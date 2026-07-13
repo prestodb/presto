@@ -95,7 +95,7 @@ public class ContainerQueryRunnerUtils
     }
 
     public static void createNativeWorkerMtlsConfigPropertiesWithFnServer(
-            int coordinatorPort,
+            int coordinatorHttpsPort,
             int functionServerHttpsPort,
             String nodeId,
             String jwtSharedSecret)
@@ -104,7 +104,7 @@ public class ContainerQueryRunnerUtils
         Properties properties = new Properties();
         properties.setProperty("presto.version", "testversion");
         properties.setProperty("http-server.http.port", "7777");
-        properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
+        properties.setProperty("discovery.uri", "https://presto-coordinator:" + coordinatorHttpsPort);
         properties.setProperty("system-memory-gb", "2");
         properties.setProperty("remote-function-server.rest.url",
                 "https://presto-remote-function-server:" + functionServerHttpsPort);
