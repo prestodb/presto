@@ -65,6 +65,7 @@ public class TypeSignature
     private static final String BIGINT_ENUM_PREFIX = BIGINT_ENUM.toLowerCase(ENGLISH);
     private static final Pattern ENUM_PREFIX = Pattern.compile("(varchar|bigint)enum\\(");
     private static final Pattern DISTINCT_TYPE_PREFIX = Pattern.compile("distincttype\\(");
+    private static final Pattern PARAMETRIC_TIMESTAMP_WITH_TIME_ZONE = Pattern.compile("timestamp\\((\\w+)\\) with time zone");
 
     static {
         BASE_NAME_ALIAS_TO_CANONICAL.put("int", StandardTypes.INTEGER);
@@ -227,6 +228,15 @@ public class TypeSignature
         }
         if (lowerCaseSignature.startsWith(StandardTypes.ROW + "(")) {
             return parseRowTypeSignature(signature, literalCalculationParameters);
+        }
+        if (lowerCaseSignature.startsWith(StandardTypes.TIMESTAMP + "(")) {
+            Matcher matcher = PARAMETRIC_TIMESTAMP_WITH_TIME_ZONE.matcher(lowerCaseSignature);
+            if (matcher.matches()) {
+                return new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, parsePrecisionParameter(
+                        signature,
+                        signature.substring(matcher.start(1), matcher.end(1)),
+                        literalCalculationParameters));
+            }
         }
 
         Set<Integer> enumMapStartIndices = findEnumMapStartIndices(lowerCaseSignature);
@@ -659,6 +669,15 @@ public class TypeSignature
         return TypeSignatureParameter.of(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
     }
 
+    private static TypeSignatureParameter parsePrecisionParameter(String signature, String precision, Set<String> literalCalculationParameters)
+    {
+        if (isDigit(precision.charAt(0))) {
+            return TypeSignatureParameter.of(Long.parseLong(precision));
+        }
+        checkArgument(literalCalculationParameters.contains(precision), "Bad type signature: '%s'", signature);
+        return TypeSignatureParameter.of(precision);
+    }
+
     private static TypeSignatureParameter parseTypeSignatureParameter(
             String signature,
             int begin,
@@ -717,6 +736,11 @@ public class TypeSignature
                 parameters.get(0).isLongLiteral() &&
                 parameters.get(0).getLongLiteral() == VarcharType.UNBOUNDED_LENGTH) {
             return baseString;
+        }
+
+        // SQL places the precision after TIMESTAMP, not after the full type name.
+        if (baseString.equalsIgnoreCase(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) && (parameters.size() == 1)) {
+            return format("timestamp(%s) with time zone", parameters.get(0));
         }
 
         StringBuilder typeName = new StringBuilder(baseString);

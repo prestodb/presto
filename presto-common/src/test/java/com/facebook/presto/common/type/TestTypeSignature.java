@@ -303,6 +303,24 @@ public class TestTypeSignature
     }
 
     @Test
+    public void testTimestampWithTimeZone()
+    {
+        TypeSignature precisionSix = new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeSignatureParameter.of(6L));
+        assertEquals(precisionSix.toString(), "timestamp(6) with time zone");
+        assertEquals(parseTypeSignature("timestamp(6) with time zone"), precisionSix);
+
+        assertSignature("timestamp with time zone", "timestamp with time zone", ImmutableList.of());
+        assertSignature("timestamp(0) with time zone", "timestamp with time zone", ImmutableList.of("0"));
+        assertSignature("TIMESTAMP(9) WITH TIME ZONE", "timestamp with time zone", ImmutableList.of("9"), "timestamp(9) with time zone");
+        assertSignature("array(timestamp(6) with time zone)", "array", ImmutableList.of("timestamp(6) with time zone"));
+        assertRowSignature("row(a timestamp(6) with time zone)", rowSignature(namedParameter("a", false, precisionSix)));
+        assertRowSignature("row(timestamp(6) with time zone)", rowSignature(unnamedParameter(precisionSix)));
+
+        assertTrue(parseTypeSignature("timestamp(p) with time zone", ImmutableSet.of("p")).isCalculated());
+        assertSignatureFail("timestamp(p) with time zone");
+    }
+
+    @Test
     public void testIsCalculated()
     {
         assertFalse(parseTypeSignature("bigint").isCalculated());
