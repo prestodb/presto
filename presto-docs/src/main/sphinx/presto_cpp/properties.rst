@@ -514,7 +514,7 @@ The configuration properties of AsyncDataCache and SSD cache are described here.
 * **Type:** ``integer``
 * **Default value:** ``16777216``
 
-  Min SSD savable (in-memory) cache space to start writing SSD savable cache entries into SSD cache.
+  Minimum SSD savable (in-memory) cache space to start writing SSD savable cache entries into SSD cache.
 
   The default value ``16777216`` is 16 MB.
 
@@ -743,7 +743,7 @@ environment variable which then can be accessed by providing it in the catalog p
 GFlag Properties
 ----------------
 
-Velox gflags can be set via ``config.properties`` using the ``gflag.`` prefix.
+Velox gflags can be set in ``config.properties`` using the ``gflag.`` prefix.
 The property name after the prefix uses hyphens in place of underscores in the
 original flag name. For example, the gflag ``velox_memory_num_shared_leaf_pools``
 is set as ``gflag.velox-memory-num-shared-leaf-pools``.
@@ -788,7 +788,7 @@ Enable the stacktrace for system type of VeloxException.
 * **GFlag:** ``velox_exception_user_stacktrace_rate_limit_ms``
 * **Default value:** ``0``
 
-Min time interval in milliseconds between stack traces captured in user type of
+Minimum time interval in milliseconds between stack traces captured in user type of
 VeloxException. Off when set to 0.
 
 ``gflag.velox-exception-system-stacktrace-rate-limit-ms``
@@ -797,7 +797,7 @@ VeloxException. Off when set to 0.
 * **GFlag:** ``velox_exception_system_stacktrace_rate_limit_ms``
 * **Default value:** ``0``
 
-Min time interval in milliseconds between stack traces captured in system type of
+Minimum time interval in milliseconds between stack traces captured in system type of
 VeloxException. Off when set to 0.
 
 ``gflag.avx2``
