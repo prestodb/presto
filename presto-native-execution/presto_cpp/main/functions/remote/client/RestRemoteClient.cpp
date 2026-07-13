@@ -15,7 +15,6 @@
 #include "presto_cpp/main/functions/remote/client/RestRemoteClient.h"
 
 #include <folly/Uri.h>
-#include <proxygen/lib/http/HTTPMessage.h>
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -45,8 +44,8 @@ RestRemoteClient::RestRemoteClient(const std::string& url) : url_(url) {
   auto httpClientOptions = systemConfig->httpClientOptions();
 
   if (systemConfig->httpServerHttpsEnabled()) {
-    ciphers_ = systemConfig->httpsSupportedCiphers();
-    if (ciphers_.empty()) {
+    const std::string ciphers = systemConfig->httpsSupportedCiphers();
+    if (ciphers.empty()) {
       VELOX_USER_FAIL(
           "HTTPS is enabled for remote function server but ciphers are not configured. "
           "Set 'https-supported-ciphers' in config.properties");
@@ -61,7 +60,7 @@ RestRemoteClient::RestRemoteClient(const std::string& url) : url_(url) {
 
     sslContext_ = util::createSSLContext(
         optionalClientCertPath.value(),
-        ciphers_,
+        ciphers,
         systemConfig->httpClientHttp2Enabled());
   }
 

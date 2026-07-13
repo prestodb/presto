@@ -39,7 +39,6 @@ class RestRemoteClient {
   std::shared_ptr<http::HttpClient> httpClient_;
   std::shared_ptr<velox::memory::MemoryPool> memPool_;
 
-  std::string ciphers_;
   folly::SSLContextPtr sslContext_;
 
   http::JwtOptions jwtOptions_;

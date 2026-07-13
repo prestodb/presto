@@ -33,7 +33,7 @@ public class TestPrestoContainerMtlsRemoteFunction
             throws Exception
     {
         return new ContainerQueryRunner(
-                ContainerQueryRunner.DEFAULT_COORDINATOR_HTTPS_PORT,
+                ContainerQueryRunner.DEFAULT_COORDINATOR_PORT,
                 ContainerQueryRunner.TPCH_CATALOG,
                 ContainerQueryRunner.TINY_SCHEMA,
                 ContainerQueryRunner.DEFAULT_NUMBER_OF_WORKERS,
@@ -51,5 +51,13 @@ public class TestPrestoContainerMtlsRemoteFunction
 
         assertEquals(computeActual(
                 "SELECT remote.default.mod(o_orderkey, 10) FROM orders LIMIT 5").getRowCount(), 5);
+    }
+
+    @Test
+    public void testRemoteFunctionResultWithMtlsAndJwt()
+    {
+        assertQueryWithSameQueryRunner(
+                "SELECT remote.default.sqrt(n_nationkey) FROM tpch.tiny.nation LIMIT 5",
+                "SELECT sqrt(n_nationkey) FROM tpch.tiny.nation LIMIT 5");
     }
 }

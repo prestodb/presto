@@ -148,11 +148,11 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("node-scheduler.include-coordinator", "false");
         properties.setProperty("http-server.http.port", Integer.toString(port));
         properties.setProperty("discovery-server.enabled", "true");
-        properties.setProperty("discovery.uri", "http://presto-coordinator:" + port);
+        properties.setProperty("discovery.uri", "https://presto-coordinator:" + ContainerQueryRunner.DEFAULT_COORDINATOR_HTTPS_PORT);
         properties.setProperty("list-built-in-functions-only", "false");
         properties.setProperty("native-execution-enabled", "true");
         properties.setProperty("http-server.https.enabled", "true");
-        properties.setProperty("http-server.https.port", "8443");
+        properties.setProperty("http-server.https.port", String.valueOf(ContainerQueryRunner.DEFAULT_COORDINATOR_HTTPS_PORT));
         properties.setProperty("http-server.https.keystore.path", "/opt/presto-server/certs/coordinator-keystore.jks");
         properties.setProperty("http-server.https.keystore.key", "changeit");
         properties.setProperty("http-server.https.truststore.path", "/opt/presto-server/certs/truststore.jks");

@@ -190,6 +190,7 @@ public class ContainerQueryRunner
                 .withExposedPorts(coordinatorPort);
 
         if (enableMtls) {
+            container.withExposedPorts(DEFAULT_COORDINATOR_HTTPS_PORT);
             container.withCopyFileToContainer(
                     MountableFile.forHostPath(BASE_DIR + "/testcontainers/certs"),
                     "/opt/presto-server/certs");

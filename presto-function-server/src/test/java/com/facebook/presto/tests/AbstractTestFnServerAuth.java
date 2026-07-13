@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
+import static org.testng.Assert.assertTrue;
 
 /**
  * Abstract base class for Function Server authentication tests.
@@ -115,6 +116,10 @@ public abstract class AbstractTestFnServerAuth
         catch (Exception e) {
             log.info("Expected failure occurred: %s", e.getClass().getSimpleName());
             log.info("Error message: %s", e.getMessage());
+            String message = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+            assertTrue(
+                    message.contains("ssl") || message.contains("certificate") || message.contains("handshake"),
+                    "Expected an SSL/certificate failure but got: " + e.getMessage());
             throw e;
         }
     }
@@ -135,6 +140,10 @@ public abstract class AbstractTestFnServerAuth
         catch (Exception e) {
             log.info("Expected failure occurred: %s", e.getClass().getSimpleName());
             log.info("Error message: %s", e.getMessage());
+            String message = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+            assertTrue(
+                    message.contains("401") || message.contains("unauthorized") || message.contains("jwt"),
+                    "Expected a JWT authentication failure but got: " + e.getMessage());
             throw e;
         }
     }
@@ -155,6 +164,10 @@ public abstract class AbstractTestFnServerAuth
         catch (Exception e) {
             log.info("Expected failure occurred: %s", e.getClass().getSimpleName());
             log.info("Error message: %s", e.getMessage());
+            String message = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+            assertTrue(
+                    message.contains("401") || message.contains("unauthorized") || message.contains("jwt"),
+                    "Expected a JWT authentication failure but got: " + e.getMessage());
             throw e;
         }
     }
