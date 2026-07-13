@@ -1957,8 +1957,25 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
 
   const double cpuLoadPct{cpuMon_.getCPULoadPct()};
 
-  // TODO(spershin): As 'nonHeapUsed' we could export the cache memory.
-  const int64_t nonHeapUsed{0};
+  // 'nonHeapUsed' is a JVM/GC concept and does not apply to native workers.
+  const int64_t nonHeapUsed = -1;
+
+  // In-memory AsyncDataCache footprint (evictable/reclaimable). SSD-resident
+  // bytes are excluded as they do not contribute to RAM pressure.
+  int64_t asyncDataCacheBytes = 0;
+  if (auto* cache = velox::cache::AsyncDataCache::getInstance()) {
+    const auto cacheStats = cache->refreshStats();
+    asyncDataCacheBytes = cacheStats.tinySize + cacheStats.largeSize +
+        cacheStats.tinyPadding + cacheStats.largePadding;
+  }
+
+  // Query memory (non-evictable): sum of per-query pool reservations, already
+  // aggregated per memory pool in populateMemAndCPUInfo().
+  const auto memoryInfo = **memoryInfo_.rlock();
+  int64_t queryMemoryBytes = 0;
+  for (const auto& pool : memoryInfo.pools) {
+    queryMemoryBytes += pool.second.reservedBytes;
+  }
 
   protocol::NodeStatus nodeStatus{
       nodeId_,
@@ -1968,13 +1985,15 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       getUptime(start_),
       address_,
       address_,
-      **memoryInfo_.rlock(),
+      memoryInfo,
       (int)folly::available_concurrency(),
       cpuLoadPct,
       cpuLoadPct,
       pool_ ? pool_->usedBytes() : 0,
       nodeMemoryGb * 1024 * 1024 * 1024,
-      nonHeapUsed};
+      nonHeapUsed,
+      asyncDataCacheBytes,
+      queryMemoryBytes};
 
   return nodeStatus;
 }
