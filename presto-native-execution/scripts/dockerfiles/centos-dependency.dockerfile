@@ -15,16 +15,20 @@ FROM quay.io/centos/centos:stream9
 # Set this when build arm with common flags
 # from https://github.com/facebookincubator/velox/pull/14366
 ARG ARM_BUILD_TARGET
-
-# This defaults to 12.9 but can be overridden with a build arg
 ARG CUDA_VERSION
+
+# This defaults to 13.0 but can be overridden with a build arg
+ARG CUDA_VERSION
+
+# This defaults to 1.20.1 but can be overridden with a build arg
+ARG UCX_VERSION
 
 ENV PROMPT_ALWAYS_RESPOND=y
 ENV CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 ENV ARM_BUILD_TARGET=${ARM_BUILD_TARGET}
-ENV CUDA_VERSION=${CUDA_VERSION:-12.9}
-ENV UCX_VERSION="1.19.0"
+ENV CUDA_VERSION=${CUDA_VERSION:-13.0}
+ENV UCX_VERSION=${UCX_VERSION:-1.20.1}
 
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
@@ -49,6 +53,13 @@ RUN bash -c "mkdir build && \
                  install_cuda ${CUDA_VERSION} && \
                  install_ucx) && \
     rm -rf build"
+
+# Install sccache for optional S3-backed compile caching
+# See: https://github.com/mozilla/sccache
+ARG SCCACHE_VERSION="0.13.0"
+RUN wget -q -O- "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-$(uname -m)-unknown-linux-musl.tar.gz" \
+    | tar -C /usr/bin -zf - --wildcards --strip-components=1 -x '*/sccache' && \
+    chmod +x /usr/bin/sccache
 
 # put CUDA binaries on the PATH
 ENV PATH=/usr/local/cuda/bin:${PATH}
