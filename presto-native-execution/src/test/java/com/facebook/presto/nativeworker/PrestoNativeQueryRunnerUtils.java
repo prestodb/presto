@@ -156,10 +156,13 @@ public class PrestoNativeQueryRunnerUtils
                         .put("native-execution-enabled", "true")
                         .put("http-server.http.port", "8081")
                         .build());
-                // The property "hive.allow-drop-table" needs to be set to true because security is always "legacy" in NativeQueryRunner.
+                // The properties "hive.allow-drop-table", "hive.allow-add-constraint" and "hive.allow-drop-constraint"
+                // need to be set to true because security is always "legacy" in NativeQueryRunner.
                 this.hiveProperties.putAll(ImmutableMap.<String, String>builder()
                         .putAll(getNativeWorkerHiveProperties())
                         .put("hive.allow-drop-table", "true")
+                        .put("hive.allow-add-constraint", "true")
+                        .put("hive.allow-drop-constraint", "true")
                         .build());
                 this.security = "legacy";
                 this.useExternalWorkerLauncher = true;
