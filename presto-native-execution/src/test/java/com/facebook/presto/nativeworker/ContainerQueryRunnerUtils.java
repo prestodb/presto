@@ -154,6 +154,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("discovery.uri", "https://presto-coordinator:" + ContainerQueryRunner.DEFAULT_COORDINATOR_HTTPS_PORT);
         properties.setProperty("list-built-in-functions-only", "false");
         properties.setProperty("native-execution-enabled", "true");
+        properties.setProperty("http-server.http.enabled", "false");
         properties.setProperty("http-server.https.enabled", "true");
         properties.setProperty("http-server.https.port", String.valueOf(ContainerQueryRunner.DEFAULT_COORDINATOR_HTTPS_PORT));
         properties.setProperty("http-server.https.keystore.path", "/opt/presto-server/certs/coordinator-keystore.jks");
@@ -176,14 +177,19 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
     }
 
-    public static void createRestRemoteProperties(int functionServerPort)
+    public static void createRestRemoteProperties(int functionServerPort, boolean isFnServerMtlsEnabled)
             throws IOException
     {
         Properties properties = new Properties();
         properties.setProperty("function-namespace-manager.name", "rest");
         properties.setProperty("supported-function-languages", "Java");
         properties.setProperty("function-implementation-type", "REST");
-        properties.setProperty("rest-based-function-manager.rest.url", "http://presto-remote-function-server:" + functionServerPort);
+        if (isFnServerMtlsEnabled) {
+            properties.setProperty("rest-based-function-manager.rest.url", "https://presto-remote-function-server:" + functionServerPort);
+        }
+        else {
+            properties.setProperty("rest-based-function-manager.rest.url", "http://presto-remote-function-server:" + functionServerPort);
+        }
 
         String directoryPath = "testcontainers/function-namespace";
         File directory = new File(directoryPath);
@@ -192,22 +198,6 @@ public class ContainerQueryRunnerUtils
         }
 
         createPropertiesFile("testcontainers/coordinator/etc/function-namespace/remote.properties", properties);
-    }
-
-    public static void createRestRemoteMtlsProperties(int functionServerHttpsPort)
-            throws IOException
-    {
-        Properties properties = new Properties();
-        properties.setProperty("function-namespace-manager.name", "rest");
-        properties.setProperty("supported-function-languages", "Java");
-        properties.setProperty("function-implementation-type", "REST");
-        properties.setProperty("rest-based-function-manager.rest.url",
-                "https://presto-remote-function-server:" + functionServerHttpsPort);
-
-        String directoryPath = "testcontainers/coordinator/etc/function-namespace";
-        new File(directoryPath).mkdirs();
-
-        createPropertiesFile(directoryPath + "/remote.properties", properties);
     }
 
     public static void createFunctionServerConfigProperties(int functionServerPort)

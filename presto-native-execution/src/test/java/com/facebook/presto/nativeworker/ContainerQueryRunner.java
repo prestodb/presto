@@ -66,7 +66,7 @@ public class ContainerQueryRunner
     protected static final int DEFAULT_COORDINATOR_PORT = 8080;
     protected static final int DEFAULT_COORDINATOR_HTTPS_PORT = 8443;
     protected static final int DEFAULT_FUNCTION_SERVER_PORT = 1122;
-    protected static final int DEFAULT_FUNCTION_SERVER_HTTPS_PORT = 8443;
+    protected static final int DEFAULT_FUNCTION_SERVER_HTTPS_PORT = 9443;
     protected static final String JWT_SHARED_SECRET = "supersecret";
     protected static final String TPCH_CATALOG = "tpch";
     protected static final String TINY_SCHEMA = "tiny";
@@ -169,15 +169,13 @@ public class ContainerQueryRunner
         if (enableMtls) {
             ContainerQueryRunnerUtils.createCoordinatorMtlsConfigProperties(
                     coordinatorPort, jwtSharedSecret.orElseThrow(() -> new IllegalStateException("jwtSharedSecret required for mTLS")));
-            if (enableFunctionServer) {
-                ContainerQueryRunnerUtils.createRestRemoteMtlsProperties(functionServerPort);
-            }
         }
         else {
             ContainerQueryRunnerUtils.createCoordinatorConfigProperties(coordinatorPort);
-            if (enableFunctionServer) {
-                ContainerQueryRunnerUtils.createRestRemoteProperties(functionServerPort);
-            }
+        }
+
+        if (enableFunctionServer) {
+            ContainerQueryRunnerUtils.createRestRemoteProperties(functionServerPort, enableMtls);
         }
 
         GenericContainer<?> container = new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
