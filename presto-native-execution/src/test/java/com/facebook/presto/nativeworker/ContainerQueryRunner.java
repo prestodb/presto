@@ -210,7 +210,7 @@ public class ContainerQueryRunner
 
         if (enableMtls) {
             ContainerQueryRunnerUtils.createNativeWorkerMtlsConfigPropertiesWithFnServer(
-                    coordinatorPort, functionServerPort, nodeId,
+                    DEFAULT_COORDINATOR_HTTPS_PORT, functionServerPort, nodeId,
                     jwtSharedSecret.orElseThrow(() -> new IllegalStateException("jwtSharedSecret required for mTLS")));
         }
         else {
