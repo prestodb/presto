@@ -2782,6 +2782,12 @@ public abstract class IcebergDistributedTestBase
 
             assertQuery("select snapshot_id from \"test_expire_snapshot_with_deleted_entry$snapshots\"", "values " + snapshotId1 + ", " + snapshotId2 + ", " + snapshotId3);
 
+            // Explicitly set `gc.enabled = true` to guarantee snapshot expiration works across all catalogs.
+            // Some catalogs (like Nessie) default to `false`, which would break snapshot expiration functionality.
+            table.updateProperties()
+                    .set("gc.enabled", "true")
+                    .commit();
+
             // Expire `snapshotId2` which contains a DELETED entry to delete a data file which is still referenced by `snapshotId1`
             assertUpdate(format("call iceberg.system.expire_snapshots(schema => '%s', table_name => '%s', snapshot_ids => ARRAY[%d])", "tpch", "test_expire_snapshot_with_deleted_entry", snapshotId2));
             assertQuery("select snapshot_id from \"test_expire_snapshot_with_deleted_entry$snapshots\"", "values " + snapshotId1 + ", " + snapshotId3);
