@@ -242,6 +242,7 @@ import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ThrowingClusterTtlProviderManager;
 import com.facebook.presto.ttl.nodettlfetchermanagers.ThrowingNodeTtlFetcherManager;
 import com.facebook.presto.util.FinalizerService;
+import com.facebook.presto.util.JsonObjectMapperUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -386,7 +387,8 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory)
     {
-        this(defaultSession, featuresConfig, functionsConfig, nodeSpillConfig, withInitialTransaction, alwaysRevokeMemory, new ObjectMapper());
+        this(defaultSession, featuresConfig, functionsConfig, nodeSpillConfig, withInitialTransaction, alwaysRevokeMemory,
+                JsonObjectMapperUtils.createConfiguredObjectMapper());
     }
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory, ObjectMapper objectMapper)
@@ -641,7 +643,9 @@ public class LocalQueryRunner
 
     public static LocalQueryRunner queryRunnerWithFakeNodeCountForStats(Session defaultSession, int nodeCount)
     {
-        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new FunctionsConfig(), new NodeSpillConfig(), false, false, nodeCount, new ObjectMapper(), new TaskManagerConfig().setTaskConcurrency(4));
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new FunctionsConfig(), new NodeSpillConfig(), false, false, nodeCount,
+                JsonObjectMapperUtils.createConfiguredObjectMapper(),
+                new TaskManagerConfig().setTaskConcurrency(4));
     }
 
     @Override

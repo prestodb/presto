@@ -23,6 +23,7 @@ import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.CachingPlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
+import com.facebook.presto.util.JsonObjectMapperUtils;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -52,7 +53,10 @@ public class HistoryBasedPlanStatisticsManager
         requireNonNull(objectMapper, "objectMapper is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.historyBasedStatisticsCacheManager = new HistoryBasedStatisticsCacheManager();
-        ObjectMapper newObjectMapper = objectMapper.copy().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true).configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
+        ObjectMapper newObjectMapper = objectMapper.copy()
+                .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+                .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
+        JsonObjectMapperUtils.configureObjectMapperForJacksonFix(newObjectMapper);
         this.planCanonicalInfoProvider = new CachingPlanCanonicalInfoProvider(historyBasedStatisticsCacheManager, newObjectMapper, metadata);
         this.config = requireNonNull(config, "config is null");
         this.isNativeExecution = featuresConfig.isNativeExecutionEnabled();
