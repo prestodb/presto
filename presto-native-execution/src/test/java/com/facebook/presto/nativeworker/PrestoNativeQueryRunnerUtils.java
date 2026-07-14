@@ -848,21 +848,7 @@ public class PrestoNativeQueryRunnerUtils
                             "plan-consistency-check-enabled=true%n" +
                             "system-memory-gb=4%n" +
                             "http-server.http.port=0%n", discoveryUri);
-                    // Write config file - use an ephemeral port for the worker.
-                    String configProperties = format("discovery.uri=%s%n" +
-                            "presto.version=testversion%n" +
-                            "plan-consistency-check-enabled=true%n" +
-                            "system-memory-gb=4%n" +
-                            "http-server.http.port=0%n", discoveryUri);
 
-                    if (coordinatorSidecarEnabled) {
-                        configProperties = format("%s%n" +
-                                "native-sidecar=true%n" +
-                                "presto.default-namespace=native.default%n", configProperties);
-                    }
-                    else if (builtInWorkerFunctionsEnabled) {
-                        configProperties = format("%s%nnative-sidecar=true%n", configProperties);
-                    }
                     if (coordinatorSidecarEnabled) {
                         configProperties = format("%s%n" +
                                 "native-sidecar=true%n" +
@@ -875,17 +861,7 @@ public class PrestoNativeQueryRunnerUtils
                     if (enableRuntimeMetricsCollection) {
                         configProperties = format("%s%nruntime-metrics-collection-enabled=true%n", configProperties);
                     }
-                    if (enableRuntimeMetricsCollection) {
-                        configProperties = format("%s%nruntime-metrics-collection-enabled=true%n", configProperties);
-                    }
 
-                    if (enableSsdCache) {
-                        Path ssdCacheDir = Paths.get(tempDirectoryPath + "/velox-ssd-cache");
-                        Files.createDirectories(ssdCacheDir);
-                        configProperties = format("%s%n" +
-                                "async-cache-ssd-gb=1%n" +
-                                "async-cache-ssd-path=%s/%n", configProperties, ssdCacheDir);
-                    }
                     if (enableSsdCache) {
                         Path ssdCacheDir = Paths.get(tempDirectoryPath + "/velox-ssd-cache");
                         Files.createDirectories(ssdCacheDir);
@@ -941,13 +917,7 @@ public class PrestoNativeQueryRunnerUtils
                     if (failOnNestedLoopJoin) {
                         configProperties = format("%s%nvelox-plan-validator-fail-on-nested-loop-join=true%n", configProperties);
                     }
-                    if (failOnNestedLoopJoin) {
-                        configProperties = format("%s%nvelox-plan-validator-fail-on-nested-loop-join=true%n", configProperties);
-                    }
 
-                    if (implicitCastCharNToVarchar) {
-                        configProperties = format("%s%nchar-n-to-varchar-implicit-cast=true%n", configProperties);
-                    }
                     if (implicitCastCharNToVarchar) {
                         configProperties = format("%s%nchar-n-to-varchar-implicit-cast=true%n", configProperties);
                     }
@@ -957,18 +927,7 @@ public class PrestoNativeQueryRunnerUtils
                                 "cudf.enabled=true%n" +
                                 "cudf.debug_enabled=true", configProperties);
                     }
-                    if (enableCudf) {
-                        configProperties = format("%s%n" +
-                                "cudf.enabled=true%n" +
-                                "cudf.debug_enabled=true", configProperties);
-                    }
 
-                    Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
-                    Files.write(tempDirectoryPath.resolve("node.properties"),
-                            format("node.id=%s%n" +
-                                    "node.internal-address=127.0.0.1%n" +
-                                    "node.environment=testing%n" +
-                                    "node.location=test-location", UUID.randomUUID()).getBytes());
                     Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
                     Files.write(tempDirectoryPath.resolve("node.properties"),
                             format("node.id=%s%n" +
@@ -994,35 +953,11 @@ public class PrestoNativeQueryRunnerUtils
                             format("connector.name=%s%n" +
                                     "cache.enabled=true%n" +
                                     "cache.max-cache-size=32", connectorName).getBytes());
-                    Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
-                    Files.createDirectory(catalogDirectoryPath);
-                    if (cacheMaxSize > 0) {
-                        Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
-                                format("connector.name=%s%n" +
-                                        "cache.enabled=true%n" +
-                                        "cache.max-cache-size=%s", connectorName, cacheMaxSize).getBytes());
-                    }
-                    else {
-                        Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
-                                format("connector.name=%s", connectorName).getBytes());
-                    }
-
-                    // Add catalog with caching always enabled.
-                    Files.write(catalogDirectoryPath.resolve(format("%scached.properties", catalogName)),
-                            format("connector.name=%s%n" +
-                                    "cache.enabled=true%n" +
-                                    "cache.max-cache-size=32", connectorName).getBytes());
 
                     // Add a tpch catalog.
                     Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
                             format("connector.name=tpch%n").getBytes());
-                    // Add a tpch catalog.
-                    Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
-                            format("connector.name=tpch%n").getBytes());
 
-                    // Add a tpcds catalog.
-                    Files.write(catalogDirectoryPath.resolve("tpcds.properties"),
-                            format("connector.name=tpcds%n").getBytes());
                     // Add a tpcds catalog.
                     Files.write(catalogDirectoryPath.resolve("tpcds.properties"),
                             format("connector.name=tpcds%n").getBytes());
