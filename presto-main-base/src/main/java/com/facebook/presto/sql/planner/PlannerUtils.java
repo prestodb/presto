@@ -803,6 +803,67 @@ public class PlannerUtils
         return new SpecialFormExpression(COALESCE, VARCHAR, ImmutableList.of(castToVarchar, concatExpression));
     }
 
+    /**
+     * Randomizes a null join key in its own native type: {@code COALESCE(key, randomDefault)}, where the
+     * default is a random value drawn from the hash-partition-count range so null keys spread across
+     * partitions instead of colliding on one. The key itself is never cast to VARCHAR.
+     * <p>
+     * The default is chosen to rarely collide with a real key (which only saves wasted work, not
+     * correctness): for BIGINT it is {@code -random(N)} (a negative value real ids almost never take),
+     * for DATE a pre-epoch date, and for VARCHAR the textual form of a small random number (e.g.
+     * {@code "53"}). Correctness does not depend on this: callers compare the coalesced key against the RAW
+     * other-side key and guard the join with {@code key IS NOT NULL} (as
+     * {@link com.facebook.presto.sql.planner.optimizations.RandomizeNullKeyInOuterJoin} does), so a
+     * randomized null can never match a real key or a null regardless of the random value.
+     * <p>
+     * For BIGINT/DATE the randomized key is produced in the key's own type, so it stays identical to the raw
+     * other-side key type. For VARCHAR the small random number is cast to unbounded VARCHAR (which never
+     * throws, unlike a cast to a bounded {@code varchar(n)}); the resulting key is unbounded VARCHAR, so the
+     * caller must NOT randomize VARCHAR keys in FULL joins -- FULL-join partitioning property derivation
+     * ({@code COALESCE(probe, build)}) requires the randomized key type to match the raw build key exactly.
+     *
+     * @param keyExpression the original join key expression (BIGINT, DATE, or VARCHAR)
+     * @return {@code COALESCE(key, randomDefault)} in the key's native type (unbounded VARCHAR for VARCHAR keys)
+     */
+    public static RowExpression randomizeJoinKeyNative(Session session, FunctionAndTypeManager functionAndTypeManager, RowExpression keyExpression)
+    {
+        int partitionCount = getHashPartitionCount(session);
+        RowExpression randomNumber = call(
+                functionAndTypeManager,
+                "random",
+                BIGINT,
+                constant((long) partitionCount, BIGINT));
+        // Negate so the fill is negative, which real keys rarely are -> fewer (harmless) hash collisions.
+        RowExpression negativeRandom = callOperator(functionAndTypeManager.getFunctionAndTypeResolver(), OperatorType.NEGATION, BIGINT, randomNumber);
+
+        Type keyType = keyExpression.getType();
+        RowExpression randomDefault;
+        if (keyType.equals(BIGINT)) {
+            randomDefault = negativeRandom;
+        }
+        else if (keyType.equals(DATE)) {
+            // date_add('day', -random(N), DATE '1970-01-01') -> a pre-epoch date, rarely a real key
+            randomDefault = call(
+                    functionAndTypeManager,
+                    "date_add",
+                    DATE,
+                    constant(Slices.utf8Slice("day"), VARCHAR),
+                    negativeRandom,
+                    constant(0L, DATE));
+        }
+        else if (keyType instanceof VarcharType) {
+            // Cast only the small random number to unbounded VARCHAR (e.g. "53"), never the (potentially
+            // large) key itself. Unbounded VARCHAR never overflows on cast; the caller excludes VARCHAR keys
+            // from FULL joins so the unbounded randomized key never needs to match a bounded build key.
+            randomDefault = call("CAST", functionAndTypeManager.lookupCast(CAST, BIGINT, VARCHAR), VARCHAR, randomNumber);
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported key type for native null-key randomization: " + keyType);
+        }
+        // BIGINT/DATE keep their native type; a VARCHAR key's randomized key is unbounded VARCHAR.
+        return new SpecialFormExpression(COALESCE, keyType instanceof VarcharType ? VARCHAR : keyType, ImmutableList.of(keyExpression, randomDefault));
+    }
+
     public static RowExpression getVariableHash(List<VariableReferenceExpression> inputVariables, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(!inputVariables.isEmpty());

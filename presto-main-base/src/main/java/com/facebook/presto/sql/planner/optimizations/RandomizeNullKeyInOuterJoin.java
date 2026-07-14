@@ -19,6 +19,7 @@ import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.JoinNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
@@ -42,6 +43,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -52,6 +54,8 @@ import static com.facebook.presto.SystemSessionProperties.getRandomizeOuterJoinN
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.spi.plan.JoinType.FULL;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
@@ -63,6 +67,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoin
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy.DISABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy.KEY_FROM_OUTER_JOIN;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -189,7 +194,6 @@ public class RandomizeNullKeyInOuterJoin
         private static final double NULL_BUILD_KEY_COUNT_THRESHOLD = 100_000;
         private static final double NULL_PROBE_KEY_COUNT_THRESHOLD = 100_000;
         private static final String LEFT_PREFIX = "l";
-        private static final String RIGHT_PREFIX = "r";
         private final Session session;
         private final FunctionAndTypeManager functionAndTypeManager;
         private final PlanNodeIdAllocator planNodeIdAllocator;
@@ -301,16 +305,29 @@ public class RandomizeNullKeyInOuterJoin
                     .collect(toImmutableList());
             Map<VariableReferenceExpression, RowExpression> leftKeyRandomVariableMap = generateRandomKeyMap(leftJoinKeys, LEFT_PREFIX);
 
-            List<VariableReferenceExpression> rightJoinKeys = candidateEquiJoinClauses.stream()
-                    .map(x -> x.getRight())
-                    .filter(x -> !isAlreadyRandomized(rewrittenRight, x, RIGHT_PREFIX))
-                    .collect(toImmutableList());
-            Map<VariableReferenceExpression, RowExpression> rightKeyRandomVariableMap = generateRandomKeyMap(rightJoinKeys, RIGHT_PREFIX);
+            // A VARCHAR key is randomized into an unbounded VARCHAR, so cast the raw right key to unbounded
+            // VARCHAR as well: the two join-key sides must share the exact same type for FULL-join and
+            // materialized-exchange partitioning property derivation. BIGINT/DATE keys already match natively
+            // and keep the right key raw.
+            Map<VariableReferenceExpression, VariableReferenceExpression> rightVarcharCastMap = new HashMap<>();
+            Map<VariableReferenceExpression, RowExpression> rightCastAssignments = new HashMap<>();
+            candidateEquiJoinClauses.stream()
+                    .map(EquiJoinClause::getRight)
+                    .filter(x -> x.getType() instanceof VarcharType)
+                    .distinct()
+                    .forEach(rightKey -> {
+                        RowExpression castExpression = call("CAST", functionAndTypeManager.lookupCast(CAST, rightKey.getType(), VARCHAR), VARCHAR, rightKey);
+                        VariableReferenceExpression castVariable = planVariableAllocator.newVariable(castExpression, RandomizeNullKeyInOuterJoin.class.getSimpleName());
+                        rightVarcharCastMap.put(rightKey, castVariable);
+                        rightCastAssignments.put(castVariable, castExpression);
+                    });
 
             ImmutableList.Builder<EquiJoinClause> joinClauseBuilder = ImmutableList.builder();
-            // Rewrite supported join clauses
+            // Rewrite supported clauses to `COALESCE(l.key, random) = r.key` (right key cast to VARCHAR for
+            // VARCHAR keys). Only the left key's nulls are spread; the `l.key IS NOT NULL` guard below keeps a
+            // randomized null on the left from ever matching a real or null right key.
             List<EquiJoinClause> rewrittenJoinClauses = candidateEquiJoinClauses.stream()
-                    .map(x -> new EquiJoinClause(keyToRandomKeyMap.get(LEFT_PREFIX).get(x.getLeft()), keyToRandomKeyMap.get(RIGHT_PREFIX).get(x.getRight())))
+                    .map(x -> new EquiJoinClause(keyToRandomKeyMap.get(LEFT_PREFIX).get(x.getLeft()), rightVarcharCastMap.getOrDefault(x.getRight(), x.getRight())))
                     .collect(toImmutableList());
             joinClauseBuilder.addAll(rewrittenJoinClauses);
             // Add the join clauses which are not supported back
@@ -319,38 +336,38 @@ public class RandomizeNullKeyInOuterJoin
                     .collect(toImmutableList());
             joinClauseBuilder.addAll(unchangedJoinClauses);
 
-            // If the join key is varchar, add additional null check
-            Map<VariableReferenceExpression, RowExpression> leftIsNullCheckExpression = candidateEquiJoinClauses.stream()
-                    .filter(x -> x.getLeft().getType() instanceof VarcharType).map(x -> x.getLeft()).distinct().collect(toImmutableMap(identity(), x -> specialForm(IS_NULL, BOOLEAN, x)));
-            Map<RowExpression, VariableReferenceExpression> leftIsNullCheckAssignment = leftIsNullCheckExpression.values().stream().collect(toImmutableMap(identity(), x -> planVariableAllocator.newVariable(x)));
-            Map<VariableReferenceExpression, RowExpression> rightIsNullCheckExpression = candidateEquiJoinClauses.stream()
-                    .filter(x -> x.getRight().getType() instanceof VarcharType).map(x -> x.getRight()).distinct().collect(toImmutableMap(identity(), x -> specialForm(IS_NULL, BOOLEAN, x)));
-            Map<RowExpression, VariableReferenceExpression> rightIsNullCheckAssignment = rightIsNullCheckExpression.values().stream().collect(toImmutableMap(identity(), x -> planVariableAllocator.newVariable(x)));
-
-            List<EquiJoinClause> isNullCheck = candidateEquiJoinClauses.stream()
-                    .filter(x -> x.getLeft().getType() instanceof VarcharType && x.getRight().getType() instanceof VarcharType)
-                    .map(x -> new EquiJoinClause(leftIsNullCheckAssignment.get(leftIsNullCheckExpression.get(x.getLeft())), rightIsNullCheckAssignment.get(rightIsNullCheckExpression.get(x.getRight()))))
-                    .collect(toImmutableList());
-            joinClauseBuilder.addAll(isNullCheck);
+            // Guard: `l.key IS NOT NULL`. With this guard, `COALESCE(l.key, random) = r.key` blocks a null
+            // left key from matching a null right key (random != null), a real left key from matching a null
+            // right key (l.key != null), and a randomized null on the left from colliding with a real right
+            // key -- so correctness is independent of the random value, which only spreads the left null keys
+            // across partitions.
+            ImmutableList.Builder<RowExpression> filterConjuncts = ImmutableList.builder();
+            joinNode.getFilter().ifPresent(filterConjuncts::add);
+            candidateEquiJoinClauses.stream()
+                    .map(EquiJoinClause::getLeft)
+                    .distinct()
+                    .forEach(leftKey -> filterConjuncts.add(call(functionAndTypeManager, "not", BOOLEAN, specialForm(IS_NULL, BOOLEAN, leftKey))));
+            Optional<RowExpression> newFilter = Optional.of(LogicalRowExpressions.and(filterConjuncts.build()));
 
             Assignments.Builder leftAssignments = Assignments.builder();
             leftAssignments.putAll(leftKeyRandomVariableMap);
             leftAssignments.putAll(rewrittenLeft.getOutputVariables().stream().collect(toImmutableMap(identity(), identity())));
-            leftAssignments.putAll(leftIsNullCheckAssignment.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)));
-
-            Assignments.Builder rightAssignments = Assignments.builder();
-            rightAssignments.putAll(rightKeyRandomVariableMap);
-            rightAssignments.putAll(rewrittenRight.getOutputVariables().stream().collect(toImmutableMap(identity(), identity())));
-            rightAssignments.putAll(rightIsNullCheckAssignment.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)));
-
             ProjectNode newLeft = new ProjectNode(rewrittenLeft.getSourceLocation(), planNodeIdAllocator.getNextId(), joinNode.getLeft().getStatsEquivalentPlanNode(), rewrittenLeft, leftAssignments.build(), LOCAL);
-            ProjectNode newRight = new ProjectNode(rewrittenRight.getSourceLocation(), planNodeIdAllocator.getNextId(), joinNode.getRight().getStatsEquivalentPlanNode(), rewrittenRight, rightAssignments.build(), LOCAL);
+
+            // Only add a right projection when a VARCHAR right key needs casting; otherwise keep the right raw.
+            PlanNode newRight = rewrittenRight;
+            if (!rightCastAssignments.isEmpty()) {
+                Assignments.Builder rightAssignments = Assignments.builder();
+                rightAssignments.putAll(rewrittenRight.getOutputVariables().stream().collect(toImmutableMap(identity(), identity())));
+                rightCastAssignments.forEach(rightAssignments::put);
+                newRight = new ProjectNode(rewrittenRight.getSourceLocation(), planNodeIdAllocator.getNextId(), joinNode.getRight().getStatsEquivalentPlanNode(), rewrittenRight, rightAssignments.build(), LOCAL);
+            }
+
             ImmutableList.Builder<VariableReferenceExpression> joinOutputBuilder = ImmutableList.builder();
             joinOutputBuilder.addAll(leftKeyRandomVariableMap.keySet());
             // Input from left side should be before input from right side in join output
             joinOutputBuilder.addAll(joinNode.getOutputVariables().stream().filter(x -> newLeft.getOutputVariables().contains(x)).collect(toImmutableList()));
-            joinOutputBuilder.addAll(rightKeyRandomVariableMap.keySet());
-            joinOutputBuilder.addAll(joinNode.getOutputVariables().stream().filter(x -> newRight.getOutputVariables().contains(x)).collect(toImmutableList()));
+            joinOutputBuilder.addAll(joinNode.getOutputVariables().stream().filter(x -> rewrittenRight.getOutputVariables().contains(x)).collect(toImmutableList()));
 
             planChanged = true;
             JoinNode newJoinNode = new JoinNode(
@@ -362,7 +379,7 @@ public class RandomizeNullKeyInOuterJoin
                     newRight,
                     joinClauseBuilder.build(),
                     joinOutputBuilder.build(),
-                    joinNode.getFilter(),
+                    newFilter,
                     joinNode.getLeftHashVariable(),
                     joinNode.getRightHashVariable(),
                     joinNode.getDistributionType(),
@@ -396,7 +413,7 @@ public class RandomizeNullKeyInOuterJoin
 
         private Map<VariableReferenceExpression, RowExpression> generateRandomKeyMap(List<VariableReferenceExpression> joinKeys, String prefix)
         {
-            List<RowExpression> randomExpressions = joinKeys.stream().map(x -> PlannerUtils.randomizeJoinKey(session, functionAndTypeManager, x, prefix)).collect(toImmutableList());
+            List<RowExpression> randomExpressions = joinKeys.stream().map(x -> PlannerUtils.randomizeJoinKeyNative(session, functionAndTypeManager, x)).collect(toImmutableList());
             List<VariableReferenceExpression> randomVariable = randomExpressions.stream()
                     .map(x -> planVariableAllocator.newVariable(x, RandomizeNullKeyInOuterJoin.class.getSimpleName()))
                     .collect(toImmutableList());

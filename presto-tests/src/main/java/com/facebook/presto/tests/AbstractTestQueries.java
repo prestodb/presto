@@ -6938,6 +6938,39 @@ public abstract class AbstractTestQueries
                 .build();
         String varcharJoinKey = "select t.k, t2.k, t2.v from (values 'r0', 'r1', 'r2', 'r3') t(k) left join (values (null, 1), (null, 2), (null, 3), (null, 4)) t2(k, v) on t.k = t2.k";
         assertQueryWithSameQueryRunner(enableRandomizeFourPartition, varcharJoinKey, "values ('r0', null, null), ('r1', null, null), ('r2', null, null), ('r3', null, null)");
+
+        // Native randomization correctness: spreading null join keys across partitions must never change
+        // results. Exercise a supported key type (BIGINT, DATE, VARCHAR) and each outer join type (LEFT,
+        // RIGHT, FULL), comparing optimization-enabled vs disabled with the same query runner. The joins are
+        // table-based (so the join is partitioned and the rewrite fires under a distributed runner) and one
+        // in five keys is NULL. The comparison is a GROUP BY (grouped, not global, avoiding the local-runner
+        // "final aggregation not separated" validator) and the group key is cast to VARCHAR so no compared
+        // column is a DATE (assertQueryWithSameQueryRunner cannot compare DATE-typed result columns). The
+        // join keys are non-bucket columns (custkey/orderdate/clerk, not the orderkey the TPC-H connector
+        // buckets on) so the exchange uses a system hash function -- the primary skew scenario this rewrite
+        // targets -- rather than the connector bucket function.
+        Session enableRandomizePartitioned = Session.builder(getSession())
+                .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, "true")
+                .setSystemProperty(HASH_PARTITION_COUNT, "4")
+                .setSystemProperty("join_distribution_type", "PARTITIONED")
+                .build();
+        String[] nullableKeyByType = {
+                "case when mod(orderkey, 5) = 0 then null else custkey end",    // BIGINT
+                "case when mod(orderkey, 5) = 0 then null else orderdate end",  // DATE
+                "case when mod(orderkey, 5) = 0 then null else clerk end",      // VARCHAR
+        };
+        String[] probeKeyByType = {"custkey", "orderdate", "clerk"};
+        for (int i = 0; i < nullableKeyByType.length; i++) {
+            for (String joinType : ImmutableList.of("left join", "right join", "full join")) {
+                String randomizeCorrectness = format(
+                        "select cast(t.k as varchar) gk, count(*) c, count(t2.k) m " +
+                                "from (select %s k from orders) t " +
+                                "%s (select %s k from orders) t2 on t.k = t2.k " +
+                                "group by cast(t.k as varchar)",
+                        nullableKeyByType[i], joinType, probeKeyByType[i]);
+                assertQueryWithSameQueryRunner(enableRandomizePartitioned, randomizeCorrectness, getSession());
+            }
+        }
     }
 
     @Test
