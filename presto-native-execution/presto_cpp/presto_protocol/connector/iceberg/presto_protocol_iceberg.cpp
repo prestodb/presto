@@ -1038,6 +1038,13 @@ void to_json(json& j, const IcebergDeleteTableHandle& p) {
       "IcebergDeleteTableHandle",
       "FileContent",
       "fileContent");
+  to_json_key(
+      j,
+      "existingDeletionVectors",
+      p.existingDeletionVectors,
+      "IcebergDeleteTableHandle",
+      "Map<String, DeleteFile>",
+      "existingDeletionVectors");
 }
 
 void from_json(const json& j, IcebergDeleteTableHandle& p) {
@@ -1126,6 +1133,13 @@ void from_json(const json& j, IcebergDeleteTableHandle& p) {
       "IcebergDeleteTableHandle",
       "FileContent",
       "fileContent");
+  from_json_key(
+      j,
+      "existingDeletionVectors",
+      p.existingDeletionVectors,
+      "IcebergDeleteTableHandle",
+      "Map<String, DeleteFile>",
+      "existingDeletionVectors");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -1752,6 +1766,13 @@ void to_json(json& j, const IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "List<String>",
       "insertedColumns");
+  to_json_key(
+      j,
+      "existingDeletionVectors",
+      p.existingDeletionVectors,
+      "IcebergInsertTableHandle",
+      "Map<String, DeleteFile>",
+      "existingDeletionVectors");
 }
 
 void from_json(const json& j, IcebergInsertTableHandle& p) {
@@ -1847,6 +1868,13 @@ void from_json(const json& j, IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "List<String>",
       "insertedColumns");
+  from_json_key(
+      j,
+      "existingDeletionVectors",
+      p.existingDeletionVectors,
+      "IcebergInsertTableHandle",
+      "Map<String, DeleteFile>",
+      "existingDeletionVectors");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
