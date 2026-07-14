@@ -104,6 +104,9 @@ public class ContainerQueryRunnerUtils
         Properties properties = new Properties();
         properties.setProperty("presto.version", "testversion");
         properties.setProperty("http-server.http.port", "7777");
+        properties.setProperty("http-server.https.enabled", "true");
+        properties.setProperty("http-server.http2.enabled", "false");
+        properties.setProperty("http-server.https.port", "7443");
         properties.setProperty("discovery.uri", "https://presto-coordinator:" + coordinatorHttpsPort);
         properties.setProperty("system-memory-gb", "2");
         properties.setProperty("remote-function-server.rest.url",
