@@ -230,4 +230,48 @@ public abstract class AbstractTestSchemaEvolution
             assertUpdate(format("DROP TABLE IF EXISTS %s", table));
         }
     }
+
+    // A NOT NULL constraint added via ALTER COLUMN is enforced by the engine's
+    // generic TableWriter NOT NULL check (connector-agnostic: the same mechanism
+    // Hive tables use), independent of Iceberg's own field-id schema evolution
+    // exercised by the tests above. The constraint applies only to writes that
+    // happen after it is added; it does not rewrite existing data files.
+    @Test
+    public void testAlterColumnSetNotNull()
+    {
+        String table = "schema_evolution_set_not_null";
+        try {
+            assertUpdate(format("CREATE TABLE %s (a INTEGER, b VARCHAR) WITH (format = '%s')", table, storageFormat()));
+            assertUpdate(format("INSERT INTO %s VALUES (1, '1001')", table), 1);
+
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN b SET NOT NULL", table));
+
+            assertQueryFails(format("INSERT INTO %s VALUES (2, NULL)", table), "NULL value not allowed for NOT NULL column: b");
+            assertUpdate(format("INSERT INTO %s VALUES (2, '1002')", table), 1);
+            assertQuery(format("SELECT a, b FROM %s ORDER BY a", table), "VALUES (1, '1001'), (2, '1002')");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s", table));
+        }
+    }
+
+    // Dropping a NOT NULL constraint must allow subsequent writes with NULL for
+    // that column, while leaving previously-written (non-null) data unaffected.
+    @Test
+    public void testAlterColumnDropNotNull()
+    {
+        String table = "schema_evolution_drop_not_null";
+        try {
+            assertUpdate(format("CREATE TABLE %s (a INTEGER, b VARCHAR NOT NULL) WITH (format = '%s')", table, storageFormat()));
+            assertUpdate(format("INSERT INTO %s VALUES (1, '1001')", table), 1);
+            assertQueryFails(format("INSERT INTO %s VALUES (2, NULL)", table), "NULL value not allowed for NOT NULL column: b");
+
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN b DROP NOT NULL", table));
+            assertUpdate(format("INSERT INTO %s VALUES (2, NULL)", table), 1);
+            assertQuery(format("SELECT a, b FROM %s ORDER BY a", table), "VALUES (1, '1001'), (2, NULL)");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s", table));
+        }
+    }
 }

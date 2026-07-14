@@ -1566,6 +1566,34 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
+namespace {
+// Translates notNullColumnVariables (source variable names) to the
+// corresponding target column names so the TableWriter can enforce them.
+std::vector<std::string> toNotNullColumnNames(
+    const protocol::List<protocol::VariableReferenceExpression>&
+        notNullColumnVariables,
+    const protocol::List<protocol::VariableReferenceExpression>& columns,
+    const protocol::List<protocol::String>& columnNames) {
+  std::vector<std::string> notNullColumnNames;
+  if (notNullColumnVariables.empty()) {
+    return notNullColumnNames;
+  }
+
+  std::unordered_set<std::string> notNullVarNames;
+  notNullVarNames.reserve(notNullColumnVariables.size());
+  for (const auto& var : notNullColumnVariables) {
+    notNullVarNames.insert(var.name);
+  }
+  notNullColumnNames.reserve(notNullColumnVariables.size());
+  for (size_t i = 0; i < columns.size(); ++i) {
+    if (notNullVarNames.count(columns[i].name) > 0) {
+      notNullColumnNames.push_back(columnNames[i]);
+    }
+  }
+  return notNullColumnNames;
+}
+} // namespace
+
 std::shared_ptr<const core::TableWriteNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::TableWriterNode>& node,
@@ -1619,6 +1647,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       sourceVeloxPlan,
       tableWriteInfo,
       taskId);
+
   return std::make_shared<core::TableWriteNode>(
       node->id,
       toRowType(node->columns, typeParser_),
@@ -1628,7 +1657,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->partitioningScheme != nullptr,
       outputType,
       getCommitStrategy(),
-      sourceVeloxPlan);
+      sourceVeloxPlan,
+      toNotNullColumnNames(
+          node->notNullColumnVariables, node->columns, node->columnNames));
 }
 
 std::shared_ptr<const core::TableWriteNode>
@@ -1683,7 +1714,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->partitioningScheme != nullptr,
       outputType,
       getCommitStrategy(),
-      sourceVeloxPlan);
+      sourceVeloxPlan,
+      toNotNullColumnNames(
+          node->notNullColumnVariables, node->columns, node->columnNames));
 }
 
 std::shared_ptr<const core::TableWriteNode>
@@ -1758,7 +1791,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       true, // delete only supported on partitioned tables
       outputType,
       getCommitStrategy(),
-      sourceVeloxPlan);
+      sourceVeloxPlan,
+      std::nullopt);
 }
 
 std::shared_ptr<const core::TableWriteMergeNode>
@@ -2036,7 +2070,8 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       /*hasPartitioningScheme=*/true,
       outputType,
       getCommitStrategy(),
-      renamedSource);
+      renamedSource,
+      std::nullopt);
 
   // 5. Alias TableWriteNode's Velox-mandated output names
   //    (rows/fragments/commitcontext) to whatever MergeWriterNode.outputs

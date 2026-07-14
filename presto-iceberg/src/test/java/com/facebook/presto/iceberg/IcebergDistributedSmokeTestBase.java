@@ -51,10 +51,17 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -94,6 +101,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public abstract class IcebergDistributedSmokeTestBase
         extends AbstractTestIntegrationSmokeTest
@@ -1415,6 +1423,354 @@ public abstract class IcebergDistributedSmokeTestBase
                 dropTable(session, tableName);
             }
         });
+    }
+
+    @Test
+    public void testAlterColumnNotNull()
+    {
+        String tableName = "test_alter_column_not_null_" + randomTableSuffix();
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT, c3 VARCHAR, c4 BIGINT)", tableName));
+
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
+            validateShowCreateTable(catalog, schema, tableName,
+                    ImmutableList.of(
+                            columnDefinition("c1", "bigint"),
+                            columnDefinitionNotNull("c2", "bigint"),
+                            columnDefinition("c3", "varchar"),
+                            columnDefinition("c4", "bigint")),
+                    null, null);
+
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c4 SET NOT NULL", tableName));
+            validateShowCreateTable(catalog, schema, tableName,
+                    ImmutableList.of(
+                            columnDefinition("c1", "bigint"),
+                            columnDefinitionNotNull("c2", "bigint"),
+                            columnDefinition("c3", "varchar"),
+                            columnDefinitionNotNull("c4", "bigint")),
+                    null, null);
+
+            // explicit NULL in c4
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (1, 2, 'a', NULL)", tableName),
+                    "NULL value not allowed for NOT NULL column: c4");
+            // explicit NULL in c2
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (1, NULL, 'a', 4)", tableName),
+                    "NULL value not allowed for NOT NULL column: c2");
+            // omitting a NOT NULL column also produces an implicit NULL violation
+            assertQueryFails(
+                    format("INSERT INTO %s (c1, c2, c3) VALUES (1, 2, 'a')", tableName),
+                    "NULL value not allowed for NOT NULL column: c4");
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2, 'a', 4)", tableName), 1);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testSetNotNullWithExistingNullData()
+    {
+        // Iceberg's requireColumn is a metadata-only operation: it succeeds even when existing rows
+        // contain nulls. NOT NULL is enforced only on subsequent writes.
+        String tableName = "test_set_not_null_existing_nulls_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
+
+            // SET NOT NULL succeeds despite existing null data (Iceberg schema evolution)
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
+
+            // Existing null row is still readable
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, NULL)");
+
+            // Future inserts with NULL are rejected
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (2, NULL)", tableName),
+                    "NULL value not allowed for NOT NULL column: c2");
+            assertUpdate(format("INSERT INTO %s VALUES (2, 3)", tableName), 1);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAlterColumnNotNullNegative()
+    {
+        String tableName = "test_alter_column_not_null_negative_" + randomTableSuffix();
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT NOT NULL)", tableName));
+
+            // Non-existent column
+            assertQueryFails(
+                    format("ALTER TABLE %s ALTER COLUMN nonexistent SET NOT NULL", tableName),
+                    ".*Column 'nonexistent' does not exist");
+
+            // SET NOT NULL on a column that is already NOT NULL (idempotent — schema unchanged)
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
+            validateShowCreateTable(catalog, schema, tableName,
+                    ImmutableList.of(
+                            columnDefinition("c1", "bigint"),
+                            columnDefinitionNotNull("c2", "bigint")),
+                    null, null);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testDropNotNull()
+    {
+        String tableName = "test_drop_not_null_" + randomTableSuffix();
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT NOT NULL, c3 VARCHAR NOT NULL)", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2, 'a')", tableName), 1);
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (2, NULL, 'b')", tableName),
+                    "NULL value not allowed for NOT NULL column: c2");
+
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName));
+            validateShowCreateTable(catalog, schema, tableName,
+                    ImmutableList.of(
+                            columnDefinition("c1", "bigint"),
+                            columnDefinition("c2", "bigint"),
+                            columnDefinitionNotNull("c3", "varchar")),
+                    null, null);
+
+            // c2 no longer rejects NULL, c3 still does
+            assertUpdate(format("INSERT INTO %s VALUES (2, NULL, 'b')", tableName), 1);
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (3, 4, NULL)", tableName),
+                    "NULL value not allowed for NOT NULL column: c3");
+            assertQuery(format("SELECT c1, c2, c3 FROM %s", tableName), "VALUES (1, 2, 'a'), (2, NULL, 'b')");
+
+            // DROP NOT NULL on a column that is already nullable is idempotent - schema unchanged
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName));
+            validateShowCreateTable(catalog, schema, tableName,
+                    ImmutableList.of(
+                            columnDefinition("c1", "bigint"),
+                            columnDefinition("c2", "bigint"),
+                            columnDefinitionNotNull("c3", "varchar")),
+                    null, null);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testDropNotNullNegative()
+    {
+        String tableName = "test_drop_not_null_negative_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT NOT NULL)", tableName));
+
+            assertQueryFails(
+                    format("ALTER TABLE %s ALTER COLUMN nonexistent DROP NOT NULL", tableName),
+                    ".*Column 'nonexistent' does not exist");
+
+            assertQueryFails(
+                    format("ALTER TABLE %s ALTER COLUMN \"$path\" DROP NOT NULL", tableName),
+                    ".*Cannot add/drop NOT NULL on hidden column.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testDropNotNullOnBranch()
+    {
+        String tableName = "test_drop_not_null_branch_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT NOT NULL, c2 BIGINT)", tableName));
+            assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'br1'", tableName));
+
+            assertQueryFails(
+                    format("ALTER TABLE \"%s.branch_br1\" ALTER COLUMN c1 DROP NOT NULL", tableName),
+                    ".*ALTER COLUMN DROP NOT NULL is not supported on branch-specific tables.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testSetNotNullIfExistsOnNonExistentTable()
+    {
+        String tableName = "test_set_not_null_nonexistent_" + randomTableSuffix();
+        assertUpdate(format("ALTER TABLE IF EXISTS %s ALTER COLUMN c1 SET NOT NULL", tableName));
+    }
+
+    @Test
+    public void testSetNotNullOnHiddenColumn()
+    {
+        String tableName = "test_set_not_null_hidden_col_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT)", tableName));
+            assertQueryFails(
+                    format("ALTER TABLE %s ALTER COLUMN \"$path\" SET NOT NULL", tableName),
+                    ".*Cannot add/drop NOT NULL on hidden column.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testSetNotNullOnInternalColumns()
+    {
+        // _row_id and _last_updated_sequence_number are Iceberg metadata columns exposed in
+        // getColumnHandles but absent from the user table schema. requireColumn() in Iceberg
+        // rejects them, so SET NOT NULL must fail even though they are not flagged as hidden.
+        String tableName = "test_set_not_null_internal_cols_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT)", tableName));
+            assertQueryFails(
+                    format("ALTER TABLE %s ALTER COLUMN \"_row_id\" SET NOT NULL", tableName),
+                    ".*Cannot set NOT NULL: column '_row_id' does not exist in Iceberg schema.*");
+            assertQueryFails(
+                    format("ALTER TABLE %s ALTER COLUMN \"_last_updated_sequence_number\" SET NOT NULL", tableName),
+                    ".*Cannot set NOT NULL: column '_last_updated_sequence_number' does not exist in Iceberg schema.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAlterColumnNotNullOnBranch()
+    {
+        String tableName = "test_alter_column_not_null_branch_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+            assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'br1'", tableName));
+
+            assertQueryFails(
+                    format("ALTER TABLE \"%s.branch_br1\" ALTER COLUMN c1 SET NOT NULL", tableName),
+                    ".*ALTER COLUMN SET NOT NULL is not supported on branch-specific tables.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testSetNotNullOnStructColumn()
+    {
+        // SET NOT NULL applies to the top-level struct column, not its nested fields.
+        String tableName = "test_set_not_null_struct_" + randomTableSuffix();
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        try {
+            assertUpdate(format("CREATE TABLE %s (id BIGINT, payload ROW(x BIGINT, y VARCHAR))", tableName));
+
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN payload SET NOT NULL", tableName));
+            validateShowCreateTable(catalog, schema, tableName,
+                    ImmutableList.of(
+                            columnDefinition("id", "bigint"),
+                            columnDefinitionNotNull("payload", "ROW(\"x\" bigint,\"y\" varchar)")),
+                    null, null);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testSetNotNullOnNestedStructField()
+    {
+        String tableName = "test_set_not_null_nested_struct_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (id BIGINT, payload ROW(x BIGINT, y VARCHAR))", tableName));
+            assertQueryFails(
+                    format("ALTER TABLE %s ALTER COLUMN \"payload.x\" SET NOT NULL", tableName),
+                    ".*Column 'payload\\.x' does not exist.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAlterColumnNotNullOnPartitionColumn()
+    {
+        String tableName = "test_alter_not_null_partition_col_" + randomTableSuffix();
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        try {
+            assertUpdate(format("CREATE TABLE %s (id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])", tableName));
+
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN region SET NOT NULL", tableName));
+            validateShowCreateTable(catalog, schema, tableName,
+                    ImmutableList.of(
+                            columnDefinition("id", "bigint"),
+                            columnDefinitionNotNull("region", "varchar")),
+                    null, null);
+
+            assertUpdate(format("INSERT INTO %s VALUES (1, 'us-east')", tableName), 1);
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (2, NULL)", tableName),
+                    "NULL value not allowed for NOT NULL column: region");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testConcurrentSetNotNull()
+            throws Exception
+    {
+        // Five identical SET NOT NULL statements submitted concurrently. The query runner may
+        // serialize them internally, but the test verifies idempotency: every attempt must
+        // succeed regardless of ordering, and the column must be required in the final schema.
+        String tableName = "test_concurrent_set_not_null_" + randomTableSuffix();
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+
+            int threadCount = 5;
+            ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+            List<Future<?>> futures = new ArrayList<>();
+            for (int i = 0; i < threadCount; i++) {
+                futures.add(executor.submit(() ->
+                        assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName))));
+            }
+            executor.shutdown();
+            for (Future<?> future : futures) {
+                try {
+                    future.get(60, TimeUnit.SECONDS);
+                }
+                catch (TimeoutException e) {
+                    executor.shutdownNow();
+                    fail("Timed out waiting for concurrent SET NOT NULL to finish");
+                }
+                catch (ExecutionException e) {
+                    executor.shutdownNow();
+                    throw new AssertionError(e.getCause());
+                }
+            }
+
+            validateShowCreateTable(catalog, schema, tableName,
+                    ImmutableList.of(
+                            columnDefinition("c1", "bigint"),
+                            columnDefinitionNotNull("c2", "bigint")),
+                    null, null);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test
@@ -2840,6 +3196,11 @@ public abstract class IcebergDistributedSmokeTestBase
     protected ColumnDefinition columnDefinition(String name, String type)
     {
         return new ColumnDefinition(new Identifier(name, true), type, true, ImmutableList.of(), Optional.empty());
+    }
+
+    protected ColumnDefinition columnDefinitionNotNull(String name, String type)
+    {
+        return new ColumnDefinition(new Identifier(name, true), type, false, ImmutableList.of(), Optional.empty());
     }
 
     private void validateShowCreateTableInner(String catalog, String schema, String table,
