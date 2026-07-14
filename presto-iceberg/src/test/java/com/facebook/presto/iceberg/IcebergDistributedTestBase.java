@@ -2806,6 +2806,8 @@ public abstract class IcebergDistributedTestBase
             Table table = loadTable(tableName);
             long snapshotId1 = table.currentSnapshot().snapshotId();
 
+            // Explicitly set `gc.enabled = true` to guarantee snapshot expiration works across all catalogs.
+            // Some catalogs (like Nessie) default to `false`, which would break snapshot expiration functionality.
             table.updateProperties()
                     .set("gc.enabled", "true")
                     .commit();
