@@ -28,14 +28,15 @@ int main(int argc, char* argv[]) {
   facebook::presto::util::installSignalHandler();
   folly::Init init{&argc, &argv};
 
+  PRESTO_STARTUP_LOG(INFO) << "Entering main()";
+  facebook::presto::PrestoServer presto(FLAGS_etc_dir);
+
   // Apply gflag.* properties from config.properties to Velox gflags.
   // Must be after folly::Init (which parses command-line flags) so that
   // SET_FLAG_IF_DEFAULT respects command-line overrides.
   facebook::presto::applyGFlags(
       facebook::presto::util::readConfig(FLAGS_etc_dir + "/config.properties"));
 
-  PRESTO_STARTUP_LOG(INFO) << "Entering main()";
-  facebook::presto::PrestoServer presto(FLAGS_etc_dir);
   presto.run();
   PRESTO_SHUTDOWN_LOG(INFO) << "Exiting main()";
 }
