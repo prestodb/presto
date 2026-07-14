@@ -43,7 +43,7 @@ public abstract class AbstractOrcDataSource
     private final OrcDataSourceId id;
     private final long size;
     private final DataSize maxMergeDistance;
-    private final DataSize maxBufferSize;
+        private final DataSize maxBufferSize;
     private final DataSize streamBufferSize;
     private final boolean lazyReadSmallRanges;
     private long readTimeNanos;
