@@ -270,7 +270,15 @@ public class TestAlluxioCachingFileSystem
     {
         URI badCacheDirectory = createTempDirectory("alluxio_cache_bad").toUri();
         File cacheDirectory = new File(badCacheDirectory.getPath());
-        cacheDirectory.setWritable(false);
+
+        boolean writableChanged = cacheDirectory.setWritable(false);
+
+        System.out.println("=== testSyncRestoreFailure ===");
+        System.out.println("Path          : " + cacheDirectory.getAbsolutePath());
+        System.out.println("setWritable() : " + writableChanged);
+        System.out.println("canWrite()    : " + cacheDirectory.canWrite());
+        System.out.println("exists()      : " + cacheDirectory.exists());
+
         CacheConfig cacheConfig = new CacheConfig()
                 .setCacheType(ALLUXIO)
                 .setCachingEnabled(true)
@@ -278,7 +286,11 @@ public class TestAlluxioCachingFileSystem
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig();
         Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
         try {
+            System.out.println("=== testSyncRestoreFailure ===");
+            System.out.println("setWritable() : " + writableChanged);
+            System.out.println("canWrite()    : " + cacheDirectory.canWrite());
             cachingFileSystem(configuration, cacheConfig);
+            System.out.println("cachingFileSystem() completed without exception");
         }
         finally {
             cacheDirectory.setWritable(true);
@@ -290,7 +302,15 @@ public class TestAlluxioCachingFileSystem
             throws Exception
     {
         File cacheDirectory = new File(this.cacheDirectory.getPath());
-        cacheDirectory.setWritable(false);
+
+        boolean writableChanged = cacheDirectory.setWritable(false);
+
+        System.out.println("=== testBasicReadWithAsyncRestoreFailure ===");
+        System.out.println("Path          : " + cacheDirectory.getAbsolutePath());
+        System.out.println("setWritable() : " + writableChanged);
+        System.out.println("canWrite()    : " + cacheDirectory.canWrite());
+        System.out.println("exists()      : " + cacheDirectory.exists());
+
         CacheConfig cacheConfig = new CacheConfig()
                 .setCacheType(ALLUXIO)
                 .setCachingEnabled(true)
@@ -300,7 +320,22 @@ public class TestAlluxioCachingFileSystem
         configuration.set("alluxio.user.client.cache.async.restore.enabled", String.valueOf(true));
         try {
             AlluxioCachingFileSystem fileSystem = cachingFileSystem(configuration, cacheConfig);
+
+            System.out.println(
+                    "Cache dir exists: " +
+                            new File(cacheDirectory, "LOCAL").exists());
+
+            System.out.println(
+                    "Cache dir writable: " +
+                            new File(cacheDirectory, "LOCAL").canWrite());
+
             long state = MetricsSystem.counter(MetricKey.CLIENT_CACHE_STATE.getName()).getCount();
+
+            System.out.println("Cache state: " + state);
+            System.out.println("READ_ONLY : " + CacheManager.State.READ_ONLY.getValue());
+            System.out.println("NOT_IN_USE: " + CacheManager.State.NOT_IN_USE.getValue());
+            System.out.println("canWrite after init: " + cacheDirectory.canWrite());
+
             assertTrue(state == CacheManager.State.READ_ONLY.getValue() || state == CacheManager.State.NOT_IN_USE.getValue());
             // different cases of read can still proceed even cache is read-only or not-in-use
             byte[] buffer = new byte[PAGE_SIZE * 2];
@@ -308,6 +343,19 @@ public class TestAlluxioCachingFileSystem
             // new read
             resetBaseline();
             assertEquals(readFully(fileSystem, pageOffset + 10, buffer, 0, 100), 100);
+            long readCache =
+                    MetricsSystem.meter(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE.getName()).getCount();
+
+            long readExternal =
+                    MetricsSystem.meter(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL.getName()).getCount();
+
+            long requestedExternal =
+                    MetricsSystem.meter(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL.getName()).getCount();
+
+            System.out.println("READ_CACHE          = " + readCache);
+            System.out.println("READ_EXTERNAL       = " + readExternal);
+            System.out.println("REQUESTED_EXTERNAL  = " + requestedExternal);
+            System.out.println("Baseline READ_CACHE = " + baseline.get(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE.getName()));
             checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 0);
             checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 100);
             checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, PAGE_SIZE);
