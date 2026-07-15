@@ -93,7 +93,8 @@ public final class TypeConverter
 {
     public static final String ORC_ICEBERG_ID_KEY = "iceberg.id";
     public static final String ORC_ICEBERG_REQUIRED_KEY = "iceberg.required";
-    private static final Pattern UNQUOTED_IDENTIFIER = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
+    // Unquoted SQL identifiers are normalized to lowercase, so mixed-case external names must be delimited.
+    private static final Pattern UNQUOTED_IDENTIFIER = Pattern.compile("[a-z_][a-z0-9_]*");
 
     private TypeConverter() {}
 

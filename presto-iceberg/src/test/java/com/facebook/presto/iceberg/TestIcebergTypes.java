@@ -159,6 +159,26 @@ public class TestIcebergTypes
         }
     }
 
+    @Test
+    public void testStructWithMixedCaseFieldNames()
+    {
+        String tableName = "test_mixed_case_struct";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (x ROW(\"currencyCode\" INTEGER, \"currencycode\" INTEGER))");
+            assertUpdate("INSERT INTO " + tableName + " SELECT ROW(1, 2)", 1);
+
+            assertQuery(
+                    "SELECT x.\"currencyCode\", x.\"currencycode\" FROM " + tableName,
+                    "VALUES (1, 2)");
+            assertQueryFails(
+                    "SELECT x.\"CURRENCYCODE\" FROM " + tableName,
+                    ".*Ambiguous field 'CURRENCYCODE' in type row\\(\"currencyCode\" integer, \"currencycode\" integer\\).*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     /**
      * Test for nested struct with hyphenated field names.
      * Tests deeper nesting levels with special characters.
