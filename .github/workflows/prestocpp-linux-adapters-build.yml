@@ -11,7 +11,7 @@ jobs:
   prestocpp-linux-adapters-build:
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.299-202606161331-03dfaf88
+      image: ghcr.io/czentgr/prestissimo-deps:centos9
     concurrency:
       group: ${{ github.workflow }}-prestocpp-linux-adapters-build-${{ github.event.pull_request.number }}
       cancel-in-progress: true

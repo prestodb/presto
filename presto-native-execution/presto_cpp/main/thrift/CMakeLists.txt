@@ -19,6 +19,8 @@ find_library(THRIFT_TRANSPORT transport)
 find_library(THRIFT_ASYNC async)
 find_library(THRIFT_RPC_METADATA rpcmetadata)
 find_library(THRIFT_TYPEREP thrifttyperep)
+find_library(THRIFT_TYPE thrifttype)
+find_library(THRIFT_DYNAMIC_VALUE thrift_dynamic_value)
 
 find_path(THRIFT_INCLUDES thrift/lib/cpp2/gen/module_data_h.h PATH_SUFFIXES include REQUIRED)
 
@@ -34,6 +36,8 @@ set(
   ${THRIFT_METADATA}
   ${THRIFT_CORE}
   ${THRIFT_TYPEREP}
+  ${THRIFT_TYPE}
+  ${THRIFT_DYNAMIC_VALUE}
   ${THRIFT_ASYNC}
   ${THRIFT_TRANSPORT}
   ${THRIFT_RPC_METADATA}

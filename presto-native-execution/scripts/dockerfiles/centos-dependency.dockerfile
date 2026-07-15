@@ -34,8 +34,8 @@ COPY velox/scripts /velox/scripts
 COPY velox/CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch /velox
 COPY velox/CMake/resolve_dependency_modules/arrow/arrow-testing-boost.patch /velox
 ENV VELOX_ARROW_CMAKE_PATCH="/velox/cmake-compatibility.patch /velox/arrow-testing-boost.patch"
-COPY velox/CMake/resolve_dependency_modules/fbthrift/compactv1-protocol-refiller.patch /velox
-ENV VELOX_FBTHRIFT_CMAKE_PATCH=/velox/compactv1-protocol-refiller.patch
+#COPY velox/CMake/resolve_dependency_modules/fbthrift/compactv1-protocol-refiller.patch /velox
+#ENV VELOX_FBTHRIFT_CMAKE_PATCH=/velox/compactv1-protocol-refiller.patch
 COPY CMake/arrow/arrow-flight.patch /scripts
 ENV EXTRA_ARROW_PATCH=/scripts/arrow-flight.patch
 RUN bash -c "mkdir build && \

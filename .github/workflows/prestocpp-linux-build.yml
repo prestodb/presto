@@ -31,7 +31,7 @@ jobs:
       contents: read
     needs: changes
     container:
-      image: prestodb/presto-native-dependency:0.299-202606161331-03dfaf88
+      image: ghcr.io/czentgr/prestissimo-deps:centos9
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt

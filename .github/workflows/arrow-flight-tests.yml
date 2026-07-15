@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: changes
     container:
-      image: prestodb/presto-native-dependency:0.299-202606161331-03dfaf88
+      image: ghcr.io/czentgr/prestissimo-deps:centos9
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -225,7 +225,7 @@ jobs:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.299-202606161331-03dfaf88
+      image: ghcr.io/czentgr/prestissimo-deps:centos9
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt

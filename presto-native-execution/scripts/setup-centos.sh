@@ -55,7 +55,7 @@ function install_gperf {
 
 function install_proxygen {
   wget_and_untar https://github.com/facebook/proxygen/archive/refs/tags/${FB_OS_VERSION}.tar.gz proxygen
-  cmake_install_dir proxygen -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
+  cmake_install_dir proxygen -DBUILD_SAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
 }
 
 function install_datasketches {
