@@ -93,8 +93,8 @@ public final class TypeConverter
 {
     public static final String ORC_ICEBERG_ID_KEY = "iceberg.id";
     public static final String ORC_ICEBERG_REQUIRED_KEY = "iceberg.required";
-    // Unquoted SQL identifiers are normalized to lowercase, so mixed-case external names must be delimited.
-    private static final Pattern UNQUOTED_IDENTIFIER = Pattern.compile("[a-z_][a-z0-9_]*");
+    // Unquoted SQL identifiers are normalized to lowercase, so only lowercase names preserve their case.
+    private static final Pattern CASE_PRESERVING_UNQUOTED_IDENTIFIER = Pattern.compile("[a-z_][a-z0-9_]*");
 
     private TypeConverter() {}
 
@@ -151,7 +151,7 @@ public final class TypeConverter
 
     private static boolean needsDelimiting(String name)
     {
-        return !UNQUOTED_IDENTIFIER.matcher(name).matches();
+        return !CASE_PRESERVING_UNQUOTED_IDENTIFIER.matcher(name).matches();
     }
 
     public static org.apache.iceberg.types.Type toIcebergType(
