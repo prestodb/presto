@@ -95,7 +95,7 @@ public class ContainerQueryRunnerUtils
     }
 
     public static void createNativeWorkerMtlsConfigPropertiesWithFnServer(
-            int coordinatorHttpsPort,
+            int coordinatorPort,
             int functionServerHttpsPort,
             String nodeId,
             String jwtSharedSecret)
@@ -107,7 +107,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("http-server.https.enabled", "true");
         properties.setProperty("http-server.http2.enabled", "false");
         properties.setProperty("http-server.https.port", "7443");
-        properties.setProperty("discovery.uri", "https://presto-coordinator:" + coordinatorHttpsPort);
+        properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
         properties.setProperty("system-memory-gb", "2");
         properties.setProperty("remote-function-server.rest.url",
                 "https://presto-remote-function-server:" + functionServerHttpsPort);
@@ -151,10 +151,9 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("node-scheduler.include-coordinator", "false");
         properties.setProperty("http-server.http.port", Integer.toString(port));
         properties.setProperty("discovery-server.enabled", "true");
-        properties.setProperty("discovery.uri", "https://presto-coordinator:" + ContainerQueryRunner.DEFAULT_COORDINATOR_HTTPS_PORT);
+        properties.setProperty("discovery.uri", "http://presto-coordinator:" + port);
         properties.setProperty("list-built-in-functions-only", "false");
         properties.setProperty("native-execution-enabled", "true");
-        properties.setProperty("http-server.http.enabled", "false");
         properties.setProperty("http-server.https.enabled", "true");
         properties.setProperty("http-server.https.port", String.valueOf(ContainerQueryRunner.DEFAULT_COORDINATOR_HTTPS_PORT));
         properties.setProperty("http-server.https.keystore.path", "/opt/presto-server/certs/coordinator-keystore.jks");
@@ -306,6 +305,7 @@ public class ContainerQueryRunnerUtils
     {
         String scriptContent = "#!/bin/sh\n\n" +
                 "GLOG_logtostderr=1 presto_server \\\n" +
+                "    --v=3 \\\n" +
                 "    --etc-dir=/opt/presto-server/etc\n";
         createScriptFile("testcontainers/" + nodeId + "/entrypoint.sh", scriptContent);
     }
