@@ -22,7 +22,6 @@ import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
@@ -146,6 +145,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
+import static com.facebook.presto.sql.analyzer.RowFieldNameResolver.resolveFieldIndex;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -737,18 +737,10 @@ public final class SqlToRowExpressionTranslator
             }
             RowType rowType = (RowType) baseType;
             String fieldName = node.getField().getValue();
-            List<Field> fields = rowType.getFields();
-            int index = -1;
-            for (int i = 0; i < fields.size(); i++) {
-                Field field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
-                    checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
-                    index = i;
-                }
-            }
+            int index = resolveFieldIndex(rowType, fieldName);
 
             if (sqlFunctionProperties.isLegacyRowFieldOrdinalAccessEnabled() && index < 0) {
-                OptionalInt rowIndex = parseAnonymousRowFieldOrdinalAccess(fieldName, fields);
+                OptionalInt rowIndex = parseAnonymousRowFieldOrdinalAccess(fieldName, rowType.getFields());
                 if (rowIndex.isPresent()) {
                     index = rowIndex.getAsInt();
                 }

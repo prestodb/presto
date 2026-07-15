@@ -166,6 +166,7 @@ import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessC
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.isTopMostReference;
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.isUnusedArgumentForAccessControl;
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.resolveSubfield;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDER_BY;
@@ -571,13 +572,14 @@ public class ExpressionAnalyzer
             RowType rowType = (RowType) baseType;
             String fieldName = node.getField().getValue();
 
-            Type rowFieldType = null;
-            for (RowType.Field rowField : rowType.getFields()) {
-                if (fieldName.equalsIgnoreCase(rowField.getName().orElse(null))) {
-                    rowFieldType = rowField.getType();
-                    break;
-                }
+            int rowFieldIndex;
+            try {
+                rowFieldIndex = RowFieldNameResolver.resolveFieldIndex(rowType, fieldName);
             }
+            catch (IllegalArgumentException e) {
+                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "%s", e.getMessage());
+            }
+            Type rowFieldType = rowFieldIndex < 0 ? null : rowType.getFields().get(rowFieldIndex).getType();
 
             if (sqlFunctionProperties.isLegacyRowFieldOrdinalAccessEnabled() && rowFieldType == null) {
                 OptionalInt rowIndex = parseAnonymousRowFieldOrdinalAccess(fieldName, rowType.getFields());
