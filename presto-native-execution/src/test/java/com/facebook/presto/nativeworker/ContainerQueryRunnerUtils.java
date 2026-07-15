@@ -260,6 +260,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("node.environment", "testing");
         properties.setProperty("node.location", "testing-location");
         properties.setProperty("node.data-dir", "/var/lib/presto/data");
+        properties.setProperty("node.internal-address", "presto-coordinator");
         createPropertiesFile("testcontainers/coordinator/etc/node.properties", properties);
     }
 
