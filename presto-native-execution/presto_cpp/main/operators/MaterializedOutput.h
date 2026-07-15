@@ -106,6 +106,16 @@ class MaterializedOutputNode : public velox::core::PlanNode {
 
 class MaterializedOutput : public velox::exec::Operator {
  public:
+  /// Reports the largest CompactRow payload serialized by this operator.
+  static constexpr std::string_view kMaxSerializedRowBytes =
+      "materializedOutput.maxSerializedRowBytes";
+  /// Counts rows whose one-row RowGroup would exceed the RowGroup target.
+  static constexpr std::string_view kNumRowsOverRowGroupMaxBytes =
+      "materializedOutput.numRowsOverRowGroupMaxBytes";
+  /// Reports the largest RowGroup emitted to MaterializedOutputBuffer.
+  static constexpr std::string_view kMaxRowGroupBytes =
+      "materializedOutput.maxRowGroupBytes";
+
   MaterializedOutput(
       int32_t operatorId,
       velox::exec::DriverCtx* ctx,
@@ -137,6 +147,9 @@ class MaterializedOutput : public velox::exec::Operator {
 
   // Publish buffer stats as operator runtime stats.
   void recordBufferStats();
+
+  // Track diagnostics for identifying true large-row RowGroups.
+  void updateRowSizeStats(int32_t rowSize, int64_t numRows);
 
   // Partition input, serialize into flat buffer, and flush if threshold
   // reached.
@@ -236,6 +249,12 @@ class MaterializedOutput : public velox::exec::Operator {
   // per-partition pages.
   int32_t rowCount_{0};
   int64_t flatBufferSize_{0};
+  // Largest serialized CompactRow payload seen by this operator.
+  int64_t maxSerializedRowBytes_{0};
+  // Number of input rows that cannot fit under the RowGroup byte target.
+  int64_t numRowsOverRowGroupMaxBytes_{0};
+  // Largest RowGroup emitted to the shared MaterializedOutputBuffer.
+  int64_t maxRowGroupBytes_{0};
   velox::BufferPtr flatBuffer_;
   std::vector<int64_t> rowOffsets_;
   std::vector<int32_t> rowSizes_;

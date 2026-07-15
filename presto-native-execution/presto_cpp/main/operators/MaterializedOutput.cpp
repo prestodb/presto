@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/operators/MaterializedOutput.h"
 
+#include <algorithm>
 #include <cstring>
 
 #include <folly/io/IOBuf.h>
@@ -187,6 +188,7 @@ void MaterializedOutput::serializeFixedWidthRows(
 
   rowSizes_.resize(startRow + numRows);
   std::fill(rowSizes_.begin() + startRow, rowSizes_.end(), fixedSize);
+  updateRowSizeStats(fixedSize, numRows);
 
   ensureFlatBufferCapacity(batchBytes);
 
@@ -219,6 +221,7 @@ void MaterializedOutput::serializeVariableWidthRows(
   for (vector_size_t i = 0; i < numRows; ++i) {
     const auto size = compactRow.rowSize(i);
     rowSizes_[startRow + i] = size;
+    updateRowSizeStats(size, 1);
     batchBytes += size;
   }
 
@@ -269,6 +272,15 @@ void MaterializedOutput::serializeRows(
     serializeFixedWidthRows(compactRow, numRows);
   } else {
     serializeVariableWidthRows(compactRow, numRows);
+  }
+}
+
+void MaterializedOutput::updateRowSizeStats(int32_t rowSize, int64_t numRows) {
+  maxSerializedRowBytes_ = std::max<int64_t>(maxSerializedRowBytes_, rowSize);
+  const auto rowGroupBytes = serializer::detail::RowGroupHeader::size() +
+      static_cast<int64_t>(sizeof(serializer::TRowSize)) + rowSize;
+  if (rowGroupBytes > rowGroupMaxBytes_) {
+    numRowsOverRowGroupMaxBytes_ += numRows;
   }
 }
 
@@ -408,6 +420,7 @@ void MaterializedOutput::flushRowGroup(
     rowDataBytes += sizeof(TRowSize) + rowSizes_[idx];
   }
   const int64_t totalBytes = kHeaderSize + rowDataBytes;
+  maxRowGroupBytes_ = std::max(maxRowGroupBytes_, totalBytes);
 
   auto iobuf = buffer_->allocateTrackedIOBuf(totalBytes);
   auto* dest = iobuf->writableData();
@@ -504,6 +517,17 @@ bool MaterializedOutput::isFinished() {
 }
 
 void MaterializedOutput::recordBufferStats() {
+  addRuntimeStat(
+      kMaxSerializedRowBytes,
+      velox::RuntimeCounter(
+          maxSerializedRowBytes_, velox::RuntimeCounter::Unit::kBytes));
+  addRuntimeStat(
+      kNumRowsOverRowGroupMaxBytes,
+      velox::RuntimeCounter(numRowsOverRowGroupMaxBytes_));
+  addRuntimeStat(
+      kMaxRowGroupBytes,
+      velox::RuntimeCounter(
+          maxRowGroupBytes_, velox::RuntimeCounter::Unit::kBytes));
   for (const auto& [key, metric] : buffer_->stats()) {
     addRuntimeStat(key, velox::RuntimeCounter(metric.sum, metric.unit));
   }

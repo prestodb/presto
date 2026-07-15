@@ -486,6 +486,32 @@ TEST_F(MaterializedExchangeTest, boundsCollectSizeForLargeInputBatch) {
     EXPECT_LE(collectSize, collectSizeLimit);
   }
 
+  const auto taskStats = task->taskStats();
+  const exec::OperatorStats* materializedOutputStats{nullptr};
+  for (const auto& pipelineStats : taskStats.pipelineStats) {
+    for (const auto& operatorStats : pipelineStats.operatorStats) {
+      if (operatorStats.operatorType == "MaterializedOutput") {
+        materializedOutputStats = &operatorStats;
+        break;
+      }
+    }
+  }
+  ASSERT_NE(materializedOutputStats, nullptr);
+  const auto& runtimeStats = materializedOutputStats->runtimeStats;
+  const auto maxSerializedRowBytes =
+      runtimeStats.at(std::string(MaterializedOutput::kMaxSerializedRowBytes))
+          .sum;
+  EXPECT_GT(maxSerializedRowBytes, valueBytes);
+  EXPECT_LT(maxSerializedRowBytes, collectSizeLimit);
+  EXPECT_EQ(
+      runtimeStats
+          .at(std::string(MaterializedOutput::kNumRowsOverRowGroupMaxBytes))
+          .sum,
+      0);
+  EXPECT_LE(
+      runtimeStats.at(std::string(MaterializedOutput::kMaxRowGroupBytes)).sum,
+      collectSizeLimit);
+
   auto actual = runExchangeRead(numPartitions, dataType);
   exec::test::assertEqualResults({data}, actual);
   cleanupDirectory(tempDir_->getPath());
