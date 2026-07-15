@@ -108,6 +108,22 @@ public class TestParquetPredicateUtils
     }
 
     @Test
+    public void testParquetTupleDomainPrimitiveCaseInsensitiveFallback()
+    {
+        HiveColumnHandle columnHandle = new HiveColumnHandle("mixedcase", HiveType.valueOf("bigint"), parseTypeSignature(StandardTypes.BIGINT), 0, REGULAR, Optional.empty(), Optional.empty());
+        Domain singleValueDomain = Domain.singleValue(BIGINT, 123L);
+        TupleDomain<HiveColumnHandle> domain = withColumnDomains(ImmutableMap.of(columnHandle, singleValueDomain));
+
+        MessageType fileSchema = new MessageType("hive_schema", new PrimitiveType(OPTIONAL, INT64, "MixedCase"));
+        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(getDescriptors(fileSchema, fileSchema), domain);
+
+        assertEquals(tupleDomain.getDomains().get().size(), 1);
+        ColumnDescriptor descriptor = tupleDomain.getDomains().get().keySet().iterator().next();
+        assertEquals(descriptor.getPath(), new String[] {"MixedCase"});
+        assertEquals(Iterables.getOnlyElement(tupleDomain.getDomains().get().values()), singleValueDomain);
+    }
+
+    @Test
     public void testParquetTupleDomainStruct()
     {
         HiveColumnHandle columnHandle = new HiveColumnHandle("my_struct", HiveType.valueOf("struct<a:int,b:int>"), parseTypeSignature(StandardTypes.ROW), 0, REGULAR, Optional.empty(), Optional.empty());

@@ -72,7 +72,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -314,10 +313,7 @@ public final class MetadataReader
 
     private static ColumnPath getPath(ColumnMetaData metaData)
     {
-        String[] path = metaData.path_in_schema.stream()
-                .map(value -> value.toLowerCase(Locale.ENGLISH))
-                .toArray(String[]::new);
-        return ColumnPath.get(path);
+        return ColumnPath.get(metaData.path_in_schema.toArray(new String[0]));
     }
 
     private static void verifyFooterIntegrity(BasicSliceInput from, InternalFileDecryptor fileDecryptor, int combinedFooterLength)
@@ -385,7 +381,7 @@ public final class MetadataReader
             if (element.isSetField_id()) {
                 typeBuilder.id(element.field_id);
             }
-            typeBuilder.named(element.name.toLowerCase(Locale.ENGLISH));
+            typeBuilder.named(element.name);
         }
     }
 

@@ -109,11 +109,9 @@ public final class ParquetTypeUtils
     public static Map<List<String>, RichColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
     {
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = new HashMap<>();
-        List<PrimitiveColumnIO> columns = getColumns(fileSchema, requestedSchema);
-        for (String[] paths : fileSchema.getPaths()) {
-            List<String> columnPath = Arrays.asList(paths);
-            getDescriptor(columns, columnPath)
-                    .ifPresent(richColumnDescriptor -> descriptorsByPath.put(columnPath, richColumnDescriptor));
+        for (PrimitiveColumnIO columnIO : getColumns(fileSchema, requestedSchema)) {
+            RichColumnDescriptor descriptor = new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
+            descriptorsByPath.put(Arrays.asList(descriptor.getPath()), descriptor);
         }
         return descriptorsByPath;
     }
@@ -152,6 +150,42 @@ public final class ParquetTypeUtils
             }
         }
         return index;
+    }
+
+    /**
+     * Looks up a physical Parquet column path without discarding its case.
+     * An ambiguous case-insensitive match is not safe for predicate pushdown, so it is treated as absent.
+     */
+    public static RichColumnDescriptor lookupDescriptor(Map<List<String>, RichColumnDescriptor> descriptorsByPath, List<String> path)
+    {
+        RichColumnDescriptor descriptor = descriptorsByPath.get(path);
+        if (descriptor != null) {
+            return descriptor;
+        }
+
+        RichColumnDescriptor caseInsensitiveMatch = null;
+        for (Map.Entry<List<String>, RichColumnDescriptor> entry : descriptorsByPath.entrySet()) {
+            if (pathsMatch(entry.getKey(), path)) {
+                if (caseInsensitiveMatch != null) {
+                    return null;
+                }
+                caseInsensitiveMatch = entry.getValue();
+            }
+        }
+        return caseInsensitiveMatch;
+    }
+
+    private static boolean pathsMatch(List<String> left, List<String> right)
+    {
+        if (left.size() != right.size()) {
+            return false;
+        }
+        for (int index = 0; index < left.size(); index++) {
+            if (!left.get(index).equalsIgnoreCase(right.get(index))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static int getFieldIndex(MessageType fileSchema, String name)

@@ -99,6 +99,7 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getSubfieldType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
+import static com.facebook.presto.parquet.ParquetTypeUtils.lookupDescriptor;
 import static com.facebook.presto.parquet.ParquetTypeUtils.nestedColumnPath;
 import static com.facebook.presto.parquet.cache.MetadataReader.findFirstNonHiddenColumnId;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
@@ -369,10 +370,10 @@ public class DeltaPageSourceProvider
             if (isPushedDownSubfield(columnHandle)) {
                 Subfield pushedDownSubfield = getPushedDownSubfield(columnHandle);
                 List<String> subfieldPath = columnPathFromSubfield(pushedDownSubfield);
-                descriptor = descriptorsByPath.get(subfieldPath);
+                descriptor = lookupDescriptor(descriptorsByPath, subfieldPath);
             }
             else {
-                descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getSourceName()));
+                descriptor = lookupDescriptor(descriptorsByPath, ImmutableList.of(columnHandle.getSourceName()));
             }
 
             if (descriptor != null) {

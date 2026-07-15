@@ -25,7 +25,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
@@ -63,7 +62,7 @@ public class ColumnIOConverter
             boolean structHasParameters = false;
             for (int i = 0; i < fields.size(); i++) {
                 NamedTypeSignature namedTypeSignature = fields.get(i).getNamedTypeSignature();
-                String name = namedTypeSignature.getName().get().toLowerCase(Locale.ENGLISH);
+                String name = namedTypeSignature.getName().get();
                 Optional<Field> field = constructField(parameters.get(i), lookupColumnByName(groupColumnIO, name));
                 structHasParameters |= field.isPresent();
                 fieldsBuilder.add(field);
