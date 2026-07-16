@@ -26,8 +26,6 @@ import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -66,8 +64,6 @@ public class TestCassandraIntegrationSmokeTest
     private static final Session SESSION = createCassandraSession(KEYSPACE);
 
     private static final ZonedDateTime TIMESTAMP_VALUE = ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.of("UTC"));
-    private static final Timestamp DATE_TIME_LOCAL = Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 3, 4, 5, 0));
-    private static final LocalDateTime TIMESTAMP_LOCAL = LocalDateTime.of(1969, 12, 31, 23, 4, 5); // TODO #7122 should match DATE_TIME_LOCAL
 
     private CassandraSession session;
 
