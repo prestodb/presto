@@ -41,41 +41,35 @@ public final class RowFieldNameResolver
         requireNonNull(rowType, "rowType is null");
         requireNonNull(fieldName, "fieldName is null");
 
-        int exactMatch = -1;
-        boolean exactMatchIsAmbiguous = false;
-        int caseInsensitiveMatch = -1;
-        boolean caseInsensitiveMatchIsAmbiguous = false;
-
         List<RowType.Field> fields = rowType.getFields();
+
+        int exactMatch = -1;
         for (int index = 0; index < fields.size(); index++) {
-            String candidateName = fields.get(index).getName().orElse(null);
-            if (candidateName == null || !fieldName.equalsIgnoreCase(candidateName)) {
-                continue;
-            }
-
-            if (caseInsensitiveMatch >= 0) {
-                caseInsensitiveMatchIsAmbiguous = true;
-            }
-            else {
-                caseInsensitiveMatch = index;
-            }
-
-            if (fieldName.equals(candidateName)) {
+            if (fieldName.equals(fields.get(index).getName().orElse(null))) {
                 if (exactMatch >= 0) {
-                    exactMatchIsAmbiguous = true;
+                    throw ambiguousField(fieldName, rowType);
                 }
-                else {
-                    exactMatch = index;
-                }
+                exactMatch = index;
             }
-        }
-
-        if (exactMatchIsAmbiguous || (exactMatch < 0 && caseInsensitiveMatchIsAmbiguous)) {
-            throw new IllegalArgumentException(format("Ambiguous field '%s' in type %s", fieldName, rowType.getDisplayName()));
         }
         if (exactMatch >= 0) {
             return exactMatch;
         }
+
+        int caseInsensitiveMatch = -1;
+        for (int index = 0; index < fields.size(); index++) {
+            if (fieldName.equalsIgnoreCase(fields.get(index).getName().orElse(null))) {
+                if (caseInsensitiveMatch >= 0) {
+                    throw ambiguousField(fieldName, rowType);
+                }
+                caseInsensitiveMatch = index;
+            }
+        }
         return caseInsensitiveMatch;
+    }
+
+    private static IllegalArgumentException ambiguousField(String fieldName, RowType rowType)
+    {
+        return new IllegalArgumentException(format("Ambiguous field '%s' in type %s", fieldName, rowType.getDisplayName()));
     }
 }
