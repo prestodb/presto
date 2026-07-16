@@ -53,6 +53,11 @@ public class TestSqlToRowExpressionTranslator
         SemanticException ambiguousFallback = expectThrows(SemanticException.class, () -> translator.translate("x.\"CURRENCYCODE\"", types));
         assertEquals(ambiguousFallback.getCode(), AMBIGUOUS_ATTRIBUTE);
 
+        for (String fieldName : ImmutableList.of("currencyCode", "currencycode", "CURRENCYCODE")) {
+            SemanticException ambiguousUnquoted = expectThrows(SemanticException.class, () -> translator.translate("x." + fieldName, types));
+            assertEquals(ambiguousUnquoted.getCode(), AMBIGUOUS_ATTRIBUTE);
+        }
+
         RowType duplicateExactNames = RowType.from(ImmutableList.of(
                 RowType.field("currencyCode", VARCHAR),
                 RowType.field("currencyCode", BIGINT)));

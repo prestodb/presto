@@ -23,37 +23,39 @@ import static java.util.Objects.requireNonNull;
 /**
  * Keeps row-field resolution consistent across analysis, interpretation, and row-expression translation.
  *
- * <p>The "prefer the exact-case field, fall back to a unique case-insensitive match, otherwise ambiguous" policy
- * used here is mirrored for physical Parquet paths by {@code ParquetTypeUtils.lookupDescriptor}. The two cannot
- * share code because {@code presto-main-base} and {@code presto-parquet} must not depend on each other, so keep
- * the two implementations in sync when the policy changes.
+ * <p>Delimited identifiers prefer an exact-case field before falling back to a unique case-insensitive match.
+ * Unquoted identifiers use only case-insensitive matching. The delimited-identifier policy is mirrored for
+ * physical Parquet paths by {@code ParquetTypeUtils.lookupDescriptor}. The two cannot share code because
+ * {@code presto-main-base} and {@code presto-parquet} must not depend on each other.
  */
 public final class RowFieldNameResolver
 {
     private RowFieldNameResolver() {}
 
     /**
-     * Resolves a row field by preferring its original spelling while retaining the existing
+     * Resolves a row field, optionally preferring its original spelling, while retaining
      * case-insensitive behavior when there is a single compatible field.
      */
-    public static int resolveFieldIndex(RowType rowType, String fieldName)
+    public static int resolveFieldIndex(RowType rowType, String fieldName, boolean preferExactMatch)
     {
         requireNonNull(rowType, "rowType is null");
         requireNonNull(fieldName, "fieldName is null");
 
         List<RowType.Field> fields = rowType.getFields();
 
-        int exactMatch = -1;
-        for (int index = 0; index < fields.size(); index++) {
-            if (fieldName.equals(fields.get(index).getName().orElse(null))) {
-                if (exactMatch >= 0) {
-                    throw ambiguousField(fieldName, rowType);
+        if (preferExactMatch) {
+            int exactMatch = -1;
+            for (int index = 0; index < fields.size(); index++) {
+                if (fieldName.equals(fields.get(index).getName().orElse(null))) {
+                    if (exactMatch >= 0) {
+                        throw ambiguousField(fieldName, rowType);
+                    }
+                    exactMatch = index;
                 }
-                exactMatch = index;
             }
-        }
-        if (exactMatch >= 0) {
-            return exactMatch;
+            if (exactMatch >= 0) {
+                return exactMatch;
+            }
         }
 
         int caseInsensitiveMatch = -1;

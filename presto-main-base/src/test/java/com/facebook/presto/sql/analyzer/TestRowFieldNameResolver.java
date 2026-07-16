@@ -32,8 +32,8 @@ public class TestRowFieldNameResolver
                 RowType.field("currencyCode", VARCHAR),
                 RowType.field("currencycode", BIGINT)));
 
-        assertEquals(resolveFieldIndex(rowType, "currencyCode"), 0);
-        assertEquals(resolveFieldIndex(rowType, "currencycode"), 1);
+        assertEquals(resolveFieldIndex(rowType, "currencyCode", true), 0);
+        assertEquals(resolveFieldIndex(rowType, "currencycode", true), 1);
     }
 
     @Test
@@ -41,7 +41,8 @@ public class TestRowFieldNameResolver
     {
         RowType rowType = RowType.from(ImmutableList.of(RowType.field("currencyCode", VARCHAR)));
 
-        assertEquals(resolveFieldIndex(rowType, "CURRENCYCODE"), 0);
+        assertEquals(resolveFieldIndex(rowType, "CURRENCYCODE", true), 0);
+        assertEquals(resolveFieldIndex(rowType, "CURRENCYCODE", false), 0);
     }
 
     @Test
@@ -51,7 +52,9 @@ public class TestRowFieldNameResolver
                 RowType.field("currencyCode", VARCHAR),
                 RowType.field("currencycode", BIGINT)));
 
-        assertThrows(IllegalArgumentException.class, () -> resolveFieldIndex(rowType, "CURRENCYCODE"));
+        assertThrows(IllegalArgumentException.class, () -> resolveFieldIndex(rowType, "CURRENCYCODE", true));
+        assertThrows(IllegalArgumentException.class, () -> resolveFieldIndex(rowType, "currencyCode", false));
+        assertThrows(IllegalArgumentException.class, () -> resolveFieldIndex(rowType, "currencycode", false));
     }
 
     @Test
@@ -61,7 +64,7 @@ public class TestRowFieldNameResolver
                 RowType.field("currencyCode", VARCHAR),
                 RowType.field("currencyCode", BIGINT)));
 
-        assertThrows(IllegalArgumentException.class, () -> resolveFieldIndex(rowType, "currencyCode"));
+        assertThrows(IllegalArgumentException.class, () -> resolveFieldIndex(rowType, "currencyCode", true));
     }
 
     @Test
@@ -69,6 +72,7 @@ public class TestRowFieldNameResolver
     {
         RowType rowType = RowType.from(ImmutableList.of(RowType.field("currencyCode", VARCHAR)));
 
-        assertEquals(resolveFieldIndex(rowType, "missing"), -1);
+        assertEquals(resolveFieldIndex(rowType, "missing", true), -1);
+        assertEquals(resolveFieldIndex(rowType, "missing", false), -1);
     }
 }

@@ -574,7 +574,7 @@ public class ExpressionAnalyzer
 
             int rowFieldIndex;
             try {
-                rowFieldIndex = RowFieldNameResolver.resolveFieldIndex(rowType, fieldName);
+                rowFieldIndex = RowFieldNameResolver.resolveFieldIndex(rowType, fieldName, node.getField().isDelimited());
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "%s", e.getMessage());

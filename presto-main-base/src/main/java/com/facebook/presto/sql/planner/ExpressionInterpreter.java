@@ -326,7 +326,7 @@ public class ExpressionInterpreter
 
             RowType rowType = (RowType) type;
             String fieldName = node.getField().getValue();
-            int index = resolveFieldIndex(rowType, fieldName);
+            int index = resolveFieldIndex(rowType, fieldName, node.getField().isDelimited());
 
             if (legacyRowFieldOrdinalAccess && index < 0) {
                 OptionalInt rowIndex = parseAnonymousRowFieldOrdinalAccess(fieldName, rowType.getFields());
