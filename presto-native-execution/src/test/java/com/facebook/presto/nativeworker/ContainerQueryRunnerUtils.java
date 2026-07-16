@@ -292,7 +292,7 @@ public class ContainerQueryRunnerUtils
         String scriptContent = "#!/bin/sh\n" +
                 "set -e\n" +
                 "trap 'kill -TERM $app 2>/dev/null' TERM\n" +
-                "java -Dconfig=/opt/function-server/etc/config.properties " +
+                "java -Djavax.net.debug=ssl,handshake -Dconfig=/opt/function-server/etc/config.properties " +
                 "-jar /opt/presto-remote-function-server &\n" +
                 "app=$!\n" +
                 "wait $app\n";
