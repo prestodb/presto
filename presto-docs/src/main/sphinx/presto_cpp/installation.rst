@@ -226,6 +226,10 @@ Create a ``docker-compose.yml`` file in the ``~/presto-lab`` directory to orches
 
    **arm64 only:** The pre-built ``presto-native`` image is built with ``-march=armv8-a+crc+crypto`` for broad compatibility (AWS Graviton, Apple M1, and newer). It is suitable for getting started, but leaves CPU-specific optimisations on the table. For production use, build a custom image with ``-march=native``.
 
+.. note::
+
+   To track the latest unreleased changes, use the nightly builds instead of the release images: set the coordinator image to ``public.ecr.aws/oss-presto/presto:latest`` and the worker images to ``public.ecr.aws/oss-presto/presto-native:latest``. The nightly coordinator image (``presto``) is multi-arch, but the nightly worker image (``presto-native``) is published for ``linux/amd64`` only, so on an arm64 host (e.g. Apple Silicon, AWS Graviton) add ``platform: linux/amd64`` to the native worker services (``worker-1``, ``worker-2``) to run them under emulation.
+
 
 Start the Cluster and Verify
 ----------------------------
