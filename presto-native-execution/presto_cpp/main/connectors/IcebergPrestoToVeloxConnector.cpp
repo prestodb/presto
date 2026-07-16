@@ -680,7 +680,9 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
       writeKind,
       toExistingDeletionVectors(
-          icebergDeleteTableHandle->existingDeletionVectors));
+          icebergDeleteTableHandle->existingDeletionVectors
+              ? *icebergDeleteTableHandle->existingDeletionVectors
+              : std::map<std::string, protocol::iceberg::DeleteFile>{}));
 }
 
 std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
