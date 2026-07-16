@@ -24,6 +24,7 @@
 #include "velox/connectors/hive/iceberg/IcebergFieldMetadata.h"
 #include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
+#include "velox/connectors/hive/iceberg/IcebergTableHandle.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
 namespace facebook::presto {
@@ -176,14 +177,24 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     finalDataColumns = ROW(std::move(names), std::move(types));
   }
 
-  return std::make_unique<velox::connector::hive::HiveTableHandle>(
+  std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
+      icebergColumnHandles;
+  icebergColumnHandles.reserve(columnHandles.size());
+  for (const auto& h : columnHandles) {
+    icebergColumnHandles.emplace_back(
+        std::dynamic_pointer_cast<
+            const velox::connector::hive::iceberg::IcebergColumnHandle>(h));
+  }
+
+  return std::make_unique<velox::connector::hive::iceberg::IcebergTableHandle>(
       tableHandle.connectorId,
       tableName,
       std::move(subfieldFilters),
       remainingFilter,
       finalDataColumns,
-      std::unordered_map<std::string, std::string>{},
-      columnHandles);
+      /*indexColumns=*/std::vector<std::string>{},
+      /*tableParameters=*/std::unordered_map<std::string, std::string>{},
+      std::move(icebergColumnHandles));
 }
 
 velox::connector::hive::iceberg::IcebergPartitionSpec::Field
