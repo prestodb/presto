@@ -221,6 +221,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("http-server.https.keystore.key", "changeit");
         properties.setProperty("http-server.https.truststore.path", "/opt/function-server/certs/truststore.jks");
         properties.setProperty("http-server.https.truststore.key", "changeit");
+        properties.setProperty("http-server.https.sni-host-check", "false");
         properties.setProperty("internal-communication.jwt.enabled", "true");
         properties.setProperty("internal-communication.shared-secret", jwtSharedSecret);
         properties.setProperty("regex-library", "RE2J");
