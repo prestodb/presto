@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.hive.HiveCommonSessionProperties.PARQUET_BATCH_READ_OPTIMIZATION_ENABLED;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -162,9 +163,16 @@ public class TestIcebergTypes
     @Test
     public void testStructWithMixedCaseFieldNames()
     {
-        String tableName = "test_mixed_case_struct";
+        assertStructWithMixedCaseFieldNames("PARQUET");
+        assertStructWithMixedCaseFieldNames("ORC");
+    }
+
+    private void assertStructWithMixedCaseFieldNames(String fileFormat)
+    {
+        String tableName = "test_mixed_case_struct_" + fileFormat.toLowerCase(ENGLISH);
         try {
-            assertUpdate("CREATE TABLE " + tableName + " (x ROW(\"currencyCode\" INTEGER, \"currencycode\" INTEGER))");
+            assertUpdate("CREATE TABLE " + tableName + " (x ROW(\"currencyCode\" INTEGER, \"currencycode\" INTEGER)) " +
+                    "WITH (\"write.format.default\" = '" + fileFormat + "')");
             assertUpdate("INSERT INTO " + tableName + " SELECT ROW(1, 2)", 1);
 
             assertQuery(

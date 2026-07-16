@@ -29,7 +29,6 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
 import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
@@ -39,12 +38,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.BatchStreamReaders.createStreamReader;
+import static com.facebook.presto.orc.reader.ReaderUtils.resolveField;
 import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -79,17 +78,14 @@ public class StructBatchStreamReader
         this.type = (RowType) type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
 
-        Map<String, StreamDescriptor> nestedStreams = Maps.uniqueIndex(
-                streamDescriptor.getNestedStreams(), stream -> stream.getFieldName().toLowerCase(Locale.ENGLISH));
         ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
         ImmutableMap.Builder<String, BatchStreamReader> structFields = ImmutableMap.builder();
         for (Field field : this.type.getFields()) {
             String fieldName = field.getName()
-                    .orElseThrow(() -> new IllegalArgumentException("ROW type does not have field names declared: " + type))
-                    .toLowerCase(Locale.ENGLISH);
+                    .orElseThrow(() -> new IllegalArgumentException("ROW type does not have field names declared: " + type));
             fieldNames.add(fieldName);
 
-            StreamDescriptor fieldStream = nestedStreams.get(fieldName);
+            StreamDescriptor fieldStream = resolveField(streamDescriptor.getNestedStreams(), StreamDescriptor::getFieldName, fieldName);
             if (fieldStream != null) {
                 structFields.put(fieldName, createStreamReader(field.getType(), fieldStream, hiveStorageTimeZone, options, systemMemoryContext));
             }

@@ -157,6 +157,35 @@ public class TestStructBatchStreamReader
         assertEquals(actual.get(2), "fieldCValue");
     }
 
+    @Test
+    public void testCaseSensitiveFieldNamesAreResolvedExactly()
+            throws IOException
+    {
+        Type readerType = getType(ImmutableList.of("currencyCode", "currencycode"));
+        Type writerType = getType(ImmutableList.of("currencyCode", "currencycode"));
+
+        write(tempFile, writerType, ImmutableList.of("mixedCaseValue", "lowerCaseValue"));
+        RowBlock readBlock = read(tempFile, readerType);
+        List actual = (List) readerType.getObjectValue(SESSION.getSqlFunctionProperties(), readBlock, 0);
+
+        assertEquals(actual, ImmutableList.of("mixedCaseValue", "lowerCaseValue"));
+    }
+
+    @Test
+    public void testAmbiguousCaseInsensitiveFieldIsMissing()
+            throws IOException
+    {
+        Type readerType = getType(ImmutableList.of("CURRENCYCODE"));
+        Type writerType = getType(ImmutableList.of("currencyCode", "currencycode"));
+
+        write(tempFile, writerType, ImmutableList.of("mixedCaseValue", "lowerCaseValue"));
+        RowBlock readBlock = read(tempFile, readerType);
+        List actual = (List) readerType.getObjectValue(SESSION.getSqlFunctionProperties(), readBlock, 0);
+
+        assertEquals(actual.size(), 1);
+        assertNull(actual.get(0));
+    }
+
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp =
             "ROW type does not have field names declared: row\\(varchar,varchar,varchar\\)")
     public void testThrowsExceptionWhenFieldNameMissing()

@@ -15,7 +15,9 @@ package com.facebook.presto.parquet;
 
 import com.facebook.presto.common.type.RowType;
 import com.google.common.collect.ImmutableList;
+import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.Types;
 import org.testng.annotations.Test;
@@ -27,6 +29,8 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
+import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
+import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupDescriptor;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.stringType;
@@ -103,5 +107,20 @@ public class TestParquetTypeUtils
         PrimitiveField lowerCaseField = (PrimitiveField) field.getChildren().get(1).get();
         assertEquals(upperCaseField.getDescriptor().getPrimitiveType().getPrimitiveTypeName(), BINARY);
         assertEquals(lowerCaseField.getDescriptor().getPrimitiveType().getPrimitiveTypeName(), INT64);
+    }
+
+    @Test
+    public void testPhysicalFieldLookupRejectsAmbiguousCaseInsensitiveMatch()
+    {
+        GroupType responseBody = CASE_SENSITIVE_SCHEMA.getType("response_body").asGroupType();
+        GroupColumnIO responseBodyColumnIO = (GroupColumnIO) getColumnIO(CASE_SENSITIVE_SCHEMA, CASE_SENSITIVE_SCHEMA).getChild("response_body");
+
+        assertEquals(getParquetTypeByName("Status", responseBody).getName(), "Status");
+        assertEquals(lookupColumnByName(responseBodyColumnIO, "status").getName(), "status");
+        assertNull(getParquetTypeByName("STATUS", responseBody));
+        assertNull(lookupColumnByName(responseBodyColumnIO, "STATUS"));
+
+        RowType ambiguousFallbackRowType = RowType.from(ImmutableList.of(RowType.field("STATUS", VARCHAR)));
+        assertFalse(constructField(ambiguousFallbackRowType, responseBodyColumnIO).isPresent());
     }
 }

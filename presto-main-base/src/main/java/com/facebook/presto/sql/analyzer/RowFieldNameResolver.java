@@ -22,6 +22,11 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Keeps row-field resolution consistent across analysis, interpretation, and row-expression translation.
+ *
+ * <p>The "prefer the exact-case field, fall back to a unique case-insensitive match, otherwise ambiguous" policy
+ * used here is mirrored for physical Parquet paths by {@code ParquetTypeUtils.lookupDescriptor}. The two cannot
+ * share code because {@code presto-main-base} and {@code presto-parquet} must not depend on each other, so keep
+ * the two implementations in sync when the policy changes.
  */
 public final class RowFieldNameResolver
 {
