@@ -596,30 +596,35 @@ public class ElasticsearchClient
     public String executeQuery(String index, String query)
     {
         String path = format("/%s/_search", index);
-
         Response response;
         try {
             response = performRequest(
-                            "GET",
-                            path,
-                            ImmutableMap.of(),
-                            new ByteArrayEntity(query.getBytes(UTF_8), ContentType.APPLICATION_JSON),
-                            client,
-                            new BasicHeader("Content-Type", "application/json"),
-                            new BasicHeader("Accept-Encoding", "application/json"));
+                    "GET",
+                    path,
+                    ImmutableMap.of(),
+                    new ByteArrayEntity(query.getBytes(UTF_8), ContentType.APPLICATION_JSON),
+                    client,
+                    new BasicHeader("Content-Type", "application/json"),
+                    new BasicHeader("Accept-Encoding", "identity"));
         }
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
-
         String body;
         try {
-            body = EntityUtils.toString(response.getEntity());
+            byte[] rawBytes = EntityUtils.toByteArray(response.getEntity());
+            if (isGzipped(rawBytes)) {
+                try (GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(rawBytes))) {
+                    body = new String(gis.readAllBytes(), StandardCharsets.UTF_8);
+                }
+            }
+            else {
+                body = new String(rawBytes, StandardCharsets.UTF_8);
+            }
         }
-        catch (IOException | ParseException e) {
+        catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
         }
-
         return body;
     }
 
