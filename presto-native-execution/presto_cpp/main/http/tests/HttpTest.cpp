@@ -22,8 +22,8 @@ void echoHost(
     proxygen::HTTPMessage* message,
     std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
     proxygen::ResponseHandler* downstream) {
-  const auto& host = message->getHeaders().getSingleOrEmpty(
-      proxygen::HTTP_HEADER_HOST);
+  const auto& host =
+      message->getHeaders().getSingleOrEmpty(proxygen::HTTP_HEADER_HOST);
   proxygen::ResponseBuilder(downstream)
       .status(facebook::presto::http::kHttpOk, "")
       .body(host)
@@ -88,8 +88,8 @@ TEST_F(HttpsBasicTest, ssl) {
 }
 
 TEST_F(HttpsBasicTest, httpsSetsHostHeaderToEndpointHostnameWhenMissing) {
-  auto memoryPool = memory::MemoryManager::getInstance()->addLeafPool(
-      "httpsSetsHostHeader");
+  auto memoryPool =
+      memory::MemoryManager::getInstance()->addLeafPool("httpsSetsHostHeader");
   auto httpsConfig = std::make_unique<http::HttpsConfig>(
       folly::SocketAddress("127.0.0.1", 0),
       getCertsPath("test_cert1.pem"),
@@ -124,8 +124,8 @@ TEST_F(HttpsBasicTest, httpsSetsHostHeaderToEndpointHostnameWhenMissing) {
 }
 
 TEST_F(HttpsBasicTest, httpsPreservesCallerProvidedHostHeader) {
-  auto memoryPool = memory::MemoryManager::getInstance()->addLeafPool(
-      "httpsPreservesHost");
+  auto memoryPool =
+      memory::MemoryManager::getInstance()->addLeafPool("httpsPreservesHost");
   auto httpsConfig = std::make_unique<http::HttpsConfig>(
       folly::SocketAddress("127.0.0.1", 0),
       getCertsPath("test_cert1.pem"),
