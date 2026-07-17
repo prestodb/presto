@@ -25,6 +25,7 @@ TEST_F(SessionPropertiesTest, validateMapping) {
   const std::unordered_map<std::string, std::string> expectedMappings = {
       {SessionProperties::kExprEvalSimplified,
        core::QueryConfig::kExprEvalSimplified},
+      {SessionProperties::kExprEvalV2, core::QueryConfig::kExprEvalV2},
       {SessionProperties::kExprMaxArraySizeInReduce,
        core::QueryConfig::kExprMaxArraySizeInReduce},
       {SessionProperties::kExprMaxCompiledRegexes,

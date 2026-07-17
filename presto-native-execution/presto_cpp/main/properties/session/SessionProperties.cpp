@@ -40,6 +40,14 @@ SessionProperties::SessionProperties() {
       util::boolToLowerCaseString(c.exprEvalSimplified()));
 
   addSessionProperty(
+      kExprEvalV2,
+      "Native Execution only. Route expression evaluation through the V2 evaluator",
+      BOOLEAN(),
+      false,
+      QueryConfig::kExprEvalV2,
+      util::boolToLowerCaseString(c.exprEvalV2()));
+
+  addSessionProperty(
       kExprMaxArraySizeInReduce,
       "Reduce() function will throw an error if it encounters an array of size greater than this value.",
       BIGINT(),

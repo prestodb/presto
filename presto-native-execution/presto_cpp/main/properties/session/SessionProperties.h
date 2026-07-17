@@ -26,6 +26,10 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kExprEvalSimplified =
       "native_simplified_expression_evaluation_enabled";
 
+  /// Route expression evaluation through the V2 evaluator.
+  static constexpr const char* kExprEvalV2 =
+      "native_expression_evaluation_v2_enabled";
+
   /// Reduce() function will throw an error if it encounters an array of size
   /// greater than this value.
   static constexpr const char* kExprMaxArraySizeInReduce =

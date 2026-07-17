@@ -32,6 +32,7 @@ public class NativeWorkerSessionPropertyProvider
         implements WorkerSessionPropertyProvider
 {
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
+    public static final String NATIVE_EXPRESSION_EVALUATION_V2_ENABLED = "native_expression_evaluation_v2_enabled";
     public static final String NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE = "native_expression_max_array_size_in_reduce";
     public static final String NATIVE_EXPRESSION_MAX_COMPILED_REGEXES = "native_expression_max_compiled_regexes";
     public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
@@ -108,6 +109,11 @@ public class NativeWorkerSessionPropertyProvider
                 booleanProperty(
                         NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED,
                         "Native Execution only. Enable simplified path in expression evaluation",
+                        false,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_EXPRESSION_EVALUATION_V2_ENABLED,
+                        "Native Execution only. Route expression evaluation through the V2 evaluator",
                         false,
                         !nativeExecution),
                 integerProperty(
