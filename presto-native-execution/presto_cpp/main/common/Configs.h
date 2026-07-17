@@ -749,6 +749,13 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpEnableEndpointLatencyFilter{
       "http-server.enable-endpoint-latency-filter"};
 
+  /// Enables the http request size histogram metric
+  /// (presto_cpp.http_request_size_bytes). This histogram has a large number of
+  /// buckets which can significantly slow down Prometheus metrics scraping, so
+  /// it is disabled by default.
+  static constexpr std::string_view kHttpEnableRequestSizeHistogram{
+      "http-server.enable-request-size-histogram"};
+
   /// The options to configure the max quantized memory allocation size to store
   /// the received http response data.
   static constexpr std::string_view kHttpMaxAllocateBytes{
@@ -1274,6 +1281,8 @@ class SystemConfig : public ConfigBase {
   bool enableHttpStatsFilter() const;
 
   bool enableHttpEndpointLatencyFilter() const;
+
+  bool enableHttpRequestSizeHistogram() const;
 
   bool registerTestFunctions() const;
 
