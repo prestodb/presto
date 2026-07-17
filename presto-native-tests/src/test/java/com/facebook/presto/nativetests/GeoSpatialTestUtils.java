@@ -65,7 +65,12 @@ public class GeoSpatialTestUtils
                 "(8, 'POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))'), " +
                 // Multipoints on the line y = 2x.
                 "(9, 'MULTIPOINT ((1 2), (2 4), (3 6))'), " +
-                "(9, 'MULTIPOINT ((4 8), (5 10))')");
+                "(9, 'MULTIPOINT ((4 8), (5 10))'), " +
+                // Empty geometry absorbed by a non-empty one: result is the non-empty geometry.
+                "(10, 'LINESTRING EMPTY'), " +
+                "(10, 'LINESTRING (1 1, 3 3)'), " +
+                // Only-empty geometry: result is empty, so ST_Area is 0 and the envelope is null.
+                "(11, 'POLYGON EMPTY')");
     }
 
     public static void createCoordinates(QueryRunner queryRunner)
