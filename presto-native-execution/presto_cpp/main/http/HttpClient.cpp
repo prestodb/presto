@@ -602,8 +602,7 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
   // resolved IP address, which would not match the SNI hostname.
   // Only set when the caller has not already provided a Host header, and only
   // when the endpoint carries a DNS hostname (not a raw IP).
-  if (sslContext_ != nullptr &&
-      !endpoint_.getHostname().empty() &&
+  if (sslContext_ != nullptr && !endpoint_.getHostname().empty() &&
       !request.getHeaders().exists(proxygen::HTTP_HEADER_HOST)) {
     request.getHeaders().set(
         proxygen::HTTP_HEADER_HOST, endpoint_.getHostname());

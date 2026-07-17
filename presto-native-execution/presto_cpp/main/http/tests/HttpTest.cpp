@@ -16,6 +16,38 @@
 using namespace facebook::presto;
 using namespace facebook::velox;
 
+namespace {
+// Echoes the request Host header back as the response body.
+void echoHost(
+    proxygen::HTTPMessage* message,
+    std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+    proxygen::ResponseHandler* downstream) {
+  const auto& host = message->getHeaders().getSingleOrEmpty(
+      proxygen::HTTP_HEADER_HOST);
+  proxygen::ResponseBuilder(downstream)
+      .status(facebook::presto::http::kHttpOk, "")
+      .body(host)
+      .sendWithEOM();
+}
+std::shared_ptr<http::HttpClient> makeClientWithHostname(
+    folly::EventBase* evb,
+    const std::string& hostname,
+    uint16_t port,
+    const folly::SocketAddress& connectAddress,
+    bool useHttps,
+    std::shared_ptr<memory::MemoryPool> pool) {
+  return std::make_shared<http::HttpClient>(
+      evb,
+      nullptr,
+      proxygen::Endpoint(hostname, port, useHttps),
+      connectAddress,
+      std::chrono::milliseconds(1'000),
+      std::chrono::milliseconds(0),
+      std::move(pool),
+      useHttps ? makeSslContext() : nullptr);
+}
+} // namespace
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::Init init{&argc, &argv};
@@ -53,6 +85,76 @@ TEST_F(HttpsBasicTest, ssl) {
   sock->connect(&cb, serverAddress, 1000);
   evb.loop();
   EXPECT_TRUE(cb.succeeded());
+}
+
+TEST_F(HttpsBasicTest, httpsSetsHostHeaderToEndpointHostnameWhenMissing) {
+  auto memoryPool = memory::MemoryManager::getInstance()->addLeafPool(
+      "httpsSetsHostHeader");
+  auto httpsConfig = std::make_unique<http::HttpsConfig>(
+      folly::SocketAddress("127.0.0.1", 0),
+      getCertsPath("test_cert1.pem"),
+      getCertsPath("test_key1.pem"),
+      "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384");
+  auto ioPool = std::make_shared<folly::IOThreadPoolExecutor>(
+      2, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
+  auto server = std::make_unique<http::HttpServer>(
+      ioPool, nullptr, std::move(httpsConfig));
+  server->registerGet("/host", echoHost);
+  HttpServerWrapper wrapper(std::move(server));
+  auto serverAddress = wrapper.start().get();
+  folly::EventBase evb;
+  auto client = makeClientWithHostname(
+      &evb,
+      "presto-remote-function-server",
+      serverAddress.getPort(),
+      serverAddress,
+      true,
+      memoryPool);
+  // No Host header set by caller → sendRequest should fill endpoint hostname.
+  auto response = http::RequestBuilder()
+                      .method(proxygen::HTTPMethod::GET)
+                      .url("/host")
+                      .send(client.get())
+                      .via(&evb)
+                      .getVia(&evb);
+  ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
+  EXPECT_EQ(
+      bodyAsString(*response, memoryPool.get()),
+      "presto-remote-function-server");
+}
+
+TEST_F(HttpsBasicTest, httpsPreservesCallerProvidedHostHeader) {
+  auto memoryPool = memory::MemoryManager::getInstance()->addLeafPool(
+      "httpsPreservesHost");
+  auto httpsConfig = std::make_unique<http::HttpsConfig>(
+      folly::SocketAddress("127.0.0.1", 0),
+      getCertsPath("test_cert1.pem"),
+      getCertsPath("test_key1.pem"),
+      "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384");
+  auto ioPool = std::make_shared<folly::IOThreadPoolExecutor>(
+      2, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
+  auto server = std::make_unique<http::HttpServer>(
+      ioPool, nullptr, std::move(httpsConfig));
+  server->registerGet("/host", echoHost);
+  HttpServerWrapper wrapper(std::move(server));
+  auto serverAddress = wrapper.start().get();
+  folly::EventBase evb;
+  auto client = makeClientWithHostname(
+      &evb,
+      "presto-remote-function-server",
+      serverAddress.getPort(),
+      serverAddress,
+      /*useHttps=*/true,
+      memoryPool);
+  auto response = http::RequestBuilder()
+                      .method(proxygen::HTTPMethod::GET)
+                      .url("/host")
+                      .header(proxygen::HTTP_HEADER_HOST, "custom-host:9443")
+                      .send(client.get())
+                      .via(&evb)
+                      .getVia(&evb);
+  ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
+  EXPECT_EQ(bodyAsString(*response, memoryPool.get()), "custom-host:9443");
 }
 
 class HttpTestSuite : public ::testing::TestWithParam<bool> {
