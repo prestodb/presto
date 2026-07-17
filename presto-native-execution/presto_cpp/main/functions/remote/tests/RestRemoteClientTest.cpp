@@ -26,9 +26,9 @@ namespace {
 
 // Helper to set SystemConfig properties for each test.
 void setConfig(const std::unordered_map<std::string, std::string>& props) {
-  std::unordered_map<std::string, std::string> config(props);
+  std::unordered_map<std::string, std::string> values(props);
   SystemConfig::instance()->initialize(
-      std::make_unique<config::ConfigBase>(std::move(config)));
+      std::make_unique<velox::config::ConfigBase>(std::move(values)));
 }
 
 // ──────────────────────────────────────────────────────────────

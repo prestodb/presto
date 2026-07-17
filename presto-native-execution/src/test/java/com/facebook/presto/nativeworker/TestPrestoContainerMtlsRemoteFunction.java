@@ -57,7 +57,7 @@ public class TestPrestoContainerMtlsRemoteFunction
     public void testRemoteFunctionResultWithMtlsAndJwt()
     {
         assertQueryWithSameQueryRunner(
-                "SELECT remote.default.sqrt(n_nationkey) FROM tpch.tiny.nation LIMIT 5",
-                "SELECT sqrt(n_nationkey) FROM tpch.tiny.nation LIMIT 5");
+                "SELECT remote.default.sqrt(n_nationkey) FROM tpch.tiny.nation ORDER BY n_nationkey LIMIT 5",
+                "SELECT sqrt(n_nationkey) FROM tpch.tiny.nation ORDER BY n_nationkey LIMIT 5");
     }
 }
