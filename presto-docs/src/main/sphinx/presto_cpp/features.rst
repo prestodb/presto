@@ -210,43 +210,82 @@ Supported values:
 Setup and Usage
 ^^^^^^^^^^^^^^^
 
-To use REST-based remote functions in your Presto C++ cluster:
+The setup involves three components: the **Function Server**, the **coordinator**,
+and the **native worker**. Each must be configured consistently.
 
-1. **Deploy a REST Function Server**: Implement a REST service that conforms to the
-   `REST Function Server API specification <https://github.com/prestodb/presto/blob/master/presto-openapi/src/main/resources/rest_function_server.yaml>`_.
-   The server must implement endpoints for function discovery, management, and execution.
+Step 1: Build and Start the Function Server
+"""""""""""""""""""""""""""""""""""""""""""
 
-   Key requirements:
+The Presto Function Server is a standalone Java process provided by the
+``presto-function-server`` module. Build the executable JAR:
 
-   * Implement ``GET /v1/functions`` to list available functions
-   * Implement ``POST /v1/functions/{schema}/{functionName}/{functionId}/{version}`` for function execution
-   * Accept serialized input data with appropriate Content-Type:
+.. code-block:: shell
 
-     * ``Content-Type: application/X-presto-pages`` for Presto page format
-     * ``Content-Type: application/X-spark-unsafe-row`` for Spark unsafe row format
+   ./mvnw clean install -pl presto-function-server -am -DskipTests
 
-   * Return serialized results with the same Content-Type as the request
+This produces ``presto-function-server/target/presto-function-server-<version>-executable.jar``.
 
-2. **Configure the Presto C++ Worker**: Add the following to your worker's
-   configuration file (for example, ``config.properties``):
+Create a ``config.properties`` for the function server. For plain HTTP:
 
-   .. code-block:: properties
+.. code-block:: properties
 
-      remote-function-server.rest.url=http://your-function-server:8080
-      remote-function-server.serde=presto_page
+   # presto-function-server/etc/config.properties (plain HTTP)
+   http-server.http.port=8080
+   regex-library=RE2J
+   parse-decimal-literals-as-double=true
 
-3. **Register Functions**: Functions are registered when the coordinator sends
-   function metadata to the worker during query execution. The function
-   signatures and metadata are managed by the coordinator's function namespace
-   manager.
+Start the server:
 
-4. **Use Functions in Queries**: Once configured, remote functions can be used
-   in SQL queries like any other function:
+.. code-block:: shell
 
-   .. code-block:: sql
+   java -Dconfig=/path/to/config.properties \
+        -jar presto-function-server-<version>-executable.jar
 
-      SELECT catalog.schema.remote_function(column1, column2)
-      FROM your_table;
+The server prints ``======== REMOTE FUNCTION SERVER STARTED at: <uri> =========`` when ready.
+
+Step 2: Configure the Coordinator
+""""""""""""""""""""""""""""""""""
+
+The coordinator discovers REST-based functions through a function namespace manager.
+Create a properties file under the coordinator's ``etc/function-namespace/`` directory:
+
+.. code-block:: properties
+
+   # etc/function-namespace/remote.properties
+   function-namespace-manager.name=rest
+   supported-function-languages=Java
+   function-implementation-type=REST
+   rest-based-function-manager.rest.url=http://function-server.example.com:8080
+
+Also add the following to the coordinator's main ``config.properties`` to allow
+non-built-in functions:
+
+.. code-block:: properties
+
+   list-built-in-functions-only=false
+
+Step 3: Configure the Native Worker
+"""""""""""""""""""""""""""""""""""""
+
+Add the following to the worker's ``config.properties``:
+
+.. code-block:: properties
+
+   remote-function-server.rest.url=http://function-server.example.com:8080
+   remote-function-server.serde=presto_page
+
+Step 4: Use Functions in Queries
+""""""""""""""""""""""""""""""""""
+
+Once all components are running, remote functions can be used in SQL queries
+using the ``<catalog>.<schema>.<function>`` naming pattern. The catalog name
+matches the function namespace name configured on the coordinator (for example,
+``remote`` if the file is named ``remote.properties``):
+
+.. code-block:: sql
+
+   SELECT remote.default.my_function(column1, column2)
+   FROM your_table;
 
 REST Function Server API Specification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -381,35 +420,123 @@ Function Server and to require the Function Server to validate them.
 The shared secret used to sign and verify JWT tokens. Must be identical on the worker,
 coordinator, and Function Server. Keep this value secret and rotate it periodically.
 
-Combined mTLS + JWT example
-"""""""""""""""""""""""""""
+Secure Setup: mTLS + JWT
+""""""""""""""""""""""""
 
-The following snippet shows a complete secure configuration for a native worker that connects
-to a Function Server using both mTLS and JWT:
+The following shows a complete three-component configuration for mTLS + JWT. All certificate
+files must be signed by the same CA.
+
+**Function Server** ``config.properties``:
+
+.. code-block:: properties
+
+   # Disable plain HTTP — accept only HTTPS
+   http-server.http.enabled=false
+   http-server.https.enabled=true
+   http-server.https.port=9443
+
+   # Server TLS identity (certificate the server presents to clients)
+   http-server.https.keystore.path=/etc/function-server/certs/function-server-keystore.jks
+   http-server.https.keystore.key=<keystore-password>
+
+   # Truststore — used to verify client certificates (mTLS)
+   http-server.https.truststore.path=/etc/function-server/certs/truststore.jks
+   http-server.https.truststore.key=<truststore-password>
+
+   # JWT — validate tokens from the worker
+   internal-communication.jwt.enabled=true
+   internal-communication.shared-secret=<your-shared-secret>
+
+   # Function server application properties
+   regex-library=RE2J
+   parse-decimal-literals-as-double=true
+
+Start the server:
+
+.. code-block:: shell
+
+   java -Dconfig=/etc/function-server/config.properties \
+        -jar presto-function-server-<version>-executable.jar
+
+The server announces readiness with:
+``======== REMOTE FUNCTION SERVER STARTED at: https://function-server.example.com:9443 =========``
+
+**Coordinator** ``config.properties`` (additions to the standard coordinator config):
+
+.. code-block:: properties
+
+   # Allow non-built-in functions
+   list-built-in-functions-only=false
+
+   # Enable HTTPS for internal coordinator↔worker communication
+   http-server.https.enabled=true
+   http-server.https.port=8443
+   http-server.https.keystore.path=/etc/presto/certs/coordinator-keystore.jks
+   http-server.https.keystore.key=<keystore-password>
+   http-server.https.truststore.path=/etc/presto/certs/truststore.jks
+   http-server.https.truststore.key=<truststore-password>
+
+   # Require HTTPS for all internal traffic
+   internal-communication.https.required=true
+   internal-communication.https.keystore.path=/etc/presto/certs/coordinator-keystore.jks
+   internal-communication.https.keystore.key=<keystore-password>
+   internal-communication.https.trust-store-path=/etc/presto/certs/truststore.jks
+   internal-communication.https.trust-store-password=<truststore-password>
+
+   # JWT — sign outbound requests to workers
+   internal-communication.jwt.enabled=true
+   internal-communication.shared-secret=<your-shared-secret>
+
+**Coordinator** ``etc/function-namespace/remote.properties``:
+
+.. code-block:: properties
+
+   function-namespace-manager.name=rest
+   supported-function-languages=Java
+   function-implementation-type=REST
+   # Use https:// to reach the Function Server
+   rest-based-function-manager.rest.url=https://function-server.example.com:9443
+
+**Native Worker** ``config.properties``:
 
 .. code-block:: properties
 
    # Function Server URL — must use https:// when mTLS is active
-   remote-function-server.rest.url=https://function-server.example.com:8443
+   remote-function-server.rest.url=https://function-server.example.com:9443
 
-   # mTLS — worker TLS server identity (used for coordinator→worker TLS)
+   # Worker TLS server identity (presented during coordinator→worker TLS)
+   http-server.https.enabled=true
+   http-server.https.port=7443
    https-cert-path=/etc/presto/certs/worker.crt
    https-key-path=/etc/presto/certs/worker.key
 
-   # mTLS — worker client identity presented to the Function Server
+   # Worker client identity presented to the Function Server during mTLS
    https-client-cert-key-path=/etc/presto/certs/worker-combined.pem
 
-   # mTLS — CA used to verify the Function Server's certificate
+   # CA used to verify the Function Server's certificate
    https-client-ca-file=/etc/presto/certs/ca.crt
 
-   # JWT — token-based request authentication
+   # JWT — sign outbound requests to the Function Server
    internal-communication.jwt.enabled=true
    internal-communication.shared-secret=<your-shared-secret>
 
-The Function Server must be configured with a matching HTTPS keystore, truststore, and the
-same ``internal-communication.shared-secret``. See
-`FunctionServer.java <https://github.com/prestodb/presto/blob/master/presto-function-server/src/main/java/com/facebook/presto/server/FunctionServer.java>`_
-for the Java-based reference implementation.
+.. note::
+
+   The certificate passed via ``https-client-cert-key-path`` is a combined PEM file
+   containing both the ``CERTIFICATE`` and ``PRIVATE KEY`` blocks. The Function Server's
+   truststore must trust the CA that signed this certificate for the mTLS handshake to
+   succeed.
+
+.. note::
+
+   The ``node.internal-address`` property in ``node.properties`` must be set to the
+   worker's DNS hostname (not a raw IP address) when mTLS is active. The TLS certificate
+   must include that hostname as a Subject Alternative Name (SAN).
+
+   .. code-block:: properties
+
+      # etc/node.properties
+      node.internal-address=native-worker-0.example.com
 
 JWT authentication support
 --------------------------

@@ -292,7 +292,7 @@ public class ContainerQueryRunnerUtils
         String scriptContent = "#!/bin/sh\n" +
                 "set -e\n" +
                 "trap 'kill -TERM $app 2>/dev/null' TERM\n" +
-                "java -Djavax.net.debug=ssl,handshake -Dconfig=/opt/function-server/etc/config.properties " +
+                "java -Dconfig=/opt/function-server/etc/config.properties " +
                 "-jar /opt/presto-remote-function-server &\n" +
                 "app=$!\n" +
                 "wait $app\n";
@@ -305,7 +305,6 @@ public class ContainerQueryRunnerUtils
     {
         String scriptContent = "#!/bin/sh\n\n" +
                 "GLOG_logtostderr=1 presto_server \\\n" +
-                "    --v=3 \\\n" +
                 "    --etc-dir=/opt/presto-server/etc\n";
         createScriptFile("testcontainers/" + nodeId + "/entrypoint.sh", scriptContent);
     }

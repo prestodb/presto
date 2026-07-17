@@ -161,6 +161,7 @@
             <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-native-execution</artifactId>
@@ -168,6 +169,7 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+        
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpch</artifactId>

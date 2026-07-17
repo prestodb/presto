@@ -26,13 +26,6 @@ import static org.testng.Assert.fail;
 
 /**
  * Abstract base class for Function Server authentication tests.
- *
- * Subclasses supply the cluster-appropriate QueryRunner implementations via:
- *   - {@link #createQueryRunner()} — the primary runner used by all @Test methods.
- *     This is required by {@link AbstractTestQueryFramework}
- *     and is the runner used for the happy-path test.
- *   - Four additional factory methods for the negative-path tests, each of which
- *     creates a short-lived runner with a specific misconfiguration.
  */
 public abstract class AbstractTestFnServerAuth
         extends AbstractTestQueryFramework

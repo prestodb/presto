@@ -130,10 +130,6 @@ public class FnServerAuthTestUtils
                 .build();
     }
 
-    /**
-     * Builds common HTTPS + mTLS properties for a node, parameterised by keystore path
-     * relative to the certs resource directory.
-     */
     private static Map<String, String> getMtlsProperties(String keystoreRelativePath)
     {
         return ImmutableMap.<String, String>builder()

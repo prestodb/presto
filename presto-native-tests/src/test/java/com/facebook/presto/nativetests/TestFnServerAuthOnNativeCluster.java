@@ -21,9 +21,6 @@ import com.facebook.presto.tests.utils.FnServerAuthTestUtils;
 /**
  * Runs all {@link AbstractTestFnServerAuth} test cases against a
  * Java coordinator + C++ (native) worker cluster.
- *
- * Lives in presto-native-tests so it is gated behind the same CI pipeline
- * that builds and provides the native presto_server binary.
  */
 public class TestFnServerAuthOnNativeCluster
         extends AbstractTestFnServerAuth
