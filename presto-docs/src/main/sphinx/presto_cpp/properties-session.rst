@@ -530,6 +530,64 @@ When non-zero, the batch size starts at this value and is dynamically adjusted
 based on the average row size of previous output batches. When zero (default),
 dynamic adjustment is disabled and the batch size is fixed at ``preferred_output_batch_rows``.
 
+``native_rpc_ratelimiter_adaptive_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. Enable the adaptive per-tier RPC rate limiter (AIMD on the backend
+rate-limit/timeout overload signal). When enabled, the rate limiter automatically adjusts the
+per-tier max-pending cap based on backend overload signals, using additive increase and
+multiplicative decrease. On by default (protective for shared, rate-limited inference backends);
+set to false to keep a static cap defined by ``native_rpc_ratelimiter_max_limit``.
+
+``native_rpc_ratelimiter_min_limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``50``
+
+Native Execution only. Floor for the adaptive RPC rate limiter's per-tier max-pending cap.
+The adaptive limiter will not shrink the per-tier cap below this value, even under sustained
+overload. Default is 50. A floor of 1 can stall under sustained throttling. Only used when
+``native_rpc_ratelimiter_adaptive_enabled`` is true.
+
+``native_rpc_ratelimiter_decrease_factor``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``double``
+* **Default value:** ``0.5``
+
+Native Execution only. Multiplicative-decrease factor applied to the adaptive RPC rate limiter's
+per-tier max-pending cap on each overload-classified drain. For example, with the default 0.5,
+the cap is halved on each overload. Only used when ``native_rpc_ratelimiter_adaptive_enabled``
+is true.
+
+``native_rpc_ratelimiter_max_limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``200``
+
+Native Execution only. Ceiling for the per-tier RPC rate-limiter max-pending cap. The adaptive
+limiter grows the per-tier cap up to this value under normal conditions and shrinks from here
+under overload. Default is 200, validated for LLM-inference backends. Set to 0 to fall back to
+the built-in default of 20. Admission-controlled dispatch makes this cap bind; the adaptive
+limiter shrinks from here under overload. Only used when ``native_rpc_ratelimiter_adaptive_enabled``
+is true. Set the adaptive limiter to false to keep a static cap at this value.
+
+``native_rpc_congestion_max_window``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``0``
+
+Native Execution only. Ceiling for the per-driver RPC congestion window. When set to 0 (default),
+the per-mode built-in values are used: PER_ROW mode defaults to 100, BATCH mode defaults to 256.
+Raise this value for high-latency backends so admission-controlled dispatch can run at high
+concurrency. The congestion window controls how many RPC requests can be in flight per driver.
+
 ``native_request_data_sizes_max_wait_sec``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

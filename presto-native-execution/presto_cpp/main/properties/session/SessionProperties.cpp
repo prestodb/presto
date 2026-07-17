@@ -12,8 +12,10 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/properties/session/SessionProperties.h"
+#include <folly/Conv.h>
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/type/Type.h"
 
 using namespace facebook::velox;
 
@@ -96,6 +98,52 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kMaxSpillBytes,
       std::to_string(c.maxSpillBytes()));
+
+  addSessionProperty(
+      kRpcRateLimiterAdaptiveEnabled,
+      "Native Execution only. Enable the adaptive per-tier RPC rate limiter "
+      "(AIMD on the backend rate-limit/timeout overload signal).",
+      BOOLEAN(),
+      false,
+      QueryConfig::kRpcRateLimiterAdaptiveEnabled,
+      util::boolToLowerCaseString(c.rpcRateLimiterAdaptiveEnabled()));
+
+  addSessionProperty(
+      kRpcRateLimiterMinLimit,
+      "Native Execution only. Floor for the adaptive RPC rate limiter's "
+      "per-tier max-pending cap.",
+      BIGINT(),
+      false,
+      QueryConfig::kRpcRateLimiterMinLimit,
+      folly::to<std::string>(c.rpcRateLimiterMinLimit()));
+
+  addSessionProperty(
+      kRpcRateLimiterDecreaseFactor,
+      "Native Execution only. Multiplicative-decrease factor for the adaptive "
+      "RPC rate limiter's per-tier max-pending cap on each overload drain.",
+      DOUBLE(),
+      false,
+      QueryConfig::kRpcRateLimiterDecreaseFactor,
+      folly::to<std::string>(c.rpcRateLimiterDecreaseFactor()));
+
+  addSessionProperty(
+      kRpcRateLimiterMaxLimit,
+      "Native Execution only. Ceiling for the per-tier RPC rate-limiter "
+      "max-pending cap (0 = built-in default). Raise for high-latency backends "
+      "so admission-controlled dispatch can run at high concurrency.",
+      BIGINT(),
+      false,
+      QueryConfig::kRpcRateLimiterMaxLimit,
+      folly::to<std::string>(c.rpcRateLimiterMaxLimit()));
+
+  addSessionProperty(
+      kRpcCongestionMaxWindow,
+      "Native Execution only. Ceiling for the per-driver RPC congestion window "
+      "(0 = per-mode default: PER_ROW 100, BATCH 256).",
+      BIGINT(),
+      false,
+      QueryConfig::kRpcCongestionMaxWindow,
+      folly::to<std::string>(c.rpcCongestionMaxWindow()));
 
   addSessionProperty(
       kSpillCompressionCodec,
