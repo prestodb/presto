@@ -14,19 +14,16 @@
 package com.facebook.presto.geospatial.type;
 
 import com.esri.core.geometry.GeometryException;
-import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.AbstractVariableWidthType;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.util.Objects.requireNonNull;
 
 public class GeometryType
         extends AbstractVariableWidthType
@@ -75,15 +72,12 @@ public class GeometryType
     @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
-        // Called first presto select *
         if (value == null) {
             blockBuilder.appendNull();
             return;
         }
 
-        Slice esri = EsriGeometrySerde.serialize(geomFromBinary(value));
-
-        blockBuilder.writeBytes(esri, 0, esri.length()).closeEntry();
+        blockBuilder.writeBytes(value, offset, length).closeEntry();
     }
 
     @Override
@@ -99,19 +93,5 @@ public class GeometryType
         catch (GeometryException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
         }
-    }
-
-    private static OGCGeometry geomFromBinary(Slice input)
-    {
-        requireNonNull(input, "input is null");
-        OGCGeometry geometry;
-        try {
-            geometry = OGCGeometry.fromBinary(input.toByteBuffer().slice());
-        }
-        catch (IllegalArgumentException | IndexOutOfBoundsException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
-        }
-        geometry.setSpatialReference(null);
-        return geometry;
     }
 }
