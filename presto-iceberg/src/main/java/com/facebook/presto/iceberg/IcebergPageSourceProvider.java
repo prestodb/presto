@@ -597,12 +597,15 @@ public class IcebergPageSourceProvider
                     columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature())));
                 }
                 else {
+                    // Missing columns are treated as REGULAR at the physical ORC-reader level.
+                    // PARTITION_KEY is an Iceberg metadata concept handled upstream by
+                    // IcebergPartitionInsertingPageSource; OrcBatchPageSource requires REGULAR.
                     physicalColumnHandles.add(new HiveColumnHandle(
                             column.getName(),
                             toHiveType(column.getType()),
                             column.getType().getTypeSignature(),
                             nextMissingColumnIndex++,
-                            column.getColumnType(),
+                            REGULAR,
                             column.getComment(),
                             column.getRequiredSubfields(),
                             Optional.empty()));

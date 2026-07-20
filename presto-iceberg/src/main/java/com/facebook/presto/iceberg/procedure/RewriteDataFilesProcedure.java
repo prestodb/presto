@@ -248,13 +248,22 @@ public class RewriteDataFilesProcedure
             IcebergTableHandle tableHandle = layoutHandle.getTable();
             final Set<DataFile> scannedDataFiles = new HashSet<>();
             final Set<DeleteFile> fullyAppliedDeleteFiles = new HashSet<>();
-            if (tableHandle.getIcebergTableName().getSnapshotId().isPresent()) {
+
+            // Resolve the snapshot to scan: use the explicitly specified snapshot if present,
+            // otherwise fall back to the current snapshot. This ensures that scannedDataFiles
+            // is always populated so the Iceberg RewriteFiles operation correctly retires the
+            // old files from the manifest (not just appends new ones).
+            Snapshot scanSnapshot = tableHandle.getIcebergTableName().getSnapshotId()
+                    .map(icebergTable::snapshot)
+                    .orElse(icebergTable.currentSnapshot());
+
+            if (scanSnapshot != null) {
                 TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
 
                 TableScan tableScan = procedureContext.getTable().newScan()
                         .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                         .filter(toIcebergExpression(predicate))
-                        .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
+                        .useSnapshot(scanSnapshot.snapshotId());
 
                 Map<String, String> options = procedureContext.getOptions();
                 // Apply filtering using options
@@ -290,15 +299,8 @@ public class RewriteDataFilesProcedure
             RewriteFiles rewriteFiles = icebergTable.newRewrite()
                     .rewriteFiles(scannedDataFiles, fullyAppliedDeleteFiles, newFiles, ImmutableSet.of());
 
-            // Table.snapshot method returns null if there is no matching snapshot
-            Snapshot snapshot = requireNonNull(
-                    handle.getTableName()
-                            .getSnapshotId()
-                            .map(icebergTable::snapshot)
-                            .orElse(null),
-                    "snapshot is null");
-            if (icebergTable.currentSnapshot() != null) {
-                rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
+            if (scanSnapshot != null) {
+                rewriteFiles.validateFromSnapshot(scanSnapshot.snapshotId());
             }
             rewriteFiles.commit();
         }
