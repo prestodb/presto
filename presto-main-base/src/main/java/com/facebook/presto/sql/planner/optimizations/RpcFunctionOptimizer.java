@@ -20,6 +20,7 @@ import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Assignments;
@@ -41,7 +42,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
@@ -64,28 +64,20 @@ public class RpcFunctionOptimizer
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final Supplier<Set<String>> rpcFunctionNamesSupplier;
+    private final FunctionAndTypeManager functionAndTypeManager;
     // Nullable: when absent, the execution policy receives a NaN row estimate.
     private final StatsCalculator statsCalculator;
     private final RpcExecutionPolicy executionPolicy;
 
-    public RpcFunctionOptimizer()
+    public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier, FunctionAndTypeManager functionAndTypeManager)
     {
-        this(ImmutableSet::of, null, new DefaultRpcExecutionPolicy());
+        this(rpcFunctionNamesSupplier, functionAndTypeManager, null, new DefaultRpcExecutionPolicy());
     }
 
-    public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier)
-    {
-        this(rpcFunctionNamesSupplier, null, new DefaultRpcExecutionPolicy());
-    }
-
-    public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier, StatsCalculator statsCalculator)
-    {
-        this(rpcFunctionNamesSupplier, statsCalculator, new DefaultRpcExecutionPolicy());
-    }
-
-    public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier, StatsCalculator statsCalculator, RpcExecutionPolicy executionPolicy)
+    public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier, FunctionAndTypeManager functionAndTypeManager, StatsCalculator statsCalculator, RpcExecutionPolicy executionPolicy)
     {
         this.rpcFunctionNamesSupplier = requireNonNull(rpcFunctionNamesSupplier, "rpcFunctionNamesSupplier is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
         this.statsCalculator = statsCalculator;
         this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
     }
@@ -118,7 +110,7 @@ public class RpcFunctionOptimizer
         StatsProvider statsProvider = statsCalculator != null
                 ? new CachingStatsProvider(statsCalculator, session, types)
                 : null;
-        Rewriter rewriter = new Rewriter(session, idAllocator, variableAllocator, rpcFunctionNamesSupplier.get(), statsProvider, executionPolicy);
+        Rewriter rewriter = new Rewriter(session, idAllocator, variableAllocator, rpcFunctionNamesSupplier.get(), functionAndTypeManager, statsProvider, executionPolicy);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
@@ -130,17 +122,19 @@ public class RpcFunctionOptimizer
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
         private final Set<String> rpcFunctionNames;
+        private final FunctionAndTypeManager functionAndTypeManager;
         // Nullable: when null, the execution policy receives a NaN row estimate.
         private final StatsProvider statsProvider;
         private final RpcExecutionPolicy executionPolicy;
         private boolean planChanged;
 
-        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames, StatsProvider statsProvider, RpcExecutionPolicy executionPolicy)
+        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames, FunctionAndTypeManager functionAndTypeManager, StatsProvider statsProvider, RpcExecutionPolicy executionPolicy)
         {
             this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.rpcFunctionNames = requireNonNull(rpcFunctionNames, "rpcFunctionNames is null");
+            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
             this.statsProvider = statsProvider;
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
         }
@@ -252,12 +246,106 @@ public class RpcFunctionOptimizer
                 currentSource = rpcNode;
             }
 
-            return new ProjectNode(
+            Assignments assignments = newAssignments.build();
+
+            // Once the RPC calls are extracted into the RPCNode(s) above, an assignment that was
+            // only valid in a REMOTE projection because it wrapped an external RPC function may no
+            // longer be: AIFunctionRewriteOptimizer emits CAST(fb_text_embedding(...) AS
+            // ARRAY<DOUBLE>), and after fb_text_embedding becomes an RPC result variable the
+            // surviving CAST(__rpc_result__) is a plain, non-external call. VerifyProjectionLocality
+            // forbids such a call in a REMOTE projection. The RPCNode keeps its true output type
+            // (e.g. ARRAY<REAL>) and the CAST that converts it must run locally, so partition the
+            // assignments and, when both remote and local expressions are present, stack a LOCAL
+            // projection over the REMOTE one (the shape PlanRemoteProjections produces).
+            if (node.getLocality() != ProjectNode.Locality.REMOTE) {
+                return new ProjectNode(
+                        node.getSourceLocation(),
+                        idAllocator.getNextId(),
+                        currentSource,
+                        assignments,
+                        node.getLocality());
+            }
+
+            // Partition the REMOTE projection's assignments into three outcomes:
+            //   (1) all remote-safe  -> keep a single REMOTE projection (shape unchanged);
+            //   (2) all local        -> a single LOCAL projection (the common meta.ai.embedding
+            //                           case, where the only assignment is CAST(__rpc_result__));
+            //   (3) mixed            -> a LOCAL projection stacked over a REMOTE one, with each
+            //                           layer forwarding the other layer's variables so downstream
+            //                           column references still resolve.
+            // An assignment must move to LOCAL iff it is neither a variable reference nor an
+            // external function call (e.g. the CAST of an RPC result), because
+            // VerifyProjectionLocality forbids a plain non-external call in a REMOTE projection.
+            //
+            // Precondition (PlanRemoteProjections has already run): each REMOTE assignment value is a
+            // variable reference or a top-level CallExpression, so partitioning by whether it is/contains
+            // an external function is sufficient here (we don't need to decompose SpecialForms).
+            ExternalCallExpressionChecker externalChecker = new ExternalCallExpressionChecker(functionAndTypeManager);
+            Assignments.Builder remoteBuilder = Assignments.builder();
+            Assignments.Builder localBuilder = Assignments.builder();
+            for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.getMap().entrySet()) {
+                RowExpression value = assignment.getValue();
+                if (value instanceof VariableReferenceExpression || value.accept(externalChecker, null)) {
+                    remoteBuilder.put(assignment.getKey(), value);
+                }
+                else {
+                    localBuilder.put(assignment.getKey(), value);
+                }
+            }
+            Assignments remoteOnly = remoteBuilder.build();
+            Assignments localOnly = localBuilder.build();
+
+            if (localOnly.getMap().isEmpty()) {
+                // Every assignment is REMOTE-safe (variable reference or external function).
+                return new ProjectNode(
+                        node.getSourceLocation(),
+                        idAllocator.getNextId(),
+                        currentSource,
+                        assignments,
+                        ProjectNode.Locality.REMOTE);
+            }
+            if (remoteOnly.getMap().isEmpty()) {
+                // Nothing must stay remote (the common meta.ai.embedding case: the only assignment is
+                // the CAST of the RPC result). The whole projection can run locally.
+                return new ProjectNode(
+                        node.getSourceLocation(),
+                        idAllocator.getNextId(),
+                        currentSource,
+                        assignments,
+                        ProjectNode.Locality.LOCAL);
+            }
+
+            // Mixed: keep the external functions in a REMOTE projection and evaluate the local
+            // expressions in a LOCAL projection stacked on top of it.
+            Assignments.Builder remoteLayer = Assignments.builder();
+            for (Map.Entry<VariableReferenceExpression, RowExpression> remoteAssignment : remoteOnly.getMap().entrySet()) {
+                remoteLayer.put(remoteAssignment.getKey(), remoteAssignment.getValue());
+            }
+            for (VariableReferenceExpression sourceVariable : currentSource.getOutputVariables()) {
+                if (!remoteOnly.getMap().containsKey(sourceVariable)) {
+                    remoteLayer.put(sourceVariable, sourceVariable);
+                }
+            }
+            ProjectNode remoteProject = new ProjectNode(
                     node.getSourceLocation(),
                     idAllocator.getNextId(),
                     currentSource,
-                    newAssignments.build(),
-                    node.getLocality());
+                    remoteLayer.build(),
+                    ProjectNode.Locality.REMOTE);
+
+            Assignments.Builder localLayer = Assignments.builder();
+            for (Map.Entry<VariableReferenceExpression, RowExpression> localAssignment : localOnly.getMap().entrySet()) {
+                localLayer.put(localAssignment.getKey(), localAssignment.getValue());
+            }
+            for (VariableReferenceExpression remoteVariable : remoteOnly.getMap().keySet()) {
+                localLayer.put(remoteVariable, remoteVariable);
+            }
+            return new ProjectNode(
+                    node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    remoteProject,
+                    localLayer.build(),
+                    ProjectNode.Locality.LOCAL);
         }
 
         private RowExpressionRewriter<RpcExtractionContext> createRpcRewriter()

@@ -685,7 +685,7 @@ public class PlanOptimizers
 
         builder.add(new IterativeOptimizer(metadata, ruleStats, statsCalculator, estimatedExchangesCostCalculator,
                 new RewriteRowExpressions(expressionOptimizerManager).rules()));
-        builder.add(new RpcFunctionOptimizer(rpcFunctionNames, statsCalculator, rpcExecutionPolicy));
+        builder.add(new RpcFunctionOptimizer(rpcFunctionNames, metadata.getFunctionAndTypeManager(), statsCalculator, rpcExecutionPolicy));
 
         builder.add(new IterativeOptimizer(
                 metadata,

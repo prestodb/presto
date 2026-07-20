@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
@@ -35,6 +37,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.RPCNode;
+import com.facebook.presto.sql.planner.sanity.VerifyProjectionLocality;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -46,8 +49,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -56,6 +63,9 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestRpcFunctionOptimizer
 {
+    private static final MetadataManager METADATA = createTestMetadataManager();
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = METADATA.getFunctionAndTypeManager();
+
     private static CallExpression createRpcCall(RowExpression optionsArg)
     {
         FunctionHandle handle = createFunctionHandle("test_rpc_function");
@@ -143,13 +153,14 @@ public class TestRpcFunctionOptimizer
         for (Class<?> inner : innerClasses) {
             if (inner.getSimpleName().equals("Rewriter")) {
                 for (java.lang.reflect.Constructor<?> ctor : inner.getDeclaredConstructors()) {
-                    if (ctor.getParameterCount() == 6) {
+                    if (ctor.getParameterCount() == 7) {
                         ctor.setAccessible(true);
                         return ctor.newInstance(
                                 session,
                                 new com.facebook.presto.spi.plan.PlanNodeIdAllocator(),
                                 new com.facebook.presto.spi.VariableAllocator(),
                                 com.google.common.collect.ImmutableSet.of(),
+                                FUNCTION_AND_TYPE_MANAGER,
                                 null,
                                 new DefaultRpcExecutionPolicy());
                     }
@@ -337,7 +348,7 @@ public class TestRpcFunctionOptimizer
                         .build());
 
         RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
-                () -> ImmutableSet.of("test_rpc_function"));
+                () -> ImmutableSet.of("test_rpc_function"), FUNCTION_AND_TYPE_MANAGER);
         Session session = TestingSession.testSessionBuilder().build();
 
         PlanOptimizerResult result = optimizer.optimize(
@@ -399,7 +410,7 @@ public class TestRpcFunctionOptimizer
                         .build());
 
         RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
-                () -> ImmutableSet.of("test_rpc_function"));
+                () -> ImmutableSet.of("test_rpc_function"), FUNCTION_AND_TYPE_MANAGER);
         Session session = TestingSession.testSessionBuilder().build();
 
         PlanOptimizerResult result = optimizer.optimize(
@@ -446,7 +457,7 @@ public class TestRpcFunctionOptimizer
                         .build());
 
         RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
-                () -> ImmutableSet.of("test_rpc_function"));
+                () -> ImmutableSet.of("test_rpc_function"), FUNCTION_AND_TYPE_MANAGER);
         Session session = TestingSession.testSessionBuilder().build();
 
         PlanOptimizerResult result = optimizer.optimize(
@@ -460,6 +471,150 @@ public class TestRpcFunctionOptimizer
         assertTrue(result.isOptimizerTriggered(), "Plan should be optimized for direct RPC function calls");
         assertTrue(containsPlanNode(result.getPlanNode(), RPCNode.class),
                 "Optimized plan should contain an RPCNode");
+    }
+
+    @Test
+    public void testCastOfRpcFunctionInRemoteProjectionRelocatesToLocal()
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
+
+        VariableReferenceExpression inputVar = variableAllocator.newVariable("input_col", VARCHAR);
+        VariableReferenceExpression outputVar = variableAllocator.newVariable("output_col", BIGINT);
+
+        // A REMOTE projection holding CAST(test_rpc_function(...) AS BIGINT) — the meta.ai.embedding shape
+        // (AIFunctionRewriteOptimizer wraps the RPC function in a CAST). A REAL resolved CAST handle is used
+        // so ExternalCallExpressionChecker resolves it; the RPC call itself becomes a variable reference before
+        // the checker sees it. Before the fix, VerifyProjectionLocality rejected this CAST in a REMOTE projection
+        // ("Expect expression CAST(...) to be an external function").
+        CallExpression rpcCall = new CallExpression(
+                "test_rpc_function",
+                createFunctionHandle("test_rpc_function"),
+                VARCHAR,
+                ImmutableList.of(inputVar, varchar("model"), varchar("system"), varchar("{}")));
+        CallExpression castCall = call(
+                "CAST",
+                FUNCTION_AND_TYPE_MANAGER.lookupCast(CAST, VARCHAR, BIGINT),
+                BIGINT,
+                rpcCall);
+
+        ValuesNode source = new ValuesNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                ImmutableList.of(inputVar),
+                ImmutableList.of(),
+                Optional.empty());
+
+        ProjectNode projectNode = new ProjectNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                source,
+                Assignments.builder().put(outputVar, castCall).build(),
+                ProjectNode.Locality.REMOTE);
+
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
+                () -> ImmutableSet.of("test_rpc_function"), FUNCTION_AND_TYPE_MANAGER);
+        Session session = TestingSession.testSessionBuilder().build();
+
+        PlanOptimizerResult result = optimizer.optimize(
+                projectNode,
+                session,
+                TypeProvider.empty(),
+                variableAllocator,
+                idAllocator,
+                WarningCollector.NOOP);
+
+        assertTrue(result.isOptimizerTriggered(), "Plan should be optimized");
+
+        // RPCNode keeps the RPC function's real type (VARCHAR), not the CAST target (BIGINT).
+        RPCNode rpcNode = (RPCNode) findPlanNode(result.getPlanNode(), RPCNode.class);
+        assertTrue(rpcNode != null, "Optimized plan should contain an RPCNode");
+        assertEquals(rpcNode.getOutputVariable().getType(), VARCHAR,
+                "RPCNode output must keep the RPC function's real type, not the CAST target type");
+
+        // The CAST-of-RPC assignment must have moved out of the REMOTE projection into a LOCAL one.
+        ProjectNode topProject = (ProjectNode) findPlanNode(result.getPlanNode(), ProjectNode.class);
+        assertEquals(topProject.getLocality(), ProjectNode.Locality.LOCAL,
+                "CAST of an RPC result must run in a LOCAL projection, not REMOTE");
+        RowExpression outputExpression = topProject.getAssignments().getMap().get(outputVar);
+        assertTrue(outputExpression instanceof CallExpression, "Output should still be the CAST call");
+        CallExpression outputCall = (CallExpression) outputExpression;
+        assertEquals(outputCall.getType(), BIGINT);
+        assertTrue(outputCall.getArguments().get(0) instanceof VariableReferenceExpression,
+                "CAST should apply to the RPC result variable");
+        assertEquals(((VariableReferenceExpression) outputCall.getArguments().get(0)).getType(), VARCHAR);
+
+        // The optimized plan must now pass the sanity check that originally rejected the CAST-in-REMOTE.
+        new VerifyProjectionLocality().validate(result.getPlanNode(), session, METADATA, WarningCollector.NOOP);
+    }
+
+    @Test
+    public void testCastOfRpcFunctionKeepsRpcResultType()
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
+
+        VariableReferenceExpression inputVar = variableAllocator.newVariable("input_col", VARCHAR);
+        VariableReferenceExpression outputVar = variableAllocator.newVariable("output_col", BIGINT);
+
+        // Build: CAST(test_rpc_function(input_col, "model", "system", "{}") AS BIGINT)
+        // Mirrors AIFunctionRewriteOptimizer wrapping an RPC function in a CAST to a wider declared
+        // return type (fb_text_embedding ARRAY<REAL> -> meta.ai.embedding ARRAY<DOUBLE>). The
+        // optimizer must NOT relabel the RPC result to the CAST target type: it must keep the RPC
+        // function's real type and let the surviving CAST perform the conversion.
+        CallExpression rpcCall = new CallExpression(
+                "test_rpc_function",
+                createFunctionHandle("test_rpc_function"),
+                VARCHAR,
+                ImmutableList.of(inputVar, varchar("model"), varchar("system"), varchar("{}")));
+        CallExpression castCall = new CallExpression(
+                "CAST",
+                createFunctionHandle("CAST"),
+                BIGINT,
+                ImmutableList.of(rpcCall));
+
+        ValuesNode source = new ValuesNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                ImmutableList.of(inputVar),
+                ImmutableList.of(),
+                Optional.empty());
+
+        ProjectNode projectNode = new ProjectNode(
+                idAllocator.getNextId(),
+                source,
+                Assignments.builder()
+                        .put(outputVar, castCall)
+                        .build());
+
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
+                () -> ImmutableSet.of("test_rpc_function"), FUNCTION_AND_TYPE_MANAGER);
+        Session session = TestingSession.testSessionBuilder().build();
+
+        PlanOptimizerResult result = optimizer.optimize(
+                projectNode,
+                session,
+                TypeProvider.empty(),
+                variableAllocator,
+                idAllocator,
+                WarningCollector.NOOP);
+
+        assertTrue(result.isOptimizerTriggered(), "Plan should be optimized when a CAST wraps an RPC function");
+        assertTrue(containsPlanNode(result.getPlanNode(), RPCNode.class), "Optimized plan should contain an RPCNode");
+
+        // The CAST must be preserved (not dropped) and applied to the RPC result variable, and that
+        // variable must keep the RPC function's real type (VARCHAR), not be relabeled to the CAST
+        // target type (BIGINT).
+        ProjectNode topProject = (ProjectNode) findPlanNode(result.getPlanNode(), ProjectNode.class);
+        RowExpression outputExpression = topProject.getAssignments().getMap().get(outputVar);
+        assertTrue(outputExpression instanceof CallExpression, "Output assignment should still be a CAST call");
+        CallExpression outputCall = (CallExpression) outputExpression;
+        assertEquals(outputCall.getDisplayName(), "CAST");
+        assertEquals(outputCall.getType(), BIGINT);
+        RowExpression castArgument = outputCall.getArguments().get(0);
+        assertTrue(castArgument instanceof VariableReferenceExpression, "CAST should apply to the RPC result variable");
+        assertEquals(((VariableReferenceExpression) castArgument).getType(), VARCHAR,
+                "RPC result variable must keep the RPC function's real type, not the CAST target type");
     }
 
     @Test
@@ -551,7 +706,7 @@ public class TestRpcFunctionOptimizer
                         .build());
 
         RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
-                () -> ImmutableSet.of("test_rpc_function"));
+                () -> ImmutableSet.of("test_rpc_function"), FUNCTION_AND_TYPE_MANAGER);
         Session session = TestingSession.testSessionBuilder().build();
 
         PlanOptimizerResult result = optimizer.optimize(
@@ -584,7 +739,7 @@ public class TestRpcFunctionOptimizer
                         .build());
 
         RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
-                () -> ImmutableSet.of("test_rpc_function"));
+                () -> ImmutableSet.of("test_rpc_function"), FUNCTION_AND_TYPE_MANAGER);
         Session session = TestingSession.testSessionBuilder().build();
 
         return optimizer.optimize(
@@ -635,7 +790,7 @@ public class TestRpcFunctionOptimizer
                         .put(outputVar, rpcCall)
                         .build());
 
-        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(() -> ImmutableSet.of("test_rpc_function"), null, policy);
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(() -> ImmutableSet.of("test_rpc_function"), FUNCTION_AND_TYPE_MANAGER, null, policy);
 
         PlanOptimizerResult result = optimizer.optimize(
                 projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
