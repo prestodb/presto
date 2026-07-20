@@ -90,6 +90,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.util.Failures;
@@ -1256,6 +1257,18 @@ public class ExpressionInterpreter
 
             // Subscript on Array or Map is interpreted using operator.
             return invokeOperator(OperatorType.SUBSCRIPT, types(node.getBase(), node.getIndex()), ImmutableList.of(base, index));
+        }
+
+        @Override
+        protected Object visitTrim(Trim node, Object context)
+        {
+            ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+            arguments.add(node.getTrimSource());
+            node.getTrimCharacter().ifPresent(arguments::add);
+
+            FunctionCall functionCall = new FunctionCall(QualifiedName.of(node.getSpecification().getFunctionName()), arguments.build());
+            addGeneratedExpressionType(functionCall, type(node));
+            return visitFunctionCall(functionCall, context);
         }
 
         @Override

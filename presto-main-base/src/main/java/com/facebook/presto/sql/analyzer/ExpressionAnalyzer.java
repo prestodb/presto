@@ -109,6 +109,7 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
@@ -1400,6 +1401,18 @@ public class ExpressionAnalyzer
 
             Type resultType = process(parameters.get(NodeRef.of(node)), context);
             return setExpressionType(node, resultType);
+        }
+
+        @Override
+        protected Type visitTrim(Trim node, StackableAstVisitorContext<Context> context)
+        {
+            ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+            arguments.add(node.getTrimSource());
+            node.getTrimCharacter().ifPresent(arguments::add);
+
+            FunctionCall functionCall = new FunctionCall(QualifiedName.of(node.getSpecification().getFunctionName()), arguments.build());
+            Type type = process(functionCall, context);
+            return setExpressionType(node, type);
         }
 
         @Override
