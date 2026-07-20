@@ -22,13 +22,13 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -90,16 +90,20 @@ public class LocalDynamicFilter
         }
         // Convert the predicate to use probe variables (instead dynamic filter IDs).
         // Note that in case of a probe-side union, a single dynamic filter may match multiple probe variables.
-        ImmutableMap.Builder<VariableReferenceExpression, Domain> builder = ImmutableMap.builder();
+        // Conversely, multiple dynamic filters may target the same probe variable (e.g. a two-sided range
+        // predicate "a >= x AND a < y", or BETWEEN, produces two comparison dynamic filters on the same
+        // variable "a"). In that case the resulting domains must be intersected instead of overwriting each
+        // other, otherwise building an ImmutableMap would fail with "Multiple entries with same key".
+        Map<VariableReferenceExpression, Domain> domains = new HashMap<>();
         for (Map.Entry<String, Domain> entry : result.getDomains().get().entrySet()) {
             Domain domain = entry.getValue();
             // Store all matching variables for each build channel index.
             for (DynamicFilterPlaceholder placeholder : probeVariables.get(entry.getKey())) {
                 Domain updatedDomain = placeholder.applyComparison(domain);
-                builder.put((VariableReferenceExpression) placeholder.getInput(), updatedDomain);
+                domains.merge((VariableReferenceExpression) placeholder.getInput(), updatedDomain, Domain::intersect);
             }
         }
-        return TupleDomain.withColumnDomains(builder.build());
+        return TupleDomain.withColumnDomains(domains);
     }
 
     public static Optional<LocalDynamicFilter> create(AbstractJoinNode planNode, int partitionCount)
