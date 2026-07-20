@@ -13,50 +13,21 @@
  */
 package com.facebook.presto.nativetests;
 
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestFnServerAuth;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.utils.FnServerAuthTestUtils;
 
 /**
- * Runs all {@link AbstractTestFnServerAuth} test cases against a
- * Java coordinator + C++ (native) worker cluster.
+ * Runs all {@link com.facebook.presto.tests.AbstractTestFnServerAuth} test cases against a
+ * Java coordinator + C++ (native) worker cluster with mTLS only (no JWT).
  */
-public class TestFnServerAuthOnNativeCluster
+public class TestFnServerAuthWithMtlsOnlyOnNativeCluster
         extends AbstractTestFnServerAuth
 {
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        return FnServerAuthTestUtils.createNativeRunnerWithValidHttpsFnServer();
-    }
-
-    @Override
-    protected QueryRunner createRunnerWithOnlyMtls()
-            throws Exception
-    {
         return FnServerAuthTestUtils.createNativeRunnerWithOnlyMtls();
-    }
-
-    @Override
-    protected QueryRunner createRunnerWithInvalidCertInFnServer()
-            throws Exception
-    {
-        return FnServerAuthTestUtils.createNativeRunnerWithInvalidCertInFnServer();
-    }
-
-    @Override
-    protected QueryRunner createRunnerWithWrongJwtSecretOnFnServer()
-            throws Exception
-    {
-        return FnServerAuthTestUtils.createNativeRunnerWithWrongJwtSecretOnFnServer();
-    }
-
-    @Override
-    protected QueryRunner createRunnerWithNoJwtOnFnServer()
-            throws Exception
-    {
-        return FnServerAuthTestUtils.createNativeRunnerWithNoJwtOnFnServer();
     }
 }

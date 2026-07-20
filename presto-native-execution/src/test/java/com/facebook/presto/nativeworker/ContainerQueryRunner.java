@@ -253,8 +253,6 @@ public class ContainerQueryRunner
                 .withNetworkAliases("presto-remote-function-server")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/function-server/etc"), "/opt/function-server/etc")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/function-server/entrypoint.sh"), "/opt/entrypoint.sh")
-                .withLogConsumer(frame ->
-                        System.err.println("[FUNCTION-SERVER] " + frame.getUtf8String().stripTrailing()))
                 .waitingFor(Wait.forLogMessage(".*======== REMOTE FUNCTION SERVER STARTED at: .*", 1))
                 .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)))
                 .withExposedPorts(functionServerPort);

@@ -31,7 +31,11 @@ target_link_libraries(
 
 add_executable(presto_rest_remote_client_test RestRemoteClientTest.cpp)
 
-add_test(presto_rest_remote_client_test presto_rest_remote_client_test)
+add_test(
+  NAME presto_rest_remote_client_test
+  COMMAND presto_rest_remote_client_test
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
 
 target_link_libraries(
   presto_rest_remote_client_test

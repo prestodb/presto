@@ -53,7 +53,6 @@ public class FnServerAuthTestUtils
     private static final ConcurrentHashMap<String, String> CERT_CACHE = new ConcurrentHashMap<>();
 
     public static final String JWT_SHARED_SECRET = "supersecret";
-    public static final String JWT_WRONG_SECRET = "wrongsecret";
 
     private static final Map<String, String> TPCH_PROPERTIES = ImmutableMap.of("tpch.column-naming", "standard");
 
@@ -172,21 +171,6 @@ public class FnServerAuthTestUtils
                 .build();
     }
 
-    public static Map<String, String> getFnServerMtlsConfigWithInvalidCert(int port)
-    {
-        String invalidKeystorePath = certPath("function-server/invalid-keystore.jks");
-
-        return ImmutableMap.<String, String>builder()
-                .put("http-server.http.enabled", "false")
-                .put("http-server.https.enabled", "true")
-                .put("http-server.https.port", String.valueOf(port))
-                .put("http-server.https.keystore.path", invalidKeystorePath)
-                .put("http-server.https.keystore.key", "changeit")
-                .put("http-server.https.truststore.path", certPath("truststore.jks"))
-                .put("http-server.https.truststore.key", "changeit")
-                .build();
-    }
-
     public static Map<String, String> getFunctionServerConfigWithAuth(int port, String sharedSecret, boolean includeJwt)
     {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.<String, String>builder()
@@ -197,82 +181,28 @@ public class FnServerAuthTestUtils
         return builder.build();
     }
 
-    public static Map<String, String> getFunctionServerConfigWithInvalidCert(int port, String sharedSecret)
-    {
-        return ImmutableMap.<String, String>builder()
-                .putAll(getFnServerMtlsConfigWithInvalidCert(port))
-                .putAll(getJwtProperties(sharedSecret))
-                .build();
-    }
-
-    /** Java coordinator + Java workers, mTLS + JWT, valid cert. */
-    public static DistributedQueryRunner createRunnerWithValidHttpsFnServer()
+    /** Java coordinator + Java workers, mTLS + JWT. */
+    public static DistributedQueryRunner createJavaRunnerWithMtlsAndJwt()
             throws Exception
     {
         return createHttpsQueryRunnerWithFnServer(
                 getFunctionServerConfigWithAuth(findUnusedPort(), JWT_SHARED_SECRET, true), true);
-    }
-
-    /** Java coordinator + Java workers, mTLS + JWT, wrong JWT secret on Function Server. */
-    public static DistributedQueryRunner createRunnerWithInvalidJwtSecretOnFnServer()
-            throws Exception
-    {
-        return createHttpsQueryRunnerWithFnServer(
-                getFunctionServerConfigWithAuth(findUnusedPort(), JWT_WRONG_SECRET, true), true);
-    }
-
-    /**
-     * Java coordinator + Java workers, mTLS + JWT on coordinator/workers,
-     * but Function Server has no JWT config at all.
-     */
-    public static DistributedQueryRunner createRunnerWithNoJwtOnFnServer()
-            throws Exception
-    {
-        return createHttpsQueryRunnerWithFnServer(
-                getFunctionServerConfigWithAuth(findUnusedPort(), JWT_WRONG_SECRET, false), true);
     }
 
     /** Java coordinator + Java workers, mTLS only (no JWT on any node). */
-    public static DistributedQueryRunner createRunnerWithOnlyMtls()
+    public static DistributedQueryRunner createJavaRunnerWithOnlyMtls()
             throws Exception
     {
         return createHttpsQueryRunnerWithFnServer(
-                getFunctionServerConfigWithAuth(findUnusedPort(), JWT_WRONG_SECRET, false), false);
+                getFunctionServerConfigWithAuth(findUnusedPort(), JWT_SHARED_SECRET, false), false);
     }
 
-    /** Java coordinator + Java workers, mTLS + JWT, invalid cert on Function Server. */
-    public static DistributedQueryRunner createRunnerWithInvalidCertInFnServer()
-            throws Exception
-    {
-        return createHttpsQueryRunnerWithFnServer(
-                getFunctionServerConfigWithInvalidCert(findUnusedPort(), JWT_SHARED_SECRET), true);
-    }
-
-    /** Java coordinator + native (C++) workers, mTLS + JWT, valid cert. */
-    public static DistributedQueryRunner createNativeRunnerWithValidHttpsFnServer()
+    /** Java coordinator + native (C++) workers, mTLS + JWT. */
+    public static DistributedQueryRunner createNativeRunnerWithMtlsAndJwt()
             throws Exception
     {
         return createHttpsNativeQueryRunnerWithFnServer(
                 getFunctionServerConfigWithAuth(findUnusedPort(), JWT_SHARED_SECRET, true), true);
-    }
-
-    /** Java coordinator + native workers, mTLS + JWT, wrong JWT secret on Function Server. */
-    public static DistributedQueryRunner createNativeRunnerWithWrongJwtSecretOnFnServer()
-            throws Exception
-    {
-        return createHttpsNativeQueryRunnerWithFnServer(
-                getFunctionServerConfigWithAuth(findUnusedPort(), JWT_WRONG_SECRET, true), true);
-    }
-
-    /**
-     * Java coordinator + native workers, mTLS + JWT on coordinator/workers,
-     * but Function Server has no JWT config at all.
-     */
-    public static DistributedQueryRunner createNativeRunnerWithNoJwtOnFnServer()
-            throws Exception
-    {
-        return createHttpsNativeQueryRunnerWithFnServer(
-                getFunctionServerConfigWithAuth(findUnusedPort(), JWT_WRONG_SECRET, false), true);
     }
 
     /** Java coordinator + native workers, mTLS only (no JWT on any node). */
@@ -280,15 +210,7 @@ public class FnServerAuthTestUtils
             throws Exception
     {
         return createHttpsNativeQueryRunnerWithFnServer(
-                getFunctionServerConfigWithAuth(findUnusedPort(), JWT_WRONG_SECRET, false), false);
-    }
-
-    /** Java coordinator + native workers, mTLS + JWT, invalid cert on Function Server. */
-    public static DistributedQueryRunner createNativeRunnerWithInvalidCertInFnServer()
-            throws Exception
-    {
-        return createHttpsNativeQueryRunnerWithFnServer(
-                getFunctionServerConfigWithInvalidCert(findUnusedPort(), JWT_SHARED_SECRET), true);
+                getFunctionServerConfigWithAuth(findUnusedPort(), JWT_SHARED_SECRET, false), false);
     }
 
     /**

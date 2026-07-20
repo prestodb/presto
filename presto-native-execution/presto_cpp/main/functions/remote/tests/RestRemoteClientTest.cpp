@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
@@ -33,14 +32,9 @@ void setConfig(const std::unordered_map<std::string, std::string>& props) {
       std::make_unique<velox::config::ConfigBase>(std::move(values)));
 }
 
-// Certs live under presto_cpp/main/http/tests/certs/.
 std::string getCertsPath(const std::string& fileName) {
-  std::string currentPath = fs::current_path().c_str();
-  boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
-  boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
-  boost::algorithm::replace_all(currentPath, "_build/debug/", "");
-  boost::algorithm::replace_all(currentPath, "_build/release/", "");
-  return currentPath + "/presto_cpp/main/http/tests/certs/" + fileName;
+  return fs::current_path().string() + "/presto_cpp/main/http/tests/certs/" +
+      fileName;
 }
 
 class RestRemoteClientTest : public ::testing::Test {
