@@ -22,6 +22,7 @@ import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.spark.execution.property.NativeExecutionConfigModule;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
@@ -42,6 +43,17 @@ public class PrestoSparkServiceFactory
     @Override
     public IPrestoSparkService createService(SparkProcessType sparkProcessType, PrestoSparkConfiguration configuration, PrestoSparkBootstrapTimer bootstrapTimer)
     {
+        // Presto on Spark does not run PrestoServer.run(), so apply the same relaxation of
+        // Jackson 2.18's default 50,000-char maxNameLength here. createService() is the single
+        // chokepoint for both the driver service and every executor, and runs inside the Presto
+        // classloader where StreamReadConstraints is available. Without this, JsonCodec<PlanFragment>
+        // fails when Assignments map keys (VariableReferenceExpression names) exceed the limit.
+        // Must run before any JsonFactory is constructed (including the static one in JsonCodec).
+        StreamReadConstraints.overrideDefaultStreamReadConstraints(
+                StreamReadConstraints.builder()
+                        .maxNameLength(Integer.MAX_VALUE)
+                        .build());
+
         bootstrapTimer.beginPrestoSparkServiceCreation();
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(configuration.getConfigProperties());
