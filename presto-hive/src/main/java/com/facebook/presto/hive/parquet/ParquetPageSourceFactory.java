@@ -113,6 +113,7 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getSubfieldType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
+import static com.facebook.presto.parquet.ParquetTypeUtils.lookupDescriptor;
 import static com.facebook.presto.parquet.ParquetTypeUtils.nestedColumnPath;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
@@ -344,10 +345,10 @@ public class ParquetPageSourceFactory
             if (isPushedDownSubfield(columnHandle)) {
                 Subfield pushedDownSubfield = getPushedDownSubfield(columnHandle);
                 List<String> subfieldPath = columnPathFromSubfield(pushedDownSubfield);
-                descriptor = descriptorsByPath.get(subfieldPath);
+                descriptor = lookupDescriptor(descriptorsByPath, subfieldPath);
             }
             else {
-                descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+                descriptor = lookupDescriptor(descriptorsByPath, ImmutableList.of(columnHandle.getName()));
             }
             if (descriptor != null) {
                 predicate.put(descriptor, entry.getValue());

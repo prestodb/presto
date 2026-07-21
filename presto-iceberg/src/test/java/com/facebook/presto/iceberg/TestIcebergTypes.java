@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.hive.HiveCommonSessionProperties.PARQUET_BATCH_READ_OPTIMIZATION_ENABLED;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -153,6 +154,33 @@ public class TestIcebergTypes
             assertQuery(
                     "SELECT id, location.\"aws-region\", location.\"data-center\", location.\"zone-id\" FROM " + tableName,
                     "VALUES (1, 'us-west-2', 'dc-01', 100), (2, 'eu-central-1', 'dc-02', 200)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testStructWithMixedCaseFieldNames()
+    {
+        assertStructWithMixedCaseFieldNames("PARQUET");
+        assertStructWithMixedCaseFieldNames("ORC");
+    }
+
+    private void assertStructWithMixedCaseFieldNames(String fileFormat)
+    {
+        String tableName = "test_mixed_case_struct_" + fileFormat.toLowerCase(ENGLISH);
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (x ROW(\"currencyCode\" INTEGER, \"currencycode\" INTEGER)) " +
+                    "WITH (\"write.format.default\" = '" + fileFormat + "')");
+            assertUpdate("INSERT INTO " + tableName + " SELECT ROW(1, 2)", 1);
+
+            assertQuery(
+                    "SELECT x.\"currencyCode\", x.\"currencycode\" FROM " + tableName,
+                    "VALUES (1, 2)");
+            assertQueryFails(
+                    "SELECT x.\"CURRENCYCODE\" FROM " + tableName,
+                    ".*Ambiguous field 'CURRENCYCODE' in type row\\(\"currencyCode\" integer, \"currencycode\" integer\\).*");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);

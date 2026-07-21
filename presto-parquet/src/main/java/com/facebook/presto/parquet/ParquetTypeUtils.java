@@ -20,7 +20,6 @@ import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.ColumnIOFactory;
 import org.apache.parquet.io.GroupColumnIO;
-import org.apache.parquet.io.InvalidRecordException;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.PrimitiveColumnIO;
@@ -32,9 +31,9 @@ import org.apache.parquet.schema.MessageType;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -109,64 +108,51 @@ public final class ParquetTypeUtils
     public static Map<List<String>, RichColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
     {
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = new HashMap<>();
-        List<PrimitiveColumnIO> columns = getColumns(fileSchema, requestedSchema);
-        for (String[] paths : fileSchema.getPaths()) {
-            List<String> columnPath = Arrays.asList(paths);
-            getDescriptor(columns, columnPath)
-                    .ifPresent(richColumnDescriptor -> descriptorsByPath.put(columnPath, richColumnDescriptor));
+        for (PrimitiveColumnIO columnIO : getColumns(fileSchema, requestedSchema)) {
+            RichColumnDescriptor descriptor = new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
+            descriptorsByPath.put(Arrays.asList(descriptor.getPath()), descriptor);
         }
         return descriptorsByPath;
     }
 
-    public static Optional<RichColumnDescriptor> getDescriptor(List<PrimitiveColumnIO> columns, List<String> path)
+    /**
+     * Looks up a physical Parquet column path without discarding its case.
+     * An ambiguous case-insensitive match is not safe for predicate pushdown, so it is treated as absent.
+     *
+     * <p>This mirrors the "exact case, then unique case-insensitive, otherwise ambiguous" policy that
+     * {@code RowFieldNameResolver.resolveFieldIndex} applies to logical row fields. The two live in different
+     * modules that cannot depend on each other, so keep the implementations in sync when the policy changes.
+     */
+    public static RichColumnDescriptor lookupDescriptor(Map<List<String>, RichColumnDescriptor> descriptorsByPath, List<String> path)
     {
-        checkArgument(path.size() >= 1, "Parquet nested path should have at least one component");
-        int index = getPathIndex(columns, path);
-        if (index == -1) {
-            return Optional.empty();
+        RichColumnDescriptor descriptor = descriptorsByPath.get(path);
+        if (descriptor != null) {
+            return descriptor;
         }
-        PrimitiveColumnIO columnIO = columns.get(index);
-        return Optional.of(new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType()));
+
+        RichColumnDescriptor caseInsensitiveMatch = null;
+        for (Map.Entry<List<String>, RichColumnDescriptor> entry : descriptorsByPath.entrySet()) {
+            if (pathsMatch(entry.getKey(), path)) {
+                if (caseInsensitiveMatch != null) {
+                    return null;
+                }
+                caseInsensitiveMatch = entry.getValue();
+            }
+        }
+        return caseInsensitiveMatch;
     }
 
-    private static int getPathIndex(List<PrimitiveColumnIO> columns, List<String> path)
+    private static boolean pathsMatch(List<String> left, List<String> right)
     {
-        int maxLevel = path.size();
-        int index = -1;
-        for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
-            ColumnIO[] fields = columns.get(columnIndex).getPath();
-            if (fields.length <= maxLevel) {
-                continue;
-            }
-            if (fields[maxLevel].getName().equalsIgnoreCase(path.get(maxLevel - 1))) {
-                boolean match = true;
-                for (int level = 0; level < maxLevel - 1; level++) {
-                    if (!fields[level + 1].getName().equalsIgnoreCase(path.get(level))) {
-                        match = false;
-                    }
-                }
-
-                if (match) {
-                    index = columnIndex;
-                }
+        if (left.size() != right.size()) {
+            return false;
+        }
+        for (int index = 0; index < left.size(); index++) {
+            if (!left.get(index).equalsIgnoreCase(right.get(index))) {
+                return false;
             }
         }
-        return index;
-    }
-
-    public static int getFieldIndex(MessageType fileSchema, String name)
-    {
-        try {
-            return fileSchema.getFieldIndex(name.toLowerCase(Locale.ENGLISH));
-        }
-        catch (InvalidRecordException e) {
-            for (org.apache.parquet.schema.Type type : fileSchema.getFields()) {
-                if (type.getName().equalsIgnoreCase(name)) {
-                    return fileSchema.getFieldIndex(type.getName());
-                }
-            }
-            return -1;
-        }
+        return true;
     }
 
     @SuppressWarnings("deprecation")
@@ -196,18 +182,7 @@ public final class ParquetTypeUtils
 
     public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, GroupType messageType)
     {
-        if (messageType.containsField(columnName)) {
-            return messageType.getType(columnName);
-        }
-        // parquet is case-sensitive, but hive is not. all hive columns get converted to lowercase
-        // check for direct match above but if no match found, try case-insensitive match
-        for (org.apache.parquet.schema.Type type : messageType.getFields()) {
-            if (type.getName().equalsIgnoreCase(columnName)) {
-                return type;
-            }
-        }
-
-        return null;
+        return lookupByName(messageType.getFields(), org.apache.parquet.schema.Type::getName, columnName);
     }
 
     /**
@@ -216,19 +191,42 @@ public final class ParquetTypeUtils
      */
     public static ColumnIO lookupColumnByName(GroupColumnIO groupColumnIO, String columnName)
     {
-        ColumnIO columnIO = groupColumnIO.getChild(columnName);
-
-        if (columnIO != null) {
-            return columnIO;
-        }
-
+        ImmutableList.Builder<ColumnIO> children = ImmutableList.builder();
         for (int i = 0; i < groupColumnIO.getChildrenCount(); i++) {
-            if (groupColumnIO.getChild(i).getName().equalsIgnoreCase(columnName)) {
-                return groupColumnIO.getChild(i);
+            children.add(groupColumnIO.getChild(i));
+        }
+        return lookupByName(children.build(), ColumnIO::getName, columnName);
+    }
+
+    /**
+     * Resolves a field without discarding its spelling. A case-insensitive fallback is safe only when unique.
+     */
+    private static <T> T lookupByName(List<T> candidates, Function<T, String> nameGetter, String requestedName)
+    {
+        T exactMatch = null;
+        for (T candidate : candidates) {
+            String candidateName = nameGetter.apply(candidate);
+            if (requestedName.equals(candidateName)) {
+                if (exactMatch != null) {
+                    return null;
+                }
+                exactMatch = candidate;
             }
         }
+        if (exactMatch != null) {
+            return exactMatch;
+        }
 
-        return null;
+        T caseInsensitiveMatch = null;
+        for (T candidate : candidates) {
+            if (requestedName.equalsIgnoreCase(nameGetter.apply(candidate))) {
+                if (caseInsensitiveMatch != null) {
+                    return null;
+                }
+                caseInsensitiveMatch = candidate;
+            }
+        }
+        return caseInsensitiveMatch;
     }
 
     /**

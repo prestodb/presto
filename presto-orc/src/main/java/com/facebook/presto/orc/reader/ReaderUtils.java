@@ -17,6 +17,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 
+import java.util.Collection;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static java.lang.Math.max;
@@ -43,6 +45,37 @@ final class ReaderUtils
     public static int minNonNullValueSize(int nonNullCount)
     {
         return max(nonNullCount + 1, 1025);
+    }
+
+    /**
+     * Resolves a field without discarding its spelling. A case-insensitive fallback is safe only when unique.
+     */
+    public static <T> T resolveField(Collection<T> candidates, Function<T, String> nameGetter, String requestedName)
+    {
+        T exactMatch = null;
+        for (T candidate : candidates) {
+            String candidateName = nameGetter.apply(candidate);
+            if (requestedName.equals(candidateName)) {
+                if (exactMatch != null) {
+                    return null;
+                }
+                exactMatch = candidate;
+            }
+        }
+        if (exactMatch != null) {
+            return exactMatch;
+        }
+
+        T caseInsensitiveMatch = null;
+        for (T candidate : candidates) {
+            if (requestedName.equalsIgnoreCase(nameGetter.apply(candidate))) {
+                if (caseInsensitiveMatch != null) {
+                    return null;
+                }
+                caseInsensitiveMatch = candidate;
+            }
+        }
+        return caseInsensitiveMatch;
     }
 
     public static byte[] unpackByteNulls(byte[] values, boolean[] isNull)

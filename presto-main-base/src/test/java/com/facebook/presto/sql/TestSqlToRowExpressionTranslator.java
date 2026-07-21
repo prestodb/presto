@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -26,13 +29,43 @@ import java.math.BigDecimal;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static org.testng.Assert.expectThrows;
 
 public class TestSqlToRowExpressionTranslator
 {
     private final TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator();
+
+    @Test
+    public void testExactCaseRowFieldDereference()
+    {
+        RowType rowType = RowType.from(ImmutableList.of(
+                RowType.field("currencyCode", VARCHAR),
+                RowType.field("currencycode", BIGINT)));
+        ImmutableMap<String, Type> types = ImmutableMap.of("x", rowType);
+
+        assertEquals(translator.translate("x.\"currencyCode\"", types).getType(), VARCHAR);
+        assertEquals(translator.translate("x.\"currencycode\"", types).getType(), BIGINT);
+        SemanticException ambiguousFallback = expectThrows(SemanticException.class, () -> translator.translate("x.\"CURRENCYCODE\"", types));
+        assertEquals(ambiguousFallback.getCode(), AMBIGUOUS_ATTRIBUTE);
+
+        for (String fieldName : ImmutableList.of("currencyCode", "currencycode", "CURRENCYCODE")) {
+            SemanticException ambiguousUnquoted = expectThrows(SemanticException.class, () -> translator.translate("x." + fieldName, types));
+            assertEquals(ambiguousUnquoted.getCode(), AMBIGUOUS_ATTRIBUTE);
+        }
+
+        RowType duplicateExactNames = RowType.from(ImmutableList.of(
+                RowType.field("currencyCode", VARCHAR),
+                RowType.field("currencyCode", BIGINT)));
+        SemanticException ambiguousExactMatch = expectThrows(SemanticException.class, () -> translator.translate(
+                "x.\"currencyCode\"",
+                ImmutableMap.of("x", duplicateExactNames)));
+        assertEquals(ambiguousExactMatch.getCode(), AMBIGUOUS_ATTRIBUTE);
+    }
 
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()

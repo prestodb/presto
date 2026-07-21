@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.writer;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
@@ -30,6 +31,7 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.ColumnIOConverter;
 import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -63,6 +65,7 @@ import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.UUID.randomUUID;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -85,6 +88,50 @@ public class TestParquetWriter
             nativeValueGetter(VARCHAR),
             nativeValueGetter(VARCHAR));
     private static final Type ROW = RowType.from(ImmutableList.of(RowType.field("varchar", VARCHAR)));
+    private static final Type CASE_SENSITIVE_ROW = RowType.from(ImmutableList.of(
+            RowType.field("Status", VARCHAR),
+            RowType.field("status", BIGINT)));
+
+    @Test
+    public void testCaseSensitiveFieldNamesInMetadata()
+            throws Exception
+    {
+        temporaryDirectory = createTempDir();
+        parquetFile = new File(temporaryDirectory, randomUUID() + ".parquet");
+        List<Type> types = ImmutableList.of(CASE_SENSITIVE_ROW);
+
+        try (ParquetWriter parquetWriter = createParquetWriter(
+                parquetFile,
+                types,
+                ImmutableList.of("response_body"),
+                ParquetWriterOptions.builder().build(),
+                CompressionCodecName.UNCOMPRESSED)) {
+            PageBuilder pageBuilder = new PageBuilder(1, types);
+            BlockBuilder rowBuilder = pageBuilder.getBlockBuilder(0).beginBlockEntry();
+            VARCHAR.writeString(rowBuilder, "ok");
+            BIGINT.writeLong(rowBuilder, 200);
+            pageBuilder.getBlockBuilder(0).closeEntry();
+            pageBuilder.declarePosition();
+            parquetWriter.write(pageBuilder.build());
+        }
+
+        FileParquetDataSource dataSource = new FileParquetDataSource(parquetFile);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(
+                dataSource,
+                parquetFile.length(),
+                Optional.empty(),
+                false).getParquetMetadata();
+
+        GroupType responseBody = parquetMetadata.getFileMetaData().getSchema().getType("response_body").asGroupType();
+        assertEquals(responseBody.getFields().stream().map(org.apache.parquet.schema.Type::getName).collect(toList()), ImmutableList.of("Status", "status"));
+        assertEquals(
+                parquetMetadata.getBlocks().get(0).getColumns().stream()
+                        .map(column -> ImmutableList.copyOf(column.getPath().toArray()))
+                        .collect(toList()),
+                ImmutableList.of(
+                        ImmutableList.of("response_body", "Status"),
+                        ImmutableList.of("response_body", "status")));
+    }
 
     @Test
     public void testWriteAllNullDataPageAfterRowGroupFlush()
