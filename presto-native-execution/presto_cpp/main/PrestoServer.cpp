@@ -18,6 +18,10 @@
 #include <folly/system/HardwareConcurrency.h>
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
@@ -766,6 +770,32 @@ void PrestoServer::startServer(const std::vector<std::string>& catalogNames) {
                 kTaskUriFormat, kHttp, address_, address.address.getPort());
           }
           taskManager_->setBaseUri(taskUri);
+          if (systemConfig->httpServerReportBoundPortToFile()) {
+            const std::string portFilePath =
+                configDirectoryPath_ + "/http-server.port";
+            const std::string tmpPortFilePath = portFilePath + ".tmp";
+            try {
+              {
+                std::ofstream out(tmpPortFilePath);
+                out.exceptions(std::ios::failbit | std::ios::badbit);
+                out << address.address.getPort() << std::endl;
+                out.flush();
+              }
+              if (std::rename(tmpPortFilePath.c_str(), portFilePath.c_str()) !=
+                  0) {
+                PRESTO_STARTUP_LOG(ERROR)
+                    << "Failed to rename port file " << tmpPortFilePath
+                    << " -> " << portFilePath << ": " << std::strerror(errno);
+                std::remove(tmpPortFilePath.c_str());
+              }
+            } catch (const std::exception& e) {
+              PRESTO_STARTUP_LOG(ERROR) << "Failed to write port file "
+                                        << portFilePath << ": " << e.what();
+              std::remove(tmpPortFilePath.c_str());
+            }
+            PRESTO_STARTUP_LOG(INFO)
+                << "HTTP server bound to port " << address.address.getPort();
+          }
           break;
         }
 
