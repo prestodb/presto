@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.block.RowBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
+import com.facebook.presto.geospatial.type.GeometryType;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.iceberg.delete.DeleteFilter;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
@@ -35,6 +39,7 @@ import org.apache.iceberg.util.Pair;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -253,6 +258,7 @@ public class IcebergUpdateablePageSource
                 return null;
             }
 
+            dataPage = transformIfNecessary(dataPage);
             Optional<RowPredicate> deleteFilterPredicate = deletePredicate.get();
             if (isDeletedColumnId != -1 || deleteFilePathColumnId != -1) {
                 if (isDeletedColumnId != -1) {
@@ -359,6 +365,37 @@ public class IcebergUpdateablePageSource
         if (updatedRowPageSink != null) {
             updatedRowPageSink.abort();
         }
+    }
+
+    private Page transformIfNecessary(Page page)
+    {
+        Block[] fullPage = new Block[delegateColumns.size()];
+        for (int channel = 0; channel < delegateColumns.size(); channel++) {
+            if (delegateColumns.get(channel).getType() == GeometryType.GEOMETRY) {
+                fullPage[channel] = transformGeometryBlock(page.getBlock(channel), delegateColumns.get(channel).getType());
+            }
+            else {
+                fullPage[channel] = page.getBlock(channel);
+            }
+        }
+        return new Page(page.getPositionCount(), fullPage);
+    }
+
+    private Block transformGeometryBlock(Block block, Type type)
+    {
+        int positionCount = block.getPositionCount();
+        BlockBuilder builder = type.createBlockBuilder(null, positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            if (block.isNull(position)) {
+                builder.appendNull();
+            }
+            else {
+                OGCGeometry geometry = OGCGeometry.fromBinary(ByteBuffer.wrap(type.getSlice(block, position).getBytes()));
+                geometry.setSpatialReference(null);
+                type.writeSlice(builder, EsriGeometrySerde.serialize(geometry));
+            }
+        }
+        return builder.build();
     }
 
     /**

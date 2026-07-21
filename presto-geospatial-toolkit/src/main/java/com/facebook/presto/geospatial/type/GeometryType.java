@@ -76,6 +76,7 @@ public class GeometryType
             blockBuilder.appendNull();
             return;
         }
+
         blockBuilder.writeBytes(value, offset, length).closeEntry();
     }
 
