@@ -249,15 +249,18 @@ public class RewriteDataFilesProcedure
             final Set<DataFile> scannedDataFiles = new HashSet<>();
             final Set<DeleteFile> fullyAppliedDeleteFiles = new HashSet<>();
 
-            // Resolve the snapshot to scan: use the explicitly specified snapshot if present,
-            // otherwise fall back to the current snapshot. This ensures that scannedDataFiles
-            // is always populated so the Iceberg RewriteFiles operation correctly retires the
-            // old files from the manifest (not just appends new ones).
-            Snapshot scanSnapshot = tableHandle.getIcebergTableName().getSnapshotId()
-                    .map(icebergTable::snapshot)
-                    .orElse(icebergTable.currentSnapshot());
+            // The snapshot ID was resolved at analysis/planning time in getTableHandle() via
+            // resolveSnapshotIdByName(), which stores currentSnapshot().snapshotId() into
+            // IcebergTableName for any non-empty table. Using that resolved ID here ensures
+            // finishCallDistributedProcedure operates on the same snapshot that was used when
+            // reading data in beginCallDistributedProcedure, and scannedDataFiles is correctly
+            // populated so the Iceberg RewriteFiles operation retires old files from the manifest
+            // (rather than just appending new ones alongside them).
+            Optional<Snapshot> scanSnapshotOpt = tableHandle.getIcebergTableName().getSnapshotId()
+                    .map(icebergTable::snapshot);
 
-            if (scanSnapshot != null) {
+            if (scanSnapshotOpt.isPresent()) {
+                Snapshot scanSnapshot = scanSnapshotOpt.get();
                 TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
 
                 TableScan tableScan = procedureContext.getTable().newScan()
@@ -299,9 +302,7 @@ public class RewriteDataFilesProcedure
             RewriteFiles rewriteFiles = icebergTable.newRewrite()
                     .rewriteFiles(scannedDataFiles, fullyAppliedDeleteFiles, newFiles, ImmutableSet.of());
 
-            if (scanSnapshot != null) {
-                rewriteFiles.validateFromSnapshot(scanSnapshot.snapshotId());
-            }
+            scanSnapshotOpt.ifPresent(snapshot -> rewriteFiles.validateFromSnapshot(snapshot.snapshotId()));
             rewriteFiles.commit();
         }
     }
