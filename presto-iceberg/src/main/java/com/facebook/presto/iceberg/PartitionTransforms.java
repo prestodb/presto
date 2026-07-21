@@ -93,7 +93,7 @@ public final class PartitionTransforms
                             ValueTransform.from(TIMESTAMP, transformYear));
                 }
                 if (type.equals(TIMESTAMP_MICROSECONDS)) {
-                    LongUnaryOperator transformYear = value -> epochYear(value / 1000);
+                    LongUnaryOperator transformYear = value -> epochYear(Math.floorDiv(value, 1000));
                     return new ColumnTransform(transform, INTEGER,
                             block -> transformBlock(TIMESTAMP_MICROSECONDS, block, transformYear),
                             ValueTransform.from(TIMESTAMP_MICROSECONDS, transformYear));
@@ -119,7 +119,7 @@ public final class PartitionTransforms
                             ValueTransform.from(TIMESTAMP, transformMonth));
                 }
                 if (type.equals(TIMESTAMP_MICROSECONDS)) {
-                    LongUnaryOperator transformMonth = value -> epochMonth(value / 1000);
+                    LongUnaryOperator transformMonth = value -> epochMonth(Math.floorDiv(value, 1000));
                     return new ColumnTransform(transform, INTEGER,
                             block -> transformBlock(TIMESTAMP_MICROSECONDS, block, transformMonth),
                             ValueTransform.from(TIMESTAMP_MICROSECONDS, transformMonth));
@@ -145,7 +145,7 @@ public final class PartitionTransforms
                             ValueTransform.from(TIMESTAMP, transformDay));
                 }
                 if (type.equals(TIMESTAMP_MICROSECONDS)) {
-                    LongUnaryOperator transformDay = value -> epochDay(value / 1000);
+                    LongUnaryOperator transformDay = value -> epochDay(Math.floorDiv(value, 1000));
                     return new ColumnTransform(transform, INTEGER,
                             block -> transformBlock(TIMESTAMP_MICROSECONDS, block, transformDay),
                             ValueTransform.from(TIMESTAMP_MICROSECONDS, transformDay));
@@ -165,7 +165,7 @@ public final class PartitionTransforms
                             ValueTransform.from(TIMESTAMP, transformHour));
                 }
                 if (type.equals(TIMESTAMP_MICROSECONDS)) {
-                    LongUnaryOperator transformHour = value -> epochHour(value / 1000);
+                    LongUnaryOperator transformHour = value -> epochHour(Math.floorDiv(value, 1000));
                     return new ColumnTransform(transform, INTEGER,
                             block -> transformBlock(TIMESTAMP_MICROSECONDS, block, transformHour),
                             ValueTransform.from(TIMESTAMP_MICROSECONDS, transformHour));
