@@ -94,6 +94,10 @@ public class LocalDynamicFilter
         // predicate "a >= x AND a < y", or BETWEEN, produces two comparison dynamic filters on the same
         // variable "a"). In that case the resulting domains must be intersected instead of overwriting each
         // other, otherwise building an ImmutableMap would fail with "Multiple entries with same key".
+        // Intersection is correct because such filters are always conjunctive: they are collected via
+        // extractDynamicFilters/extractConjuncts, which only splits along top-level AND, so any placeholders
+        // that share a probe variable are AND-combined by construction (an OR subtree is kept opaque and is
+        // never decomposed into dynamic filters).
         Map<VariableReferenceExpression, Domain> domains = new HashMap<>();
         for (Map.Entry<String, Domain> entry : result.getDomains().get().entrySet()) {
             Domain domain = entry.getValue();
