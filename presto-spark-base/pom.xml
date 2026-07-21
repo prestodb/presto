@@ -69,7 +69,7 @@
             <artifactId>presto-client</artifactId>
             <exclusions>
                 <exclusion>
-                    <groupId>com.facebook.airlift.drift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
@@ -117,7 +117,7 @@
             <artifactId>presto-main-base</artifactId>
             <exclusions>
                 <exclusion>
-                    <groupId>com.facebook.airlift.drift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
                 <exclusion>
@@ -148,17 +148,17 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>stats</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
@@ -217,32 +217,32 @@
             <artifactId>jsr305</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>node</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>log-manager</artifactId>
         </dependency>
 
@@ -341,7 +341,7 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>http-client</artifactId>
                 </exclusion>
                 <exclusion>
@@ -353,7 +353,7 @@
                     <artifactId>RoaringBitmap</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.facebook.airlift.drift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
@@ -372,11 +372,11 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>http-client</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>http-server</artifactId>
                 </exclusion>
                 <exclusion>
@@ -412,7 +412,7 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>http-client</artifactId>
                 </exclusion>
                 <exclusion>
@@ -473,7 +473,7 @@
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-expressions</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>it.unimi.dsi:fastutil</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:log-manager</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.auden-woolfson.airlift:log-manager</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.squareup.okio:okio-jvm</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>org.jetbrains.kotlin:kotlin-stdlib</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
