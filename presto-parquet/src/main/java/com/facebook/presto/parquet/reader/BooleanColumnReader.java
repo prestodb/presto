@@ -16,9 +16,6 @@ package com.facebook.presto.parquet.reader;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import org.joda.time.DateTimeZone;
-
-import java.util.Optional;
 
 public class BooleanColumnReader
         extends AbstractColumnReader
@@ -29,7 +26,7 @@ public class BooleanColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<DateTimeZone> timezone)
+    protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             type.writeBoolean(blockBuilder, valuesReader.readBoolean());

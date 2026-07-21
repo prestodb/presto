@@ -19,9 +19,6 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import org.joda.time.DateTimeZone;
-
-import java.util.Optional;
 
 import static java.lang.Float.floatToIntBits;
 
@@ -34,7 +31,7 @@ public class IntColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<DateTimeZone> timezone)
+    protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             if (type instanceof BigintType) {

@@ -85,7 +85,7 @@ public abstract class AbstractColumnReader
         this.indexIterator = null;
     }
 
-    protected abstract void readValue(BlockBuilder blockBuilder, Type type, Optional<DateTimeZone> timezone);
+    protected abstract void readValue(BlockBuilder blockBuilder, Type type);
 
     protected abstract void skipValue();
 
@@ -147,7 +147,7 @@ public abstract class AbstractColumnReader
                 // When we break here, we could end up with valueCount < nextBatchSize, this is because we may skip reading values in readValues()
                 break;
             }
-            readValues(blockBuilder, valuesToRead, field.getType(), definitionLevels, repetitionLevels, timezone);
+            readValues(blockBuilder, valuesToRead, field.getType(), definitionLevels, repetitionLevels);
             valueCount += valuesToRead;
         }
 
@@ -165,10 +165,10 @@ public abstract class AbstractColumnReader
                 (page == null ? 0 : page.getRetainedSizeInBytes());
     }
 
-    private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels, Optional<DateTimeZone> timezone)
+    private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
     {
         processValues(valuesToRead, ignored -> {
-            readValue(blockBuilder, type, timezone);
+            readValue(blockBuilder, type);
             definitionLevels.add(definitionLevel);
             repetitionLevels.add(repetitionLevel);
         }, indexIterator != null);

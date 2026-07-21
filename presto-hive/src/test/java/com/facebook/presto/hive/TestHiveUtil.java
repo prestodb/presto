@@ -338,7 +338,7 @@ public class TestHiveUtil
 
     private static long parse(DateTime time, String pattern)
     {
-        return parseHiveTimestamp(SESSION, DateTimeFormat.forPattern(pattern).print(time), nonDefaultTimeZone());
+        return parseHiveTimestamp(SESSION.getSqlFunctionProperties().isLegacyTimestamp(), DateTimeFormat.forPattern(pattern).print(time), nonDefaultTimeZone());
     }
 
     private static long unixTime(DateTime time, int factionalDigits)

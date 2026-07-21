@@ -18,7 +18,6 @@ import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -52,9 +51,11 @@ public class TimestampPlainValuesDecoder
         int localBufferOffset = bufferOffset;
 
         while (offset < endOffset) {
-            AtomicLong utcMillis = new AtomicLong(getTimestampMillis(localByteBuffer, localBufferOffset));
-            timezone.ifPresent(tz -> utcMillis.set(tz.convertUTCToLocal(utcMillis.get())));
-            values[offset++] = utcMillis.get();
+            long millis = getTimestampMillis(localByteBuffer, localBufferOffset);
+            if (timezone.isPresent()) {
+                millis = timezone.get().convertUTCToLocal(millis);
+            }
+            values[offset++] = millis;
             localBufferOffset += 12;
         }
 

@@ -18,9 +18,6 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import org.joda.time.DateTimeZone;
-
-import java.util.Optional;
 
 import static java.lang.Float.floatToRawIntBits;
 
@@ -33,7 +30,7 @@ public class LongColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<DateTimeZone> timezone)
+    protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             if (type instanceof RealType) {

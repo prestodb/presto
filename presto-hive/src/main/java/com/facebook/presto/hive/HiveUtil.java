@@ -471,9 +471,9 @@ public final class HiveUtil
         return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
-    public static long parseHiveTimestamp(ConnectorSession session, String value, DateTimeZone timeZone)
+    public static long parseHiveTimestamp(boolean isLegacyTimestamp, String value, DateTimeZone timeZone)
     {
-        return session != null && session.getSqlFunctionProperties().isLegacyTimestamp() ?
+        return isLegacyTimestamp ?
                 HIVE_TIMESTAMP_PARSER.withZone(timeZone).parseMillis(value) :
                 HIVE_TIMESTAMP_PARSER.parseMillis(value);
     }
@@ -738,7 +738,7 @@ public final class HiveUtil
             if (isNull) {
                 return NullableValue.asNull(TIMESTAMP);
             }
-            return NullableValue.of(TIMESTAMP, timestampPartitionKey(session.orElse(null), value, timeZone, partitionName));
+            return NullableValue.of(TIMESTAMP, timestampPartitionKey(session.map(s -> s.getSqlFunctionProperties().isLegacyTimestamp()).orElse(false), value, timeZone, partitionName));
         }
 
         if (REAL.equals(type)) {
@@ -922,10 +922,10 @@ public final class HiveUtil
         }
     }
 
-    public static long timestampPartitionKey(ConnectorSession session, String value, DateTimeZone zone, String name)
+    public static long timestampPartitionKey(boolean isLegacyTimestamp, String value, DateTimeZone zone, String name)
     {
         try {
-            return parseHiveTimestamp(session, value, zone);
+            return parseHiveTimestamp(isLegacyTimestamp, value, zone);
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for TIMESTAMP partition key: %s", value, name));
@@ -1156,7 +1156,7 @@ public final class HiveUtil
             return datePartitionKey(value, name);
         }
         else if (type.equals(TIMESTAMP)) {
-            return timestampPartitionKey(session, value, hiveStorageTimeZone, name);
+            return timestampPartitionKey(session.getSqlFunctionProperties().isLegacyTimestamp(), value, hiveStorageTimeZone, name);
         }
         else if (isShortDecimal(type)) {
             return shortDecimalPartitionKey(value, (DecimalType) type, name);

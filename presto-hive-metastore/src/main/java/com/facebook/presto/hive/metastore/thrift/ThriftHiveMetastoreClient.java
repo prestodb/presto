@@ -75,6 +75,8 @@ import static org.apache.thrift.TApplicationException.UNKNOWN_METHOD;
 public class ThriftHiveMetastoreClient
         implements HiveMetastoreClient
 {
+    private static final String COLUMN_STATISTICS_ENGINE = "hive";
+
     private final TTransport transport;
     private final ThriftHiveMetastore.Client client;
     private final Optional<String> catalogName;
@@ -254,7 +256,7 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         // TODO: This is not backwards compatible
-        client.delete_table_column_statistics(constructSchemaName(catalogName, databaseName), tableName, columnName, "hive");
+        client.delete_table_column_statistics(constructSchemaName(catalogName, databaseName), tableName, columnName, COLUMN_STATISTICS_ENGINE);
     }
 
     @Override
@@ -286,7 +288,7 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         // TODO: This is not backwards compatible
-        client.delete_partition_column_statistics(constructSchemaName(catalogName, databaseName), tableName, partitionName, columnName, "hive");
+        client.delete_partition_column_statistics(constructSchemaName(catalogName, databaseName), tableName, partitionName, columnName, COLUMN_STATISTICS_ENGINE);
     }
 
     @Override

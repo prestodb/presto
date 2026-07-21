@@ -34,7 +34,7 @@ public class CassandraRecordCursor
         implements RecordCursor
 {
     private final List<FullCassandraType> fullCassandraTypes;
-    private ConnectorSession session;
+    private final ConnectorSession session;
     private final ResultSet rs;
     private Row currentRow;
     private long count;

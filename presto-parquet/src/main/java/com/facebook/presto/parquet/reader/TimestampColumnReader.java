@@ -21,14 +21,13 @@ import org.apache.parquet.io.api.Binary;
 import org.joda.time.DateTimeZone;
 
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
 
 public class TimestampColumnReader
-        extends AbstractColumnReader
+        extends AbstractTimestampColumnReader
 {
     public TimestampColumnReader(RichColumnDescriptor descriptor)
     {
@@ -40,13 +39,15 @@ public class TimestampColumnReader
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary binary = valuesReader.readBytes();
-            AtomicLong utcMillis = new AtomicLong(getTimestampMillis(binary));
+            long utcMillis = getTimestampMillis(binary);
             if (type instanceof TimestampWithTimeZoneType) {
-                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis.get(), UTC_KEY));
+                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
             }
             else {
-                timezone.ifPresent(tz -> utcMillis.set(tz.convertUTCToLocal(utcMillis.get())));
-                type.writeLong(blockBuilder, utcMillis.get());
+                if (timezone.isPresent()) {
+                    utcMillis = timezone.get().convertUTCToLocal(utcMillis);
+                }
+                type.writeLong(blockBuilder, utcMillis);
             }
         }
         else if (isValueNull()) {

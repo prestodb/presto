@@ -26,7 +26,7 @@ import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 public class LongTimestampMicrosColumnReader
-        extends AbstractColumnReader
+        extends AbstractTimestampColumnReader
 {
     public LongTimestampMicrosColumnReader(RichColumnDescriptor descriptor)
     {

@@ -150,7 +150,7 @@ public class HiveRecordCursor
                     longs[columnIndex] = datePartitionKey(columnValue, name);
                 }
                 else if (TIMESTAMP.equals(type)) {
-                    longs[columnIndex] = timestampPartitionKey(session, columnValue, hiveStorageTimeZone, name);
+                    longs[columnIndex] = timestampPartitionKey(session.getSqlFunctionProperties().isLegacyTimestamp(), columnValue, hiveStorageTimeZone, name);
                 }
                 else if (isShortDecimal(type)) {
                     longs[columnIndex] = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);

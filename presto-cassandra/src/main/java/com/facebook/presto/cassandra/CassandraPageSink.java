@@ -183,10 +183,16 @@ public class CassandraPageSink
         else if (DATE.equals(type)) {
             values.add(LocalDate.ofEpochDay(type.getLong(block, position)));
         }
+        // Cassandra timestamps are always UTC epoch milliseconds; the DataStax driver accepts
+        // java.time.Instant which maps directly to that representation.
+        // CassandraType maps a CQL `timestamp` column to TIMESTAMP in legacy mode and to
+        // TIMESTAMP_WITH_TIME_ZONE in non-legacy mode, so these two branches are mutually exclusive.
         else if (session.getSqlFunctionProperties().isLegacyTimestamp() && TIMESTAMP.equals(type)) {
+            // Legacy mode: the raw long is epoch millis with the session timezone ignored (wall-clock treated as UTC).
             values.add(Instant.ofEpochMilli(type.getLong(block, position)));
         }
         else if (!session.getSqlFunctionProperties().isLegacyTimestamp() && TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            // Non-legacy mode: the long is a packed (UTC millis + timezone key); unpack to get true UTC millis.
             values.add(Instant.ofEpochMilli(unpackMillisUtc(type.getLong(block, position))));
         }
         else if (isVarcharType(type)) {

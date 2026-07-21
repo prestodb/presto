@@ -65,6 +65,8 @@ public class Int64TimeAndTimestampMicrosNestedBatchReader
         boolean[] isNull = new boolean[newBatchSize];
         int offset = 0;
         for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
+            // Int64TimeAndTimestampMicrosValuesDecoder handles timezone at construction time
+            // (via the withTimezone flag) rather than at readNext time, so timezone is not forwarded here.
             ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
 
             int valueDestinationIndex = offset + valuesDecoderContext.getValueCount() - 1;
@@ -113,6 +115,8 @@ public class Int64TimeAndTimestampMicrosNestedBatchReader
         long[] values = new long[newBatchSize];
         int offset = 0;
         for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
+            // Int64TimeAndTimestampMicrosValuesDecoder handles timezone at construction time
+            // (via the withTimezone flag) rather than at readNext time, so timezone is not forwarded here.
             ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
             offset += valuesDecoderContext.getValueCount();
         }

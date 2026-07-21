@@ -14,38 +14,34 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import org.apache.parquet.io.api.Binary;
+import org.joda.time.DateTimeZone;
 
-import java.math.BigInteger;
+import java.util.Optional;
 
-public class LongDecimalColumnReader
+public abstract class AbstractTimestampColumnReader
         extends AbstractColumnReader
 {
-    public LongDecimalColumnReader(RichColumnDescriptor descriptor)
+    protected Optional<DateTimeZone> timezone = Optional.empty();
+
+    protected AbstractTimestampColumnReader(RichColumnDescriptor columnDescriptor)
     {
-        super(descriptor);
+        super(columnDescriptor);
+    }
+
+    @Override
+    public ColumnChunk readNext(Optional<DateTimeZone> timezone)
+    {
+        this.timezone = timezone;
+        return super.readNext(timezone);
     }
 
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary value = valuesReader.readBytes();
-            type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(new BigInteger(value.getBytes())));
-        }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
+        readValue(blockBuilder, type, timezone);
     }
 
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
-        }
-    }
+    protected abstract void readValue(BlockBuilder blockBuilder, Type type, Optional<DateTimeZone> timezone);
 }
