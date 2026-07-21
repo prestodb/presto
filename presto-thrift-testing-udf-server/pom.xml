@@ -20,22 +20,22 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>drift-server</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 

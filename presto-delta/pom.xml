@@ -87,22 +87,22 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
@@ -149,7 +149,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -161,7 +161,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -224,11 +224,11 @@
             <scope>compile</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>discovery</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>event</artifactId>
                 </exclusion>
                 <exclusion>
@@ -245,7 +245,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>concurrent</artifactId>
             <scope>compile</scope>
         </dependency>
@@ -257,11 +257,11 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>discovery</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>event</artifactId>
                 </exclusion>
             </exclusions>
@@ -305,34 +305,34 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>http-server</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>node</artifactId>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>discovery</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
+                    <groupId>com.github.auden-woolfson.airlift</groupId>
                     <artifactId>event</artifactId>
                 </exclusion>
             </exclusions>
@@ -345,7 +345,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
     </dependencies>
@@ -359,7 +359,7 @@
                     <ignoredDependencies>
                         <ignoredDependency>org.scala-lang:scala-library:jar</ignoredDependency>
                         <ignoredDependency>commons-io:commons-io:jar</ignoredDependency>
-                        <ignoredDependency>com.facebook.airlift.drift:drift-codec:jar</ignoredDependency>
+                        <ignoredDependency>com.github.auden-woolfson.airlift:drift-codec:jar</ignoredDependency>
                     </ignoredDependencies>
                 </configuration>
             </plugin>

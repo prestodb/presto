@@ -47,7 +47,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
@@ -70,7 +70,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -82,7 +82,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -113,19 +113,19 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>concurrent</artifactId>
             <scope>compile</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>stats</artifactId>
             <scope>compile</scope>
         </dependency>
@@ -184,9 +184,9 @@
                 <configuration>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.google.guava:guava</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:concurrent</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:json</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:stats</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.auden-woolfson.airlift:concurrent</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.auden-woolfson.airlift:json</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.auden-woolfson.airlift:stats</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>joda-time:joda-time</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-cache</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-hive-common</ignoredNonTestScopedDependency>

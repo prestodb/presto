@@ -40,7 +40,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 
@@ -62,7 +62,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>log</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -116,7 +116,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>json</artifactId>
             <scope>test</scope>
         </dependency>
@@ -128,13 +128,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>drift-codec</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>drift-protocol</artifactId>
             <scope>test</scope>
         </dependency>
