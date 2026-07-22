@@ -2983,6 +2983,17 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>12.1.3</version>
+                <configuration>
+                    <suppressionFiles>
+                        <suppressionFile>${air.main.basedir}/src/dependency-check-suppressions.xml</suppressionFile>
+                    </suppressionFiles>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
