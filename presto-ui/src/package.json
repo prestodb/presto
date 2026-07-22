@@ -81,6 +81,7 @@
     "test:ci": "jest --ci --coverage --maxWorkers=2"
   },
   "resolutions": {
-    "d3-color": "3.1.0"
+    "d3-color": "3.1.0",
+    "fast-uri": "3.1.4"
   }
 }
