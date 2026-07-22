@@ -302,7 +302,8 @@ public class RewriteDataFilesProcedure
             RewriteFiles rewriteFiles = icebergTable.newRewrite()
                     .rewriteFiles(scannedDataFiles, fullyAppliedDeleteFiles, newFiles, ImmutableSet.of());
 
-            scanSnapshotOpt.ifPresent(snapshot -> rewriteFiles.validateFromSnapshot(snapshot.snapshotId()));
+            checkArgument(scanSnapshotOpt.isPresent(), "snapshot is null");
+            rewriteFiles.validateFromSnapshot(scanSnapshotOpt.get().snapshotId());
             rewriteFiles.commit();
         }
     }
