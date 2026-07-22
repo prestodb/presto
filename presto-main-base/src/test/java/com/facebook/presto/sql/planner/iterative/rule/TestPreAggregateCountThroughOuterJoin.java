@@ -25,6 +25,7 @@ import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -43,6 +44,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.PUSH_AGGREGATION_THROUGH_JOIN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -110,7 +112,7 @@ public class TestPreAggregateCountThroughOuterJoin
     }
 
     @Test
-    public void testPreservesDynamicFilters()
+    public void testPreservesDynamicFiltersForRightJoin()
     {
         tester().assertThat(new PreAggregateCountThroughOuterJoin(getMetadata().getFunctionAndTypeManager()))
                 .setSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, "true")
@@ -142,6 +144,74 @@ public class TestPreAggregateCountThroughOuterJoin
                                         node(AggregationNode.class, any()),
                                         any())
                                         .with(new JoinDynamicFiltersMatcher("DF", "outer_key")))));
+    }
+
+    @Test
+    public void testPreservesDynamicFiltersAndDistributionForLeftJoin()
+    {
+        tester().assertThat(new PreAggregateCountThroughOuterJoin(getMetadata().getFunctionAndTypeManager()))
+                .setSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, "true")
+                .on(p -> {
+                    VariableReferenceExpression outerKey = p.variable("outer_key", BIGINT);
+                    VariableReferenceExpression innerKey = p.variable("inner_key", BIGINT);
+                    VariableReferenceExpression innerValue = p.variable("inner_value", BIGINT);
+                    VariableReferenceExpression count = p.variable("count", BIGINT);
+
+                    return p.aggregation(aggregation -> aggregation
+                            .singleGroupingSet(outerKey)
+                            .addAggregation(count, p.rowExpression("count(inner_value)"))
+                            .source(p.join(
+                                    LEFT,
+                                    p.filter(
+                                            createDynamicFilterExpression("DF", outerKey, getMetadata().getFunctionAndTypeManager()),
+                                            p.values(outerKey)),
+                                    p.values(innerKey, innerValue),
+                                    ImmutableList.of(new EquiJoinClause(outerKey, innerKey)),
+                                    ImmutableList.of(outerKey, innerKey, innerValue),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    Optional.of(PARTITIONED),
+                                    ImmutableMap.of("DF", innerKey))));
+                })
+                .matches(node(ProjectNode.class,
+                        node(AggregationNode.class,
+                                node(JoinNode.class,
+                                        any(),
+                                        node(AggregationNode.class, any()))
+                                        .with(new JoinDynamicFiltersMatcher("DF", "inner_key"))
+                                        .with(new JoinDistributionMatcher(PARTITIONED)))));
+    }
+
+    @Test
+    public void testDoesNotFireForLeftJoinDynamicFilterOnNonGroupingKey()
+    {
+        tester().assertThat(new PreAggregateCountThroughOuterJoin(getMetadata().getFunctionAndTypeManager()))
+                .setSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, "true")
+                .on(p -> {
+                    VariableReferenceExpression outerKey = p.variable("outer_key", BIGINT);
+                    VariableReferenceExpression innerKey = p.variable("inner_key", BIGINT);
+                    VariableReferenceExpression innerFilterKey = p.variable("inner_filter_key", BIGINT);
+                    VariableReferenceExpression innerValue = p.variable("inner_value", BIGINT);
+                    VariableReferenceExpression count = p.variable("count", BIGINT);
+
+                    return p.aggregation(aggregation -> aggregation
+                            .singleGroupingSet(outerKey)
+                            .addAggregation(count, p.rowExpression("count(inner_value)"))
+                            .source(p.join(
+                                    LEFT,
+                                    p.filter(
+                                            createDynamicFilterExpression("DF", outerKey, getMetadata().getFunctionAndTypeManager()),
+                                            p.values(outerKey)),
+                                    p.values(innerKey, innerFilterKey, innerValue),
+                                    ImmutableList.of(new EquiJoinClause(outerKey, innerKey)),
+                                    ImmutableList.of(outerKey, innerKey, innerFilterKey, innerValue),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    ImmutableMap.of("DF", innerFilterKey))));
+                })
+                .doesNotFire();
     }
 
     @Test
@@ -389,6 +459,55 @@ public class TestPreAggregateCountThroughOuterJoin
     }
 
     @Test
+    public void testDoesNotFireForPreGroupedAggregation()
+    {
+        tester().assertThat(new PreAggregateCountThroughOuterJoin(getMetadata().getFunctionAndTypeManager()))
+                .setSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, "true")
+                .on(p -> {
+                    VariableReferenceExpression outerKey = p.variable("outer_key", BIGINT);
+                    VariableReferenceExpression innerKey = p.variable("inner_key", BIGINT);
+                    VariableReferenceExpression innerValue = p.variable("inner_value", BIGINT);
+                    VariableReferenceExpression count = p.variable("count", BIGINT);
+
+                    return p.aggregation(aggregation -> aggregation
+                            .singleGroupingSet(outerKey)
+                            .preGroupedVariables(outerKey)
+                            .addAggregation(count, p.rowExpression("count(inner_value)"))
+                            .source(p.join(
+                                    LEFT,
+                                    p.values(outerKey),
+                                    p.values(innerKey, innerValue),
+                                    new EquiJoinClause(outerKey, innerKey))));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForAggregationWithHashVariable()
+    {
+        tester().assertThat(new PreAggregateCountThroughOuterJoin(getMetadata().getFunctionAndTypeManager()))
+                .setSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, "true")
+                .on(p -> {
+                    VariableReferenceExpression outerKey = p.variable("outer_key", BIGINT);
+                    VariableReferenceExpression aggregationHash = p.variable("aggregation_hash", BIGINT);
+                    VariableReferenceExpression innerKey = p.variable("inner_key", BIGINT);
+                    VariableReferenceExpression innerValue = p.variable("inner_value", BIGINT);
+                    VariableReferenceExpression count = p.variable("count", BIGINT);
+
+                    return p.aggregation(aggregation -> aggregation
+                            .singleGroupingSet(outerKey)
+                            .hashVariable(aggregationHash)
+                            .addAggregation(count, p.rowExpression("count(inner_value)"))
+                            .source(p.join(
+                                    LEFT,
+                                    p.values(outerKey, aggregationHash),
+                                    p.values(innerKey, innerValue),
+                                    new EquiJoinClause(outerKey, innerKey))));
+                })
+                .doesNotFire();
+    }
+
+    @Test
     public void testDoesNotFireForExpressionCount()
     {
         tester().assertThat(new PreAggregateCountThroughOuterJoin(getMetadata().getFunctionAndTypeManager()))
@@ -558,6 +677,29 @@ public class TestPreAggregateCountThroughOuterJoin
             return new MatchResult(join.getDynamicFilters().size() == 1
                     && buildVariable != null
                     && buildVariable.getName().equals(buildVariableName));
+        }
+    }
+
+    private static class JoinDistributionMatcher
+            implements Matcher
+    {
+        private final JoinDistributionType distributionType;
+
+        private JoinDistributionMatcher(JoinDistributionType distributionType)
+        {
+            this.distributionType = distributionType;
+        }
+
+        @Override
+        public boolean shapeMatches(PlanNode node)
+        {
+            return node instanceof JoinNode;
+        }
+
+        @Override
+        public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+        {
+            return new MatchResult(((JoinNode) node).getDistributionType().equals(Optional.of(distributionType)));
         }
     }
 }

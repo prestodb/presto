@@ -264,6 +264,7 @@ public class PreAggregateCountThroughOuterJoin
                 || aggregation.getAggregations().isEmpty()
                 || aggregation.getStep() != AggregationNode.Step.SINGLE
                 || aggregation.getGroupingSetCount() != 1
+                || !aggregation.getPreGroupedVariables().isEmpty()
                 || aggregation.getHashVariable().isPresent()
                 || aggregation.getGroupIdVariable().isPresent()
                 || aggregation.getAggregationId().isPresent()) {
