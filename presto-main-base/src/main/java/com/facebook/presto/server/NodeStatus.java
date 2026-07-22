@@ -41,7 +41,15 @@ public class NodeStatus
     private final long heapUsed;
     private final long heapAvailable;
     private final long nonHeapUsed;
+    // Native-worker (Prestissimo) memory breakdown; both are 0 on JVM workers.
+    // In-memory AsyncDataCache footprint. This memory is evictable/reclaimable
+    // and does not, on its own, represent out-of-memory pressure.
     private final long asyncDataCacheBytes;
+    // Sum of per-pool reserved bytes (non-evictable query memory). Reservations
+    // are rounded up to Velox's quantized reservation size, so this slightly
+    // over-reports live usage. It excludes the evictable AsyncDataCache
+    // (reported separately in asyncDataCacheBytes) but may include memory that
+    // is spillable under pressure.
     private final long queryMemoryBytes;
 
     @ThriftConstructor

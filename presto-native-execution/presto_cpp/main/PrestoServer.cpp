@@ -1952,7 +1952,10 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
   }
 
   // Query memory (non-evictable): sum of per-query pool reservations, already
-  // aggregated per memory pool in populateMemAndCPUInfo().
+  // aggregated per memory pool in populateMemAndCPUInfo(). Reservations are
+  // rounded up to Velox's quantized reservation size, so this slightly
+  // over-reports live usage, and may include memory that is spillable under
+  // pressure. It excludes the evictable AsyncDataCache reported above.
   const auto memoryInfo = **memoryInfo_.rlock();
   int64_t queryMemoryBytes = 0;
   for (const auto& pool : memoryInfo.pools) {
