@@ -228,6 +228,21 @@ at the server level. Error codes are matched by their name (such as ``GENERIC_IN
 
 The corresponding session property is :ref:`admin/properties-session:\`\`try_function_catchable_errors\`\``.
 
+``server.startup-complete-required-for-active``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, the coordinator reports itself as not ready until the server has fully
+completed startup: ``/v1/info/state`` returns ``INACTIVE`` and ``/v1/info`` reports
+``"starting": true`` until the server reaches the ``SERVER STARTED`` point. By default,
+a coordinator can report ``ACTIVE`` as soon as its catalogs and resource group
+configuration manager are loaded, which happens before the remaining startup steps
+complete. Enabling this property defers the ``ACTIVE`` state until startup has fully
+finished, so that external components such as load balancers, routers, and health
+checks do not route queries to a coordinator that is still initializing.
+
 Memory Management Properties
 ----------------------------
 
