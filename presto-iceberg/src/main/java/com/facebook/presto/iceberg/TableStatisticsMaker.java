@@ -506,7 +506,7 @@ public class TableStatisticsMaker
     private static Types.NestedField getField(ColumnStatisticMetadata metadata, Table icebergTable, Snapshot snapshot)
     {
         return Optional.ofNullable(icebergTable.schemas().get(snapshot.schemaId()))
-                .map(schema -> schema.findField(metadata.getColumnName()))
+                .map(schema -> schema.caseInsensitiveFindField(metadata.getColumnName()))
                 .orElseThrow(() -> {
                     log.warn("failed to find column name %s in schema of table %s", metadata.getColumnName(), icebergTable.name());
                     return new PrestoException(ICEBERG_INVALID_METADATA, format("failed to find column name %s in schema of table %s", metadata.getColumnName(), icebergTable.name()));
