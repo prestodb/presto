@@ -16,6 +16,8 @@
 #include <boost/filesystem.hpp>
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpConstants.h"
@@ -229,8 +231,14 @@ class BearerCapturingDiscoverer : public CoordinatorDiscoverer {
       folly::Promise<std::string> bearerPromise) {
     auto onAnnouncement =
         [promiseHolder = std::make_shared<PromiseHolder<std::string>>(
-             std::move(bearerPromise))](const std::string& bearer) mutable {
-          if (!promiseHolder->get().isFulfilled()) {
+             std::move(bearerPromise)),
+         captured = std::make_shared<std::atomic<bool>>(false)](
+            const std::string& bearer) {
+          // The discovery server runs on an 8-thread IO pool, so announcements
+          // can land concurrently; claim the one-shot promise with an atomic
+          // exchange rather than a non-atomic isFulfilled() check, since a
+          // second setValue() on a folly::Promise throws PromiseAlreadySatisfied.
+          if (!captured->exchange(true)) {
             promiseHolder->get().setValue(bearer);
           }
         };
@@ -290,7 +298,18 @@ std::string announceAndCaptureBearer(bool jwtEnabled) {
       /*sslContext=*/nullptr);
 
   announcer.start();
-  auto bearer = std::move(future).get();
+  // Bound the wait so a wiring regression fails the test instead of hanging the
+  // whole presto_server_test process; the announcer fires every 50ms, so 30s is
+  // an ample ceiling. stop() still runs on the timeout path because the base
+  // destructor does not.
+  auto semiFuture = std::move(future);
+  if (!semiFuture.wait(std::chrono::seconds(30)).isReady()) {
+    announcer.stop();
+    ADD_FAILURE() << "announcement never arrived; no "
+                  << http::kPrestoInternalBearer << " captured";
+    return {};
+  }
+  auto bearer = std::move(semiFuture).get();
   announcer.stop();
   return bearer;
 }
