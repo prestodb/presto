@@ -54,9 +54,9 @@ public class TestNodeStatus
     @Test
     public void testJsonRoundTrip()
     {
-        // Use the native-worker shape: nonHeapUsed = -1 (not applicable) and
-        // distinct, non-zero values for the two native memory fields so the
-        // round-trip would catch a swapped or dropped field.
+        // Distinct values for the three long fields, including a negative one,
+        // so the round-trip would catch a swapped, dropped, or sign-mangled
+        // field.
         NodeStatus expected = nodeStatus(-1L, 111L, 222L);
 
         NodeStatus actual = CODEC.fromJson(CODEC.toJson(expected));

@@ -1939,8 +1939,11 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
 
   const double cpuLoadPct{cpuMon_.getCPULoadPct()};
 
-  // 'nonHeapUsed' is a JVM/GC concept and does not apply to native workers.
-  const int64_t nonHeapUsed = -1;
+  // 'nonHeapUsed' is a JVM/GC concept that does not apply to native workers.
+  // Kept at 0 to avoid breaking existing tooling that consumes this field; it
+  // could be changed to a not-applicable value (e.g. -1) in the future. Native
+  // memory is reported via the dedicated fields below.
+  const int64_t nonHeapUsed = 0;
 
   // In-memory AsyncDataCache footprint (evictable/reclaimable). SSD-resident
   // bytes are excluded as they do not contribute to RAM pressure.
