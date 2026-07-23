@@ -24,13 +24,13 @@ import com.facebook.presto.spi.plan.Assignments.Builder;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.ProjectNodeUtils;
-import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.HashMap;
@@ -50,19 +50,20 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
 /**
- * Coalesces a chain of {@code Project -> Project} into a single {@link ProjectNode} by fully
- * inlining the child projection's expressions into the parent.
+ * Coalesces a chain of {@code Project -> Project} into a single {@link ProjectNode} by inlining the
+ * child projection's expressions into the parent, then dropping the residual child projection when it
+ * collapses to a pure passthrough.
  *
- * <p>This is the opposite tradeoff from {@link InlineProjections}: where {@code InlineProjections}
- * conservatively only inlines constants or single-use expressions (to avoid duplicating
- * computation), this rule inlines <em>all</em> deterministic child expressions regardless of how
- * many times they are referenced. On the native (Velox) engine, common-subexpression elimination
- * runs <em>within</em> a single operator, so collapsing the chain into one project exposes the
- * shared subexpressions to CSE rather than hiding them across operators.
+ * <p>Like {@link InlineProjections}, this rule never duplicates real computation: a child output is
+ * inlined only when it is referenced exactly once by the parent, or when its defining expression is
+ * <em>trivial</em> to duplicate -- a constant (including a constant-folded {@code Block}) or a pure
+ * variable rename. A non-trivial expression referenced more than once is left in the child, so the
+ * chain is not collapsed at that output.
  *
- * <p>To preserve semantics this rule still skips: non-deterministic expressions that are referenced
- * more than once (which would duplicate side-effecting computation), inputs to {@code TRY(...)}
- * expressions, and identity assignments (which would otherwise make the rule fire forever).
+ * <p>To preserve semantics this rule also skips inputs to {@code TRY(...)} expressions (inlining into
+ * a TRY could change which errors are masked) and identity assignments (which would otherwise make
+ * the rule fire forever). A single-use child output is safe to inline even when non-deterministic,
+ * because a lone reference cannot duplicate the side-effecting computation.
  *
  * <p>This rule is gated behind {@code optimize_cascading_filters_and_projections} and is disabled by
  * default.
@@ -76,13 +77,11 @@ public class CoalesceCascadingProjections
             .with(source().matching(project().capturedAs(CHILD)));
 
     private final FunctionResolution functionResolution;
-    private final RowExpressionDeterminismEvaluator determinismEvaluator;
 
     public CoalesceCascadingProjections(FunctionAndTypeManager functionAndTypeManager)
     {
         requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
         this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
-        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
     }
 
     @Override
@@ -190,12 +189,11 @@ public class CoalesceCascadingProjections
         // candidates for inlining are child outputs that are referenced by the parent and
         //   a. are not inputs to try() expressions (otherwise inlining might change semantics)
         //   b. are not identity projections (otherwise this rule would keep firing forever)
-        //   c. are either deterministic (any number of references) OR referenced exactly once
-        //      (a single reference never duplicates computation, even for non-deterministic
-        //      expressions)
-        // Unlike InlineProjections (which only inlines constants or single-use expressions), this
-        // rule deliberately inlines multiply-referenced deterministic expressions so the native
-        // engine's common-subexpression elimination can dedupe them within one operator.
+        //   c. are either referenced exactly once (a single reference never duplicates computation,
+        //      even for a non-deterministic expression) OR are trivial to duplicate -- a constant or
+        //      a pure variable rename (see isTrivial)
+        // Like InlineProjections, this rule never inlines a multiply-referenced non-trivial
+        // expression, so it does not duplicate real computation across the coalesced projection.
 
         Set<VariableReferenceExpression> childOutputSet = ImmutableSet.copyOf(child.getOutputVariables());
 
@@ -214,9 +212,19 @@ public class CoalesceCascadingProjections
         return dependencies.entrySet().stream()
                 .filter(entry -> !tryArguments.contains(entry.getKey()))
                 .filter(entry -> !isIdentity(child.getAssignments(), entry.getKey()))
-                .filter(entry -> entry.getValue() == 1 || determinismEvaluator.isDeterministic(child.getAssignments().get(entry.getKey())))
+                .filter(entry -> entry.getValue() == 1 || isTrivial(child.getAssignments().get(entry.getKey())))
                 .map(Map.Entry::getKey)
                 .collect(toSet());
+    }
+
+    /**
+     * A trivial expression is free to duplicate, so it may be inlined even when the child output is
+     * referenced more than once: a constant (including a constant-folded {@code Block}) or a pure
+     * variable rename. Inlining these never duplicates real computation.
+     */
+    private static boolean isTrivial(RowExpression expression)
+    {
+        return expression instanceof ConstantExpression || expression instanceof VariableReferenceExpression;
     }
 
     private Set<VariableReferenceExpression> extractTryArguments(RowExpression expression)

@@ -31,10 +31,11 @@ public class TestCoalesceCascadingProjections
         extends BaseRuleTest
 {
     @Test
-    public void testFullyInlinesMultiplyReferencedDeterministicExpression()
+    public void testDoesNotInlineMultiplyReferencedNonTrivialExpression()
     {
-        // Unlike InlineProjections, a deterministic child expression referenced multiple times is
-        // still fully inlined so the native engine's CSE can dedupe it within one operator.
+        // A non-trivial deterministic child expression referenced more than once must not be inlined,
+        // otherwise the coalesced projection would duplicate its computation. With no other inlining
+        // target, the rule does not fire.
         tester().assertThat(new CoalesceCascadingProjections(getFunctionManager()))
                 .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
                 .on(p -> {
@@ -51,13 +52,68 @@ public class TestCoalesceCascadingProjections
                                             .build(),
                                     p.values(p.variable("x"))));
                 })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testInlinesMultiplyReferencedConstant()
+    {
+        // A constant is trivial to duplicate, so it is inlined even when referenced more than once.
+        tester().assertThat(new CoalesceCascadingProjections(getFunctionManager()))
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
+                .on(p -> {
+                    p.variable("x");
+                    p.variable("c");
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("out1"), p.rowExpression("c + 1"))
+                                    .put(p.variable("out2"), p.rowExpression("c + 2"))
+                                    .build(),
+                            p.project(
+                                    Assignments.builder()
+                                            .put(p.variable("c"), p.rowExpression("5"))
+                                            .build(),
+                                    p.values(p.variable("x"))));
+                })
                 .matches(
-                        // The residual child collapses to a pure passthrough and is dropped, so the
-                        // single coalesced project sits directly on the values node.
+                        // The inlined constant has no inputs, so the child collapses to a pure
+                        // passthrough and is dropped; the coalesced project sits directly on values.
                         project(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("out1", PlanMatchPattern.expression("x * 2 + 1"))
-                                        .put("out2", PlanMatchPattern.expression("x * 2 + 2"))
+                                        .put("out1", PlanMatchPattern.expression("5 + 1"))
+                                        .put("out2", PlanMatchPattern.expression("5 + 2"))
+                                        .build(),
+                                values(ImmutableMap.of("x", 0))));
+    }
+
+    @Test
+    public void testInlinesMultiplyReferencedVariableRename()
+    {
+        // A pure variable rename is trivial to duplicate, so it is inlined even when referenced more
+        // than once; each parent reference is simply repointed at the underlying variable.
+        tester().assertThat(new CoalesceCascadingProjections(getFunctionManager()))
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
+                .on(p -> {
+                    p.variable("x");
+                    p.variable("renamed");
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("out1"), p.rowExpression("renamed + 1"))
+                                    .put(p.variable("out2"), p.rowExpression("renamed + 2"))
+                                    .build(),
+                            p.project(
+                                    Assignments.builder()
+                                            .put(p.variable("renamed"), p.rowExpression("x"))
+                                            .build(),
+                                    p.values(p.variable("x"))));
+                })
+                .matches(
+                        // After the rename is inlined the child collapses to an identity passthrough
+                        // of x and is dropped; the coalesced project sits directly on values.
+                        project(
+                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                        .put("out1", PlanMatchPattern.expression("x + 1"))
+                                        .put("out2", PlanMatchPattern.expression("x + 2"))
                                         .build(),
                                 values(ImmutableMap.of("x", 0))));
     }
@@ -118,30 +174,29 @@ public class TestCoalesceCascadingProjections
     }
 
     @Test
-    public void testRecursivelyCollapsesProjectionChain()
+    public void testRecursivelyCollapsesSingleUseProjectionChain()
     {
-        // A three-deep projection chain must collapse to a single project after the rule reaches
-        // fixpoint (driven here by an IterativeOptimizer), with every intermediate
-        // (multiply-referenced, deterministic) expression fully inlined and the residual passthrough
-        // projects dropped.
+        // A three-deep projection chain whose intermediate expressions are each referenced exactly
+        // once must collapse to a single project after the rule reaches fixpoint (driven here by an
+        // IterativeOptimizer), inlining every single-use expression and dropping the residual
+        // passthrough projects.
         //   values(x)
         //     -> doubled := x * 2
-        //       -> summed := doubled + doubled
-        //         -> out1 := summed + 1, out2 := summed + 2
+        //       -> shifted := doubled + 1
+        //         -> out1 := shifted * 3
         tester().assertThat(ImmutableSet.of(new CoalesceCascadingProjections(getFunctionManager())))
                 .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
                 .on(p -> {
                     p.variable("x");
                     p.variable("doubled");
-                    p.variable("summed");
+                    p.variable("shifted");
                     return p.project(
                             Assignments.builder()
-                                    .put(p.variable("out1"), p.rowExpression("summed + 1"))
-                                    .put(p.variable("out2"), p.rowExpression("summed + 2"))
+                                    .put(p.variable("out1"), p.rowExpression("shifted * 3"))
                                     .build(),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.variable("summed"), p.rowExpression("doubled + doubled"))
+                                            .put(p.variable("shifted"), p.rowExpression("doubled + 1"))
                                             .build(),
                                     p.project(
                                             Assignments.builder()
@@ -152,8 +207,7 @@ public class TestCoalesceCascadingProjections
                 .matches(
                         project(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("out1", PlanMatchPattern.expression("x * 2 + x * 2 + 1"))
-                                        .put("out2", PlanMatchPattern.expression("x * 2 + x * 2 + 2"))
+                                        .put("out1", PlanMatchPattern.expression("(x * 2 + 1) * 3"))
                                         .build(),
                                 values(ImmutableMap.of("x", 0))));
     }
