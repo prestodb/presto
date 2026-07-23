@@ -12,6 +12,8 @@
  * limitations under the License.
  */
 #pragma once
+#include <optional>
+
 #include <folly/futures/Future.h>
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/lib/http/connpool/ServerIdleSessionController.h>
@@ -24,6 +26,15 @@
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto::http {
+
+/// Mints a cluster-internal JWT from the shared secret, or returns nullopt when
+/// internal JWT is disabled or this binary was built without PRESTO_ENABLE_JWT.
+/// Callers attach the result as the kPrestoInternalBearer header.
+///
+/// Call this per request rather than caching the token: it carries an expiry
+/// (internal-communication.jwt.expiration-seconds), so a value minted once and
+/// reused is eventually rejected by the peer.
+std::optional<std::string> makeInternalJwt(const JwtOptions& options);
 
 /// NOTE: this class is not thread safe.
 class HttpResponse {
@@ -254,7 +265,11 @@ class RequestBuilder {
   }
 
  private:
-  void addJwtIfConfigured();
+  void addJwtIfConfigured() {
+    if (auto token = makeInternalJwt(jwtOptions_)) {
+      header(kPrestoInternalBearer, *token);
+    }
+  }
 
   JwtOptions jwtOptions_;
   proxygen::HTTPMessage headers_;
