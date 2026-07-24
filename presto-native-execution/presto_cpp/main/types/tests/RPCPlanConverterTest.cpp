@@ -159,15 +159,13 @@ TEST_F(RPCPlanConverterTest, rpcNodeWithRegisteredFunction) {
   EXPECT_EQ(veloxRpcNode->functionName(), "fb_llm_inference");
   EXPECT_EQ(veloxRpcNode->outputColumn(), "__rpc_result");
 
-  // Verify argumentColumns are passed through.
-  ASSERT_EQ(veloxRpcNode->argumentColumns().size(), 1);
-  EXPECT_EQ(veloxRpcNode->argumentColumns()[0], "comment");
-
-  // Verify argumentTypes are extracted from argument expressions.
-  ASSERT_EQ(veloxRpcNode->argumentTypes().size(), 1);
-  EXPECT_EQ(veloxRpcNode->argumentTypes()[0]->kind(), TypeKind::VARCHAR);
-
-  // Verify constantInputs: arg 0 is a variable reference (nullptr).
-  ASSERT_EQ(veloxRpcNode->constantInputs().size(), 1);
-  EXPECT_EQ(veloxRpcNode->constantInputs()[0], nullptr);
+  // Verify the call argument: a single column reference to "comment", typed
+  // VARCHAR. A variable reference is not a constant, so it becomes a
+  // FieldAccessTypedExpr column argument rather than a ConstantTypedExpr.
+  ASSERT_EQ(veloxRpcNode->call()->inputs().size(), 1);
+  auto* field = dynamic_cast<const core::FieldAccessTypedExpr*>(
+      veloxRpcNode->call()->inputs()[0].get());
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->name(), "comment");
+  EXPECT_EQ(field->type()->kind(), TypeKind::VARCHAR);
 }
