@@ -464,6 +464,7 @@ public class TaskContext
         long totalAllocation = 0;
 
         long rawInputDataSize = 0;
+        long scanRawInputDataSize = 0;
         long rawInputPositions = 0;
 
         long processedInputDataSize = 0;
@@ -520,7 +521,15 @@ public class TaskContext
             }
 
             physicalWrittenDataSize += pipeline.getPhysicalWrittenDataSizeInBytes();
-            pipeline.getOperatorSummaries().stream().forEach(stats -> mergedRuntimeStats.mergeWith(stats.getRuntimeStats()));
+            for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
+                mergedRuntimeStats.mergeWith(operatorStats.getRuntimeStats());
+                // Scan-only raw input: leaf table scans exclude exchange/shuffle bytes,
+                // matching the operator-filtered rawInputDataSize in QueryStats.create().
+                String operatorType = operatorStats.getOperatorType();
+                if (operatorType.equals(TableScanOperator.class.getSimpleName()) || operatorType.equals(ScanFilterAndProjectOperator.class.getSimpleName())) {
+                    scanRawInputDataSize += operatorStats.getRawInputDataSizeInBytes();
+                }
+            }
         }
 
         long startNanos = this.startNanos.get();
@@ -613,6 +622,7 @@ public class TaskContext
                 blockedReasons.build(),
                 totalAllocation,
                 rawInputDataSize,
+                scanRawInputDataSize,
                 rawInputPositions,
                 processedInputDataSize,
                 processedInputPositions,

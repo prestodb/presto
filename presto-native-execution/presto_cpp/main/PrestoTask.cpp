@@ -859,6 +859,7 @@ void PrestoTask::updateExecutionInfoLocked(
 
   prestoTaskStats.rawInputPositions = 0;
   prestoTaskStats.rawInputDataSizeInBytes = 0;
+  prestoTaskStats.scanRawInputDataSizeInBytes = 0;
   prestoTaskStats.processedInputPositions = 0;
   prestoTaskStats.processedInputDataSizeInBytes = 0;
   prestoTaskStats.outputPositions = 0;
@@ -909,6 +910,14 @@ void PrestoTask::updateExecutionInfoLocked(
             firstVeloxOpStats.rawInputPositions;
         prestoTaskStats.rawInputDataSizeInBytes +=
             firstVeloxOpStats.rawInputBytes;
+        // Scan-only raw input: count only leaf TableScan sources, excluding the
+        // Exchange/Merge shuffle inputs that inflate rawInputDataSizeInBytes.
+        // The task-level source is operatorStats[0] (the scan itself), never
+        // the FilterProject copy made at the per-operator level below.
+        if (firstVeloxOpStats.operatorType == "TableScan") {
+          prestoTaskStats.scanRawInputDataSizeInBytes +=
+              firstVeloxOpStats.rawInputBytes;
+        }
         prestoTaskStats.processedInputPositions +=
             firstVeloxOpStats.inputPositions;
         prestoTaskStats.processedInputDataSizeInBytes +=
