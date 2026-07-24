@@ -2674,6 +2674,7 @@ struct TaskStats {
   List<BlockedReason> blockedReasons = {};
   int64_t totalAllocationInBytes = {};
   int64_t rawInputDataSizeInBytes = {};
+  int64_t scanRawInputDataSizeInBytes = {};
   int64_t rawInputPositions = {};
   int64_t processedInputDataSizeInBytes = {};
   int64_t processedInputPositions = {};

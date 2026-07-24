@@ -70,6 +70,7 @@ public class TestTaskStats
             123,
 
             19,
+            17,
             20,
 
             21,
@@ -130,6 +131,7 @@ public class TestTaskStats
         assertEquals(actual.getTotalAllocationInBytes(), 123);
 
         assertEquals(actual.getRawInputDataSizeInBytes(), 19);
+        assertEquals(actual.getScanRawInputDataSizeInBytes(), 17);
         assertEquals(actual.getRawInputPositions(), 20);
 
         assertEquals(actual.getProcessedInputDataSizeInBytes(), 21);
