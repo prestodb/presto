@@ -28,7 +28,6 @@ public abstract class AbstractDeltaDistributedQueryTestBase
         extends AbstractTestQueryFramework implements ITest
 {
     public static final String DELTA_CATALOG = "delta";
-    public static final String HIVE_CATALOG = "hive";
     public static final String PATH_SCHEMA = "$path$";
     public static final String DELTA_SCHEMA = "deltaTables"; // Schema in Hive which has test Delta tables
     protected static final String DELTA_V1 = "delta_v1";
