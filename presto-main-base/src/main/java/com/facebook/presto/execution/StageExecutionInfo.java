@@ -139,6 +139,7 @@ public class StageExecutionInfo
                 taskStatsAggregator.totalAllocation,
 
                 taskStatsAggregator.rawInputDataSize,
+                taskStatsAggregator.scanRawInputDataSize,
                 taskStatsAggregator.rawInputPositions,
                 taskStatsAggregator.processedInputDataSize,
                 taskStatsAggregator.processedInputPositions,
@@ -278,6 +279,7 @@ public class StageExecutionInfo
         private long totalAllocation;
 
         private long rawInputDataSize;
+        private long scanRawInputDataSize;
         private long rawInputPositions;
 
         private long processedInputDataSize;
@@ -336,6 +338,7 @@ public class StageExecutionInfo
             totalAllocation += taskStats.getTotalAllocationInBytes();
 
             rawInputDataSize += taskStats.getRawInputDataSizeInBytes();
+            scanRawInputDataSize += taskStats.getScanRawInputDataSizeInBytes();
             rawInputPositions += taskStats.getRawInputPositions();
 
             processedInputDataSize += taskStats.getProcessedInputDataSizeInBytes();

@@ -72,6 +72,7 @@ public class BasicQueryStats
     private final int completedSplits;
 
     private final DataSize rawInputDataSize;
+    private final DataSize scanRawInputDataSize;
     private final long rawInputPositions;
 
     private final double cumulativeUserMemory;
@@ -115,6 +116,7 @@ public class BasicQueryStats
             int runningSplits,
             int completedSplits,
             DataSize rawInputDataSize,
+            DataSize scanRawInputDataSize,
             long rawInputPositions,
             double cumulativeUserMemory,
             double cumulativeTotalMemory,
@@ -168,6 +170,7 @@ public class BasicQueryStats
         this.completedSplits = completedSplits;
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize);
+        this.scanRawInputDataSize = requireNonNull(scanRawInputDataSize, "scanRawInputDataSize is null");
         this.rawInputPositions = rawInputPositions;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
@@ -214,6 +217,7 @@ public class BasicQueryStats
             @JsonProperty("runningSplits") int runningSplits,
             @JsonProperty("completedSplits") int completedSplits,
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+            @JsonProperty("scanRawInputDataSize") DataSize scanRawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
@@ -252,6 +256,7 @@ public class BasicQueryStats
                 runningSplits,
                 completedSplits,
                 rawInputDataSize,
+                scanRawInputDataSize,
                 rawInputPositions,
                 cumulativeUserMemory,
                 cumulativeTotalMemory,
@@ -292,6 +297,9 @@ public class BasicQueryStats
                 queryStats.getQueuedSplits(),
                 queryStats.getRunningSplits(),
                 queryStats.getCompletedSplits(),
+                queryStats.getRawInputDataSize(),
+                // QueryStats.rawInputDataSize is already operator-filtered to leaf scans
+                // (see QueryStats.create()), so it is the scan-only value for finished queries.
                 queryStats.getRawInputDataSize(),
                 queryStats.getRawInputPositions(),
                 queryStats.getCumulativeUserMemory(),
@@ -335,6 +343,7 @@ public class BasicQueryStats
                 0,
                 0,
                 0,
+                new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 0,
                 0,
@@ -619,5 +628,12 @@ public class BasicQueryStats
     public int getCompletedNewDrivers()
     {
         return completedNewDrivers;
+    }
+
+    @ThriftField(38)
+    @JsonProperty
+    public DataSize getScanRawInputDataSize()
+    {
+        return scanRawInputDataSize;
     }
 }

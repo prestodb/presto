@@ -834,6 +834,7 @@ public class TestQueryStats
                 0L,
 
                 rawInputDataSize,
+                0L,
                 rawInputPositions,
 
                 inputDataSize,

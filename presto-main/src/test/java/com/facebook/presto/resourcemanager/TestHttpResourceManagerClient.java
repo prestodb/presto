@@ -278,6 +278,7 @@ public class TestHttpResourceManagerClient
                         new Duration(1, SECONDS),
                         1, 1, 1, 1, 1, 100, 1, 1, 1, 100, 1, 1, 1, 100,
                         new DataSize(1, MEGABYTE),
+                        new DataSize(1, MEGABYTE),
                         1, 1, 1,
                         new DataSize(1, MEGABYTE),
                         new DataSize(1, MEGABYTE),

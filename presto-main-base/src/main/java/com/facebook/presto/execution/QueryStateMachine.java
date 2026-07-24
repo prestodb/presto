@@ -405,6 +405,7 @@ public class QueryStateMachine
                 stageStats.getCompletedSplits(),
 
                 succinctBytes(stageStats.getRawInputDataSizeInBytes()),
+                succinctBytes(stageStats.getScanRawInputDataSizeInBytes()),
                 stageStats.getRawInputPositions(),
 
                 stageStats.getCumulativeUserMemory(),

@@ -83,6 +83,7 @@ public class StageExecutionStats
     private final long totalAllocationInBytes;
 
     private final long rawInputDataSizeInBytes;
+    private final long scanRawInputDataSizeInBytes;
     private final long rawInputPositions;
 
     private final long processedInputDataSizeInBytes;
@@ -147,6 +148,7 @@ public class StageExecutionStats
             @JsonProperty("totalAllocationInBytes") long totalAllocationInBytes,
 
             @JsonProperty("rawInputDataSizeInBytes") long rawInputDataSizeInBytes,
+            @JsonProperty("scanRawInputDataSizeInBytes") long scanRawInputDataSizeInBytes,
             @JsonProperty("rawInputPositions") long rawInputPositions,
 
             @JsonProperty("processedInputDataSizeInBytes") long processedInputDataSizeInBytes,
@@ -223,6 +225,7 @@ public class StageExecutionStats
 
         this.totalAllocationInBytes = (totalAllocationInBytes >= 0) ? totalAllocationInBytes : Long.MAX_VALUE;
         this.rawInputDataSizeInBytes = (rawInputDataSizeInBytes >= 0) ? rawInputDataSizeInBytes : Long.MAX_VALUE;
+        this.scanRawInputDataSizeInBytes = (scanRawInputDataSizeInBytes >= 0) ? scanRawInputDataSizeInBytes : Long.MAX_VALUE;
         this.rawInputPositions = (rawInputPositions >= 0) ? rawInputPositions : Long.MAX_VALUE;
 
         this.processedInputDataSizeInBytes = (processedInputDataSizeInBytes >= 0) ? processedInputDataSizeInBytes : Long.MAX_VALUE;
@@ -447,6 +450,12 @@ public class StageExecutionStats
     }
 
     @JsonProperty
+    public long getScanRawInputDataSizeInBytes()
+    {
+        return scanRawInputDataSizeInBytes;
+    }
+
+    @JsonProperty
     public long getRawInputPositions()
     {
         return rawInputPositions;
@@ -530,6 +539,7 @@ public class StageExecutionStats
                 runningSplits,
                 completedSplits,
                 rawInputDataSizeInBytes,
+                scanRawInputDataSizeInBytes,
                 rawInputPositions,
                 cumulativeUserMemory,
                 cumulativeTotalMemory,
@@ -579,6 +589,7 @@ public class StageExecutionStats
                 new Duration(0, NANOSECONDS),
                 false,
                 ImmutableSet.of(),
+                0L,
                 0L,
                 0L,
                 0,

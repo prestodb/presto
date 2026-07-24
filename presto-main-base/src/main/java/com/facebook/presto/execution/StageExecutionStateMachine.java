@@ -274,6 +274,7 @@ public class StageExecutionStateMachine
         long totalCpuTime = 0;
 
         long rawInputDataSizeInBytes = 0;
+        long scanRawInputDataSizeInBytes = 0;
         long rawInputPositions = 0;
 
         boolean fullyBlocked = true;
@@ -316,6 +317,11 @@ public class StageExecutionStateMachine
 
             totalAllocationInBytes += taskStats.getTotalAllocationInBytes();
 
+            // Scan-only raw input is already leaf-filtered per task, so it is summed
+            // unconditionally (non-scan tasks contribute 0) rather than gated on the
+            // coarse per-stage containsTableScans flag that inflates rawInputDataSizeInBytes.
+            scanRawInputDataSizeInBytes += taskStats.getScanRawInputDataSizeInBytes();
+
             if (containsTableScans) {
                 rawInputDataSizeInBytes += taskStats.getRawInputDataSizeInBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
@@ -346,6 +352,7 @@ public class StageExecutionStateMachine
                 completedSplits,
 
                 rawInputDataSizeInBytes,
+                scanRawInputDataSizeInBytes,
                 rawInputPositions,
 
                 cumulativeUserMemory,
