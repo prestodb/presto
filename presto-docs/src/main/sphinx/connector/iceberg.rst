@@ -254,6 +254,20 @@ Property Name                                        Description
 ``iceberg.catalog.warehouse``                        A catalog warehouse root path for Iceberg tables (optional).
                                                      Example: ``s3://warehouse/``
 
+``iceberg.rest.proxy.hostname``                      IP address or hostname of the proxy server (required when access to
+                                                     the REST catalog is through a proxy).
+                                                     Example: ``proxy.example.com``
+
+``iceberg.rest.proxy.port``                          Port for the proxy server (required when access to the REST catalog
+                                                     is through a proxy).
+                                                     Example: ``8080``
+
+``iceberg.rest.proxy.username``                      Username for proxy Basic authentication (optional).
+                                                     Example: ``proxy_user``
+
+``iceberg.rest.proxy.password``                      Password for proxy Basic authentication (optional).
+                                                     Example: ``proxy_password``
+
 ``iceberg.rest.tls.enabled``                         Whether to enable TLS for REST catalog communication
                                                      (default: ``false``).
 

@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg.rest;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import com.google.common.base.Strings;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
@@ -38,6 +39,10 @@ public class IcebergRestConfig
     private String keystorePassword;
     private String truststorePath;
     private String truststorePassword;
+    private String proxyHostname;
+    private Integer proxyPort;
+    private String proxyUsername;
+    private String proxyPassword;
 
     @NotNull
     public Optional<String> getServerUri()
@@ -257,5 +262,80 @@ public class IcebergRestConfig
     public boolean credentialOrTokenExists()
     {
         return credential != null || token != null;
+    }
+
+    public Optional<String> getProxyHostname()
+    {
+        return Optional.ofNullable(proxyHostname);
+    }
+
+    @Config("iceberg.rest.proxy.hostname")
+    @ConfigDescription("The IP address or hostname of the proxy that will access the REST catalog")
+    public IcebergRestConfig setProxyHostname(String proxyHostname)
+    {
+        this.proxyHostname = proxyHostname;
+        return this;
+    }
+
+    public Optional<Integer> getProxyPort()
+    {
+        return Optional.ofNullable(proxyPort);
+    }
+
+    @Config("iceberg.rest.proxy.port")
+    @ConfigDescription("The port of the proxy that will access the REST catalog")
+    public IcebergRestConfig setProxyPort(Integer proxyPort)
+    {
+        this.proxyPort = proxyPort;
+        return this;
+    }
+
+    public Optional<String> getProxyUsername()
+    {
+        return Optional.ofNullable(proxyUsername);
+    }
+
+    @Config("iceberg.rest.proxy.username")
+    @ConfigDescription("The user of the proxy that will access the REST catalog")
+    public IcebergRestConfig setProxyUsername(String proxyUsername)
+    {
+        this.proxyUsername = proxyUsername;
+        return this;
+    }
+
+    public Optional<String> getProxyPassword()
+    {
+        return Optional.ofNullable(proxyPassword);
+    }
+
+    @Config("iceberg.rest.proxy.password")
+    @ConfigDescription("The password of the proxy that will access the REST catalog")
+    @ConfigSecuritySensitive
+    public IcebergRestConfig setProxyPassword(String proxyPassword)
+    {
+        this.proxyPassword = proxyPassword;
+        return this;
+    }
+
+    public boolean isProxyEnabled()
+    {
+        return proxyHostname != null && proxyPort != null;
+    }
+
+    @AssertTrue(message = "iceberg.rest.proxy.hostname must be non-blank when set; " +
+            "iceberg.rest.proxy.port is required when hostname is set and must be in 1-65535; " +
+            "iceberg.rest.proxy.username and iceberg.rest.proxy.password must be set together")
+    public boolean isValidProxyConfig()
+    {
+        if (proxyHostname == null) {
+            return proxyPort == null && proxyUsername == null && proxyPassword == null;
+        }
+        if (proxyHostname.trim().isEmpty()) {
+            return false;
+        }
+        if (proxyPort == null || proxyPort < 1 || proxyPort > 65535) {
+            return false;
+        }
+        return (Strings.isNullOrEmpty(proxyUsername) == (Strings.isNullOrEmpty(proxyPassword)));
     }
 }
