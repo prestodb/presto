@@ -39,7 +39,7 @@ import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 public abstract class AbstractTestArrowFederationNativeQueries
         extends AbstractTestDistributedQueries
 {
-    private final @Language("RegExp") String unnestRowsInvalidFieldError = "Field not found: field(?:_\\d+)?. Available fields are: field.*";
+    private final @Language("RegExp") String unnestRowsError = ".*UnnestNode requires one name per array column and two per map column.*";
 
     protected BufferAllocator allocator;
     protected FlightShimProducer producer;
@@ -443,18 +443,18 @@ public abstract class AbstractTestArrowFederationNativeQueries
     public void testDuplicateUnnestRows()
     {
         assertQueryFails("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2, r3, r4)",
-                unnestRowsInvalidFieldError, true);
+                unnestRowsError, true);
         assertQueryFails("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) AS r(r1, r2, r3, r4, r5, r6, r7)",
-                unnestRowsInvalidFieldError, true);
+                unnestRowsError, true);
         assertQueryFails("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, r3, r4, ord)",
-                unnestRowsInvalidFieldError, true);
+                unnestRowsError, true);
         assertQueryFails("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) WITH ORDINALITY AS r(r1, r2, r3, r4, r5, r6, r7, ord)",
-                unnestRowsInvalidFieldError, true);
+                unnestRowsError, true);
 
         assertQueryFails("SELECT * from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2, r3, r4)",
-                unnestRowsInvalidFieldError, true);
+                unnestRowsError, true);
         assertQueryFails("SELECT * from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, r3, r4, ord)",
-                unnestRowsInvalidFieldError, true);
+                unnestRowsError, true);
     }
 
     /// Presto C++ only supports legacy unnest and this test relies on non-legacy behavior of unnest operator for
@@ -471,7 +471,7 @@ public abstract class AbstractTestArrowFederationNativeQueries
                         "UNION ALL " +
                         "SELECT ARRAY[CAST(row(null, 2) AS ROW(INTEGER, INTEGER))])) " +
                         "CROSS JOIN unnest(agg_result) as r(c1, c2)",
-                unnestRowsInvalidFieldError, true);
+                unnestRowsError, true);
     }
 
     /// The integer overflow error message differs in Presto and Velox.
