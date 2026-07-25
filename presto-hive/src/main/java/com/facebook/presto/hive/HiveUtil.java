@@ -116,7 +116,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -124,7 +123,6 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.Chars.trimTrailingSpaces;
 import static com.facebook.presto.common.type.DateType.DATE;
-import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.Decimals.isLongDecimal;
 import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -535,11 +533,6 @@ public final class HiveUtil
         }
     }
 
-    public static boolean isDeserializerClass(Properties schema, Class<?> deserializerClass)
-    {
-        return getDeserializerClassName(schema).equals(deserializerClass.getName());
-    }
-
     public static String getDeserializerClassName(Properties schema)
     {
         String name = schema.getProperty(SERIALIZATION_LIB);
@@ -810,24 +803,6 @@ public final class HiveUtil
         data = data.substring(prefix.length());
         data = data.substring(0, data.length() - suffix.length());
         return new String(Base64.getDecoder().decode(data), UTF_8);
-    }
-
-    public static Optional<DecimalType> getDecimalType(HiveType hiveType)
-    {
-        return getDecimalType(hiveType.getHiveTypeName().toString());
-    }
-
-    public static Optional<DecimalType> getDecimalType(String hiveTypeName)
-    {
-        Matcher matcher = SUPPORTED_DECIMAL_TYPE.matcher(hiveTypeName);
-        if (matcher.matches()) {
-            int precision = parseInt(matcher.group(DECIMAL_PRECISION_GROUP));
-            int scale = parseInt(matcher.group(DECIMAL_SCALE_GROUP));
-            return Optional.of(createDecimalType(precision, scale));
-        }
-        else {
-            return Optional.empty();
-        }
     }
 
     public static boolean isStructuralType(Type type)

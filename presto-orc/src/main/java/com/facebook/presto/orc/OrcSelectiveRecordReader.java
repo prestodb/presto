@@ -223,7 +223,6 @@ public class OrcSelectiveRecordReader
                 options.getMaxMergeDistance(),
                 options.getTinyStripeThreshold(),
                 options.getMaxBlockSize(),
-                userMetadata,
                 systemMemoryUsage,
                 writeValidation,
                 initialBatchSize,

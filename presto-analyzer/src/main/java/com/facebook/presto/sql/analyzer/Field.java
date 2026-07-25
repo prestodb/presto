@@ -131,37 +131,6 @@ public class Field
         return !prefix.isPresent() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get());
     }
 
-    /*
-      Namespaces can have names such as "x", "x.y" or "" if there's no name
-      Name to resolve can have names like "a", "x.a", "x.y.a"
-
-      namespace  name     possible match
-       ""         "a"           y
-       "x"        "a"           y
-       "x.y"      "a"           y
-
-       ""         "x.a"         n
-       "x"        "x.a"         y
-       "x.y"      "x.a"         n
-
-       ""         "x.y.a"       n
-       "x"        "x.y.a"       n
-       "x.y"      "x.y.a"       n
-
-       ""         "y.a"         n
-       "x"        "y.a"         n
-       "x.y"      "y.a"         y
-     */
-    public boolean canResolve(QualifiedName name)
-    {
-        if (!this.name.isPresent()) {
-            return false;
-        }
-
-        // TODO: need to know whether the qualified name and the name of this field were quoted
-        return matchesPrefix(name.getPrefix()) && this.name.get().equalsIgnoreCase(name.getSuffix());
-    }
-
     @Override
     public String toString()
     {

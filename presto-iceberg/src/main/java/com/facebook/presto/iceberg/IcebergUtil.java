@@ -747,7 +747,6 @@ public final class IcebergUtil
     }
 
     protected static NullableValue parsePartitionValue(
-            FileFormat fileFormat,
             String partitionStringValue,
             Type prestoType,
             String partitionName)

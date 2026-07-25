@@ -34,10 +34,8 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -114,8 +112,6 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private final long[] maxBytesPerCell;
     private long maxCombinedBytesPerRow;
 
-    private final Map<String, Slice> userMetadata;
-
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<OrcWriteValidation.WriteChecksumBuilder> writeChecksumBuilder;
     private final Optional<OrcWriteValidation.StatisticsValidation> rowGroupStatisticsValidation;
@@ -149,7 +145,6 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             DataSize maxMergeDistance,
             DataSize tinyStripeThreshold,
             DataSize maxBlockSize,
-            Map<String, Slice> userMetadata,
             OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
@@ -170,7 +165,6 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         requireNonNull(dwrfEncryptionGroupMap, "dwrfEncryptionGroupMap is null");
         requireNonNull(columnToIntermediateKeyMap, "columnToIntermediateKeyMap is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
-        requireNonNull(userMetadata, "userMetadata is null");
         requireNonNull(systemMemoryUsage, "systemMemoryUsage is null");
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
@@ -239,8 +233,6 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 .map(StripeInfo::getStripe)
                 .mapToLong(StripeInformation::getNumberOfRows)
                 .sum();
-
-        this.userMetadata = ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
 
         this.currentStripeSystemMemoryContext = this.systemMemoryUsage.newOrcAggregatedMemoryContext();
 
@@ -534,11 +526,6 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     public boolean isColumnPresent(int hiveColumnIndex)
     {
         return presentColumns.contains(hiveColumnIndex);
-    }
-
-    public Map<String, Slice> getUserMetadata()
-    {
-        return ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
     }
 
     private boolean advanceToNextRowGroup()

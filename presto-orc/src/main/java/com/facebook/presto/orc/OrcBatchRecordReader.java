@@ -101,7 +101,6 @@ public class OrcBatchRecordReader
                 options.getMaxMergeDistance(),
                 options.getTinyStripeThreshold(),
                 options.getMaxBlockSize(),
-                userMetadata,
                 systemMemoryUsage,
                 writeValidation,
                 initialBatchSize,

@@ -148,7 +148,7 @@ public class IcebergPartitionLoader
                         partitionStringValue = value.toString();
                     }
 
-                    NullableValue partitionValue = parsePartitionValue(fileFormat, partitionStringValue, toPrestoType(type, typeManager), partition.toString());
+                    NullableValue partitionValue = parsePartitionValue(partitionStringValue, toPrestoType(type, typeManager), partition.toString());
                     Optional<IcebergColumnHandle> column = partitionColumns.stream()
                             .filter(icebergColumnHandle -> Objects.equals(icebergColumnHandle.getId(), field.sourceId()))
                             .findAny();
