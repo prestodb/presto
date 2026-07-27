@@ -95,6 +95,8 @@ public class StatusResource
                 0L, // queryMemoryBytes: native-only; JVM query memory is on-heap
                 -1L, // gpuMemoryUsedBytes: native-only (Prestissimo cuDF); -1 sentinel on JVM
                 -1L, // gpuMemoryCapacityBytes: native-only (Prestissimo cuDF); -1 sentinel on JVM
-                -1L); // gpuPoolAllocatedBytes: native-only (Prestissimo cuDF); -1 sentinel on JVM
+                -1L, // gpuPoolAllocatedBytes: native-only (Prestissimo cuDF); -1 sentinel on JVM
+                -1L, // gpuUtilizationPercent: native-only (Prestissimo cuDF/NVML); -1 sentinel on JVM
+                -1L); // gpuMemoryUtilizationPercent: native-only (Prestissimo cuDF/NVML); -1 sentinel on JVM
     }
 }

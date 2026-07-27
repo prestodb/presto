@@ -1991,6 +1991,8 @@ struct NodeStatus {
   int64_t gpuMemoryUsedBytes = {};
   int64_t gpuMemoryCapacityBytes = {};
   int64_t gpuPoolAllocatedBytes = {};
+  int64_t gpuUtilizationPercent = {};
+  int64_t gpuMemoryUtilizationPercent = {};
 };
 void to_json(json& j, const NodeStatus& p);
 void from_json(const json& j, NodeStatus& p);

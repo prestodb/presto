@@ -85,6 +85,7 @@
 
 #ifdef PRESTO_ENABLE_CUDF
 #include <cuda_runtime.h>
+#include <nvml.h>
 #include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/GpuResources.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
@@ -1993,6 +1994,14 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
   // queries free their allocations, so it distinguishes idle from busy.
   // -1 sentinel when cuDF is disabled or not registered.
   int64_t gpuPoolAllocatedBytes = -1;
+  // GPU compute / memory-bandwidth utilization (%) via NVML — nvidia-smi's
+  // "GPU-Util". Complements the memory signals: it says whether the GPU is
+  // actually computing, not how full VRAM is. NOTE: NVML reports the whole
+  // physical device; under fractional/shared GPU (time-slicing/MPS) this
+  // reflects the shared GPU, not just this worker (see plan Annex A3).
+  // -1 sentinel when unavailable.
+  int64_t gpuUtilizationPercent = -1;
+  int64_t gpuMemoryUtilizationPercent = -1;
 #ifdef PRESTO_ENABLE_CUDF
   if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
     size_t gpuFree = 0;
@@ -2002,6 +2011,21 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       gpuMemoryUsedBytes = static_cast<int64_t>(gpuTotal - gpuFree);
     }
     gpuPoolAllocatedBytes = velox::cudf_velox::cudfAllocatedBytes();
+
+    // NVML init once for the server lifetime (process exit reclaims it).
+    static const bool nvmlReady = (nvmlInit_v2() == NVML_SUCCESS);
+    if (nvmlReady) {
+      nvmlDevice_t nvmlDevice;
+      nvmlUtilization_t util;
+      // Index 0: inside the container NVML sees only the GPU(s) exposed to this
+      // pod, so device 0 is this worker's GPU. Multi-GPU-visible containers
+      // would need PCI-bus-id mapping to the active CUDA device.
+      if (nvmlDeviceGetHandleByIndex_v2(0, &nvmlDevice) == NVML_SUCCESS &&
+          nvmlDeviceGetUtilizationRates(nvmlDevice, &util) == NVML_SUCCESS) {
+        gpuUtilizationPercent = static_cast<int64_t>(util.gpu);
+        gpuMemoryUtilizationPercent = static_cast<int64_t>(util.memory);
+      }
+    }
   }
 #endif
 
@@ -2024,7 +2048,9 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       queryMemoryBytes,
       gpuMemoryUsedBytes,
       gpuMemoryCapacityBytes,
-      gpuPoolAllocatedBytes};
+      gpuPoolAllocatedBytes,
+      gpuUtilizationPercent,
+      gpuMemoryUtilizationPercent};
 
   return nodeStatus;
 }

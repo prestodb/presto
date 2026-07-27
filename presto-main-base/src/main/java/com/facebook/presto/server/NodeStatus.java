@@ -46,6 +46,8 @@ public class NodeStatus
     private final long gpuMemoryUsedBytes;
     private final long gpuMemoryCapacityBytes;
     private final long gpuPoolAllocatedBytes;
+    private final long gpuUtilizationPercent;
+    private final long gpuMemoryUtilizationPercent;
 
     @ThriftConstructor
     @JsonCreator
@@ -68,7 +70,9 @@ public class NodeStatus
             @JsonProperty("queryMemoryBytes") long queryMemoryBytes,
             @JsonProperty("gpuMemoryUsedBytes") long gpuMemoryUsedBytes,
             @JsonProperty("gpuMemoryCapacityBytes") long gpuMemoryCapacityBytes,
-            @JsonProperty("gpuPoolAllocatedBytes") long gpuPoolAllocatedBytes)
+            @JsonProperty("gpuPoolAllocatedBytes") long gpuPoolAllocatedBytes,
+            @JsonProperty("gpuUtilizationPercent") long gpuUtilizationPercent,
+            @JsonProperty("gpuMemoryUtilizationPercent") long gpuMemoryUtilizationPercent)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
@@ -89,6 +93,8 @@ public class NodeStatus
         this.gpuMemoryUsedBytes = gpuMemoryUsedBytes;
         this.gpuMemoryCapacityBytes = gpuMemoryCapacityBytes;
         this.gpuPoolAllocatedBytes = gpuPoolAllocatedBytes;
+        this.gpuUtilizationPercent = gpuUtilizationPercent;
+        this.gpuMemoryUtilizationPercent = gpuMemoryUtilizationPercent;
     }
 
     @ThriftField(1)
@@ -222,5 +228,19 @@ public class NodeStatus
     public long getGpuPoolAllocatedBytes()
     {
         return gpuPoolAllocatedBytes;
+    }
+
+    @ThriftField(20)
+    @JsonProperty
+    public long getGpuUtilizationPercent()
+    {
+        return gpuUtilizationPercent;
+    }
+
+    @ThriftField(21)
+    @JsonProperty
+    public long getGpuMemoryUtilizationPercent()
+    {
+        return gpuMemoryUtilizationPercent;
     }
 }

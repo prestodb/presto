@@ -317,6 +317,8 @@ public class TestHttpResourceManagerClient
                 0,
                 0,
                 0,
+                0,
+                0,
                 0);
     }
 }

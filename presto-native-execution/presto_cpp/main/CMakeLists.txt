@@ -113,6 +113,11 @@ target_link_libraries(
 
 if(PRESTO_ENABLE_CUDF)
   target_link_libraries(presto_server_lib velox_cudf_exec)
+  # NVML (libnvidia-ml) for GPU utilization in /v1/status. CUDA::nvml provides
+  # the nvml.h include dir and links the driver stub (real lib comes from the
+  # NVIDIA runtime at run time).
+  find_package(CUDAToolkit REQUIRED)
+  target_link_libraries(presto_server_lib CUDA::nvml)
 endif()
 
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is
