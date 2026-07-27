@@ -31,6 +31,7 @@ import io.delta.kernel.internal.InternalScanFileUtils;
 import io.delta.kernel.internal.SnapshotImpl;
 import io.delta.kernel.utils.CloseableIterator;
 import jakarta.inject.Inject;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -185,7 +186,9 @@ public class DeltaClient
             if (!fileSystem.isDirectory(tableLocation)) {
                 return Optional.empty();
             }
-            return Optional.of(DefaultEngine.create(fileSystem.getConf()));
+            Configuration conf = hdfsEnvironment.getConfiguration(hdfsContext, tableLocation);
+            conf.setClassLoader(Thread.currentThread().getContextClassLoader());
+            return Optional.of(DefaultEngine.create(conf));
         }
         catch (IOException ioException) {
             throw new PrestoException(DeltaErrorCode.DELTA_ERROR_LOADING_METADATA,
