@@ -45,6 +45,7 @@ public class NodeStatus
     private final long queryMemoryBytes;
     private final long gpuMemoryUsedBytes;
     private final long gpuMemoryCapacityBytes;
+    private final long gpuPoolAllocatedBytes;
 
     @ThriftConstructor
     @JsonCreator
@@ -66,7 +67,8 @@ public class NodeStatus
             @JsonProperty("asyncDataCacheBytes") long asyncDataCacheBytes,
             @JsonProperty("queryMemoryBytes") long queryMemoryBytes,
             @JsonProperty("gpuMemoryUsedBytes") long gpuMemoryUsedBytes,
-            @JsonProperty("gpuMemoryCapacityBytes") long gpuMemoryCapacityBytes)
+            @JsonProperty("gpuMemoryCapacityBytes") long gpuMemoryCapacityBytes,
+            @JsonProperty("gpuPoolAllocatedBytes") long gpuPoolAllocatedBytes)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
@@ -86,6 +88,7 @@ public class NodeStatus
         this.queryMemoryBytes = queryMemoryBytes;
         this.gpuMemoryUsedBytes = gpuMemoryUsedBytes;
         this.gpuMemoryCapacityBytes = gpuMemoryCapacityBytes;
+        this.gpuPoolAllocatedBytes = gpuPoolAllocatedBytes;
     }
 
     @ThriftField(1)
@@ -212,5 +215,12 @@ public class NodeStatus
     public long getGpuMemoryCapacityBytes()
     {
         return gpuMemoryCapacityBytes;
+    }
+
+    @ThriftField(19)
+    @JsonProperty
+    public long getGpuPoolAllocatedBytes()
+    {
+        return gpuPoolAllocatedBytes;
     }
 }

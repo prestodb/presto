@@ -61,6 +61,7 @@ public class TestResourceManagerClusterStatusSender
             0,
             0,
             0,
+            0,
             0);
     private static final int HEARTBEAT_INTERVAL = 100;
     private static final int SLEEP_DURATION = 1000;

@@ -86,6 +86,7 @@
 #ifdef PRESTO_ENABLE_CUDF
 #include <cuda_runtime.h>
 #include "velox/experimental/cudf/CudfConfig.h"
+#include "velox/experimental/cudf/exec/GpuResources.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/ucx-exchange/Communicator.h"
 #endif
@@ -1986,6 +1987,12 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
   // is the right notion for "how full is the GPU".
   int64_t gpuMemoryUsedBytes = -1;
   int64_t gpuMemoryCapacityBytes = -1;
+  // Live bytes currently allocated inside the RMM pool, via a statistics
+  // adaptor around the cuDF memory resource. Unlike gpuMemoryUsedBytes (the
+  // retained RMM pool high-water mark from cudaMemGetInfo), this drops when
+  // queries free their allocations, so it distinguishes idle from busy.
+  // -1 sentinel when cuDF is disabled or not registered.
+  int64_t gpuPoolAllocatedBytes = -1;
 #ifdef PRESTO_ENABLE_CUDF
   if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
     size_t gpuFree = 0;
@@ -1994,6 +2001,7 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       gpuMemoryCapacityBytes = static_cast<int64_t>(gpuTotal);
       gpuMemoryUsedBytes = static_cast<int64_t>(gpuTotal - gpuFree);
     }
+    gpuPoolAllocatedBytes = velox::cudf_velox::cudfAllocatedBytes();
   }
 #endif
 
@@ -2015,7 +2023,8 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       asyncDataCacheBytes,
       queryMemoryBytes,
       gpuMemoryUsedBytes,
-      gpuMemoryCapacityBytes};
+      gpuMemoryCapacityBytes,
+      gpuPoolAllocatedBytes};
 
   return nodeStatus;
 }

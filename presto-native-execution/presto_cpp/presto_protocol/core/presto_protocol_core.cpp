@@ -8155,6 +8155,13 @@ void to_json(json& j, const NodeStatus& p) {
       "NodeStatus",
       "int64_t",
       "gpuMemoryCapacityBytes");
+  to_json_key(
+      j,
+      "gpuPoolAllocatedBytes",
+      p.gpuPoolAllocatedBytes,
+      "NodeStatus",
+      "int64_t",
+      "gpuPoolAllocatedBytes");
 }
 
 void from_json(const json& j, NodeStatus& p) {
@@ -8227,20 +8234,37 @@ void from_json(const json& j, NodeStatus& p) {
       "NodeStatus",
       "int64_t",
       "queryMemoryBytes");
-  from_json_key(
-      j,
-      "gpuMemoryUsedBytes",
-      p.gpuMemoryUsedBytes,
-      "NodeStatus",
-      "int64_t",
-      "gpuMemoryUsedBytes");
-  from_json_key(
-      j,
-      "gpuMemoryCapacityBytes",
-      p.gpuMemoryCapacityBytes,
-      "NodeStatus",
-      "int64_t",
-      "gpuMemoryCapacityBytes");
+  // Backward compatible: guard with j.count() so payloads from older workers
+  // that lack these GPU fields still deserialize (default to 0 via the struct).
+  if (j.count("gpuMemoryUsedBytes")) {
+    from_json_key(
+        j,
+        "gpuMemoryUsedBytes",
+        p.gpuMemoryUsedBytes,
+        "NodeStatus",
+        "int64_t",
+        "gpuMemoryUsedBytes");
+  }
+  if (j.count("gpuMemoryCapacityBytes")) {
+    from_json_key(
+        j,
+        "gpuMemoryCapacityBytes",
+        p.gpuMemoryCapacityBytes,
+        "NodeStatus",
+        "int64_t",
+        "gpuMemoryCapacityBytes");
+  }
+  // Backward compatible: guard with j.count() so payloads from older workers
+  // that lack this field still deserialize (defaults to 0 via the struct).
+  if (j.count("gpuPoolAllocatedBytes")) {
+    from_json_key(
+        j,
+        "gpuPoolAllocatedBytes",
+        p.gpuPoolAllocatedBytes,
+        "NodeStatus",
+        "int64_t",
+        "gpuPoolAllocatedBytes");
+  }
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
