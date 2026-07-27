@@ -79,6 +79,7 @@ COALESCE
 
     Returns the first non-null ``value`` in the argument list.
     Like a ``CASE`` expression, arguments are only evaluated if necessary.
+    Note that not-a-number (``nan()``) counts as non-null.
 
 NULLIF
 ------
