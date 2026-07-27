@@ -186,9 +186,9 @@ public class DeltaClient
             if (!fileSystem.isDirectory(tableLocation)) {
                 return Optional.empty();
             }
-Configuration conf = new Configuration(hdfsEnvironment.getConfiguration(hdfsContext, tableLocation));
-conf.setClassLoader(DeltaClient.class.getClassLoader());
-return Optional.of(DefaultEngine.create(conf));
+            Configuration conf = new Configuration(hdfsEnvironment.getConfiguration(hdfsContext, tableLocation));
+            conf.setClassLoader(DeltaClient.class.getClassLoader());
+            return Optional.of(DefaultEngine.create(conf));
         }
         catch (IOException ioException) {
             throw new PrestoException(DeltaErrorCode.DELTA_ERROR_LOADING_METADATA,
