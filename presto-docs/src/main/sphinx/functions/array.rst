@@ -360,6 +360,17 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
         SELECT transform(ARRAY ['x', 'abc', 'z'], x -> x || '0'); -- ['x0', 'abc0', 'z0']
         SELECT transform(ARRAY [ARRAY [1, NULL, 2], ARRAY[3, NULL]], a -> filter(a, x -> x IS NOT NULL)); -- [[1, 2], [3]]
 
+.. function:: transform_with_index(array(T), function(T,bigint,U)) -> array(U)
+
+    Returns an array that is the result of applying ``function`` to each element of ``array`` along with its 1-based index.
+    The function takes two parameters: the array element and its index (starting from 1)::
+
+        SELECT transform_with_index(ARRAY [], (x, i) -> x + i); -- []
+        SELECT transform_with_index(ARRAY [5, 6], (x, i) -> x + i); -- [6, 8]
+        SELECT transform_with_index(ARRAY [10, 20, 30], (x, i) -> x * i); -- [10, 40, 90]
+        SELECT transform_with_index(ARRAY ['a', 'b', 'c'], (x, i) -> x || CAST(i AS VARCHAR)); -- ['a1', 'b2', 'c3']
+        SELECT transform_with_index(ARRAY [5, NULL, 6], (x, i) -> COALESCE(x, 0) + i); -- [6, 2, 9]
+
 .. function:: zip(array1, array2[, ...]) -> array(row)
 
     Merges the given arrays, element-wise, into a single array of rows. The M-th element of
