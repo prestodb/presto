@@ -101,6 +101,23 @@ public class TestPreAggregateCountThroughOuterJoinSemantics
         }
     }
 
+    @Test
+    public void testDecorrelatedScalarCount()
+    {
+        try (QueryAssertions assertions = new QueryAssertions(ImmutableMap.of(PUSH_AGGREGATION_THROUGH_JOIN, "true"))) {
+            assertions.assertQuery(
+                    "WITH " +
+                            "outer_relation(join_key) AS (VALUES 10, 10, 20, 30), " +
+                            "inner_relation(join_key) AS (VALUES 10, 10, 20, 40) " +
+                            "SELECT join_key, (" +
+                            "    SELECT count(*) " +
+                            "    FROM inner_relation " +
+                            "    WHERE inner_relation.join_key = outer_relation.join_key) " +
+                            "FROM outer_relation",
+                    "VALUES (10, BIGINT '2'), (10, BIGINT '2'), (20, BIGINT '1'), (30, BIGINT '0')");
+        }
+    }
+
     private static void assertQueryAndPreAggregatedOuterJoin(QueryAssertions assertions, String actual, String expected, JoinType joinType)
     {
         assertions.assertQuery(actual, expected);
