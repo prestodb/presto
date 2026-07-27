@@ -261,8 +261,9 @@ public class JoinStatsRule
             newRightStats.setHistogram(rightStats.getHistogram().map(rightHistogram -> addConjunction(rightHistogram, intersect.toPrestoRange())));
         }
 
+        double outputRowCount = leftRange.overlapPercentWith(rightRange) == 0D ? 0D : stats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT;
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(stats)
-                .setOutputRowCount(stats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT)
+                .setOutputRowCount(outputRowCount)
                 .addVariableStatistics(clause.getLeft(), newLeftStats.build())
                 .addVariableStatistics(clause.getRight(), newRightStats.build());
         return normalizer.normalize(result.build());
