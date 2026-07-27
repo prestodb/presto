@@ -14,10 +14,12 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.HiveCompressionCodec;
+import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
@@ -47,6 +49,12 @@ public class IcebergDeleteTableHandle
         implements ConnectorDeleteTableHandle
 {
     private final FileContent fileContent;
+    // For V3 tables: existing deletion vectors keyed by the data file they
+    // reference. When a DELETE re-touches a data file that already has a DV,
+    // the worker seeds the new DV's bitmap with the prior DV's positions and
+    // the commit replaces the old DV, preserving Iceberg's one-DV-per-data-file
+    // invariant. Empty for V2 tables and for first-time mutations.
+    private final Map<String, DeleteFile> existingDeletionVectors;
 
     @JsonCreator
     public IcebergDeleteTableHandle(
@@ -61,7 +69,8 @@ public class IcebergDeleteTableHandle
             @JsonProperty("storageProperties") Map<String, String> storageProperties,
             @JsonProperty("sortOrder") List<SortField> sortOrder,
             @JsonProperty("materializedViewName") Optional<SchemaTableName> materializedViewName,
-            @JsonProperty("fileContent") FileContent fileContent)
+            @JsonProperty("fileContent") FileContent fileContent,
+            @JsonProperty("existingDeletionVectors") Map<String, DeleteFile> existingDeletionVectors)
     {
         super(
                 schemaName,
@@ -76,11 +85,18 @@ public class IcebergDeleteTableHandle
                 sortOrder,
                 materializedViewName);
         this.fileContent = requireNonNull(fileContent, "fileContent is null");
+        this.existingDeletionVectors = existingDeletionVectors == null ? ImmutableMap.of() : ImmutableMap.copyOf(existingDeletionVectors);
     }
 
     @JsonProperty
     public FileContent getFileContent()
     {
         return fileContent;
+    }
+
+    @JsonProperty
+    public Map<String, DeleteFile> getExistingDeletionVectors()
+    {
+        return existingDeletionVectors;
     }
 }
