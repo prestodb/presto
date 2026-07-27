@@ -59,7 +59,7 @@ import static java.util.Objects.requireNonNull;
 public class DecimalColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalColumnWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DecimalColumnWriter.class).instanceSize();
     private final int column;
     private final DecimalType type;
     private final ColumnEncoding columnEncoding;

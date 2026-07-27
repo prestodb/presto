@@ -91,7 +91,7 @@ import static java.util.Collections.shuffle;
 @NotThreadSafe
 public class TDigest
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TDigest.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(TDigest.class).instanceSize();
     static final double MAX_COMPRESSION_FACTOR = 1_000;
     private static final double sizeFudge = 30;
     private static final double EPSILON = 0.001;

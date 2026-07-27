@@ -27,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class MapUnionSumResult
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapUnionSumResult.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(MapUnionSumResult.class).instanceSize();
     private static final int EXPECTED_ENTRIES = 10;
     private static final int EXPECTED_ENTRY_SIZE = 16;
 

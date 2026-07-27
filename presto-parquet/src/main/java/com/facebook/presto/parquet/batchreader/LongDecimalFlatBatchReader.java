@@ -46,7 +46,7 @@ import static java.util.Objects.requireNonNull;
 public class LongDecimalFlatBatchReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDecimalFlatBatchReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongDecimalFlatBatchReader.class).instanceSize();
 
     private final RichColumnDescriptor columnDescriptor;
 

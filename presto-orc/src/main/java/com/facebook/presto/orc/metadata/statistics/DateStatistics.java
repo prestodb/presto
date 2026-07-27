@@ -27,7 +27,7 @@ public class DateStatistics
     // 1 byte to denote if null + 4 bytes for the value (date is of integer type)
     public static final long DATE_VALUE_BYTES = Byte.BYTES + Integer.BYTES;
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DateStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DateStatistics.class).instanceSize();
 
     private final boolean hasMinimum;
     private final boolean hasMaximum;

@@ -27,7 +27,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 public class DoubleDictionary
         extends Dictionary
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleDictionary.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DoubleDictionary.class).instanceSize();
 
     private final double[] content;
 

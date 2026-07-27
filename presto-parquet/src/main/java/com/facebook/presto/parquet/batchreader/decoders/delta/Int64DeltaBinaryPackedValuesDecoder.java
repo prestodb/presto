@@ -28,7 +28,7 @@ import java.io.IOException;
 public class Int64DeltaBinaryPackedValuesDecoder
         implements Int64ValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64DeltaBinaryPackedValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Int64DeltaBinaryPackedValuesDecoder.class).instanceSize();
 
     private final DeltaBinaryPackingValuesReader innerReader;
 

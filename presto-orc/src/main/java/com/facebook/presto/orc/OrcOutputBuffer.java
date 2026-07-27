@@ -49,7 +49,7 @@ import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 public class OrcOutputBuffer
         extends SliceOutput
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcOutputBuffer.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(OrcOutputBuffer.class).instanceSize();
     private static final int PAGE_HEADER_SIZE = 3; // ORC spec 3 byte header
     private static final int INITIAL_BUFFER_SIZE = 256;
     private final int maxBufferSize;
