@@ -51,7 +51,8 @@ public class TestServerConfig
                 .setClusterStatsExpirationDuration(new Duration(0, MILLISECONDS))
                 .setNestedDataSerializationEnabled(true)
                 .setClusterResourceGroupStateInfoExpirationDuration(new Duration(0, MILLISECONDS))
-                .setClusterTag(null));
+                .setClusterTag(null)
+                .setQueryResultsUseForwardedHeadersInUris(false));
     }
 
     @Test
@@ -76,6 +77,7 @@ public class TestServerConfig
                 .put("nested-data-serialization-enabled", "false")
                 .put("cluster-resource-group-state-info-expiration-duration", "10s")
                 .put("cluster-tag", "test-cluster")
+                .put("query-results.use-forwarded-headers-in-uris", "true")
                 .build();
 
         ServerConfig expected = new ServerConfig()
@@ -96,7 +98,8 @@ public class TestServerConfig
                 .setClusterStatsExpirationDuration(new Duration(10, SECONDS))
                 .setNestedDataSerializationEnabled(false)
                 .setClusterResourceGroupStateInfoExpirationDuration(new Duration(10, SECONDS))
-                .setClusterTag("test-cluster");
+                .setClusterTag("test-cluster")
+                .setQueryResultsUseForwardedHeadersInUris(true);
 
         assertFullMapping(properties, expected);
     }

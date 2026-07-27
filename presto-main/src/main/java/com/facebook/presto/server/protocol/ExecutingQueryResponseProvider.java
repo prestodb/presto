@@ -16,6 +16,7 @@ package com.facebook.presto.server.protocol;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.dispatcher.DispatchInfo;
+import com.facebook.presto.server.protocol.QueryResourceUtil.ExternalUriInfo;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.ListenableFuture;
 import jakarta.ws.rs.core.Response;
@@ -41,8 +42,8 @@ public interface ExecutingQueryResponseProvider
      * @param slug nonce to protect the query
      * @param dispatchInfo information about state of the query
      * @param uriInfo endpoint URI
+     * @param externalUriInfo externally visible request URI components
      * @param xPrestoPrefixUrl prefix URL, that is useful if a proxy is being used
-     * @param scheme HTTP scheme
      * @param maxWait duration to wait for query results
      * @param targetResultSize target result size of first response
      * @param compressionEnabled enable compression
@@ -58,8 +59,8 @@ public interface ExecutingQueryResponseProvider
             String slug,
             DispatchInfo dispatchInfo,
             UriInfo uriInfo,
+            ExternalUriInfo externalUriInfo,
             String xPrestoPrefixUrl,
-            String scheme,
             Duration maxWait,
             DataSize targetResultSize,
             boolean compressionEnabled,

@@ -20,6 +20,7 @@ import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriInfo;
 
 import java.util.Optional;
@@ -27,6 +28,8 @@ import java.util.Optional;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.oauth2.OAuth2Utils.getLastURLParameter;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 
 @Path("/")
@@ -38,20 +41,25 @@ public class WebUiResource
     @GET
     public Response redirectIndexHtml(
             @HeaderParam(X_FORWARDED_PROTO) String proto,
+            @HeaderParam(X_FORWARDED_HOST) String host,
+            @HeaderParam(X_FORWARDED_PORT) String port,
             @Context UriInfo uriInfo)
     {
-        if (isNullOrEmpty(proto)) {
-            proto = uriInfo.getRequestUri().getScheme();
-        }
         Optional<String> lastURL = getLastURLParameter(uriInfo.getQueryParameters());
+
         if (lastURL.isPresent()) {
             return Response
-                    .seeOther(uriInfo.getRequestUriBuilder().scheme(proto).uri(lastURL.get()).build())
+                    .seeOther(buildUri(uriInfo.getRequestUriBuilder(), proto, host, port, uriInfo)
+                            .uri(lastURL.get())
+                            .build())
                     .build();
         }
 
         return Response
-                .temporaryRedirect(uriInfo.getRequestUriBuilder().scheme(proto).path("/ui/").replaceQuery("").build())
+                .temporaryRedirect(buildUri(uriInfo.getRequestUriBuilder(), proto, host, port, uriInfo)
+                        .path("/ui/")
+                        .replaceQuery("")
+                        .build())
                 .build();
     }
 
@@ -59,14 +67,53 @@ public class WebUiResource
     @Path("/logout")
     public Response logout(
             @HeaderParam(X_FORWARDED_PROTO) String proto,
+            @HeaderParam(X_FORWARDED_HOST) String host,
+            @HeaderParam(X_FORWARDED_PORT) String port,
             @Context UriInfo uriInfo)
     {
+        return Response
+                .temporaryRedirect(buildUri(uriInfo.getBaseUriBuilder(), proto, host, port, uriInfo)
+                        .path("/ui/logout.html")
+                        .build())
+                .cookie(OAuthWebUiCookie.delete())
+                .build();
+    }
+
+    private static UriBuilder buildUri(
+            UriBuilder uriBuilder,
+            String proto,
+            String host,
+            String port,
+            UriInfo uriInfo)
+    {
+        // Fallbacks if headers are missing
         if (isNullOrEmpty(proto)) {
             proto = uriInfo.getRequestUri().getScheme();
         }
-        return Response
-                .temporaryRedirect(uriInfo.getBaseUriBuilder().scheme(proto).path("/ui/logout.html").build())
-                .cookie(OAuthWebUiCookie.delete())
-                .build();
+
+        if (isNullOrEmpty(host)) {
+            host = uriInfo.getRequestUri().getHost();
+        }
+
+        int resolvedPort = uriInfo.getRequestUri().getPort();
+        if (!isNullOrEmpty(port)) {
+            try {
+                resolvedPort = Integer.parseInt(port);
+            }
+            catch (NumberFormatException e) {
+                // Fallback to request URI port if X-Forwarded-Port is invalid
+            }
+        }
+
+        // Normalize default ports (avoid :80 or :443 in URLs)
+        if ((proto.equalsIgnoreCase("http") && resolvedPort == 80) ||
+                (proto.equalsIgnoreCase("https") && resolvedPort == 443)) {
+            resolvedPort = -1;
+        }
+
+        return uriBuilder
+                .scheme(proto)
+                .host(host)
+                .port(resolvedPort);
     }
 }
