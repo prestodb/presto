@@ -16,9 +16,12 @@ package com.facebook.presto.hive.metastore.thrift;
 import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
-import com.google.common.net.HostAndPort;
+import com.facebook.presto.hive.metastore.http.HttpHiveMetastoreClientFactory;
+import com.facebook.presto.hive.metastore.http.HttpHiveMetastoreConfig;
 import org.apache.thrift.TException;
 
+import java.net.URI;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -29,14 +32,28 @@ public class TestingHiveCluster
 {
     private final MetastoreClientConfig metastoreClientConfig;
     private final ThriftHiveMetastoreConfig thriftHiveMetastoreConfig;
-    private final HostAndPort address;
+    private final HttpHiveMetastoreConfig httpHiveMetastoreConfig;
+    private final URI uri;
+    private boolean httpEnabled;
     private final HiveCommonClientConfig hiveCommonClientConfig;
 
-    public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, String host, int port, HiveCommonClientConfig hiveCommonClientConfig)
+    public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, HttpHiveMetastoreConfig httpHiveMetastoreConfig, String host, int port, HiveCommonClientConfig hiveCommonClientConfig, StaticMetastoreConfig staticMetastoreConfig)
     {
         this.metastoreClientConfig = requireNonNull(metastoreClientConfig, "metastore config is null");
         this.thriftHiveMetastoreConfig = requireNonNull(thriftHiveMetastoreConfig, "thrift metastore config is null");
-        this.address = HostAndPort.fromParts(requireNonNull(host, "host is null"), port);
+        this.httpHiveMetastoreConfig = requireNonNull(httpHiveMetastoreConfig, "http metastore conf is null");
+
+        this.httpEnabled = Optional.ofNullable(staticMetastoreConfig.getMetastoreUris())
+                .orElse(Collections.emptyList())
+                .stream()
+                .map(URI::getScheme)
+                .filter(Objects::nonNull)
+                .anyMatch(scheme -> "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme));
+
+        String scheme = httpEnabled ? "http" : "thrift";
+        String path = httpEnabled ? "/metastore" : "";
+
+        this.uri = URI.create(String.format("%s://%s:%d%s", scheme, requireNonNull(host, "host is null"), port, path));
         this.hiveCommonClientConfig = hiveCommonClientConfig;
     }
 
@@ -44,7 +61,8 @@ public class TestingHiveCluster
     public HiveMetastoreClient createMetastoreClient(Optional<String> token)
             throws TException
     {
-        return new HiveMetastoreClientFactory(metastoreClientConfig, thriftHiveMetastoreConfig, new NoHiveMetastoreAuthentication(), hiveCommonClientConfig).create(address, token);
+        return (httpEnabled) ? new HttpHiveMetastoreClientFactory(httpHiveMetastoreConfig, hiveCommonClientConfig).create(uri, token)
+                : new ThriftHiveMetastoreClientFactory(metastoreClientConfig, thriftHiveMetastoreConfig, new NoHiveMetastoreAuthentication(), hiveCommonClientConfig).create(uri, token);
     }
 
     @Override
@@ -58,12 +76,12 @@ public class TestingHiveCluster
         }
         TestingHiveCluster o = (TestingHiveCluster) obj;
 
-        return Objects.equals(this.address, o.address);
+        return Objects.equals(this.uri, o.uri);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(address);
+        return Objects.hash(uri);
     }
 }
