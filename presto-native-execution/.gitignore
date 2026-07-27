@@ -1,0 +1,20 @@
+
+#==============================================================================#
+# This file specifies intentionally untracked files that git should ignore.
+#==============================================================================#
+
+
+
+#==============================================================================#
+# Ignore dependencies which are built locally. 
+#==============================================================================#
+antlr4/
+double-conversion/
+fbthrift/
+fizz/
+fmt/
+folly/
+proxygen/
+range-v3/
+re2/
+wangle/
