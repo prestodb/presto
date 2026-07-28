@@ -1050,22 +1050,27 @@ public final class SqlToRowExpressionTranslator
                 escapeSlice = (Slice) ((ConstantExpression) escape).getValue();
             }
             Slice patternSlice = (Slice) ((ConstantExpression) pattern).getValue();
+            Slice literal;
             try {
                 if (isLikePattern(patternSlice, escapeSlice)) {
                     return null;
                 }
-                Slice literal = unescapeLiteralLikePattern(patternSlice, escapeSlice);
-                // Unbounded VARCHAR, not value.getType(): the literal can be longer than a bounded
-                // varchar(n) value, and a constant whose slice exceeds its declared length is invalid.
-                // Varchar comparison ignores the declared length, so "varchar(n) = varchar" is still
-                // false for an over-long literal -- the same answer LIKE gives.
-                return buildEquals(value, constant(literal, VARCHAR));
+                literal = unescapeLiteralLikePattern(patternSlice, escapeSlice);
             }
             catch (PrestoException e) {
                 // Malformed escape sequence: leave it to normal LIKE handling so the error keeps its
-                // original runtime semantics instead of surfacing during planning.
+                // original runtime semantics instead of surfacing during planning. Scoped to the two
+                // pattern helpers on purpose, so an operator-resolution failure from buildEquals below
+                // is not swallowed under this comment's rationale.
                 return null;
             }
+            // Type the literal as unbounded VARCHAR rather than value.getType(): a bounded varchar(n)
+            // whose declared length disagrees with the literal makes LiteralEncoder emit
+            // "CAST(literal AS varchar(n))" (LiteralEncoder.toExpression), and evaluating that cast
+            // truncates. For x of type varchar(3), "x LIKE 'abcdef'" would degrade from an always-false
+            // predicate to "x = 'abc'". generateLikePrefixOrSuffixMatch below types its literals the
+            // same way.
+            return buildEquals(value, constant(literal, VARCHAR));
         }
 
         private RowExpression generateLikePrefixOrSuffixMatch(RowExpression value, RowExpression pattern)
