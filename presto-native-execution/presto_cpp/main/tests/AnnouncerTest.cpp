@@ -237,7 +237,8 @@ class BearerCapturingDiscoverer : public CoordinatorDiscoverer {
           // The discovery server runs on an 8-thread IO pool, so announcements
           // can land concurrently; claim the one-shot promise with an atomic
           // exchange rather than a non-atomic isFulfilled() check, since a
-          // second setValue() on a folly::Promise throws PromiseAlreadySatisfied.
+          // second setValue() on a folly::Promise throws
+          // PromiseAlreadySatisfied.
           if (!captured->exchange(true)) {
             promiseHolder->get().setValue(bearer);
           }
@@ -303,13 +304,21 @@ std::string announceAndCaptureBearer(bool jwtEnabled) {
   // an ample ceiling. stop() still runs on the timeout path because the base
   // destructor does not.
   auto semiFuture = std::move(future);
-  if (!semiFuture.wait(std::chrono::seconds(30)).isReady()) {
+  folly::Try<std::string> result;
+  try {
+    result = std::move(semiFuture).getTry(std::chrono::seconds(30));
+  } catch (const folly::FutureTimeout&) {
     announcer.stop();
     ADD_FAILURE() << "announcement never arrived; no "
                   << http::kPrestoInternalBearer << " captured";
     return {};
   }
-  auto bearer = std::move(semiFuture).get();
+  if (!result.hasValue()) {
+    announcer.stop();
+    ADD_FAILURE() << "announcement failed: " << result.exception().what();
+    return {};
+  }
+  auto bearer = std::move(result.value());
   announcer.stop();
   return bearer;
 }
