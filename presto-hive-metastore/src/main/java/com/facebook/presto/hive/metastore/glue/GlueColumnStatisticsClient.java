@@ -22,14 +22,14 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Interface for fetching and updating column statistics in AWS Glue.
+ * Client for reading and updating column statistics in AWS Glue.
  * This component is responsible ONLY for interacting with AWS Glue APIs
  * and returns/accepts AWS Glue native statistics objects.
  * <p>
  * Conversion between Hive and Glue statistics formats is handled separately
  * by {@link com.facebook.presto.hive.metastore.glue.converter.GlueStatisticsConverter}.
  */
-public interface GlueStatisticsFetcher
+public interface GlueColumnStatisticsClient
 {
     /**
      * Fetch column statistics for a table from AWS Glue.

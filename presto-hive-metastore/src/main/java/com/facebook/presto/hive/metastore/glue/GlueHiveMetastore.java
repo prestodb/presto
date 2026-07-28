@@ -210,7 +210,7 @@ public class GlueHiveMetastore
     private static final Comparator<Partition> PARTITION_COMPARATOR = comparing(Partition::getValues, lexicographical(String.CASE_INSENSITIVE_ORDER));
 
     private final GlueMetastoreStats stats = new GlueMetastoreStats();
-    private final GlueStatisticsFetcher statisticsFetcher;
+    private final GlueColumnStatisticsClient columnStatisticsClient;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
     private final GlueAsyncClient glueClient;
@@ -246,7 +246,7 @@ public class GlueHiveMetastore
         this.failOnMissingPartitionInStatisticsUpdate = glueConfig.isFailOnMissingPartitionInStatisticsUpdate();
 
         if (columnStatisticsEnabled) {
-            this.statisticsFetcher = new DefaultGlueStatisticsFetcher(
+            this.columnStatisticsClient = new DefaultGlueColumnStatisticsClient(
                     glueClient,
                     catalogId,
                     statisticsReadExecutor,
@@ -254,7 +254,7 @@ public class GlueHiveMetastore
                     stats);
         }
         else {
-            this.statisticsFetcher = new DisabledGlueStatisticsFetcher();
+            this.columnStatisticsClient = new DisabledGlueColumnStatisticsClient();
         }
     }
 
@@ -417,7 +417,7 @@ public class GlueHiveMetastore
         Table table = getTable(metastoreContext, databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
-        List<ColumnStatistics> glueStats = statisticsFetcher.getTableColumnStatistics(table);
+        List<ColumnStatistics> glueStats = columnStatisticsClient.getTableColumnStatistics(table);
         Map<String, HiveColumnStatistics> hiveStats = fromGlueColumnStatisticsForTable(table, glueStats);
 
         return new PartitionStatistics(getHiveBasicStatistics(table.getParameters()), hiveStats);
@@ -451,7 +451,7 @@ public class GlueHiveMetastore
     private Map<Partition, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, Collection<Partition> partitions)
     {
         Map<Partition, List<ColumnStatistics>> glueStatsPerPartition =
-                statisticsFetcher.getPartitionColumnStatistics(ImmutableSet.copyOf(partitions));
+                columnStatisticsClient.getPartitionColumnStatistics(ImmutableSet.copyOf(partitions));
 
         return glueStatsPerPartition.entrySet().stream()
                 .collect(toImmutableMap(
@@ -492,7 +492,7 @@ public class GlueHiveMetastore
                             table,
                             updatedStatistics.getColumnStatistics(),
                             updatedStatistics.getBasicStatistics().getRowCount());
-            statisticsFetcher.updateTableColumnStatistics(table, glueStats);
+            columnStatisticsClient.updateTableColumnStatistics(table, glueStats);
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
@@ -509,7 +509,7 @@ public class GlueHiveMetastore
             String tableName,
             Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
-        Iterables.partition(updates.entrySet(), BATCH_CREATE_PARTITION_MAX_PAGE_SIZE).forEach(partitionUpdates ->
+        Iterables.partition(updates.entrySet(), BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE).forEach(partitionUpdates ->
                 updatePartitionStatisticsBatch(databaseName, tableName, partitionUpdates.stream().collect(toImmutableMap(Entry::getKey, Entry::getValue))));
     }
 
@@ -545,7 +545,7 @@ public class GlueHiveMetastore
         }
 
         Map<Partition, List<ColumnStatistics>> glueStatsPerPartition =
-                statisticsFetcher.getPartitionColumnStatistics(ImmutableSet.copyOf(partitions));
+                columnStatisticsClient.getPartitionColumnStatistics(ImmutableSet.copyOf(partitions));
 
         glueStatsPerPartition.forEach((partition, glueStats) -> {
             Function<PartitionStatistics, PartitionStatistics> update = updates.get(partitionValuesToName.get(partition.getValues()));
@@ -599,7 +599,7 @@ public class GlueHiveMetastore
         });
 
         try {
-            statisticsFetcher.updatePartitionColumnStatistics(glueStatsUpdates.build());
+            columnStatisticsClient.updatePartitionColumnStatistics(glueStatsUpdates.build());
 
             for (CompletableFuture<BatchUpdatePartitionResponse> future : partitionUpdateRequestsFutures) {
                 BatchUpdatePartitionResponse result = future.get();
@@ -1237,7 +1237,7 @@ public class GlueHiveMetastore
                                         hiveStats,
                                         partitionWithStatistics.getStatistics().getBasicStatistics().getRowCount());
                             }));
-            statisticsFetcher.updatePartitionColumnStatistics(glueStatsUpdates);
+            columnStatisticsClient.updatePartitionColumnStatistics(glueStatsUpdates);
 
             return EMPTY_RESULT;
         }
@@ -1329,7 +1329,7 @@ public class GlueHiveMetastore
                             partition.getPartition(),
                             partition.getStatistics().getColumnStatistics(),
                             partition.getStatistics().getBasicStatistics().getRowCount());
-            statisticsFetcher.updatePartitionColumnStatistics(ImmutableMap.of(partition.getPartition(), glueStats));
+            columnStatisticsClient.updatePartitionColumnStatistics(ImmutableMap.of(partition.getPartition(), glueStats));
 
             return EMPTY_RESULT;
         }

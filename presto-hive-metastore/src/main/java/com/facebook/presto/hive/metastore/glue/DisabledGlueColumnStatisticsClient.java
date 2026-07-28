@@ -27,11 +27,11 @@ import java.util.Set;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
 /**
- * Implementation of GlueStatisticsFetcher that is used when Glue column statistics are disabled.
+ * Implementation of GlueColumnStatisticsClient that is used when Glue column statistics are disabled.
  * Returns empty results for read operations and throws exceptions for write operations.
  */
-public class DisabledGlueStatisticsFetcher
-        implements GlueStatisticsFetcher
+public class DisabledGlueColumnStatisticsClient
+        implements GlueColumnStatisticsClient
 {
     @Override
     public List<ColumnStatistics> getTableColumnStatistics(Table table)

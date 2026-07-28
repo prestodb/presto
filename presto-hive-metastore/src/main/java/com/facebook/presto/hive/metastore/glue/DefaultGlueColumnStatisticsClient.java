@@ -51,8 +51,8 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 /**
- * Default implementation of GlueStatisticsFetcher that interacts with AWS Glue APIs
- * to fetch and update column statistics.
+ * Default implementation of GlueColumnStatisticsClient that interacts with AWS Glue APIs
+ * to read and update column statistics.
  * <p>
  * This implementation handles:
  * - Pagination for large numbers of columns
@@ -60,8 +60,8 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
  * - Batch operations for writes
  * - Error handling for AWS Glue exceptions
  */
-public class DefaultGlueStatisticsFetcher
-        implements GlueStatisticsFetcher
+public class DefaultGlueColumnStatisticsClient
+        implements GlueColumnStatisticsClient
 {
     // Read limit for AWS Glue API GetColumnStatisticsForPartition
     // https://docs.aws.amazon.com/glue/latest/dg/aws-glue-api-catalog-partitions.html#aws-glue-api-catalog-partitions-GetColumnStatisticsForPartition
@@ -77,7 +77,7 @@ public class DefaultGlueStatisticsFetcher
     private final Executor writeExecutor;
     private final GlueMetastoreStats stats;
 
-    public DefaultGlueStatisticsFetcher(
+    public DefaultGlueColumnStatisticsClient(
             GlueAsyncClient glueClient,
             String catalogId,
             Executor readExecutor,
