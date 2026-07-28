@@ -20,14 +20,16 @@ import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.TopNNode.Step;
@@ -48,7 +50,8 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getOptimizeTopNUsingRowIdMinColumnSavings;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeTopNUsingRowIdEnabled;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.PlannerUtils.addColumnToTableScan;
 import static com.facebook.presto.sql.planner.PlannerUtils.addPassThroughVariable;
 import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
@@ -56,6 +59,7 @@ import static com.facebook.presto.sql.planner.PlannerUtils.findTableScanNode;
 import static com.facebook.presto.sql.planner.PlannerUtils.isDeterministicScanFilterProject;
 import static com.facebook.presto.sql.planner.PlannerUtils.isScanFilterProject;
 import static com.facebook.presto.sql.planner.PlannerUtils.restrictOutput;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -68,24 +72,27 @@ import static java.util.Objects.requireNonNull;
  *
  * Into:
  *   TopN(N, orderBy=[a, b])
- *     └─ Project(remove $row_id, semi_mark)
- *       └─ Filter(semi_mark = true)
- *         └─ SemiJoin(source=$row_id, filtering=$row_id_clone, output=semi_mark)
- *           ├─ Source_with_row_id(a, b, c, d, e, ..., $row_id)
- *           └─ TopN(N, orderBy=[a_clone, b_clone])
- *               └─ ClonedSource(a_clone, b_clone, $row_id_clone)
+ *     └─ InnerJoin($row_id = $row_id_clone)
+ *       ├─ Source_with_row_id(a, b, c, d, e, ..., $row_id)
+ *       └─ TopN(N, orderBy=[a_clone, b_clone])
+ *           └─ ClonedSource(a_clone, b_clone, $row_id_clone)
  *
- * The inner TopN sorts only the narrow clone (sort keys + $row_id).
- * The SemiJoin filters the full scan to only the N matching rows.
+ * The inner TopN sorts only the narrow clone (sort keys + $row_id). $row_id is the table's unique
+ * column, so joining the wide source back to the narrow winners on it is strictly 1:1 — an INNER join
+ * keeps exactly the N matching rows (what a SemiJoin would), while being eligible for a colocated /
+ * grouped join on the shared $row_id partitioning (avoiding the broadcast a SemiJoin was forced into).
  * The outer TopN re-sorts only N rows (cheap).
  *
- * The same rewrite is also applied to {@link TopNRowNumberNode} (the
+ * The same rewrite is applied to {@link TopNRowNumberNode} (the
  * row_number()/rank()/dense_rank() OVER (PARTITION BY ... ORDER BY ...) with
  * WHERE rn &lt;= N pattern, produced by {@link WindowFilterPushDown}). There the
- * narrow key set is partitionBy ∪ orderBy: the inner TopNRowNumber selects, per
- * partition, the same $row_id set, the SemiJoin restricts the wide scan to those
- * rows, and the outer TopNRowNumber recomputes the ranking column over only the
- * kept rows.
+ * narrow key set is partitionBy ∪ orderBy: the inner TopNRowNumber selects, per partition, the same
+ * $row_id set and assigns each kept row its ranking value, and the INNER join restricts the wide scan to
+ * those rows. Because the ranking is a pure function of the partition/order keys (identical on the narrow
+ * clone and the wide source) and the join is 1:1, the inner ranking value is already the final ranking
+ * for every kept row. So there is NO outer TopNRowNumber at all: the inner ranking is carried through the
+ * join and surfaced by a Project as the ranking variable — eliminating a redundant re-rank and the wide
+ * re-shuffle it would force, for every maxRowCountPerPartition.
  */
 public class OptimizeTopNUsingRowId
         implements PlanOptimizer
@@ -251,37 +258,35 @@ public class OptimizeTopNUsingRowId
                     clonedOrderingScheme,
                     Step.SINGLE);
 
-            // 4. Build SemiJoinNode: source=$row_id from augmented original, filtering=$row_id_clone from inner TopN
-            //    For small N (<= 100K), broadcast the TopN result to all workers to avoid a full repartition.
-            VariableReferenceExpression semiJoinOutput = variableAllocator.newVariable("semiJoinOutput", BOOLEAN);
-            Optional<SemiJoinNode.DistributionType> semiJoinDistribution = node.getCount() <= 100_000
-                    ? Optional.of(SemiJoinNode.DistributionType.REPLICATED)
-                    : Optional.empty();
-            SemiJoinNode semiJoinNode = new SemiJoinNode(
+            // 4. INNER join the wide source back to the narrow winners on the unique $row_id. Because $row_id is
+            //    unique (and never null) the join is strictly 1:1, so it keeps exactly the rows a SemiJoin would —
+            //    but as a JoinNode it is eligible for a colocated/grouped join on the shared $row_id partitioning
+            //    (the SemiJoin path was forced REPLICATED, i.e. broadcast). Force PARTITIONED so both sides
+            //    partition on $row_id, enabling a colocated/grouped join when the connector is co-bucketed on
+            //    $row_id. Output only the left (wide) columns.
+            JoinNode rowIdJoin = new JoinNode(
                     node.getSourceLocation(),
                     idAllocator.getNextId(),
                     Optional.empty(),
+                    INNER,
                     augmentedSource,
                     innerTopN,
-                    rowIdVar,
-                    clonedRowIdVar,
-                    semiJoinOutput,
+                    ImmutableList.of(new EquiJoinClause(rowIdVar, clonedRowIdVar)),
+                    augmentedSource.getOutputVariables(),
                     Optional.empty(),
                     Optional.empty(),
-                    semiJoinDistribution,
+                    Optional.empty(),
+                    Optional.of(PARTITIONED),
                     ImmutableMap.of());
 
-            // 5. Filter on semi_mark = true
-            PlanNode filtered = new FilterNode(semiJoinNode.getSourceLocation(), idAllocator.getNextId(), semiJoinNode, semiJoinOutput);
-
-            // 6. Build outer TopN with original ordering scheme over the filtered result.
-            // Don't project away $row_id and semiJoinOutput here — PruneUnreferencedOutputs will handle it.
-            // Projecting them away here would break StreamPropertyDerivations' unique column consistency check.
+            // 5. Build outer TopN with original ordering scheme over the joined result to establish sorted order.
+            // Don't project away $row_id here — PruneUnreferencedOutputs will handle it.
+            // Projecting it away here would break StreamPropertyDerivations' unique column consistency check.
             TopNNode outerTopN = new TopNNode(
                     node.getSourceLocation(),
                     idAllocator.getNextId(),
                     Optional.empty(),
-                    filtered,
+                    rowIdJoin,
                     node.getCount(),
                     node.getOrderingScheme(),
                     Step.SINGLE);
@@ -420,46 +425,46 @@ public class OptimizeTopNUsingRowId
                     false,
                     Optional.empty());
 
-            // 4. Build SemiJoinNode: source=$row_id from augmented original, filtering=$row_id_clone from inner node.
-            //    For small N (<= 100K), broadcast the inner result to all workers to avoid a full repartition.
-            VariableReferenceExpression semiJoinOutput = variableAllocator.newVariable("semiJoinOutput", BOOLEAN);
-            Optional<SemiJoinNode.DistributionType> semiJoinDistribution = node.getMaxRowCountPerPartition() <= 100_000
-                    ? Optional.of(SemiJoinNode.DistributionType.REPLICATED)
-                    : Optional.empty();
-            SemiJoinNode semiJoinNode = new SemiJoinNode(
+            // 4. INNER join the wide source back to the narrow per-partition winners on the unique $row_id.
+            //    Because $row_id is unique (and never null) the join is strictly 1:1, so it keeps exactly the rows
+            //    a SemiJoin would — but as a JoinNode it is eligible for a colocated/grouped join on the shared
+            //    $row_id partitioning (the SemiJoin path was forced REPLICATED, i.e. broadcast). Force PARTITIONED
+            //    so both sides partition on $row_id, enabling a colocated/grouped join when the connector is
+            //    co-bucketed on $row_id. Output the left (wide) columns plus the inner ranking value, which is
+            //    reused below instead of being recomputed.
+            List<VariableReferenceExpression> joinOutputs = ImmutableList.<VariableReferenceExpression>builder()
+                    .addAll(augmentedSource.getOutputVariables())
+                    .add(innerRowNumberVar)
+                    .build();
+            JoinNode rowIdJoin = new JoinNode(
                     node.getSourceLocation(),
                     idAllocator.getNextId(),
                     Optional.empty(),
+                    INNER,
                     augmentedSource,
                     innerTopNRowNumber,
-                    rowIdVar,
-                    clonedRowIdVar,
-                    semiJoinOutput,
+                    ImmutableList.of(new EquiJoinClause(rowIdVar, clonedRowIdVar)),
+                    joinOutputs,
                     Optional.empty(),
                     Optional.empty(),
-                    semiJoinDistribution,
+                    Optional.empty(),
+                    Optional.of(PARTITIONED),
                     ImmutableMap.of());
 
-            // 5. Filter on semiJoinOutput = true
-            PlanNode filtered = new FilterNode(semiJoinNode.getSourceLocation(), idAllocator.getNextId(), semiJoinNode, semiJoinOutput);
-
-            // 6. Build outer TopNRowNumber over the filtered result, reusing the original specification.
-            // Don't project away $row_id and semiJoinOutput here — PruneUnreferencedOutputs will handle it.
-            // Projecting them away here would break StreamPropertyDerivations' unique column consistency check.
-            TopNRowNumberNode outerTopNRowNumber = new TopNRowNumberNode(
-                    node.getSourceLocation(),
-                    idAllocator.getNextId(),
-                    Optional.empty(),
-                    filtered,
-                    node.getSpecification(),
-                    node.getRankingFunction(),
-                    node.getRowNumberVariable(),
-                    node.getMaxRowCountPerPartition(),
-                    false,
-                    node.getHashVariable());
-
+            // 5. The join key is the table's unique column ($row_id), so the join-back is strictly 1:1 and the
+            // inner TopNRowNumber has already assigned the final ranking value to every kept row — the ranking is
+            // a pure function of the partition/order keys, which are identical on the narrow clone and the wide
+            // source — and has already restricted each partition to rank <= maxRowCountPerPartition. So the outer
+            // TopNRowNumber that recomputes the ranking and re-limits is entirely redundant, and it forces a wide
+            // re-shuffle. Replace it with a projection that surfaces the inner ranking as the node's ranking
+            // variable. Keep $row_id so StreamPropertyDerivations' unique-column consistency check still holds;
+            // PruneUnreferencedOutputs drops the unused columns later.
+            Assignments rankingProjection = Assignments.builder()
+                    .putAll(identityAssignments(augmentedSource.getOutputVariables()))
+                    .put(node.getRowNumberVariable(), innerRowNumberVar)
+                    .build();
             planChanged = true;
-            return outerTopNRowNumber;
+            return new ProjectNode(idAllocator.getNextId(), rowIdJoin, rankingProjection);
         }
 
         private static PlanNode replaceSource(TopNRowNumberNode node, PlanNode newSource)
