@@ -799,6 +799,7 @@ public class ServerMainModule
         }
 
         // server info resource
+        binder.bind(ServerStartupState.class).in(Scopes.SINGLETON);
         jaxrsBinder(binder).bind(ServerInfoResource.class);
         jsonCodecBinder(binder).bindJsonCodec(ServerInfo.class);
 
