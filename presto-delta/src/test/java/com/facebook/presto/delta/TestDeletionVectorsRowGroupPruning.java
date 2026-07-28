@@ -15,6 +15,7 @@ package com.facebook.presto.delta;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.delta.DeltaSessionProperties.DELETION_VECTORS_ENABLED;
@@ -46,12 +47,33 @@ import static org.testng.Assert.assertEquals;
  * (e.g., id=104+offset). The tests verify that:
  * 1. Deleted rows (105, 120, 150, 175) are correctly excluded
  * 2. Adjacent rows (106, 121, 151, 176) are correctly included
+ *
+ * In order to test further data layouts, the following tables are used:
+ *    rg_mdata_sdv: 60 data files with shuffled data, 1 unique deletion vector
+ *    rg_mdata_sdv_opt: same as rg_mdata_sdv, but letting Databricks optimize the table,
+ *                      which changes file layouts and rewrites some data and DVs
+ *    rg_mdata_sdv: 1 data file, 1 deletion vector per delete statement
+ *    rg_mdata_sdv: 60 data files with shuffled data, 1 deletion vector per delete statement
+ * All those tables do contain the same data, so the tests should be the same, thus they are
+ * executed iteratively through a DataProvider with 4 configurations
  */
 public class TestDeletionVectorsRowGroupPruning
         extends AbstractDeltaDistributedQueryTestBase
 {
-    @Test
-    public void testRowGroupPruningWithRG0AndRG2Pruned()
+    @DataProvider(name = "tableNames")
+    public Object[][] tableNames()
+    {
+        return new Object[][] {
+                {"row_group_dvs"},
+                {"rg_mdata_sdv"},
+                {"rg_mdata_sdv_opt"},
+                {"rg_sdata_mdv"},
+                {"rg_mdata_mdv"}
+        };
+    }
+
+    @Test(dataProvider = "tableNames")
+    public void testRowGroupPruningWithRG0AndRG2Pruned(String tableName)
     {
         // Filter that prunes RG0 and RG2, reads only RG1
         // WHERE id BETWEEN 110 AND 175
@@ -62,13 +84,13 @@ public class TestDeletionVectorsRowGroupPruning
                 .build();
 
         String query = format("SELECT count(*) FROM \"%s\".\"%s\" WHERE id BETWEEN 110 AND 175",
-                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, "row_group_dvs"));
+                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, tableName));
 
         assertQuery(session, query, "SELECT 63");
     }
 
-    @Test
-    public void testRowGroupPruningWithRG0Pruned()
+    @Test(dataProvider = "tableNames")
+    public void testRowGroupPruningWithRG0Pruned(String tableName)
     {
         // Filter that prunes RG0 only, reads RG1 and RG2
         // WHERE id > 100
@@ -80,13 +102,13 @@ public class TestDeletionVectorsRowGroupPruning
                 .build();
 
         String query = format("SELECT count(*) FROM \"%s\".\"%s\" WHERE id > 100",
-                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, "row_group_dvs"));
+                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, tableName));
 
         assertQuery(session, query, "SELECT 193");
     }
 
-    @Test
-    public void testRowGroupPruningWithRG1AndRG2Pruned()
+    @Test(dataProvider = "tableNames")
+    public void testRowGroupPruningWithRG1AndRG2Pruned(String tableName)
     {
         // Filter that prunes RG1 and RG2, reads only RG0
         // WHERE id <= 100
@@ -96,13 +118,13 @@ public class TestDeletionVectorsRowGroupPruning
                 .build();
 
         String query = format("SELECT count(*) FROM \"%s\".\"%s\" WHERE id <= 100",
-                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, "row_group_dvs"));
+                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, tableName));
 
         assertQuery(session, query, "SELECT 97");
     }
 
-    @Test
-    public void testFullScanWithAllDVsApplied()
+    @Test(dataProvider = "tableNames")
+    public void testFullScanWithAllDVsApplied(String tableName)
     {
         // No pruning (full scan)
         // Total: 300 - 10 deleted = 290
@@ -111,13 +133,13 @@ public class TestDeletionVectorsRowGroupPruning
                 .build();
 
         String query = format("SELECT count(*) FROM \"%s\".\"%s\"",
-                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, "row_group_dvs"));
+                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, tableName));
 
         assertQuery(session, query, "SELECT 290");
     }
 
-    @Test
-    public void testAllDeletedRowsAreAbsent()
+    @Test(dataProvider = "tableNames")
+    public void testAllDeletedRowsAreAbsent(String tableName)
     {
         // Verify all deleted rows are absent
         Session session = Session.builder(getSession())
@@ -127,13 +149,13 @@ public class TestDeletionVectorsRowGroupPruning
         // Deleted IDs from all row groups: 10, 50, 90, 105, 120, 150, 175, 210, 250, 290
         for (int id : new int[]{10, 50, 90, 105, 120, 150, 175, 210, 250, 290}) {
             String query = format("SELECT count(*) FROM \"%s\".\"%s\" WHERE id = %d",
-                    PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, "row_group_dvs"), id);
+                    PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, tableName), id);
             assertQuery(session, query, "SELECT 0");
         }
     }
 
-    @Test
-    public void testAdjacentNonDeletedRowsArePresent()
+    @Test(dataProvider = "tableNames")
+    public void testAdjacentNonDeletedRowsArePresent(String tableName)
     {
         // Verify specific non-deleted rows adjacent to deleted ones ARE present
         Session session = Session.builder(getSession())
@@ -145,13 +167,13 @@ public class TestDeletionVectorsRowGroupPruning
 
         for (int id : adjacentIds) {
             String query = format("SELECT count(*) FROM \"%s\".\"%s\" WHERE id = %d",
-                    PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, "row_group_dvs"), id);
+                    PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, tableName), id);
             assertQuery(session, query, "SELECT 1");
         }
     }
 
-    @Test
-    public void testCriticalRow106AfterDeleted105()
+    @Test(dataProvider = "tableNames")
+    public void testCriticalRow106AfterDeleted105(String tableName)
     {
         // Test 7: Critical test — filter on RG1 range that would break with a wrong DV offset
         // WHERE id = 106 (RG1, just after deleted id=105)
@@ -160,8 +182,8 @@ public class TestDeletionVectorsRowGroupPruning
                 .setCatalogSessionProperty(DELTA_CATALOG, DELETION_VECTORS_ENABLED, "true")
                 .build();
 
-        String query = format("SELECT id, value FROM \"%s\".\"%s\" WHERE id = 106",
-                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, "row_group_dvs"));
+        String query = format("SELECT id, value FROM \"%s\".\"%s\" WHERE id = 106 ORDER BY id ASC",
+                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, tableName));
 
         MaterializedResult result = computeActual(session, query);
         assertEquals(result.getRowCount(), 1, "Should return 1 row for id=106");
@@ -169,8 +191,8 @@ public class TestDeletionVectorsRowGroupPruning
         assertEquals(result.getMaterializedRows().get(0).getField(1), 1060);
     }
 
-    @Test
-    public void testRowGroupPruningInInClauses()
+    @Test(dataProvider = "tableNames")
+    public void testRowGroupPruningInInClauses(String tableName)
     {
         // Verify all deleted rows are absent
         Session session = Session.builder(getSession())
@@ -179,12 +201,12 @@ public class TestDeletionVectorsRowGroupPruning
 
         // Deleted IDs from all row groups: 10, 50, 90, 105, 120, 150, 175, 210, 250, 290
         String query = format("SELECT count(*) FROM \"%s\".\"%s\" WHERE id IN (10, 50, 90, 105, 120, 150, 175, 210, 250, 290)",
-                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, "row_group_dvs"));
+                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, tableName));
         assertQuery(session, query, "SELECT 0");
     }
 
-    @Test
-    public void testRowGroupPruningInInClausesAdjacent()
+    @Test(dataProvider = "tableNames")
+    public void testRowGroupPruningInInClausesAdjacent(String tableName)
     {
         // Verify all deleted rows are absent
         Session session = Session.builder(getSession())
@@ -192,8 +214,8 @@ public class TestDeletionVectorsRowGroupPruning
                 .build();
 
         // Deleted IDs from all row groups: 10, 120, 290
-        String query = format("SELECT * FROM \"%s\".\"%s\" WHERE id IN (10, 11, 120, 121, 289, 290)",
-                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, "row_group_dvs"));
+        String query = format("SELECT * FROM \"%s\".\"%s\" WHERE id IN (10, 11, 120, 121, 289, 290) ORDER BY id ASC",
+                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, tableName));
         MaterializedResult result = computeActual(session, query);
         assertEquals(result.getRowCount(), 3, "Should return 3 row for id=11, id=121, id=289");
         assertEquals(result.getMaterializedRows().get(0).getField(0), 11);
@@ -201,8 +223,8 @@ public class TestDeletionVectorsRowGroupPruning
         assertEquals(result.getMaterializedRows().get(2).getField(0), 289);
     }
 
-    @Test
-    public void testRowGroupPruningWithDeletionVectorsDisabled()
+    @Test(dataProvider = "tableNames")
+    public void testRowGroupPruningWithDeletionVectorsDisabled(String tableName)
     {
         // When deletion vectors are disabled, all rows including deleted ones should be returned
         // Expected: 300 rows (no deletions applied)
@@ -211,8 +233,12 @@ public class TestDeletionVectorsRowGroupPruning
                 .build();
 
         String query = format("SELECT count(*) FROM \"%s\".\"%s\"",
-                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, "row_group_dvs"));
+                PATH_SCHEMA, goldenTablePathWithPrefix(DELTA_V3, tableName));
 
-        assertQuery(session, query, "SELECT 300");
+        // rg_mdata_sdv_opt corresponds to a table that has been automatically optimized by databricks after
+        // executing the DELETE statement, so that parquet files were rewritten with the deleted rows directly.
+        // We add this case to also test consistency on delta tables following the "default" databricks
+        // optimization lifecycle
+        assertQuery(session, query, "rg_mdata_sdv_opt".equals(tableName) ? "SELECT 290" : "SELECT 300");
     }
 }

@@ -94,7 +94,7 @@ public class DeltaSplitManager
         {
             ImmutableList.Builder<ConnectorSplit> splitBuilder = ImmutableList.builder();
             long currentSplitCount = 0;
-            boolean deletionVectorsEnabled = isDeletionVectorsEnabled(session);
+            boolean deletionVectorsEnabled = deltaConfig.isDeletionVectorsEnabled() || isDeletionVectorsEnabled(session);
             while (rowIterator.hasNext() && currentSplitCount < maxSize && currentSplitCount < maxBatchSize) {
                 Row row = rowIterator.next();
                 FileStatus addFileStatus = InternalScanFileUtils.getAddFileStatus(row);
