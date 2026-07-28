@@ -156,6 +156,8 @@ import static com.facebook.presto.sql.relational.Expressions.inSubquery;
 import static com.facebook.presto.sql.relational.Expressions.quantifiedComparison;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.facebook.presto.sql.tree.DereferenceExpression.getQualifiedName;
+import static com.facebook.presto.type.LikeFunctions.isLikePattern;
+import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
@@ -991,10 +993,24 @@ public final class SqlToRowExpressionTranslator
 
             if (node.getEscape().isPresent()) {
                 RowExpression escape = process(node.getEscape().get(), context);
+                // A constant pattern with no unescaped wildcards is exact equality (e.g. the
+                // "col LIKE 'x\_y' ESCAPE '\'" that JDBC drivers emit for getColumns/getTables).
+                // Rewriting to "col = 'x_y'" lets the predicate become a single-value TupleDomain
+                // so metadata-listing connectors (system.jdbc.*, information_schema) can prune to one
+                // table instead of enumerating the whole catalog. Safe for native execution too.
+                RowExpression equals = generateConstantEqualsFromLike(value, pattern, escape);
+                if (equals != null) {
+                    return equals;
+                }
                 if (!functionResolution.supportsLikePatternFunction()) {
                     return call(value.getSourceLocation(), "LIKE", functionResolution.likeVarcharVarcharVarcharFunction(), BOOLEAN, value, pattern, escape);
                 }
                 return likeFunctionCall(value, call(getSourceLocation(node), "LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
+            }
+
+            RowExpression equals = generateConstantEqualsFromLike(value, pattern, null);
+            if (equals != null) {
+                return equals;
             }
 
             if (!nativeExecutionEnabled) {
@@ -1009,6 +1025,47 @@ public final class SqlToRowExpressionTranslator
             }
 
             return likeFunctionCall(value, call(getSourceLocation(node), CAST.name(), functionAndTypeResolver.lookupCast("CAST", VARCHAR, LIKE_PATTERN), LIKE_PATTERN, pattern));
+        }
+
+        /**
+         * Rewrites "value LIKE pattern [ESCAPE escape]" to "value = literal" when {@code value} is a
+         * varchar and {@code pattern} (and {@code escape}, if present) are constants that resolve to a
+         * pattern with no unescaped wildcards. Returns null when the rewrite does not apply, so the
+         * caller falls back to normal LIKE translation. Restricted to varchar because CHAR equality has
+         * trailing-space padding semantics that a LIKE match does not.
+         */
+        private RowExpression generateConstantEqualsFromLike(RowExpression value, RowExpression pattern, RowExpression escape)
+        {
+            if (!(value.getType() instanceof VarcharType)) {
+                return null;
+            }
+            if (!(pattern instanceof ConstantExpression) || !(((ConstantExpression) pattern).getValue() instanceof Slice)) {
+                return null;
+            }
+            Slice escapeSlice = null;
+            if (escape != null) {
+                if (!(escape instanceof ConstantExpression) || !(((ConstantExpression) escape).getValue() instanceof Slice)) {
+                    return null;
+                }
+                escapeSlice = (Slice) ((ConstantExpression) escape).getValue();
+            }
+            Slice patternSlice = (Slice) ((ConstantExpression) pattern).getValue();
+            try {
+                if (isLikePattern(patternSlice, escapeSlice)) {
+                    return null;
+                }
+                Slice literal = unescapeLiteralLikePattern(patternSlice, escapeSlice);
+                // Unbounded VARCHAR, not value.getType(): the literal can be longer than a bounded
+                // varchar(n) value, and a constant whose slice exceeds its declared length is invalid.
+                // Varchar comparison ignores the declared length, so "varchar(n) = varchar" is still
+                // false for an over-long literal -- the same answer LIKE gives.
+                return buildEquals(value, constant(literal, VARCHAR));
+            }
+            catch (PrestoException e) {
+                // Malformed escape sequence: leave it to normal LIKE handling so the error keeps its
+                // original runtime semantics instead of surfacing during planning.
+                return null;
+            }
         }
 
         private RowExpression generateLikePrefixOrSuffixMatch(RowExpression value, RowExpression pattern)
