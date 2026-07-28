@@ -14,7 +14,6 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -27,6 +26,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -47,14 +47,13 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class LanceMetadata
         implements ConnectorMetadata
 {
-    private static final Logger log = Logger.get(LanceMetadata.class);
-
     private final LanceNamespaceHolder namespaceHolder;
     private final JsonCodec<LanceCommitTaskData> commitTaskDataCodec;
 
@@ -104,24 +103,41 @@ public class LanceMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         LanceTableHandle lanceTable = (LanceTableHandle) table;
-        try {
-            Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTablePath(), lanceTable.getDatasetVersion());
-            SchemaTableName schemaTableName = new SchemaTableName(lanceTable.getSchemaName(), lanceTable.getTableName());
+        Schema arrowSchema = describeTableOrFail(lanceTable);
+        SchemaTableName schemaTableName = new SchemaTableName(lanceTable.getSchemaName(), lanceTable.getTableName());
 
-            ImmutableList.Builder<ColumnMetadata> columnsMetadata = ImmutableList.builder();
-            for (Field field : arrowSchema.getFields()) {
-                columnsMetadata.add(ColumnMetadata.builder()
-                        .setName(field.getName())
-                        .setType(LanceColumnHandle.toPrestoType(field))
-                        .setNullable(field.isNullable())
-                        .build());
-            }
-
-            return new ConnectorTableMetadata(schemaTableName, columnsMetadata.build());
+        ImmutableList.Builder<ColumnMetadata> columnsMetadata = ImmutableList.builder();
+        for (Field field : arrowSchema.getFields()) {
+            columnsMetadata.add(ColumnMetadata.builder()
+                    .setName(field.getName())
+                    .setType(LanceColumnHandle.toPrestoType(field))
+                    .setNullable(field.isNullable())
+                    .build());
         }
-        catch (Exception e) {
-            log.warn(e, "Failed to get metadata for %s.%s", lanceTable.getSchemaName(), lanceTable.getTableName());
-            return null;
+
+        return new ConnectorTableMetadata(schemaTableName, columnsMetadata.build());
+    }
+
+    /**
+     * Reads the Arrow schema for an already-resolved table handle.
+     *
+     * <p>The handle's path came from the namespace, so a failure here means the dataset itself
+     * could not be opened. Returning {@code null}/empty in that case would surface as an NPE or
+     * as a table that appears to have no columns, both of which hide the real cause.
+     */
+    private Schema describeTableOrFail(LanceTableHandle lanceTable)
+    {
+        try {
+            return namespaceHolder.describeTable(lanceTable.getTablePath(), lanceTable.getDatasetVersion());
+        }
+        catch (PrestoException e) {
+            throw e;
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(LanceErrorCode.LANCE_ERROR,
+                    format("Failed to read schema for table %s.%s at %s",
+                            lanceTable.getSchemaName(), lanceTable.getTableName(), lanceTable.getTablePath()),
+                    e);
         }
     }
 
@@ -141,23 +157,17 @@ public class LanceMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         LanceTableHandle lanceTable = (LanceTableHandle) tableHandle;
-        try {
-            Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTablePath(), lanceTable.getDatasetVersion());
+        Schema arrowSchema = describeTableOrFail(lanceTable);
 
-            ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-            for (Field field : arrowSchema.getFields()) {
-                LanceColumnHandle columnHandle = new LanceColumnHandle(
-                        field.getName(),
-                        LanceColumnHandle.toPrestoType(field),
-                        field.isNullable());
-                columnHandles.put(field.getName(), columnHandle);
-            }
-            return columnHandles.build();
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        for (Field field : arrowSchema.getFields()) {
+            LanceColumnHandle columnHandle = new LanceColumnHandle(
+                    field.getName(),
+                    LanceColumnHandle.toPrestoType(field),
+                    field.isNullable());
+            columnHandles.put(field.getName(), columnHandle);
         }
-        catch (Exception e) {
-            log.warn(e, "Failed to get column handles for %s.%s", lanceTable.getSchemaName(), lanceTable.getTableName());
-            return ImmutableMap.of();
-        }
+        return columnHandles.build();
     }
 
     @Override

@@ -23,9 +23,86 @@ import java.util.List;
 import java.util.Map;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 
 public class TestLanceNamespaceHolder
 {
+    @Test
+    public void testStoragePropertiesArePassedThrough()
+            throws Exception
+    {
+        Path tempDir = Files.createTempDirectory("lance-ns-test");
+        try {
+            LanceConfig config = new LanceConfig().setSingleLevelNs(true);
+            // lance.storage.* options are forwarded to the namespace with both the "lance." and
+            // "storage." prefixes stripped, so that new options need no connector code change.
+            Map<String, String> props = ImmutableMap.of(
+                    "lance.root", tempDir.toString(),
+                    "lance.storage.region", "us-east-1",
+                    "lance.storage.aws_access_key_id", "test-key");
+            LanceNamespaceHolder holder = new LanceNamespaceHolder(config, props);
+            try {
+                // No such table, so this falls back to the catalog-level storage options.
+                Map<String, String> storageOptions =
+                        holder.getStorageOptionsForTable(Collections.singletonList("no_such_table"));
+                assertEquals(storageOptions.get("region"), "us-east-1");
+                assertEquals(storageOptions.get("aws_access_key_id"), "test-key");
+                assertEquals(storageOptions.size(), 2);
+            }
+            finally {
+                holder.shutdown();
+            }
+        }
+        finally {
+            deleteRecursively(tempDir);
+        }
+    }
+
+    @Test
+    public void testSchemaExistsIsFalseForMissingSchema()
+            throws Exception
+    {
+        Path tempDir = Files.createTempDirectory("lance-ns-test");
+        try {
+            LanceConfig config = new LanceConfig().setSingleLevelNs(false);
+            Map<String, String> props = ImmutableMap.of("lance.root", tempDir.toString());
+            LanceNamespaceHolder holder = new LanceNamespaceHolder(config, props);
+            try {
+                // A namespace that is genuinely absent must report false rather than throw.
+                assertFalse(holder.schemaExists("no_such_schema"));
+            }
+            finally {
+                holder.shutdown();
+            }
+        }
+        finally {
+            deleteRecursively(tempDir);
+        }
+    }
+
+    @Test
+    public void testGetTablePathIsNullForMissingTable()
+            throws Exception
+    {
+        Path tempDir = Files.createTempDirectory("lance-ns-test");
+        try {
+            LanceConfig config = new LanceConfig().setSingleLevelNs(true);
+            Map<String, String> props = ImmutableMap.of("lance.root", tempDir.toString());
+            LanceNamespaceHolder holder = new LanceNamespaceHolder(config, props);
+            try {
+                assertNull(holder.getTablePath("default", "no_such_table"));
+                assertFalse(holder.tableExists("default", "no_such_table"));
+            }
+            finally {
+                holder.shutdown();
+            }
+        }
+        finally {
+            deleteRecursively(tempDir);
+        }
+    }
+
     @Test
     public void testGetTableIdSingleLevel()
             throws Exception

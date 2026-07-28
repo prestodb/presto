@@ -30,6 +30,10 @@ import org.lance.FragmentOperation;
 import org.lance.ReadOptions;
 import org.lance.WriteParams;
 import org.lance.namespace.LanceNamespace;
+import org.lance.namespace.errors.ErrorCode;
+import org.lance.namespace.errors.LanceNamespaceException;
+import org.lance.namespace.errors.NamespaceNotFoundException;
+import org.lance.namespace.errors.TableNotFoundException;
 import org.lance.namespace.model.CreateEmptyTableRequest;
 import org.lance.namespace.model.CreateEmptyTableResponse;
 import org.lance.namespace.model.DescribeTableRequest;
@@ -57,6 +61,7 @@ import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -70,8 +75,9 @@ public class LanceNamespaceHolder
     private static final Logger log = Logger.get(LanceNamespaceHolder.class);
     public static final String DEFAULT_SCHEMA = "default";
 
-    // Default max allocation: 8 GB. Can be tuned via lance.allocator-max-bytes if needed.
-    private static final long DEFAULT_ALLOCATOR_MAX_BYTES = 8L * 1024 * 1024 * 1024;
+    // Upper bound on off-heap Arrow allocation for this catalog. Fixed at 8 GB;
+    // there is no catalog property to tune it.
+    private static final long ALLOCATOR_MAX_BYTES = 8L * 1024 * 1024 * 1024;
 
     private final BufferAllocator allocator;
     private final LanceNamespace namespace;
@@ -84,7 +90,7 @@ public class LanceNamespaceHolder
     @Inject
     public LanceNamespaceHolder(LanceConfig config, @LanceNamespaceProperties Map<String, String> namespaceProperties)
     {
-        this.allocator = new RootAllocator(DEFAULT_ALLOCATOR_MAX_BYTES);
+        this.allocator = new RootAllocator(ALLOCATOR_MAX_BYTES);
         this.readOptions = new ReadOptions.Builder()
                 .setIndexCacheSizeBytes(config.getIndexCacheSize().toBytes())
                 .setMetadataCacheSizeBytes(config.getMetadataCacheSize().toBytes())
@@ -306,7 +312,25 @@ public class LanceNamespaceHolder
             namespace.namespaceExists(request);
             return true;
         }
-        catch (Exception e) {
+        catch (NamespaceNotFoundException e) {
+            return false;
+        }
+        catch (LanceNamespaceException e) {
+            if (e.getErrorCode() == ErrorCode.NAMESPACE_NOT_FOUND) {
+                return false;
+            }
+            // A namespace that is unreachable, throttled, or rejecting our credentials is not
+            // the same as one that is absent. Surfacing it as "absent" makes CREATE SCHEMA and
+            // SHOW SCHEMAS silently wrong, so fail loudly instead.
+            throw new PrestoException(LanceErrorCode.LANCE_ERROR,
+                    format("Failed to check whether schema %s exists", schema), e);
+        }
+        catch (RuntimeException e) {
+            // The directory namespace calls into native code, which reports every failure --
+            // including a plain "namespace not found" -- as an untyped RuntimeException. With no
+            // error code to inspect, absence is indistinguishable from a transient fault here, so
+            // keep the historical "absent" answer rather than guess from the message text.
+            log.debug(e, "namespaceExists failed for %s; treating as absent", schema);
             return false;
         }
     }
@@ -329,8 +353,22 @@ public class LanceNamespaceHolder
             DescribeTableResponse response = namespace.describeTable(request);
             return response.getLocation();
         }
-        catch (Exception e) {
-            log.debug("Failed to describe table %s.%s: %s", schemaName, tableName, e.getMessage());
+        catch (TableNotFoundException | NamespaceNotFoundException e) {
+            return null;
+        }
+        catch (LanceNamespaceException e) {
+            if (e.getErrorCode() == ErrorCode.TABLE_NOT_FOUND || e.getErrorCode() == ErrorCode.NAMESPACE_NOT_FOUND) {
+                return null;
+            }
+            // Reporting a transient namespace failure as "table absent" turns a retryable error
+            // into a confusing "table does not exist", so only absence maps to null.
+            throw new PrestoException(LanceErrorCode.LANCE_ERROR,
+                    format("Failed to describe table %s.%s", schemaName, tableName), e);
+        }
+        catch (RuntimeException e) {
+            // See schemaExists: the native directory namespace has no typed errors, and callers
+            // such as tableExists and getTableHandle rely on null meaning "not found".
+            log.debug(e, "describeTable failed for %s.%s; treating as not found", schemaName, tableName);
             return null;
         }
     }
