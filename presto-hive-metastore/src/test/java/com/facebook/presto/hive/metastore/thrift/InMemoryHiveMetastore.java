@@ -226,9 +226,21 @@ public class InMemoryHiveMetastore
         if (deleteData && table.getTableType().equals(MANAGED_TABLE.name())) {
             for (String location : locations) {
                 if (location != null) {
-                    File directory = new File(new Path(location).toUri());
+                    File directory;
+                    try {
+                        directory = new File(new Path(location).toUri());
+                    }
+                    catch (IllegalArgumentException ex) {
+                        // expand exception message to include the undeletable location
+                        throw new IllegalArgumentException("Unable to delete location " + location + "; " + ex.getMessage(), ex);
+                    }
                     checkArgument(isAncestor(directory, baseDirectory), "Table directory %s must be inside of the metastore base directory %s", directory, baseDirectory);
-                    deleteDirectory(directory);
+                    try {
+                        deleteDirectory(directory);
+                    }
+                    catch (IOException ex) {
+                        throw new UncheckedIOException("Unable to delete location " + location + " " + ex.getMessage(), ex);
+                    }
                 }
             }
         }
@@ -570,13 +582,9 @@ public class InMemoryHiveMetastore
     }
 
     private static void deleteDirectory(File dir)
+            throws IOException
     {
-        try {
-            deleteRecursively(dir.toPath(), ALLOW_INSECURE);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        deleteRecursively(dir.toPath(), ALLOW_INSECURE);
     }
 
     private static class PartitionName
