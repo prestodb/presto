@@ -1064,13 +1064,31 @@ public final class SqlToRowExpressionTranslator
                 // is not swallowed under this comment's rationale.
                 return null;
             }
-            // Type the literal as unbounded VARCHAR rather than value.getType(): a bounded varchar(n)
-            // whose declared length disagrees with the literal makes LiteralEncoder emit
-            // "CAST(literal AS varchar(n))" (LiteralEncoder.toExpression), and evaluating that cast
-            // truncates. For x of type varchar(3), "x LIKE 'abcdef'" would degrade from an always-false
-            // predicate to "x = 'abc'". generateLikePrefixOrSuffixMatch below types its literals the
-            // same way.
-            return buildEquals(value, constant(literal, VARCHAR));
+            // Type the literal as the value's own varchar type, and decline the rewrite when the literal
+            // cannot fit in that type. Both simpler-looking alternatives are wrong here:
+            //
+            //  - Typing it unbounded VARCHAR pushes down a domain whose value type does not match the
+            //    column's, and connectors reject that: "Mismatched Domain types: varchar(25) vs varchar"
+            //    out of OrcSelectivePageSourceFactory. (generateLikePrefixOrSuffixMatch below can use
+            //    VARCHAR only because it compares SUBSTR(...), unbounded on both sides.)
+            //
+            //  - Reconciling through getCommonSuperType with casts, the way the two interpreter copies of
+            //    this rewrite do (ExpressionInterpreter.visitLikePredicate,
+            //    RowExpressionInterpreter.tryHandleLike), wraps the literal in a CAST whenever the types
+            //    differ -- and for an unbounded varchar column, which is what system.jdbc.* exposes, the
+            //    super type is unbounded so the bounded literal always gets one. Those two copies run
+            //    inside an interpreter and fold the CAST away immediately; translation has no such pass,
+            //    so the right-hand side would stay a CallExpression and never become the single-value
+            //    TupleDomain this rewrite exists to produce.
+            //
+            // An over-long literal cannot match a shorter varchar, so leaving it as LIKE keeps the same
+            // (always-false) answer, just unoptimized.
+            Type valueType = value.getType();
+            VarcharType varcharValueType = (VarcharType) valueType;
+            if (!varcharValueType.isUnbounded() && countCodePoints(literal) > varcharValueType.getLengthSafe()) {
+                return null;
+            }
+            return buildEquals(value, constant(literal, valueType));
         }
 
         private RowExpression generateLikePrefixOrSuffixMatch(RowExpression value, RowExpression pattern)

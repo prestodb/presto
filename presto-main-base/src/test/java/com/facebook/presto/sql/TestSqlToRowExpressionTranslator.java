@@ -130,14 +130,26 @@ public class TestSqlToRowExpressionTranslator
     }
 
     @Test
-    public void testRewriteConstantLikeOnBoundedVarchar()
+    public void testRewriteConstantLikeOnBoundedVarcharKeepsColumnType()
     {
-        // A literal longer than the column's declared length still rewrites: the constant is unbounded
-        // VARCHAR, and varchar comparison ignores the declared length, so the equality is false -- the
-        // same answer LIKE gives. Declaring the constant as varchar(3) would make its slice exceed its
-        // own type bound.
-        RowExpression translated = assertRewrittenToEquals("x LIKE 'abcdef'", "abcdef", createVarcharType(3));
-        assertEquals(((CallExpression) translated).getArguments().get(1).getType(), VARCHAR);
+        // The literal must carry the column's own varchar type. Typing it unbounded instead pushes down a
+        // domain whose value type disagrees with the column's, which connectors reject at split time --
+        // "Mismatched Domain types: varchar(25) vs varchar" out of OrcSelectivePageSourceFactory, which is
+        // how TestNativeSidecarPlugin.testGeneralQueries caught it for
+        // "shipinstruct LIKE 'TAKE BACK#%' ESCAPE '#'" on a varchar(25) column.
+        RowExpression translated = assertRewrittenToEquals("x LIKE 'ab'", "ab", createVarcharType(25));
+        assertEquals(((CallExpression) translated).getArguments().get(1).getType(), createVarcharType(25));
+    }
+
+    @Test
+    public void testConstantLikeLongerThanBoundedVarcharNotRewritten()
+    {
+        // A literal that cannot fit the column's declared length is left as LIKE. Rewriting it would
+        // require either a constant whose value exceeds its own type bound -- LiteralEncoder then emits
+        // CAST('abcdef' AS varchar(3)), which truncates to 'abc' and matches rows it must not -- or a
+        // widening cast that would stop the right-hand side from being a constant at all. LIKE already
+        // answers false for every row here, so nothing is lost but the optimization.
+        assertNotRewrittenToColumnEquals("x LIKE 'abcdef'", createVarcharType(3));
     }
 
     @Test
@@ -158,9 +170,14 @@ public class TestSqlToRowExpressionTranslator
         RowExpression translated = translator.translate(likeSql, ImmutableMap.of("x", valueType));
         assertTrue(isColumnEquals(translated), "expected \"x = literal\", got: " + translated);
         RowExpression rhs = ((CallExpression) translated).getArguments().get(1);
+        // Must stay a bare constant: a CAST here would keep the predicate out of the single-value
+        // TupleDomain that metadata-listing connectors need in order to prune.
         assertTrue(rhs instanceof ConstantExpression, "expected a constant right-hand side, got: " + rhs);
         assertTrue(((ConstantExpression) rhs).getValue() instanceof Slice);
         assertEquals(((ConstantExpression) rhs).getValue(), utf8Slice(expectedLiteral));
+        // Must carry the column's own type, or the pushed-down domain's value type disagrees with the
+        // column's and connectors reject the split.
+        assertEquals(rhs.getType(), valueType, "literal must carry the column's varchar type");
         return translated;
     }
 
