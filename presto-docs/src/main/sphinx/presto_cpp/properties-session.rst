@@ -278,6 +278,30 @@ These parameters are provided to the underlying file system, allowing for custom
 The format and options of these parameters are determined by the capabilities of the underlying file system
 and may include settings such as file location, size limits, and file system-specific optimizations.
 
+``native_aggregation_spill_file_create_config``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``""``
+
+Native Execution only. Specifies the configuration parameters used to create spill files for the
+aggregation operators, overriding ``native_spill_file_create_config`` for those operators.
+These parameters are provided to the underlying file system and are free form, with the format and
+options determined by the capabilities of the underlying file system.
+If left empty, aggregation spill files are created with ``native_spill_file_create_config``.
+
+``native_hash_join_spill_file_create_config``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``""``
+
+Native Execution only. Specifies the configuration parameters used to create spill files for the
+hash join build and probe operators, overriding ``native_spill_file_create_config`` for those operators.
+These parameters are provided to the underlying file system and are free form, with the format and
+options determined by the capabilities of the underlying file system.
+If left empty, hash join spill files are created with ``native_spill_file_create_config``.
+
 ``native_spill_write_buffer_size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
