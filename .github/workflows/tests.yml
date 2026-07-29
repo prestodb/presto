@@ -30,10 +30,11 @@ jobs:
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
+          # Use a single extglob negation pattern instead of multiple negation
+          # list items. See https://github.com/prestodb/presto/pull/28052 for details.
           filters: |
             codechange:
-              - '!presto-docs/**'
-              - '!presto-native-execution/presto_cpp/**'
+              - '!(presto-docs{,/**}|presto-native-execution/presto_cpp{,/**})'
 
   test:
     runs-on: ubuntu-latest

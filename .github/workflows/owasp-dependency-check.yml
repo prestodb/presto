@@ -25,8 +25,7 @@ jobs:
         with:
           filters: |
             codechange:
-              - '!presto-docs/**'
-              - '!presto-native-execution/presto_cpp/**'
+              - '!(presto-docs{,/**}|presto-native-execution/presto_cpp{,/**})'
               - 'presto-docs/pom.xml'
 
   dependency-check:

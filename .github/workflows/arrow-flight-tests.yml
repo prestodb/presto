@@ -34,7 +34,7 @@ jobs:
         with:
           filters: |
             codechange:
-              - '!presto-docs/**'
+              - '!(presto-docs{,/**})'
 
   arrowflight-java-tests:
     runs-on: ubuntu-latest

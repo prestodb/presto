@@ -31,8 +31,7 @@ jobs:
         with:
           filters: |
             codechange:
-              - '!presto-docs/**'
-              - '!presto-native-execution/presto_cpp/**'
+              - '!(presto-docs{,/**}|presto-native-execution/presto_cpp{,/**})'
   product-tests-specific-environment1:
     strategy:
       fail-fast: false
