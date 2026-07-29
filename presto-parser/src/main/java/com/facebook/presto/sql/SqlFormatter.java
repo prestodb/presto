@@ -108,6 +108,7 @@ import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.sql.tree.SetTimeZone;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
@@ -1614,6 +1615,20 @@ public final class SqlFormatter
         {
             builder.append("RESET SESSION ")
                     .append(node.getName());
+
+            return null;
+        }
+        @Override
+        public Void visitSetTimeZone(SetTimeZone node, Integer context)
+        {
+            builder.append("SET TIME ZONE ");
+
+            if (node.getTimeZone().isPresent()) {
+                builder.append(formatExpression(node.getTimeZone().get(), parameters));
+            }
+            else {
+                builder.append("LOCAL");
+            }
 
             return null;
         }
