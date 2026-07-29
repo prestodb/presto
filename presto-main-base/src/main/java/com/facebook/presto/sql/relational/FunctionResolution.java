@@ -123,7 +123,7 @@ public final class FunctionResolution
     @Override
     public boolean isLikeFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "LIKE"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().getObjectName().equalsIgnoreCase("LIKE");
     }
 
     @Override

@@ -870,6 +870,37 @@ public class TestNativeSidecarPlugin
 
         // Verify UNKNOWN type expressions produce a structured error instead of crashing the sidecar.
         assertQueryFails(session, "SELECT array_except(ARRAY[], ARRAY[])", ".*Errors encountered while optimizing expressions\\..*", true);
+
+        // LikeToEqualityVisitor must rewrite LIKE with no real wildcards into a constant equality, enabling
+        // connector predicate pushdown (ScanFilterProject). We assert structural properties of the native
+        // EXPLAIN directly — PlanNodeIds and cost estimates differ between runners, so cross-runner string
+        // comparison is not viable.
+
+        // Escaped '_': LIKE 'curre\_nt' ESCAPE '\' → equality on 'curre_nt'
+        @Language("SQL") String likeEscapeQuery = "EXPLAIN SELECT * FROM system.jdbc.columns WHERE table_schem LIKE 'curre\\_nt' ESCAPE '\\'";
+        String likeEscapePlan = (String) computeActual(session, likeEscapeQuery).getOnlyValue();
+        assertTrue(likeEscapePlan.contains("ScanFilterProject"),
+                "Expected ScanFilterProject (predicate pushed into scan), but got:\n" + likeEscapePlan);
+        assertFalse(likeEscapePlan.contains("- Filter[") && likeEscapePlan.contains("LIKE"),
+                "Expected no Filter+LIKE node above the scan, but got:\n" + likeEscapePlan);
+        assertTrue(likeEscapePlan.contains("VARCHAR'curre_nt'"),
+                "Expected constant VARCHAR'curre_nt' in the scan projection, but got:\n" + likeEscapePlan);
+
+        // Escaped '%': LIKE '100\%' ESCAPE '\' → equality on '100%'
+        @Language("SQL") String likeEscapePercentQuery = "EXPLAIN SELECT * FROM system.jdbc.columns WHERE table_name LIKE '100\\%' ESCAPE '\\'";
+        String likeEscapePercentPlan = (String) computeActual(session, likeEscapePercentQuery).getOnlyValue();
+        assertTrue(likeEscapePercentPlan.contains("ScanFilterProject"),
+                "Expected ScanFilterProject (predicate pushed into scan), but got:\n" + likeEscapePercentPlan);
+        assertFalse(likeEscapePercentPlan.contains("- Filter[") && likeEscapePercentPlan.contains("LIKE"),
+                "Expected no Filter+LIKE node above the scan, but got:\n" + likeEscapePercentPlan);
+        assertTrue(likeEscapePercentPlan.contains("VARCHAR'100%'"),
+                "Expected constant VARCHAR'100%' in the scan projection, but got:\n" + likeEscapePercentPlan);
+
+        // Real wildcard: LIKE '%' must NOT be rewritten — LIKE must remain in the plan.
+        @Language("SQL") String likeWildcardQuery = "EXPLAIN SELECT * FROM system.jdbc.columns WHERE table_schem LIKE '%'";
+        String likeWildcardPlan = (String) computeActual(session, likeWildcardQuery).getOnlyValue();
+        assertTrue(likeWildcardPlan.contains("LIKE"),
+                "Expected LIKE to be preserved in the plan for a real wildcard, but got:\n" + likeWildcardPlan);
     }
 
     @Test
