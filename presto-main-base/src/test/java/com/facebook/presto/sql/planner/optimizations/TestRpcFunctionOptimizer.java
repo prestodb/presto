@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
@@ -22,6 +23,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -46,6 +48,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static org.testng.Assert.assertEquals;
@@ -589,6 +592,250 @@ public class TestRpcFunctionOptimizer
 
         return optimizer.optimize(
                 projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+    }
+
+    @Test
+    public void testMultipleTryWrappedRpcCallsSurvivePruning()
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
+
+        VariableReferenceExpression inputVar = variableAllocator.newVariable("content", VARCHAR);
+        VariableReferenceExpression out1 = variableAllocator.newVariable("topic", VARCHAR);
+        VariableReferenceExpression out2 = variableAllocator.newVariable("objective", VARCHAR);
+        VariableReferenceExpression out3 = variableAllocator.newVariable("audience", VARCHAR);
+
+        // 3 TRY-wrapped RPC calls: TRY(BIND(content, (p) -> rpc(p, ...)))
+        CallExpression tryCall1 = createTryWrappedRpcCall(inputVar, "topic_prompt");
+        CallExpression tryCall2 = createTryWrappedRpcCall(inputVar, "objective_prompt");
+        CallExpression tryCall3 = createTryWrappedRpcCall(inputVar, "audience_prompt");
+
+        ValuesNode source = new ValuesNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                ImmutableList.of(inputVar),
+                ImmutableList.of(),
+                Optional.empty());
+
+        ProjectNode projectNode = new ProjectNode(
+                idAllocator.getNextId(),
+                source,
+                Assignments.builder()
+                        .put(out1, tryCall1)
+                        .put(out2, tryCall2)
+                        .put(out3, tryCall3)
+                        .build());
+
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
+                () -> ImmutableSet.of("test_rpc_function"));
+        Session session = TestingSession.testSessionBuilder().build();
+
+        PlanOptimizerResult rpcResult = optimizer.optimize(
+                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+        assertTrue(rpcResult.isOptimizerTriggered());
+
+        int rpcCount = countPlanNodes(rpcResult.getPlanNode(), RPCNode.class);
+        assertEquals(rpcCount, 3, "Should create 3 RPCNodes");
+
+        // Wrap in OutputNode so PruneUnreferencedOutputs has a root
+        // that declares which variables are needed (otherwise it starts
+        // with empty context and prunes everything).
+        PlanNode rpcPlan = rpcResult.getPlanNode();
+        OutputNode outputNode = new OutputNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                rpcPlan,
+                ImmutableList.of("topic", "objective", "audience"),
+                rpcPlan.getOutputVariables());
+
+        PruneUnreferencedOutputs pruner = new PruneUnreferencedOutputs();
+        PlanOptimizerResult pruneResult = pruner.optimize(
+                outputNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+
+        PlanNode prunedPlan = pruneResult.getPlanNode();
+        assertEquals(countPlanNodes(prunedPlan, RPCNode.class), 3,
+                "All 3 RPCNodes must survive pruning");
+
+        // The OutputNode wraps a ProjectNode
+        assertTrue(prunedPlan instanceof OutputNode);
+        PlanNode child = ((OutputNode) prunedPlan).getSource();
+        assertTrue(child instanceof ProjectNode);
+        ProjectNode finalProject = (ProjectNode) child;
+        assertEquals(finalProject.getOutputVariables().size(), 3,
+                "Final projection must output all 3 result variables");
+    }
+
+    @Test
+    public void testTryWrappedRpcReturnsVariableDirectly()
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
+
+        VariableReferenceExpression inputVar = variableAllocator.newVariable("input_col", VARCHAR);
+        VariableReferenceExpression outputVar = variableAllocator.newVariable("output_col", VARCHAR);
+
+        CallExpression tryCall = createTryWrappedRpcCall(inputVar, "prompt");
+
+        PlanOptimizerResult result = optimizeWithTryCall(idAllocator, variableAllocator, inputVar, outputVar, tryCall);
+        assertTrue(result.isOptimizerTriggered());
+        assertTrue(containsPlanNode(result.getPlanNode(), RPCNode.class));
+
+        // The final ProjectNode's expression for outputVar should be
+        // a direct VariableReferenceExpression (the __rpc_result_ variable),
+        // not a TRY(lambda) wrapping it.
+        ProjectNode finalProject = (ProjectNode) result.getPlanNode();
+        RowExpression outputExpr = finalProject.getAssignments().get(outputVar);
+        assertTrue(outputExpr instanceof VariableReferenceExpression,
+                "TRY(rpc_fn(...)) should rewrite to a direct variable reference, not a TRY lambda. Got: " + outputExpr.getClass().getSimpleName());
+    }
+
+    @Test
+    public void testTryWrappedCastRpcReconstructsBind()
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
+
+        VariableReferenceExpression inputVar = variableAllocator.newVariable("input_col", VARCHAR);
+        VariableReferenceExpression outputVar = variableAllocator.newVariable("output_col", INTEGER);
+
+        // TRY(CAST(rpc_fn(p, ...) AS INTEGER)) as
+        // $internal$try(BIND(input_col, (p) -> CAST(rpc_fn(p, ...) AS INTEGER))).
+        // The body is a CAST (not a bare variable), so this exercises the
+        // extractFreeVariables + BIND-reconstruction branch: the TRY must be
+        // kept (a CAST can throw) but rebuilt as a BIND that exposes
+        // __rpc_result, otherwise PruneUnreferencedOutputs drops it.
+        CallExpression rpcInsideLambda = new CallExpression(
+                "test_rpc_function",
+                createFunctionHandle("test_rpc_function"),
+                VARCHAR,
+                ImmutableList.of(
+                        new VariableReferenceExpression(Optional.empty(), "p", VARCHAR),
+                        varchar("prompt"),
+                        varchar("system"),
+                        varchar("{}")));
+        CallExpression castExpr = new CallExpression(
+                "CAST",
+                createFunctionHandle("CAST"),
+                INTEGER,
+                ImmutableList.of(rpcInsideLambda));
+        LambdaDefinitionExpression lambda = new LambdaDefinitionExpression(
+                Optional.empty(),
+                ImmutableList.of(VARCHAR),
+                ImmutableList.of("p"),
+                castExpr);
+        SpecialFormExpression bind = new SpecialFormExpression(
+                SpecialFormExpression.Form.BIND,
+                INTEGER,
+                ImmutableList.of(inputVar, lambda));
+        CallExpression tryCall = new CallExpression(
+                "$internal$try",
+                createFunctionHandle("$internal$try"),
+                INTEGER,
+                ImmutableList.of(bind));
+
+        ValuesNode source = new ValuesNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                ImmutableList.of(inputVar),
+                ImmutableList.of(),
+                Optional.empty());
+        ProjectNode projectNode = new ProjectNode(
+                idAllocator.getNextId(),
+                source,
+                Assignments.builder().put(outputVar, tryCall).build());
+
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
+                () -> ImmutableSet.of("test_rpc_function"));
+        Session session = TestingSession.testSessionBuilder().build();
+
+        PlanOptimizerResult result = optimizer.optimize(
+                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+
+        assertTrue(result.isOptimizerTriggered());
+        assertTrue(containsPlanNode(result.getPlanNode(), RPCNode.class));
+
+        // The complex body must stay wrapped in $internal$try, but rebuilt as a
+        // BIND whose leading argument is the __rpc_result variable (exposed to
+        // VariablesExtractor), not a bare zero-arg lambda that hides it.
+        ProjectNode finalProject = (ProjectNode) result.getPlanNode();
+        RowExpression outputExpr = finalProject.getAssignments().get(outputVar);
+        assertTrue(outputExpr instanceof CallExpression,
+                "Complex TRY body should stay wrapped in $internal$try. Got: " + outputExpr.getClass().getSimpleName());
+        CallExpression tryExpr = (CallExpression) outputExpr;
+        assertEquals(tryExpr.getDisplayName(), "$internal$try");
+        RowExpression tryArg = tryExpr.getArguments().get(0);
+        assertTrue(tryArg instanceof SpecialFormExpression
+                        && ((SpecialFormExpression) tryArg).getForm() == SpecialFormExpression.Form.BIND,
+                "Complex TRY body must be reconstructed as a BIND. Got: " + tryArg.getClass().getSimpleName());
+        List<RowExpression> bindArgs = ((SpecialFormExpression) tryArg).getArguments();
+        assertTrue(bindArgs.get(0) instanceof VariableReferenceExpression,
+                "BIND must expose the rpc result variable as a bound argument. Got: " + bindArgs.get(0).getClass().getSimpleName());
+
+        // The reconstructed BIND fully applies its captured variable(s) to the
+        // lambda, so its type must be the bound function type () -> INTEGER, not
+        // the scalar TRY result type. Regression guard for the BIND mistyping
+        // (previously tryCall.getType()); matches PlanRemoteProjections.
+        RowExpression bindExpr = tryArg;
+        assertTrue(bindExpr.getType() instanceof FunctionType,
+                "Reconstructed BIND must be typed as a FunctionType. Got: " + bindExpr.getType());
+        FunctionType bindType = (FunctionType) bindExpr.getType();
+        assertTrue(bindType.getArgumentTypes().isEmpty(),
+                "Fully-bound BIND must have zero argument types. Got: " + bindType.getArgumentTypes());
+        assertEquals(bindType.getReturnType(), INTEGER,
+                "BIND return type must be the CAST body type INTEGER");
+
+        // And it must survive PruneUnreferencedOutputs.
+        PlanNode rpcPlan = result.getPlanNode();
+        OutputNode outputNode = new OutputNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                rpcPlan,
+                ImmutableList.of("output_col"),
+                rpcPlan.getOutputVariables());
+        PruneUnreferencedOutputs pruner = new PruneUnreferencedOutputs();
+        PlanOptimizerResult pruneResult = pruner.optimize(
+                outputNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+        assertEquals(countPlanNodes(pruneResult.getPlanNode(), RPCNode.class), 1,
+                "RPCNode must survive pruning for a TRY(CAST(rpc_fn())) body");
+    }
+
+    private static CallExpression createTryWrappedRpcCall(VariableReferenceExpression inputVar, String prompt)
+    {
+        CallExpression rpcInsideLambda = new CallExpression(
+                "test_rpc_function",
+                createFunctionHandle("test_rpc_function"),
+                VARCHAR,
+                ImmutableList.of(
+                        new VariableReferenceExpression(Optional.empty(), "p", VARCHAR),
+                        varchar(prompt),
+                        varchar("system"),
+                        varchar("{}")));
+
+        LambdaDefinitionExpression lambda = new LambdaDefinitionExpression(
+                Optional.empty(),
+                ImmutableList.of(VARCHAR),
+                ImmutableList.of("p"),
+                rpcInsideLambda);
+
+        SpecialFormExpression bind = new SpecialFormExpression(
+                SpecialFormExpression.Form.BIND,
+                VARCHAR,
+                ImmutableList.of(inputVar, lambda));
+
+        return new CallExpression(
+                "$internal$try",
+                createFunctionHandle("$internal$try"),
+                VARCHAR,
+                ImmutableList.of(bind));
+    }
+
+    private static int countPlanNodes(PlanNode node, Class<? extends PlanNode> targetClass)
+    {
+        int count = targetClass.isInstance(node) ? 1 : 0;
+        for (PlanNode child : node.getSources()) {
+            count += countPlanNodes(child, targetClass);
+        }
+        return count;
     }
 
     private static boolean containsPlanNode(PlanNode node, Class<? extends PlanNode> targetClass)
