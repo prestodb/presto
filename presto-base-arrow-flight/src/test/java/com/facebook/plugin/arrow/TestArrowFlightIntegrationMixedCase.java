@@ -37,6 +37,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -144,5 +145,35 @@ public class TestArrowFlightIntegrationMixedCase
                 .row(2, "MARY", "test", "kochi")
                 .build();
         assertTrue(actualRow.equals(expectedRow));
+    }
+
+    @Test
+    public void testColumnCaseSensitivityWithDuplicateColumns()
+    {
+        // Test SELECT * works with duplicate columns
+        MaterializedResult result = computeActual("SELECT * FROM arrow_mixed_catalog.tpch_mx.mxtest");
+        assertEquals(result.getRowCount(), 2);
+        // Test selecting specific columns with exact case
+        result = computeActual("SELECT NAME FROM arrow_mixed_catalog.tpch_mx.mxtest");
+        assertEquals(result.getRowCount(), 2);
+        result = computeActual("SELECT name FROM arrow_mixed_catalog.tpch_mx.mxtest");
+        assertEquals(result.getRowCount(), 2);
+        // Test WHERE clause with exact case
+        result = computeActual("SELECT * FROM arrow_mixed_catalog.tpch_mx.mxtest WHERE ID = 1");
+        assertEquals(result.getRowCount(), 1);
+        // Test selecting both NAME and name columns
+        result = computeActual("SELECT NAME, name FROM arrow_mixed_catalog.tpch_mx.mxtest");
+        assertEquals(result.getRowCount(), 2);
+    }
+
+    @Test
+    public void testColumnCaseSensitivityColumnNameError()
+    {
+        // Test WHERE clause with wrong case should fail
+        assertQueryFails("SELECT * FROM arrow_mixed_catalog.tpch_mx.mxtest WHERE address = 'kochi'",
+                ".*Column 'address' cannot be resolved.*");
+        // Test SELECT with wrong case should fail
+        assertQueryFails("SELECT id FROM arrow_mixed_catalog.tpch_mx.mxtest",
+                ".*Column 'id' cannot be resolved.*");
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.ConfigurationException;
 import org.apache.iceberg.hadoop.HadoopFileIO;
 import org.testng.annotations.Test;
 
@@ -40,6 +41,7 @@ import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
 import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergConfig
 {
@@ -82,7 +84,8 @@ public class TestIcebergConfig
                 .setMaterializedViewMaxChangedPartitions(100)
                 .setMaterializedViewDefaultMaxSnapshotsPerRefresh(0)
                 .setAggregatePushDownEnabled(true)
-                .setTargetMaxFileSize(succinctDataSize(1, GIGABYTE)));
+                .setTargetMaxFileSize(succinctDataSize(1, GIGABYTE))
+                .setCaseSensitiveNameMatching(false));
     }
 
     @Test
@@ -125,6 +128,7 @@ public class TestIcebergConfig
                 .put("iceberg.materialized-view-default-max-snapshots-per-refresh", "10")
                 .put("iceberg.aggregate-push-down-enabled", "false")
                 .put("iceberg.target-max-file-size", "512MB")
+                .put("case-sensitive-name-matching", "true")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -163,8 +167,23 @@ public class TestIcebergConfig
                 .setMaterializedViewMaxChangedPartitions(2000)
                 .setMaterializedViewDefaultMaxSnapshotsPerRefresh(10)
                 .setAggregatePushDownEnabled(false)
-                .setTargetMaxFileSize(succinctDataSize(512, MEGABYTE));
+                .setTargetMaxFileSize(succinctDataSize(512, MEGABYTE))
+                .setCaseSensitiveNameMatching(true);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testCaseSensitiveNameMatchingNotSupportedForHiveCatalog()
+    {
+        // case-sensitive-name-matching=true must not throw for REST, HADOOP, or NESSIE catalog types.
+        assertThatThrownBy(() ->
+                new IcebergConfig()
+                        .setCatalogType(HIVE)
+                        .setCaseSensitiveNameMatching(true)
+                        .validateConfig())
+                .isInstanceOf(ConfigurationException.class)
+                .hasMessageContaining("case-sensitive-name-matching=true")
+                .hasMessageContaining("iceberg.catalog.type=HIVE");
     }
 }

@@ -20,6 +20,7 @@ import com.google.common.collect.Streams;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -67,6 +68,11 @@ public class QualifiedName
     public List<Identifier> getOriginalParts()
     {
         return originalParts;
+    }
+
+    public String toString(UnaryOperator<String> nameKeyFunction)
+    {
+        return Joiner.on('.').join(originalParts.stream().map(id -> nameKeyFunction.apply(id.getValue())).collect(toImmutableList()));
     }
 
     @Override

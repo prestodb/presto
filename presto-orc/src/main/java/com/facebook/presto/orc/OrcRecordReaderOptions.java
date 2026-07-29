@@ -27,6 +27,7 @@ public class OrcRecordReaderOptions
     private final boolean appendRowNumber;
     private final long maxSliceSize;
     private final boolean resetAllReaders;
+    private final boolean caseSensitiveNameMatching;
 
     public OrcRecordReaderOptions(OrcReaderOptions options)
     {
@@ -36,7 +37,8 @@ public class OrcRecordReaderOptions
                 options.mapNullKeysEnabled(),
                 options.appendRowNumber(),
                 options.getMaxSliceSize(),
-                options.isResetAllReaders());
+                options.isResetAllReaders(),
+                options.isCaseSensitiveNameMatching());
     }
 
     public OrcRecordReaderOptions(
@@ -46,7 +48,8 @@ public class OrcRecordReaderOptions
             boolean mapNullKeysEnabled,
             boolean appendRowNumber,
             DataSize maxSliceSize,
-            boolean resetAllReaders)
+            boolean resetAllReaders,
+            boolean caseSensitiveNameMatching)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
@@ -57,6 +60,7 @@ public class OrcRecordReaderOptions
         checkArgument(maxSliceSize.toBytes() > 0, "maxSliceSize must be positive");
         this.maxSliceSize = maxSliceSize.toBytes();
         this.resetAllReaders = resetAllReaders;
+        this.caseSensitiveNameMatching = caseSensitiveNameMatching;
     }
 
     public DataSize getMaxMergeDistance()
@@ -92,5 +96,10 @@ public class OrcRecordReaderOptions
     public boolean isResetAllReaders()
     {
         return resetAllReaders;
+    }
+
+    public boolean isCaseSensitiveNameMatching()
+    {
+        return caseSensitiveNameMatching;
     }
 }

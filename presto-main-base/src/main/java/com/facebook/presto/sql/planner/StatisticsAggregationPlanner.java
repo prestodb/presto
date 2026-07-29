@@ -39,8 +39,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
@@ -75,6 +77,18 @@ public class StatisticsAggregationPlanner
     }
 
     public TableStatisticAggregation createStatisticsAggregation(TableStatisticsMetadata statisticsMetadata, Map<String, VariableReferenceExpression> columnToVariableMap)
+    {
+        return createStatisticsAggregation(statisticsMetadata, columnToVariableMap,
+                name -> name.toLowerCase(Locale.ENGLISH));
+    }
+
+    /**
+     * Creates statistics aggregations, using {@code nameKeyFunction} to normalise column name
+     * identifiers when resolving SQL function body expressions.
+     */
+    public TableStatisticAggregation createStatisticsAggregation(TableStatisticsMetadata statisticsMetadata,
+            Map<String, VariableReferenceExpression> columnToVariableMap,
+            UnaryOperator<String> nameKeyFunction)
     {
         StatisticAggregationsDescriptor.Builder<VariableReferenceExpression> descriptor = StatisticAggregationsDescriptor.builder();
 
@@ -118,7 +132,7 @@ public class StatisticsAggregationPlanner
             VariableReferenceExpression inputVariable = columnToVariableMap.get(columnName);
             verify(inputVariable != null, "inputVariable is null");
             ColumnStatisticsAggregation aggregation = createColumnAggregation(columnStatisticMetadata, inputVariable,
-                    ImmutableMap.of(columnName, inputVariable.getName()));
+                    ImmutableMap.of(columnName, inputVariable.getName()), nameKeyFunction);
             additionalVariables.putAll(aggregation.getInputProjections());
             VariableReferenceExpression variable = variableAllocator.newVariable(statisticType + ":" + columnName, aggregation.getOutputType());
             aggregations.put(variable, aggregation.getAggregation());
@@ -132,14 +146,16 @@ public class StatisticsAggregationPlanner
     private ColumnStatisticsAggregation createColumnAggregationFromSqlFunction(
             String sqlFunction,
             VariableReferenceExpression input,
-            Map<String, String> columnNameToInputVariableNameMap)
+            Map<String, String> columnNameToInputVariableNameMap,
+            UnaryOperator<String> nameKeyFunction)
     {
         RowExpression expression = sqlFunctionToRowExpression(
                 sqlFunction,
                 ImmutableSet.of(input),
                 functionAndTypeManager,
                 session,
-                columnNameToInputVariableNameMap);
+                columnNameToInputVariableNameMap,
+                nameKeyFunction);
         verify(expression instanceof CallExpression, "column statistic SQL expressions must represent a function call");
         CallExpression call = (CallExpression) expression;
         FunctionMetadata functionMeta = functionAndTypeResolver.getFunctionMetadata(call.getFunctionHandle());
@@ -210,10 +226,10 @@ public class StatisticsAggregationPlanner
     }
 
     private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticMetadata columnStatisticMetadata, VariableReferenceExpression input,
-            Map<String, String> columnNameToInputVariableNameMap)
+            Map<String, String> columnNameToInputVariableNameMap, UnaryOperator<String> nameKeyFunction)
     {
         if (columnStatisticMetadata.isSqlExpression()) {
-            return createColumnAggregationFromSqlFunction(columnStatisticMetadata.getFunction(), input, columnNameToInputVariableNameMap);
+            return createColumnAggregationFromSqlFunction(columnStatisticMetadata.getFunction(), input, columnNameToInputVariableNameMap, nameKeyFunction);
         }
 
         return createColumnAggregationFromFunctionName(columnStatisticMetadata, input);

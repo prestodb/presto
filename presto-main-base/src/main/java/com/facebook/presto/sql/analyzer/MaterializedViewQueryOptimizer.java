@@ -95,6 +95,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
@@ -916,8 +917,9 @@ public class MaterializedViewQueryOptimizer
                 fields.add(Field.newUnqualified(whereClause.getLocation(), columnMetadata.getName(), columnMetadata.getType()));
             }
 
+            UnaryOperator<String> nameKeyFunction = id -> metadata.normalizeIdentifier(session, baseTableName.getCatalogName(), id);
             return Scope.builder()
-                    .withRelationType(RelationId.anonymous(), new RelationType(fields.build()))
+                    .withRelationType(RelationId.anonymous(), new RelationType(fields.build(), nameKeyFunction))
                     .build();
         }
 

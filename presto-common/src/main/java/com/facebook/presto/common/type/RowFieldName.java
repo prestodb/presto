@@ -65,8 +65,7 @@ public class RowFieldName
 
         RowFieldName other = (RowFieldName) o;
 
-        return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.delimited, other.delimited);
+        return Objects.equals(this.name, other.name);
     }
 
     @Override
@@ -81,6 +80,6 @@ public class RowFieldName
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, delimited);
+        return Objects.hash(name);
     }
 }

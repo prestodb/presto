@@ -113,6 +113,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
@@ -396,13 +397,15 @@ public class LogicalPlanner
         TableHandle targetTable = analysis.getAnalyzeTarget().get();
 
         // Plan table scan
+        String analyzeCatalogName = targetTable.getConnectorId().getCatalogName();
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
         ImmutableList.Builder<VariableReferenceExpression> tableScanOutputsBuilder = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> variableToColumnHandle = ImmutableMap.builder();
         ImmutableMap.Builder<String, VariableReferenceExpression> columnNameToVariable = ImmutableMap.builder();
         TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTable);
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(analyzeStatement), column.getName(), column.getType());
+            String normalizedColumnName = metadata.normalizeIdentifier(session, analyzeCatalogName, column.getName());
+            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(analyzeStatement), normalizedColumnName, column.getType());
             tableScanOutputsBuilder.add(variable);
             variableToColumnHandle.put(variable, columnHandles.get(column.getName()));
             columnNameToVariable.put(column.getName(), variable);
@@ -410,10 +413,11 @@ public class LogicalPlanner
 
         TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
                 session,
-                targetTable.getConnectorId().getCatalogName(),
+                analyzeCatalogName,
                 tableMetadata.getMetadata());
 
-        TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToVariable.build());
+        UnaryOperator<String> nameKeyFunction = id -> metadata.normalizeIdentifier(session, analyzeCatalogName, id);
+        TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToVariable.build(), nameKeyFunction);
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
         List<VariableReferenceExpression> tableScanOutputs = tableScanOutputsBuilder.build();
         Map<VariableReferenceExpression, RowExpression> assignments = ImmutableMap.<VariableReferenceExpression, RowExpression>builder()
@@ -764,6 +768,7 @@ public class LogicalPlanner
             Query query,
             Analysis analysis)
     {
+        String ctasCatalogName = tableHandle.getConnectorId().getCatalogName();
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
 
         List<ColumnMetadata> visibleTableColumns = tableMetadata.getColumns().stream()
@@ -782,7 +787,7 @@ public class LogicalPlanner
             if (column.isHidden()) {
                 continue;
             }
-            VariableReferenceExpression output = variableAllocator.newVariable(getSourceLocation(query), column.getName(), column.getType());
+            VariableReferenceExpression output = variableAllocator.newVariable(getSourceLocation(query), metadata.normalizeIdentifier(session, ctasCatalogName, column.getName()), column.getType());
             int index = columnHandles.indexOf(columns.get(column.getName()));
             if (index < 0) {
                 Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
@@ -903,7 +908,9 @@ public class LogicalPlanner
                 .collect(toImmutableSet());
 
         if (!statisticsMetadata.isEmpty()) {
-            TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap);
+            String writerCatalogName = target.getConnectorId().getCatalogName();
+            UnaryOperator<String> nameKeyFunction = id -> metadata.normalizeIdentifier(session, writerCatalogName, id);
+            TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap, nameKeyFunction);
 
             StatisticAggregations.Parts aggregations = splitIntoPartialAndFinal(result.getAggregations(), variableAllocator, metadata.getFunctionAndTypeManager());
 

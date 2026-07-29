@@ -152,7 +152,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             boolean cacheable,
             RuntimeStats runtimeStats,
             Optional<OrcFileIntrospector> fileIntrospector,
-            long fileModificationTime)
+            long fileModificationTime,
+            boolean caseSensitiveNameMatching)
     {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
@@ -236,7 +237,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         this.currentStripeSystemMemoryContext = this.systemMemoryUsage.newOrcAggregatedMemoryContext();
 
-        Set<Integer> includedOrcColumns = getIncludedOrcColumns(types, this.presentColumns, requireNonNull(requiredSubfields, "requiredSubfields is null"));
+        Set<Integer> includedOrcColumns = getIncludedOrcColumns(types, this.presentColumns, requireNonNull(requiredSubfields, "requiredSubfields is null"), caseSensitiveNameMatching);
         this.encryptionLibrary = encryptionLibrary;
         this.dwrfEncryptionGroupMap = ImmutableMap.copyOf(dwrfEncryptionGroupMap);
         this.intermediateKeyMetadata = createIntermediateKeysMap(columnToIntermediateKeyMap, dwrfEncryptionGroupMap, orcDataSource.getId());
@@ -283,45 +284,46 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         }
     }
 
-    private static Set<Integer> getIncludedOrcColumns(List<OrcType> types, Set<Integer> includedColumns, Map<Integer, List<Subfield>> requiredSubfields)
+    private static Set<Integer> getIncludedOrcColumns(List<OrcType> types, Set<Integer> includedColumns, Map<Integer, List<Subfield>> requiredSubfields, boolean caseSensitiveNameMatching)
     {
         Set<Integer> includes = new LinkedHashSet<>();
 
         OrcType root = types.get(0);
         for (int includedColumn : includedColumns) {
             List<Subfield> subfields = Optional.ofNullable(requiredSubfields.get(includedColumn)).orElse(ImmutableList.of());
-            includeOrcColumnsRecursive(types, includes, root.getFieldTypeIndex(includedColumn), subfields);
+            includeOrcColumnsRecursive(types, includes, root.getFieldTypeIndex(includedColumn), subfields, caseSensitiveNameMatching);
         }
 
         return includes;
     }
 
-    private static void includeOrcColumnsRecursive(List<OrcType> types, Set<Integer> result, int typeId, List<Subfield> requiredSubfields)
+    private static void includeOrcColumnsRecursive(List<OrcType> types, Set<Integer> result, int typeId, List<Subfield> requiredSubfields, boolean caseSensitiveNameMatching)
     {
         result.add(typeId);
         OrcType type = types.get(typeId);
 
         Optional<Map<String, List<Subfield>>> requiredFields = Optional.empty();
         if (type.getOrcTypeKind() == STRUCT) {
-            requiredFields = getRequiredFields(requiredSubfields);
+            requiredFields = getRequiredFields(requiredSubfields, caseSensitiveNameMatching);
         }
 
         int children = type.getFieldCount();
         for (int i = 0; i < children; ++i) {
             List<Subfield> subfields = ImmutableList.of();
             if (requiredFields.isPresent()) {
-                String fieldName = type.getFieldNames().get(i).toLowerCase(Locale.ENGLISH);
+                String fieldName = type.getFieldNames().get(i);
+                fieldName = caseSensitiveNameMatching ? fieldName : fieldName.toLowerCase(Locale.ENGLISH);
                 if (!requiredFields.get().containsKey(fieldName)) {
                     continue;
                 }
                 subfields = requiredFields.get().get(fieldName);
             }
 
-            includeOrcColumnsRecursive(types, result, type.getFieldTypeIndex(i), subfields);
+            includeOrcColumnsRecursive(types, result, type.getFieldTypeIndex(i), subfields, caseSensitiveNameMatching);
         }
     }
 
-    private static Optional<Map<String, List<Subfield>>> getRequiredFields(List<Subfield> requiredSubfields)
+    private static Optional<Map<String, List<Subfield>>> getRequiredFields(List<Subfield> requiredSubfields, boolean caseSensitiveNameMatching)
     {
         if (requiredSubfields.isEmpty()) {
             return Optional.empty();
@@ -333,7 +335,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             if (path.size() == 1 && path.get(0) instanceof Subfield.NoSubfield) {
                 continue;
             }
-            String name = ((Subfield.NestedField) path.get(0)).getName().toLowerCase(Locale.ENGLISH);
+            String name = ((Subfield.NestedField) path.get(0)).getName();
+            name = caseSensitiveNameMatching ? name : name.toLowerCase(Locale.ENGLISH);
             fields.computeIfAbsent(name, k -> new ArrayList<>());
             if (path.size() > 1) {
                 fields.get(name).add(new Subfield("c", path.subList(1, path.size())));

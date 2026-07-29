@@ -32,6 +32,7 @@ public class OrcReaderOptions
     // slice reader will throw if the slice size is larger than this value
     private final DataSize maxSliceSize;
     private final boolean resetAllReaders;
+    private final boolean caseSensitiveNameMatching;
 
     /**
      * Read column statistics for flat map columns. Usually there are quite a
@@ -48,7 +49,8 @@ public class OrcReaderOptions
             boolean appendRowNumber,
             boolean readMapStatistics,
             DataSize maxSliceSize,
-            boolean resetAllReaders)
+            boolean resetAllReaders,
+            boolean caseSensitiveNameMatching)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
@@ -59,6 +61,7 @@ public class OrcReaderOptions
         this.readMapStatistics = readMapStatistics;
         this.maxSliceSize = maxSliceSize;
         this.resetAllReaders = resetAllReaders;
+        this.caseSensitiveNameMatching = caseSensitiveNameMatching;
     }
 
     public DataSize getMaxMergeDistance()
@@ -106,6 +109,11 @@ public class OrcReaderOptions
         return resetAllReaders;
     }
 
+    public boolean isCaseSensitiveNameMatching()
+    {
+        return caseSensitiveNameMatching;
+    }
+
     @Override
     public String toString()
     {
@@ -119,6 +127,7 @@ public class OrcReaderOptions
                 .add("readMapStatistics", readMapStatistics)
                 .add("maxSliceSize", maxSliceSize)
                 .add("resetAllReaders", resetAllReaders)
+                .add("caseSensitiveNameMatching", caseSensitiveNameMatching)
                 .toString();
     }
 
@@ -138,6 +147,7 @@ public class OrcReaderOptions
         private boolean readMapStatistics;
         private DataSize maxSliceSize = DEFAULT_MAX_SLICE_SIZE;
         private boolean resetAllReaders;
+        private boolean caseSensitiveNameMatching;
 
         private Builder() {}
 
@@ -195,6 +205,12 @@ public class OrcReaderOptions
             return this;
         }
 
+        public Builder withCaseSensitiveNameMatching(boolean caseSensitiveNameMatching)
+        {
+            this.caseSensitiveNameMatching = caseSensitiveNameMatching;
+            return this;
+        }
+
         public OrcReaderOptions build()
         {
             return new OrcReaderOptions(
@@ -206,7 +222,8 @@ public class OrcReaderOptions
                     appendRowNumber,
                     readMapStatistics,
                     maxSliceSize,
-                    resetAllReaders);
+                    resetAllReaders,
+                    caseSensitiveNameMatching);
         }
     }
 }

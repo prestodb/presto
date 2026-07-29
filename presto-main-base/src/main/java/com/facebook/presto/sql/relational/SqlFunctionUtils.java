@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeSqlFunctionExpression;
@@ -115,11 +116,18 @@ public final class SqlFunctionUtils
                 argumentVariables);
     }
 
+    /**
+     * Translates a SQL function body to a {@link RowExpression}, using {@code nameKeyFunction} to
+     * normalise identifier names when substituting column parameter references.
+     * <p>Callers must derive {@code nameKeyFunction} from the connector's {@code normalizeIdentifier}
+     * so that the identifier lookup is consistent with how column names are stored and indexed.
+     */
     public static RowExpression sqlFunctionToRowExpression(String functionBody,
             Set<VariableReferenceExpression> variables,
             FunctionAndTypeManager functionAndTypeManager,
             Session session,
-            Map<String, String> columnNameToInputVariableNameMap)
+            Map<String, String> columnNameToInputVariableNameMap,
+            UnaryOperator<String> nameKeyFunction)
     {
         Expression expression = parseSqlFunctionExpression(
                 new SqlInvokedScalarFunctionImplementation(functionBody),
@@ -131,7 +139,7 @@ public final class SqlFunctionUtils
             @Override
             public Expression rewriteIdentifier(Identifier node, Map<String, String> context, ExpressionTreeRewriter<Map<String, String>> treeRewriter)
             {
-                String name = node.getValueLowerCase();
+                String name = nameKeyFunction.apply(node.getValue());
                 if (context.containsKey(name)) {
                     return new Identifier(context.get(name));
                 }

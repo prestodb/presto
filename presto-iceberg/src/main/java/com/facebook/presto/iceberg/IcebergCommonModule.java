@@ -337,9 +337,9 @@ public class IcebergCommonModule
 
     @Singleton
     @Provides
-    public ParquetMetadataSource createParquetMetadataSource(ParquetCacheConfig parquetCacheConfig, MBeanExporter exporter)
+    public ParquetMetadataSource createParquetMetadataSource(IcebergConfig icebergConfig, ParquetCacheConfig parquetCacheConfig, MBeanExporter exporter)
     {
-        ParquetMetadataSource parquetMetadataSource = new MetadataReader();
+        ParquetMetadataSource parquetMetadataSource = new MetadataReader(icebergConfig.isCaseSensitiveNameMatching());
         if (parquetCacheConfig.isMetadataCacheEnabled()) {
             Cache<ParquetDataSourceId, ParquetFileMetadata> cache = CacheBuilder.newBuilder()
                     .maximumWeight(parquetCacheConfig.getMetadataCacheSize().toBytes())

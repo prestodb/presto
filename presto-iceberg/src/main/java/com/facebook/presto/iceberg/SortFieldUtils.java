@@ -24,6 +24,7 @@ import org.apache.iceberg.types.Types;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -50,8 +51,13 @@ public class SortFieldUtils
 
     public static SortOrder parseSortFields(Schema schema, List<String> fields)
     {
+        return parseSortFields(schema, fields, s -> s.toLowerCase(Locale.ENGLISH));
+    }
+
+    public static SortOrder parseSortFields(Schema schema, List<String> fields, UnaryOperator<String> identifierNormalizer)
+    {
         SortOrder.Builder builder = SortOrder.builderFor(schema);
-        parseSortFields(builder, fields);
+        parseSortFields(builder, fields, identifierNormalizer);
         SortOrder sortOrder;
         try {
             sortOrder = builder.build();
@@ -74,17 +80,27 @@ public class SortFieldUtils
 
     public static void parseSortFields(SortOrderBuilder<?> sortOrderBuilder, List<String> fields)
     {
-        fields.forEach(field -> parseSortField(sortOrderBuilder, field));
+        parseSortFields(sortOrderBuilder, fields, s -> s.toLowerCase(Locale.ENGLISH));
+    }
+
+    public static void parseSortFields(SortOrderBuilder<?> sortOrderBuilder, List<String> fields, UnaryOperator<String> identifierNormalizer)
+    {
+        fields.forEach(field -> parseSortField(sortOrderBuilder, field, identifierNormalizer));
     }
 
     private static void parseSortField(SortOrderBuilder<?> builder, String field)
+    {
+        parseSortField(builder, field, s -> s.toLowerCase(Locale.ENGLISH));
+    }
+
+    private static void parseSortField(SortOrderBuilder<?> builder, String field, UnaryOperator<String> identifierNormalizer)
     {
         Matcher matcher = PATTERN.matcher(field);
         if (!matcher.matches()) {
             throw new IllegalArgumentException(format("Unable to parse sort field: [%s]", field));
         }
 
-        String columnName = fromIdentifierToColumn(matcher.group("identifier"));
+        String columnName = fromIdentifierToColumn(matcher.group("identifier"), identifierNormalizer);
         boolean ascending;
         String ordering = firstNonNull(matcher.group("ordering"), "ASC").toUpperCase(Locale.ENGLISH);
 

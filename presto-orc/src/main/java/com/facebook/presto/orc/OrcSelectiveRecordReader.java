@@ -230,7 +230,8 @@ public class OrcSelectiveRecordReader
                 cacheable,
                 runtimeStats,
                 fileIntrospector,
-                fileModificationTime);
+                fileModificationTime,
+                options.isCaseSensitiveNameMatching());
 
         // Hive column indices can't be used to index into arrays because they are negative
         // for partition and hidden columns. Hence, we create synthetic zero-based indices.

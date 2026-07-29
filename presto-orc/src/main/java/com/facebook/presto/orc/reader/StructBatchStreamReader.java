@@ -79,14 +79,16 @@ public class StructBatchStreamReader
         this.type = (RowType) type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
 
+        boolean caseSensitive = options.isCaseSensitiveNameMatching();
         Map<String, StreamDescriptor> nestedStreams = Maps.uniqueIndex(
-                streamDescriptor.getNestedStreams(), stream -> stream.getFieldName().toLowerCase(Locale.ENGLISH));
+                streamDescriptor.getNestedStreams(),
+                stream -> caseSensitive ? stream.getFieldName() : stream.getFieldName().toLowerCase(Locale.ENGLISH));
         ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
         ImmutableMap.Builder<String, BatchStreamReader> structFields = ImmutableMap.builder();
         for (Field field : this.type.getFields()) {
             String fieldName = field.getName()
-                    .orElseThrow(() -> new IllegalArgumentException("ROW type does not have field names declared: " + type))
-                    .toLowerCase(Locale.ENGLISH);
+                    .orElseThrow(() -> new IllegalArgumentException("ROW type does not have field names declared: " + type));
+            fieldName = caseSensitive ? fieldName : fieldName.toLowerCase(Locale.ENGLISH);
             fieldNames.add(fieldName);
 
             StreamDescriptor fieldStream = nestedStreams.get(fieldName);

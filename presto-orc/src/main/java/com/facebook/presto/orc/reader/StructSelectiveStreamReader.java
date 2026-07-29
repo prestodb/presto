@@ -131,10 +131,12 @@ public class StructSelectiveStreamReader
             }
         }
 
+        boolean caseSensitive = options.isCaseSensitiveNameMatching();
         Map<String, StreamDescriptor> nestedStreams = Maps.uniqueIndex(
-                streamDescriptor.getNestedStreams(), stream -> stream.getFieldName().toLowerCase(Locale.ENGLISH));
+                streamDescriptor.getNestedStreams(),
+                stream -> caseSensitive ? stream.getFieldName() : stream.getFieldName().toLowerCase(Locale.ENGLISH));
 
-        Optional<Map<String, List<Subfield>>> requiredFields = getRequiredFields(requiredSubfields);
+        Optional<Map<String, List<Subfield>>> requiredFields = getRequiredFields(requiredSubfields, caseSensitive);
 
         // TODO streamDescriptor may be missing some fields (due to schema evolution, e.g. add field?)
         // TODO fields in streamDescriptor may be out of order (due to schema evolution, e.g. remove field?)
@@ -148,7 +150,7 @@ public class StructSelectiveStreamReader
                 .map(Subfield.NestedField::getName)
                 .collect(toImmutableSet());
 
-        if (!checkMissingFieldFilters(nestedStreams.values(), filters)) {
+        if (!checkMissingFieldFilters(nestedStreams.values(), filters, caseSensitive)) {
             this.missingFieldFilterIsFalse = true;
             this.nestedReaders = ImmutableMap.of();
             this.orderedNestedReaders = new SelectiveStreamReader[0];
@@ -156,10 +158,11 @@ public class StructSelectiveStreamReader
         else if (outputRequired || !fieldsWithFilters.isEmpty()) {
             ImmutableMap.Builder<String, SelectiveStreamReader> nestedReaders = ImmutableMap.builder();
             Map<String, Field> nestedTypes = outputType.isPresent() ? ((RowType) this.outputType).getFields().stream()
-                    .collect(toImmutableMap(field -> field.getName()
-                            .orElseThrow(() -> new IllegalArgumentException(
-                                    "ROW type does not have field names declared: " + this.outputType))
-                            .toLowerCase(Locale.ENGLISH), Function.identity()))
+                    .collect(toImmutableMap(field -> {
+                        String name = field.getName().orElseThrow(() -> new IllegalArgumentException(
+                                "ROW type does not have field names declared: " + this.outputType));
+                        return caseSensitive ? name : name.toLowerCase(Locale.ENGLISH);
+                    }, Function.identity()))
                     : ImmutableMap.of();
             Set<String> structFields = outputType.isPresent() ? nestedTypes.keySet() : nestedStreams.keySet();
             for (String fieldName : structFields) {
@@ -206,7 +209,7 @@ public class StructSelectiveStreamReader
         }
     }
 
-    private boolean checkMissingFieldFilters(Collection<StreamDescriptor> nestedStreams, Map<Subfield, TupleDomainFilter> filters)
+    private boolean checkMissingFieldFilters(Collection<StreamDescriptor> nestedStreams, Map<Subfield, TupleDomainFilter> filters, boolean caseSensitiveNameMatching)
     {
         if (filters.isEmpty()) {
             return true;
@@ -214,7 +217,7 @@ public class StructSelectiveStreamReader
 
         Set<String> presentFieldNames = nestedStreams.stream()
                 .map(StreamDescriptor::getFieldName)
-                .map(name -> name.toLowerCase(Locale.ENGLISH))
+                .map(name -> caseSensitiveNameMatching ? name : name.toLowerCase(Locale.ENGLISH))
                 .collect(toImmutableSet());
 
         for (Map.Entry<Subfield, TupleDomainFilter> entry : filters.entrySet()) {
@@ -680,7 +683,7 @@ public class StructSelectiveStreamReader
         return Optional.of(filter);
     }
 
-    private static Optional<Map<String, List<Subfield>>> getRequiredFields(List<Subfield> requiredSubfields)
+    private static Optional<Map<String, List<Subfield>>> getRequiredFields(List<Subfield> requiredSubfields, boolean caseSensitiveNameMatching)
     {
         if (requiredSubfields.isEmpty()) {
             return Optional.empty();
@@ -692,7 +695,8 @@ public class StructSelectiveStreamReader
             if (path.size() == 1 && path.get(0) instanceof Subfield.NoSubfield) {
                 continue;
             }
-            String name = ((Subfield.NestedField) path.get(0)).getName().toLowerCase(Locale.ENGLISH);
+            String name = ((Subfield.NestedField) path.get(0)).getName();
+            name = caseSensitiveNameMatching ? name : name.toLowerCase(Locale.ENGLISH);
             fields.computeIfAbsent(name, k -> new ArrayList<>());
             if (path.size() > 1) {
                 fields.get(name).add(new Subfield("c", path.subList(1, path.size())));

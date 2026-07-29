@@ -113,6 +113,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -171,6 +172,7 @@ public class ExpressionInterpreter
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
     private final boolean legacyRowFieldOrdinalAccess;
+    private final UnaryOperator<String> identifierNormalizer;
 
     private final Visitor visitor;
 
@@ -261,6 +263,8 @@ public class ExpressionInterpreter
         this.optimize = optimize;
         this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
         this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
+        String catalogName = session.getCatalog().orElse("");
+        this.identifierNormalizer = id -> metadata.normalizeIdentifier(session, catalogName, id);
 
         this.visitor = new Visitor();
     }
@@ -330,7 +334,7 @@ public class ExpressionInterpreter
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
                 Field field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
+                if (field.getName().isPresent() && identifierNormalizer.apply(field.getName().get()).equals(identifierNormalizer.apply(fieldName))) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;
                 }

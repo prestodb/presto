@@ -132,6 +132,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
@@ -171,6 +172,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDER_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ORDER_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -483,7 +485,11 @@ public class ExpressionAnalyzer
             if (!resolvedField.isPresent() && outerScopeSymbolTypes.containsKey(NodeRef.of(node))) {
                 return setExpressionType(node, outerScopeSymbolTypes.get(NodeRef.of(node)));
             }
-            return handleResolvedField(node, resolvedField.orElseThrow(() -> missingAttributeException(node, name)), context);
+            if (!resolvedField.isPresent()) {
+                UnaryOperator<String> nameKeyFunction = context.getContext().getScope().getRelationType().getNameKeyFunction();
+                throw new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", nameKeyFunction.apply(node.getValue()));
+            }
+            return handleResolvedField(node, resolvedField.get(), context);
         }
 
         private Type handleResolvedField(Expression node, ResolvedField resolvedField, StackableAstVisitorContext<Context> context)
@@ -551,7 +557,8 @@ public class ExpressionAnalyzer
                     if (outerScopeSymbolTypes.containsKey(NodeRef.of(node))) {
                         return setExpressionType(node, outerScopeSymbolTypes.get(NodeRef.of(node)));
                     }
-                    throw missingAttributeException(node, qualifiedName);
+                    UnaryOperator<String> nameKeyFunction = scope.getRelationType().getNameKeyFunction();
+                    throw missingAttributeException(node, qualifiedName, nameKeyFunction);
                 }
             }
 
@@ -571,9 +578,12 @@ public class ExpressionAnalyzer
             RowType rowType = (RowType) baseType;
             String fieldName = node.getField().getValue();
 
+            UnaryOperator<String> nameKeyFunction = context.getContext().getScope().getRelationType().getNameKeyFunction();
+
             Type rowFieldType = null;
             for (RowType.Field rowField : rowType.getFields()) {
-                if (fieldName.equalsIgnoreCase(rowField.getName().orElse(null))) {
+                String storedName = rowField.getName().orElse(null);
+                if (storedName != null && nameKeyFunction.apply(fieldName).equals(nameKeyFunction.apply(storedName))) {
                     rowFieldType = rowField.getType();
                     break;
                 }
@@ -588,7 +598,7 @@ public class ExpressionAnalyzer
 
             if (rowFieldType == null) {
                 qualifiedName = qualifiedName == null ? QualifiedName.of(node.toString()) : qualifiedName;
-                throw missingAttributeException(node, qualifiedName);
+                throw missingAttributeException(node, qualifiedName, nameKeyFunction);
             }
 
             return setExpressionType(node, rowFieldType);

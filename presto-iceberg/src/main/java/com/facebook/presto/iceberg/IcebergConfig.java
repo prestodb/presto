@@ -21,6 +21,9 @@ import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.ConfigurationException;
+import com.google.inject.spi.Message;
+import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -85,6 +88,7 @@ public class IcebergConfig
     private int materializedViewDefaultMaxSnapshotsPerRefresh;
     private boolean aggregatePushDownEnabled = true;
     private DataSize targetMaxFileSize = succinctDataSize(1, GIGABYTE);
+    private boolean caseSensitiveNameMatching;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -593,5 +597,27 @@ public class IcebergConfig
         }
         this.targetMaxFileSize = targetMaxFileSize;
         return this;
+    }
+
+    public boolean isCaseSensitiveNameMatching()
+    {
+        return caseSensitiveNameMatching;
+    }
+
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable case-sensitive identifier matching for the connector. Default: false (identifiers are lower-cased)")
+    public IcebergConfig setCaseSensitiveNameMatching(boolean caseSensitiveNameMatching)
+    {
+        this.caseSensitiveNameMatching = caseSensitiveNameMatching;
+        return this;
+    }
+
+    @PostConstruct
+    public void validateConfig()
+    {
+        if (caseSensitiveNameMatching && catalogType == HIVE) {
+            throw new ConfigurationException(ImmutableList.of(new Message(
+                    "'case-sensitive-name-matching=true' is not supported for iceberg.catalog.type=HIVE")));
+        }
     }
 }

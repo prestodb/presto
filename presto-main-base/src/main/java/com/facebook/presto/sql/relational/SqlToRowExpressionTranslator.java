@@ -104,6 +104,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
@@ -169,6 +170,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlToRowExpressionTranslator
@@ -213,7 +215,31 @@ public final class SqlToRowExpressionTranslator
                 session.getSqlFunctionProperties(),
                 session.getSessionFunctions(),
                 context,
-                isNativeExecutionEnabled(session));
+                isNativeExecutionEnabled(session),
+                s -> s.toLowerCase(ENGLISH));
+    }
+
+    public static RowExpression translate(
+            Expression expression,
+            Map<NodeRef<Expression>, Type> types,
+            Map<VariableReferenceExpression, Integer> layout,
+            FunctionAndTypeManager functionAndTypeManager,
+            Session session,
+            UnaryOperator<String> identifierNormalizer,
+            Context context)
+    {
+        return translate(
+                expression,
+                types,
+                layout,
+                functionAndTypeManager,
+                Optional.of(session.getUser()),
+                session.getTransactionId(),
+                session.getSqlFunctionProperties(),
+                session.getSessionFunctions(),
+                context,
+                isNativeExecutionEnabled(session),
+                identifierNormalizer);
     }
 
     public static RowExpression translate(
@@ -252,6 +278,24 @@ public final class SqlToRowExpressionTranslator
             Context context,
             boolean nativeExecutionEnabled)
     {
+        return translate(expression, types, layout, functionAndTypeManager, user, transactionId,
+                sqlFunctionProperties, sessionFunctions, context, nativeExecutionEnabled,
+                s -> s.toLowerCase(ENGLISH));
+    }
+
+    private static RowExpression translate(
+            Expression expression,
+            Map<NodeRef<Expression>, Type> types,
+            Map<VariableReferenceExpression, Integer> layout,
+            FunctionAndTypeManager functionAndTypeManager,
+            Optional<String> user,
+            Optional<TransactionId> transactionId,
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            Context context,
+            boolean nativeExecutionEnabled,
+            UnaryOperator<String> identifierNormalizer)
+    {
         Visitor visitor = new Visitor(
                 types,
                 layout,
@@ -260,7 +304,8 @@ public final class SqlToRowExpressionTranslator
                 transactionId,
                 sqlFunctionProperties,
                 sessionFunctions,
-                nativeExecutionEnabled);
+                nativeExecutionEnabled,
+                identifierNormalizer);
         RowExpression result = visitor.process(expression, context);
         requireNonNull(result, "translated expression is null");
         return result;
@@ -303,6 +348,7 @@ public final class SqlToRowExpressionTranslator
         private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
         private final FunctionResolution functionResolution;
         private final boolean nativeExecutionEnabled;
+        private final UnaryOperator<String> identifierNormalizer;
 
         private Visitor(
                 Map<NodeRef<Expression>, Type> types,
@@ -312,7 +358,8 @@ public final class SqlToRowExpressionTranslator
                 Optional<TransactionId> transactionId,
                 SqlFunctionProperties sqlFunctionProperties,
                 Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
-                boolean nativeExecutionEnabled)
+                boolean nativeExecutionEnabled,
+                UnaryOperator<String> identifierNormalizer)
         {
             this.types = requireNonNull(types, "types is null");
             this.layout = requireNonNull(layout);
@@ -324,6 +371,7 @@ public final class SqlToRowExpressionTranslator
             this.functionResolution = new FunctionResolution(functionAndTypeResolver);
             this.sessionFunctions = requireNonNull(sessionFunctions);
             this.nativeExecutionEnabled = nativeExecutionEnabled;
+            this.identifierNormalizer = requireNonNull(identifierNormalizer, "identifierNormalizer is null");
         }
 
         private Type getType(Expression node)
@@ -778,7 +826,7 @@ public final class SqlToRowExpressionTranslator
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
                 Field field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
+                if (field.getName().isPresent() && identifierNormalizer.apply(field.getName().get()).equals(identifierNormalizer.apply(fieldName))) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;
                 }

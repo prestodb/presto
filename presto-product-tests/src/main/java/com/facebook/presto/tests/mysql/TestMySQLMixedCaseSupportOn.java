@@ -74,7 +74,7 @@ public class TestMySQLMixedCaseSupportOn
         query("CREATE TABLE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME_JOIN_LOWER + "\" AS " +
                 "SELECT d.* FROM " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\" d " +
                 "INNER JOIN " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\" m " +
-                "ON d.id = m.id WHERE d.id = 1");
+                "ON d.ID = m.ID WHERE d.ID = 1");
 
         assertThat(query("SHOW TABLES FROM " + CATALOG + ".\"" + SCHEMA_NAME + "\""))
                 .containsOnly(row("testtable0"), row("testtable"), row("TestTable1"), row("TESTTABLE2"), row("createdfromlowercase"), row("createdwithjoinlower"));
@@ -112,7 +112,7 @@ public class TestMySQLMixedCaseSupportOn
         query("INSERT INTO " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_3 + "\" VALUES ('zack', 601, 100.1), ('jane', 602, 200.2)");
         query("INSERT INTO " + CATALOG + ".\"" + SCHEMA_NAME_MIXED + "\".\"" + TABLE_NAME_FROM_MIXED + "\" VALUES ('ruby', 701), ('ted', 702)");
         query("INSERT INTO " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME_MIXED_1 + "\" " +
-                "SELECT name, id FROM " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\"");
+                "SELECT name, ID FROM " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\"");
         query("INSERT INTO " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\" " +
                 "SELECT Name, id FROM " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME_MIXED_1 + "\"");
 
@@ -145,10 +145,10 @@ public class TestMySQLMixedCaseSupportOn
                 .containsOnly(row("eva", 301), row("lisa", 302), row("ivan", 401), row("nora", 402), row("eva", 301), row("lisa", 302));
 
         // Even if we define a column as ID, we can refer to it as id, ID, or anything else in any case — with or without backticks.
-        assertThat(query("SELECT name, id FROM " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME))
+        assertThat(query("SELECT name, ID FROM " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME))
                 .containsOnly(row("eva", 301), row("lisa", 302), row("ivan", 401), row("nora", 402), row("eva", 301), row("lisa", 302));
 
-        assertThat(query("SELECT name FROM " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME_MIXED_1 + "\" WHERE id = 401"))
+        assertThat(query("SELECT Name FROM " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME_MIXED_1 + "\" WHERE id = 401"))
                 .containsOnly(row("ivan"));
 
         assertThat(query("SELECT name FROM " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\" WHERE id = 501"))
@@ -159,8 +159,8 @@ public class TestMySQLMixedCaseSupportOn
 
         assertThat(query("SELECT Name, ID " +
                 "FROM " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_4 + "\" " +
-                "WHERE name IN (" +
-                "SELECT Name FROM " + CATALOG + ".\"" + SCHEMA_NAME_MIXED + "\".\"" + TABLE_NAME_FROM_MIXED + "\" WHERE id = 501)"))
+                "WHERE Name IN (" +
+                "SELECT name FROM " + CATALOG + ".\"" + SCHEMA_NAME_MIXED + "\".\"" + TABLE_NAME_FROM_MIXED + "\" WHERE ID = 501)"))
                 .containsOnly(row("kate", 501));
     }
 

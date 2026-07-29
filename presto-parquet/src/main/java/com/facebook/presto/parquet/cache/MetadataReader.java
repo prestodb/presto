@@ -102,6 +102,24 @@ public final class MetadataReader
     private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
     private static final long MODIFICATION_TIME_NOT_SET = 0L;
 
+    /**
+     * When {@code true}, field names and column-chunk paths are preserved exactly as written
+     * in the Parquet file footer rather than being lowercased for Hive compatibility.
+     * Set via {@link #MetadataReader(boolean)} by connectors configured with
+     * {@code case-sensitive-name-matching=true} (e.g. the Iceberg connector).
+     */
+    private final boolean caseSensitiveNameMatching;
+
+    public MetadataReader()
+    {
+        this(false);
+    }
+
+    public MetadataReader(boolean caseSensitiveNameMatching)
+    {
+        this.caseSensitiveNameMatching = caseSensitiveNameMatching;
+    }
+
     public static ParquetFileMetadata readFooter(ParquetDataSource parquetDataSource, long fileSize, Optional<InternalFileDecryptor> fileDecryptor, boolean readMaskedValue)
             throws IOException
     {
@@ -109,6 +127,12 @@ public final class MetadataReader
     }
 
     public static ParquetFileMetadata readFooter(ParquetDataSource parquetDataSource, long fileSize, long modificationTime, Optional<InternalFileDecryptor> fileDecryptor, boolean readMaskedValue)
+            throws IOException
+    {
+        return readFooter(parquetDataSource, fileSize, modificationTime, fileDecryptor, readMaskedValue, false);
+    }
+
+    private static ParquetFileMetadata readFooter(ParquetDataSource parquetDataSource, long fileSize, long modificationTime, Optional<InternalFileDecryptor> fileDecryptor, boolean readMaskedValue, boolean caseSensitiveNameMatching)
             throws IOException
     {
         // Parquet File Layout: https://github.com/apache/parquet-format/blob/master/Encryption.md
@@ -139,10 +163,16 @@ public final class MetadataReader
             tailSlice = wrappedBuffer(footerBuffer, 0, footerBuffer.length);
         }
 
-        return readParquetMetadata(tailSlice.slice(tailSlice.length() - completeFooterSize, metadataLength).getInput(), metadataLength, modificationTime, fileDecryptor, encryptedFooterMode, parquetDataSource.getId(), readMaskedValue);
+        return readParquetMetadata(tailSlice.slice(tailSlice.length() - completeFooterSize, metadataLength).getInput(), metadataLength, modificationTime, fileDecryptor, encryptedFooterMode, parquetDataSource.getId(), readMaskedValue, caseSensitiveNameMatching);
     }
 
     private static ParquetFileMetadata readParquetMetadata(BasicSliceInput input, int metadataLength, long modificationTime, Optional<InternalFileDecryptor> fileDecryptor, boolean encryptedFooterMode, ParquetDataSourceId id, boolean readMaskedValue)
+            throws IOException
+    {
+        return readParquetMetadata(input, metadataLength, modificationTime, fileDecryptor, encryptedFooterMode, id, readMaskedValue, false);
+    }
+
+    private static ParquetFileMetadata readParquetMetadata(BasicSliceInput input, int metadataLength, long modificationTime, Optional<InternalFileDecryptor> fileDecryptor, boolean encryptedFooterMode, ParquetDataSourceId id, boolean readMaskedValue, boolean caseSensitiveNameMatching)
             throws IOException
     {
         checkArgument(!encryptedFooterMode || fileDecryptor.isPresent(), "fileDecryptionProperties cannot be null when encryptedFooterMode is true");
@@ -158,10 +188,16 @@ public final class MetadataReader
         }
 
         FileMetaData fileMetaData = readFileMetaData(input, footerDecryptor, additionalAuthenticationData);
-        return convertToParquetMetadata(input, fileMetaData, metadataLength, modificationTime, fileDecryptor, encryptedFooterMode, id, readMaskedValue);
+        return convertToParquetMetadata(input, fileMetaData, metadataLength, modificationTime, fileDecryptor, encryptedFooterMode, id, readMaskedValue, caseSensitiveNameMatching);
     }
 
     private static ParquetFileMetadata convertToParquetMetadata(BasicSliceInput input, FileMetaData fileMetaData, int metadataLength, long modificationTime, Optional<InternalFileDecryptor> fileDecryptor, boolean encryptedFooter, ParquetDataSourceId id, boolean readMaskedValue)
+            throws IOException
+    {
+        return convertToParquetMetadata(input, fileMetaData, metadataLength, modificationTime, fileDecryptor, encryptedFooter, id, readMaskedValue, false);
+    }
+
+    private static ParquetFileMetadata convertToParquetMetadata(BasicSliceInput input, FileMetaData fileMetaData, int metadataLength, long modificationTime, Optional<InternalFileDecryptor> fileDecryptor, boolean encryptedFooter, ParquetDataSourceId id, boolean readMaskedValue, boolean caseSensitiveNameMatching)
             throws IOException
     {
         List<SchemaElement> schema = fileMetaData.getSchema();
@@ -186,7 +222,7 @@ public final class MetadataReader
             }
         }
 
-        MessageType messageType = readParquetSchema(schema);
+        MessageType messageType = readParquetSchema(schema, caseSensitiveNameMatching);
         List<BlockMetaData> blocks = new ArrayList<>();
         List<RowGroup> rowGroups = fileMetaData.getRow_groups();
         Set<ColumnPath> maskedColumns = new HashSet<>();
@@ -212,7 +248,7 @@ public final class MetadataReader
                     boolean encryptedMetadata = false;
 
                     if (null == cryptoMetaData) { // Plaintext column
-                        columnPath = getPath(metaData);
+                        columnPath = getPath(metaData, caseSensitiveNameMatching);
                         if (fileDecryptor.isPresent() && !fileDecryptor.get().plaintextFile()) {
                             // mark this column as plaintext in encrypted file decryptor
                             fileDecryptor.get().setColumnCryptoMetadata(columnPath, false, false, (byte[]) null, columnOrdinal);
@@ -229,7 +265,7 @@ public final class MetadataReader
                             if (!fileDecryptor.isPresent()) {
                                 throw new ParquetCryptoRuntimeException("Column encrypted with footer key: No keys available");
                             }
-                            columnPath = getPath(metaData);
+                            columnPath = getPath(metaData, caseSensitiveNameMatching);
                             fileDecryptor.get().setColumnCryptoMetadata(columnPath, true, true, (byte[]) null, columnOrdinal);
                         }
                         else { // Column encrypted with column key
@@ -314,8 +350,13 @@ public final class MetadataReader
 
     private static ColumnPath getPath(ColumnMetaData metaData)
     {
+        return getPath(metaData, false);
+    }
+
+    private static ColumnPath getPath(ColumnMetaData metaData, boolean caseSensitiveNameMatching)
+    {
         String[] path = metaData.path_in_schema.stream()
-                .map(value -> value.toLowerCase(Locale.ENGLISH))
+                .map(value -> caseSensitiveNameMatching ? value : value.toLowerCase(Locale.ENGLISH))
                 .toArray(String[]::new);
         return ColumnPath.get(path);
     }
@@ -344,21 +385,31 @@ public final class MetadataReader
 
     private static MessageType readParquetSchema(List<SchemaElement> schema)
     {
+        return readParquetSchema(schema, false);
+    }
+
+    private static MessageType readParquetSchema(List<SchemaElement> schema, boolean caseSensitiveNameMatching)
+    {
         Iterator<SchemaElement> schemaIterator = schema.iterator();
         SchemaElement rootSchema = schemaIterator.next();
         Types.MessageTypeBuilder builder = Types.buildMessage();
-        readTypeSchema(builder, schemaIterator, rootSchema.getNum_children());
+        readTypeSchema(builder, schemaIterator, rootSchema.getNum_children(), caseSensitiveNameMatching);
         return builder.named(rootSchema.name);
     }
 
     private static void readTypeSchema(Types.GroupBuilder<?> builder, Iterator<SchemaElement> schemaIterator, int typeCount)
+    {
+        readTypeSchema(builder, schemaIterator, typeCount, false);
+    }
+
+    private static void readTypeSchema(Types.GroupBuilder<?> builder, Iterator<SchemaElement> schemaIterator, int typeCount, boolean caseSensitiveNameMatching)
     {
         for (int i = 0; i < typeCount; i++) {
             SchemaElement element = schemaIterator.next();
             Types.Builder<?, ?> typeBuilder;
             if (element.type == null) {
                 typeBuilder = builder.group(Repetition.valueOf(element.repetition_type.name()));
-                readTypeSchema((Types.GroupBuilder<?>) typeBuilder, schemaIterator, element.num_children);
+                readTypeSchema((Types.GroupBuilder<?>) typeBuilder, schemaIterator, element.num_children, caseSensitiveNameMatching);
             }
             else {
                 Types.PrimitiveBuilder<?> primitiveBuilder = builder.primitive(getTypeName(element.type), Repetition.valueOf(element.repetition_type.name()));
@@ -385,7 +436,7 @@ public final class MetadataReader
             if (element.isSetField_id()) {
                 typeBuilder.id(element.field_id);
             }
-            typeBuilder.named(element.name.toLowerCase(Locale.ENGLISH));
+            typeBuilder.named(caseSensitiveNameMatching ? element.name : element.name.toLowerCase(Locale.ENGLISH));
         }
     }
 
@@ -558,7 +609,7 @@ public final class MetadataReader
             boolean readMaskedValue)
             throws IOException
     {
-        return readFooter(parquetDataSource, fileSize, modificationTime, fileDecryptor, readMaskedValue);
+        return readFooter(parquetDataSource, fileSize, modificationTime, fileDecryptor, readMaskedValue, caseSensitiveNameMatching);
     }
 
     private static IndexReference toColumnIndexReference(ColumnChunk columnChunk)

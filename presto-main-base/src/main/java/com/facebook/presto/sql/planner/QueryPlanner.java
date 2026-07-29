@@ -292,13 +292,15 @@ public class QueryPlanner
     {
         RelationType descriptor = analysis.getOutputDescriptor(node.getTable());
         TableHandle handle = analysis.getTableHandle(node.getTable());
+        String catalogName = handle.getConnectorId().getCatalogName();
 
         // add table columns
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
-            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), field.getName().get(), field.getType());
+            String normalizedName = metadata.normalizeIdentifier(session, catalogName, field.getName().get());
+            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), normalizedName, field.getType());
             outputVariablesBuilder.add(variable);
             columns.put(variable, analysis.getColumn(field));
             fields.add(field);
@@ -422,7 +424,7 @@ public class QueryPlanner
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
-            String name = field.getName().get();
+            String name = metadata.normalizeIdentifier(session, catalogName, field.getName().get());
             VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), name, field.getType());
             outputVariablesBuilder.add(variable);
             columns.put(variable, analysis.getColumn(field));

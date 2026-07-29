@@ -18,6 +18,8 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.QualifiedName;
 
+import java.util.function.UnaryOperator;
+
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -34,6 +36,15 @@ public final class SemanticExceptions
                 node,
                 name.getPrefix().isPresent() ? "'%s' cannot be resolved" : "Column '%s' cannot be resolved",
                 name);
+    }
+
+    public static SemanticException missingAttributeException(Expression node, QualifiedName name, UnaryOperator<String> nameKeyFunction)
+    {
+        throw new SemanticException(
+                MISSING_ATTRIBUTE,
+                node,
+                name.getPrefix().isPresent() ? "'%s' cannot be resolved" : "Column '%s' cannot be resolved",
+                name.toString(nameKeyFunction));
     }
 
     public static SemanticException ambiguousAttributeException(Expression node, QualifiedName name)

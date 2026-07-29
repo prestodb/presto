@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.UnaryOperator;
 
 import static com.facebook.presto.spi.WarningCollector.NOOP;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpression;
@@ -64,17 +65,24 @@ public class TranslateExpressionsUtil
                 expression,
                 WarningCollector.NOOP,
                 analysis.getTypes()).getExpressionTypes();
+        UnaryOperator<String> nameKeyFunction = analysis.getRootScope().getRelationType().getNameKeyFunction();
         return toRowExpression(
                 expression,
                 metadata,
                 session,
                 analysis.getTypes(), // We need to pass all types when translating subqueries. TODO(pranjalssh): Add a proper test for complex queries which need this
+                nameKeyFunction,
                 context);
     }
 
     public static RowExpression toRowExpression(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> types, SqlToRowExpressionTranslator.Context context)
     {
         return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), session, context);
+    }
+
+    public static RowExpression toRowExpression(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> types, UnaryOperator<String> nameKeyFunction, SqlToRowExpressionTranslator.Context context)
+    {
+        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), session, nameKeyFunction, context);
     }
 
     public static Map<NodeRef<Expression>, Type> analyzeCallExpressionTypes(

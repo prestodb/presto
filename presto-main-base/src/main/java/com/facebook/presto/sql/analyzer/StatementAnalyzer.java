@@ -251,6 +251,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -2459,8 +2460,10 @@ class StatementAnalyzer
 
             List<Field> outputFields = fields.build();
 
+            UnaryOperator<String> nameKeyFunction = id -> metadata.normalizeIdentifier(session, name.getCatalogName(), id);
+
             Scope accessControlScope = Scope.builder()
-                    .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
+                    .withRelationType(RelationId.anonymous(), new RelationType(outputFields, nameKeyFunction))
                     .build();
             analyzeFiltersAndMasks(table, name, accessControlScope, columnsMetadata);
 
@@ -2479,7 +2482,7 @@ class StatementAnalyzer
                 }
             }
 
-            Scope tableScope = createAndAssignScope(table, scope, outputFields);
+            Scope tableScope = createAndAssignScope(table, scope, outputFields, nameKeyFunction);
 
             if (isMergeIntoStatement) {
                 // Set the target table row id field reference used to process the MERGE command.
@@ -2579,7 +2582,8 @@ class StatementAnalyzer
                 fields.add(field);
             }
 
-            return createAndAssignScope(table, scope, fields.build());
+            UnaryOperator<String> nameKeyFunction = id -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), id);
+            return createAndAssignScope(table, scope, fields.build(), nameKeyFunction);
         }
 
         private Scope processView(Table table, Optional<Scope> scope, QualifiedObjectName name, Optional<ViewDefinition> optionalView)
@@ -2647,12 +2651,13 @@ class StatementAnalyzer
 
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
 
+            UnaryOperator<String> viewNameKeyFunction = id -> metadata.normalizeIdentifier(session, name.getCatalogName(), id);
             Scope accessControlScope = Scope.builder()
-                    .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
+                    .withRelationType(RelationId.anonymous(), new RelationType(outputFields, viewNameKeyFunction))
                     .build();
             analyzeFiltersAndMasks(table, name, accessControlScope, outputFields);
 
-            return createAndAssignScope(table, scope, outputFields);
+            return createAndAssignScope(table, scope, outputFields, viewNameKeyFunction);
         }
 
         private Scope processMaterializedView(
@@ -3967,7 +3972,7 @@ class StatementAnalyzer
 
             analysis.setJoinUsing(node, new Analysis.JoinUsingAnalysis(leftJoinFields, rightJoinFields, leftFields.build(), rightFields.build()));
 
-            return createAndAssignScope(node, scope, new RelationType(outputs.build()));
+            return createAndAssignScope(node, scope, new RelationType(outputs.build(), left.getRelationType().getNameKeyFunction()));
         }
 
         private boolean isLateralRelation(Relation node)
@@ -4499,7 +4504,7 @@ class StatementAnalyzer
                 }
             }
 
-            return createAndAssignScope(node, scope, outputFields.build());
+            return createAndAssignScope(node, scope, outputFields.build(), sourceScope.getRelationType().getNameKeyFunction());
         }
 
         private Scope computeAndAssignOrderByScope(OrderBy node, Scope sourceScope, Scope outputScope)
@@ -5491,6 +5496,11 @@ class StatementAnalyzer
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, List<Field> fields)
         {
             return createAndAssignScope(node, parentScope, new RelationType(fields));
+        }
+
+        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, List<Field> fields, UnaryOperator<String> nameKeyFunction)
+        {
+            return createAndAssignScope(node, parentScope, new RelationType(fields, nameKeyFunction));
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, RelationType relationType)

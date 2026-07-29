@@ -138,7 +138,7 @@ public class IcebergTableProperties
                         ImmutableList.of(),
                         false,
                         value -> ((Collection<?>) value).stream()
-                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .map(name -> (String) name)
                                 .collect(toImmutableList()),
                         value -> value))
                 .add(stringProperty(
@@ -260,7 +260,7 @@ public class IcebergTableProperties
                         ImmutableList.of(),
                         false,
                         value -> ((Collection<?>) value).stream()
-                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .map(name -> (String) name)
                                 .collect(toImmutableList()),
                         value -> value)
                         .withAdditionalTypeHandler(VARCHAR, ImmutableList::of));

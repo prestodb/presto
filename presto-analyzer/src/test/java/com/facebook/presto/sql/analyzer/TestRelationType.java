@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -309,5 +310,126 @@ public class TestRelationType
         List<Field> result = relationType.resolveFields(QualifiedName.of("anything"));
         assertTrue(result.isEmpty());
         assertFalse(relationType.canResolve(QualifiedName.of("anything")));
+    }
+
+    @Test
+    public void testJoinWithSameCatalogCaseInsensitive()
+    {
+        // Both sides use the default (case-insensitive) function — single unified index.
+        Field left = Field.newQualified(NO_LOCATION, QualifiedName.of("a"), Optional.of("regionid"), BIGINT, false, Optional.empty(), Optional.empty(), false);
+        Field right = Field.newQualified(NO_LOCATION, QualifiedName.of("b"), Optional.of("name"), VARCHAR, false, Optional.empty(), Optional.empty(), false);
+
+        RelationType leftRel = new RelationType(ImmutableList.of(left));
+        RelationType rightRel = new RelationType(ImmutableList.of(right));
+        RelationType joined = leftRel.joinWith(rightRel);
+
+        // Both fields resolvable regardless of case
+        assertEquals(joined.resolveFields(QualifiedName.of("regionid")).size(), 1);
+        assertEquals(joined.resolveFields(QualifiedName.of("REGIONID")).size(), 1);
+        assertEquals(joined.resolveFields(QualifiedName.of("RegionId")).size(), 1);
+        assertEquals(joined.resolveFields(QualifiedName.of("name")).size(), 1);
+        assertEquals(joined.resolveFields(QualifiedName.of("NAME")).size(), 1);
+    }
+
+    @Test
+    public void testJoinWithSameCatalogCaseSensitive()
+    {
+        // Both sides use the identity (case-sensitive) function.
+        UnaryOperator<String> caseSensitive = UnaryOperator.identity();
+
+        Field left = Field.newQualified(NO_LOCATION, QualifiedName.of("a"), Optional.of("RegionId"), BIGINT, false, Optional.empty(), Optional.empty(), false);
+        Field right = Field.newQualified(NO_LOCATION, QualifiedName.of("b"), Optional.of("Name"), VARCHAR, false, Optional.empty(), Optional.empty(), false);
+
+        RelationType leftRel = new RelationType(ImmutableList.of(left), caseSensitive);
+        RelationType rightRel = new RelationType(ImmutableList.of(right), caseSensitive);
+        RelationType joined = leftRel.joinWith(rightRel);
+
+        // Exact case matches
+        assertEquals(joined.resolveFields(QualifiedName.of("RegionId")).size(), 1);
+        assertEquals(joined.resolveFields(QualifiedName.of("Name")).size(), 1);
+
+        // Wrong case — no match in case-sensitive mode
+        assertTrue(joined.resolveFields(QualifiedName.of("regionid")).isEmpty());
+        assertTrue(joined.resolveFields(QualifiedName.of("name")).isEmpty());
+        assertTrue(joined.resolveFields(QualifiedName.of("REGIONID")).isEmpty());
+    }
+
+    @Test
+    public void testJoinWithCrossCatalogCaseSensitiveLeftCaseInsensitiveRight()
+    {
+        // Left catalog: case-sensitive (identity normalizer)
+        // Right catalog: case-insensitive (toLowerCase normalizer)
+        UnaryOperator<String> caseSensitive = UnaryOperator.identity();
+        UnaryOperator<String> caseInsensitive = s -> s.toLowerCase(java.util.Locale.ENGLISH);
+
+        Field leftField = Field.newQualified(NO_LOCATION, QualifiedName.of("cs_tbl"), Optional.of("RegionId"), BIGINT, false, Optional.empty(), Optional.empty(), false);
+        Field rightField = Field.newQualified(NO_LOCATION, QualifiedName.of("ci_tbl"), Optional.of("name"), VARCHAR, false, Optional.empty(), Optional.empty(), false);
+
+        RelationType leftRel = new RelationType(ImmutableList.of(leftField), caseSensitive);
+        RelationType rightRel = new RelationType(ImmutableList.of(rightField), caseInsensitive);
+        RelationType joined = leftRel.joinWith(rightRel);
+
+        // Left field: exact-case "RegionId" → found only in left index (identity key "RegionId").
+        List<Field> exactMatch = joined.resolveFields(QualifiedName.of("RegionId"));
+        assertEquals(exactMatch.size(), 1);
+        assertSame(exactMatch.get(0), leftField);
+
+        assertTrue(joined.resolveFields(QualifiedName.of("regionid")).isEmpty());
+        assertTrue(joined.resolveFields(QualifiedName.of("REGIONID")).isEmpty());
+
+        // Right field: any case of "name" resolves via the right (case-insensitive) index.
+        List<Field> lowerMatch = joined.resolveFields(QualifiedName.of("name"));
+        assertEquals(lowerMatch.size(), 1);
+        assertSame(lowerMatch.get(0), rightField);
+
+        List<Field> upperMatch = joined.resolveFields(QualifiedName.of("NAME"));
+        assertEquals(upperMatch.size(), 1);
+        assertSame(upperMatch.get(0), rightField);
+
+        // "Name" (mixed) — left index (identity) key "Name" → no left field named "Name".
+        // Right index (toLowerCase) key "name" → matches rightField.
+        List<Field> mixedMatch = joined.resolveFields(QualifiedName.of("Name"));
+        assertEquals(mixedMatch.size(), 1);
+        assertSame(mixedMatch.get(0), rightField);
+    }
+
+    @Test
+    public void testJoinWithCrossCatalogAmbiguousResolution()
+    {
+        // When left and right have columns whose normalized forms collide, resolveFields
+        // returns both — the caller (StatementAnalyzer) is responsible for raising AMBIGUOUS_ATTRIBUTE.
+        UnaryOperator<String> caseSensitive = UnaryOperator.identity();
+        UnaryOperator<String> caseInsensitive = s -> s.toLowerCase(java.util.Locale.ENGLISH);
+
+        // Left: "RegionId" stored under key "RegionId" (identity).
+        // Right: "regionid" stored under key "regionid" (toLowerCase).
+        // Query "RegionId": left key = "RegionId" → hits left. Right key = "regionid" → hits right.
+        // Both are returned — this is the correct ambiguous-column behaviour.
+        Field leftField = Field.newQualified(NO_LOCATION, QualifiedName.of("cs_tbl"), Optional.of("RegionId"), BIGINT, false, Optional.empty(), Optional.empty(), false);
+        Field rightField = Field.newQualified(NO_LOCATION, QualifiedName.of("ci_tbl"), Optional.of("regionid"), VARCHAR, false, Optional.empty(), Optional.empty(), false);
+
+        RelationType leftRel = new RelationType(ImmutableList.of(leftField), caseSensitive);
+        RelationType rightRel = new RelationType(ImmutableList.of(rightField), caseInsensitive);
+        RelationType joined = leftRel.joinWith(rightRel);
+
+        // "RegionId": identity → "RegionId" hits left; toLowerCase → "regionid" hits right. Both returned.
+        List<Field> both = joined.resolveFields(QualifiedName.of("RegionId"));
+        assertEquals(both.size(), 2);
+        assertTrue(both.contains(leftField));
+        assertTrue(both.contains(rightField));
+
+        // "regionid": identity → "regionid" misses left (stored as "RegionId"); toLowerCase → "regionid" hits right.
+        List<Field> rightOnly = joined.resolveFields(QualifiedName.of("regionid"));
+        assertEquals(rightOnly.size(), 1);
+        assertSame(rightOnly.get(0), rightField);
+
+        // Table-qualified: exact alias resolves unambiguously.
+        List<Field> qualifiedLeft = joined.resolveFields(QualifiedName.of("cs_tbl", "RegionId"));
+        assertEquals(qualifiedLeft.size(), 1);
+        assertSame(qualifiedLeft.get(0), leftField);
+
+        List<Field> qualifiedRight = joined.resolveFields(QualifiedName.of("ci_tbl", "regionid"));
+        assertEquals(qualifiedRight.size(), 1);
+        assertSame(qualifiedRight.get(0), rightField);
     }
 }
