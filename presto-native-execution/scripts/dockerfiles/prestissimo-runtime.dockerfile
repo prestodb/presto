@@ -54,7 +54,7 @@ RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
     EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} ${COMPILER_LAUNCHER_FLAGS}" \
     NUM_THREADS=${NUM_THREADS} make --directory="/prestissimo/" cmake-and-build BUILD_TYPE=${BUILD_TYPE} BUILD_DIR=${BUILD_DIR} BUILD_BASE_DIR=${BUILD_BASE_DIR} && \
     if [ -n "${SCCACHE_BUCKET}" ] && command -v sccache &>/dev/null; then (sccache --stop-server && sccache --show-stats) || true ; echo "===== sccache server log (/tmp/sccache-server.log) ====="; cat /tmp/sccache-server.log 2>/dev/null || true ; else ccache -sz -v; fi'
-RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | grep "not found" | grep -v libcuda) && \
+RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | grep "not found" | grep -vE "libcuda|libnvidia-ml") && \
     LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | awk 'NF == 4 { system("cp " $3 " /runtime-libraries") }'
 
 RUN cp -rf /usr/local/lib/ucx /runtime-libraries/ucx
