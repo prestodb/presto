@@ -241,6 +241,21 @@ TEST_F(ConfigTest, asyncCacheNumShards) {
   ASSERT_EQ(config.asyncCacheNumShards(), 8);
 }
 
+TEST_F(ConfigTest, gpuStatusUpdateIntervalMs) {
+  SystemConfig config;
+  init(config, {});
+  // Default is 1s.
+  ASSERT_EQ(config.gpuStatusUpdateIntervalMs(), 1'000);
+
+  // Custom value (e.g. faster sampling).
+  init(config, {{std::string(SystemConfig::kGpuStatusUpdateIntervalMs), "250"}});
+  ASSERT_EQ(config.gpuStatusUpdateIntervalMs(), 250);
+
+  // 0 disables the GPU sampling task.
+  init(config, {{std::string(SystemConfig::kGpuStatusUpdateIntervalMs), "0"}});
+  ASSERT_EQ(config.gpuStatusUpdateIntervalMs(), 0);
+}
+
 TEST_F(ConfigTest, asyncCacheSsdFlushThresholdBytes) {
   SystemConfig config;
   init(config, {});

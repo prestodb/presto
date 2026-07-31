@@ -13,6 +13,8 @@
  */
 #pragma once
 
+#include <atomic>
+
 #include <folly/SocketAddress.h>
 #include <folly/Synchronized.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
@@ -259,6 +261,11 @@ class PrestoServer {
 
   void populateMemAndCPUInfo();
 
+  // Samples GPU device/pool/utilization metrics and stores them into the
+  // gpu*_ atomics. Runs on the periodic-task executor (never on the heartbeat
+  // path). No-op unless built with cuDF and enabled at runtime.
+  void updateGpuStatusCache();
+
   // Periodically yield tasks if there are tasks queued.
   void yieldTasks();
 
@@ -352,6 +359,17 @@ class PrestoServer {
   // delay.
   folly::Synchronized<std::unique_ptr<protocol::MemoryInfo>> memoryInfo_;
   CPUMon cpuMon_;
+
+  // Cached GPU metrics. Sampled off the serving path by the periodic
+  // 'update_gpu_status' task (updateGpuStatusCache) and read by
+  // fetchNodeStatus(). This keeps the synchronous CUDA/NVML probes off the
+  // heartbeat path: fetchNodeStatus() feeds the RM heartbeat, and a stalled
+  // probe there can get the worker declared dead. -1 = unavailable.
+  std::atomic<int64_t> gpuMemoryUsedBytes_{-1};
+  std::atomic<int64_t> gpuMemoryCapacityBytes_{-1};
+  std::atomic<int64_t> gpuPoolAllocatedBytes_{-1};
+  std::atomic<int64_t> gpuUtilizationPercent_{-1};
+  std::atomic<int64_t> gpuMemoryUtilizationPercent_{-1};
 
   std::string environment_;
   std::string nodeVersion_;
