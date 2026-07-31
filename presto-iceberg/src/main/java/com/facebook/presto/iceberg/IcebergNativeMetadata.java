@@ -94,6 +94,7 @@ import static com.google.common.base.Throwables.getRootCause;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -108,6 +109,7 @@ public class IcebergNativeMetadata
     private final Optional<String> warehouseDataDir;
     private final IcebergNativeCatalogFactory catalogFactory;
     private final CatalogType catalogType;
+    private final boolean caseSensitiveIdentifierMatching;
     private final ConcurrentMap<SchemaTableName, View> icebergViews = new ConcurrentHashMap<>();
 
     public IcebergNativeMetadata(
@@ -125,13 +127,15 @@ public class IcebergNativeMetadata
             StatisticsFileCache statisticsFileCache,
             IcebergTableProperties tableProperties,
             IsolationLevel isolationLevel,
-            boolean autoCommitContext)
+            boolean autoCommitContext,
+            boolean caseSensitiveNameMatching)
     {
         super(typeManager, procedureRegistry, functionResolution, rowExpressionService, commitTaskCodec, columnMappingsCodec, schemaTableNamesCodec,
                 nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties, isolationLevel, autoCommitContext);
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
         this.warehouseDataDir = Optional.ofNullable(catalogFactory.getCatalogWarehouseDataDir());
+        this.caseSensitiveIdentifierMatching = caseSensitiveNameMatching;
     }
 
     @Override
@@ -428,7 +432,7 @@ public class IcebergNativeMetadata
 
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
 
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()), id -> normalizeIdentifier(session, id));
         FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
 
         try {
@@ -456,7 +460,7 @@ public class IcebergNativeMetadata
 
         Table icebergTable = getIcebergTable(session, schemaTableName);
         ReplaceSortOrder replaceSortOrder = icebergTable.replaceSortOrder();
-        SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
+        SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()), id -> normalizeIdentifier(session, id));
         List<SortField> sortFields = getSupportedSortFields(icebergTable.schema(), sortOrder);
         for (SortField sortField : sortFields) {
             if (sortField.getSortOrder().isAscending()) {
@@ -599,5 +603,11 @@ public class IcebergNativeMetadata
         viewBuilder.createOrReplace();
 
         icebergViews.remove(viewName);
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveIdentifierMatching ? identifier : identifier.toLowerCase(ENGLISH);
     }
 }

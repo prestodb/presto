@@ -180,7 +180,8 @@ public class RewriteDataFilesProcedure
                             "Use either zorder function alone or regular column names, but not both.");
                 }
 
-                SortOrder specifiedSortOrder = parseSortFields(icebergTable.schema(), nonZOrderFields);
+                SortOrder specifiedSortOrder = parseSortFields(icebergTable.schema(), nonZOrderFields,
+                        id -> procedureContext.getMetadata().normalizeIdentifier(session, id));
                 if (specifiedSortOrder.satisfies(sortOrder)) {
                     // If the specified sort order satisfies the target table's internal sort order, use the specified sort order
                     sortOrder = specifiedSortOrder;

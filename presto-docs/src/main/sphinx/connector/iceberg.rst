@@ -448,6 +448,10 @@ Property Name                                           Description             
                                                         ``256MB``, ``1GB``). Supported units are: ``B`` (bytes),
                                                         ``kB`` (kilobytes), ``MB`` (megabytes), ``GB`` (gigabytes),
                                                         ``TB`` (terabytes), ``PB`` (petabytes).
+
+``case-sensitive-name-matching``                        Enable case-sensitive identifier matching for the connector.  ``false``                          Yes
+                                                        ``case-sensitive-name-matching=true`` is not supported for
+                                                        ``iceberg.catalog.type=HIVE``.
 ======================================================= ============================================================= ================================== =================== =============================================
 
 Table Properties

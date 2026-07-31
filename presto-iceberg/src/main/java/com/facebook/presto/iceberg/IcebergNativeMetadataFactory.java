@@ -48,6 +48,7 @@ public class IcebergNativeMetadataFactory
     final FilterStatsCalculatorService filterStatsCalculatorService;
     final StatisticsFileCache statisticsFileCache;
     final IcebergTableProperties tableProperties;
+    final boolean caseSensitiveNameMatching;
 
     @Inject
     public IcebergNativeMetadataFactory(
@@ -78,6 +79,7 @@ public class IcebergNativeMetadataFactory
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.caseSensitiveNameMatching = config.isCaseSensitiveNameMatching();
     }
 
     public IcebergTransactionMetadata create()
@@ -89,6 +91,7 @@ public class IcebergNativeMetadataFactory
     {
         return new IcebergNativeMetadata(catalogFactory, typeManager, procedureRegistry, functionResolution,
                 rowExpressionService, commitTaskCodec, columnMappingsCodec, schemaTableNamesCodec, catalogType, nodeVersion,
-                filterStatsCalculatorService, statisticsFileCache, tableProperties, isolationLevel, autoCommitContext);
+                filterStatsCalculatorService, statisticsFileCache, tableProperties, isolationLevel, autoCommitContext,
+                caseSensitiveNameMatching);
     }
 }

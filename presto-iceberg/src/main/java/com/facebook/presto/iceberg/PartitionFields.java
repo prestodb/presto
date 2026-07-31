@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -42,23 +43,26 @@ import static org.apache.iceberg.expressions.Expressions.year;
 
 public final class PartitionFields
 {
-    private static final String NAME = "[a-z_][a-z0-9_]*";
-    private static final String FUNCTION_NAME = "\\((" + NAME + ")\\)";
-    private static final String FUNCTION_NAME_INT = "\\((" + NAME + "), *(\\d+)\\)";
-
+    // Column identifier: unquoted (any case) or double-quoted (e.g. "MyCol")
     private static final String UNQUOTED_IDENTIFIER = "[a-zA-Z_][a-zA-Z0-9_]*";
     private static final String QUOTED_IDENTIFIER = "\"(?:\"\"|[^\"])*\"";
+    // IDENTIFIER is a single capture group matching either form; used by both partition and sort parsing
     public static final String IDENTIFIER = "(" + UNQUOTED_IDENTIFIER + "|" + QUOTED_IDENTIFIER + ")";
     private static final Pattern UNQUOTED_IDENTIFIER_PATTERN = Pattern.compile(UNQUOTED_IDENTIFIER);
     private static final Pattern QUOTED_IDENTIFIER_PATTERN = Pattern.compile(QUOTED_IDENTIFIER);
 
-    private static final Pattern IDENTITY_PATTERN = Pattern.compile(NAME);
-    private static final Pattern YEAR_PATTERN = Pattern.compile("year" + FUNCTION_NAME);
-    private static final Pattern MONTH_PATTERN = Pattern.compile("month" + FUNCTION_NAME);
-    private static final Pattern DAY_PATTERN = Pattern.compile("day" + FUNCTION_NAME);
-    private static final Pattern HOUR_PATTERN = Pattern.compile("hour" + FUNCTION_NAME);
-    private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket" + FUNCTION_NAME_INT);
-    private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate" + FUNCTION_NAME_INT);
+    // Transform function patterns: case-insensitive keyword + IDENTIFIER column argument
+    private static final String FUNCTION_NAME = "\\(" + IDENTIFIER + "\\)";
+    private static final String FUNCTION_NAME_INT = "\\(" + IDENTIFIER + ", *(\\d+)\\)";
+
+    // Identity: bare or double-quoted column name; transforms: case-insensitive keyword + column
+    private static final Pattern IDENTITY_PATTERN = Pattern.compile(IDENTIFIER);
+    private static final Pattern YEAR_PATTERN = Pattern.compile("(?i:year)" + FUNCTION_NAME);
+    private static final Pattern MONTH_PATTERN = Pattern.compile("(?i:month)" + FUNCTION_NAME);
+    private static final Pattern DAY_PATTERN = Pattern.compile("(?i:day)" + FUNCTION_NAME);
+    private static final Pattern HOUR_PATTERN = Pattern.compile("(?i:hour)" + FUNCTION_NAME);
+    private static final Pattern BUCKET_PATTERN = Pattern.compile("(?i:bucket)" + FUNCTION_NAME_INT);
+    private static final Pattern TRUNCATE_PATTERN = Pattern.compile("(?i:truncate)" + FUNCTION_NAME_INT);
 
     private static final Pattern COLUMN_BUCKET_PATTERN = Pattern.compile("bucket\\((\\d+)\\)");
     private static final Pattern COLUMN_TRUNCATE_PATTERN = Pattern.compile("truncate\\((\\d+)\\)");
@@ -69,17 +73,27 @@ public final class PartitionFields
 
     public static PartitionSpec parsePartitionFields(Schema schema, List<String> fields)
     {
-        return parsePartitionFields(schema, fields, null);
+        return parsePartitionFields(schema, fields, null, s -> s.toLowerCase(ENGLISH));
+    }
+
+    public static PartitionSpec parsePartitionFields(Schema schema, List<String> fields, UnaryOperator<String> identifierNormalizer)
+    {
+        return parsePartitionFields(schema, fields, null, identifierNormalizer);
     }
 
     public static PartitionSpec parsePartitionFields(Schema schema, List<String> fields, @Nullable Integer specId)
+    {
+        return parsePartitionFields(schema, fields, specId, s -> s.toLowerCase(ENGLISH));
+    }
+
+    public static PartitionSpec parsePartitionFields(Schema schema, List<String> fields, @Nullable Integer specId, UnaryOperator<String> identifierNormalizer)
     {
         PartitionSpec.Builder builder = Optional.ofNullable(specId)
                 .map(id -> PartitionSpec.builderFor(schema).withSpecId(id))
                 .orElseGet(() -> PartitionSpec.builderFor(schema));
 
         for (String field : fields) {
-            buildPartitionField(builder, field);
+            buildPartitionField(builder, field, identifierNormalizer);
         }
         return builder.build();
     }
@@ -99,15 +113,23 @@ public final class PartitionFields
     @VisibleForTesting
     static void buildPartitionField(PartitionSpec.Builder builder, String field)
     {
+        buildPartitionField(builder, field, s -> s.toLowerCase(ENGLISH));
+    }
+
+    @VisibleForTesting
+    static void buildPartitionField(PartitionSpec.Builder builder, String field, UnaryOperator<String> identifierNormalizer)
+    {
+        // group(1) is the column token which may be a double-quoted identifier like "MyCol";
+        // fromIdentifierToColumn strips the quotes and applies identifierNormalizer to the bare name.
         @SuppressWarnings("PointlessBooleanExpression")
         boolean matched = false ||
-                tryMatch(field, IDENTITY_PATTERN, match -> builder.identity(match.group())) ||
-                tryMatch(field, YEAR_PATTERN, match -> builder.year(match.group(1))) ||
-                tryMatch(field, MONTH_PATTERN, match -> builder.month(match.group(1))) ||
-                tryMatch(field, DAY_PATTERN, match -> builder.day(match.group(1))) ||
-                tryMatch(field, HOUR_PATTERN, match -> builder.hour(match.group(1))) ||
-                tryMatch(field, BUCKET_PATTERN, match -> builder.bucket(match.group(1), parseInt(match.group(2)))) ||
-                tryMatch(field, TRUNCATE_PATTERN, match -> builder.truncate(match.group(1), parseInt(match.group(2))));
+                tryMatch(field, IDENTITY_PATTERN, match -> builder.identity(fromIdentifierToColumn(match.group(1), identifierNormalizer))) ||
+                tryMatch(field, YEAR_PATTERN, match -> builder.year(fromIdentifierToColumn(match.group(1), identifierNormalizer))) ||
+                tryMatch(field, MONTH_PATTERN, match -> builder.month(fromIdentifierToColumn(match.group(1), identifierNormalizer))) ||
+                tryMatch(field, DAY_PATTERN, match -> builder.day(fromIdentifierToColumn(match.group(1), identifierNormalizer))) ||
+                tryMatch(field, HOUR_PATTERN, match -> builder.hour(fromIdentifierToColumn(match.group(1), identifierNormalizer))) ||
+                tryMatch(field, BUCKET_PATTERN, match -> builder.bucket(fromIdentifierToColumn(match.group(1), identifierNormalizer), parseInt(match.group(2)))) ||
+                tryMatch(field, TRUNCATE_PATTERN, match -> builder.truncate(fromIdentifierToColumn(match.group(1), identifierNormalizer), parseInt(match.group(2))));
         if (!matched) {
             throw new IllegalArgumentException("Invalid partition field declaration: " + field);
         }
@@ -287,9 +309,14 @@ public final class PartitionFields
 
     public static String fromIdentifierToColumn(String identifier)
     {
+        return fromIdentifierToColumn(identifier, s -> s.toLowerCase(ENGLISH));
+    }
+
+    public static String fromIdentifierToColumn(String identifier, UnaryOperator<String> identifierNormalizer)
+    {
         if (QUOTED_IDENTIFIER_PATTERN.matcher(identifier).matches()) {
-            return identifier.substring(1, identifier.length() - 1).replace("\"\"", "\"").toLowerCase(ENGLISH);
+            return identifierNormalizer.apply(identifier.substring(1, identifier.length() - 1).replace("\"\"", "\""));
         }
-        return identifier.toLowerCase(ENGLISH);
+        return identifierNormalizer.apply(identifier);
     }
 }
