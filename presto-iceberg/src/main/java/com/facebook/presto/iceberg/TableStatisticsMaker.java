@@ -107,6 +107,7 @@ import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.statistics.KllHistogram.isKllHistogramSupportedType;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateAndSetTableSize;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.formatIdentifier;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.getTotalRecords;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.HISTOGRAM;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
@@ -122,7 +123,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.iceberg.SnapshotSummary.TOTAL_RECORDS_PROP;
 
 public class TableStatisticsMaker
 {
@@ -225,10 +225,12 @@ public class TableStatisticsMaker
                     .setRowCount(Estimate.of(0))
                     .build();
         }
-        // the total record count for the whole table
+        // the total record count for the whole table: prefer the O(1) snapshot summary,
+        // and fall back to a full manifest scan only when the summary lacks total-records
         Optional<Long> totalRecordCount = Optional.of(intersection)
                 .filter(domain -> !domain.isAll())
-                .map(domain -> getDataTableSummary(tableHandle, ImmutableList.of(), TupleDomain.all(), idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields).getRecordCount());
+                .map(domain -> getTotalRecords(icebergTable.snapshot(tableHandle.getIcebergTableName().getSnapshotId().get()))
+                        .orElseGet(() -> getDataTableSummary(tableHandle, ImmutableList.of(), TupleDomain.all(), idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields).getRecordCount()));
 
         double recordCount = summary.getRecordCount();
         TableStatistics.Builder result = TableStatistics.builder();
@@ -576,12 +578,9 @@ public class TableStatisticsMaker
                     long firstDiff = abs(target.timestampMillis() - firstSnap.timestampMillis());
                     long secondDiff = abs(target.timestampMillis() - secondSnap.timestampMillis());
 
-                    // check if total-record exists
-                    Optional<Long> targetTotalRecords = Optional.ofNullable(target.summary().get(TOTAL_RECORDS_PROP)).map(Long::parseLong);
-                    Optional<Long> firstTotalRecords = Optional.ofNullable(firstSnap.summary().get(TOTAL_RECORDS_PROP))
-                            .map(Long::parseLong);
-                    Optional<Long> secondTotalRecords = Optional.ofNullable(secondSnap.summary().get(TOTAL_RECORDS_PROP))
-                            .map(Long::parseLong);
+                    Optional<Long> targetTotalRecords = getTotalRecords(target);
+                    Optional<Long> firstTotalRecords = getTotalRecords(firstSnap);
+                    Optional<Long> secondTotalRecords = getTotalRecords(secondSnap);
 
                     if (targetTotalRecords.isPresent() && firstTotalRecords.isPresent() && secondTotalRecords.isPresent()) {
                         long targetTotal = targetTotalRecords.get();
