@@ -1482,7 +1482,7 @@ That is, for a random variable :math:`x`, they approximate
 
 where :math:`f(x)` is the partial density function of :math:`x`.
 
-.. function:: differential_entropy(sample_size, x)
+.. function:: differential_entropy(sample_size, x) -> double
 
     Returns the approximate log-2 differential entropy from a random variable's sample outcomes. The function internally
     creates a reservoir (see [Black2015]_), then calculates the
@@ -1509,7 +1509,7 @@ where :math:`f(x)` is the partial density function of :math:`x`.
         or ``(bucket_count, x, 1.0, "fixed_histogram_jacknife", min, max)``,
         as they have better convergence.
 
-.. function:: differential_entropy(sample_size, x, weight)
+.. function:: differential_entropy(sample_size, x, weight) -> double
 
     Returns the approximate log-2 differential entropy from a random variable's sample outcomes. The function
     internally creates a weighted reservoir (see [Efraimidis2006]_), then calculates the

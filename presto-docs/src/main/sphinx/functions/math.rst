@@ -40,7 +40,7 @@ Mathematical Functions
 
         SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0])); -- 1.0
 
-.. function:: cosine_similarity(x, y) -> double
+.. function:: cosine_similarity(array(double), array(double)) -> double
 
     Returns the cosine similarity between the arrays ``x`` and ``y``.
     If the input arrays have different sizes or if the input arrays contain a null, the function throws user error::
