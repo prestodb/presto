@@ -2012,8 +2012,8 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       gpuPoolAllocatedBytes_.load(std::memory_order_relaxed);
   const int64_t gpuUtilizationPercent =
       gpuUtilizationPercent_.load(std::memory_order_relaxed);
-  const int64_t gpuMemoryUtilizationPercent =
-      gpuMemoryUtilizationPercent_.load(std::memory_order_relaxed);
+  const int64_t gpuMemoryBandwidthPercent =
+      gpuMemoryBandwidthPercent_.load(std::memory_order_relaxed);
 
   protocol::NodeStatus nodeStatus{
       nodeId_,
@@ -2036,7 +2036,7 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       gpuMemoryCapacityBytes,
       gpuPoolAllocatedBytes,
       gpuUtilizationPercent,
-      gpuMemoryUtilizationPercent};
+      gpuMemoryBandwidthPercent};
 
   return nodeStatus;
 }
@@ -2082,7 +2082,7 @@ void PrestoServer::updateGpuStatusCache() {
         nvmlDeviceGetUtilizationRates(nvmlDevice, &util) == NVML_SUCCESS) {
       gpuUtilizationPercent_.store(
           static_cast<int64_t>(util.gpu), std::memory_order_relaxed);
-      gpuMemoryUtilizationPercent_.store(
+      gpuMemoryBandwidthPercent_.store(
           static_cast<int64_t>(util.memory), std::memory_order_relaxed);
     }
   }

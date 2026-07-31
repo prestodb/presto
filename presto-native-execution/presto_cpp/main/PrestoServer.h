@@ -369,7 +369,7 @@ class PrestoServer {
   std::atomic<int64_t> gpuMemoryCapacityBytes_{-1};
   std::atomic<int64_t> gpuPoolAllocatedBytes_{-1};
   std::atomic<int64_t> gpuUtilizationPercent_{-1};
-  std::atomic<int64_t> gpuMemoryUtilizationPercent_{-1};
+  std::atomic<int64_t> gpuMemoryBandwidthPercent_{-1};
 
   std::string environment_;
   std::string nodeVersion_;
