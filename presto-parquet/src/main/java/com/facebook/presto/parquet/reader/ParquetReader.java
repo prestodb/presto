@@ -80,6 +80,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.Chars.isCharType;
+import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
@@ -88,6 +90,8 @@ import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
+import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.facebook.presto.parquet.ParquetValidationUtils.validateParquet;
 import static com.facebook.presto.parquet.reader.ListColumnReader.calculateCollectionOffsets;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -634,6 +638,11 @@ public class ParquetReader
                 newBlock = rewriteIntegerArrayBlock((IntArrayBlock) columnChunk.getBlock(), outputType);
             }
         }
+        else if (physicalDataType == PrimitiveTypeName.DOUBLE && (isVarcharType(outputType) || isCharType(outputType))) {
+            if (columnChunk.getBlock() instanceof LongArrayBlock) {
+                newBlock = rewriteDoubleArrayBlockToVarchar((LongArrayBlock) columnChunk.getBlock(), outputType);
+            }
+        }
 
         if (newBlock != null) {
             return new ColumnChunk(newBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
@@ -668,6 +677,25 @@ public class ParquetReader
             }
             else {
                 targetType.writeLong(newBlockBuilder, longArrayBlock.getLong(position));
+            }
+        }
+
+        return newBlockBuilder.build();
+    }
+
+    private static Block rewriteDoubleArrayBlockToVarchar(LongArrayBlock longArrayBlock, Type targetType)
+    {
+        boolean varchar = isVarcharType(targetType);
+        int positionCount = longArrayBlock.getPositionCount();
+        BlockBuilder newBlockBuilder = targetType.createBlockBuilder(null, positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            if (longArrayBlock.isNull(position)) {
+                newBlockBuilder.appendNull();
+            }
+            else {
+                double value = Double.longBitsToDouble(longArrayBlock.getLong(position));
+                Slice slice = utf8Slice(String.valueOf(value));
+                targetType.writeSlice(newBlockBuilder, varchar ? truncateToLength(slice, targetType) : truncateToLengthAndTrimSpaces(slice, targetType));
             }
         }
 
