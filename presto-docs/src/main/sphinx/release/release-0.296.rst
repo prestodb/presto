@@ -36,7 +36,7 @@ _______________
 * Add ``enable-java-cluster-query-retry`` configuration property in ``router-scheduler.properties`` to retry queries on ``router-java-url`` when they fail on ``router-native-url``. `#25720 <https://github.com/prestodb/presto/pull/25720>`_
 * Add :func:`array_to_map_int_keys` function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
 * Add :func:`map_int_keys_to_array` function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
-* Add :func:`t_cdf` and :func:`inverse_t_cdf` functions for Student's t-distribution calculations. `#26363 <https://github.com/prestodb/presto/pull/26363>`_
+* Add :func:`!t_cdf` and :func:`!inverse_t_cdf` functions for Student's t-distribution calculations. `#26363 <https://github.com/prestodb/presto/pull/26363>`_
 * Add support for distributed execution of procedures. `#26373 <https://github.com/prestodb/presto/pull/26373>`_
 * Add support for :doc:`Materialized Views </admin/materialized-views>`. `#26492 <https://github.com/prestodb/presto/pull/26492>`_
 * Update encoding of refresh token secret key from HMAC to AES. `#26487 <https://github.com/prestodb/presto/pull/26487>`_
