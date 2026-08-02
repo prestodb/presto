@@ -11,6 +11,7 @@
 # limitations under the License.
 add_library(
   presto_connectors
+  DeltaPrestoToVeloxConnector.cpp
   IcebergPrestoToVeloxConnector.cpp
   PrestoToVeloxConnectorUtils.cpp
   HivePrestoToVeloxConnector.cpp
