@@ -655,12 +655,12 @@ public class IcebergHiveMetadata
 
         List<Column> partitionColumns = table.getPartitionColumns();
         List<String> partitionColumnNames = partitionColumns.stream()
-                .map(Column::getName)
+                .map(column -> column.getName().toLowerCase(ENGLISH))
                 .collect(toImmutableList());
         List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table);
         Map<String, Type> columnTypes = hiveColumnHandles.stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
-                .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
+                .collect(toImmutableMap(column -> column.getName().toLowerCase(ENGLISH), column -> column.getHiveType().getType(typeManager)));
 
         Map<List<String>, ComputedStatistics> computedStatisticsMap = createComputedStatisticsToPartitionMap(computedStatistics, partitionColumnNames, columnTypes);
 

@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg.rest;
+package com.facebook.presto.iceberg.hive;
 
-import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.presto.iceberg.AbstractTestIcebergAnalyzeUppercaseColumns;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
@@ -24,32 +23,25 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Optional;
 
-import static com.facebook.presto.iceberg.CatalogType.REST;
-import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
-import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
+import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
 /**
- * E2E test verifying that ANALYZE succeeds on Iceberg tables whose schemas were written
- * by an external engine (e.g. Spark on Hadoop) with uppercase column names, then
- * registered into a Presto REST catalog via the {@code register_table} procedure.
- * Covers both unpartitioned and identity-partitioned tables; the partitioned variant
- * exercises mixed-case partition values (all-upper, all-lower, mixed).
+ * E2E tests verifying that ANALYZE succeeds on Iceberg tables registered into a Presto
+ * Hive-metastore catalog whose schemas were written by an external engine (e.g. Spark)
+ * with uppercase column names — for both unpartitioned and identity-partitioned tables.
  */
 @Test
-public class TestIcebergRestAnalyzeUppercaseColumns
+public class TestIcebergHiveAnalyzeUppercaseColumns
         extends AbstractTestIcebergAnalyzeUppercaseColumns
 {
-    private static final String TABLE_NAME = "test_rest_uppercase_columns";
-    private static final String PARTITIONED_TABLE = "test_rest_uppercase_columns_partitioned";
+    private static final String TABLE_NAME = "test_hive_uppercase_columns";
+    private static final String PARTITIONED_TABLE_NAME = "test_hive_uppercase_columns_partitioned";
 
-    private File restWarehouseLocation;
+    /** Separate temp dir used as the "external" Hadoop warehouse (simulates Spark). */
     private File hadoopWarehouseLocation;
-    private TestingHttpServer restServer;
-    private String serverUri;
 
     @Override
     protected String getTableName()
@@ -60,7 +52,7 @@ public class TestIcebergRestAnalyzeUppercaseColumns
     @Override
     protected String getPartitionedTableName()
     {
-        return PARTITIONED_TABLE;
+        return PARTITIONED_TABLE_NAME;
     }
 
     @Override
@@ -73,20 +65,14 @@ public class TestIcebergRestAnalyzeUppercaseColumns
     public void init()
             throws Exception
     {
-        // Separate temp dirs: REST catalog warehouse vs. the "external" Hadoop warehouse
-        restWarehouseLocation = Files.newTemporaryFolder();
         hadoopWarehouseLocation = Files.newTemporaryFolder();
-
-        restServer = getRestServer(restWarehouseLocation.getAbsolutePath());
-        restServer.start();
-        serverUri = restServer.getBaseUrl().toString();
 
         super.init();
         assertQuerySucceeds("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
 
         Catalog hadoopCatalog = loadHadoopCatalog();
         setupUnpartitionedTable(hadoopCatalog, TABLE_NAME);
-        setupPartitionedTable(hadoopCatalog, PARTITIONED_TABLE);
+        setupPartitionedTable(hadoopCatalog, PARTITIONED_TABLE_NAME);
     }
 
     @AfterClass
@@ -94,11 +80,7 @@ public class TestIcebergRestAnalyzeUppercaseColumns
             throws Exception
     {
         unregisterTableQuietly(TABLE_NAME);
-        unregisterTableQuietly(PARTITIONED_TABLE);
-        if (restServer != null) {
-            restServer.stop();
-        }
-        deleteRecursively(restWarehouseLocation.toPath(), ALLOW_INSECURE);
+        unregisterTableQuietly(PARTITIONED_TABLE_NAME);
         deleteRecursively(hadoopWarehouseLocation.toPath(), ALLOW_INSECURE);
     }
 
@@ -107,9 +89,8 @@ public class TestIcebergRestAnalyzeUppercaseColumns
             throws Exception
     {
         return IcebergQueryRunner.builder()
-                .setCatalogType(REST)
-                .setExtraConnectorProperties(restConnectorProperties(serverUri))
-                .setDataDirectory(Optional.of(restWarehouseLocation.toPath()))
+                .setCatalogType(HIVE)
+                .setCreateTpchTables(false)
                 .build()
                 .getQueryRunner();
     }
