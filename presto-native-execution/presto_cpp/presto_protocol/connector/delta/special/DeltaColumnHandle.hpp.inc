@@ -18,8 +18,10 @@
 namespace facebook::presto::protocol::delta {
 
 struct DeltaColumnHandle : public ColumnHandle {
-  String name = {};
-  TypeSignature dataType = {};
+  std::shared_ptr<int64_t> id = {};
+  std::shared_ptr<std::string> physicalName = {};
+  std::string name = {};
+  std::string dataType = {};
   ColumnType columnType = {};
   std::shared_ptr<Subfield> subfield = {};
 
