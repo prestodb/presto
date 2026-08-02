@@ -93,7 +93,7 @@ public class PrestoNativeQueryRunnerUtils
     private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
     private static final String SYMLINK_FOLDER = "symlink_tables_manifests";
-    private static final PrincipalPrivileges PRINCIPAL_PRIVILEGES = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
+    public static final PrincipalPrivileges PRINCIPAL_PRIVILEGES = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
     private static final ErrorCode CREATE_ERROR_CODE = new ErrorCode(123, "CREATE_ERROR_CODE", INTERNAL_ERROR);
 
     private static final StorageFormat STORAGE_FORMAT_SYMLINK_TABLE = StorageFormat.create(
