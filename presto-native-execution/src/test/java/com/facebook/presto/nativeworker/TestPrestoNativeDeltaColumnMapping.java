@@ -15,15 +15,12 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.airlift.log.Level;
 import com.facebook.airlift.log.Logging;
-import com.facebook.presto.delta.TestIncrementalUpdateQueries;
+import com.facebook.presto.delta.TestColumnMapping;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
-public class TestPrestoNativeDeltaIncrementalUpdateQueries
-        extends TestIncrementalUpdateQueries
+public class TestPrestoNativeDeltaColumnMapping
+        extends TestColumnMapping
 {
     @Override
     protected String goldenTablePath(String tableName)
@@ -43,11 +40,6 @@ public class TestPrestoNativeDeltaIncrementalUpdateQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.nativeDeltaQueryRunnerBuilder().build();
-        Path path = Paths.get(version);
-        registerDeltaTableInHMS(queryRunner,
-                path.resolve(targetTableName).toString(),
-                path.resolve(targetTableName).toString());
-        return queryRunner;
+        return PrestoNativeQueryRunnerUtils.nativeDeltaQueryRunnerBuilder().build();
     }
 }

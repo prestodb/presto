@@ -126,9 +126,14 @@ DeltaPrestoToVeloxConnector::toVeloxColumnHandle(
         velox::common::Subfield(*deltaColumn->subfield));
   }
 
+  // Use physicalName if present (for column mapping), otherwise use logical name
+  std::string columnName = (deltaColumn->physicalName && !deltaColumn->physicalName->empty())
+      ? *deltaColumn->physicalName
+      : deltaColumn->name;
+
   return std::unique_ptr<velox::connector::ColumnHandle>(
       new velox::connector::hive::HiveColumnHandle(
-          deltaColumn->name,
+          columnName,
           hiveColumnType,
           type,
           type,
@@ -176,9 +181,14 @@ DeltaPrestoToVeloxConnector::toVeloxTableHandle(
         ? velox::connector::hive::HiveColumnHandle::ColumnType::kPartitionKey
         : velox::connector::hive::HiveColumnHandle::ColumnType::kRegular;
 
+    // Use physicalName if present (for column mapping), otherwise use logical name
+    std::string columnName = (deltaColumn.physicalName && !deltaColumn.physicalName->empty())
+        ? *deltaColumn.physicalName
+        : deltaColumn.logicalName;
+
     columnHandles.emplace_back(
         std::make_shared<velox::connector::hive::HiveColumnHandle>(
-            deltaColumn.name,
+            columnName,
             hiveColumnType,
             type,
             type,
