@@ -365,6 +365,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="native-plugin/delta">
+        <artifact id="${project.groupId}:presto-delta:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="native-plugin/memory">
         <artifact id="${project.groupId}:presto-memory:zip:${project.version}">
             <unpack />

@@ -36,6 +36,7 @@ public class DeltaSplit
     private final String connectorId;
     private final String schema;
     private final String table;
+    private final String tableLocation;
     private final String filePath;
     private final long start;
     private final long length;
@@ -48,6 +49,7 @@ public class DeltaSplit
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schema,
             @JsonProperty("tableName") String table,
+            @JsonProperty("tableLocation") String tableLocation,
             @JsonProperty("filePath") String filePath,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
@@ -62,6 +64,7 @@ public class DeltaSplit
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.schema = requireNonNull(schema, "schema name is null");
         this.table = requireNonNull(table, "table name is null");
+        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
         this.filePath = requireNonNull(filePath, "filePath name is null");
         this.start = start;
         this.length = length;
@@ -86,6 +89,12 @@ public class DeltaSplit
     public String getTable()
     {
         return table;
+    }
+
+    @JsonProperty
+    public String getTableLocation()
+    {
+        return tableLocation;
     }
 
     @JsonProperty

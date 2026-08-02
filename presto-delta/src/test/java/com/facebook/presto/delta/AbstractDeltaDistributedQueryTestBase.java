@@ -20,9 +20,18 @@ import org.testng.ITest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.URL;
+import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Collections;
+import java.util.stream.Stream;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractDeltaDistributedQueryTestBase
         extends AbstractTestQueryFramework implements ITest
@@ -48,12 +57,15 @@ public abstract class AbstractDeltaDistributedQueryTestBase
             "time-travel-partition-changes-b",
             "deltatbl-partition-prune",
             "data-reader-partition-values",
+            "data-reader-partition-values-end-keys",
             "data-reader-nested-struct",
             "test-lowercase",
             "test-partitions-lowercase",
             "test-uppercase",
             "test-partitions-uppercase",
-            "test-typing"
+            "test-typing",
+            "simple-partitioned-table",
+            "simple-partitioned-table-end-keys"
     };
 
     /**
@@ -70,6 +82,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
         }
     }
 
+    private static Path localDataDir;
     private final ThreadLocal<String> testName = new ThreadLocal<>();
 
     @DataProvider
@@ -117,12 +130,97 @@ public abstract class AbstractDeltaDistributedQueryTestBase
         }
     }
 
-    protected static String goldenTablePath(String tableName)
+    protected String goldenTablePath(String tableName)
     {
         return AbstractDeltaDistributedQueryTestBase.class.getClassLoader().getResource(tableName).toString();
     }
 
-    protected static String goldenTablePathWithPrefix(String prefix, String tableName)
+    protected static String extractedGoldenTablePath(String tableName)
+    {
+        try {
+            URL resourceUrl = AbstractDeltaDistributedQueryTestBase.class.getClassLoader().getResource(tableName);
+            if (resourceUrl == null) {
+                throw new RuntimeException("Resource not found: " + tableName);
+            }
+
+            URI resourceUri = resourceUrl.toURI();
+
+            // If resource is in a JAR, extract it to a temporary directory
+            if ("jar".equals(resourceUri.getScheme())) {
+                return extractFromJar(tableName, resourceUri);
+            }
+
+            // Resource is already on the filesystem
+            return resourceUri.toString();
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to get path for table: " + tableName + " - " + e.toString(), e);
+        }
+    }
+
+    private static String extractFromJar(String tableName, URI jarResourceUri)
+            throws IOException
+    {
+        synchronized (AbstractDeltaDistributedQueryTestBase.class) {
+            if (localDataDir == null) {
+                localDataDir = Files.createTempDirectory("delta-table-");
+            }
+
+            Path targetPath = localDataDir.resolve(tableName);
+            if (Files.exists(targetPath)) {
+                return targetPath.toUri().toString();
+            }
+
+            String jarUriString = jarResourceUri.toString();
+            int separatorIndex = jarUriString.indexOf("!/");
+            URI jarUri = URI.create(jarUriString.substring(0, separatorIndex));
+
+            FileSystem fs;
+            try {
+                fs = FileSystems.getFileSystem(jarUri);
+            }
+            catch (Exception e) {
+                fs = FileSystems.newFileSystem(jarUri, Collections.emptyMap());
+            }
+
+            Path sourcePath = fs.getPath("/" + tableName);
+            copyRecursively(sourcePath, targetPath);
+
+            return targetPath.toUri().toString();
+        }
+    }
+
+    private static void copyRecursively(Path source, Path target)
+            throws IOException
+    {
+        requireNonNull(source, "source is null");
+        requireNonNull(target, "target is null");
+
+        if (Files.isDirectory(source)) {
+            Files.createDirectories(target);
+            try (Stream<Path> entries = Files.list(source)) {
+                entries.forEach(entry -> {
+                    try {
+                        copyRecursively(entry, target.resolve(entry.getFileName().toString()));
+                    }
+                    catch (IOException e) {
+                        throw new RuntimeException("Failed to copy: " + entry + " - " + e.toString(), e);
+                    }
+                });
+            }
+        }
+        else {
+            Path parent = target.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            if (!Files.exists(target)) {
+                Files.copy(source, target);
+            }
+        }
+    }
+
+    protected String goldenTablePathWithPrefix(String prefix, String tableName)
     {
         return goldenTablePath(prefix + FileSystems.getDefault().getSeparator() + tableName);
     }
@@ -135,7 +233,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
      * @param deltaTableName Name of the delta table which is on the classpath.
      * @param hiveTableName Name of the Hive table that the Delta table is to be registered as in HMS
      */
-    protected static void registerDeltaTableInHMS(QueryRunner queryRunner, String deltaTableName, String hiveTableName)
+    protected void registerDeltaTableInHMS(QueryRunner queryRunner, String deltaTableName, String hiveTableName)
     {
         queryRunner.execute(format(
                 "CREATE TABLE %s.\"%s\".\"%s\" (dummyColumn INT) WITH (external_location = '%s')",
