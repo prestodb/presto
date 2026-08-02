@@ -31,16 +31,14 @@ void to_json(json& j, const DeltaTransactionHandle& p);
 
 void from_json(const json& j, DeltaTransactionHandle& p);
 } // namespace facebook::presto::protocol::delta
-namespace facebook::presto::protocol::delta {
 struct DeltaColumn {
-  String name = {};
-  TypeSignature type = {};
+  std::shared_ptr<int64_t> id = {};
+  std::shared_ptr<std::string> physicalName = {};
+  std::string logicalName = {};
+  std::string type = {};
   bool nullable = {};
   bool partition = {};
 };
-void to_json(json& j, const DeltaColumn& p);
-void from_json(const json& j, DeltaColumn& p);
-} // namespace facebook::presto::protocol::delta
 namespace facebook::presto::protocol::delta {
 enum class ColumnType { REGULAR, PARTITION, SUBFIELD };
 extern void to_json(json& j, const ColumnType& e);
@@ -52,8 +50,10 @@ extern void from_json(const json& j, ColumnType& e);
 namespace facebook::presto::protocol::delta {
 
 struct DeltaColumnHandle : public ColumnHandle {
-  String name = {};
-  TypeSignature dataType = {};
+  std::shared_ptr<int64_t> id = {};
+  std::shared_ptr<std::string> physicalName = {};
+  std::string name = {};
+  std::string dataType = {};
   ColumnType columnType = {};
   std::shared_ptr<Subfield> subfield = {};
 
