@@ -24,13 +24,15 @@ DeltaColumnHandle::DeltaColumnHandle() noexcept {
 void to_json(json& j, const DeltaColumnHandle& p) {
   j = json::object();
   j["@type"] = "hive-delta";
-  to_json_key(j, "columnName", p.name, "DeltaColumnHandle", "String", "name");
+  to_json_key(j, "id", p.id, "DeltaColumnHandle", "int64_t", "id");
+  to_json_key(j, "physicalName", p.physicalName, "DeltaColumnHandle", "std::string", "physicalName");
+  to_json_key(j, "columnName", p.name, "DeltaColumnHandle", "std::string", "name");
   to_json_key(
       j,
       "dataType",
       p.dataType,
       "DeltaColumnHandle",
-      "TypeSignature",
+      "std::string",
       "dataType");
   to_json_key(
       j,
@@ -45,13 +47,15 @@ void to_json(json& j, const DeltaColumnHandle& p) {
 
 void from_json(const json& j, DeltaColumnHandle& p) {
   p._type = j["@type"];
-  from_json_key(j, "columnName", p.name, "DeltaColumnHandle", "String", "name");
+  from_json_key(j, "id", p.id, "DeltaColumnHandle", "int64_t", "id");
+  from_json_key(j, "physicalName", p.physicalName, "DeltaColumnHandle", "std::string", "physicalName");
+  from_json_key(j, "columnName", p.name, "DeltaColumnHandle", "std::string", "name");
   from_json_key(
       j,
       "dataType",
       p.dataType,
       "DeltaColumnHandle",
-      "TypeSignature",
+      "std::string",
       "dataType");
   from_json_key(
       j,
