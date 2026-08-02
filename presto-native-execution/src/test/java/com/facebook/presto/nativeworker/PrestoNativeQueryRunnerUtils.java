@@ -601,8 +601,14 @@ public class PrestoNativeQueryRunnerUtils
                 externalWorkerLauncher = getExternalWorkerLauncher("delta", "delta", serverBinary, cacheMaxSize, remoteFunctionServerUds,
                         Optional.empty(), false, false, false, false, false, false, false, workerImage, dataDirectory);
             }
+
+            // Set legacy_timestamp to true to adjust timestamps to timezone for Delta queries
+            // This ensures timestamps are properly adjusted in native execution
+            Map<String, String> sessionProperties = ImmutableMap.of("legacy_timestamp", "true");
+
             DeltaQueryRunner.Builder builder = DeltaQueryRunner.builder()
                     .setExtraProperties(extraProperties)
+                    .setSessionProperties(sessionProperties)
                     .setNodeCount(OptionalInt.of(workerCount))
                     .setExternalWorkerLauncher(externalWorkerLauncher)
                     .setTimeZoneKey(timeZoneKey);
