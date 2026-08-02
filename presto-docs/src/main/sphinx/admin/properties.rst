@@ -1497,7 +1497,7 @@ Flag to enable or disable compression of the log files of the HTTP server.
 
 The path to the log file used by the HTTP server. The path is relative to
 the data directory, configured by the launcher script as detailed in
-:ref:`running_presto`.
+:ref:`installation/deployment:Running Presto`.
 
 ``http-server.log.max-history``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

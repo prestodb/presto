@@ -7,18 +7,14 @@ Deploying Presto
     :backlinks: none
     :depth: 1
 
-.. _Installing Presto:
-
 Installing Presto
 -----------------
 
 Download the Presto server tarball, :maven_download:`server`, and unpack it.
-The tarball will contain a single top-level directory,
-|presto_server_release|, which we will call the *installation* directory.
+The tarball will contain a single top-level directory, |presto_server_release|, which we will call the *installation* directory.
 
-Presto needs a *data* directory for storing logs and other data. 
-We recommend creating a data directory outside of the installation directory,
-which allows it to be easily preserved when upgrading Presto.
+Presto needs a *data* directory for storing logs and other data.
+We recommend creating a data directory outside of the installation directory, which allows it to be easily preserved when upgrading Presto.
 
 Configuring Presto
 ------------------
@@ -28,23 +24,21 @@ This will hold the following configuration:
 
 * Node Properties: environmental configuration specific to each node
 * JVM Config: command line options for the Java Virtual Machine
-* Config Properties: configuration for the Presto server. See the
-  :doc:`/admin/properties` for available configuration properties.
+* Config Properties: configuration for the Presto server.
+  See the :doc:`/admin/properties` for available configuration properties.
 * Catalog Properties: configuration for :doc:`/connector` (data sources).
-  The available catalog configuration properties for a connector are described
-  in the respective connector documentation.
-
-.. _presto_node_properties:
+  The available catalog configuration properties for a connector are described in the respective connector documentation.
 
 Node Properties
 ^^^^^^^^^^^^^^^
 
-The node properties file, ``etc/node.properties``, contains configuration
-specific to each node. A *node* is a single installed instance of Presto
-on a machine. This file is typically created by the deployment system when
-Presto is first installed. The following is a minimal ``etc/node.properties``:
+The node properties file, ``etc/node.properties``, contains configuration specific to each node.
+A *node* is a single installed instance of Presto on a machine.
+This file is typically created by the deployment system when Presto is first installed.
 
-.. code-block:: none
+The following is a minimal ``etc/node.properties``:
+
+.. code-block:: properties
 
     node.environment=production
     node.id=ffffffff-ffff-ffff-ffff-ffffffffffff
@@ -53,30 +47,22 @@ Presto is first installed. The following is a minimal ``etc/node.properties``:
 The above properties are described below:
 
 * ``node.environment``:
-  The name of the environment. All Presto nodes in a cluster must
-  have the same environment name.
+  The name of the environment. All Presto nodes in a cluster must have the same environment name.
 
 * ``node.id``:
-  The unique identifier for this installation of Presto. This must be
-  unique for every node. This identifier should remain consistent across
-  reboots or upgrades of Presto. If running multiple installations of
-  Presto on a single machine (that is, multiple nodes on the same machine),
-  each installation must have a unique identifier.
+  The unique identifier for this installation of Presto. This must be unique for every node.
+  This identifier should remain consistent across reboots or upgrades of Presto.
+  When running multiple Presto installations on a single machine, each instance must have a unique identifier.
 
 * ``node.data-dir``:
-  The location (filesystem path) of the data directory. Presto will store
-  logs and other data here.
-
-.. _presto_jvm_config:
+  The location (filesystem path) of the data directory. Presto will store logs and other data here.
 
 JVM Config
 ^^^^^^^^^^
 
-The JVM config file, ``etc/jvm.config``, contains a list of command line
-options used for launching the Java Virtual Machine. The format of the file
-is a list of options, one per line. These options are not interpreted by
-the shell, so options containing spaces or other special characters should
-not be quoted.
+The JVM config file, ``etc/jvm.config``, contains a list of command line options used for launching the Java Virtual Machine.
+The format of the file is a list of options, one per line.
+These options are not interpreted by the shell, so options containing spaces or other special characters should not be quoted.
 
 The following provides a good starting point for creating ``etc/jvm.config``:
 
@@ -91,25 +77,34 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:+HeapDumpOnOutOfMemoryError
     -XX:+ExitOnOutOfMemoryError
 
-Because an ``OutOfMemoryError`` will typically leave the JVM in an
-inconsistent state, we write a heap dump (for debugging) and forcibly
-terminate the process when this occurs.
-
-
-.. _config_properties:
+Because an ``OutOfMemoryError`` typically leaves the JVM in an inconsistent state, we capture a heap dump and forcibly terminate the process.
 
 Config Properties
 ^^^^^^^^^^^^^^^^^
 
-The config properties file, ``etc/config.properties``, contains the
-configuration for the Presto server. Every Presto server can function
-as both a coordinator and a worker, but dedicating a single machine
-to only perform coordination work provides the best performance on
-larger clusters.
+The config properties file, ``etc/config.properties``, contains the configuration for the Presto server.
+
+.. rubric:: Single machine configuration
+
+Presto can be deployed on a single machine operating simultaneously as a coordinator and worker, making it convenient for testing purposes:
+
+.. code-block:: properties
+
+    coordinator=true
+    node-scheduler.include-coordinator=true
+    http-server.http.port=8080
+    query.max-memory=5GB
+    query.max-memory-per-node=1GB
+    discovery-server.enabled=true
+    discovery.uri=http://example.net:8080
+
+.. rubric:: Cluster configuration
+
+Dedicating a single machine to only perform coordination work provides the best performance on larger clusters.
 
 The following is a minimal configuration for the coordinator:
 
-.. code-block:: none
+.. code-block:: properties
 
     coordinator=true
     node-scheduler.include-coordinator=false
@@ -121,7 +116,7 @@ The following is a minimal configuration for the coordinator:
 
 And this is a minimal configuration for the workers:
 
-.. code-block:: none
+.. code-block:: properties
 
     coordinator=false
     http-server.http.port=8080
@@ -129,26 +124,13 @@ And this is a minimal configuration for the workers:
     query.max-memory-per-node=1GB
     discovery.uri=http://example.net:8080
 
-Alternatively, if you are setting up a single machine for testing that
-will function as both a coordinator and worker, use this configuration:
+.. rubric:: Disaggregated coordinator configuration
 
-.. code-block:: none
+If a single coordinator is not sufficient, use a disaggregated coordinator setup which supports multiple coordinators.
 
-    coordinator=true
-    node-scheduler.include-coordinator=true
-    http-server.http.port=8080
-    query.max-memory=5GB
-    query.max-memory-per-node=1GB
-    discovery-server.enabled=true
-    discovery.uri=http://example.net:8080
+A cluster with multiple coordinators requires at least one resource manager, and more can be added with each behaving as a primary:
 
-If a single coordinator is not sufficient, use a disaggregated coordinator setup which supports multiple coordinators using the following minimal configuration:
-
-* ``Resource Manager``
-
-At least one resource manager is needed for a cluster, and more can be added to the cluster with each behaving as a primary.
-
-.. code-block:: none
+.. code-block:: properties
 
     resource-manager=true
     resource-manager-enabled=true
@@ -159,37 +141,36 @@ At least one resource manager is needed for a cluster, and more can be added to 
     query.max-memory=50GB
     query.max-memory-per-node=1GB
     discovery-server.enabled=true
-    discovery.uri=http://example.net:8080 (Point to resource manager host/vip)
+    # discovery.uri points to resource manager host/vip
+    discovery.uri=http://example.net:8080
     thrift.server.ssl.enabled=true
     resource-manager.http-server-enabled=false
     internal-communication.resource-manager-communication-protocol=THRIFT
 
-* ``Coordinator``
+A cluster can have a pool of coordinators, with each coordinator executing a subset of queries in the cluster:
 
-A cluster can have a pool of coordinators. Each coordinator will run a subset of queries in the cluster.
-
-.. code-block:: none
+.. code-block:: properties
 
     coordinator=true
     node-scheduler.include-coordinator=false
     http-server.http.port=8080
     query.max-memory=50GB
     query.max-memory-per-node=1GB
-    discovery.uri=http://example.net:8080 (Point to resource manager host/vip)
+    # discovery.uri points to resource manager host/vip
+    discovery.uri=http://example.net:8080
     resource-manager-enabled=true
     internal-communication.resource-manager-communication-protocol=THRIFT
 
-* ``Worker``
+A cluster can have a pool of workers that send their heartbeats to the resource manager:
 
-A cluster can have a pool of workers. They send their heartbeats to the resource manager.
-
-.. code-block:: none
+.. code-block:: properties
 
     coordinator=false
     http-server.http.port=8080
     query.max-memory=50GB
     query.max-memory-per-node=1GB
-    discovery.uri=http://example.net:8080 (Point to resource manager host/vip)
+    # discovery.uri points to resource manager host/vip
+    discovery.uri=http://example.net:8080
     resource-manager-enabled=true
     internal-communication.resource-manager-communication-protocol=THRIFT
 
@@ -197,22 +178,19 @@ These properties require some explanation:
 
 * ``resource manager``:
   Aggregates data from coordinators and workers and constructs a global view of the cluster.
-  For more details read the `concepts <https://prestodb.io/docs/current/overview/concepts.html#resource-manager>`_.
+  For more details read the :ref:`overview/concepts:Resource Manager`.
 
 * ``coordinator``:
-  Allow this Presto instance to function as a coordinator
-  (accept queries from clients and manage query execution).
+  Allow this Presto instance to function as a coordinator (accept queries from clients and manage query execution).
 
 * ``node-scheduler.include-coordinator``:
   Allow scheduling work on the coordinator.
-  For larger clusters, processing work on the coordinator
-  can impact query performance because the machine's resources are not
-  available for the critical task of scheduling, managing, and monitoring
-  query execution.
+  For larger clusters, processing work on the coordinator can impact query performance because the machine's resources
+  are not available for the critical task of scheduling, managing, and monitoring query execution.
 
 * ``http-server.http.port``:
-  Specifies the port for the HTTP server. Presto uses HTTP for all
-  communication, internal and external. If the value is set to 0 an ephemeral port is used.
+  Specifies the port for the HTTP server. Presto uses HTTP for all communication, internal and external.
+  If the value is set to 0 an ephemeral port is used.
 
 * ``query.max-memory``:
   The maximum amount of distributed memory that a query may use.
@@ -222,27 +200,20 @@ These properties require some explanation:
 
 * ``discovery-server.enabled``:
   Presto uses the Discovery service to find all the nodes in the cluster.
-  Every Presto instance will register itself with the Discovery service
-  on startup. In order to simplify deployment and avoid running an additional
-  service, the Presto coordinator can run an embedded version of the
-  Discovery service. It shares the HTTP server with Presto and thus uses
-  the same port.
+  Every Presto instance will register itself with the Discovery service on startup.
+  In order to simplify deployment and avoid running an additional service, the Presto coordinator can run an embedded version of the Discovery service.
+  It shares the HTTP server with Presto and thus uses the same port.
 
 * ``discovery.uri``:
-  The URI to the Discovery server. Because we have enabled the embedded
-  version of Discovery in the Presto coordinator, this should be the
-  URI of the Presto coordinator. Replace ``example.net:8080`` to match
-  the host and port of the Presto coordinator. This URI must not end
-  in a slash.
+  The URI to the Discovery server. Because we have enabled the embedded version of Discovery in the Presto coordinator, this should be the URI of the Presto coordinator.
+  Replace ``example.net:8080`` to match the host and port of the Presto coordinator. This URI must not end in a slash.
 
 * ``internal-communication.resource-manager-communication-protocol``:
-  The protocol used for communication with the resource manager. This
-  can be set to ``THRIFT`` or ``HTTP``.
+  The protocol used for communication with the resource manager. This can be set to ``THRIFT`` or ``HTTP``.
 
 * ``resource-manager.http-server-enabled``:
-  Whether to enable the resource manager HTTP server or not. If
-  ``internal-communication.resource-manager-communication-protocol=HTTP``, this
-  must be set to ``true``.
+  Whether to enable the resource manager HTTP server or not.
+  If ``internal-communication.resource-manager-communication-protocol=HTTP``, this must be set to ``true``.
 
 The following flags can help one tune the disaggregated coordinator cluster’s resource groups to the desired consistency:
 
@@ -250,7 +221,9 @@ The following flags can help one tune the disaggregated coordinator cluster’s 
 
   Configure coordinator to wait for the next resource group update before allowing more queries to run on any given resource group, if running queries reached the configured limit.
 
-  The default value is 1.0. It means once any resource group is running its max allowed queries, the coordinator has to wait for an update from the resource manager before allowing new queries to run on the given resource group. To achieve stronger consistency, reduce the percentage to a lower value.
+  The default value is 1.0.
+  It means once any resource group is running its max allowed queries, the coordinator has to wait for an update from the resource manager before allowing new queries to run on the given resource group.
+  To achieve stronger consistency, reduce the percentage to a lower value.
 
 * ``resource-group-runtimeinfo-refresh-interval (default: 100 ms)``
 
@@ -262,31 +235,25 @@ You may also wish to set the following properties:
   Specifies the port for the JMX RMI registry. JMX clients should connect to this port.
 
 * ``jmx.rmiserver.port``:
-  Specifies the port for the JMX RMI server. Presto exports many metrics
-  that are useful for monitoring with JMX.
+  Specifies the port for the JMX RMI server. Presto exports many metrics that are useful for monitoring with JMX.
 
 See also :doc:`/admin/resource-groups`.
 
 Log Levels
 ^^^^^^^^^^
 
-The optional log levels file, ``etc/log.properties``, allows setting the
-minimum log level for named logger hierarchies. Every logger has a name,
-which is typically the fully qualified name of the class that uses the logger.
+The optional log levels file, ``etc/log.properties``, allows setting the minimum log level for named logger hierarchies.
+Every logger has a name, which is typically the fully qualified name of the class that uses the logger.
 Loggers have a hierarchy based on the dots in the name (like Java packages).
 For example, consider the following log levels file:
 
-.. code-block:: none
+.. code-block:: properties
 
     com.facebook.presto=INFO
 
-This sets the minimum level to ``INFO`` for both
-``com.facebook.presto.server`` and ``com.facebook.presto.hive``.
-The default minimum level is ``INFO``.
-(Thus the above example does not actually change anything)
+This sets the minimum level to ``INFO`` for both ``com.facebook.presto.server`` and ``com.facebook.presto.hive``.
+The default minimum level is ``INFO``, so the example does not actually change anything.
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
-
-.. _catalog_properties:
 
 Catalog Properties
 ^^^^^^^^^^^^^^^^^^
@@ -295,63 +262,54 @@ Presto accesses data through *connectors*, which are mounted in catalogs.
 The connector provides all of the schemas and tables inside of the catalog.
 For example, the Hive connector maps each Hive database to a schema,
 so if the Hive connector is mounted as the ``hive`` catalog, and Hive
-contains a table ``clicks`` in the database ``web``, that table is accessed
-in Presto as ``hive.web.clicks``.
+contains a table ``clicks`` in the database ``web``, that table is accessed in Presto as ``hive.web.clicks``.
 
-Catalogs are registered by creating a catalog properties file
-in the ``etc/catalog`` directory.
-For example, create ``etc/catalog/jmx.properties`` with the following
-contents to mount the ``jmx`` connector as the ``jmx`` catalog:
+Catalogs are registered by creating a catalog properties file in the ``etc/catalog`` directory.
+For example, create ``etc/catalog/jmx.properties`` with the following contents to mount the ``jmx`` connector as the ``jmx`` catalog:
 
-.. code-block:: none
+.. code-block:: properties
 
     connector.name=jmx
 
 See :doc:`/connector` for more information about configuring connectors.
 
-.. _running_presto:
-
 Running Presto
 --------------
 
-Presto requires Java 17 to run both the coordinator and workers. Please ensure
-that your system has a valid Java 17 installation before starting Presto.
+Presto requires Java 17 to run both the coordinator and workers.
+Please ensure that your system has a valid Java 17 installation before starting Presto.
 
-The installation directory contains the launcher script
-in ``bin/launcher``. Presto can be started as a daemon by running the following:
+The installation directory contains the launcher script in ``bin/launcher``.
+Presto can be started as a daemon by running the following:
 
-.. code-block:: none
+.. code-block:: shell
 
     bin/launcher start
 
 Alternatively, it can be run in the foreground, with the logs and other
-output being written to stdout/stderr (both streams should be captured
-if using a supervision system like daemontools):
+output being written to stdout/stderr (both streams should be captured if using a supervision system like daemontools):
 
-.. code-block:: none
+.. code-block:: shell
 
     bin/launcher run
 
-Run the launcher with ``--help`` to see the supported commands and
-command line options. In particular, the ``--verbose`` option is
-very useful for debugging the installation.
+Run the launcher with ``--help`` to see the supported commands and command line options.
+In particular, the ``--verbose`` option is very useful for debugging the installation.
 
 After launching, you can find the log files in ``var/log``:
 
 * ``launcher.log``:
-  This log is created by the launcher and is connected to the stdout
-  and stderr streams of the server. It will contain a few log messages
-  that occur while the server logging is being initialized and any
-  errors or diagnostics produced by the JVM.
+  This log is created by the launcher and is connected to the stdout and stderr streams of the server.
+  It will contain a few log messages that occur while the server logging is being initialized and any errors or diagnostics produced by the JVM.
 
 * ``server.log``:
-  This is the main log file used by Presto. It will typically contain
-  the relevant information if the server fails during initialization.
+  This is the main log file used by Presto.
+  It will typically contain the relevant information if the server fails during initialization.
   It is automatically rotated and compressed.
 
 * ``http-request.log``:
-  This is the HTTP request log which contains every HTTP request
-  received by the server. It is automatically rotated and compressed.
+  This is the HTTP request log which contains every HTTP request received by the server.
+  It is automatically rotated and compressed.
 
 An Example Deployment on Laptop Querying S3
 -------------------------------------------
@@ -365,9 +323,10 @@ Download and extract the binary tarball of Hive.
 For example, download and untar `apache-hive-<VERSION>-bin.tar.gz <https://downloads.apache.org/hive>`_ .
 
 You only need to launch Hive Metastore to serve Presto catalog information such as table schema and partition location.
-If it is the first time to launch the Hive Metastore, prepare the corresponding configuration files and environment. Also initialize a new Metastore:
+If it is the first time to launch the Hive Metastore, prepare the corresponding configuration files and environment.
+Also initialize a new Metastore:
 
-.. code-block:: console
+.. code-block:: shell
 
     export HIVE_HOME=`pwd`
     cp conf/hive-default.xml.template conf/hive-site.xml
@@ -379,21 +338,22 @@ Hive needs the corresponding jars to access files with ``s3a://`` addresses and 
 These jars can be found in Hadoop distribution (for example, under ``${HADOOP_HOME}/share/hadoop/tools/lib/``),
 or downloaded from `maven central repository <https://repo1.maven.org/>`_.
 
-.. code-block:: bash
+.. code-block:: shell
 
-    export HIVE_AUX_JARS_PATH=/path/to/aws-java-sdk-core-<version>.jar:$/path/to/aws-java-sdk-s3-<version>.jar:/path/to/hadoop-aws-<version>.jar
+    export HIVE_AUX_JARS_PATH=/path/to/aws-java-sdk-core-<version>.jar:/path/to/aws-java-sdk-s3-<version>.jar:/path/to/hadoop-aws-<version>.jar
     export AWS_ACCESS_KEY_ID=<Your AWS Access Key>
     export AWS_SECRET_ACCESS_KEY=<Your AWS Secret Key>
 
 Start a Hive Metastore which will run in the background and listen on port 9083 (by default):
 
-.. code-block:: console
+.. code-block:: shell
 
     hcatalog/sbin/hcat_server.sh start
 
 The output is similar to the following:
 
-.. code-block:: console
+.. code-block:: shell-session
+   :class: no-copy
 
     Started metastore server init, testing if initialized correctly...
     Metastore initialized successfully on port[9083].
@@ -403,10 +363,10 @@ To verify if the MetaStore is running, check the Hive Metastore logs at ``hcatal
 Configure Presto
 ^^^^^^^^^^^^^^^^
 
-Create a configuration file ``etc/config.properties`` to based on `Config Properties <#config-properties>`_.
+Create a configuration file ``etc/config.properties`` based on :ref:`installation/deployment:Config Properties`.
 For example, follow the minimal configuration to run Presto on your laptop:
 
-.. code-block:: none
+.. code-block:: properties
 
     coordinator=true
     node-scheduler.include-coordinator=true
@@ -414,13 +374,12 @@ For example, follow the minimal configuration to run Presto on your laptop:
     discovery-server.enabled=true
     discovery.uri=http://localhost:8080
 
-Create ``etc/jvm.config`` according to `JVM Config <#jvm-config>`_
-and ``etc/node.properties`` according to `Node Properties <#node-properties>`_.
+Create ``etc/jvm.config`` according to :ref:`installation/deployment:JVM Config` and ``etc/node.properties`` according to :ref:`installation/deployment:Node Properties`.
 
 Lastly, configure Presto Hive connector in ``etc/catalog/hive.properties``, pointing to the Hive Metastore service just started.
 Include AWS credentials here again if Presto needs to read input files from S3.
 
-.. code-block:: none
+.. code-block:: properties
 
     connector.name=hive-hadoop2
     hive.metastore.uri=thrift://localhost:9083
@@ -429,7 +388,7 @@ Include AWS credentials here again if Presto needs to read input files from S3.
 
 Run the Presto server:
 
-.. code-block:: bash
+.. code-block:: shell
 
     ./bin/launcher start
 
@@ -437,8 +396,7 @@ Run the Presto server:
 File-Based Metastore
 --------------------
 
-For testing or development purposes, Presto can be configured to use a HDFS, S3, or local
-filesystem directory as a Hive Metastore. 
+For testing or development purposes, Presto can be configured to use a HDFS, S3, or local filesystem directory as a Hive Metastore.
 
 The file-based metastore works only with the following connectors: 
 
@@ -450,27 +408,24 @@ The file-based metastore works only with the following connectors:
 Configuring a File-Based Metastore
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1. In ``etc/catalog/``, find the catalog properties file for the supported 
-   connector. 
+1. In ``etc/catalog/``, find the catalog properties file for the supported connector.
 
 2. In the catalog properties file, set the following properties:
 
-.. code-block:: none
+.. code-block:: properties
 
     hive.metastore=file
     hive.metastore.catalog.dir=file:///<catalog-dir>
 
-Replace ``file:///<catalog-dir>`` in the example with the path to a directory on an
-accessible filesystem. For example, use ``hdfs://<host:port>/<catalog-dir>`` on HDFS
-or ``s3://<bucket>/<catalog-dir>`` on an Object Storage System.
+Replace ``file:///<catalog-dir>`` in the example with the path to a directory on an accessible filesystem.
+For example, use ``hdfs://<host:port>/<catalog-dir>`` on HDFS or ``s3://<bucket>/<catalog-dir>`` on an Object Storage System.
 
 Using a File-Based Warehouse
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For this example, assume the Hive connector is being used, and the properties 
-in the Hive connector catalog file are set to the following:
+For this example, assume the Hive connector is being used, and the properties in the Hive connector catalog file are set to the following:
 
-.. code-block:: none
+.. code-block:: properties
 
     connector.name=hive-hadoop2
     hive.metastore=file
@@ -478,25 +433,21 @@ in the Hive connector catalog file are set to the following:
 
 Create a schema
 
-.. code-block:: none
+.. code-block:: sql
 
     CREATE SCHEMA hive.warehouse;
 
-This query creates a directory ``warehouse`` in the directory set for 
-``hive.metastore.catalog.dir``, so the path for the ``warehouse`` schema would be 
-``/data/hive_data/warehouse``.
+This query creates a directory ``warehouse`` in the directory set for ``hive.metastore.catalog.dir``, so the path for the ``warehouse`` schema would be ``/data/hive_data/warehouse``.
 
-Create a table with any connector-supported file formats. For example, if the 
-Hive connector is being configured: 
+Create a table with any connector-supported file formats. For example, if the Hive connector is being configured:
 
-.. code-block:: none
+.. code-block:: sql
 
     CREATE TABLE hive.warehouse.orders_csv("order_name" varchar, "quantity" varchar) WITH (format = 'CSV');
     CREATE TABLE hive.warehouse.orders_parquet("order_name" varchar, "quantity" int) WITH (format = 'PARQUET');
 
-These queries create folders as ``/data/hive_data/warehouse/orders_csv`` and 
-``/data/hive_data/warehouse/orders_parquet``. Users can insert and query 
-from these tables.
+These queries create folders as ``/data/hive_data/warehouse/orders_csv`` and ``/data/hive_data/warehouse/orders_parquet``.
+Users can insert and query from these tables.
 
 
 An Example Deployment with Docker
@@ -505,10 +456,9 @@ An Example Deployment with Docker
 Let's take a look at getting a Docker image together for Presto.
 We can see below how relatively easy it is to get Presto up and running.
 For demonstration purposes, this configuration is a single-node Presto installation where the scheduler will include the Coordinator as a Worker.
-We will configure one catalog, `TPCH <https://prestodb.io/docs/current/connector/tpch.html>`_.
+We will configure the :doc:`TPCH </connector/tpch>` catalog.
 
-For the Dockerfile, we download Presto, copy some configuration files in a local ``etc`` directory into the image,
-and specify an entry point to run the server.
+For the Dockerfile, we download Presto, copy some configuration files in a local ``etc`` directory into the image, and specify an entry point to run the server.
 
 .. code-block:: docker
 
@@ -542,12 +492,13 @@ and specify an entry point to run the server.
     # Specify the entrypoint to start
     ENTRYPOINT ./opt/presto/bin/launcher run
 
-There are four files in the ``etc/`` folder to configure Presto, along with one catalog in ``etc/catalog/``. A catalog defines the configuration
-of a connector, and the catalog is named after the file name (minus the ``.properties`` extension). You can have multiple
-catalogs for each Presto installation, including multiple catalogs using the same connector; they just need a different filename.
+There are four files in the ``etc/`` folder to configure Presto, along with one catalog in ``etc/catalog/``.
+A catalog defines the configuration of a connector, and the catalog is named after the file name (minus the ``.properties`` extension).
+You can have multiple catalogs for each Presto installation, including multiple catalogs using the same connector; they just need a different filename.
 The files are:
 
-.. code-block:: none
+.. code-block:: shell-session
+   :class: no-copy
 
     etc/
     ├── catalog
@@ -558,36 +509,36 @@ The files are:
     └── node.properties      # Node-specific configuration properties
 
 The four files directly under ``etc`` are documented above (using the single-node Coordinator configuration for ``config.properties``).
-The file called ``etc/catalog/tpch.properties`` is used to defined the ``tpch`` catalog.  Each connector has its own set
-of configuration properties that are specific to the connector.
-You can find a connector's configuration properties documented along with the connector.  The TPCH connector has no special
-configuration, so we just specify the name of the connector for the catalog, also ``tpch``.
+The file called ``etc/catalog/tpch.properties`` is used to define the ``tpch`` catalog.
+Each connector has its own set of configuration properties that are specific to the connector.
+You can find a connector's configuration properties documented along with the connector.
+The TPCH connector has no special configuration, so we just specify the name of the connector for the catalog, also ``tpch``.
 
 ``etc/catalog/tpch.properties``
 
-.. code-block:: none
+.. code-block:: properties
 
     connector.name=tpch
 
 We're now ready to build our Docker container specifying the version and then start Presto.
 The latest version of Presto is currently |version|.
 
-.. code-block:: none
+.. code-block:: shell
 
     docker build --build-arg PRESTO_VERSION=<see releases for latest version> . -t prestodb:latest
     docker run --name presto prestodb:latest
 
 You'll see a series of logs as Presto starts, ending with ``SERVER STARTED`` signaling that it is ready to receive queries.
-We'll use the `Presto CLI <https://prestodb.io/docs/current/clients/presto-cli.html>`_ to connect to Presto that we put inside the image
-using a separate Terminal window.
+We'll use the :doc:`/clients/presto-cli` to connect to Presto that we put inside the image using a separate Terminal window.
 
-.. code-block:: none
+.. code-block:: shell
 
     docker exec -it presto presto
 
 We can now execute a query against the `tpch` catalog.
 
 .. code-block:: sql
+   :class: no-copy
 
     presto> SELECT
          ->   l.returnflag,
