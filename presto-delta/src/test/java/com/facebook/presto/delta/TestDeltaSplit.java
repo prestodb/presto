@@ -34,7 +34,8 @@ public class TestDeltaSplit
                 "delta",
                 "database",
                 "table",
-                "s3://bucket/path/to/delta/table/file1.parquet",
+                "s3://bucket/path/to/delta/table",
+                "file1.parquet",
                 0,
                 200,
                 500,
@@ -47,6 +48,7 @@ public class TestDeltaSplit
         assertEquals(actual.getConnectorId(), expected.getConnectorId());
         assertEquals(actual.getSchema(), expected.getSchema());
         assertEquals(actual.getTable(), expected.getTable());
+        assertEquals(actual.getTableLocation(), expected.getTableLocation());
         assertEquals(actual.getFilePath(), expected.getFilePath());
         assertEquals(actual.getStart(), expected.getStart());
         assertEquals(actual.getLength(), expected.getLength());
