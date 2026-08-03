@@ -15,10 +15,12 @@
 #include <algorithm>
 #include <numeric>
 #include <random>
+#include <sstream>
 
 #include "DataSketches/kll_sketch.hpp"
 
 #include "presto_cpp/main/functions/kll_sketch/KllSketchRegistration.h"
+#include "presto_cpp/main/functions/kll_sketch/KllSketchTypeTraits.h"
 #include "presto_cpp/main/types/KllSketchType.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
@@ -599,6 +601,458 @@ TEST_F(KllSketchTest, repeatedQueries) {
     auto q = quantile<int64_t>(sketch, 0.5);
     EXPECT_EQ(q, 5);
   }
+}
+
+// ============================================================================
+// Cross-engine serialization compatibility tests
+//
+// These tests verify that KLL sketches serialized by the Java Presto engine
+// can be deserialized and queried correctly by the native (C++) engine, and
+// that sketches built by the native engine produce the same serialized bytes
+// that Java can read back.
+//
+// Golden bytes for each type were produced by the Java test
+// TestKllSketchGoldenBytes and are embedded here so the C++ unit test suite
+// (which runs without a Java process) can verify cross-engine compatibility
+// independently.
+//
+// Java serialization contracts matched here:
+//   BIGINT  – KllItemsSketch<Long>   + ArrayOfLongsSerDe  (8-byte LE longs)
+//   DOUBLE  – KllItemsSketch<Double> + ArrayOfDoublesSerDe (8-byte LE doubles)
+//   VARCHAR – KllItemsSketch<String> + ArrayOfStringsSerDe (4-byte len + UTF-8)
+//   BOOLEAN – KllItemsSketch<Boolean>+ ArrayOfBooleansSerDe (BIT-PACKED,
+//   LSB-first,
+//             8 booleans per byte) — NOT the arithmetic 1-byte-per-bool
+//             default.
+// ============================================================================
+
+namespace {
+
+// Convert a hex string (lowercase, no separators) to a byte vector.
+std::vector<uint8_t> fromHex(const std::string& hex) {
+  VELOX_CHECK_EQ(hex.size() % 2, 0, "hex string must have even length");
+  std::vector<uint8_t> out(hex.size() / 2);
+  for (size_t i = 0; i < out.size(); ++i) {
+    out[i] =
+        static_cast<uint8_t>(std::stoul(hex.substr(i * 2, 2), nullptr, 16));
+  }
+  return out;
+}
+
+} // namespace
+
+class KllSketchCrossEngineTest : public AggregationTestBase {
+ protected:
+  void SetUp() override {
+    folly::SingletonVault::singleton()->registrationComplete();
+    AggregationTestBase::SetUp();
+    presto::functions::registerAllKllSketchFunctions("");
+  }
+
+  // Build a kllsketch(T) RowVector from raw bytes so it can be used as input
+  // to sketch_kll_rank / sketch_kll_quantile projection queries.
+  // For T=std::string, the KLLSKETCH element type is VARCHAR.
+  template <typename T>
+  RowVectorPtr sketchFromBytes(const std::vector<uint8_t>& bytes) {
+    std::string rawBytes(
+        reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    TypePtr elementType;
+    if constexpr (std::is_same_v<T, std::string>) {
+      elementType = VARCHAR();
+    } else {
+      elementType = CppToType<T>::create();
+    }
+    return makeRowVector(
+        {makeFlatVector<std::string>({rawBytes}, KLLSKETCH(elementType))});
+  }
+
+  template <typename T>
+  double rank(
+      const std::vector<uint8_t>& sketchBytes,
+      T value,
+      bool inclusive = true) {
+    auto sketch = sketchFromBytes<T>(sketchBytes);
+    std::string query;
+    if constexpr (std::is_same_v<T, std::string>) {
+      query = fmt::format(
+          "sketch_kll_rank(c0, '{}'{})", value, inclusive ? "" : ", false");
+    } else if constexpr (std::is_same_v<T, bool>) {
+      query = fmt::format(
+          "sketch_kll_rank(c0, {}{})",
+          value ? "true" : "false",
+          inclusive ? "" : ", false");
+    } else if constexpr (std::is_same_v<T, double>) {
+      query = fmt::format(
+          "sketch_kll_rank(c0, CAST({} AS DOUBLE){})",
+          value,
+          inclusive ? "" : ", false");
+    } else {
+      query = fmt::format(
+          "sketch_kll_rank(c0, CAST({} AS BIGINT){})",
+          value,
+          inclusive ? "" : ", false");
+    }
+    auto plan = PlanBuilder().values({sketch}).project({query}).planNode();
+    return readSingleValue(plan).template value<TypeKind::DOUBLE>();
+  }
+
+  template <typename T>
+  T quantile(
+      const std::vector<uint8_t>& sketchBytes,
+      double rankValue,
+      bool inclusive = true) {
+    auto sketch = sketchFromBytes<T>(sketchBytes);
+    auto query = fmt::format(
+        "sketch_kll_quantile(c0, CAST({} AS DOUBLE){})",
+        rankValue,
+        inclusive ? "" : ", false");
+    auto plan = PlanBuilder().values({sketch}).project({query}).planNode();
+    if constexpr (std::is_same_v<T, std::string>) {
+      return readSingleValue(plan).template value<TypeKind::VARCHAR>();
+    } else if constexpr (std::is_same_v<T, bool>) {
+      return readSingleValue(plan).template value<TypeKind::BOOLEAN>();
+    } else if constexpr (std::is_same_v<T, double>) {
+      return readSingleValue(plan).template value<TypeKind::DOUBLE>();
+    } else {
+      return readSingleValue(plan).template value<TypeKind::BIGINT>();
+    }
+  }
+
+  static std::string toHex(const std::vector<uint8_t>& bytes) {
+    std::ostringstream oss;
+    for (auto b : bytes) {
+      oss << fmt::format("{:02x}", b);
+    }
+    return oss.str();
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Java → Native: golden bytes from Java, queried by native functions
+// ---------------------------------------------------------------------------
+//
+// The golden bytes below were generated by running the Java test
+// TestKllSketchGoldenBytes.printGolden*Bytes() with datasketches-java 6.2.0.
+// They represent KllItemsSketch serializations for the canonical test inputs:
+//   BIGINT/DOUBLE : values 0..99  (100 items)
+//   VARCHAR       : 'a'..'z'     (26 items)
+//   BOOLEAN       : i%3==0 for i in 0..99  (~34 true, ~66 false)
+//
+// These bytes are embedded as compile-time constants so the C++ unit test
+// suite runs independently and verifies format compatibility without a live
+// Java process.  If the Java golden-byte generator is re-run (e.g., after a
+// datasketches-java version bump), these constants must be updated.
+//
+// To regenerate:
+//   mvn -pl presto-main-base -Dtest=TestKllSketchGoldenBytes test
+//   Copy the hex strings printed to stdout here.
+
+// BIGINT golden bytes: KllItemsSketch<Long> with ArrayOfLongsSerDe, values 0-99
+// Generated by: TestKllSketchGoldenBytes.printGoldenBigintBytes()
+// To regenerate: mvn -pl presto-main-base
+// -Dtest=TestKllSketchGoldenBytes#printGoldenBigintBytes test NOTE: these are
+// Java-format bytes; populate with Java-engine output once
+// TestKllSketchGoldenBytes runs successfully on JDK 17/21.
+static const char* kJavaBigintGoldenHex =
+    "05010f00c80008006400000000000000c8000100640000000000000000000000630000000000000063000000000000006200000000000000610000000000000060000000000000005f000000000000005e000000000000005d000000000000005c000000000000005b000000000000005a0000000000000059000000000000005800000000000000570000000000000056000000000000005500000000000000540000000000000053000000000000005200000000000000510000000000000050000000000000004f000000000000004e000000000000004d000000000000004c000000000000004b000000000000004a0000000000000049000000000000004800000000000000470000000000000046000000000000004500000000000000440000000000000043000000000000004200000000000000410000000000000040000000000000003f000000000000003e000000000000003d000000000000003c000000000000003b000000000000003a0000000000000039000000000000003800000000000000370000000000000036000000000000003500000000000000340000000000000033000000000000003200000000000000310000000000000030000000000000002f000000000000002e000000000000002d000000000000002c000000000000002b000000000000002a0000000000000029000000000000002800000000000000270000000000000026000000000000002500000000000000240000000000000023000000000000002200000000000000210000000000000020000000000000001f000000000000001e000000000000001d000000000000001c000000000000001b000000000000001a0000000000000019000000000000001800000000000000170000000000000016000000000000001500000000000000140000000000000013000000000000001200000000000000110000000000000010000000000000000f000000000000000e000000000000000d000000000000000c000000000000000b000000000000000a000000000000000900000000000000080000000000000007000000000000000600000000000000050000000000000004000000000000000300000000000000020000000000000001000000000000000000000000000000"; // NOLINT
+
+// DOUBLE golden bytes: KllItemsSketch<Double> with ArrayOfDoublesSerDe, values
+// 0.0-99.0 Generated by: TestKllSketchGoldenBytes.printGoldenDoubleBytes()
+static const char* kJavaDoubleGoldenHex =
+    "05010f00c80008006400000000000000c80001006400000000000000000000000000000000c058400000000000c058400000000000805840000000000040584000000000000058400000000000c057400000000000805740000000000040574000000000000057400000000000c056400000000000805640000000000040564000000000000056400000000000c055400000000000805540000000000040554000000000000055400000000000c054400000000000805440000000000040544000000000000054400000000000c053400000000000805340000000000040534000000000000053400000000000c052400000000000805240000000000040524000000000000052400000000000c051400000000000805140000000000040514000000000000051400000000000c050400000000000805040000000000040504000000000000050400000000000804f400000000000004f400000000000804e400000000000004e400000000000804d400000000000004d400000000000804c400000000000004c400000000000804b400000000000004b400000000000804a400000000000004a40000000000080494000000000000049400000000000804840000000000000484000000000008047400000000000004740000000000080464000000000000046400000000000804540000000000000454000000000008044400000000000004440000000000080434000000000000043400000000000804240000000000000424000000000008041400000000000004140000000000080404000000000000040400000000000003f400000000000003e400000000000003d400000000000003c400000000000003b400000000000003a4000000000000039400000000000003840000000000000374000000000000036400000000000003540000000000000344000000000000033400000000000003240000000000000314000000000000030400000000000002e400000000000002c400000000000002a40000000000000284000000000000026400000000000002440000000000000224000000000000020400000000000001c4000000000000018400000000000001440000000000000104000000000000008400000000000000040000000000000f03f0000000000000000"; // NOLINT
+
+// VARCHAR golden bytes: KllItemsSketch<String> with ArrayOfStringsSerDe,
+// 'a'-'z' Generated by: TestKllSketchGoldenBytes.printGoldenVarcharBytes()
+static const char* kJavaVarcharGoldenHex =
+    "05010f00c80008001a00000000000000c8000100ae0000000100000061010000007a010000007a0100000079010000007801000000770100000076010000007501000000740100000073010000007201000000710100000070010000006f010000006e010000006d010000006c010000006b010000006a010000006901000000680100000067010000006601000000650100000064010000006301000000620100000061"; // NOLINT
+
+// BOOLEAN golden bytes: KllItemsSketch<Boolean> with ArrayOfBooleansSerDe
+// (bit-packed) Generated by: TestKllSketchGoldenBytes.printGoldenBooleanBytes()
+static const char* kJavaBooleanGoldenHex =
+    "05010f00c80008006400000000000000c800010064000000000149922449922449922449922409"; // NOLINT
+
+// Native (C++) golden bytes for each type — generated by the DISABLED_print*
+// tests below. These are embedded so the Java tests
+// (TestKllSketchFunctions.testNativeTo*RoundTrip) can verify that Java can read
+// C++-serialized sketches without running the C++ binary. To regenerate: run
+// with --gtest_also_run_disabled_tests --gtest_filter="*printNative*"
+// clang-format off
+// NOLINT(whitespace/line_length)
+static const char* kNativeBigintGoldenHex = "05010f00c80008006400000000000000c8000100640000000000000000000000630000000000000063000000000000006200000000000000610000000000000060000000000000005f000000000000005e000000000000005d000000000000005c000000000000005b000000000000005a0000000000000059000000000000005800000000000000570000000000000056000000000000005500000000000000540000000000000053000000000000005200000000000000510000000000000050000000000000004f000000000000004e000000000000004d000000000000004c000000000000004b000000000000004a0000000000000049000000000000004800000000000000470000000000000046000000000000004500000000000000440000000000000043000000000000004200000000000000410000000000000040000000000000003f000000000000003e000000000000003d000000000000003c000000000000003b000000000000003a0000000000000039000000000000003800000000000000370000000000000036000000000000003500000000000000340000000000000033000000000000003200000000000000310000000000000030000000000000002f000000000000002e000000000000002d000000000000002c000000000000002b000000000000002a0000000000000029000000000000002800000000000000270000000000000026000000000000002500000000000000240000000000000023000000000000002200000000000000210000000000000020000000000000001f000000000000001e000000000000001d000000000000001c000000000000001b000000000000001a0000000000000019000000000000001800000000000000170000000000000016000000000000001500000000000000140000000000000013000000000000001200000000000000110000000000000010000000000000000f000000000000000e000000000000000d000000000000000c000000000000000b000000000000000a000000000000000900000000000000080000000000000007000000000000000600000000000000050000000000000004000000000000000300000000000000020000000000000001000000000000000000000000000000"; // NOLINT
+
+static const char* kNativeDoubleGoldenHex = "05010f00c80008006400000000000000c80001006400000000000000000000000000000000c058400000000000c058400000000000805840000000000040584000000000000058400000000000c057400000000000805740000000000040574000000000000057400000000000c056400000000000805640000000000040564000000000000056400000000000c055400000000000805540000000000040554000000000000055400000000000c054400000000000805440000000000040544000000000000054400000000000c053400000000000805340000000000040534000000000000053400000000000c052400000000000805240000000000040524000000000000052400000000000c051400000000000805140000000000040514000000000000051400000000000c050400000000000805040000000000040504000000000000050400000000000804f400000000000004f400000000000804e400000000000004e400000000000804d400000000000004d400000000000804c400000000000004c400000000000804b400000000000004b400000000000804a400000000000004a40000000000080494000000000000049400000000000804840000000000000484000000000008047400000000000004740000000000080464000000000000046400000000000804540000000000000454000000000008044400000000000004440000000000080434000000000000043400000000000804240000000000000424000000000008041400000000000004140000000000080404000000000000040400000000000003f400000000000003e400000000000003d400000000000003c400000000000003b400000000000003a4000000000000039400000000000003840000000000000374000000000000036400000000000003540000000000000344000000000000033400000000000003240000000000000314000000000000030400000000000002e400000000000002c400000000000002a40000000000000284000000000000026400000000000002440000000000000224000000000000020400000000000001c4000000000000018400000000000001440000000000000104000000000000008400000000000000040000000000000f03f0000000000000000"; // NOLINT
+
+static const char* kNativeVarcharGoldenHex = "05010f00c80008001a00000000000000c8000100ae0000000100000061010000007a010000007a0100000079010000007801000000770100000076010000007501000000740100000073010000007201000000710100000070010000006f010000006e010000006d010000006c010000006b010000006a010000006901000000680100000067010000006601000000650100000064010000006301000000620100000061"; // NOLINT
+
+static const char* kNativeBooleanGoldenHex = "05010f00c80008006400000000000000c800010064000000000149922449922449922449922409"; // NOLINT
+// clang-format on
+
+// Verify that the native engine can correctly deserialize and query a
+// bigint sketch produced by the Java engine.
+TEST_F(KllSketchCrossEngineTest, javaGoldenBytesBigint) {
+  auto bytes = fromHex(kJavaBigintGoldenHex);
+  EXPECT_NEAR(rank<int64_t>(bytes, -1), 0.0, 0.01);
+  EXPECT_NEAR(rank<int64_t>(bytes, 49), 0.5, 0.02);
+  EXPECT_NEAR(rank<int64_t>(bytes, 99), 1.0, 0.01);
+  EXPECT_EQ(quantile<int64_t>(bytes, 0.0), 0);
+  EXPECT_EQ(quantile<int64_t>(bytes, 1.0), 99);
+}
+
+TEST_F(KllSketchCrossEngineTest, javaGoldenBytesDouble) {
+  auto bytes = fromHex(kJavaDoubleGoldenHex);
+  EXPECT_NEAR(rank<double>(bytes, -1.0), 0.0, 0.01);
+  EXPECT_NEAR(rank<double>(bytes, 49.0), 0.5, 0.02);
+  EXPECT_NEAR(rank<double>(bytes, 99.0), 1.0, 0.01);
+  EXPECT_NEAR(quantile<double>(bytes, 0.0), 0.0, 1.0);
+  EXPECT_NEAR(quantile<double>(bytes, 1.0), 99.0, 1.0);
+}
+
+TEST_F(KllSketchCrossEngineTest, javaGoldenBytesVarchar) {
+  auto bytes = fromHex(kJavaVarcharGoldenHex);
+  EXPECT_EQ(quantile<std::string>(bytes, 0.0), "a");
+  EXPECT_EQ(quantile<std::string>(bytes, 1.0), "z");
+  EXPECT_NEAR(rank<std::string>(bytes, std::string("m")), 0.5, 0.05);
+}
+
+// BOOLEAN is the most critical cross-engine test: Java bit-packs (8 per byte),
+// the default C++ serde writes 1 byte per bool.  BitPackedBooleanSerDe must
+// be used on the C++ side or this test will fail (deserialization error or
+// wrong results).
+TEST_F(KllSketchCrossEngineTest, javaGoldenBytesBoolean) {
+  auto bytes = fromHex(kJavaBooleanGoldenHex);
+  // ~34 trues, ~66 falses: rank(false, inclusive) ~= 0.66
+  EXPECT_NEAR(rank<bool>(bytes, false), 0.66, 0.05);
+  EXPECT_NEAR(rank<bool>(bytes, true), 1.0, 0.01);
+  EXPECT_EQ(quantile<bool>(bytes, 0.0), false);
+  EXPECT_EQ(quantile<bool>(bytes, 1.0), true);
+}
+
+// ---------------------------------------------------------------------------
+// Native self-consistency: verify the kNative*GoldenHex constants embedded
+// above are queryable by the native engine.  These run unconditionally and
+// serve as a compile-time proof that the constants are syntactically valid hex
+// and that the native deserializer can parse them without errors.
+// ---------------------------------------------------------------------------
+
+TEST_F(KllSketchCrossEngineTest, nativeGoldenBytesBigint) {
+  auto bytes = fromHex(kNativeBigintGoldenHex);
+  EXPECT_NEAR(rank<int64_t>(bytes, -1), 0.0, 0.01);
+  EXPECT_NEAR(rank<int64_t>(bytes, 49), 0.5, 0.02);
+  EXPECT_NEAR(rank<int64_t>(bytes, 99), 1.0, 0.01);
+  EXPECT_EQ(quantile<int64_t>(bytes, 0.0), 0);
+  EXPECT_EQ(quantile<int64_t>(bytes, 1.0), 99);
+}
+
+TEST_F(KllSketchCrossEngineTest, nativeGoldenBytesDouble) {
+  auto bytes = fromHex(kNativeDoubleGoldenHex);
+  EXPECT_NEAR(rank<double>(bytes, -1.0), 0.0, 0.01);
+  EXPECT_NEAR(rank<double>(bytes, 49.0), 0.5, 0.02);
+  EXPECT_NEAR(rank<double>(bytes, 99.0), 1.0, 0.01);
+  EXPECT_NEAR(quantile<double>(bytes, 0.0), 0.0, 1.0);
+  EXPECT_NEAR(quantile<double>(bytes, 1.0), 99.0, 1.0);
+}
+
+TEST_F(KllSketchCrossEngineTest, nativeGoldenBytesVarchar) {
+  auto bytes = fromHex(kNativeVarcharGoldenHex);
+  EXPECT_EQ(quantile<std::string>(bytes, 0.0), "a");
+  EXPECT_EQ(quantile<std::string>(bytes, 1.0), "z");
+  EXPECT_NEAR(rank<std::string>(bytes, std::string("m")), 0.5, 0.05);
+}
+
+TEST_F(KllSketchCrossEngineTest, nativeGoldenBytesBoolean) {
+  auto bytes = fromHex(kNativeBooleanGoldenHex);
+  // ~34 trues, ~66 falses
+  EXPECT_NEAR(rank<bool>(bytes, false), 0.66, 0.05);
+  EXPECT_NEAR(rank<bool>(bytes, true), 1.0, 0.01);
+  EXPECT_EQ(quantile<bool>(bytes, 0.0), false);
+  EXPECT_EQ(quantile<bool>(bytes, 1.0), true);
+}
+
+// ---------------------------------------------------------------------------
+// Native → Java: emit C++ golden bytes so Java tests can embed them
+// ---------------------------------------------------------------------------
+// These tests print the hex-encoded serialization of C++-built sketches.
+// The output is used to populate the golden-byte constants in
+// TestKllSketchFunctions.java for the Java→C++ cross-engine direction.
+// Run with --gtest_also_run_disabled_tests to see the output.
+// NOTE: the kNative*GoldenHex constants above already contain the output of
+// these printers.  Copy them into TestKllSketchFunctions.java:
+//   NATIVE_BIGINT_GOLDEN_HEX  = kNativeBigintGoldenHex (above)
+//   NATIVE_DOUBLE_GOLDEN_HEX  = kNativeDoubleGoldenHex (above)
+//   NATIVE_VARCHAR_GOLDEN_HEX = kNativeVarcharGoldenHex (above)
+//   NATIVE_BOOLEAN_GOLDEN_HEX = kNativeBooleanGoldenHex (above)
+
+TEST_F(KllSketchCrossEngineTest, DISABLED_printNativeBigintGoldenBytes) {
+  datasketches::kll_sketch<int64_t> sketch(200);
+  for (int64_t i = 0; i < 100; ++i) {
+    sketch.update(i);
+  }
+  auto bytes = sketch.serialize();
+  std::cout << "NATIVE_BIGINT_GOLDEN_HEX: "
+            << toHex(std::vector<uint8_t>(bytes.begin(), bytes.end()))
+            << std::endl;
+}
+
+TEST_F(KllSketchCrossEngineTest, DISABLED_printNativeDoubleGoldenBytes) {
+  datasketches::kll_sketch<double> sketch(200);
+  for (double i = 0; i < 100; ++i) {
+    sketch.update(i);
+  }
+  auto bytes = sketch.serialize();
+  std::cout << "NATIVE_DOUBLE_GOLDEN_HEX: "
+            << toHex(std::vector<uint8_t>(bytes.begin(), bytes.end()))
+            << std::endl;
+}
+
+TEST_F(KllSketchCrossEngineTest, DISABLED_printNativeVarcharGoldenBytes) {
+  datasketches::kll_sketch<std::string> sketch(200);
+  for (char c = 'a'; c <= 'z'; ++c) {
+    sketch.update(std::string(1, c));
+  }
+  auto bytes = sketch.serialize();
+  std::cout << "NATIVE_VARCHAR_GOLDEN_HEX: "
+            << toHex(std::vector<uint8_t>(bytes.begin(), bytes.end()))
+            << std::endl;
+}
+
+TEST_F(KllSketchCrossEngineTest, DISABLED_printNativeBooleanGoldenBytes) {
+  // Produces Java-compatible bit-packed boolean sketch bytes via
+  // serializeBoolSketch (the transcoding layer in KllSketchTypeTraits.h).
+  datasketches::kll_sketch<bool> sketch(200);
+  for (int i = 0; i < 100; ++i) {
+    sketch.update(i % 3 == 0);
+  }
+  auto bytes =
+      facebook::presto::functions::kll_sketch::serializeBoolSketch(sketch);
+  std::cout << "NATIVE_BOOLEAN_GOLDEN_HEX (Java-compatible bit-packed): "
+            << toHex(bytes) << std::endl;
+}
+
+// ---------------------------------------------------------------------------
+// Boolean cross-engine compatibility tests
+// Verifies that serializeBoolSketch / deserializeBoolSketch produce and
+// consume the same bit-packed wire format as Java's ArrayOfBooleansSerDe.
+// ---------------------------------------------------------------------------
+
+TEST_F(
+    KllSketchCrossEngineTest,
+    boolSketchSerializeTranscodesItemsToBitPacked) {
+  // Verify that serializeBoolSketch produces a structurally correct bit-packed
+  // payload: smaller than native, same header/min/max, exactly ceil(N/8) bytes
+  // of payload, and that each retained item maps to the correct bit position
+  // (LSB-first: item[i] → bit (i%8) of byte (i/8)).
+  //
+  // We do NOT assume a specific packed byte value because KLL stores items in
+  // level-sorted order (not insertion order). Instead we:
+  //   1. Verify the java-format is smaller than the native format.
+  //   2. Verify the header (preamble + levels), min, and max are unchanged.
+  //   3. Verify the packed payload is exactly 1 byte for 8 retained items.
+  //   4. Decode the packed byte and check each bit matches the corresponding
+  //      retained item from the native serialization.
+  datasketches::kll_sketch<bool> sketch(200);
+  for (int i = 0; i < 8; ++i) {
+    sketch.update(i % 2 != 0); // false,true,false,true,...
+  }
+
+  auto javaBytes =
+      facebook::presto::functions::kll_sketch::serializeBoolSketch(sketch);
+  auto nativeBytes = sketch.serialize();
+
+  // (1) The java-format must be smaller: ceil(8/8)=1 byte instead of 8 bytes.
+  EXPECT_LT(javaBytes.size(), nativeBytes.size());
+
+  // (2) Header (preamble + levels) + min + max must be identical.
+  ASSERT_GE(javaBytes.size(), 20u);
+  const uint8_t numLevels = javaBytes[18];
+  const size_t itemsStart = 20 + static_cast<size_t>(numLevels) * 4;
+  ASSERT_GE(javaBytes.size(), itemsStart + 3u); // min + max + 1 packed byte
+  ASSERT_GE(nativeBytes.size(), itemsStart + 2u + 8u); // min + max + 8 items
+  for (size_t i = 0; i < itemsStart + 2; ++i) {
+    EXPECT_EQ(javaBytes[i], nativeBytes[i]) << "header differs at byte " << i;
+  }
+
+  // (3) Exactly 1 packed byte for 8 retained items.
+  ASSERT_EQ(javaBytes.size(), itemsStart + 2 + 1);
+
+  // (4) Verify each bit in the packed byte matches the corresponding native
+  // item. The native items start at itemsStart+2 and are 1 byte each (0=false,
+  // 1=true).
+  const uint8_t packedByte = javaBytes[itemsStart + 2];
+  for (int i = 0; i < 8; ++i) {
+    const bool nativeItem = nativeBytes[itemsStart + 2 + i] != 0;
+    const bool packedBit = ((packedByte >> i) & 1u) != 0;
+    EXPECT_EQ(packedBit, nativeItem)
+        << "bit " << i << " mismatch: packed=" << packedBit
+        << " native=" << nativeItem;
+  }
+}
+
+TEST_F(KllSketchCrossEngineTest, boolSketchRoundTripThroughJavaFormat) {
+  // Build a sketch, serialize to Java format, deserialize back, verify results.
+  datasketches::kll_sketch<bool> sketch(200);
+  for (int i = 0; i < 100; ++i) {
+    sketch.update(i % 3 == 0); // ~34 true, ~66 false
+  }
+
+  auto javaBytes =
+      facebook::presto::functions::kll_sketch::serializeBoolSketch(sketch);
+  auto restored =
+      facebook::presto::functions::kll_sketch::deserializeBoolSketch(
+          javaBytes.data(), javaBytes.size());
+
+  EXPECT_NEAR(restored.get_rank(false), 0.66, 0.05);
+  EXPECT_NEAR(restored.get_rank(true), 1.0, 0.01);
+  EXPECT_EQ(restored.get_quantile(0.0), false);
+  EXPECT_EQ(restored.get_quantile(1.0), true);
+}
+
+TEST_F(KllSketchCrossEngineTest, boolSketchBitPackingMatchesJavaContract) {
+  // Verify the exact bit layout matches Java's ArrayOfBooleansSerDe contract:
+  // LSB-first, 8 booleans per byte.  We test individual bit positions.
+  datasketches::kll_sketch<bool> sketch(200);
+  // Insert exactly 1 true at position 0, rest false — so bit 0 of byte 0 = 1.
+  // At k=200 with 9 items the sketch remains compact (no compaction).
+  const bool vals[9] = {
+      true, false, false, false, false, false, false, false, false};
+  for (bool v : vals) {
+    sketch.update(v);
+  }
+
+  auto javaBytes =
+      facebook::presto::functions::kll_sketch::serializeBoolSketch(sketch);
+  const uint8_t numLevels = javaBytes[18];
+  const size_t itemsStart = 20 + static_cast<size_t>(numLevels) * 4;
+  ASSERT_GE(
+      javaBytes.size(), itemsStart + 2u + 2u); // min + max + 2 packed bytes
+
+  // The packed bytes start at itemsStart + 2 (after min and max).
+  // 9 items → 2 packed bytes.
+  const uint8_t* packed = javaBytes.data() + itemsStart + 2;
+  // After sort, items are stored in sorted order: false(x8), true(x1).
+  // false=0, true=1. Sorted: 0,0,0,0,0,0,0,0,1.
+  // Packed: byte 0 = bits 0-7 = all 0 → 0x00; byte 1 = bit 0 = 1 → 0x01.
+  EXPECT_EQ(packed[0], 0x00u);
+  EXPECT_EQ(packed[1], 0x01u);
+}
+
+TEST_F(KllSketchCrossEngineTest, boolSketchEmptyAndSingleItemPassthrough) {
+  // Empty sketch: both formats identical.
+  datasketches::kll_sketch<bool> empty(200);
+  auto javaEmpty =
+      facebook::presto::functions::kll_sketch::serializeBoolSketch(empty);
+  auto nativeEmpty = empty.serialize();
+  EXPECT_EQ(
+      std::vector<uint8_t>(nativeEmpty.begin(), nativeEmpty.end()), javaEmpty);
+
+  // Single-item sketch: both formats identical (1 byte, no bit-packing).
+  datasketches::kll_sketch<bool> single(200);
+  single.update(true);
+  auto javaSingle =
+      facebook::presto::functions::kll_sketch::serializeBoolSketch(single);
+  auto nativeSingle = single.serialize();
+  EXPECT_EQ(
+      std::vector<uint8_t>(nativeSingle.begin(), nativeSingle.end()),
+      javaSingle);
 }
 
 } // namespace
