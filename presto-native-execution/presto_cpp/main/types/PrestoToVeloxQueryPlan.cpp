@@ -1629,7 +1629,10 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle);
+      connectorId,
+      connectorInsertHandle,
+      toNotNullColumnNames(
+          node->notNullColumnVariables, node->columns, node->columnNames));
 
   const auto outputType = toRowType(
       generateOutputVariables(
@@ -1657,9 +1660,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->partitioningScheme != nullptr,
       outputType,
       getCommitStrategy(),
-      sourceVeloxPlan,
-      toNotNullColumnNames(
-          node->notNullColumnVariables, node->columns, node->columnNames));
+      sourceVeloxPlan);
 }
 
 std::shared_ptr<const core::TableWriteNode>
@@ -1693,7 +1694,10 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle);
+      connectorId,
+      connectorInsertHandle,
+      toNotNullColumnNames(
+          node->notNullColumnVariables, node->columns, node->columnNames));
 
   const auto outputType = toRowType(
       generateOutputVariables(
@@ -1714,9 +1718,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->partitioningScheme != nullptr,
       outputType,
       getCommitStrategy(),
-      sourceVeloxPlan,
-      toNotNullColumnNames(
-          node->notNullColumnVariables, node->columns, node->columnNames));
+      sourceVeloxPlan);
 }
 
 std::shared_ptr<const core::TableWriteNode>
@@ -1791,8 +1793,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       true, // delete only supported on partitioned tables
       outputType,
       getCommitStrategy(),
-      sourceVeloxPlan,
-      std::nullopt);
+      sourceVeloxPlan);
 }
 
 std::shared_ptr<const core::TableWriteMergeNode>
@@ -2070,8 +2071,7 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       /*hasPartitioningScheme=*/true,
       outputType,
       getCommitStrategy(),
-      renamedSource,
-      std::nullopt);
+      renamedSource);
 
   // 5. Alias TableWriteNode's Velox-mandated output names
   //    (rows/fragments/commitcontext) to whatever MergeWriterNode.outputs
