@@ -1721,6 +1721,19 @@ void PrestoServer::populateMemAndCPUInfo() {
   cpuMon_.update();
   checkOverload();
   **memoryInfo_.wlock() = std::move(memoryInfo);
+
+  // In-memory AsyncDataCache footprint (evictable/reclaimable); SSD-resident
+  // bytes are excluded as they do not contribute to RAM pressure. Computed here
+  // (this task runs periodically) rather than in fetchNodeStatus(), because
+  // refreshStats() walks the cache shards and fetchNodeStatus() serves every
+  // /v1/status poll on every worker. 0 when no cache instance exists.
+  int64_t asyncDataCacheBytes = 0;
+  if (auto* cache = velox::cache::AsyncDataCache::getInstance()) {
+    const auto cacheStats = cache->refreshStats();
+    asyncDataCacheBytes = cacheStats.tinySize + cacheStats.largeSize +
+        cacheStats.tinyPadding + cacheStats.largePadding;
+  }
+  asyncDataCacheBytes_.store(asyncDataCacheBytes, std::memory_order_relaxed);
 }
 
 void PrestoServer::checkOverload() {
@@ -1945,14 +1958,11 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
   // memory is reported via the dedicated fields below.
   const int64_t nonHeapUsed = 0;
 
-  // In-memory AsyncDataCache footprint (evictable/reclaimable). SSD-resident
-  // bytes are excluded as they do not contribute to RAM pressure.
-  int64_t asyncDataCacheBytes = 0;
-  if (auto* cache = velox::cache::AsyncDataCache::getInstance()) {
-    const auto cacheStats = cache->refreshStats();
-    asyncDataCacheBytes = cacheStats.tinySize + cacheStats.largeSize +
-        cacheStats.tinyPadding + cacheStats.largePadding;
-  }
+  // In-memory AsyncDataCache footprint (evictable/reclaimable), sampled off the
+  // serving path by populateMemAndCPUInfo() — read the cached value here so the
+  // refreshStats() cache-shard walk never runs on the /v1/status poll path.
+  const int64_t asyncDataCacheBytes =
+      asyncDataCacheBytes_.load(std::memory_order_relaxed);
 
   // Query memory (non-evictable): sum of per-query pool reservations, already
   // aggregated per memory pool in populateMemAndCPUInfo(). Reservations are
