@@ -358,6 +358,12 @@ class PrestoServer {
   // We update these members asynchronously and return in http requests w/o
   // delay.
   folly::Synchronized<std::unique_ptr<protocol::MemoryInfo>> memoryInfo_;
+  // AsyncDataCache footprint (evictable). Refreshed off the serving path by
+  // populateMemAndCPUInfo() and read by fetchNodeStatus(), so the cache-shard
+  // walk in AsyncDataCache::refreshStats() stays off the RM heartbeat path
+  // (its cost otherwise scales with shards × workers × poll frequency). 0 until
+  // the first sample and when no cache instance exists (classic JVM behaviour).
+  std::atomic<int64_t> asyncDataCacheBytes_{0};
   CPUMon cpuMon_;
 
   // Cached GPU metrics. Sampled off the serving path by the periodic
