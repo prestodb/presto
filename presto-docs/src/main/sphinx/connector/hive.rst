@@ -121,7 +121,7 @@ When not using Kerberos with HDFS, Presto will access HDFS using the
 OS user of the Presto process. For example, if Presto is running as
 ``nobody``, it will access HDFS as ``nobody``. You can override this
 username by setting the ``HADOOP_USER_NAME`` system property in the
-Presto :ref:`presto_jvm_config`, replacing ``hdfs_user`` with the
+Presto :ref:`installation/deployment:JVM Config`, replacing ``hdfs_user`` with the
 appropriate username:
 
 .. code-block:: none
@@ -1036,7 +1036,7 @@ Alluxio Client-Side Configuration
 To configure Alluxio client-side properties on Presto, append the Alluxio
 configuration directory (``${ALLUXIO_HOME}/conf``) to the Presto JVM classpath,
 so that the Alluxio properties file ``alluxio-site.properties`` can be loaded as a resource.
-Update the Presto :ref:`presto_jvm_config` file ``etc/jvm.config`` to include the following:
+Update the Presto :ref:`installation/deployment:JVM Config` file ``etc/jvm.config`` to include the following:
 
 .. code-block:: none
 

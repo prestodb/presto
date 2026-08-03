@@ -4,7 +4,7 @@ Web Interface
 
 Presto provides a web interface for monitoring and managing queries.
 The web interface is accessible on the Presto coordinator through HTTP,
-using the HTTP port number specified in the coordinator :ref:`config_properties`.
+using the HTTP port number specified in the coordinator :ref:`installation/deployment:Config Properties`.
 
 The main page has a list of queries along with information like unique query ID, query text,
 query state, percentage completed, username and source from which this query originated.
