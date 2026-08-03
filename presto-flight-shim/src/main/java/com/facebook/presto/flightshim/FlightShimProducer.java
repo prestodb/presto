@@ -45,6 +45,7 @@ import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.FieldVector;
 
 import javax.inject.Inject;
 
@@ -73,6 +74,8 @@ public class FlightShimProducer
     private final FlightShimConfig config;
     private final ExecutorService shimExecutor;
     private final JsonCodec<FlightShimRequest> requestCodec;
+    private final FlightShimStats stats;
+    private final FlightShimConnectorStatsManager connectorStatsManager;
 
     @Inject
     public FlightShimProducer(
@@ -82,13 +85,17 @@ public class FlightShimProducer
             @ForFlightShimServer ExecutorService shimExecutor,
             PageSourceManager pageSourceManager,
             TypeDeserializer typeDeserializer,
-            BlockEncodingManager blockEncodingManager)
+            BlockEncodingManager blockEncodingManager,
+            FlightShimStats stats,
+            FlightShimConnectorStatsManager connectorStatsManager)
     {
         this.allocator = allocator.newChildAllocator("flight-shim", 0, Long.MAX_VALUE);
         this.pluginManager = requireNonNull(pluginManager, "pluginManager is null");
         this.config = requireNonNull(config, "config is null");
         this.shimExecutor = requireNonNull(shimExecutor, "shimExecutor is null");
         this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
+        this.stats = requireNonNull(stats, "stats is null");
+        this.connectorStatsManager = requireNonNull(connectorStatsManager, "connectorStatsManager is null");
         requireNonNull(typeDeserializer, "typeDeserializer is null");
         requireNonNull(blockEncodingManager, "blockEncodingManager is null");
 
@@ -113,15 +120,24 @@ public class FlightShimProducer
     private void runGetStreamAsync(CallContext context, Ticket ticket, ServerStreamListener listener)
     {
         log.debug("Starting GetStream processing");
+        long streamStartNanos = System.nanoTime();
+        stats.recordStreamStarted();
+        FlightShimConnectorStats connectorStats = null;
         int columnCount = 0;
         int rowCount = 0;
         int batchCount = 0;
+        boolean streamCompleted = false;
         try {
             final BackpressureStrategy backpressureStrategy = new BackpressureStrategy.CallbackBackpressureStrategy();
             backpressureStrategy.register(listener);
 
+            long deserializeStartNanos = System.nanoTime();
             FlightShimRequest request = requestCodec.fromJson(ticket.getBytes());
+            stats.recordTicketDeserialize(System.nanoTime() - deserializeStartNanos);
             log.debug("Request for connector: %s", request.getConnectorId());
+
+            connectorStats = connectorStatsManager.getOrCreate(request.getConnectorId());
+            connectorStats.recordStreamStarted();
 
             FlightShimPluginManager.ConnectorCodecs connectorCodecs = pluginManager.getConnectorCodecs(request.getConnectorId());
 
@@ -159,36 +175,79 @@ public class FlightShimProducer
                 throw new IllegalArgumentException(format("Request has different number of fields than column handles: %d != %d", columnsMetadata.size(), columnHandles.size()));
             }
 
+            long pageSourceStartNanos = System.nanoTime();
             ConnectorPageSource connectorPageSource = pageSourceManager.createPageSource(session, split, tableHandle, columnHandles, new RuntimeStats());
+            stats.recordPageSourceCreate(System.nanoTime() - pageSourceStartNanos);
 
             try (ArrowBatchSource batchSource = new ArrowBatchSource(allocator, columnsMetadata, connectorPageSource, config.getMaxRowsPerBatch())) {
                 listener.setUseZeroCopy(true);
                 listener.start(batchSource.getVectorSchemaRoot());
                 columnCount = batchSource.getVectorSchemaRoot().getFieldVectors().size();
-                while (batchSource.nextBatch()) {
-                    BackpressureStrategy.WaitResult waitResult;
-                    while ((waitResult = backpressureStrategy.waitForListener(CLIENT_POLL_TIME)) == BackpressureStrategy.WaitResult.TIMEOUT) {
-                        log.debug(format("Waiting for client to read from connector %s", request.getConnectorId()));
+                while (true) {
+                    long batchBuildStartNanos = System.nanoTime();
+                    if (!batchSource.nextBatch()) {
+                        break;
                     }
+                    stats.recordArrowBatchBuild(System.nanoTime() - batchBuildStartNanos);
+
+                    BackpressureStrategy.WaitResult waitResult;
+                    do {
+                        long backpressureStartNanos = System.nanoTime();
+                        waitResult = backpressureStrategy.waitForListener(CLIENT_POLL_TIME);
+                        if (waitResult == BackpressureStrategy.WaitResult.TIMEOUT) {
+                            stats.recordBackpressureWait(System.nanoTime() - backpressureStartNanos);
+                            log.debug(format("Waiting for client to read from connector %s", request.getConnectorId()));
+                        }
+                    }
+                    while (waitResult == BackpressureStrategy.WaitResult.TIMEOUT);
+
                     if (waitResult != BackpressureStrategy.WaitResult.READY) {
                         log.info(format("Read stopped from connector %s due to client wait result: %s", request.getConnectorId(), waitResult));
                         break;
                     }
-                    rowCount += batchSource.getVectorSchemaRoot().getRowCount();
+                    int batchRows = batchSource.getVectorSchemaRoot().getRowCount();
+                    long batchBytes = estimateBatchBytes(batchSource);
+                    rowCount += batchRows;
                     batchCount++;
+                    stats.recordBatchShipped(batchRows, batchBytes);
+                    connectorStats.recordBatchShipped(batchRows);
                     listener.putNext();
                 }
                 listener.completed();
+                streamCompleted = true;
             }
         }
         catch (Throwable t) {
             final String message = "Error getting connector flight stream";
             log.error(t, message);
+            stats.recordStreamError(System.nanoTime() - streamStartNanos);
+            if (connectorStats != null) {
+                connectorStats.recordStreamError(System.nanoTime() - streamStartNanos);
+            }
             listener.error(CallStatus.INTERNAL.withCause(t).withDescription(format("%s [%s]", message, t)).toRuntimeException());
         }
         finally {
+            stats.recordStreamFinished();
+            if (connectorStats != null) {
+                connectorStats.recordStreamFinished();
+            }
+            if (streamCompleted) {
+                stats.recordStreamCompleted(System.nanoTime() - streamStartNanos);
+                if (connectorStats != null) {
+                    connectorStats.recordStreamCompleted(System.nanoTime() - streamStartNanos);
+                }
+            }
             log.debug(format("Processing GetStream completed [columns=%d, rows=%d, batches=%d]", columnCount, rowCount, batchCount));
         }
+    }
+
+    private static long estimateBatchBytes(ArrowBatchSource batchSource)
+    {
+        long bytes = 0;
+        for (FieldVector vector : batchSource.getVectorSchemaRoot().getFieldVectors()) {
+            bytes += vector.getBufferSize();
+        }
+        return bytes;
     }
 
     public void shutdown()

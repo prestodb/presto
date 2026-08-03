@@ -29,6 +29,7 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.util.RebindSafeMBeanServer;
 import com.facebook.presto.connector.ConnectorCodecManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
@@ -113,6 +114,8 @@ import jakarta.inject.Singleton;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
+import javax.management.MBeanServer;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -124,6 +127,7 @@ import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class FlightShimModule
@@ -279,6 +283,13 @@ public class FlightShimModule
         binder.bind(FlightShimPluginManager.class).in(Scopes.SINGLETON);
         binder.bind(BufferAllocator.class).to(RootAllocator.class).in(Scopes.SINGLETON);
         binder.bind(FlightShimProducer.class).in(Scopes.SINGLETON);
+
+        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
+
+        binder.bind(FlightShimStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(FlightShimStats.class).withGeneratedName();
+
+        binder.bind(FlightShimConnectorStatsManager.class).in(Scopes.SINGLETON);
 
         binder.bind(FlightShimServerExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FlightShimServerExecutionMBean.class).withGeneratedName();
