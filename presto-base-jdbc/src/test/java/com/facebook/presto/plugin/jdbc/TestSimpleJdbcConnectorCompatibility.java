@@ -52,7 +52,7 @@ public class TestSimpleJdbcConnectorCompatibility
     {
         database = new TestingDatabase();
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
-        jdbcMetadataCache = new JdbcMetadataCache(executor, database.getJdbcClient(), new JdbcMetadataCacheStats(), OptionalLong.of(0), OptionalLong.of(0), 100);
+        jdbcMetadataCache = new JdbcMetadataCache(executor, database.getJdbcClient(), new JdbcMetadataCacheStats(), OptionalLong.of(0), OptionalLong.of(0), 100, OptionalLong.empty(), OptionalLong.empty(), 10000);
 
         // Create a simple config that doesn't extend BaseJdbcConfig
         SimpleTestJdbcConfig simpleConfig = new SimpleTestJdbcConfig()
