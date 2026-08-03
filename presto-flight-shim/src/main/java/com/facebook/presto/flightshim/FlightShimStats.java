@@ -50,13 +50,13 @@ public class FlightShimStats
     public void recordStreamCompleted(long streamLatencyNanos)
     {
         streamsCompleted.update(1);
-        streamLatency.add(NANOSECONDS.toMillis(streamLatencyNanos), MILLISECONDS);
+        streamLatency.add(streamLatencyNanos, NANOSECONDS);
     }
 
     public void recordStreamError(long streamLatencyNanos)
     {
         streamErrors.update(1);
-        streamLatency.add(NANOSECONDS.toMillis(streamLatencyNanos), MILLISECONDS);
+        streamLatency.add(streamLatencyNanos, NANOSECONDS);
     }
 
     public void recordBatchShipped(long rows, long bytes)
@@ -68,22 +68,22 @@ public class FlightShimStats
 
     public void recordPageSourceCreate(long latencyNanos)
     {
-        pageSourceCreateLatency.add(NANOSECONDS.toMillis(latencyNanos), MILLISECONDS);
+        pageSourceCreateLatency.add(latencyNanos, NANOSECONDS);
     }
 
     public void recordArrowBatchBuild(long latencyNanos)
     {
-        arrowBatchBuildLatency.add(NANOSECONDS.toMillis(latencyNanos), MILLISECONDS);
+        arrowBatchBuildLatency.add(latencyNanos, NANOSECONDS);
     }
 
     public void recordBackpressureWait(long latencyNanos)
     {
-        backpressureWaitLatency.add(NANOSECONDS.toMillis(latencyNanos), MILLISECONDS);
+        backpressureWaitLatency.add(latencyNanos, NANOSECONDS);
     }
 
     public void recordTicketDeserialize(long latencyNanos)
     {
-        ticketDeserializeLatency.add(NANOSECONDS.toMillis(latencyNanos), MILLISECONDS);
+        ticketDeserializeLatency.add(latencyNanos, NANOSECONDS);
     }
 
     @Managed

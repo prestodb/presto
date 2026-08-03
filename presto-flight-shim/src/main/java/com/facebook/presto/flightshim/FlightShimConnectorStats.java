@@ -51,13 +51,13 @@ public class FlightShimConnectorStats
     public void recordStreamCompleted(long streamLatencyNanos)
     {
         streamsCompleted.update(1);
-        streamLatency.add(NANOSECONDS.toMillis(streamLatencyNanos), MILLISECONDS);
+        streamLatency.add(streamLatencyNanos, NANOSECONDS);
     }
 
     public void recordStreamError(long streamLatencyNanos)
     {
         streamErrors.update(1);
-        streamLatency.add(NANOSECONDS.toMillis(streamLatencyNanos), MILLISECONDS);
+        streamLatency.add(streamLatencyNanos, NANOSECONDS);
     }
 
     public void recordBatchShipped(long rows)
