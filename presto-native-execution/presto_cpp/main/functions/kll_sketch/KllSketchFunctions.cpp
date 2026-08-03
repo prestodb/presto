@@ -33,8 +33,13 @@ template <typename T>
 inline datasketches::kll_sketch<SketchType<T>> deserializeSketch(
     const velox::StringView& rawSketch) {
   try {
-    return datasketches::kll_sketch<SketchType<T>>::deserialize(
-        rawSketch.data(), rawSketch.size());
+    if constexpr (std::is_same_v<SketchType<T>, bool>) {
+      return kll_sketch::deserializeBoolSketch(
+          rawSketch.data(), rawSketch.size());
+    } else {
+      return datasketches::kll_sketch<SketchType<T>>::deserialize(
+          rawSketch.data(), rawSketch.size());
+    }
   } catch (const std::out_of_range& e) {
     VELOX_USER_FAIL(
         "Invalid KLL sketch data - buffer out of range: {}", e.what());

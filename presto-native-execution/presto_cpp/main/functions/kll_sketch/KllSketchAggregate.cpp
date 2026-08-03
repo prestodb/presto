@@ -28,6 +28,8 @@ namespace {
 const char* const kKllSketch = "sketch_kll";
 const char* const kKllSketchWithK = "sketch_kll_with_k";
 
+using kll_sketch::SketchTypeMapper;
+
 // K parameter controls the accuracy and size of the KLL sketch.
 // Higher k values provide better accuracy but use more memory.
 // k=200 provides ~1.65% error at 99% confidence, which is a good balance
@@ -41,17 +43,21 @@ constexpr int64_t kMinK{8};
 constexpr int64_t kMaxK{65535};
 
 // Helper function to serialize a sketch into a Varbinary output.
-// This encapsulates the common pattern of serializing and copying sketch data.
+// For bool sketches, uses the Java-compatible bit-packed format.
 template <typename SketchType>
 void serializeSketch(
-    const SketchType* sketch,
+    const datasketches::kll_sketch<SketchType>* sketch,
     velox::exec::out_type<velox::Varbinary>& out) {
-  auto serialized = sketch->serialize();
+  std::vector<uint8_t> serialized;
+  if constexpr (std::is_same_v<SketchType, bool>) {
+    serialized = kll_sketch::serializeBoolSketch(*sketch);
+  } else {
+    auto raw = sketch->serialize();
+    serialized.assign(raw.begin(), raw.end());
+  }
   out.resize(serialized.size());
   std::memcpy(out.data(), serialized.data(), serialized.size());
 }
-
-using kll_sketch::SketchTypeMapper;
 
 // Base template for KLL sketch aggregates, parameterized by:
 // - T: The input type (e.g., int64_t, double, velox::StringView)
@@ -102,8 +108,15 @@ struct KllSketchAggregateBase {
         velox::HashStringAllocator* /*allocator*/,
         velox::exec::optional_arg_type<velox::Varbinary> other) {
       if (other.has_value() && other->size() > 0) {
-        auto otherSketch = datasketches::kll_sketch<SketchType>::deserialize(
-            other->data(), other->size());
+        datasketches::kll_sketch<SketchType> otherSketch = [&] {
+          if constexpr (std::is_same_v<SketchType, bool>) {
+            return kll_sketch::deserializeBoolSketch(
+                other->data(), other->size());
+          } else {
+            return datasketches::kll_sketch<SketchType>::deserialize(
+                other->data(), other->size());
+          }
+        }();
         if (!sketch) {
           setK(otherSketch.get_k());
           sketch = std::make_unique<datasketches::kll_sketch<SketchType>>(
