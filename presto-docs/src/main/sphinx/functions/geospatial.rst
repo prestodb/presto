@@ -82,7 +82,7 @@ Constructors
 
     Returns a geometry type linestring object from WKT representation.
 
-.. function:: ST_LineString(array(Point)) -> LineString
+.. function:: ST_LineString(array[Point]) -> LineString
 
     Returns a LineString formed from an array of points. If there are fewer
     than two non-empty points in the input array, an empty LineString will be
@@ -91,7 +91,7 @@ Constructors
     simple: for instance, it may self-intersect or may contain duplicate vertices depending
     on the input.
 
-.. function:: ST_MultiPoint(array(Point)) -> MultiPoint
+.. function:: ST_MultiPoint(array[Point]) -> MultiPoint
 
     Returns a MultiPoint geometry object formed from the specified points.
     Return ``null`` if input array is empty.  Throws an exception if any element
@@ -176,7 +176,7 @@ Relationship Tests
 Operations
 ----------
 
-.. function:: geometry_union(array(Geometry)) -> Geometry
+.. function:: geometry_union(array[Geometry]) -> Geometry
 
     Returns a geometry that represents the point set union of the input
     geometries. Performance of this function, in conjunction with
@@ -204,7 +204,7 @@ Operations
 
     Returns the bounding rectangular polygon of a geometry.
 
-.. function:: ST_EnvelopeAsPts(Geometry) -> array(Geometry)
+.. function:: ST_EnvelopeAsPts(Geometry) -> array[Geometry]
 
     Returns an array of two points: the lower left and upper right corners of
     the bounding rectangular polygon of a geometry. Returns ``null`` if input
@@ -294,7 +294,7 @@ Accessors
 
     Returns the great-circle distance in meters between two SphericalGeography points.
 
-.. function:: geometry_nearest_points(Geometry, Geometry) -> array(Point)
+.. function:: geometry_nearest_points(Geometry, Geometry) -> array[Point]
 
     Returns the points on each geometry nearest the other.  If either geometry
     is empty, return ``NULL``.  Otherwise, return an array of two Points that have
@@ -365,7 +365,7 @@ Accessors
     returns ``NULL``.
     Use :func:``ST_NumPoints`` to find out the total number of elements.
 
-.. function:: ST_Points(Geometry) -> array(Point)
+.. function:: ST_Points(Geometry) -> array[Point]
 
     Returns an array of points in a linestring.
 
@@ -403,7 +403,7 @@ Accessors
 
     Return the Y coordinate of the point.
 
-.. function:: ST_InteriorRings(Geometry) -> array(Geometry)
+.. function:: ST_InteriorRings(Geometry) -> array[Geometry]
 
    Returns an array of all interior rings found in the input geometry, or an empty
    array if the polygon has no interior rings. Returns ``null`` if the input geometry
@@ -419,7 +419,7 @@ Accessors
     ``ST_NumGeometries(ST_GeometryFromText('GEOMETRYCOLLECTION(MULTIPOINT EMPTY)'))``
     will evaluate to 1.
 
-.. function:: ST_Geometries(Geometry) -> array(Geometry)
+.. function:: ST_Geometries(Geometry) -> array[Geometry]
 
    Returns an array of geometries in the specified collection. Returns a one-element array
    if the input geometry is not a multi-geometry. Returns ``null`` if input geometry is empty.
@@ -429,7 +429,7 @@ Accessors
    ``GEOMETRYCOLLECTION(MULTIPOINT(0 0, 1 1), GEOMETRYCOLLECTION(MULTILINESTRING((2 2, 3 3))))``
    would produce ``array[MULTIPOINT(0 0, 1 1), GEOMETRYCOLLECTION(MULTILINESTRING((2 2, 3 3)))]``.
 
-.. function:: flatten_geometry_collections(Geometry) -> array(Geometry)
+.. function:: flatten_geometry_collections(Geometry) -> array[Geometry]
 
     Recursively flattens any GeometryCollections in Geometry, returning an array
     of constituent non-GeometryCollection geometries.  The order of the array is
@@ -535,12 +535,12 @@ represent a valid tile will raise an exception.
     Throws an exception if newZoom is less than 0, or newZoom is greater than
     the tile's zoom.
 
-.. function:: bing_tile_children(tile) -> array(BingTile)
+.. function:: bing_tile_children(tile) -> array[BingTile]
 
     Returns the children of the Bing tile at one higher zoom level.
     Throws an exception if tile is at max zoom level.
 
-.. function:: bing_tile_children(tile, newZoom) -> array(BingTile)
+.. function:: bing_tile_children(tile, newZoom) -> array[BingTile]
 
     Returns the children of the Bing tile at the specified higher zoom level.
     Throws an exception if newZoom is greater than the max zoom level, or
@@ -552,12 +552,12 @@ represent a valid tile will raise an exception.
     and longitude. Latitude must be within ``[-85.05112878, 85.05112878]`` range.
     Longitude must be within ``[-180, 180]`` range. Zoom levels from 1 to 23 are supported.
 
-.. function:: bing_tiles_around(latitude, longitude, zoom_level) -> array(BingTile)
+.. function:: bing_tiles_around(latitude, longitude, zoom_level) -> array[BingTile]
 
     Returns a collection of Bing tiles that surround the point specified
     by the latitude and longitude arguments at a given zoom level.
 
-.. function:: bing_tiles_around(latitude, longitude, zoom_level, radius_in_km) -> array(BingTile)
+.. function:: bing_tiles_around(latitude, longitude, zoom_level, radius_in_km) -> array[BingTile]
 
     Returns a minimum set of Bing tiles at specified zoom level that cover a circle of specified
     radius in km around a specified (latitude, longitude) point.
@@ -578,12 +578,12 @@ represent a valid tile will raise an exception.
 
     Returns the zoom level of a given Bing tile.
 
-.. function:: geometry_to_bing_tiles(geometry, zoom_level) -> array(BingTile)
+.. function:: geometry_to_bing_tiles(geometry, zoom_level) -> array[BingTile]
 
     Returns the minimum set of Bing tiles that fully covers a given geometry at
     a given zoom level. Zoom levels from 1 to 23 are supported.
 
-.. function:: geometry_to_dissolved_bing_tiles(geometry, max_zoom_level) -> array(BingTile)
+.. function:: geometry_to_dissolved_bing_tiles(geometry, max_zoom_level) -> array[BingTile]
 
     Returns the minimum set of Bing tiles that fully covers a given geometry at
     a given zoom level, recursively dissolving full sets of children into parents.
