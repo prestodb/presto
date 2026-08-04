@@ -1736,49 +1736,102 @@ frequently used together in query predicates.
 SQL Support
 -----------
 
-======================================== ============= ============ ============================================================================
-SQL Operation                            Presto Java   Presto C++   Comments
-======================================== ============= ============ ============================================================================
-``CREATE SCHEMA``                        Yes           Yes
+.. list-table::
+   :widths: 30 15 15 40
+   :header-rows: 1
 
-``CREATE TABLE``                         Yes           Yes
-
-``CREATE VIEW``                          Yes           Yes
-
-``INSERT INTO``                          Yes           No
-
-``CREATE TABLE AS SELECT``               Yes           No
-
-``SELECT``                               Yes           Yes          Read is supported in Presto C++ including those with positional delete files.
-
-``ALTER TABLE``                              Yes           Yes
-
-``ALTER TABLE ADD COLUMN DEFAULT``           Yes           Yes
-
-``ALTER TABLE ALTER COLUMN SET DEFAULT``     Yes           Yes
-
-``ALTER VIEW``                               Yes           Yes
-
-``TRUNCATE``                             Yes           Yes
-
-``DELETE``                               Yes           No
-
-``DROP TABLE``                           Yes           Yes
-
-``DROP VIEW``                            Yes           Yes
-
-``DROP SCHEMA``                          Yes           Yes
-
-``SHOW CREATE TABLE``                    Yes           Yes
-
-``SHOW COLUMNS``                         Yes           Yes
-
-``DESCRIBE``                             Yes           Yes
-
-``UPDATE``                               Yes           No
-
-``MERGE``                                Yes           No
-======================================== ============= ============ ============================================================================
+   * - SQL Operation
+     - Presto Java
+     - Presto C++
+     - Comments
+   * - ``CREATE SCHEMA``
+     - Yes
+     - Yes
+     -
+   * - ``CREATE TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``CREATE VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``INSERT INTO``
+     - Yes
+     - No
+     -
+   * - ``CREATE TABLE AS SELECT``
+     - Yes
+     - No
+     -
+   * - ``SELECT``
+     - Yes
+     - Yes
+     - Read is supported in Presto C++, including queries involving positional delete files.
+   * - ``ALTER TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ADD COLUMN DEFAULT``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN SET DEFAULT``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN SET NOT NULL``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN DROP NOT NULL``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``TRUNCATE``
+     - Yes
+     - Yes
+     -
+   * - ``DELETE``
+     - Yes
+     - No
+     -
+   * - ``DROP TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``DROP VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``DROP SCHEMA``
+     - Yes
+     - Yes
+     -
+   * - ``SHOW CREATE TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``SHOW COLUMNS``
+     - Yes
+     - Yes
+     -
+   * - ``DESCRIBE``
+     - Yes
+     - Yes
+     -
+   * - ``UPDATE``
+     - Yes
+     - No
+     -
+   * - ``MERGE``
+     - Yes
+     - No
+     -
 
 The Iceberg connector supports querying and manipulating Iceberg tables and schemas
 (databases). Here are some examples of the SQL operations supported by Presto:
@@ -2121,6 +2174,46 @@ value automatically.
 
 This feature requires Iceberg Format Version 3. Attempting to use ``ALTER COLUMN SET DEFAULT`` on
 a table with format version 2 or lower will result in an error.
+
+ALTER COLUMN SET NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports adding a ``NOT NULL`` constraint on an existing column
+via ``ALTER COLUMN``.
+
+.. code-block:: sql
+
+    ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id SET NOT NULL;
+
+**Important:** ``SET NOT NULL`` is a metadata-only operation in Iceberg. It updates the column's
+required/optional flag in the schema without rewriting data files. This means:
+
+* The operation succeeds even if existing rows contain ``NULL`` values for that column.
+* Existing rows with ``NULL`` values remain readable after the constraint is set.
+* ``NOT NULL`` is enforced only on subsequent writes.
+
+This behavior follows Iceberg's schema evolution model and is consistent with how Iceberg
+handles the ``required`` field flag internally.
+
+ALTER COLUMN DROP NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports removing a ``NOT NULL`` constraint from an existing column
+via ``ALTER COLUMN``.
+
+.. code-block:: sql
+
+    ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id DROP NOT NULL;
+
+**Important:** ``DROP NOT NULL`` is a metadata-only operation in Iceberg. It relaxes the column's
+required/optional flag in the schema without rewriting data files. This means:
+
+* The operation succeeds immediately, regardless of the amount of existing data.
+* Dropping ``NOT NULL`` on a column that is already nullable is idempotent and does not change the schema.
+* After the constraint is dropped, ``NULL`` values are accepted for that column on subsequent writes.
+
+This behavior follows Iceberg's schema evolution model and is consistent with how Iceberg
+handles the ``required`` field flag internally.
 
 ALTER VIEW
 ^^^^^^^^^^

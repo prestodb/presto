@@ -163,7 +163,10 @@ protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
   error.errorLocation.columnNumber = 1;
   error.type = e.exceptionName();
   std::stringstream msg;
-  msg << e.failingExpression() << " " << e.message();
+  if (!e.failingExpression().empty()) {
+    msg << e.failingExpression() << " ";
+  }
+  msg << e.message();
   if (!e.context().empty()) {
     msg << " " << e.context();
   }
