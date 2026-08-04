@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
-import com.google.common.net.HostAndPort;
+import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.thrift.TException;
 
@@ -25,32 +25,31 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class StaticHiveCluster
         implements HiveCluster
 {
-    private final List<HostAndPort> addresses;
-    private final HiveMetastoreClientFactory clientFactory;
+    private final ImmutableList<URI> metastoreUris;
+    private final MetastoreClientFactory clientFactory;
     private final String metastoreUsername;
     private final boolean metastoreLoadBalancingEnabled;
 
     @Inject
-    public StaticHiveCluster(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
+    public StaticHiveCluster(StaticMetastoreConfig config, MetastoreClientFactory clientFactory)
     {
         this(config.getMetastoreUris(), config.isMetastoreLoadBalancingEnabled(), config.getMetastoreUsername(), clientFactory);
     }
 
-    public StaticHiveCluster(List<URI> metastoreUris, boolean metastoreLoadBalancingEnabled, String metastoreUsername, HiveMetastoreClientFactory clientFactory)
+    public StaticHiveCluster(List<URI> metastoreUris, boolean metastoreLoadBalancingEnabled, String metastoreUsername, MetastoreClientFactory clientFactory)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         this.metastoreLoadBalancingEnabled = metastoreLoadBalancingEnabled;
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
-        this.addresses = metastoreUris.stream()
+        this.metastoreUris = metastoreUris.stream()
                 .map(StaticHiveCluster::checkMetastoreUri)
-                .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
-                .collect(toList());
+                .collect(toImmutableList());
         this.metastoreUsername = metastoreUsername;
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
     }
@@ -67,15 +66,16 @@ public class StaticHiveCluster
     public HiveMetastoreClient createMetastoreClient(Optional<String> token)
             throws TException
     {
-        List<HostAndPort> metastores = new ArrayList<>(addresses);
+        List<URI> metastoreUrisList = metastoreUris;
         if (metastoreLoadBalancingEnabled) {
-            Collections.shuffle(metastores);
+            metastoreUrisList = new ArrayList<>(metastoreUris);
+            Collections.shuffle(metastoreUrisList);
         }
 
         TException lastException = null;
-        for (HostAndPort metastore : metastores) {
+        for (URI metastoreUri : metastoreUrisList) {
             try {
-                HiveMetastoreClient client = clientFactory.create(metastore, token);
+                HiveMetastoreClient client = clientFactory.create(metastoreUri, token);
 
                 if (!isNullOrEmpty(metastoreUsername)) {
                     client.setUGI(metastoreUsername);
@@ -86,7 +86,7 @@ public class StaticHiveCluster
                 lastException = e;
             }
         }
-        throw new TException("Failed connecting to Hive metastore: " + addresses, lastException);
+        throw new TException("Failed connecting to Hive metastore: " + metastoreUris, lastException);
     }
 
     private static URI checkMetastoreUri(URI uri)
@@ -94,7 +94,8 @@ public class StaticHiveCluster
         requireNonNull(uri, "metastoreUri is null");
         String scheme = uri.getScheme();
         checkArgument(!isNullOrEmpty(scheme), "metastoreUri scheme is missing: %s", uri);
-        checkArgument(scheme.equals("thrift"), "metastoreUri scheme must be thrift: %s", uri);
+        checkArgument(scheme.equalsIgnoreCase("thrift") || scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"),
+                "metastoreUri scheme must be thrift, http, or https: %s", uri);
         checkArgument(uri.getHost() != null, "metastoreUri host is missing: %s", uri);
         checkArgument(uri.getPort() != -1, "metastoreUri port is missing: %s", uri);
         return uri;
