@@ -170,6 +170,7 @@ import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
@@ -921,6 +922,32 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testTrim()
+    {
+        assertExpression("trim(BOTH FROM ' abc ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.empty()));
+        assertExpression("trim(LEADING FROM ' abc ')",
+                new Trim(Trim.Specification.LEADING, new StringLiteral(" abc "), Optional.empty()));
+        assertExpression("trim(TRAILING FROM ' abc ')",
+                new Trim(Trim.Specification.TRAILING, new StringLiteral(" abc "), Optional.empty()));
+
+        assertExpression("trim(BOTH ' ' FROM ' abc ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+        assertExpression("trim(LEADING ' ' FROM ' abc ')",
+                new Trim(Trim.Specification.LEADING, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+        assertExpression("trim(TRAILING ' ' FROM ' abc ')",
+                new Trim(Trim.Specification.TRAILING, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+
+        assertExpression("trim(' abc ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.empty()));
+        assertExpression("trim(' ' FROM ' abc ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+        assertExpression("trim(' abc ', ' ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+        assertInvalidExpression("trim(FROM ' abc ')", "The 'trim' function must have specification, char or both arguments when it takes FROM");
     }
 
     @Test
