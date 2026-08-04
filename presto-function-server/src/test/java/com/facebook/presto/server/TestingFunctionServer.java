@@ -27,7 +27,6 @@ import com.google.inject.Module;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -58,7 +57,7 @@ public class TestingFunctionServer
 
         Bootstrap app = new Bootstrap(modules);
         Injector injector = app
-                .setRequiredConfigurationProperties(new HashMap<>(properties))
+                .setRequiredConfigurationProperties(ImmutableMap.copyOf(properties))
                 .initialize();
 
         functionPluginManager = injector.getInstance(FunctionPluginManager.class);
