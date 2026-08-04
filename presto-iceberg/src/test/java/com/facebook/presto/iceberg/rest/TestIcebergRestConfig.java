@@ -46,7 +46,11 @@ public class TestIcebergRestConfig
                 .setKeystorePath(null)
                 .setKeystorePassword(null)
                 .setTruststorePath(null)
-                .setTruststorePassword(null));
+                .setTruststorePassword(null)
+                .setProxyHostname(null)
+                .setProxyPort(null)
+                .setProxyUsername(null)
+                .setProxyPassword(null));
     }
 
     @Test
@@ -68,6 +72,10 @@ public class TestIcebergRestConfig
                 .put("iceberg.rest.tls.keystore-password", "keystorePassword")
                 .put("iceberg.rest.tls.truststore-path", "/path/to/truststore")
                 .put("iceberg.rest.tls.truststore-password", "truststorePassword")
+                .put("iceberg.rest.proxy.hostname", "localhost")
+                .put("iceberg.rest.proxy.port", "8080")
+                .put("iceberg.rest.proxy.username", "admin")
+                .put("iceberg.rest.proxy.password", "admin")
                 .build();
 
         IcebergRestConfig expected = new IcebergRestConfig()
@@ -85,7 +93,11 @@ public class TestIcebergRestConfig
                 .setKeystorePath("/path/to/keystore")
                 .setKeystorePassword("keystorePassword")
                 .setTruststorePath("/path/to/truststore")
-                .setTruststorePassword("truststorePassword");
+                .setTruststorePassword("truststorePassword")
+                .setProxyHostname("localhost")
+                .setProxyPort(8080)
+                .setProxyUsername("admin")
+                .setProxyPassword("admin");
 
         assertFullMapping(properties, expected);
     }
@@ -168,5 +180,50 @@ public class TestIcebergRestConfig
         assertFalse(new IcebergRestConfig().setTlsEnabled(true)
                 .setTruststorePassword("secret")
                 .isValidTlsConfig());
+    }
+
+    @Test
+    public void testNoProxyIsValid()
+    {
+        assertTrue(new IcebergRestConfig().isValidProxyConfig());
+    }
+
+    @Test
+    public void testProxyHostAndPortIsValid()
+    {
+        assertTrue(new IcebergRestConfig()
+                .setProxyHostname("proxy.example.com")
+                .setProxyPort(8080)
+                .isValidProxyConfig());
+    }
+
+    @Test
+    public void testProxyWithCredentialsIsValid()
+    {
+        assertTrue(new IcebergRestConfig()
+                .setProxyHostname("proxy.example.com")
+                .setProxyPort(8080)
+                .setProxyUsername("user")
+                .setProxyPassword("secret")
+                .isValidProxyConfig());
+    }
+
+    @Test
+    public void testProxyHostnameWithoutPortIsInvalid()
+    {
+        assertFalse(new IcebergRestConfig()
+                .setProxyHostname("proxy.example.com")
+                .isValidProxyConfig());
+    }
+
+    @Test
+    public void testProxyUsernameWithoutPasswordIsInvalid()
+    {
+        assertFalse(new IcebergRestConfig()
+                .setProxyHostname("proxy.example.com")
+                .setProxyPort(8080)
+                .setProxyUsername("user")
+                .setProxyPassword("")
+                .isValidProxyConfig());
     }
 }
