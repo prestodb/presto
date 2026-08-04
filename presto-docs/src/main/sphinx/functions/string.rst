@@ -256,6 +256,16 @@ For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:
         SELECT trim('test', 't'); -- es
         SELECT trim('.t.e.s.t.', '.t'); -- e.s
 
+.. function:: trim( [ [ specification ] [ string ] FROM ] source ) -> varchar
+
+     Removes any leading and/or trailing characters as specified up to and
+     including ``string`` from ``source``::
+
+         SELECT trim('!' FROM '!foo!'); -- 'foo'
+         SELECT trim(LEADING FROM '  abcd');  -- 'abcd'
+         SELECT trim(BOTH '$' FROM '$var$'); -- 'var'
+         SELECT trim(TRAILING 'ER' FROM upper('worker')); -- 'WORK'
+
 .. function:: upper(string) -> varchar
 
     Converts ``string`` to uppercase.
