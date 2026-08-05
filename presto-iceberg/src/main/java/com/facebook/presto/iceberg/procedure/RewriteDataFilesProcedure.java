@@ -95,6 +95,10 @@ import static java.util.Objects.requireNonNull;
 public class RewriteDataFilesProcedure
         implements Provider<DistributedProcedure>
 {
+    // Positions within the procedure arguments: [schema, table_name, strategy, sorted_by, options, filter]
+    private static final int STRATEGY_ARGUMENT_INDEX = 2;
+    private static final int OPTIONS_ARGUMENT_INDEX = 4;
+
     TypeManager typeManager;
     JsonCodec<CommitTaskData> commitTaskCodec;
 
@@ -123,61 +127,65 @@ public class RewriteDataFilesProcedure
                 (session, procedureContext, tableLayoutHandle, arguments, sortOrderIndex) -> beginCallDistributedProcedure(session, (IcebergRewriteDataFilesProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments, sortOrderIndex),
                 ((session, procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure(session, (IcebergRewriteDataFilesProcedureContext) procedureContext, tableHandle, fragments)),
                 arguments -> {
-                    // Context provider receives [Table, Transaction, procedureArguments]
+                    // Context provider receives [Table, IcebergAbstractMetadata, procedureArguments]
                     checkArgument(arguments.length >= 2, format("invalid number of arguments: %s (should have at least %s)", arguments.length, 2));
                     checkArgument(arguments[0] instanceof Table && arguments[1] instanceof IcebergAbstractMetadata, "Invalid arguments, required: [Table, IcebergAbstractMetadata]");
 
-                    // Validate strategy argument early
-                    validateStrategy(arguments);
+                    Object[] procedureArguments = extractProcedureArguments(arguments);
+
+                    // Parse and validate the strategy eagerly, so invalid values fail before the query executes
+                    RewriteStrategy strategy = parseStrategy(procedureArguments);
 
                     // Extract and validate options from procedure arguments if present
-                    Map<String, String> options = extractAndValidateOptions(arguments);
+                    Map<String, String> options = extractAndValidateOptions(procedureArguments);
 
-                    return new IcebergRewriteDataFilesProcedureContext((Table) arguments[0], (IcebergAbstractMetadata) arguments[1], options);
+                    return new IcebergRewriteDataFilesProcedureContext((Table) arguments[0], (IcebergAbstractMetadata) arguments[1], strategy, options);
                 });
     }
 
-    private static void validateStrategy(Object[] contextProviderArgs)
+    private static Object[] extractProcedureArguments(Object[] contextProviderArgs)
     {
         if (contextProviderArgs.length > 2 && contextProviderArgs[2] instanceof Object[]) {
-            Object[] procedureArgs = (Object[]) contextProviderArgs[2];
-            // Strategy is the 3rd procedure parameter (index 2)
-            // Arguments: [schema, table_name, strategy, sorted_by, options, filter]
-            if (procedureArgs.length > 2 && procedureArgs[2] != null) {
-                String strategyStr;
-                if (procedureArgs[2] instanceof Slice) {
-                    strategyStr = ((Slice) procedureArgs[2]).toStringUtf8();
-                }
-                else {
-                    strategyStr = procedureArgs[2].toString();
-                }
-                try {
-                    RewriteStrategy.valueOf(strategyStr.trim().toUpperCase(Locale.ENGLISH));
-                }
-                catch (IllegalArgumentException e) {
-                    throw new PrestoException(NOT_SUPPORTED,
-                            format("Invalid rewrite strategy: %s. Valid values are 'sort' or 'binpack'.", strategyStr));
-                }
-            }
+            return (Object[]) contextProviderArgs[2];
+        }
+        return new Object[0];
+    }
+
+    /**
+     * Parses the `strategy` procedure argument, defaulting to {@link RewriteStrategy#BINPACK} when it is not specified.
+     *
+     * @throws PrestoException if the value is not a recognized strategy
+     */
+    private static RewriteStrategy parseStrategy(Object[] procedureArgs)
+    {
+        if (procedureArgs.length <= STRATEGY_ARGUMENT_INDEX || procedureArgs[STRATEGY_ARGUMENT_INDEX] == null) {
+            return RewriteStrategy.BINPACK;
+        }
+
+        Object strategyArgument = procedureArgs[STRATEGY_ARGUMENT_INDEX];
+        String strategyStr = strategyArgument instanceof Slice ?
+                ((Slice) strategyArgument).toStringUtf8() :
+                strategyArgument.toString();
+        try {
+            return RewriteStrategy.valueOf(strategyStr.trim().toUpperCase(Locale.ENGLISH));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("Invalid rewrite strategy: %s. Valid values are 'sort' or 'binpack'.", strategyStr));
         }
     }
 
-    private static Map<String, String> extractAndValidateOptions(Object[] contextProviderArgs)
+    private static Map<String, String> extractAndValidateOptions(Object[] procedureArgs)
     {
         Map<String, String> options = ImmutableMap.of();
-        if (contextProviderArgs.length > 2 && contextProviderArgs[2] instanceof Object[]) {
-            Object[] procedureArgs = (Object[]) contextProviderArgs[2];
-            // Options is the 5th procedure parameter (index 4)
-            // Arguments: [schema, table_name, strategy, sorted_by, options, filter]
-            if (procedureArgs.length > 4 && procedureArgs[4] != null && procedureArgs[4] instanceof Map) {
-                options = (Map<String, String>) procedureArgs[4];
+        if (procedureArgs.length > OPTIONS_ARGUMENT_INDEX && procedureArgs[OPTIONS_ARGUMENT_INDEX] instanceof Map) {
+            options = (Map<String, String>) procedureArgs[OPTIONS_ARGUMENT_INDEX];
 
-                // Validate options if present using utility methods
-                parseMinInputFiles(options);
-                parseMinFileSize(options);
-                parseMaxFileSize(options);
-                parseRewriteAll(options);
-            }
+            // Validate options if present using utility methods
+            parseMinInputFiles(options);
+            parseMinFileSize(options);
+            parseMaxFileSize(options);
+            parseRewriteAll(options);
         }
         return options;
     }
@@ -193,21 +201,8 @@ public class RewriteDataFilesProcedure
             Table icebergTable = procedureContext.getTable();
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
-            // Extract strategy argument (3rd argument, index 2)
-            // Arguments: [schema, table_name, strategy, sorted_by, options, filter]
-            // Strategy is already validated in the context provider
-            RewriteStrategy strategy = RewriteStrategy.BINPACK; // default
-            if (arguments.length > 2 && arguments[2] != null) {
-                String strategyStr;
-                if (arguments[2] instanceof Slice) {
-                    strategyStr = ((Slice) arguments[2]).toStringUtf8();
-                }
-                else {
-                    strategyStr = arguments[2].toString();
-                }
-                // No validation needed here - already done in context provider
-                strategy = RewriteStrategy.valueOf(strategyStr.trim().toUpperCase(Locale.ENGLISH));
-            }
+            // Parsed and validated when the procedure context was created
+            RewriteStrategy strategy = procedureContext.getStrategy();
 
             SortOrder sortOrder = icebergTable.sortOrder();
             Optional<List<String>> zOrderColumns = Optional.empty();

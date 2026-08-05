@@ -264,8 +264,6 @@ public final class IcebergUtil
         BINPACK
     }
 
-    public static final RewriteStrategy DEFAULT_REWRITE_STRATEGY = RewriteStrategy.BINPACK;
-
     private static final Schema LINEAGE_ONLY_SCHEMA = new Schema(LAST_UPDATED_SEQUENCE_NUMBER);
     private static final InclusiveMetricsEvaluator MATCH_ALL_LINEAGE_EVALUATOR =
             new InclusiveMetricsEvaluator(LINEAGE_ONLY_SCHEMA, alwaysTrue());
@@ -1923,29 +1921,5 @@ public final class IcebergUtil
             return (minFileSizeBytes > 0 && fileSize < minFileSizeBytes) ||
                     (maxFileSizeBytes > 0 && fileSize > maxFileSizeBytes);
         });
-    }
-
-    /**
-     * Parses and validates the rewrite strategy option.
-     * Returns the parsed RewriteStrategy value, or DEFAULT_REWRITE_STRATEGY (BINPACK) if the option is not present.
-     *
-     * @param options rewrite options map
-     * @return the rewrite strategy to use
-     * @throws IllegalArgumentException if the value is invalid
-     */
-    public static RewriteStrategy parseRewriteStrategy(Map<String, String> options)
-    {
-        String strategyStr = options.get("strategy");
-        if (strategyStr == null) {
-            return DEFAULT_REWRITE_STRATEGY;
-        }
-
-        try {
-            return RewriteStrategy.valueOf(strategyStr.trim().toUpperCase(Locale.ENGLISH));
-        }
-        catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(
-                String.format("Invalid rewrite strategy: %s. Valid values are 'sort' or 'binpack'.", strategyStr), e);
-        }
     }
 }
