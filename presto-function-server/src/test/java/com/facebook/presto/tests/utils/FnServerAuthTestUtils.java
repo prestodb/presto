@@ -201,16 +201,30 @@ public class FnServerAuthTestUtils
     public static DistributedQueryRunner createNativeRunnerWithMtlsAndJwt()
             throws Exception
     {
+        return createNativeRunnerWithMtlsAndJwt(true);
+    }
+
+    /** Java coordinator + native (C++) workers, mTLS + JWT, with configurable sidecar. */
+    public static DistributedQueryRunner createNativeRunnerWithMtlsAndJwt(boolean sidecarEnabled)
+            throws Exception
+    {
         return createHttpsNativeQueryRunnerWithFnServer(
-                getFunctionServerConfigWithAuth(findUnusedPort(), JWT_SHARED_SECRET, true), true);
+                getFunctionServerConfigWithAuth(findUnusedPort(), JWT_SHARED_SECRET, true), true, sidecarEnabled);
     }
 
     /** Java coordinator + native workers, mTLS only (no JWT on any node). */
     public static DistributedQueryRunner createNativeRunnerWithOnlyMtls()
             throws Exception
     {
+        return createNativeRunnerWithOnlyMtls(true);
+    }
+
+    /** Java coordinator + native workers, mTLS only, with configurable sidecar. */
+    public static DistributedQueryRunner createNativeRunnerWithOnlyMtls(boolean sidecarEnabled)
+            throws Exception
+    {
         return createHttpsNativeQueryRunnerWithFnServer(
-                getFunctionServerConfigWithAuth(findUnusedPort(), JWT_SHARED_SECRET, false), false);
+                getFunctionServerConfigWithAuth(findUnusedPort(), JWT_SHARED_SECRET, false), false, sidecarEnabled);
     }
 
     /**
@@ -226,12 +240,25 @@ public class FnServerAuthTestUtils
 
     /**
      * Returns an external worker launcher for a native (C++) worker configured with
-     * HTTPS client certificates and optionally JWT.
+     * HTTPS client certificates and optionally JWT. Uses sidecarEnabled=true by default.
      */
     public static Optional<BiFunction<Integer, URI, Process>> getHttpsNativeWorkerLauncher(
             String prestoServerPath,
             String functionServerUri,
             boolean includeJwt)
+    {
+        return getHttpsNativeWorkerLauncher(prestoServerPath, functionServerUri, includeJwt, true);
+    }
+
+    /**
+     * Returns an external worker launcher for a native (C++) worker configured with
+     * HTTPS client certificates, optionally JWT, and configurable sidecar.
+     */
+    public static Optional<BiFunction<Integer, URI, Process>> getHttpsNativeWorkerLauncher(
+            String prestoServerPath,
+            String functionServerUri,
+            boolean includeJwt,
+            boolean sidecarEnabled)
     {
         String workerCertPath = certPath("worker/worker.crt");
         String workerKeyPath = certPath("worker/worker.key");
@@ -252,6 +279,7 @@ public class FnServerAuthTestUtils
                 .setConnectorName("tpch")
                 .setRemoteFunctionServerRestUrl(functionServerUri)
                 .setEnableRuntimeMetricsCollection(true)
+                .setCoordinatorSidecarEnabled(sidecarEnabled)
                 .setHttpsClientConfig(httpsConfig)
                 .build();
     }
@@ -347,13 +375,27 @@ public class FnServerAuthTestUtils
 
     /**
      * Creates a native-worker {@link DistributedQueryRunner} with HTTPS/mTLS and optional JWT.
+     * Uses sidecarEnabled=true by default.
      */
     private static DistributedQueryRunner createHttpsNativeQueryRunnerWithFnServer(
             Map<String, String> functionServerConfig,
             boolean includeJwt)
             throws Exception
     {
-        log.info("Creating Native Worker HTTPS Query Runner");
+        return createHttpsNativeQueryRunnerWithFnServer(functionServerConfig, includeJwt, true);
+    }
+
+    /**
+     * Creates a native-worker {@link DistributedQueryRunner} with HTTPS/mTLS, optional JWT,
+     * and configurable sidecar plugin.
+     */
+    private static DistributedQueryRunner createHttpsNativeQueryRunnerWithFnServer(
+            Map<String, String> functionServerConfig,
+            boolean includeJwt,
+            boolean sidecarEnabled)
+            throws Exception
+    {
+        log.info("Creating Native Worker HTTPS Query Runner (sidecarEnabled=%s)", sidecarEnabled);
 
         Path prestoServerPath = Paths.get(System.getProperty("PRESTO_SERVER",
                 "_build/debug/presto_cpp/main/presto_server")).toAbsolutePath();
@@ -374,7 +416,7 @@ public class FnServerAuthTestUtils
                     .setExtraProperties(NativeQueryRunnerUtils.getNativeWorkerSystemProperties())
                     .setCoordinatorProperties(buildCoordinatorProperties(includeJwt))
                     .setExternalWorkerLauncher(
-                            getHttpsNativeWorkerLauncher(prestoServerPath.toString(), functionServerUri, includeJwt))
+                            getHttpsNativeWorkerLauncher(prestoServerPath.toString(), functionServerUri, includeJwt, sidecarEnabled))
                     .build();
             setupTpchAndFunctionNamespace(queryRunner, functionServerUri);
             queryRunner.addCloseAction(functionServer);
