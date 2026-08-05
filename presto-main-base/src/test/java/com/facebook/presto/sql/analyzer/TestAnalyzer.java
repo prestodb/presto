@@ -2586,6 +2586,30 @@ public class TestAnalyzer
         assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a IN (a)");
     }
 
+    @Test
+    public void testCreateMaterializedViewRejectsNonDeterministicFunction()
+    {
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, rand() r FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a FROM t1 WHERE rand() >= 0");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, sum(b * random()) s FROM t1 GROUP BY a");
+    }
+
+    @Test
+    public void testCreateMaterializedViewRejectsSessionTimeFunction()
+    {
+        // now()/current_timestamp() are function calls; CURRENT_TIMESTAMP/CURRENT_DATE are CurrentTime nodes
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, now() ts FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, current_timestamp ts FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, current_date d FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a FROM t1 WHERE current_timestamp IS NOT NULL");
+    }
+
+    @Test
+    public void testCreateMaterializedViewAllowsDeterministicFunction()
+    {
+        analyze("CREATE MATERIALIZED VIEW s1.mv_det AS SELECT a, abs(b) c FROM t1");
+    }
+
     private Optional<String> refreshScopePredicate(String query)
     {
         Optional<RowExpression> predicate = analyzeAndGetAnalysis(CLIENT_SESSION, query)

@@ -44,6 +44,12 @@ cause an error if used.
 The optional ``WITH`` clause specifies connector-specific properties. Connector properties vary by
 connector implementation. Consult connector documentation for supported properties.
 
+.. note::
+
+    The defining query cannot contain non-deterministic functions (such as ``random`` or ``uuid``)
+    or session-time functions (such as ``current_timestamp`` or ``now``). Their values cannot be
+    reproduced across refreshes, so the engine rejects such queries at creation time.
+
 Examples
 --------
 
