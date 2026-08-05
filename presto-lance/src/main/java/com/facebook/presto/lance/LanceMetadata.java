@@ -144,10 +144,27 @@ public class LanceMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        String schema = schemaName.orElse(LanceNamespaceHolder.DEFAULT_SCHEMA);
-        if (!namespaceHolder.schemaExists(schema)) {
-            return ImmutableList.of();
+        if (schemaName.isPresent()) {
+            String schema = schemaName.get();
+            if (!namespaceHolder.schemaExists(schema)) {
+                return ImmutableList.of();
+            }
+            return listTablesInSchema(schema);
         }
+
+        // No schema filter means every schema in the catalog. Falling back to a single
+        // default schema would return nothing in multi-level mode, where "default" is
+        // not a real namespace.
+        ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
+        for (String schema : namespaceHolder.listSchemaNames()) {
+            // The namespace just listed these, so an existence check would be a wasted round trip.
+            tables.addAll(listTablesInSchema(schema));
+        }
+        return tables.build();
+    }
+
+    private List<SchemaTableName> listTablesInSchema(String schema)
+    {
         return namespaceHolder.listTables(schema).stream()
                 .map(tableName -> new SchemaTableName(schema, tableName))
                 .collect(toImmutableList());
