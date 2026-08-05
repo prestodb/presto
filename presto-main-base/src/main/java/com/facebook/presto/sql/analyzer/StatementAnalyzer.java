@@ -61,7 +61,9 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.table.Argument;
@@ -120,6 +122,7 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
+import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
@@ -269,6 +272,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.CallTask.extractParameterValuesInOrder;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
@@ -413,6 +417,14 @@ class StatementAnalyzer
 {
     private static final Logger log = Logger.get(StatementAnalyzer.class);
     private static final int UNION_DISTINCT_FIELDS_WARNING_THRESHOLD = 3;
+    // Time functions are deterministic within a query but vary across refreshes, so they are disallowed in MV definitions
+    private static final Set<QualifiedObjectName> SESSION_TIME_FUNCTIONS = ImmutableSet.of(
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "now"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "current_timestamp"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "current_date"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "current_time"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "localtime"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "localtimestamp"));
     private final Analysis analysis;
     private final Metadata metadata;
     private final FunctionAndTypeResolver functionAndTypeResolver;
@@ -896,7 +908,45 @@ class StatementAnalyzer
 
             validateBaseTables(analysis.getTableNodes(), node);
 
+            validateDeterministicFunctionsInMV(node);
+
             return createAndAssignScope(node, scope);
+        }
+
+        private void validateDeterministicFunctionsInMV(CreateMaterializedView node)
+        {
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+            // now()/current_timestamp() are FunctionCalls; CURRENT_TIMESTAMP/CURRENT_DATE parse as CurrentTime nodes
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitFunctionCall(FunctionCall functionCall, Void context)
+                {
+                    FunctionHandle functionHandle = analysis.getFunctionHandle(functionCall);
+                    if (functionHandle != null) {
+                        FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(functionHandle);
+                        if (!functionMetadata.isDeterministic() || SESSION_TIME_FUNCTIONS.contains(functionMetadata.getName())) {
+                            throw rejectNonDeterministicInMV(functionCall, functionCall.getName().toString());
+                        }
+                    }
+                    return super.visitFunctionCall(functionCall, context);
+                }
+
+                @Override
+                protected Void visitCurrentTime(CurrentTime currentTime, Void context)
+                {
+                    throw rejectNonDeterministicInMV(currentTime, currentTime.getFunction().getName());
+                }
+            }.process(node.getQuery(), null);
+        }
+
+        private SemanticException rejectNonDeterministicInMV(Node node, String functionName)
+        {
+            return new SemanticException(
+                    NOT_SUPPORTED,
+                    node,
+                    "Non-deterministic function '%s' is not allowed in a materialized view definition",
+                    functionName);
         }
 
         @Override
