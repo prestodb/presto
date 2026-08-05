@@ -97,7 +97,7 @@ public class PluginManager
     private final QueryPrerequisitesManager queryPrerequisitesManager;
     private final NodeTtlFetcherManager nodeTtlFetcherManager;
     private final ClusterTtlProviderManager clusterTtlProviderManager;
-    private final ArtifactResolver resolver;
+    private final Supplier<ArtifactResolver> resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
@@ -150,7 +150,7 @@ public class PluginManager
         else {
             this.plugins = ImmutableList.copyOf(config.getPlugins());
         }
-        this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
+        this.resolver = Suppliers.memoize(() -> new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository()));
 
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
