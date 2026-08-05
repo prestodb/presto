@@ -398,8 +398,8 @@ public class LanceNamespaceHolder
             }
         }
         catch (Exception e) {
-            log.debug("Failed to get storage options from describeTable for %s: %s", tableId, e.getMessage());
-        }
++            log.debug(e, "Failed to get storage options from describeTable for %s", tableId);
++        }
 
         if (!namespaceStorageOptions.isEmpty()) {
             return namespaceStorageOptions;
