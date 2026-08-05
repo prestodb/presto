@@ -119,7 +119,8 @@ public final class PrestoEventData
                 0.0, // cumulativeTotalMemory
                 0, // completedSplits
                 true, // complete
-                new RuntimeStats());
+                new RuntimeStats(),
+                0L);
 
         queryCompleteEvent = new QueryCompletedEvent(
                 queryMetadata,
