@@ -14,6 +14,7 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -26,7 +27,11 @@ import static org.testng.Assert.assertTrue;
 
 public class TestLanceTableHandle
 {
-    private final LanceTableHandle tableHandle = new LanceTableHandle("default", "test_table");
+    private final LanceTableHandle tableHandle = new LanceTableHandle(
+            "default",
+            "test_table",
+            "file:///tmp/lance/test_table.lance",
+            ImmutableList.of("test_table"));
 
     @Test
     public void testJsonRoundTrip()
@@ -43,7 +48,12 @@ public class TestLanceTableHandle
     public void testJsonRoundTripWithVersion()
     {
         JsonCodec<LanceTableHandle> codec = jsonCodec(LanceTableHandle.class);
-        LanceTableHandle handleWithVersion = new LanceTableHandle("default", "test_table", Optional.of(42L));
+        LanceTableHandle handleWithVersion = new LanceTableHandle(
+                "default",
+                "test_table",
+                "file:///tmp/lance/test_table.lance",
+                ImmutableList.of("test_table"),
+                Optional.of(42L));
         String json = codec.toJson(handleWithVersion);
         LanceTableHandle copy = codec.fromJson(json);
         assertEquals(copy, handleWithVersion);

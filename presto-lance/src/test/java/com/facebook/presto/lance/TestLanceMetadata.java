@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import org.testng.annotations.AfterMethod;
@@ -52,9 +53,12 @@ public class TestLanceMetadata
         assertNotNull(dbUrl, "example_db resource not found");
         String rootPath = Paths.get(dbUrl.toURI()).toString();
         LanceConfig config = new LanceConfig()
-                .setRootUrl(rootPath)
                 .setSingleLevelNs(true);
-        LanceNamespaceHolder namespaceHolder = new LanceNamespaceHolder(config);
+
+        // Pass lance.root through namespace properties (as the connector factory would)
+        Map<String, String> namespaceProperties = ImmutableMap.of("lance.root", rootPath);
+
+        LanceNamespaceHolder namespaceHolder = new LanceNamespaceHolder(config, namespaceProperties);
         this.namespaceHolder = namespaceHolder;
         JsonCodec<LanceCommitTaskData> commitTaskDataCodec = jsonCodec(LanceCommitTaskData.class);
         metadata = new LanceMetadata(namespaceHolder, commitTaskDataCodec);
@@ -82,6 +86,8 @@ public class TestLanceMetadata
         LanceTableHandle lanceHandle = (LanceTableHandle) handle;
         assertEquals(lanceHandle.getSchemaName(), "default");
         assertEquals(lanceHandle.getTableName(), "test_table1");
+        assertNotNull(lanceHandle.getTablePath());
+        assertNotNull(lanceHandle.getTableId());
         assertNotNull(lanceHandle.getDatasetVersion());
         assertTrue(lanceHandle.getDatasetVersion().isPresent());
 
@@ -90,6 +96,7 @@ public class TestLanceMetadata
         LanceTableHandle lanceHandle2 = (LanceTableHandle) handle2;
         assertEquals(lanceHandle2.getSchemaName(), "default");
         assertEquals(lanceHandle2.getTableName(), "test_table2");
+        assertNotNull(lanceHandle2.getTablePath());
         assertTrue(lanceHandle2.getDatasetVersion().isPresent());
 
         // non-existent schema

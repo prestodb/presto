@@ -17,13 +17,16 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -45,12 +48,22 @@ public class TestLanceSplitManager
         URL dbUrl = Resources.getResource(TestLanceSplitManager.class, "/example_db");
         String rootPath = Paths.get(dbUrl.toURI()).toString();
         LanceConfig config = new LanceConfig()
-                .setRootUrl(rootPath)
                 .setSingleLevelNs(true);
-        namespaceHolder = new LanceNamespaceHolder(config);
+        Map<String, String> namespaceProperties = ImmutableMap.of("lance.root", rootPath);
+        namespaceHolder = new LanceNamespaceHolder(config, namespaceProperties);
         splitManager = new LanceSplitManager(namespaceHolder);
-        tableHandle = new LanceTableHandle("default", "test_table1");
-        fragmentCount = namespaceHolder.getFragments("test_table1", Optional.empty()).size();
+
+        String tablePath = namespaceHolder.getTablePath("default", "test_table1");
+        List<String> tableId = namespaceHolder.getTableId("default", "test_table1");
+        long datasetVersion = namespaceHolder.getLatestVersion(tablePath);
+        tableHandle = new LanceTableHandle("default", "test_table1", tablePath, tableId, Optional.of(datasetVersion));
+        fragmentCount = namespaceHolder.getFragments(tablePath, Optional.of(datasetVersion)).size();
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        namespaceHolder.shutdown();
     }
 
     @Test

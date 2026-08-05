@@ -23,7 +23,7 @@ replacing the properties as appropriate:
 .. code-block:: none
 
     connector.name=lance
-    lance.root-url=/path/to/lance/data
+    lance.root=/path/to/lance/data
 
 Configuration Properties
 ------------------------
@@ -33,8 +33,11 @@ The following configuration properties are available:
 ===================================== ============================================================= ===============
 Property Name                         Description                                                   Default
 ===================================== ============================================================= ===============
-``lance.impl``                        Namespace implementation: ``dir``                              ``dir``
-``lance.root-url``                    Root storage path for Lance datasets.                          ``""``
+``lance.impl``                        Namespace implementation: ``dir``, ``rest``, or a full class    ``dir``
+                                      name.
+``lance.root``                        Root storage path for Lance datasets.                          ``""``
+``lance.parent``                      Parent namespace prefix for namespaces with three or more      (none)
+                                      levels. Use ``$`` as the delimiter.
 ``lance.single-level-ns``             When ``true``, uses a single-level namespace with a            ``true``
                                       virtual ``default`` schema.
 ``lance.read-batch-size``             Number of rows per Arrow batch during reads.                   ``8192``
@@ -52,14 +55,34 @@ Property Name                         Description                               
 
 Namespace implementation to use. The default ``dir`` uses a directory-based
 table store where each table is a ``<name>.lance`` directory under the root.
+Set this to ``rest`` to use a Lance REST namespace server, or to a fully
+qualified class name to plug in a custom ``LanceNamespace`` implementation.
 
-``lance.root-url``
-^^^^^^^^^^^^^^^^^^
+``lance.root``
+^^^^^^^^^^^^^^
 
 Root storage path for Lance datasets. All tables are stored as subdirectories
-named ``<table_name>.lance`` under this path. For example, if ``lance.root-url``
+named ``<table_name>.lance`` under this path. For example, if ``lance.root``
 is set to ``/data/lance``, a table named ``my_table`` is stored at
 ``/data/lance/my_table.lance``.
+
+This property is required when ``lance.impl`` is ``dir``.
+
+.. note::
+
+    This property was named ``lance.root-url`` in releases 0.297 and 0.298.
+    The old name is no longer accepted. See `Breaking Changes`_.
+
+``lance.parent``
+^^^^^^^^^^^^^^^^
+
+Parent namespace prefix, used when the underlying namespace has three or more
+levels and Presto should be rooted below the top level. Use ``$`` as the
+delimiter, because it does not conflict with the path separators ``/`` and
+``.`` used elsewhere. For example, ``lance.parent=org$warehouse`` makes a
+Presto schema ``sales`` resolve to the namespace ``org$warehouse$sales``.
+
+By default no prefix is applied.
 
 ``lance.single-level-ns``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -134,6 +157,48 @@ cache is automatically invalidated on write operations. The default is ``100``.
 Time-to-live for cached Lance dataset objects. After this duration of
 inactivity, cached datasets are evicted and their resources released. The
 default is ``60m`` (60 minutes).
+
+Namespace Properties
+--------------------
+
+The connector delegates schema and table operations to a
+`Lance namespace <https://lance.org/>`_ implementation selected by
+``lance.impl``. Every catalog property that begins with ``lance.`` is forwarded
+to that implementation with the ``lance.`` prefix removed, so namespace options
+can be set without connector code changes. For example, ``lance.root`` is
+passed through as ``root``.
+
+Properties beginning with ``lance.storage.`` are additionally supplied as
+storage options when opening and creating datasets. For example,
+``lance.storage.aws_access_key_id`` is passed as ``aws_access_key_id``. This is
+how object store credentials are configured:
+
+.. code-block:: none
+
+    connector.name=lance
+    lance.root=s3://my-bucket/lance
+    lance.storage.aws_access_key_id=...
+    lance.storage.aws_secret_access_key=...
+    lance.storage.region=us-east-1
+
+Breaking Changes
+----------------
+
+The ``lance.root-url`` property, available in releases 0.297 and 0.298, is
+replaced by ``lance.root``. The old name is no longer recognized, and a catalog
+that still sets it fails at startup with ``lance.root must be set when using
+lance.impl=dir``. Rename the property in ``etc/catalog/lance.properties``
+before upgrading:
+
+.. code-block:: none
+
+    # Before
+    lance.root-url=/data/lance
+
+    # After
+    lance.root=/data/lance
+
+The value format is unchanged, and no data migration is required.
 
 Data Types
 ----------
