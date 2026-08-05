@@ -509,8 +509,9 @@ public class IcebergNativeMetadata
     }
 
     @Override
-    public void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation)
+    public void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation, boolean deleteDataOnDrop)
     {
+        // deleteDataOnDrop is not used in the native catalog implementation
         catalogFactory.getCatalog(clientSession).registerTable(toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled()), metadataLocation.toString());
     }
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -73,6 +74,8 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseMetastoreTableOperations;
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
 import org.apache.iceberg.PartitionSpec;
@@ -161,6 +164,7 @@ import static org.apache.iceberg.Transactions.createTableTransaction;
 public class IcebergHiveMetadata
         extends IcebergAbstractMetadata
 {
+    private static final Logger LOG = Logger.get(IcebergHiveMetadata.class);
     private final IcebergCatalogName catalogName;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -443,7 +447,45 @@ public class IcebergHiveMetadata
                 throw new PrestoException(NOT_SUPPORTED, "Table " + handle.getSchemaTableName() + " contains Iceberg path override properties and cannot be dropped from Presto");
             }
         }
-        metastore.dropTable(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName(), true);
+
+        Optional<Table> hiveTable = getHiveTable(session, handle.getSchemaTableName());
+        boolean shouldDeleteData = hiveTable
+                .map(t -> t.getParameters()
+                        .getOrDefault(HiveTableOperations.PRESTO_DELETE_DATA_ON_DROP, "false"))
+                .map(Boolean::parseBoolean)
+                .orElse(false);
+
+        // When shouldDeleteData is true, first use Iceberg's CatalogUtil to delete all
+        // data and metadata files across every snapshot (the S3-safe approach), then
+        // let the metastore drop the HMS entry and remove the table directory.
+        // When shouldDeleteData is false, only remove the HMS entry.
+        if (shouldDeleteData) {
+            // Capture Iceberg metadata before dropping the HMS entry, because
+            // table.operations().current() re-queries HMS and will fail with
+            // TableNotFoundException after the entry is removed.
+            Optional<TableMetadata> icebergMetadata = Optional.empty();
+            try {
+                icebergMetadata = Optional.of(((BaseTable) table).operations().current());
+            }
+            catch (RuntimeException e) {
+                LOG.warn(e, "Could not read metadata for %s before drop; data files will not be deleted", handle.getSchemaTableName());
+                shouldDeleteData = false;
+            }
+            icebergMetadata.ifPresent(metadata -> {
+                try {
+                    CatalogUtil.dropTableData(table.io(), metadata);
+                }
+                catch (RuntimeException e) {
+                    LOG.warn(e, "Failed to delete table data for %s", handle.getSchemaTableName());
+                }
+            });
+        }
+
+        metastore.dropTable(
+                getMetastoreContext(session),
+                handle.getSchemaName(),
+                handle.getIcebergTableName().getTableName(),
+                shouldDeleteData);
     }
 
     @Override
@@ -693,7 +735,7 @@ public class IcebergHiveMetadata
     }
 
     @Override
-    public void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation)
+    public void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation, boolean deleteDataOnDrop)
     {
         String tableLocation = metadataLocation.getName();
         HdfsContext hdfsContext = new HdfsContext(
@@ -722,7 +764,8 @@ public class IcebergHiveMetadata
                 .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
                 .setParameter("EXTERNAL", "TRUE")
                 .setParameter(BaseMetastoreTableOperations.TABLE_TYPE_PROP, BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
-                .setParameter(BaseMetastoreTableOperations.METADATA_LOCATION_PROP, tableMetadata.metadataFileLocation());
+                .setParameter(BaseMetastoreTableOperations.METADATA_LOCATION_PROP, tableMetadata.metadataFileLocation())
+                .setParameter(HiveTableOperations.PRESTO_DELETE_DATA_ON_DROP, String.valueOf(deleteDataOnDrop));
         Table table = builder.build();
 
         PrestoPrincipal owner = new PrestoPrincipal(USER, table.getOwner());

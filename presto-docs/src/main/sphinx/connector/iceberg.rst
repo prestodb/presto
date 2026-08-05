@@ -1213,17 +1213,21 @@ already exists but is not known by the catalog.
 The following arguments are available:
 
 
-===================== ========== =============== =======================================================================
-Argument Name         Required   Type            Description
-===================== ========== =============== =======================================================================
-``schema``            Yes        string          Schema of the table to register
+======================= ========== =============== ====================================================================================
+Argument Name           Required   Type            Description
+======================= ========== =============== ====================================================================================
+``schema``              Yes        string          Schema of the table to register
 
-``table_name``        Yes        string          Name of the table to register
+``table_name``          Yes        string          Name of the table to register
 
-``metadata_location`` Yes        string          The location of the table metadata which is to be registered
+``metadata_location``   Yes        string          The location of the table metadata which is to be registered
 
-``metadata_file``                string          An optionally specified metadata file which is to be registered
-===================== ========== =============== =======================================================================
+``metadata_file``                  string          An optionally specified metadata file which is to be registered
+
+``delete_data_on_drop``            boolean         When ``true``, dropping the registered table will also delete the underlying Iceberg
+                                                   data and metadata files. Defaults to ``false``, which removes only the catalog
+                                                   entry and preserves all data files.
+======================= ========== =============== ====================================================================================
 
 Examples:
 

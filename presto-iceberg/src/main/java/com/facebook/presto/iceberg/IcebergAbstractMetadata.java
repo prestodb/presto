@@ -405,7 +405,7 @@ public abstract class IcebergAbstractMetadata
 
     protected abstract boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName);
 
-    public abstract void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation);
+    public abstract void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation, boolean deleteDataOnDrop);
 
     public abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
 
