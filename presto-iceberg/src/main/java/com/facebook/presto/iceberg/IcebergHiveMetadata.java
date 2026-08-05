@@ -463,7 +463,7 @@ public class IcebergHiveMetadata
             // Capture Iceberg metadata before dropping the HMS entry, because
             // table.operations().current() re-queries HMS and will fail with
             // TableNotFoundException after the entry is removed.
-            Optional<org.apache.iceberg.TableMetadata> icebergMetadata = Optional.empty();
+            Optional<TableMetadata> icebergMetadata = Optional.empty();
             try {
                 icebergMetadata = Optional.of(((BaseTable) table).operations().current());
             }
