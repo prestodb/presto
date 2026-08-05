@@ -42,6 +42,11 @@ class TestingArrowFlightServer : public arrow::flight::FlightServerBase {
     batchSize_ = std::make_optional<int64_t>(batchSize);
   }
 
+  /// Makes subsequent DoGet calls fail with the given status.
+  void setDoGetFailure(arrow::Status status) {
+    doGetFailure_ = std::move(status);
+  }
+
   arrow::Status DoGet(
       const arrow::flight::ServerCallContext& context,
       const arrow::flight::Ticket& request,
@@ -50,6 +55,7 @@ class TestingArrowFlightServer : public arrow::flight::FlightServerBase {
  private:
   std::unordered_map<std::string, std::shared_ptr<arrow::Table>> tables_;
   std::optional<int64_t> batchSize_;
+  arrow::Status doGetFailure_{arrow::Status::OK()};
 };
 
 } // namespace facebook::presto::test

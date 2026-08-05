@@ -41,6 +41,55 @@ constexpr std::string_view kCounterHTTPRequestLatencyMs{
 constexpr std::string_view kCounterHTTPRequestSizeBytes{
     "presto_cpp.http_request_size_bytes"};
 
+constexpr std::string_view kCounterArrowFlightConnectLatencyMs{
+    "presto_cpp.arrow_flight.client.connect_latency_ms"};
+constexpr std::string_view kCounterArrowFlightAuthenticateLatencyMs{
+    "presto_cpp.arrow_flight.client.authenticate_latency_ms"};
+constexpr std::string_view kCounterArrowFlightDoGetLatencyMs{
+    "presto_cpp.arrow_flight.client.do_get_latency_ms"};
+constexpr std::string_view kCounterArrowFlightBatchWaitLatencyMs{
+    "presto_cpp.arrow_flight.client.batch_wait_latency_ms"};
+constexpr std::string_view kCounterArrowFlightDecodeLatencyMs{
+    "presto_cpp.arrow_flight.client.decode_latency_ms"};
+constexpr std::string_view kCounterArrowFlightStreamLatencyMs{
+    "presto_cpp.arrow_flight.client.stream_latency_ms"};
+constexpr std::string_view kCounterArrowFlightConnectErrors{
+    "presto_cpp.arrow_flight.client.connect_errors"};
+constexpr std::string_view kCounterArrowFlightAuthenticateErrors{
+    "presto_cpp.arrow_flight.client.authenticate_errors"};
+constexpr std::string_view kCounterArrowFlightDoGetErrors{
+    "presto_cpp.arrow_flight.client.do_get_errors"};
+constexpr std::string_view kCounterArrowFlightReadErrors{
+    "presto_cpp.arrow_flight.client.read_errors"};
+constexpr std::string_view kCounterArrowFlightDecodeErrors{
+    "presto_cpp.arrow_flight.client.decode_errors"};
+// Error counters are bucketed by Presto ErrorType so they line up with the
+// error the coordinator reports for the query.
+constexpr std::string_view kCounterArrowFlightUserErrors{
+    "presto_cpp.arrow_flight.client.user_errors"};
+constexpr std::string_view kCounterArrowFlightExternalErrors{
+    "presto_cpp.arrow_flight.client.external_errors"};
+constexpr std::string_view kCounterArrowFlightInsufficientResourcesErrors{
+    "presto_cpp.arrow_flight.client.insufficient_resources_errors"};
+constexpr std::string_view kCounterArrowFlightInternalErrors{
+    "presto_cpp.arrow_flight.client.internal_errors"};
+constexpr std::string_view kCounterArrowFlightStreamsStarted{
+    "presto_cpp.arrow_flight.client.streams_started"};
+constexpr std::string_view kCounterArrowFlightStreamsCompleted{
+    "presto_cpp.arrow_flight.client.streams_completed"};
+constexpr std::string_view kCounterArrowFlightStreamsFailed{
+    "presto_cpp.arrow_flight.client.streams_failed"};
+constexpr std::string_view kCounterArrowFlightStreamsCancelled{
+    "presto_cpp.arrow_flight.client.streams_cancelled"};
+constexpr std::string_view kCounterArrowFlightActiveStreams{
+    "presto_cpp.arrow_flight.client.active_streams"};
+constexpr std::string_view kCounterArrowFlightBatchesReceived{
+    "presto_cpp.arrow_flight.client.batches_received"};
+constexpr std::string_view kCounterArrowFlightRowsReceived{
+    "presto_cpp.arrow_flight.client.rows_received"};
+constexpr std::string_view kCounterArrowFlightBytesReceived{
+    "presto_cpp.arrow_flight.client.bytes_received"};
+
 constexpr std::string_view kCounterHttpClientNumConnectionsCreated{
     "presto_cpp.http.client.num_connections_created"};
 /// Number of HTTP requests that are the first request on a connection

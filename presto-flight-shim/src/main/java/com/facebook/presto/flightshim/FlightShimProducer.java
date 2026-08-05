@@ -41,7 +41,6 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.flight.BackpressureStrategy;
-import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
@@ -184,7 +183,7 @@ public class FlightShimProducer
         catch (Throwable t) {
             final String message = "Error getting connector flight stream";
             log.error(t, message);
-            listener.error(CallStatus.INTERNAL.withCause(t).withDescription(format("%s [%s]", message, t)).toRuntimeException());
+            listener.error(FlightShimErrors.toFlightException(format("%s [%s]", message, t), t));
         }
         finally {
             log.debug(format("Processing GetStream completed [columns=%d, rows=%d, batches=%d]", columnCount, rowCount, batchCount));

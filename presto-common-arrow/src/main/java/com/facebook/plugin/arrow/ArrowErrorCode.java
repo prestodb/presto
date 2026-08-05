@@ -18,6 +18,7 @@ import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 
 import static com.facebook.presto.common.ErrorType.EXTERNAL;
+import static com.facebook.presto.common.ErrorType.INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.common.ErrorType.INTERNAL_ERROR;
 
 public enum ArrowErrorCode
@@ -29,13 +30,25 @@ public enum ArrowErrorCode
     ARROW_FLIGHT_METADATA_ERROR(3, EXTERNAL),
     ARROW_FLIGHT_TYPE_ERROR(4, EXTERNAL),
     ARROW_FLIGHT_INVALID_KEY_ERROR(5, INTERNAL_ERROR),
-    ARROW_FLIGHT_INVALID_CERT_ERROR(6, INTERNAL_ERROR);
+    ARROW_FLIGHT_INVALID_CERT_ERROR(6, INTERNAL_ERROR),
+    // Raised by the native Arrow Flight client; mirrored in
+    // presto-native-execution/presto_cpp/main/common/Exception.h
+    ARROW_FLIGHT_REMOTE_ERROR(7, EXTERNAL),
+    ARROW_FLIGHT_UNAVAILABLE_ERROR(8, EXTERNAL, true),
+    ARROW_FLIGHT_AUTH_ERROR(9, EXTERNAL),
+    ARROW_FLIGHT_INTERNAL_ERROR(10, INTERNAL_ERROR),
+    ARROW_FLIGHT_RESOURCE_ERROR(11, INSUFFICIENT_RESOURCES);
 
     private final ErrorCode errorCode;
 
     ArrowErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code + 0x0510_0000, name(), type);
+        this(code, type, false);
+    }
+
+    ArrowErrorCode(int code, ErrorType type, boolean retriable)
+    {
+        errorCode = new ErrorCode(code + 0x0510_0000, name(), type, retriable);
     }
 
     @Override
