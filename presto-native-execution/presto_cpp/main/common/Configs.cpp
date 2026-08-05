@@ -308,7 +308,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kTextReaderEnabled, true),
           BOOL_PROP(kCharNToVarcharImplicitCast, false),
           BOOL_PROP(kEnumTypesEnabled, true),
-          BOOL_PROP(kPlanConsistencyCheckEnabled, false),
+          BOOL_PROP(kPlanConsistencyCheckEnabled, true),
       };
 }
 
