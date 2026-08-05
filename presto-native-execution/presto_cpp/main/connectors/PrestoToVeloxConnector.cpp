@@ -69,6 +69,11 @@ const PrestoToVeloxConnector& getPrestoToVeloxConnector(
   return *(it->second);
 }
 
+bool hasPrestoToVeloxConnector(const std::string& connectorName) {
+  auto it = connectors().find(connectorName);
+  return it != connectors().end();
+}
+
 std::unique_ptr<velox::connector::ConnectorSplit>
 TpchPrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,

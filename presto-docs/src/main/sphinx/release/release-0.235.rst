@@ -22,8 +22,8 @@ _______________
 Pinot Connector Changes
 _______________________
 * Add support for mapping Pinot ``BYTES`` data type to Presto ``VARBINARY`` type.
-* Add support for mapping Pinot time fields with days since epoch value to Presto ``DATE`` type via the system property ``pinot.infer-date-type-in-schema``.
-* Add support for mapping Pinot time fields with milliseconds since epoch value to Presto ``TIMESTAMP`` type via the system prpoerty ``pinot.infer-timestamp-type-in-schema``.
+* Add support for mapping Pinot time fields with days since epoch value to Presto ``DATE`` type with the system property ``pinot.infer-date-type-in-schema``.
+* Add support for mapping Pinot time fields with milliseconds since epoch value to Presto ``TIMESTAMP`` type with the system property ``pinot.infer-timestamp-type-in-schema``.
 * Add Pinot Field type in to column comment field shown as ``DIMENSION``, ``METRIC``, ``TIME``, ``DATETIME``, to provide more information.
 * Add support for pushing down distinct count query to Pinot on a best-effort basis.
 * Add support for new Pinot Routing Table APIs.
@@ -45,7 +45,7 @@ Druid Connector Changes
 _______________________
 * Fix druid connector segment scan.
 * Fix an issue where distinct is not respected in count aggregation.
-* Add support for query processing pushdown via the ``druid.compute-pushdown-enabled`` configuration property.
+* Add support for query processing pushdown with the ``druid.compute-pushdown-enabled`` configuration property.
 
 Verifier Changes
 ________________

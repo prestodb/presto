@@ -41,6 +41,7 @@ import static com.facebook.presto.iceberg.util.StatisticsUtil.decodeMergeFlags;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
 import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
@@ -63,6 +64,7 @@ public class IcebergConfig
     private boolean deleteAsJoinRewriteEnabled = true;
     private int deleteAsJoinRewriteMaxDeleteColumns = 400;
     private int rowsForMetadataOptimizationThreshold = 1000;
+    private int commitNumberRetries = COMMIT_NUM_RETRIES_DEFAULT;
     private int metadataPreviousVersionsMax = METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
     private boolean metadataDeleteAfterCommit = METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
     private int metricsMaxInferredColumn = METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
@@ -416,6 +418,20 @@ public class IcebergConfig
     public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
     {
         this.splitManagerThreads = splitManagerThreads;
+        return this;
+    }
+
+    @Min(0)
+    public int getCommitNumberRetries()
+    {
+        return commitNumberRetries;
+    }
+
+    @Config("iceberg.commit-number-retries")
+    @ConfigDescription("Number of times to retry a commit before failing")
+    public IcebergConfig setCommitNumberRetries(int commitNumberRetries)
+    {
+        this.commitNumberRetries = commitNumberRetries;
         return this;
     }
 

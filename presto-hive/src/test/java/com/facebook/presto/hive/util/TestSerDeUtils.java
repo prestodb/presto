@@ -27,6 +27,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.io.BytesWritable;
@@ -35,7 +36,6 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Type;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -159,7 +159,7 @@ public class TestSerDeUtils
         // timestamp
         DateTime dateTime = new DateTime(2008, 10, 28, 16, 7, 15, 0);
         Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTime.getMillis()).closeEntry().build();
-        Block actualTimestamp = toBinaryBlock(BIGINT, new Timestamp(dateTime.getMillis()), getInspector(Timestamp.class));
+        Block actualTimestamp = toBinaryBlock(BIGINT, Timestamp.ofEpochMilli(dateTime.getMillis()), getInspector(Timestamp.class));
         assertBlockEquals(actualTimestamp, expectedTimestamp);
 
         // binary
@@ -280,10 +280,9 @@ public class TestSerDeUtils
     public void testTimestampWithDifferentStorageZone()
     {
         DateTimeZone storageTimeZone = DateTimeZone.forID("Europe/Prague");
-        DateTime dateTimeInJvmZone = new DateTime(2008, 10, 28, 16, 7, 15, 0);
-        DateTime dateTimeInStorageZone = dateTimeInJvmZone.withZoneRetainFields(storageTimeZone);
-        Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTimeInStorageZone.getMillis()).closeEntry().build();
-        Block actualTimestamp = getPrimitiveBlock(BIGINT, new Timestamp(dateTimeInJvmZone.getMillis()), getInspector(Timestamp.class), storageTimeZone);
+        DateTime dateTimeUtc = new DateTime(2008, 10, 28, 16, 7, 15, 0, DateTimeZone.UTC);
+        Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTimeUtc.getMillis()).closeEntry().build();
+        Block actualTimestamp = getPrimitiveBlock(BIGINT, Timestamp.ofEpochMilli(dateTimeUtc.getMillis()), getInspector(Timestamp.class), storageTimeZone);
         assertBlockEquals(actualTimestamp, expectedTimestamp);
     }
 
@@ -301,7 +300,7 @@ public class TestSerDeUtils
         Type type = new TypeToken<Map<BytesWritable, Long>>() {}.getType();
         ObjectInspector inspector = getInspector(type);
 
-        Block actual = getBlockObject(mapType(createUnboundedVarcharType(), BIGINT), ImmutableMap.of(value, 0L), inspector, DateTimeZone.getDefault());
+        Block actual = getBlockObject(mapType(createUnboundedVarcharType(), BIGINT), ImmutableMap.of(value, 0L), inspector, DateTimeZone.getDefault(), false);
         Block expected = mapBlockOf(createUnboundedVarcharType(), BIGINT, "bye", 0L);
 
         assertBlockEquals(actual, expected);
@@ -326,13 +325,13 @@ public class TestSerDeUtils
         if (inspector.getCategory() == Category.PRIMITIVE) {
             return getPrimitiveBlock(type, object, inspector, zone);
         }
-        return getBlockObject(type, object, inspector, zone);
+        return getBlockObject(type, object, inspector, zone, false);
     }
 
     private static Block getPrimitiveBlock(com.facebook.presto.common.type.Type type, Object object, ObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
     {
         BlockBuilder builder = VARBINARY.createBlockBuilder(null, 1);
-        serializeObject(type, builder, object, inspector, hiveStorageTimeZone);
+        serializeObject(type, builder, object, inspector, hiveStorageTimeZone, false);
         return builder.build();
     }
 }

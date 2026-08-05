@@ -293,10 +293,14 @@ import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProce
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractZOrderColumns;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
+import static com.facebook.presto.sql.MaterializedViewUtils.buildMaterializedViewScanFilter;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
+import static com.facebook.presto.sql.MaterializedViewUtils.buildPartitionsToRecomputeFilter;
 import static com.facebook.presto.sql.MaterializedViewUtils.generateBaseTablePredicates;
 import static com.facebook.presto.sql.MaterializedViewUtils.generateFalsePredicates;
 import static com.facebook.presto.sql.MaterializedViewUtils.getOwnerIdentity;
+import static com.facebook.presto.sql.MaterializedViewUtils.projectBaseTablePartitionsToView;
+import static com.facebook.presto.sql.MaterializedViewUtils.requiresOuterFilter;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.QueryUtil.selectList;
@@ -575,7 +579,7 @@ class StatementAnalyzer
             // Query-level indirect sources (WHERE, JOIN, GROUP BY, etc.) apply to all columns.
             // Per-field indirect sources (CONDITIONAL, WINDOW) apply only to the column whose expression contains them.
             analysis.setUpdatedSourceColumns(Optional.of(Streams.zip(
-                            columnStream, queryScope.getRelationType().getVisibleFields().stream(), (column, field) -> new OutputColumnMetadata(column.getName(), column.getType(), analysis.getSourceColumns(field), analysis.getAllIndirectSourcesForField(field)))
+                            columnStream, queryScope.getRelationType().getVisibleFields().stream(), (column, field) -> OutputColumnMetadata.fromColumnLineage(column.getName(), column.getType(), analysis.getColumnLineageForField(field)))
                     .collect(toImmutableList())));
 
             return createAndAssignScope(insert, scope, Field.newUnqualified(insert.getLocation(), "rows", BIGINT));
@@ -826,7 +830,7 @@ class StatementAnalyzer
                         throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
                     String columnName = node.getColumnAliases().get().get(aliasPosition).getValue();
-                    outputColumns.add(new OutputColumnMetadata(columnName, field.getType().toString(), analysis.getSourceColumns(field), analysis.getAllIndirectSourcesForField(field)));
+                    outputColumns.add(OutputColumnMetadata.fromColumnLineage(columnName, field.getType().toString(), analysis.getColumnLineageForField(field)));
                     aliasPosition++;
                 }
             }
@@ -842,7 +846,7 @@ class StatementAnalyzer
 
         private OutputColumnMetadata createOutputColumn(Field field)
         {
-            return new OutputColumnMetadata(field.getName().get(), field.getType().toString(), analysis.getSourceColumns(field), analysis.getAllIndirectSourcesForField(field));
+            return OutputColumnMetadata.fromColumnLineage(field.getName().get(), field.getType().toString(), analysis.getColumnLineageForField(field));
         }
 
         @Override
@@ -961,11 +965,38 @@ class StatementAnalyzer
                     .filter(column -> !column.isHidden())
                     .map(column -> columnHandles.get(column.getName()))
                     .collect(toImmutableList());
+            // Capture the refresh scope (the WHERE predicate) here, where the full unfactored predicate
+            // with its MV/base column mapping is still available. It is carried on the analysis ->
+            // RefreshMaterializedViewReference -> beginRefreshMaterializedView so the connector receives
+            // it at execution time, rather than calling the connector SPI during analysis.
+            Optional<RowExpression> refreshScopePredicate = Optional.empty();
+            if (isLegacyMaterializedViews(session) && node.getWhere().isPresent()) {
+                Expression refreshWhere = node.getWhere().get();
+                // Analyze with AllowAllAccessControl (as for the view scope above): refresh must not require
+                // SELECT on the materialized view, only INSERT. This only populates expression types for translation.
+                ExpressionAnalyzer.analyzeExpression(
+                        session,
+                        metadata,
+                        new AllowAllAccessControl(),
+                        sqlParser,
+                        viewScope,
+                        analysis,
+                        refreshWhere,
+                        warningCollector);
+                refreshScopePredicate = Optional.of(SqlToRowExpressionTranslator.translate(
+                        refreshWhere,
+                        analysis.getTypes(),
+                        ImmutableMap.of(),
+                        metadata.getFunctionAndTypeManager(),
+                        session));
+            }
+
             analysis.setRefreshMaterializedViewAnalysis(new Analysis.RefreshMaterializedViewAnalysis(
                     tableHandle,
                     targetColumnHandles,
                     refreshQuery,
-                    toSchemaTableName(viewName)));
+                    toSchemaTableName(viewName),
+                    refreshScopePredicate));
 
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
         }
@@ -1634,6 +1665,7 @@ class StatementAnalyzer
         protected Scope visitUnnest(Unnest node, Optional<Scope> scope)
         {
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
+            int fieldsBefore = 0;
             for (Expression expression : node.getExpressions()) {
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
                 if (!expressionAnalysis.getScalarSubqueries().isEmpty()) {
@@ -1661,6 +1693,13 @@ class StatementAnalyzer
                 else {
                     throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
                 }
+
+                ImmutableList<Field> allFields = outputFields.build();
+                Set<SourceColumn> sourceColumns = analysis.getExpressionSourceColumns(expression);
+                for (int i = fieldsBefore; i < allFields.size(); i++) {
+                    analysis.addSourceColumns(allFields.get(i), sourceColumns);
+                }
+                fieldsBefore = allFields.size();
             }
             if (node.isWithOrdinality()) {
                 outputFields.add(Field.newUnqualified(node.getLocation(), Optional.empty(), BIGINT));
@@ -2785,13 +2824,33 @@ class StatementAnalyzer
             Statement createSqlStatement = sqlParser.createStatement(materializedViewCreateSql, createParsingOptions(session, warningCollector));
 
             Map<SchemaTableName, Expression> baseTablePredicates = emptyMap();
+            Optional<Expression> materializedViewScanFilter = Optional.empty();
+            Optional<Expression> outerBaseTablesFilter = Optional.empty();
             if (materializedViewStatus.isFullyMaterialized()) {
                 // We need to include base table queries by Union in order to add required access control for the base tables and utilized columns during visit.
                 // Here we stitch with the predicate WHERE FALSE, and the optimizer will then prune the FALSE branch with no extra overhead introduced.
                 baseTablePredicates = generateFalsePredicates(materializedViewDefinition.getBaseTables());
             }
             else if (materializedViewStatus.isPartiallyMaterialized()) {
-                baseTablePredicates = generateBaseTablePredicates(materializedViewStatus.getPartitionsFromBaseTables(), metadata);
+                Map<String, Map<SchemaTableName, String>> columnMappings = materializedViewDefinition.getDirectColumnMappingsAsMap();
+                List<SchemaTableName> baseTables = materializedViewDefinition.getBaseTables();
+                Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> partitionsFromBaseTables = materializedViewStatus.getPartitionsFromBaseTables();
+
+                // Connector reports the predicates to recompute in base space; project to view space for the scan exclusion.
+                Optional<MaterializedViewStatus.MaterializedDataPredicates> mvPredicatesToRecompute =
+                        Optional.of(projectBaseTablePartitionsToView(partitionsFromBaseTables, columnMappings));
+                materializedViewScanFilter = buildMaterializedViewScanFilter(mvPredicatesToRecompute, metadata);
+                if (requiresOuterFilter(mvPredicatesToRecompute, columnMappings, baseTables)) {
+                    // A recompute column doesn't map onto every base (cross-base join, UNION constant, OUTER JOIN): recompute
+                    // via one outer filter over the view definition. The per-base branch would emit WHERE FALSE on the
+                    // non-recomputing join side and drop the new partitions, so prune it.
+                    outerBaseTablesFilter = buildPartitionsToRecomputeFilter(mvPredicatesToRecompute, metadata);
+                    baseTablePredicates = generateFalsePredicates(baseTables);
+                }
+                else {
+                    // Single base, or partition keys shared across all bases: recompute per base table.
+                    baseTablePredicates = generateBaseTablePredicates(partitionsFromBaseTables, metadata);
+                }
             }
 
             Query predicateStitchedQuery = (Query) new PredicateStitcher(session, baseTablePredicates, metadata).process(createSqlStatement, new PredicateStitcherContext());
@@ -2800,7 +2859,7 @@ class StatementAnalyzer
             QuerySpecification materializedViewQuerySpecification = new QuerySpecification(
                     selectList(new AllColumns()),
                     Optional.of(materializedView),
-                    Optional.empty(),
+                    materializedViewScanFilter,
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
@@ -2809,11 +2868,17 @@ class StatementAnalyzer
 
             // When union, keep predicateStitchedQuery before materializedViewQuerySpecification. Given Scope of Union contains RelationType of the first Relation,
             // this would allow utilizedTableColumnReferences to trace back to base table columns, which is required for correct materialized view access control.
-            Union union = new Union(ImmutableList.of(predicateStitchedQuery.getQueryBody(), materializedViewQuerySpecification), Optional.of(Boolean.FALSE));
+            ImmutableList.Builder<Relation> unionRelations = ImmutableList.builder();
+            unionRelations.add(predicateStitchedQuery.getQueryBody());
+            if (outerBaseTablesFilter.isPresent()) {
+                // Recompute fresh data from the base tables via the outer filter over the view definition.
+                Query freshDataFromBaseTables = (Query) sqlParser.createStatement(materializedViewCreateSql, createParsingOptions(session, warningCollector));
+                unionRelations.add(buildSubqueryWithPredicate(freshDataFromBaseTables, outerBaseTablesFilter.get()).getQueryBody());
+            }
+            unionRelations.add(materializedViewQuerySpecification);
+            Union union = new Union(unionRelations.build(), Optional.of(Boolean.FALSE));
             Query unionQuery = new Query(predicateStitchedQuery.getWith(), union, predicateStitchedQuery.getOrderBy(), predicateStitchedQuery.getOffset(), predicateStitchedQuery.getLimit());
-            // can we return the above query object, instead of building a query string?
-            // in case of returning the query object, make sure to clone the original query object.
-            return getFormattedSql(unionQuery, sqlParser, Optional.empty());
+            return formatSql(unionQuery, Optional.empty());
         }
 
         /**
@@ -4369,26 +4434,46 @@ class StatementAnalyzer
                         }
                     }
                     Field newField = Field.newUnqualified(expression.getLocation(), field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent());
-                    // Use getExpressionSourceColumns first — it correctly traces through
-                    // UNION, subqueries, and CTEs to all base table columns.
-                    // Only fall back to the originTable shortcut if expression tracing returns empty.
-                    Set<SourceColumn> expressionSources = analysis.getExpressionSourceColumns(expression);
-                    if (!expressionSources.isEmpty()) {
-                        // Remove CASE/IF condition-only and window-only columns from direct sources.
-                        // They are tracked separately as INDIRECT/CONDITIONAL and INDIRECT/WINDOW.
-                        Set<SourceColumn> excludeFromDirect = ImmutableSet.<SourceColumn>builder()
-                                .addAll(getConditionOnlySourceColumns(expression))
-                                .addAll(getWindowOnlySourceColumns(expression))
-                                .build();
-                        if (!excludeFromDirect.isEmpty()) {
-                            expressionSources = ImmutableSet.copyOf(Sets.difference(expressionSources, excludeFromDirect));
+                    TransformationSubtype directSubtype = determineDirectSubtype(expression);
+                    if (directSubtype == TransformationSubtype.IDENTITY) {
+                        // Bare Identifier / DereferenceExpression — preserve upstream subtype verbatim
+                        // so a chain like SELECT x FROM (SELECT sum(a) AS x ...) keeps AGGREGATION on `a`.
+                        // CASE/window cannot appear inside a bare reference, so no exclude filter is needed.
+                        Set<ColumnLineageEntry> inheritedDirect = analysis.getExpressionDirectLineageEntries(expression);
+                        if (!inheritedDirect.isEmpty()) {
+                            analysis.addColumnLineageEntries(newField, inheritedDirect);
                         }
-                        analysis.addSourceColumns(newField, expressionSources);
+                        else if (originTable.isPresent()) {
+                            analysis.addSourceColumns(newField, ImmutableSet.of(
+                                    new SourceColumn(originTable.get(), originColumn.orElseThrow(
+                                            () -> new NoSuchElementException("originColumn not found")))),
+                                    TransformationSubtype.IDENTITY);
+                        }
                     }
-                    else if (originTable.isPresent()) {
-                        analysis.addSourceColumns(newField, ImmutableSet.of(
-                                new SourceColumn(originTable.get(), originColumn.orElseThrow(
-                                        () -> new NoSuchElementException("originColumn not found")))));
+                    else {
+                        // TRANSFORMATION or AGGREGATION — retag all source columns with the new subtype.
+                        // Use getExpressionSourceColumns first — it correctly traces through UNION,
+                        // subqueries, and CTEs to all base table columns. Only fall back to the
+                        // originTable shortcut if expression tracing returns empty.
+                        Set<SourceColumn> expressionSources = analysis.getExpressionSourceColumns(expression);
+                        if (!expressionSources.isEmpty()) {
+                            // Remove CASE/IF condition-only and window-only columns from direct sources.
+                            // They are tracked separately as INDIRECT/CONDITIONAL and INDIRECT/WINDOW.
+                            Set<SourceColumn> excludeFromDirect = ImmutableSet.<SourceColumn>builder()
+                                    .addAll(getConditionOnlySourceColumns(expression))
+                                    .addAll(getWindowOnlySourceColumns(expression))
+                                    .build();
+                            if (!excludeFromDirect.isEmpty()) {
+                                expressionSources = ImmutableSet.copyOf(Sets.difference(expressionSources, excludeFromDirect));
+                            }
+                            analysis.addSourceColumns(newField, expressionSources, directSubtype);
+                        }
+                        else if (originTable.isPresent()) {
+                            analysis.addSourceColumns(newField, ImmutableSet.of(
+                                    new SourceColumn(originTable.get(), originColumn.orElseThrow(
+                                            () -> new NoSuchElementException("originColumn not found")))),
+                                    directSubtype);
+                        }
                     }
 
                     // Collect per-field indirect sources (CONDITIONAL, WINDOW).
@@ -4565,6 +4650,38 @@ class StatementAnalyzer
                     .map(sc -> new ColumnLineageEntry(sc.getTableName(), sc.getColumnName(), TransformationType.INDIRECT, subtype))
                     .collect(toImmutableSet());
             analysis.addIndirectSourceColumns(entries);
+        }
+
+        /**
+         * Pick the {@link TransformationSubtype} for the direct sources of a
+         * SELECT-list expression:
+         * <ul>
+         *   <li>{@link TransformationSubtype#AGGREGATION} if the expression
+         *   contains an aggregate function call (e.g. {@code sum(x)},
+         *   including aggregate functions used as window functions like
+         *   {@code sum(x) OVER (...)}).</li>
+         *   <li>{@link TransformationSubtype#IDENTITY} if the expression is a
+         *   bare column reference (an {@link Identifier} or
+         *   {@link DereferenceExpression}) — the output column is literally
+         *   that source column.</li>
+         *   <li>{@link TransformationSubtype#TRANSFORMATION} otherwise (any
+         *   non-aggregate scalar expression: arithmetic, function calls,
+         *   {@code CAST}, {@code CASE}, etc.). Pure window functions like
+         *   {@code ROW_NUMBER() OVER (...)} also fall into this bucket — they
+         *   are non-aggregate function calls. INDIRECT window-frame columns
+         *   (PARTITION BY / ORDER BY inputs) are tracked separately as
+         *   {@link TransformationSubtype#WINDOW}.</li>
+         * </ul>
+         */
+        private TransformationSubtype determineDirectSubtype(Expression expression)
+        {
+            if (!extractAggregateFunctions(analysis.getFunctionHandles(), ImmutableList.of(expression), functionAndTypeResolver).isEmpty()) {
+                return TransformationSubtype.AGGREGATION;
+            }
+            if (expression instanceof Identifier || expression instanceof DereferenceExpression) {
+                return TransformationSubtype.IDENTITY;
+            }
+            return TransformationSubtype.TRANSFORMATION;
         }
 
         /**

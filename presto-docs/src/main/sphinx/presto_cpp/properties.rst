@@ -514,7 +514,7 @@ The configuration properties of AsyncDataCache and SSD cache are described here.
 * **Type:** ``integer``
 * **Default value:** ``16777216``
 
-  Min SSD savable (in-memory) cache space to start writing SSD savable cache entries into SSD cache.
+  Minimum SSD savable (in-memory) cache space to start writing SSD savable cache entries into SSD cache.
 
   The default value ``16777216`` is 16 MB.
 
@@ -739,3 +739,185 @@ Once decrypted the preloaded library sets the ``AWS_S3_ACCESS_KEY``
 environment variable which then can be accessed by providing it in the catalog properties:
 
 ``hive.s3.aws-access-key=${AWS_S3_ACCESS_KEY}``
+
+GFlag Properties
+----------------
+
+Velox gflags can be set in ``config.properties`` using the ``gflag.`` prefix.
+The property name after the prefix uses hyphens in place of underscores in the
+original flag name. For example, the gflag ``velox_memory_num_shared_leaf_pools``
+is set as ``gflag.velox-memory-num-shared-leaf-pools``.
+
+Command-line flags always take precedence over values set in config.properties.
+
+``gflag.velox-memory-num-shared-leaf-pools``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_memory_num_shared_leaf_pools``
+* **Default value:** ``32``
+
+Number of shared leaf memory pools per process.
+
+``gflag.velox-time-allocations``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_time_allocations``
+* **Default value:** ``false``
+
+Record time and volume for large allocation/free.
+
+``gflag.velox-exception-user-stacktrace-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_exception_user_stacktrace_enabled``
+* **Default value:** ``false``
+
+Enable the stacktrace for user type of VeloxException.
+
+``gflag.velox-exception-system-stacktrace-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_exception_system_stacktrace_enabled``
+* **Default value:** ``true``
+
+Enable the stacktrace for system type of VeloxException.
+
+``gflag.velox-exception-user-stacktrace-rate-limit-ms``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_exception_user_stacktrace_rate_limit_ms``
+* **Default value:** ``0``
+
+Minimum time interval in milliseconds between stack traces captured in user type of
+VeloxException. Off when set to 0.
+
+``gflag.velox-exception-system-stacktrace-rate-limit-ms``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_exception_system_stacktrace_rate_limit_ms``
+* **Default value:** ``0``
+
+Minimum time interval in milliseconds between stack traces captured in system type of
+VeloxException. Off when set to 0.
+
+``gflag.avx2``
+^^^^^^^^^^^^^^
+
+* **GFlag:** ``avx2``
+* **Default value:** ``true``
+
+Enables use of AVX2 when available.
+
+``gflag.bmi2``
+^^^^^^^^^^^^^^
+
+* **GFlag:** ``bmi2``
+* **Default value:** ``true``
+
+Enables use of BMI2 when available.
+
+``gflag.velox-save-input-on-expression-any-failure-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_save_input_on_expression_any_failure_path``
+* **Default value:** ``""``
+
+Enable saving input vector and expression SQL on any failure during expression
+evaluation. Specifies the directory to use for storing the vectors and expression
+SQL strings.
+
+``gflag.velox-save-input-on-expression-system-failure-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_save_input_on_expression_system_failure_path``
+* **Default value:** ``""``
+
+Enable saving input vector and expression SQL on system failure during expression
+evaluation. Specifies the directory to use for storing the vectors and expression
+SQL strings. This flag is ignored if
+``velox_save_input_on_expression_any_failure_path`` is set.
+
+``gflag.force-eval-simplified``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``force_eval_simplified``
+* **Default value:** ``false``
+
+Whether to overwrite queryCtx and force the use of simplified expression
+evaluation path.
+
+``gflag.velox-experimental-save-input-on-fatal-signal``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_experimental_save_input_on_fatal_signal``
+* **Default value:** ``false``
+
+Experimental. If set to true, serializes the input vector data and all the SQL
+expressions in the ExprSet that is currently executing, whenever a fatal signal
+is encountered.
+
+``gflag.velox-memory-leak-check-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_memory_leak_check_enabled``
+* **Default value:** ``false``
+
+If true, check fails on any memory leaks in memory pool and memory manager.
+
+``gflag.velox-enable-memory-usage-track-in-default-memory-pool``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_enable_memory_usage_track_in_default_memory_pool``
+* **Default value:** ``false``
+
+If true, enable memory usage tracking in the default memory pool.
+
+``gflag.velox-suppress-memory-capacity-exceeding-error-message``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_suppress_memory_capacity_exceeding_error_message``
+* **Default value:** ``false``
+
+If true, suppress the verbose error message in memory capacity exceeded
+exception.
+
+``gflag.velox-memory-use-hugepages``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_memory_use_hugepages``
+* **Default value:** ``true``
+
+Use explicit huge pages.
+
+``gflag.cache-prefetch-min-pct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``cache_prefetch_min_pct``
+* **Default value:** ``80``
+
+Minimum percentage of actual uses over references to a column for prefetching.
+No prefetch if > 100.
+
+``gflag.velox-ssd-odirect``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_ssd_odirect``
+* **Default value:** ``true``
+
+Use O_DIRECT for SSD cache IO.
+
+``gflag.velox-ssd-verify-write``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_ssd_verify_write``
+* **Default value:** ``false``
+
+Read back data after writing to SSD.
+
+``gflag.velox-tpch-text-pool-size-mb``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **GFlag:** ``velox_tpch_text_pool_size_mb``
+* **Default value:** ``300``
+
+TPC-H DBGen text pool size in MB.

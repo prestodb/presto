@@ -110,6 +110,7 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
 import org.roaringbitmap.longlong.Roaring64Bitmap;
 
@@ -249,7 +250,7 @@ public class IcebergPageSourceProvider
         this.sortParameters = requireNonNull(sortParameters, "sortParameters is null");
     }
 
-    private static ConnectorPageSourceWithRowPositions createParquetPageSource(
+    private ConnectorPageSourceWithRowPositions createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
             ConnectorSession session,
             Configuration configuration,
@@ -341,6 +342,9 @@ public class IcebergPageSourceProvider
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+
+            Optional<DateTimeZone> timezone = Optional.ofNullable(fileMetaData.getKeyValueMetaData().get("writer.time.zone")).map(DateTimeZone::forID);
+
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks,
@@ -353,7 +357,8 @@ public class IcebergPageSourceProvider
                     parquetPredicate,
                     blockIndexStores,
                     false,
-                    fileDecryptor);
+                    fileDecryptor,
+                    timezone);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
@@ -592,12 +597,15 @@ public class IcebergPageSourceProvider
                     columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature())));
                 }
                 else {
+                    // Missing columns are treated as REGULAR at the physical ORC-reader level.
+                    // PARTITION_KEY is an Iceberg metadata concept handled upstream by
+                    // IcebergPartitionInsertingPageSource; OrcBatchPageSource requires REGULAR.
                     physicalColumnHandles.add(new HiveColumnHandle(
                             column.getName(),
                             toHiveType(column.getType()),
                             column.getType().getTypeSignature(),
                             nextMissingColumnIndex++,
-                            column.getColumnType(),
+                            REGULAR,
                             column.getComment(),
                             column.getRequiredSubfields(),
                             Optional.empty()));
@@ -1036,6 +1044,9 @@ public class IcebergPageSourceProvider
         }
 
         for (DeleteFile delete : deleteFiles) {
+            if (delete.format() == com.facebook.presto.iceberg.FileFormat.PUFFIN) {
+                throw new PrestoException(NOT_SUPPORTED, "Iceberg deletion vectors using PUFFIN format are not supported");
+            }
             if (delete.content() == POSITION_DELETES) {
                 if (startRowPosition.isPresent()) {
                     byte[] lowerBoundBytes = delete.getLowerBounds().get(DELETE_FILE_POS.fieldId());

@@ -186,7 +186,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.resolver</groupId>
+            <groupId>com.facebook.airlift.resolver</groupId>
             <artifactId>resolver</artifactId>
         </dependency>
 

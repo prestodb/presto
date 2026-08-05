@@ -50,6 +50,7 @@ import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -100,6 +101,7 @@ public class StripeReader
     private final Multimap<Integer, Integer> dwrfEncryptionGroupColumns;
     private final RuntimeStats runtimeStats;
     private final Optional<OrcFileIntrospector> fileIntrospector;
+    private final ZoneId defaultTimezone;
 
     public StripeReader(
             OrcDataSource orcDataSource,
@@ -116,7 +118,8 @@ public class StripeReader
             Map<Integer, Integer> dwrfEncryptionGroupMap,
             RuntimeStats runtimeStats,
             Optional<OrcFileIntrospector> fileIntrospector,
-            long fileModificationTime)
+            long fileModificationTime,
+            ZoneId defaultTimezone)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
@@ -133,6 +136,7 @@ public class StripeReader
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         this.fileIntrospector = requireNonNull(fileIntrospector, "fileIntrospector is null");
         this.fileModificationTime = fileModificationTime;
+        this.defaultTimezone = requireNonNull(defaultTimezone, "defaultTimezone is null");
     }
 
     private Multimap<Integer, Integer> invertEncryptionGroupMap(Map<Integer, Integer> dwrfEncryptionGroupMap)
@@ -161,6 +165,11 @@ public class StripeReader
         // read the stripe footer
         StripeFooter stripeFooter = readStripeFooter(stripeId, stripe, systemMemoryUsage);
         fileIntrospector.ifPresent(introspector -> introspector.onStripeFooter(stripe, stripeFooter));
+
+        writeValidation.ifPresent(orcWriteValidation ->
+                orcWriteValidation.validateTimeZone(orcDataSource.getId(), stripeFooter.getTimezone().orElse(defaultTimezone)));
+
+        ZoneId timezone = stripeFooter.getTimezone().orElse(defaultTimezone);
 
         // get streams for selected columns
         List<List<Stream>> allStreams = new ArrayList<>();
@@ -227,7 +236,7 @@ public class StripeReader
                         selectedRowGroups,
                         columnEncodings);
 
-                return new Stripe(stripe.getNumberOfRows(), columnEncodings, rowGroups, dictionaryStreamSources);
+                return new Stripe(stripe.getNumberOfRows(), columnEncodings, rowGroups, dictionaryStreamSources, timezone);
             }
             catch (InvalidCheckpointException e) {
                 // The ORC file contains a corrupt checkpoint stream
@@ -287,7 +296,12 @@ public class StripeReader
         }
         RowGroup rowGroup = new RowGroup(0, 0, stripe.getNumberOfRows(), totalBytes, new InputStreamSources(builder.build()));
 
-        return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
+        return new Stripe(
+                stripe.getNumberOfRows(),
+                columnEncodings,
+                ImmutableList.of(rowGroup),
+                dictionaryStreamSources,
+                timezone);
     }
 
     private StripeEncryptionGroup getStripeEncryptionGroup(DwrfDataEncryptor decryptor, Slice encryptedGroup, Collection<Integer> columns, OrcAggregatedMemoryContext systemMemoryUsage)

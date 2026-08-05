@@ -38,6 +38,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.DistributedDynamicFilterStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
@@ -46,6 +47,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.LocalExchangeParentPrefer
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.PullRowLocalChainAboveExchangeStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeNullSourceKeyInSemiJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
@@ -115,6 +117,7 @@ public final class SystemSessionProperties
     public static final String GROUPED_EXECUTION = "grouped_execution";
     public static final String RECOVERABLE_GROUPED_EXECUTION = "recoverable_grouped_execution";
     public static final String PARTITION_AWARE_GROUPED_EXECUTION = "partition_aware_grouped_execution";
+    public static final String GROUPED_EXECUTION_WHEN_CAPABLE = "grouped_execution_when_capable";
     public static final String MAX_FAILED_TASK_PERCENTAGE = "max_failed_task_percentage";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
@@ -180,6 +183,7 @@ public final class SystemSessionProperties
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
     public static final String PUSH_SEMI_JOIN_THROUGH_UNION = "push_semi_join_through_union";
     public static final String PUSH_AGGREGATION_THROUGH_DISJOINT_UNION = "push_aggregation_through_disjoint_union";
+    public static final String OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS = "optimize_cascading_filters_and_projections";
     public static final String OPTIMIZE_JOIN_FAN_OUT = "optimize_join_fan_out";
     public static final String SIMPLIFY_COALESCE_OVER_JOIN_KEYS = "simplify_coalesce_over_join_keys";
     public static final String PUSHDOWN_THROUGH_UNNEST = "pushdown_through_unnest";
@@ -240,6 +244,12 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER = "dynamic_filtering_range_row_limit_per_driver";
+    public static final String DISTRIBUTED_DYNAMIC_FILTER_STRATEGY = "distributed_dynamic_filter_strategy";
+    public static final String DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME = "distributed_dynamic_filter_max_wait_time";
+    public static final String DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_EXTENSIONS = "distributed_dynamic_filter_max_wait_extensions";
+    public static final String DISTRIBUTED_DYNAMIC_FILTER_MAX_SIZE = "distributed_dynamic_filter_max_size";
+    public static final String DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD = "distributed_dynamic_filter_cardinality_ratio_threshold";
+    public static final String DISTRIBUTED_DYNAMIC_FILTER_ON_REPLICATED_JOINS = "distributed_dynamic_filter_on_replicated_joins";
     public static final String FRAGMENT_RESULT_CACHING_ENABLED = "fragment_result_caching_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
@@ -395,6 +405,7 @@ public final class SystemSessionProperties
     public static final String TABLE_SCAN_SHUFFLE_STRATEGY = "table_scan_shuffle_strategy";
     public static final String SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION = "skip_pushdown_through_exchange_for_remote_projection";
     public static final String PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE = "pull_constant_projection_above_exchange";
+    public static final String PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY = "pull_row_local_chain_above_exchange_strategy";
     public static final String REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM = "remote_function_names_for_fixed_parallelism";
     public static final String REMOTE_FUNCTION_FIXED_PARALLELISM_TASK_COUNT = "remote_function_fixed_parallelism_task_count";
     public static final String RPC_FUNCTION_PARALLELISM = "rpc_function_parallelism";
@@ -405,6 +416,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
     public static final String NATIVE_MAX_SPLIT_PRELOAD_PER_DRIVER = "native_max_split_preload_per_driver";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
+    public static final String NATIVE_UPDATE_MERGE_ENABLED = "native_update_merge_enabled";
     private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
@@ -414,6 +426,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
     public static final String NATIVE_EXCHANGE_MATERIALIZATION_ENABLED = "native_exchange_materialization_enabled";
+    public static final String NATIVE_DYNAMIC_FILTER_PUSHDOWN_ENABLED = "native_dynamic_filter_pushdown_enabled";
     public static final String TRY_FUNCTION_CATCHABLE_ERRORS = "try_function_catchable_errors";
     public static final String PUSH_FILTER_THROUGH_SELECTING_AGGREGATION = "push_filter_through_selecting_aggregation";
     public static final String OPTIMIZE_ROW_IN_PREDICATE = "optimize_row_in_predicate";
@@ -571,6 +584,11 @@ public final class SystemSessionProperties
                         PARTITION_AWARE_GROUPED_EXECUTION,
                         "When enabled, schedules each (bucket, partition-values) pair as a separate lifespan in grouped execution, reducing per-lifespan memory usage for bucketed + partitioned tables",
                         featuresConfig.isPartitionAwareGroupedExecutionEnabled(),
+                        false),
+                booleanProperty(
+                        GROUPED_EXECUTION_WHEN_CAPABLE,
+                        "When enabled (with grouped_execution), run grouped execution for any grouped-execution-capable bucketed fragment even when no downstream operator makes it individually beneficial (e.g. a bucketed scan feeding a shuffle, or a bucketed table write)",
+                        featuresConfig.isGroupedExecutionWhenCapableEnabled(),
                         false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -983,6 +1001,11 @@ public final class SystemSessionProperties
                         featuresConfig.isPushAggregationThroughDisjointUnion(),
                         false),
                 booleanProperty(
+                        OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS,
+                        "Coalesce cascading projections by fully inlining deterministic child expressions and merge adjacent filter/project so shared subexpressions are co-located for native (Velox) CSE",
+                        featuresConfig.isOptimizeCascadingFiltersAndProjections(),
+                        false),
+                booleanProperty(
                         OPTIMIZE_JOIN_FAN_OUT,
                         "Collapse a fan-out equi-join whose preserved side is an aggregation grouped by a strict superset of the join keys by packing non-key columns with array_agg(row(...)) and re-expanding them with a local UNNEST above the join",
                         featuresConfig.isOptimizeJoinFanOut(),
@@ -1353,6 +1376,51 @@ public final class SystemSessionProperties
                         "Maximum number of build-side rows per driver up to which min and max values will be collected for dynamic filtering",
                         featuresConfig.getDynamicFilteringRangeRowLimitPerDriver(),
                         false),
+                new PropertyMetadata<>(
+                        DISTRIBUTED_DYNAMIC_FILTER_STRATEGY,
+                        format("When to add distributed dynamic filters to joins for split-level pruning. Value must be one of: %s",
+                                Stream.of(DistributedDynamicFilterStrategy.values())
+                                        .map(DistributedDynamicFilterStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        DistributedDynamicFilterStrategy.class,
+                        featuresConfig.getDistributedDynamicFilterStrategy(),
+                        true,
+                        value -> DistributedDynamicFilterStrategy.valueOf(((String) value).toUpperCase()),
+                        DistributedDynamicFilterStrategy::name),
+                new PropertyMetadata<>(
+                        DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME,
+                        "Per-cycle maximum wait for a distributed dynamic filter before checking whether partition contributions are still arriving. Total wall = (1 + " + DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_EXTENSIONS + ") * this value.",
+                        VARCHAR,
+                        Duration.class,
+                        featuresConfig.getDistributedDynamicFilterMaxWaitTime(),
+                        true,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
+                integerProperty(
+                        DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_EXTENSIONS,
+                        "Maximum number of additional max-wait-time cycles to grant a partitioned dynamic filter when partition contributions are still arriving. Set to 0 to disable adaptive extension.",
+                        featuresConfig.getDistributedDynamicFilterMaxWaitExtensions(),
+                        true),
+                new PropertyMetadata<>(
+                        DISTRIBUTED_DYNAMIC_FILTER_MAX_SIZE,
+                        "Maximum size of coordinator-side merged dynamic filter before collapsing to min/max range",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getDistributedDynamicFilterMaxSize(),
+                        true,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                doubleProperty(
+                        DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD,
+                        "Maximum build/probe cardinality ratio for cost-based dynamic filter creation",
+                        featuresConfig.getDistributedDynamicFilterCardinalityRatioThreshold(),
+                        true),
+                booleanProperty(
+                        DISTRIBUTED_DYNAMIC_FILTER_ON_REPLICATED_JOINS,
+                        "Add distributed dynamic filters to REPLICATED (broadcast) joins. Disabled by default because Velox in-fragment pushdown already covers them",
+                        featuresConfig.isDistributedDynamicFilterOnReplicatedJoins(),
+                        true),
                 booleanProperty(
                         FRAGMENT_RESULT_CACHING_ENABLED,
                         "Enable fragment result caching and read/write leaf fragment result pages from/to cache when applicable",
@@ -1899,6 +1967,14 @@ public final class SystemSessionProperties
                         featuresConfig.isNativeExecutionEnabled(),
                         true),
                 booleanProperty(
+                        NATIVE_UPDATE_MERGE_ENABLED,
+                        "Allow UPDATE / MERGE planning when native execution is enabled. " +
+                                "Requires that the Velox/Prestissimo workers ship the IcebergMergeProcessor / IcebergMergeSink ports " +
+                                "AND that PrestoToVeloxQueryPlan dispatches UpdateNode/MergeWriterNode/MergeProcessorNode. " +
+                                "Default true now that Layer 3b MergeWriterNode→TableWriteNode wiring is in.",
+                        true,
+                        false),
+                booleanProperty(
                         NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,
                         "Enable reuse the native process within the same JVM",
                         true,
@@ -2251,6 +2327,10 @@ public final class SystemSessionProperties
                         "Native Execution only. Enable materialized exchange operators in Velox (MaterializedOutput/MaterializedExchange). When false, uses PartitionAndSerialize + ShuffleWrite.",
                         true,
                         false),
+                booleanProperty(NATIVE_DYNAMIC_FILTER_PUSHDOWN_ENABLED,
+                        "Native Execution only. Enable Velox built-in hash probe dynamic filter pushdown to upstream table scans",
+                        true,
+                        false),
                 stringProperty(
                         EXPRESSION_OPTIMIZER_NAME,
                         "Configure which expression optimizer to use",
@@ -2313,6 +2393,18 @@ public final class SystemSessionProperties
                         "Pull constant assignments in projections above remote exchanges to reduce network I/O",
                         featuresConfig.isPullConstantProjectionAboveExchange(),
                         false),
+                new PropertyMetadata<>(
+                        PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY,
+                        format("Strategy for pulling a chain of row-local operators (unnest, deterministic projections) above a remote exchange so the exchange shuffles the smaller pre-expansion input. Options are %s",
+                                Stream.of(PullRowLocalChainAboveExchangeStrategy.values())
+                                        .map(PullRowLocalChainAboveExchangeStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        PullRowLocalChainAboveExchangeStrategy.class,
+                        featuresConfig.getPullRowLocalChainAboveExchangeStrategy(),
+                        false,
+                        value -> PullRowLocalChainAboveExchangeStrategy.valueOf(((String) value).toUpperCase()),
+                        PullRowLocalChainAboveExchangeStrategy::name),
                 stringProperty(
                         REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM,
                         "Regex pattern to match remote function names that should use fixed parallelism",
@@ -2538,6 +2630,11 @@ public final class SystemSessionProperties
     public static boolean isPartitionAwareGroupedExecutionEnabled(Session session)
     {
         return session.getSystemProperty(PARTITION_AWARE_GROUPED_EXECUTION, Boolean.class);
+    }
+
+    public static boolean isGroupedExecutionWhenCapableEnabled(Session session)
+    {
+        return session.getSystemProperty(GROUPED_EXECUTION_WHEN_CAPABLE, Boolean.class);
     }
 
     public static double getMaxFailedTaskPercentage(Session session)
@@ -2869,6 +2966,10 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PUSH_AGGREGATION_THROUGH_DISJOINT_UNION, Boolean.class);
     }
 
+    public static boolean isOptimizeCascadingFiltersAndProjections(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, Boolean.class);
+    }
     public static boolean isOptimizeJoinFanOut(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_JOIN_FAN_OUT, Boolean.class);
@@ -2887,6 +2988,11 @@ public final class SystemSessionProperties
     public static boolean isNativeExecutionEnabled(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isNativeUpdateMergeEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_UPDATE_MERGE_ENABLED, Boolean.class);
     }
 
     public static boolean isSingleNodeExecutionEnabled(Session session)
@@ -3254,6 +3360,54 @@ public final class SystemSessionProperties
     public static int getDynamicFilteringRangeRowLimitPerDriver(Session session)
     {
         return session.getSystemProperty(DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER, Integer.class);
+    }
+
+    public static DistributedDynamicFilterStrategy getDistributedDynamicFilterStrategy(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, DistributedDynamicFilterStrategy.class);
+    }
+
+    public static boolean isDistributedDynamicFilterEnabled(Session session)
+    {
+        boolean distributed = getDistributedDynamicFilterStrategy(session) != DistributedDynamicFilterStrategy.DISABLED;
+        if (distributed && isEnableDynamicFiltering(session)) {
+            throw new PrestoException(
+                    INVALID_SESSION_PROPERTY,
+                    "Cannot enable both 'enable_dynamic_filtering' and 'distributed_dynamic_filter_strategy'. " +
+                            "Use 'enable_dynamic_filtering' for local/within-fragment filtering or " +
+                            "'distributed_dynamic_filter_strategy' for coordinator-side split pruning, but not both.");
+        }
+        return distributed;
+    }
+
+    public static Duration getDistributedDynamicFilterMaxWaitTime(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, Duration.class);
+    }
+
+    public static int getDistributedDynamicFilterMaxWaitExtensions(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_EXTENSIONS, Integer.class);
+    }
+
+    public static DataSize getDistributedDynamicFilterMaxSize(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_SIZE, DataSize.class);
+    }
+
+    public static double getDistributedDynamicFilterCardinalityRatioThreshold(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static boolean isDistributedDynamicFilterOnReplicatedJoins(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_ON_REPLICATED_JOINS, Boolean.class);
+    }
+
+    public static boolean isNativeDynamicFilterPushdownEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_DYNAMIC_FILTER_PUSHDOWN_ENABLED, Boolean.class);
     }
 
     public static boolean isFragmentResultCachingEnabled(Session session)
@@ -4020,6 +4174,11 @@ public final class SystemSessionProperties
     public static boolean isPullConstantProjectionAboveExchange(Session session)
     {
         return session.getSystemProperty(PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE, Boolean.class);
+    }
+
+    public static PullRowLocalChainAboveExchangeStrategy getPullRowLocalChainAboveExchangeStrategy(Session session)
+    {
+        return session.getSystemProperty(PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY, PullRowLocalChainAboveExchangeStrategy.class);
     }
 
     public static String getRemoteFunctionNamesForFixedParallelism(Session session)

@@ -1479,6 +1479,92 @@ public class TestRewriteDataFilesProcedure
                 .build();
     }
 
+    /**
+     * CASE: partition evolution NULL bug
+     *
+     * The scenario:
+     *   - Table created partitioned by day(int_load_ts) only.
+     *   - Rows inserted -> old files whose partition metadata has no rec_source entry.
+     *   - rec_source identity partition field added via Iceberg API (equivalent to Spark's
+     *     ALTER TABLE ... ADD PARTITION FIELD, which Presto SQL does not support in its grammar).
+     *   - New rows inserted → new files whose partition metadata includes rec_source.
+     *
+     * This test verifies the SELECT query results are correct at each stage.
+     */
+    @Test
+    public void testPartitionEvolutionQueryBehaviour()
+    {
+        String tableName = "test_partition_evolution_query";
+        try {
+            // Step 1: create table partitioned only by day(int_load_ts)
+            assertUpdate("CREATE TABLE " + tableName + " (" +
+                    "id INTEGER, rec_source VARCHAR, int_load_ts TIMESTAMP" +
+                    ") WITH (partitioning = ARRAY['day(int_load_ts)'])");
+
+            // Step 2: insert old rows (spec-0 files: only day partition in metadata)
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(1, 'WF360', TIMESTAMP '2026-01-18 10:00:00'), " +
+                    "(2, 'WF360', TIMESTAMP '2026-01-18 11:00:00')", 2);
+
+            Table table = loadTable(tableName);
+            // Both rows land in one file under int_load_ts_day=2026-01-18/
+            assertHasDataFiles(table.currentSnapshot(), 1);
+
+            // Step 3: evolve the partition spec via the Iceberg Java API
+            // This is equivalent to Spark's: ALTER TABLE ... ADD PARTITION FIELD rec_source
+            // Presto's SQL grammar does not have ADD PARTITION FIELD syntax for existing columns
+            table.updateSpec()
+                    .addField("rec_source")
+                    .commit();
+            table.refresh();
+
+            // The table now has two specs: spec-0 (day only) and spec-1 (day + rec_source)
+            assertEquals(table.specs().size(), 2);
+
+            // Step 4: insert new rows (spec-1 files: day + rec_source in metadata)
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(3, 'WF360', TIMESTAMP '2026-06-18 10:00:00'), " +
+                    "(4, 'WF360', TIMESTAMP '2026-06-18 11:00:00')", 2);
+
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 2);
+
+            // Step 5: query before any rewrite
+            // Old files (spec-0) have rec_source physically inside the Parquet data —
+            // Presto must read it from the file, not from partition metadata
+            // Expected: WF360 → 4  (no NULLs, value is read from the file body)
+            assertQuery(
+                    "SELECT rec_source, COUNT(*) FROM " + tableName + " GROUP BY rec_source",
+                    "VALUES ('WF360', 4)");
+
+            assertQuery(
+                    "SELECT id, rec_source FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'WF360'), (2, 'WF360'), (3, 'WF360'), (4, 'WF360')");
+
+            // Step 6: rewrite_data_files and verify
+            // This also exercises commit d94fa39 (TIMESTAMP_MICROSECONDS in transforms)
+            // and commit 21162cc (correct snapshot resolution so old files are retired)
+            assertUpdate(format(
+                    "CALL system.rewrite_data_files(table_name => '%s', schema => '%s', " +
+                    "options => map(array['rewrite-all'], array['true']))",
+                    tableName, TEST_SCHEMA), 4);
+
+            table.refresh();
+
+            // Results must be identical after rewrite : no new NULLs introduced
+            assertQuery(
+                    "SELECT rec_source, COUNT(*) FROM " + tableName + " GROUP BY rec_source",
+                    "VALUES ('WF360', 4)");
+
+            assertQuery(
+                    "SELECT id, rec_source FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'WF360'), (2, 'WF360'), (3, 'WF360'), (4, 'WF360')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     private Table loadTable(String tableName)
     {
         Catalog catalog = CatalogUtil.loadCatalog(HadoopCatalog.class.getName(), ICEBERG_CATALOG, getProperties(), new Configuration());

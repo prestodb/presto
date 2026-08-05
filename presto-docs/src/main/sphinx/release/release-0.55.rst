@@ -44,7 +44,7 @@ Range Predicate Pushdown
 
 We've modified the connector API to support range predicates in addition to simple equality predicates.
 This lays the ground work for adding connectors to systems that support range
-scans (e.g., HBase, Cassandra, JDBC, etc).
+scans such as HBase, Cassandra, or JDBC.
 
 In addition to receiving range predicates, the connector can also communicate
 back the ranges of each partition for use in the query optimizer.  This can be a

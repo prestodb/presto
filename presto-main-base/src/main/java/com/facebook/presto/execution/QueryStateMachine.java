@@ -168,6 +168,7 @@ public class QueryStateMachine
 
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
     private final AtomicReference<Optional<String>> expandedQuery = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<Optional<String>> materializedViewRewrittenQuery = new AtomicReference<>(Optional.empty());
 
     private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = new ConcurrentHashMap<>();
     private final Set<SqlFunctionId> removedSessionFunctions = Sets.newConcurrentHashSet();
@@ -486,6 +487,7 @@ public class QueryStateMachine
                 outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
                 query,
                 expandedQuery.get(),
+                materializedViewRewrittenQuery.get(),
                 preparedQuery,
                 queryStats,
                 Optional.ofNullable(setCatalog.get()),
@@ -776,6 +778,11 @@ public class QueryStateMachine
     public void setExpandedQuery(Optional<String> expandedQuery)
     {
         this.expandedQuery.set(expandedQuery);
+    }
+
+    public void setMaterializedViewRewrittenQuery(Optional<String> materializedViewRewrittenQuery)
+    {
+        this.materializedViewRewrittenQuery.set(materializedViewRewrittenQuery);
     }
 
     public QueryState getQueryState()
@@ -1167,6 +1174,7 @@ public class QueryStateMachine
                 queryInfo.getFieldNames(),
                 queryInfo.getQuery(),
                 queryInfo.getExpandedQuery(),
+                queryInfo.getMaterializedViewRewrittenQuery(),
                 queryInfo.getPreparedQuery(),
                 queryInfo.getQueryStats(),
                 queryInfo.getSetCatalog(),
@@ -1287,6 +1295,7 @@ public class QueryStateMachine
                 queryInfo.getFieldNames(),
                 queryInfo.getQuery(),
                 queryInfo.getExpandedQuery(),
+                queryInfo.getMaterializedViewRewrittenQuery(),
                 queryInfo.getPreparedQuery(),
                 pruneQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getSetCatalog(),

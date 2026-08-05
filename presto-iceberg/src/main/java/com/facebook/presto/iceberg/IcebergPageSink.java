@@ -93,8 +93,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class IcebergPageSink
         implements ConnectorPageSink
@@ -547,8 +545,9 @@ public class IcebergPageSink
             return type.getSlice(block, position).toStringUtf8();
         }
         if (type instanceof TimestampType) {
-            long timestamp = type.getLong(block, position);
-            return ((TimestampType) type).getPrecision() == MILLISECONDS ? MILLISECONDS.toMicros(timestamp) : timestamp;
+            // Iceberg expects epoch-microseconds. toEpochMicros converts both TIMESTAMP (p=3, millis)
+            // and TIMESTAMP_MICROSECONDS (p=6, micros) to the required unit.
+            return ((TimestampType) type).toEpochMicros(type.getLong(block, position));
         }
         if (type instanceof TimeType) {
             long time = type.getLong(block, position);
@@ -562,14 +561,13 @@ public class IcebergPageSink
         if (type instanceof TimestampType && functionProperties.isLegacyTimestamp()) {
             long timestampValue = (long) value;
             TimestampType timestampType = (TimestampType) type;
-            Instant instant = Instant.ofEpochSecond(timestampType.getPrecision().toSeconds(timestampValue),
-                    timestampType.getPrecision().toNanos(timestampValue % timestampType.getPrecision().convert(1, SECONDS)));
+            Instant instant = Instant.ofEpochSecond(timestampType.getEpochSecond(timestampValue),
+                    timestampType.getNanos(timestampValue));
             LocalDateTime localDateTime = instant
                     .atZone(ZoneId.of(functionProperties.getTimeZoneKey().getId()))
                     .toLocalDateTime();
 
-            return timestampType.getPrecision().convert(localDateTime.toEpochSecond(ZoneOffset.UTC), SECONDS) +
-                    timestampType.getPrecision().convert(localDateTime.getNano(), NANOSECONDS);
+            return timestampType.fromEpochComponents(localDateTime.toEpochSecond(ZoneOffset.UTC), localDateTime.getNano());
         }
         return value;
     }

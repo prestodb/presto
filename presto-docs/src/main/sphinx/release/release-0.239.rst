@@ -31,7 +31,7 @@ _______________
   common expressions only once. This can be disabled by the session property
   ``optimize_common_sub_expressions``.
 * Optimize queries containing only :func:`!min` and :func:`!max` on columns that can be
-  evaluated using metadata (e.g., Hive partitions). This is controlled by configuration property
+  evaluated using metadata (for example, Hive partitions). This is controlled by configuration property
   ``optimizer.optimize-metadata-queries`` and session property ``optimize_metadata_queries``.
   Note: Enabling this optimization might change query result if there are metadata that refers to
   empty data, see :pr:`14845` for examples.

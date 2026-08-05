@@ -18,7 +18,6 @@ import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
-import org.joda.time.DateTimeZone;
 
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 
@@ -28,7 +27,7 @@ public final class BatchStreamReaders
     {
     }
 
-    public static BatchStreamReader createStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcRecordReaderOptions options, OrcAggregatedMemoryContext systemMemoryContext)
+    public static BatchStreamReader createStreamReader(Type type, StreamDescriptor streamDescriptor, OrcRecordReaderOptions options, OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         switch (streamDescriptor.getOrcTypeKind()) {
@@ -53,13 +52,13 @@ public final class BatchStreamReaders
             case TIMESTAMP:
             case TIMESTAMP_MICROSECONDS:
                 boolean enableMicroPrecision = type == TIMESTAMP_MICROSECONDS;
-                return new TimestampBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, enableMicroPrecision);
+                return new TimestampBatchStreamReader(type, streamDescriptor, enableMicroPrecision);
             case LIST:
-                return new ListBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
+                return new ListBatchStreamReader(type, streamDescriptor, options, systemMemoryContext);
             case STRUCT:
-                return new StructBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
+                return new StructBatchStreamReader(type, streamDescriptor, options, systemMemoryContext);
             case MAP:
-                return new MapBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
+                return new MapBatchStreamReader(type, streamDescriptor, options, systemMemoryContext);
             case DECIMAL:
                 return new DecimalBatchStreamReader(type, streamDescriptor);
             case UNION:

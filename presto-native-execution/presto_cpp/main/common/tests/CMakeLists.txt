@@ -11,7 +11,7 @@
 # limitations under the License.
 add_library(presto_mutable_configs MutableConfigs.cpp)
 
-target_link_libraries(presto_mutable_configs presto_common velox_file)
+target_link_libraries(presto_mutable_configs presto_common velox)
 
 add_executable(presto_common_test CommonTest.cpp ConfigTest.cpp LegacyHiveConfigKeysTest.cpp)
 
@@ -21,14 +21,7 @@ target_link_libraries(
   presto_common_test
   presto_common
   presto_exception
-  velox_aggregates
-  velox_exception
-  velox_file
-  velox_functions_prestosql
-  velox_function_registry
-  velox_presto_serializer
-  velox_presto_types
-  velox_window
+  velox
   ${RE2}
   GTest::gtest
 )

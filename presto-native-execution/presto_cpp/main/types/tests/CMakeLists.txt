@@ -23,18 +23,9 @@ target_link_libraries(
   presto_connectors
   presto_operators
   presto_protocol
-  velox_dwio_common
-  velox_dwio_orc_reader
-  velox_hive_connector
-  velox_hive_iceberg_splitreader
-  velox_tpch_connector
-  velox_tpcds_connector
-  velox_exec
-  velox_dwio_common_exception
   presto_type_converter
   presto_types
-  velox_type_fbhive
-  velox_hive_partition_function
+  velox
 )
 
 add_executable(
@@ -65,15 +56,7 @@ target_link_libraries(
   presto_mutable_configs
   presto_type_test_utils
   presto_session_properties
-  velox_core
-  velox_exec
-  velox_exec_test_lib
-  velox_functions_prestosql
-  velox_presto_type_parser
-  velox_hive_connector
-  velox_hive_iceberg_splitreader
-  velox_tpch_connector
-  velox_type
+  velox
   Boost::filesystem
 )
 
@@ -94,11 +77,7 @@ target_link_libraries(
   presto_operators
   presto_type_converter
   presto_types
-  velox_dwio_common
-  velox_hive_connector
-  velox_hive_iceberg_splitreader
-  velox_tpch_connector
-  velox_tpcds_connector
+  velox
   GTest::gtest
   GTest::gtest_main
 )
@@ -122,11 +101,7 @@ target_link_libraries(
   presto_protocol
   presto_type_converter
   presto_types
-  velox_dwio_common
-  velox_exec_test_lib
-  velox_hive_connector
-  velox_hive_iceberg_splitreader
-  velox_tpch_connector
+  velox
   GTest::gtest
   GTest::gtest_main
 )

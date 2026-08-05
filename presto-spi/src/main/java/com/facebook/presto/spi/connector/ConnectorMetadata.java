@@ -845,6 +845,16 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Begin refresh materialized view, carrying the refresh scope (the {@code REFRESH MATERIALIZED VIEW WHERE}
+     * predicate, {@code Optional.empty()} when there is no WHERE). Connectors that scope refresh work should
+     * override this; the default ignores the scope and delegates to the no-predicate overload.
+     */
+    default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<RowExpression> refreshScopePredicate)
+    {
+        return beginRefreshMaterializedView(session, tableHandle);
+    }
+
+    /**
      * Finish refresh materialized view
      */
     default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)

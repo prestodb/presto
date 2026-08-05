@@ -40,6 +40,7 @@
 #include "presto_cpp/main/http/filters/StatsFilter.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
+#include "presto_cpp/main/operators/IcebergMergeProcessorOperator.h"
 #include "presto_cpp/main/operators/LocalShuffle.h"
 #include "presto_cpp/main/operators/MaterializedExchange.h"
 #include "presto_cpp/main/operators/MaterializedOutput.h"
@@ -72,7 +73,7 @@
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/dwio/text/RegisterTextReader.h"
 #include "velox/dwio/text/RegisterTextWriter.h"
-#include "velox/exec/OutputBufferManager.h"
+#include "velox/exec/DefaultOutputBufferManager.h"
 #include "velox/exec/TraceUtil.h"
 #include "velox/exec/rpc/RPCPlanNodeTranslator.h"
 #include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
@@ -86,6 +87,7 @@
 #ifdef PRESTO_ENABLE_CUDF
 #include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
+#include "velox/experimental/cudf/expression/PrestoFunctions.h"
 #endif
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
@@ -116,6 +118,7 @@ constexpr char const* kLinuxSharedLibExt = ".so";
 constexpr char const* kMacOSSharedLibExt = ".dylib";
 constexpr char const* kOptimized = "OPTIMIZED";
 constexpr char const* kEvaluated = "EVALUATED";
+constexpr char const* kProtocolConnectorId = "protocol-connector.id";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -130,10 +133,11 @@ protocol::NodeState convertNodeState(presto::NodeState nodeState) {
 }
 
 void enableChecksum() {
-  velox::exec::OutputBufferManager::getInstanceRef()->setListenerFactory([]() {
-    return std::make_unique<
-        velox::serializer::presto::PrestoOutputStreamListener>();
-  });
+  velox::exec::DefaultOutputBufferManager::getInstanceRef()->setListenerFactory(
+      []() {
+        return std::make_unique<
+            velox::serializer::presto::PrestoOutputStreamListener>();
+      });
 }
 
 // Log only the catalog keys that are configured to avoid leaking
@@ -179,17 +183,18 @@ bool isSharedLibrary(const fs::path& path) {
 
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
+  auto& cudfConfig = velox::cudf_velox::CudfConfig::getInstance();
+
   // Disable by default.
-  velox::cudf_velox::CudfConfig::getInstance().enabled = false;
+  cudfConfig.enabled = false;
   auto systemConfig = SystemConfig::instance();
-  velox::cudf_velox::CudfConfig::getInstance().functionNamePrefix =
-      systemConfig->prestoDefaultNamespacePrefix();
+  cudfConfig.functionNamePrefix = systemConfig->prestoDefaultNamespacePrefix();
   if (systemConfig->values().contains(
           velox::cudf_velox::CudfConfig::kCudfEnabled)) {
-    velox::cudf_velox::CudfConfig::getInstance().initialize(
-        systemConfig->values());
-    if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
+    cudfConfig.initialize(systemConfig->values());
+    if (cudfConfig.enabled) {
       velox::cudf_velox::registerCudf();
+      velox::cudf_velox::registerPrestoFunctions(cudfConfig.functionNamePrefix);
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
     }
   }
@@ -1442,6 +1447,17 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
           std::make_shared<const velox::config::ConfigBase>(
               std::move(connectorConf));
 
+      auto protocolConnectorId =
+          util::getOptionalProperty(*properties, kProtocolConnectorId, "");
+      if (!protocolConnectorId.empty() &&
+          !hasPrestoToVeloxConnector(protocolConnectorId)) {
+        PRESTO_STARTUP_LOG(INFO)
+            << "Registering PrestoToVeloxConnector " << protocolConnectorId
+            << " using connector " << connectorName;
+
+        registerPrestoToVeloxConnector(protocolConnectorId, connectorName);
+      }
+
       catalogNames.emplace_back(catalogName);
 
       PRESTO_STARTUP_LOG(INFO) << "Registering catalog " << catalogName
@@ -1483,6 +1499,8 @@ void PrestoServer::registerShuffleInterfaceFactories() {
 }
 
 void PrestoServer::registerCustomOperators() {
+  velox::exec::Operator::registerOperator(
+      std::make_unique<operators::IcebergMergeProcessorTranslator>());
   velox::exec::Operator::registerOperator(
       std::make_unique<operators::PartitionAndSerializeTranslator>());
   velox::exec::Operator::registerOperator(

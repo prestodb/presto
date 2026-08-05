@@ -31,7 +31,6 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.Utils.nativeValueToBlock;
-import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static com.facebook.presto.iceberg.IcebergUtil.deserializeIcebergValue;
@@ -46,6 +45,12 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * When a new page is requested, this class inserts the partition fields as
  * RLE-encoded blocks to save memory and IO cost at runtime.
+ * <p>
+ * After partition evolution, a column that is an identity partition field in the
+ * current spec may be absent from the partition metadata of files written under an
+ * older spec. Those old files still contain the column value in the Parquet row data
+ * (because at write time the column was REGULAR, not PARTITION_KEY). Skipping it here
+ * would cause Presto to return NULL instead of reading the real value from the file.
  */
 public class IcebergPartitionInsertingPageSource
         implements ConnectorPageSource
@@ -84,10 +89,12 @@ public class IcebergPartitionInsertingPageSource
         // generate array of non-partition column indexes
         for (int i = 0; i < fullColumnList.size(); i++) {
             IcebergColumnHandle handle = fullColumnList.get(i);
-            if (handle.getColumnType() == PARTITION_KEY ||
-                    partitionKeys.containsKey(handle.getId()) ||
+            // Skip only when the value is already available from partition metadata or is an
+            // Iceberg metadata field. Do NOT skip on PARTITION_KEY column type alone: after
+            // partition evolution, old files have no partition metadata entry for the new field
+            // but do contain the value in the Parquet row data — it must be read from the file.
+            if (partitionKeys.containsKey(handle.getId()) ||
                     isMetadataColumnId(handle.getId())) {
-                // is partition key, don't include for delegate supplier
                 continue;
             }
             nonPartitionColumnIndexes[i] = handle;
@@ -112,14 +119,6 @@ public class IcebergPartitionInsertingPageSource
                     if (partitionKeys.containsKey(column.getId())) {
                         HivePartitionKey icebergPartition = partitionKeys.get(column.getId());
                         Object prefilledValue = deserializeIcebergValue(type, icebergPartition.getValue().orElse(null), column.getName());
-                        return nativeValueToBlock(type, prefilledValue);
-                    }
-                    else if (column.getColumnType() == PARTITION_KEY) {
-                        // Partition key with no value. This can happen after partition evolution
-                        Object prefilledValue = null;
-                        if (column.getDefaultValue().isPresent()) {
-                            prefilledValue = deserializeIcebergValue(type, column.getDefaultValue().get(), column.getName());
-                        }
                         return nativeValueToBlock(type, prefilledValue);
                     }
                     else if (isMetadataColumnId(column.getId())) {

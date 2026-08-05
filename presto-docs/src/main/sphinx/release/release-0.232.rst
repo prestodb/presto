@@ -34,7 +34,7 @@ ____________
 * Add session property ``shuffle_partitioned_columns_for_table_write`` to make Presto shuffle data on the partition columns before writing to partitioned unbucketed Hive tables.
   This increases the maximum number of partitions that can be written in a single query by a factor of the total number of writing workers.
   The property is ``false`` by default. (:pr:`14010`).
-* Expose Hive table properties via system table$properties table.
+* Expose Hive table properties through system table$properties table.
 * Change error code from ``HIVE_METASTORE_ERROR`` to ``HIVE_TABLE_DROPPED_DURING_QUERY`` when a ``DROP TABLE`` query fails due to another query dropping the table before this query has finished.
 * Upgrade Alluxio version from 2.1.1 to 2.1.2.
 

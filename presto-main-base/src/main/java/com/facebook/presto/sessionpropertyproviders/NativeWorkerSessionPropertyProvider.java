@@ -97,6 +97,11 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_AGGREGATION_COMPACTION_UNUSED_MEMORY_RATIO = "native_aggregation_compaction_unused_memory_ratio";
     public static final String NATIVE_AGGREGATION_MEMORY_COMPACTION_RECLAIM_ENABLED = "native_aggregation_memory_compaction_reclaim_enabled";
     public static final String NATIVE_MERGE_JOIN_OUTPUT_BATCH_START_SIZE = "native_merge_join_output_batch_start_size";
+    public static final String NATIVE_RPC_RATELIMITER_ADAPTIVE_ENABLED = "native_rpc_ratelimiter_adaptive_enabled";
+    public static final String NATIVE_RPC_RATELIMITER_MIN_LIMIT = "native_rpc_ratelimiter_min_limit";
+    public static final String NATIVE_RPC_RATELIMITER_DECREASE_FACTOR = "native_rpc_ratelimiter_decrease_factor";
+    public static final String NATIVE_RPC_RATELIMITER_MAX_LIMIT = "native_rpc_ratelimiter_max_limit";
+    public static final String NATIVE_RPC_CONGESTION_MAX_WINDOW = "native_rpc_congestion_max_window";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -501,6 +506,41 @@ public class NativeWorkerSessionPropertyProvider
                                 "the average row size of previous output batches. When zero (default), " +
                                 "dynamic adjustment is disabled and the batch size is fixed at preferred_output_batch_rows.",
                         0,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_RPC_RATELIMITER_ADAPTIVE_ENABLED,
+                        "Native Execution only. Enable the adaptive per-tier RPC rate limiter " +
+                                "(AIMD on the backend rate-limit/timeout overload signal). On by default " +
+                                "(protective for shared, rate-limited inference backends); set false to keep a static cap.",
+                        true,
+                        !nativeExecution),
+                longProperty(
+                        NATIVE_RPC_RATELIMITER_MIN_LIMIT,
+                        "Native Execution only. Floor for the adaptive RPC rate limiter's per-tier " +
+                                "max-pending cap. Default 50 (a floor of 1 can stall under sustained throttling). " +
+                                "Only used when the adaptive limiter is enabled.",
+                        50L,
+                        !nativeExecution),
+                doubleProperty(
+                        NATIVE_RPC_RATELIMITER_DECREASE_FACTOR,
+                        "Native Execution only. Multiplicative-decrease factor applied to the adaptive " +
+                                "RPC rate limiter's per-tier max-pending cap on each overload drain. " +
+                                "Only used when the adaptive limiter is enabled.",
+                        0.5,
+                        !nativeExecution),
+                longProperty(
+                        NATIVE_RPC_RATELIMITER_MAX_LIMIT,
+                        "Native Execution only. Ceiling for the per-tier RPC rate-limiter max-pending " +
+                                "cap. Default 200 (validated for LLM-inference backends); 0 falls back to " +
+                                "the built-in 20. Admission-controlled dispatch makes this cap bind; the " +
+                                "adaptive limiter shrinks from here under overload.",
+                        200L,
+                        !nativeExecution),
+                longProperty(
+                        NATIVE_RPC_CONGESTION_MAX_WINDOW,
+                        "Native Execution only. Ceiling for the per-driver RPC congestion window " +
+                                "(0 = per-mode default: PER_ROW 100, BATCH 256).",
+                        0L,
                         !nativeExecution));
     }
 

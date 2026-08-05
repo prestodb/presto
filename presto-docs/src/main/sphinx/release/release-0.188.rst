@@ -11,7 +11,7 @@ General Changes
 * Improve performance of server logging and HTTP request logging.
 * Reduce GC spikes by compacting join memory over time instead of all at once
   when memory is low. This can increase reliability at the cost of additional
-  CPU. This can be enabled via the ``pages-index.eager-compaction-enabled``
+  CPU. This can be enabled with the ``pages-index.eager-compaction-enabled``
   config property.
 * Improve performance of and reduce GC overhead for compaction of in-memory data structures,
   primarily used in joins.

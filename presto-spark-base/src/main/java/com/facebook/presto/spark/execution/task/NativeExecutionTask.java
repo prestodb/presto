@@ -179,6 +179,12 @@ public class NativeExecutionTask
         taskInfoFetcher.stop();
         taskResultFetcher.ifPresent(fetcher -> fetcher.stop(success));
         workerClient.abortResultsAsync(taskId);
+        try {
+            workerClient.deleteTask(taskId);
+        }
+        catch (RuntimeException e) {
+            log.warn(e, "Failed to delete native task %s", taskId);
+        }
     }
 
     private TaskInfo sendUpdateRequest()

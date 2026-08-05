@@ -20,7 +20,7 @@ Hive Changes
 
 * The maximum retry time for the Hive S3 file system can be configured
   by setting ``hive.s3.max-retry-time``.
-* Fix Hive partition pruning for null keys (i.e. ``__HIVE_DEFAULT_PARTITION__``).
+* Fix Hive partition pruning for null keys (that is, ``__HIVE_DEFAULT_PARTITION__``).
 
 Cassandra Changes
 -----------------
@@ -49,7 +49,7 @@ Metadata-Only Query Optimization
 --------------------------------
 
 We now support an optimization that rewrites aggregation queries that are insensitive to the
-cardinality of the input (e.g., :func:`!max`, :func:`!min`, ``DISTINCT`` aggregates) to execute
+cardinality of the input (for example, :func:`!max`, :func:`!min`, ``DISTINCT`` aggregates) to execute
 against table metadata.
 
 For example, if ``key``, ``key1`` and ``key2`` are partition keys, the following queries
@@ -95,4 +95,4 @@ General Changes
   for the partial step of aggregations.
 * Fix exception when processing queries with an ``UNNEST`` operation where the output was not used.
 * Only show query progress in UI after the query has been fully scheduled.
-* Add query execution visualization to the coordinator UI. It can be accessed via the query details page.
+* Add query execution visualization to the coordinator UI. It can be accessed by using the query details page.

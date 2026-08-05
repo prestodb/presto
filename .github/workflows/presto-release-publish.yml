@@ -53,8 +53,13 @@ env:
   JAVA_VERSION: ${{ vars.JAVA_VERSION || '17' }}
   JAVA_DISTRIBUTION: ${{ vars.JAVA_DISTRIBUTION || 'temurin' }}
   MAVEN_OPTS: ${{ vars.MAVEN_OPTS }}
-  IMAGE_REPO: ${{ github.repository }}
-  ORG_NAME: ${{ github.repository_owner }}
+  # GHCR packages are namespaced under the account that owns them. The auto
+  # GITHUB_TOKEN (the GHCR login default) can only write to this repo owner's
+  # namespace. To publish to a different org, set BOTH: ORG_NAME (vars override
+  # below) to that org AND a GHCR_TOKEN secret whose account is a member of it
+  # (with GHCR_USERNAME var = that account's login). Overriding ORG_NAME alone
+  # rewrites the tag but leaves a token that can't write there -> GHCR denies.
+  ORG_NAME: ${{ vars.ORG_NAME || github.repository_owner }}
   IMAGE_NAME: presto-native
   REGISTRY: ${{ vars.REGISTRY || 'docker.io' }}
   RELEASE_BRANCH: release-${{ inputs.RELEASE_VERSION }}
@@ -324,23 +329,22 @@ jobs:
             exit 1
           fi
 
-      - name: Login to docker.io
-        if: ${{ env.REGISTRY == 'docker.io' }}
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      - name: Checkout workflow actions
+        uses: actions/checkout@v6
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions/registry-login
+          path: workflow-actions
+          persist-credentials: false
 
-      - name: Login to ghcr.io
-        if: ${{ env.REGISTRY == 'ghcr.io' }}
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      - name: Registry login
+        uses: ./workflow-actions/.github/actions/registry-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set image prefix
-        run: echo "IMAGE_PREFIX=${REGISTRY}/" >> $GITHUB_ENV
+          registry: ${{ env.REGISTRY }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr_username: ${{ vars.GHCR_USERNAME }}
+          ghcr_token: ${{ secrets.GHCR_TOKEN }}
 
       - name: Set up qemu
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
@@ -370,13 +374,189 @@ jobs:
             PRESTO_VERSION=${{ env.RELEASE_TAG }}
             JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0
           tags: |
-            ${{ env.IMAGE_PREFIX }}${{ env.IMAGE_REPO }}:${{ env.RELEASE_TAG }}
-            ${{ github.event.inputs.tag_image_as_latest == 'true' && format('{0}{1}:latest', env.IMAGE_PREFIX, env.IMAGE_REPO) || '' }}
+            ${{ env.REGISTRY }}/${{ env.ORG_NAME }}/presto:${{ env.RELEASE_TAG }}
+            ${{ github.event.inputs.tag_image_as_latest == 'true' && format('{0}/{1}/presto:latest', env.REGISTRY, env.ORG_NAME) || '' }}
 
-  publish-native-image:
+  validate-native-release:
     needs: publish-release-tag
     if: (!failure() && !cancelled()) && github.event.inputs.publish_native_image == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    outputs:
+      commit_sha: ${{ steps.sha.outputs.commit_sha }}
+    steps:
+      - name: Validate REGISTRY
+        run: |
+          if [[ "${REGISTRY}" != "docker.io" && "${REGISTRY}" != "ghcr.io" ]]; then
+            echo "::error::Unsupported REGISTRY '${REGISTRY}'. Must be 'docker.io' or 'ghcr.io'."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - name: Get dependency commit sha
+        id: sha
+        working-directory: presto-native-execution
+        run: |
+          make submodules
+          echo "commit_sha=$(git rev-parse --short HEAD)" >> "${GITHUB_OUTPUT}"
+
+  publish-native-dependency-image:
+    needs: [publish-release-tag, validate-native-release]
+    if: (!failure() && !cancelled()) && github.event.inputs.publish_native_image == 'true' && github.event.inputs.dependency_image == ''
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    environment: release
+    timeout-minutes: 300
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: false
+          large-packages: false
+          docker-images: false
+          swap-storage: false
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - name: Checkout workflow actions
+        if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions/registry-login
+          path: workflow-actions
+          persist-credentials: false
+
+      - name: Registry login
+        if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
+        uses: ./workflow-actions/.github/actions/registry-login
+        with:
+          registry: ${{ env.REGISTRY }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr_username: ${{ vars.GHCR_USERNAME }}
+          ghcr_token: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Set dependency image tag
+        env:
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
+          COMMIT_SHA: ${{ needs.validate-native-release.outputs.commit_sha }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          echo "DEPENDENCY_IMAGE=${REGISTRY}/${ORG_NAME}/presto-native-dependency:${RELEASE_TAG}-${COMMIT_SHA}-${ARCH}" >> ${GITHUB_ENV}
+
+      - name: Initialize Prestissimo submodules
+        run: |
+          df -h
+          cd presto-native-execution && make submodules
+
+      - name: Build Dependency Image
+        working-directory: presto-native-execution
+        env:
+          # Build with the "common" target (-march=armv8-a+crc+crypto) for
+          # broad ARM CPU compatibility rather than tuning to the local host.
+          # GitHub's arm64 runners run on AWS Graviton, so Velox's default target
+          # "local" emits -mcpu=neoverse-n2, which SIGILLs on Apple Silicon
+          # and other non-Neoverse cores. Small perf trade-off. See
+          # docker-compose.yml.
+          ARM_BUILD_TARGET: common
+        run: |
+          df -h
+          if docker pull ${{ env.DEPENDENCY_IMAGE }}; then
+            echo "Using dependency image ${{ env.DEPENDENCY_IMAGE }}"
+          else
+            echo "Building new dependency image"
+            docker compose build centos-native-dependency
+            docker tag presto/prestissimo-dependency:centos9 ${{ env.DEPENDENCY_IMAGE }}
+            docker push ${{ env.DEPENDENCY_IMAGE }}
+          fi
+          docker images
+
+  publish-native-dependency-image-manifest:
+    needs: [publish-native-dependency-image, validate-native-release]
+    if: (!failure() && !cancelled()) && github.event.inputs.publish_native_image == 'true' && github.event.inputs.dependency_image == ''
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 15
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - name: Checkout workflow actions
+        if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions/registry-login
+          path: workflow-actions
+          persist-credentials: false
+
+      - name: Registry login
+        if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
+        uses: ./workflow-actions/.github/actions/registry-login
+        with:
+          registry: ${{ env.REGISTRY }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr_username: ${{ vars.GHCR_USERNAME }}
+          ghcr_token: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Create multi-arch dep manifest
+        env:
+          TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
+          COMMIT_SHA: ${{ needs.validate-native-release.outputs.commit_sha }}
+        run: |
+          DEP_TARGET=${REGISTRY}/${ORG_NAME}/presto-native-dependency
+          tags=(--tag ${DEP_TARGET}:${RELEASE_TAG}-${COMMIT_SHA})
+          [[ "${TAG_IMAGE_AS_LATEST}" == "true" ]] && tags+=(--tag ${DEP_TARGET}:latest)
+          docker buildx imagetools create "${tags[@]}" \
+            ${DEP_TARGET}:${RELEASE_TAG}-${COMMIT_SHA}-amd64 \
+            ${DEP_TARGET}:${RELEASE_TAG}-${COMMIT_SHA}-arm64
+
+  publish-native-image:
+    needs: [publish-native-dependency-image, validate-native-release]
+    # always() bypasses the skip that otherwise propagates when
+    # publish-native-dependency-image is skipped (i.e. when a caller supplies
+    # the dependency_image input); !failure() && !cancelled() still prevent
+    # running when the dependency build or validate-native-release actually
+    # failed or was cancelled. validate-native-release is a direct need so that
+    # a bad REGISTRY is seen as a failure here, not just an upstream skip.
+    if: always() && (!failure() && !cancelled()) && github.event.inputs.publish_native_image == 'true'
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -400,72 +580,40 @@ jobs:
           submodules: true
           persist-credentials: false
 
-      - name: Validate REGISTRY
-        run: |
-          if [[ "$REGISTRY" != "docker.io" && "$REGISTRY" != "ghcr.io" ]]; then
-            echo "::error::Unsupported REGISTRY '$REGISTRY'. Must be 'docker.io' or 'ghcr.io'."
-            exit 1
-          fi
-
-      - name: Login to docker.io
-        if: ${{ env.REGISTRY == 'docker.io' }}
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      - name: Checkout workflow actions
+        uses: actions/checkout@v6
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions/registry-login
+          path: workflow-actions
+          persist-credentials: false
 
-      - name: Login to ghcr.io
-        if: ${{ env.REGISTRY == 'ghcr.io' }}
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      - name: Registry login
+        uses: ./workflow-actions/.github/actions/registry-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set image prefix
-        run: echo "IMAGE_PREFIX=${REGISTRY}/" >> $GITHUB_ENV
-
-      - name: Initialize Prestissimo submodules
-        run: |
-          df -h
-          cd presto-native-execution && make submodules
-          echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          registry: ${{ env.REGISTRY }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr_username: ${{ vars.GHCR_USERNAME }}
+          ghcr_token: ${{ secrets.GHCR_TOKEN }}
 
       - name: Set dependency image tag
         env:
           DEPENDENCY_IMAGE: ${{ github.event.inputs.dependency_image }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
+          COMMIT_SHA: ${{ needs.validate-native-release.outputs.commit_sha }}
+          ARCH: ${{ matrix.arch }}
         run: |
-          if [[ -n "$DEPENDENCY_IMAGE" ]]; then
-            echo "DEPENDENCY_IMAGE=$DEPENDENCY_IMAGE" >> $GITHUB_ENV
+          if [[ -n "${DEPENDENCY_IMAGE}" ]]; then
+            echo "DEPENDENCY_IMAGE=${DEPENDENCY_IMAGE}" >> ${GITHUB_ENV}
           else
-            echo "DEPENDENCY_IMAGE=${IMAGE_PREFIX}${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}" >> $GITHUB_ENV
+            echo "DEPENDENCY_IMAGE=${REGISTRY}/${ORG_NAME}/presto-native-dependency:${RELEASE_TAG}-${COMMIT_SHA}-${ARCH}" >> ${GITHUB_ENV}
           fi
 
-      - name: Build Dependency Image
-        working-directory: presto-native-execution
-        env:
-          PUBLISH_NATIVE_IMAGE: ${{ github.event.inputs.publish_native_image }}
-          TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
-          RELEASE_TAG: ${{ env.RELEASE_TAG }}
+      - name: Pull Dependency Image
         run: |
-          df -h
-          if docker pull ${{ env.DEPENDENCY_IMAGE }}; then
-            echo "Using dependency image ${{ env.DEPENDENCY_IMAGE }}"
-            docker tag ${{ env.DEPENDENCY_IMAGE }} presto/prestissimo-dependency:centos9
-          else
-            echo "Building new depedency image"
-            docker compose build centos-native-dependency
-            if [[ "$PUBLISH_NATIVE_IMAGE" == "true" ]]; then
-              docker tag presto/prestissimo-dependency:centos9 ${IMAGE_PREFIX}${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}
-              docker push ${IMAGE_PREFIX}${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}
-
-              if [[ "$TAG_IMAGE_AS_LATEST" == "true" ]]; then
-                docker tag presto/prestissimo-dependency:centos9 ${IMAGE_PREFIX}${{ github.repository_owner }}/presto-native-dependency:latest
-                docker push ${IMAGE_PREFIX}${{ github.repository_owner }}/presto-native-dependency:latest
-              fi
-            fi
-          fi
+          docker pull ${{ env.DEPENDENCY_IMAGE }}
+          docker tag ${{ env.DEPENDENCY_IMAGE }} presto/prestissimo-dependency:centos9
           docker images
 
       - name: Build Runtime Image
@@ -487,26 +635,69 @@ jobs:
       - name: Add release tag
         working-directory: presto-native-execution
         env:
-          TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
           ORG_NAME: ${{ env.ORG_NAME }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
+          ARCH: ${{ matrix.arch }}
         run: |
-          docker tag presto/prestissimo-runtime:centos9 ${IMAGE_PREFIX}$ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG
-          if [[ "$TAG_IMAGE_AS_LATEST" == "true" ]]; then
-            docker tag presto/prestissimo-runtime:centos9 ${IMAGE_PREFIX}$ORG_NAME/${{ env.IMAGE_NAME }}:latest
-          fi
+          docker tag presto/prestissimo-runtime:centos9 ${REGISTRY}/${ORG_NAME}/${IMAGE_NAME}:${RELEASE_TAG}-${ARCH}
 
       - name: Push image
+        env:
+          ORG_NAME: ${{ env.ORG_NAME }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          docker push ${REGISTRY}/${ORG_NAME}/${IMAGE_NAME}:${RELEASE_TAG}-${ARCH}
+
+  publish-native-image-manifest:
+    needs: publish-native-image
+    if: (!failure() && !cancelled()) && github.event.inputs.publish_native_image == 'true'
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 15
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - name: Checkout workflow actions
+        if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions/registry-login
+          path: workflow-actions
+          persist-credentials: false
+
+      - name: Registry login
+        if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
+        uses: ./workflow-actions/.github/actions/registry-login
+        with:
+          registry: ${{ env.REGISTRY }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr_username: ${{ vars.GHCR_USERNAME }}
+          ghcr_token: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Create multi-arch runtime manifest
         env:
           TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
           ORG_NAME: ${{ env.ORG_NAME }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
-          docker push ${IMAGE_PREFIX}$ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG
-          if [[ "$TAG_IMAGE_AS_LATEST" == "true" ]]; then
-            docker tag ${IMAGE_PREFIX}$ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG ${IMAGE_PREFIX}$ORG_NAME/${{ env.IMAGE_NAME }}:latest
-            docker push ${IMAGE_PREFIX}$ORG_NAME/${{ env.IMAGE_NAME }}:latest
-          fi
+          TARGET=${REGISTRY}/${ORG_NAME}/${{ env.IMAGE_NAME }}
+          tags=(--tag ${TARGET}:${RELEASE_TAG})
+          [[ "${TAG_IMAGE_AS_LATEST}" == "true" ]] && tags+=(--tag ${TARGET}:latest)
+          docker buildx imagetools create "${tags[@]}" \
+            ${TARGET}:${RELEASE_TAG}-amd64 \
+            ${TARGET}:${RELEASE_TAG}-arm64
 
   publish-docs:
     needs: publish-maven-artifacts

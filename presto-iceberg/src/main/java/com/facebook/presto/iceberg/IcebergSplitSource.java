@@ -18,7 +18,6 @@ import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
@@ -27,6 +26,7 @@ import com.google.common.io.Closer;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.InclusiveMetricsEvaluator;
 import org.apache.iceberg.io.CloseableIterable;
@@ -51,7 +51,6 @@ import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
 import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
 import static com.facebook.presto.iceberg.IcebergUtil.metadataColumnsMatchPredicates;
 import static com.facebook.presto.iceberg.IcebergUtil.partitionDataFromStructLike;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.limit;
 import static java.util.Objects.requireNonNull;
@@ -71,13 +70,21 @@ public class IcebergSplitSource
 
     private final TupleDomain<IcebergColumnHandle> metadataColumnConstraints;
     private final InclusiveMetricsEvaluator lineageEvaluator;
+    // Preferred Presto FileFormat the table is configured to write
+    // (`write.format.default`), or null when the property is absent /
+    // unrecognized. Used to disambiguate the iceberg-api wire format on
+    // splits whose `task.file().format()` is ORC — because iceberg-api has no
+    // NIMBLE / DWRF enum values, both NIMBLE and DWRF data files appear on
+    // the manifest as `Iceberg.ORC` and the worker can't tell them apart
+    // without help. See `toIcebergSplit()` for the override logic.
+    private final FileFormat tableWriteFormat;
 
     public IcebergSplitSource(
             ConnectorSession session,
             TableScan tableScan,
             TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
     {
-        this(session, getTargetSplitSize(session, tableScan).toBytes(), tableScan.planFiles(), metadataColumnConstraints);
+        this(session, getTargetSplitSize(session, tableScan).toBytes(), tableScan.planFiles(), metadataColumnConstraints, parseTableWriteFormat(tableScan));
     }
 
     public IcebergSplitSource(
@@ -86,6 +93,16 @@ public class IcebergSplitSource
             CloseableIterable<FileScanTask> fileScanTasks,
             TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
     {
+        this(session, targetSplitSize, fileScanTasks, metadataColumnConstraints, null);
+    }
+
+    private IcebergSplitSource(
+            ConnectorSession session,
+            long targetSplitSize,
+            CloseableIterable<FileScanTask> fileScanTasks,
+            TupleDomain<IcebergColumnHandle> metadataColumnConstraints,
+            FileFormat tableWriteFormat)
+    {
         requireNonNull(session, "session is null");
         this.metadataColumnConstraints = requireNonNull(metadataColumnConstraints, "metadataColumnConstraints is null");
         this.lineageEvaluator = buildLastUpdatedSequenceNumberEvaluator(metadataColumnConstraints);
@@ -93,11 +110,32 @@ public class IcebergSplitSource
         this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
         this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
         this.affinitySchedulingFileSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
+        this.tableWriteFormat = tableWriteFormat;
         this.fileScanTaskIterator = closer.register(
                 splitFiles(
                         closer.register(fileScanTasks),
                         targetSplitSize)
                         .iterator());
+    }
+
+    // Reads the table's `write.format.default` property (e.g. "NIMBLE",
+    // "DWRF", "PARQUET") and returns the matching Presto FileFormat, or
+    // null on absent / unrecognized values. Called once per split source
+    // construction so we don't re-read properties per file.
+    private static FileFormat parseTableWriteFormat(TableScan tableScan)
+    {
+        try {
+            String prop = tableScan.table().properties().get(TableProperties.DEFAULT_FILE_FORMAT);
+            if (prop == null || prop.isEmpty()) {
+                return null;
+            }
+            return FileFormat.valueOf(prop.toUpperCase(java.util.Locale.ROOT));
+        }
+        catch (RuntimeException ignored) {
+            // Unknown enum value, missing table property, or transient
+            // metadata access error — fall back to the iceberg-api format.
+            return null;
+        }
     }
 
     @Override
@@ -146,23 +184,32 @@ public class IcebergSplitSource
         PartitionSpec spec = task.spec();
         Optional<PartitionData> partitionData = partitionDataFromStructLike(spec, task.file().partition());
 
-        // Validate no PUFFIN deletion vectors (Iceberg v3 feature not yet supported)
-        for (org.apache.iceberg.DeleteFile deleteFile : task.deletes()) {
-            if (deleteFile.format() == org.apache.iceberg.FileFormat.PUFFIN) {
-                throw new PrestoException(NOT_SUPPORTED, "Iceberg deletion vectors (PUFFIN format) are not supported");
-            }
-        }
-
         // TODO: We should leverage residual expression and convert that to TupleDomain.
         //       The predicate here is used by readers for predicate push down at reader level,
         //       so when we do not use residual expression, we are just wasting CPU cycles
         //       on reader side evaluating a condition that we know will always be true.
 
+        // Iceberg-api has no NIMBLE / DWRF enum values; both formats appear
+        // on the manifest as `Iceberg.ORC`. When the table's preferred write
+        // format is NIMBLE or DWRF, override here so the worker routes to
+        // the right reader. True ORC files keep their format-on-wire when
+        // the table prop is null / PARQUET / ORC.
+        org.apache.iceberg.FileFormat icebergFormat = task.file().format();
+        FileFormat splitFileFormat;
+        if (icebergFormat == org.apache.iceberg.FileFormat.ORC
+                && (tableWriteFormat == FileFormat.NIMBLE
+                        || tableWriteFormat == FileFormat.DWRF)) {
+            splitFileFormat = tableWriteFormat;
+        }
+        else {
+            splitFileFormat = fromIcebergFileFormat(icebergFormat);
+        }
+
         return new IcebergSplit(
                 task.file().path().toString(),
                 task.start(),
                 task.length(),
-                fromIcebergFileFormat(task.file().format()),
+                splitFileFormat,
                 ImmutableList.of(),
                 getPartitionKeys(task),
                 PartitionSpecParser.toJson(spec),

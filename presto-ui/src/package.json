@@ -43,7 +43,7 @@
     "typescript": "^5.9.3",
     "webpack": "^5.104.1",
     "webpack-cli": "^7.0.2",
-    "webpack-dev-server": "^5.2.5"
+    "webpack-dev-server": "^5.2.6"
   },
   "dependencies": {
     "@prestodb/presto-js-client": "^1.0.1",
@@ -81,6 +81,7 @@
     "test:ci": "jest --ci --coverage --maxWorkers=2"
   },
   "resolutions": {
-    "d3-color": "3.1.0"
+    "d3-color": "3.1.0",
+    "fast-uri": "3.1.4"
   }
 }

@@ -66,6 +66,7 @@ public class QueryInfo
     private final String queryHash;
     // expand the original query to a more accurate one if the data flow indicated by the original query is too obscure.
     private final Optional<String> expandedQuery;
+    private final Optional<String> materializedViewRewrittenQuery;
     private final Optional<String> preparedQuery;
     private final QueryStats queryStats;
     private final Optional<String> setCatalog;
@@ -116,6 +117,7 @@ public class QueryInfo
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
             @JsonProperty("expandedQuery") Optional<String> expandedQuery,
+            @JsonProperty("materializedViewRewrittenQuery") Optional<String> materializedViewRewrittenQuery,
             @JsonProperty("preparedQuery") Optional<String> preparedQuery,
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("setCatalog") Optional<String> setCatalog,
@@ -166,6 +168,7 @@ public class QueryInfo
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(query, "query is null");
         requireNonNull(expandedQuery, "expandedQuery is null");
+        requireNonNull(materializedViewRewrittenQuery, "materializedViewRewrittenQuery is null");
         requireNonNull(preparedQuery, "preparedQuery is null");
         requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
@@ -195,6 +198,7 @@ public class QueryInfo
         this.query = query;
         this.queryHash = computeQueryHash(query);
         this.expandedQuery = expandedQuery;
+        this.materializedViewRewrittenQuery = materializedViewRewrittenQuery;
         this.preparedQuery = preparedQuery;
         this.queryStats = queryStats;
         this.setCatalog = setCatalog;
@@ -293,6 +297,12 @@ public class QueryInfo
     public Optional<String> getExpandedQuery()
     {
         return expandedQuery;
+    }
+
+    @JsonProperty
+    public Optional<String> getMaterializedViewRewrittenQuery()
+    {
+        return materializedViewRewrittenQuery;
     }
 
     @JsonProperty

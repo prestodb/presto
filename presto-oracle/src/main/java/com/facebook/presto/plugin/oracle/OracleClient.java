@@ -284,6 +284,7 @@ public class OracleClient
             case OracleTypes.BINARY_DOUBLE:
                 return Optional.of(doubleReadMapping());
             case Types.REAL:
+            case OracleTypes.BINARY_FLOAT:
                 return Optional.of(realReadMapping());
             case Types.NUMERIC:
                 int precision = columnSize == 0 ? Decimals.MAX_PRECISION : columnSize;

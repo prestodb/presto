@@ -747,7 +747,6 @@ public final class IcebergUtil
     }
 
     protected static NullableValue parsePartitionValue(
-            FileFormat fileFormat,
             String partitionStringValue,
             Type prestoType,
             String partitionName)
@@ -1392,6 +1391,9 @@ public final class IcebergUtil
                     throw new PrestoException(NOT_SUPPORTED, format("Compression codec %s is not supported for ORC format", compressionCodec));
                 }
                 propertiesBuilder.put(ORC_COMPRESSION, compressionCodec.getOrcCompressionKind().name());
+                break;
+            case NIMBLE:
+                // Nimble handles compression internally; no table property needed.
                 break;
         }
         if (tableMetadata.getComment().isPresent()) {

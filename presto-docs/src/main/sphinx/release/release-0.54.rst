@@ -12,7 +12,7 @@ Release 0.54
 
 * Add support for Snappy and LZ4 compression codecs for the ``hive-cdh4`` connector.
 
-* Add Example HTTP connector ``example-http`` that reads CSV data via HTTP.
+* Add Example HTTP connector ``example-http`` that reads CSV data by using HTTP.
   The connector requires a metadata URI that returns a JSON document
   describing the table metadata and the CSV files to read.
 

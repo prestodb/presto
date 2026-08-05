@@ -116,7 +116,7 @@ public class TestInsertIntoCassandraTable
                         -32768,
                         "text value",
                         -128,
-                        Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
+                        Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59, 0)),
                         null,
                         null,
                         "varchar value",

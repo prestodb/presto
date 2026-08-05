@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor.defaultFunctionDescriptor;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
@@ -43,6 +44,10 @@ public class FunctionMetadata
     private final FunctionVersion version;
     private final ComplexTypeFunctionDescriptor descriptor;
     private final Optional<String> description;
+    // For a variable-arity function whose tail is the internal StandardTypes.ANY sentinel, the
+    // (zero-based) index of the first trailing argument. Empty for all other functions. Used by the
+    // RowExpression translator to fold the trailing arguments into a single JSON argument.
+    private final OptionalInt varArgPosStart;
 
     public FunctionMetadata(
             QualifiedObjectName name,
@@ -79,7 +84,8 @@ public class FunctionMetadata
                 calledOnNullInput,
                 notVersioned(),
                 functionDescriptor,
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.empty());
     }
 
     public FunctionMetadata(
@@ -111,7 +117,25 @@ public class FunctionMetadata
             String description)
     {
         this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic, calledOnNullInput, version,
-                defaultFunctionDescriptor(), Optional.ofNullable(description));
+                defaultFunctionDescriptor(), Optional.ofNullable(description), OptionalInt.empty());
+    }
+
+    public FunctionMetadata(
+            QualifiedObjectName name,
+            List<TypeSignature> argumentTypes,
+            List<String> argumentNames,
+            TypeSignature returnType,
+            FunctionKind functionKind,
+            Language language,
+            FunctionImplementationType implementationType,
+            boolean deterministic,
+            boolean calledOnNullInput,
+            FunctionVersion version,
+            String description,
+            OptionalInt varArgPosStart)
+    {
+        this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic, calledOnNullInput, version,
+                defaultFunctionDescriptor(), Optional.ofNullable(description), varArgPosStart);
     }
 
     public FunctionMetadata(
@@ -128,7 +152,7 @@ public class FunctionMetadata
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
         this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic,
-                calledOnNullInput, version, functionDescriptor, Optional.empty());
+                calledOnNullInput, version, functionDescriptor, Optional.empty(), OptionalInt.empty());
     }
 
     public FunctionMetadata(
@@ -153,7 +177,7 @@ public class FunctionMetadata
             boolean calledOnNullInput,
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
-        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned(), functionDescriptor, Optional.empty());
+        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned(), functionDescriptor, Optional.empty(), OptionalInt.empty());
     }
 
     private FunctionMetadata(
@@ -182,7 +206,8 @@ public class FunctionMetadata
                 calledOnNullInput,
                 version,
                 defaultFunctionDescriptor(),
-                Optional.empty());
+                Optional.empty(),
+                OptionalInt.empty());
     }
 
     private FunctionMetadata(
@@ -198,7 +223,8 @@ public class FunctionMetadata
             boolean calledOnNullInput,
             FunctionVersion version,
             ComplexTypeFunctionDescriptor functionDescriptor,
-            Optional<String> description)
+            Optional<String> description,
+            OptionalInt varArgPosStart)
     {
         this.name = requireNonNull(name, "name is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -220,6 +246,7 @@ public class FunctionMetadata
                 argumentTypes,
                 functionDescriptor.getPushdownSubfieldArgIndex());
         this.description = requireNonNull(description, "additionalInformation is null");
+        this.varArgPosStart = requireNonNull(varArgPosStart, "varArgPosStart is null");
     }
 
     public FunctionKind getFunctionKind()
@@ -287,6 +314,11 @@ public class FunctionMetadata
         return description;
     }
 
+    public OptionalInt getVarArgPosStart()
+    {
+        return varArgPosStart;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -309,12 +341,13 @@ public class FunctionMetadata
                 Objects.equals(this.calledOnNullInput, other.calledOnNullInput) &&
                 Objects.equals(this.version, other.version) &&
                 Objects.equals(this.descriptor, other.descriptor) &&
-                Objects.equals(this.description, other.description);
+                Objects.equals(this.description, other.description) &&
+                Objects.equals(this.varArgPosStart, other.varArgPosStart);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, operatorType, argumentTypes, argumentNames, returnType, functionKind, language, implementationType, deterministic, calledOnNullInput, version, descriptor, description);
+        return Objects.hash(name, operatorType, argumentTypes, argumentNames, returnType, functionKind, language, implementationType, deterministic, calledOnNullInput, version, descriptor, description, varArgPosStart);
     }
 }

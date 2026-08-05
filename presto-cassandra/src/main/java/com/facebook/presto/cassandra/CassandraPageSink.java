@@ -21,6 +21,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -41,12 +42,14 @@ import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaNa
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validTableName;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
@@ -65,6 +68,7 @@ public class CassandraPageSink
     private static final Logger log = Logger.get(CassandraPageSink.class);
 
     private final CassandraSession cassandraSession;
+    private final ConnectorSession session;
     private final PreparedStatement insert;
     private final List<Type> columnTypes;
     private final boolean generateUUID;
@@ -74,6 +78,7 @@ public class CassandraPageSink
 
     public CassandraPageSink(
             CassandraSession cassandraSession,
+            ConnectorSession connectorSession,
             String schemaName,
             String tableName,
             List<String> columnNames,
@@ -81,6 +86,7 @@ public class CassandraPageSink
             boolean generateUUID)
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession");
+        this.session = requireNonNull(connectorSession, "connectorSession is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         requireNonNull(columnNames, "columnNames is null");
@@ -177,8 +183,17 @@ public class CassandraPageSink
         else if (DATE.equals(type)) {
             values.add(LocalDate.ofEpochDay(type.getLong(block, position)));
         }
-        else if (TIMESTAMP.equals(type)) {
+        // Cassandra timestamps are always UTC epoch milliseconds; the DataStax driver accepts
+        // java.time.Instant which maps directly to that representation.
+        // CassandraType maps a CQL `timestamp` column to TIMESTAMP in legacy mode and to
+        // TIMESTAMP_WITH_TIME_ZONE in non-legacy mode, so these two branches are mutually exclusive.
+        else if (session.getSqlFunctionProperties().isLegacyTimestamp() && TIMESTAMP.equals(type)) {
+            // Legacy mode: the raw long is epoch millis with the session timezone ignored (wall-clock treated as UTC).
             values.add(Instant.ofEpochMilli(type.getLong(block, position)));
+        }
+        else if (!session.getSqlFunctionProperties().isLegacyTimestamp() && TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            // Non-legacy mode: the long is a packed (UTC millis + timezone key); unpack to get true UTC millis.
+            values.add(Instant.ofEpochMilli(unpackMillisUtc(type.getLong(block, position))));
         }
         else if (isVarcharType(type)) {
             values.add(type.getSlice(block, position).toStringUtf8());

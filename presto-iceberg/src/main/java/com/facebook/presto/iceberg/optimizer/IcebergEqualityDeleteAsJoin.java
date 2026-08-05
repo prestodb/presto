@@ -73,7 +73,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -235,13 +234,6 @@ public class IcebergEqualityDeleteAsJoin
             for (Map.Entry<Set<Integer>, DeleteSetInfo> entry : deleteSchemas.entrySet()) {
                 DeleteSetInfo deleteGroupInfo = entry.getValue();
 
-                List<Types.NestedField> deleteFields = deleteGroupInfo
-                        .equalityFieldIds
-                        .stream()
-                        .map(fieldId -> icebergTable.schema().findField(fieldId))
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toList());
-
                 VariableReferenceExpression joinSequenceNumber = toVariableReference(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE);
                 deleteVersionColumns.add(joinSequenceNumber);
                 ImmutableMap<VariableReferenceExpression, ColumnHandle> deleteColumnAssignments = ImmutableMap.<VariableReferenceExpression, ColumnHandle>builder()
@@ -271,7 +263,6 @@ public class IcebergEqualityDeleteAsJoin
                 TableScanNode deleteTableScan = createDeletesTableScan(deleteColumnAssignments,
                         icebergTableHandle,
                         tableName,
-                        deleteFields,
                         table,
                         deleteGroupInfo);
 
@@ -349,7 +340,6 @@ public class IcebergEqualityDeleteAsJoin
         private TableScanNode createDeletesTableScan(ImmutableMap<VariableReferenceExpression, ColumnHandle> deleteColumnAssignments,
                 IcebergTableHandle icebergTableHandle,
                 IcebergTableName tableName,
-                List<Types.NestedField> deleteFields,
                 TableHandle table,
                 DeleteSetInfo deleteInfo)
         {

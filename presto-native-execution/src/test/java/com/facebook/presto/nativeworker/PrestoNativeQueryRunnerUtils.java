@@ -355,6 +355,7 @@ public class PrestoNativeQueryRunnerUtils
         // for the native query runner and should NOT be explicitly configured by users.
         private boolean useExternalWorkerLauncher;
         private boolean addJmxPlugin;
+        private boolean coordinatorSidecarEnabled;
 
         private IcebergQueryRunnerBuilder(QueryRunnerType queryRunnerType)
         {
@@ -431,19 +432,28 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public IcebergQueryRunnerBuilder setCoordinatorSidecarEnabled(boolean coordinatorSidecarEnabled)
+        {
+            this.coordinatorSidecarEnabled = coordinatorSidecarEnabled;
+            if (coordinatorSidecarEnabled) {
+                this.extraProperties.putAll(getNativeSidecarProperties());
+            }
+            return this;
+        }
+
         public QueryRunner build()
                 throws Exception
         {
-            return buildIcebergQueryRunner().getQueryRunner();
+            return buildIcebergQueryRunner(coordinatorSidecarEnabled).getQueryRunner();
         }
 
-        public IcebergQueryRunner buildIcebergQueryRunner()
+        public IcebergQueryRunner buildIcebergQueryRunner(boolean coordinatorSidecarEnabled)
                 throws Exception
         {
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", "iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        Optional.empty(), false, false, false, false, false, false, false);
+                        Optional.empty(), false, coordinatorSidecarEnabled, false, false, false, false, false);
             }
             IcebergQueryRunner.Builder builder = IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -675,116 +685,21 @@ public class PrestoNativeQueryRunnerUtils
             boolean implicitCastCharNToVarchar,
             boolean enableCudf)
     {
-        return
-                Optional.of((workerIndex, discoveryUri) -> {
-                    try {
-                        Path dir = Paths.get("/tmp", PrestoNativeQueryRunnerUtils.class.getSimpleName());
-                        Files.createDirectories(dir);
-                        Path tempDirectoryPath = Files.createTempDirectory(dir, "worker");
-                        log.info("Temp directory for Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
-
-                        // Write config file - use an ephemeral port for the worker.
-                        String configProperties = format("discovery.uri=%s%n" +
-                                "presto.version=testversion%n" +
-                                "plan-consistency-check-enabled=true%n" +
-                                "system-memory-gb=4%n" +
-                                "http-server.http.port=0%n", discoveryUri);
-
-                        if (isCoordinatorSidecarEnabled) {
-                            configProperties = format("%s%n" +
-                                    "native-sidecar=true%n" +
-                                    "presto.default-namespace=native.default%n", configProperties);
-                        }
-                        else if (isBuiltInWorkerFunctionsEnabled) {
-                            configProperties = format("%s%n" +
-                                    "native-sidecar=true%n", configProperties);
-                        }
-
-                        if (enableRuntimeMetricsCollection) {
-                            configProperties = format("%s%n" +
-                                    "runtime-metrics-collection-enabled=true%n", configProperties);
-                        }
-
-                        if (enableSsdCache) {
-                            Path ssdCacheDir = Paths.get(tempDirectoryPath + "/velox-ssd-cache");
-                            Files.createDirectories(ssdCacheDir);
-                            configProperties = format("%s%n" +
-                                    "async-cache-ssd-gb=1%n" +
-                                    "async-cache-ssd-path=%s/%n", configProperties, ssdCacheDir);
-                        }
-
-                        if (remoteFunctionServerUds.isPresent()) {
-                            String jsonSignaturesPath = Resources.getResource(REMOTE_FUNCTION_JSON_SIGNATURES).getFile();
-                            configProperties = format("%s%n" +
-                                    "remote-function-server.catalog-name=%s%n" +
-                                    "remote-function-server.thrift.uds-path=%s%n" +
-                                    "remote-function-server.serde=presto_page%n" +
-                                    "remote-function-server.signature.files.directory.path=%s%n", configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
-                        }
-
-                        if (pluginDirectory.isPresent()) {
-                            configProperties = format("%s%n" + "plugin.dir=%s%n", configProperties, pluginDirectory.get());
-                        }
-
-                        if (failOnNestedLoopJoin) {
-                            configProperties = format("%s%n" + "velox-plan-validator-fail-on-nested-loop-join=true%n", configProperties);
-                        }
-
-                        if (implicitCastCharNToVarchar) {
-                            configProperties = format("%s%n" + "char-n-to-varchar-implicit-cast=true%n", configProperties);
-                        }
-
-                        if (enableCudf) {
-                            configProperties = format("%s%n" +
-                                    "cudf.enabled=true%n" +
-                                    "cudf.debug_enabled=true", configProperties);
-                        }
-
-                        Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
-                        Files.write(tempDirectoryPath.resolve("node.properties"),
-                                format("node.id=%s%n" +
-                                        "node.internal-address=127.0.0.1%n" +
-                                        "node.environment=testing%n" +
-                                        "node.location=test-location", UUID.randomUUID()).getBytes());
-
-                        Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
-                        Files.createDirectory(catalogDirectoryPath);
-                        if (cacheMaxSize > 0) {
-                            Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
-                                    format("connector.name=%s%n" +
-                                            "cache.enabled=true%n" +
-                                            "cache.max-cache-size=%s", connectorName, cacheMaxSize).getBytes());
-                        }
-                        else {
-                            Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
-                                    format("connector.name=%s", connectorName).getBytes());
-                        }
-                        // Add catalog with caching always enabled.
-                        Files.write(catalogDirectoryPath.resolve(format("%scached.properties", catalogName)),
-                                format("connector.name=%s%n" +
-                                        "cache.enabled=true%n" +
-                                        "cache.max-cache-size=32", connectorName).getBytes());
-
-                        // Add a tpch catalog.
-                        Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
-                                format("connector.name=tpch%n").getBytes());
-
-                        // Add a tpcds catalog.
-                        Files.write(catalogDirectoryPath.resolve("tpcds.properties"),
-                                format("connector.name=tpcds%n").getBytes());
-
-                        // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
-                        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1", "--velox_ssd_odirect=false")
-                                .directory(tempDirectoryPath.toFile())
-                                .redirectErrorStream(true)
-                                .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))
-                                .redirectError(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))
-                                .start();
-                    }
-                    catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                });
+        return externalWorkerLauncherBuilder()
+                .setCatalogName(catalogName)
+                .setConnectorName(connectorName)
+                .setPrestoServerPath(prestoServerPath)
+                .setCacheMaxSize(cacheMaxSize)
+                .setRemoteFunctionServerUds(remoteFunctionServerUds)
+                .setPluginDirectory(pluginDirectory)
+                .setFailOnNestedLoopJoin(failOnNestedLoopJoin)
+                .setCoordinatorSidecarEnabled(isCoordinatorSidecarEnabled)
+                .setBuiltInWorkerFunctionsEnabled(isBuiltInWorkerFunctionsEnabled)
+                .setEnableRuntimeMetricsCollection(enableRuntimeMetricsCollection)
+                .setEnableSsdCache(enableSsdCache)
+                .setImplicitCastCharNToVarchar(implicitCastCharNToVarchar)
+                .setEnableCudf(enableCudf)
+                .build();
     }
 
     public static class NativeQueryRunnerParameters
@@ -801,6 +716,225 @@ public class PrestoNativeQueryRunnerUtils
             this.workerCount = requireNonNull(workerCount, "workerCount is null");
             this.runnerParameters = Collections.unmodifiableMap(new HashMap<>(requireNonNull(runnerParameters, "runnerParameters is null")));
         }
+    }
+
+    /**
+     * Builder for creating native (C++) external worker launchers.
+     */
+    public static class ExternalWorkerLauncherBuilder
+    {
+        private String catalogName = "hive";
+        private String connectorName = "hive";
+        private String prestoServerPath;
+        private int cacheMaxSize;
+        private Optional<String> remoteFunctionServerUds = Optional.empty();
+        private Optional<String> pluginDirectory = Optional.empty();
+        private boolean failOnNestedLoopJoin;
+        private boolean coordinatorSidecarEnabled;
+        private boolean builtInWorkerFunctionsEnabled;
+        private boolean enableRuntimeMetricsCollection;
+        private boolean enableSsdCache;
+        private boolean implicitCastCharNToVarchar;
+        private boolean enableCudf;
+
+        private ExternalWorkerLauncherBuilder() {}
+
+        public ExternalWorkerLauncherBuilder setCatalogName(String catalogName)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setConnectorName(String connectorName)
+        {
+            this.connectorName = requireNonNull(connectorName, "connectorName is null");
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setPrestoServerPath(String prestoServerPath)
+        {
+            this.prestoServerPath = requireNonNull(prestoServerPath, "prestoServerPath is null");
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setCacheMaxSize(int cacheMaxSize)
+        {
+            this.cacheMaxSize = cacheMaxSize;
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setRemoteFunctionServerUds(Optional<String> remoteFunctionServerUds)
+        {
+            this.remoteFunctionServerUds = requireNonNull(remoteFunctionServerUds, "remoteFunctionServerUds is null");
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setPluginDirectory(Optional<String> pluginDirectory)
+        {
+            this.pluginDirectory = requireNonNull(pluginDirectory, "pluginDirectory is null");
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setFailOnNestedLoopJoin(boolean failOnNestedLoopJoin)
+        {
+            this.failOnNestedLoopJoin = failOnNestedLoopJoin;
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setCoordinatorSidecarEnabled(boolean coordinatorSidecarEnabled)
+        {
+            this.coordinatorSidecarEnabled = coordinatorSidecarEnabled;
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setBuiltInWorkerFunctionsEnabled(boolean builtInWorkerFunctionsEnabled)
+        {
+            this.builtInWorkerFunctionsEnabled = builtInWorkerFunctionsEnabled;
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setEnableRuntimeMetricsCollection(boolean enableRuntimeMetricsCollection)
+        {
+            this.enableRuntimeMetricsCollection = enableRuntimeMetricsCollection;
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setEnableSsdCache(boolean enableSsdCache)
+        {
+            this.enableSsdCache = enableSsdCache;
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setImplicitCastCharNToVarchar(boolean implicitCastCharNToVarchar)
+        {
+            this.implicitCastCharNToVarchar = implicitCastCharNToVarchar;
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setEnableCudf(boolean enableCudf)
+        {
+            this.enableCudf = enableCudf;
+            return this;
+        }
+
+        public Optional<BiFunction<Integer, URI, Process>> build()
+        {
+            requireNonNull(prestoServerPath, "prestoServerPath must be set");
+
+            return Optional.of((workerIndex, discoveryUri) -> {
+                try {
+                    Path dir = Paths.get("/tmp", PrestoNativeQueryRunnerUtils.class.getSimpleName());
+                    Files.createDirectories(dir);
+                    Path tempDirectoryPath = Files.createTempDirectory(dir, "worker");
+                    log.info("Temp directory for Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
+
+                    // Write config file - use an ephemeral port for the worker.
+                    String configProperties = format("discovery.uri=%s%n" +
+                            "presto.version=testversion%n" +
+                            "plan-consistency-check-enabled=true%n" +
+                            "system-memory-gb=4%n" +
+                            "http-server.http.port=0%n", discoveryUri);
+
+                    if (coordinatorSidecarEnabled) {
+                        configProperties = format("%s%n" +
+                                "native-sidecar=true%n" +
+                                "presto.default-namespace=native.default%n", configProperties);
+                    }
+                    else if (builtInWorkerFunctionsEnabled) {
+                        configProperties = format("%s%nnative-sidecar=true%n", configProperties);
+                    }
+
+                    if (enableRuntimeMetricsCollection) {
+                        configProperties = format("%s%nruntime-metrics-collection-enabled=true%n", configProperties);
+                    }
+
+                    if (enableSsdCache) {
+                        Path ssdCacheDir = Paths.get(tempDirectoryPath + "/velox-ssd-cache");
+                        Files.createDirectories(ssdCacheDir);
+                        configProperties = format("%s%n" +
+                                "async-cache-ssd-gb=1%n" +
+                                "async-cache-ssd-path=%s/%n", configProperties, ssdCacheDir);
+                    }
+
+                    if (remoteFunctionServerUds.isPresent()) {
+                        String jsonSignaturesPath = Resources.getResource(REMOTE_FUNCTION_JSON_SIGNATURES).getFile();
+                        configProperties = format("%s%n" +
+                                        "remote-function-server.catalog-name=%s%n" +
+                                        "remote-function-server.thrift.uds-path=%s%n" +
+                                        "remote-function-server.serde=presto_page%n" +
+                                        "remote-function-server.signature.files.directory.path=%s%n",
+                                configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
+                    }
+
+                    if (pluginDirectory.isPresent()) {
+                        configProperties = format("%s%nplugin.dir=%s%n", configProperties, pluginDirectory.get());
+                    }
+
+                    if (failOnNestedLoopJoin) {
+                        configProperties = format("%s%nvelox-plan-validator-fail-on-nested-loop-join=true%n", configProperties);
+                    }
+
+                    if (implicitCastCharNToVarchar) {
+                        configProperties = format("%s%nchar-n-to-varchar-implicit-cast=true%n", configProperties);
+                    }
+
+                    if (enableCudf) {
+                        configProperties = format("%s%n" +
+                                "cudf.enabled=true%n" +
+                                "cudf.debug_enabled=true", configProperties);
+                    }
+
+                    Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
+                    Files.write(tempDirectoryPath.resolve("node.properties"),
+                            format("node.id=%s%n" +
+                                    "node.internal-address=127.0.0.1%n" +
+                                    "node.environment=testing%n" +
+                                    "node.location=test-location", UUID.randomUUID()).getBytes());
+
+                    Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
+                    Files.createDirectory(catalogDirectoryPath);
+                    if (cacheMaxSize > 0) {
+                        Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
+                                format("connector.name=%s%n" +
+                                        "cache.enabled=true%n" +
+                                        "cache.max-cache-size=%s", connectorName, cacheMaxSize).getBytes());
+                    }
+                    else {
+                        Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
+                                format("connector.name=%s", connectorName).getBytes());
+                    }
+
+                    // Add catalog with caching always enabled.
+                    Files.write(catalogDirectoryPath.resolve(format("%scached.properties", catalogName)),
+                            format("connector.name=%s%n" +
+                                    "cache.enabled=true%n" +
+                                    "cache.max-cache-size=32", connectorName).getBytes());
+
+                    // Add a tpch catalog.
+                    Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
+                            format("connector.name=tpch%n").getBytes());
+
+                    // Add a tpcds catalog.
+                    Files.write(catalogDirectoryPath.resolve("tpcds.properties"),
+                            format("connector.name=tpcds%n").getBytes());
+
+                    return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1", "--velox_ssd_odirect=false")
+                            .directory(tempDirectoryPath.toFile())
+                            .redirectErrorStream(true)
+                            .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))
+                            .redirectError(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))
+                            .start();
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+        }
+    }
+
+    public static ExternalWorkerLauncherBuilder externalWorkerLauncherBuilder()
+    {
+        return new ExternalWorkerLauncherBuilder();
     }
 
     public static void setupJsonFunctionNamespaceManager(QueryRunner queryRunner, String jsonFileName, String catalogName)

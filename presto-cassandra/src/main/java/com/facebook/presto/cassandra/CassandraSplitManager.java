@@ -78,7 +78,7 @@ public class CassandraSplitManager
         if (partitions.size() == 1) {
             CassandraPartition cassandraPartition = partitions.get(0);
             if (cassandraPartition.isUnpartitioned() || cassandraPartition.isIndexedColumnPredicatePushdown()) {
-                CassandraTable table = cassandraSession.getTable(cassandraTableHandle.getSchemaTableName());
+                CassandraTable table = cassandraSession.getTable(session, cassandraTableHandle.getSchemaTableName());
                 List<ConnectorSplit> splits = getSplitsByTokenRange(table, cassandraPartition.getPartitionId(), getSplitsPerNode(session));
                 return new FixedSplitSource(splits);
             }

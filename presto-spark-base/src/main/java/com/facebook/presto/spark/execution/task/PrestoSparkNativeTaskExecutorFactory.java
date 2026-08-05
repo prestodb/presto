@@ -327,10 +327,16 @@ public class PrestoSparkNativeTaskExecutorFactory
                             .getHandle().equals(FIXED_BROADCAST_DISTRIBUTION));
 
             log.info("Creating task and will wait for remote task completion");
-            TaskInfo taskInfo = task.start();
+            try {
+                TaskInfo taskInfo = task.start();
 
-            // task creation might have failed
-            processTaskInfoForErrorsOrCompletion(taskInfo);
+                // task creation might have failed
+                processTaskInfoForErrorsOrCompletion(taskInfo);
+            }
+            catch (RuntimeException e) {
+                task.stop(false);
+                throw e;
+            }
 
             // 4. return output to spark RDD layer
             return new PrestoSparkNativeTaskOutputIterator<>(
@@ -360,28 +366,31 @@ public class PrestoSparkNativeTaskExecutorFactory
 
     private static void completeTask(boolean success, CollectionAccumulator<SerializedTaskInfo> taskInfoCollector, NativeExecutionTask task, Codec<TaskInfo> taskInfoCodec, CpuTracker cpuTracker)
     {
-        // stop the task
-        task.stop(success);
+        try {
+            OptionalLong processCpuTime = cpuTracker.get();
 
-        OptionalLong processCpuTime = cpuTracker.get();
+            // collect statistics (if available)
+            Optional<TaskInfo> taskInfoOptional = tryGetTaskInfo(task);
+            if (!taskInfoOptional.isPresent()) {
+                log.error("Missing taskInfo. Statistics might be inaccurate");
+                return;
+            }
 
-        // collect statistics (if available)
-        Optional<TaskInfo> taskInfoOptional = tryGetTaskInfo(task);
-        if (!taskInfoOptional.isPresent()) {
-            log.error("Missing taskInfo. Statistics might be inaccurate");
-            return;
+            // Record process-wide CPU time spent while executing this task. Since we run one task at a time,
+            // process-wide CPU time matches task's CPU time.
+            processCpuTime.ifPresent(cpuTime -> taskInfoOptional.get().getStats().getRuntimeStats()
+                    .addMetricValue("javaProcessCpuTime", RuntimeUnit.NANO, cpuTime));
+
+            SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfoOptional.get()));
+            taskInfoCollector.add(serializedTaskInfo);
+
+            // Update Spark Accumulators for spark internal metrics
+            PrestoSparkStatsCollectionUtils.collectMetrics(taskInfoOptional.get());
         }
-
-        // Record process-wide CPU time spent while executing this task. Since we run one task at a time,
-        // process-wide CPU time matches task's CPU time.
-        processCpuTime.ifPresent(cpuTime -> taskInfoOptional.get().getStats().getRuntimeStats()
-                .addMetricValue("javaProcessCpuTime", RuntimeUnit.NANO, cpuTime));
-
-        SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfoOptional.get()));
-        taskInfoCollector.add(serializedTaskInfo);
-
-        // Update Spark Accumulators for spark internal metrics
-        PrestoSparkStatsCollectionUtils.collectMetrics(taskInfoOptional.get());
+        finally {
+            // Stop after fetching final task info so task cleanup does not race with stats collection.
+            task.stop(success);
+        }
     }
 
     private static Optional<TaskInfo> tryGetTaskInfo(NativeExecutionTask task)

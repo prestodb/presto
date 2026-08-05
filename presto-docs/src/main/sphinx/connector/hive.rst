@@ -121,7 +121,7 @@ When not using Kerberos with HDFS, Presto will access HDFS using the
 OS user of the Presto process. For example, if Presto is running as
 ``nobody``, it will access HDFS as ``nobody``. You can override this
 username by setting the ``HADOOP_USER_NAME`` system property in the
-Presto :ref:`presto_jvm_config`, replacing ``hdfs_user`` with the
+Presto :ref:`installation/deployment:JVM Config`, replacing ``hdfs_user`` with the
 appropriate username:
 
 .. code-block:: none
@@ -511,6 +511,12 @@ Property Name                                        Description
 
 ``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
                                                      Catalog.
+
+``hive.metastore.glue.column-statistics-enabled``    Enable use of column statistics on Glue Metastore
+
+``hive.metastore.glue.read-statistics-threads``      Number of threads for parallel statistics reads from Glue
+
+``hive.metastore.glue.write-statistics-threads``     Number of threads for parallel statistics writes to Glue
 ==================================================== ============================================================
 
 .. _s3selectpushdown:
@@ -1030,7 +1036,7 @@ Alluxio Client-Side Configuration
 To configure Alluxio client-side properties on Presto, append the Alluxio
 configuration directory (``${ALLUXIO_HOME}/conf``) to the Presto JVM classpath,
 so that the Alluxio properties file ``alluxio-site.properties`` can be loaded as a resource.
-Update the Presto :ref:`presto_jvm_config` file ``etc/jvm.config`` to include the following:
+Update the Presto :ref:`installation/deployment:JVM Config` file ``etc/jvm.config`` to include the following:
 
 .. code-block:: none
 
@@ -1306,7 +1312,7 @@ Limitations
 The following operations are not supported when ``avro_schema_url`` is set:
 
 * ``CREATE TABLE AS`` is not supported.
-* Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
+* Bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
 
 Parquet Writer Version

@@ -154,6 +154,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -210,7 +211,6 @@ import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -231,7 +231,11 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.VariableToChannelTranslator;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.core.StreamWriteConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ContiguousSet;
@@ -466,7 +470,22 @@ public class LocalExecutionPlanner
         this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
         this.sortedMapObjectMapper = requireNonNull(objectMapper, "objectMapper is null")
                 .copy()
-                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true)
+                .registerModule(new Jdk8Module())
+                .configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false)
+                .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+
+        // Increasing max nesting depth
+        this.sortedMapObjectMapper.getFactory().setStreamWriteConstraints(
+                StreamWriteConstraints.builder()
+                        .maxNestingDepth(Integer.MAX_VALUE)
+                        .build());
+        try {
+            Class<?> sliceClass = Class.forName("io.airlift.slice.Slice");
+            this.sortedMapObjectMapper.addMixIn(sliceClass, SliceMixIn.class);
+        }
+        catch (ClassNotFoundException e) {
+        }
         this.tableFinishOperatorMemoryTrackingEnabled = requireNonNull(memoryManagerConfig, "memoryManagerConfig is null").isTableFinishOperatorMemoryTrackingEnabled();
         this.standaloneSpillerFactory = requireNonNull(standaloneSpillerFactory, "standaloneSpillerFactory is null");
     }
@@ -831,6 +850,15 @@ public class LocalExecutionPlanner
             }
             this.driverInstanceCount = OptionalInt.of(driverInstanceCount);
         }
+    }
+    /**
+     * MixIn to ignore Slice.getOutput() method which causes circular references with BasicSliceOutput.
+     * The circular reference chain: Slice -> BasicSliceOutput.underlyingSlice -> Slice -> ...
+     */
+    private abstract static class SliceMixIn
+    {
+        @JsonIgnore
+        abstract Object getOutput();
     }
 
     private static class IndexSourceContext
@@ -3101,10 +3129,18 @@ public class LocalExecutionPlanner
             }
             OperatorFactory operatorFactory = new DeleteOperatorFactory(context.getNextOperatorId(), node.getId(), source.getLayout().get(node.getRowId().get()), tableCommitContextCodec);
 
-            Map<VariableReferenceExpression, Integer> layout = ImmutableMap.<VariableReferenceExpression, Integer>builder()
-                    .put(node.getOutputVariables().get(0), 0)
-                    .put(node.getOutputVariables().get(1), 1)
-                    .build();
+            // [ICEBERG-FIX bug 1B]: On native execution DeleteNode declares 3
+            // output variables matching the runtime DeleteOperator page layout
+            // (rows, fragments, commitcontext); map all of them. Non-native
+            // (Java) execution uses the original 2-column layout, so map only
+            // the channels that actually exist (see plan(Delete)) instead of
+            // assuming a fixed 3rd commitcontext channel.
+            ImmutableMap.Builder<VariableReferenceExpression, Integer> layoutBuilder = ImmutableMap.builder();
+            List<VariableReferenceExpression> deleteOutputs = node.getOutputVariables();
+            for (int channel = 0; channel < deleteOutputs.size(); channel++) {
+                layoutBuilder.put(deleteOutputs.get(channel), channel);
+            }
+            Map<VariableReferenceExpression, Integer> layout = layoutBuilder.build();
 
             return new PhysicalOperation(operatorFactory, layout, context, source);
         }

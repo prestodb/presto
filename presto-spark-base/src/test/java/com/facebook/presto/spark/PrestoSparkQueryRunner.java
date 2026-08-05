@@ -573,6 +573,7 @@ public class PrestoSparkQueryRunner
     @Override
     public MaterializedResult execute(Session session, String sql)
     {
+        lock.readLock().lock();
         try {
             return executeWithStrategies(session, sql, getExecutionStrategies(session));
         }
@@ -582,6 +583,9 @@ public class PrestoSparkQueryRunner
             }
 
             throw failure;
+        }
+        finally {
+            lock.readLock().unlock();
         }
     }
 

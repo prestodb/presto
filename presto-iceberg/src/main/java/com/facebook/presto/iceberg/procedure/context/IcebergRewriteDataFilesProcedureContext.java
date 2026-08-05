@@ -35,11 +35,6 @@ public class IcebergRewriteDataFilesProcedureContext
     final IcebergAbstractMetadata metadata;
     final Map<String, String> options;
 
-    public IcebergRewriteDataFilesProcedureContext(Table table, IcebergAbstractMetadata metadata)
-    {
-        this(table, metadata, ImmutableMap.of());
-    }
-
     public IcebergRewriteDataFilesProcedureContext(Table table, IcebergAbstractMetadata metadata, Map<String, String> options)
     {
         this.table = requireNonNull(table, "table is null");

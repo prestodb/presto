@@ -52,7 +52,7 @@ Verifier Changes
   are introduced for retrying transient network failures when communicating with the coordinator. Intermediate failures are recorded and emitted in the output.
 * Add support for automatically resolving certain kinds of failures including exceeding the global memory limit and exceeding time limit.
 * Add configuration properties ``metadata-timeout`` and ``checksum-timeout`` to set the timeouts for metadata queries
-  (i.e., describe queries that read table schema) and checksum queries.
+  (that is, describe queries that read table schema) and checksum queries.
 * Add ``source-query.table-name`` configuration property to specify the name of the MySQL table from which the verifier queries will loaded.
 * Add configuration property ``human-readable.log-file`` to allow human-readable verification results to be logged into the specified file instead of ``stdout``.
 * Rename configuration properties ``query-database`` to ``source-query.database``, ``suites`` to ``source-query.suites``,

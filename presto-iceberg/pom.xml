@@ -14,7 +14,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>17</project.build.targetJdk>
-        <dep.nessie.version>0.103.0</dep.nessie.version>
+        <dep.nessie.version>0.105.0</dep.nessie.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
@@ -786,6 +786,12 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

@@ -42,6 +42,11 @@ public class TestFlightShimTpchPlugin
 
     protected String getConnectorId()
     {
+        return "tpch_testing";
+    }
+
+    protected String getConnectorName()
+    {
         return "tpch";
     }
 

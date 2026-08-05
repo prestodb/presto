@@ -14,7 +14,9 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
@@ -58,8 +60,12 @@ public final class FunctionSignatureMatcher
 
     public Optional<Signature> match(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameterTypes, boolean coercionAllowed)
     {
+        // An "any" variadic tail matches almost anything, so treat such functions as generic (not exact):
+        // this lets a same-named fixed-arity overload (e.g. the concrete (varchar, json) an "any" tail is
+        // folded into) win the exact match first, instead of colliding ambiguously with the variadic one.
         List<SqlFunction> exactCandidates = candidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
+                .filter(function -> !isAnyVariadic(function))
                 .collect(Collectors.toList());
 
         Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
@@ -68,7 +74,7 @@ public final class FunctionSignatureMatcher
         }
 
         List<SqlFunction> genericCandidates = candidates.stream()
-                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
+                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty() || isAnyVariadic(function))
                 .collect(Collectors.toList());
 
         match = matchFunctionGeneric(genericCandidates, parameterTypes);
@@ -84,6 +90,17 @@ public final class FunctionSignatureMatcher
         }
 
         return Optional.empty();
+    }
+
+    // A variable-arity function whose tail is the internal "any" sentinel (StandardTypes.ANY). It binds
+    // almost any argument list, so it is matched as a generic candidate rather than an exact one.
+    private static boolean isAnyVariadic(SqlFunction function)
+    {
+        Signature signature = function.getSignature();
+        List<TypeSignature> argumentTypes = signature.getArgumentTypes();
+        return signature.isVariableArity()
+                && !argumentTypes.isEmpty()
+                && StandardTypes.ANY.equals(argumentTypes.get(argumentTypes.size() - 1).getBase());
     }
 
     private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)

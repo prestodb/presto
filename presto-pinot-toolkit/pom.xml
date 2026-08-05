@@ -19,8 +19,7 @@
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.fastutil.version>8.5.15</dep.fastutil.version>
-        <dep.datasketches-memory.version>3.0.2</dep.datasketches-memory.version>
-        <dep.log4j.version>2.25.4</dep.log4j.version>
+        <dep.log4j.version>2.25.5</dep.log4j.version>
     </properties>
 
     <dependencyManagement>
@@ -275,7 +274,6 @@
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-java</artifactId>
-            <version>6.2.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>

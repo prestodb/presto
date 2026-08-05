@@ -15,52 +15,34 @@ They allow administrators to control how resources are allocated and utilized on
 Resource Usage Limits
 ---------------------
 
-Resource Groups can set limits on resource usage, such as CPU time, memory usage, or total
-number of queries. This is particularly useful in multi-tenant environments where you want to ensure that no single user
-or query monopolizes the system resources.
+Resource Groups can set limits on resource usage, such as CPU time, memory usage, or total number of queries.
+This is particularly useful in multi-tenant environments where you want to ensure that no single user or query monopolizes the system resources.
 
 Resource Consumption
 --------------------
 
-A query belongs to a single resource group, and it consumes resources from that group,
-as well as its parent groups. If a resource group runs out of a certain resource, it does not cause running
-queries to fail. Instead, new queries will be queued until resources become available again.
+A query belongs to a single resource group, and it consumes resources from that group, as well as its parent groups.
+If a resource group runs out of a certain resource, it does not cause running queries to fail.
+Instead, new queries will be queued until resources become available again.
 
 Sub-Groups and Query Acceptance
 -------------------------------
 
-Sub-groups allow for hierarchical resource allocation, where each sub-group can have its own resource limits and
-queueing policies. A resource group that accepts queries directly is a leaf group, and it executes queries using
-its allocated resources.
+Sub-groups allow for hierarchical resource allocation, where each sub-group can have its own resource limits and queueing policies.
+A resource group that accepts queries directly is a leaf group, and it executes queries using its allocated resources.
 
 The resource groups and associated selection rules are configured by a manager, which is pluggable.
-Presto resource management can be done in two ways:
-
-File-Based Resource Management
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-In a file-based resource manager, configuration information about the resource groups is stored in a JSON file.
-This file contains definitions of all resource groups and the rules to select them.
-The configuration file is loaded and used at the start of the Presto server.
-Any changes to the file require a restart of the Presto server to take effect.
-
-Database-Based Resource Management
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-In a database-based resource manager, configuration information about the resource groups is stored in a relational
-database. The database contains definitions of all resource groups and the rules to select them.
-Unlike the file-based resource manager, changes to the configuration in the database take effect
-immediately and do not require a restart of the Presto server.
-
+Presto resource management can be done by **File-Based Resource Management** or **Database-Based Resource Management**.
 Both methods have their pros and cons. File-based resource management is simpler to set up but less flexible,
 while database-based resource management is more complex to set up but offers more flexibility and dynamic changes.
 
 File Resource Group Manager
 ---------------------------
 
-The file resource group manager in PrestoDB is a way to manage resources using a JSON configuration file.
-This file contains definitions of all resource groups and rules for selecting the appropriate resource group
-for a given query.
+In a file-based resource manager, configuration information about the resource groups is stored in a JSON file.
+This file contains definitions of all resource groups and the rules to select them.
+The configuration file is loaded and used at the start of the Presto server.
+Any changes to the file require a restart of the Presto server to take effect.
 
 To set up a file-based resource group manager:
 
@@ -69,22 +51,21 @@ To set up a file-based resource group manager:
 2. In ``etc/resource-groups.properties``, set the ``resource-groups.configuration-manager`` property to ``file``
    using the following code example:
 
-   .. code-block:: text
+   .. code-block:: properties
 
        resource-groups.configuration-manager=file
 
-3. Create a JSON file in ``etc`` named ``resource-groups.json``. This file should contain the definitions
-   for the resource groups. Each resource group can specify things like the maximum memory, the
-   maximum queued queries, and the maximum running queries.
+3. Create a JSON file in ``etc`` named ``resource-groups.json``.
+   This file should contain the definitions for the resource groups.
+   Each resource group can specify things like the maximum memory, the maximum queued queries, and the maximum running queries.
 
    For information on creating resource group definitions, see `Resource Group Properties`_.
-   For an example of a resource-groups.json file, see `File Resource Group Manager <resource-groups.html#id2>`_.
+   For an example of a ``resource-groups.json`` file, see `File-Based Configuration`_.
 
-4. In ``etc/resource-groups.properties``, add a line that specifies the location of the JSON file using the
-   following code example. Set the ``resource-groups.config-file`` property to ``<file_path>``, where ``<file_path>``
-   is the path to the JSON file.
+4. In ``etc/resource-groups.properties``, add a line that specifies the location of the JSON file using the following code example.
+   Set the ``resource-groups.config-file`` property to ``<file_path>``, where ``<file_path>`` is the path to the JSON file.
 
-   .. code-block:: text
+   .. code-block:: properties
 
        resource-groups.config-file=etc/resource-groups.json
 
@@ -93,7 +74,10 @@ To set up a file-based resource group manager:
 Database Resource Group Manager
 -------------------------------
 
-The database resource group manager in PrestoDB is a way to manage resources using a relational database.
+In a database-based resource manager, configuration information about the resource groups is stored in a relational database.
+The database contains definitions of all resource groups and the rules to select them.
+Unlike the file-based resource manager, changes to the configuration in the database take effect
+immediately and do not require a restart of the Presto server.
 
 To set up a database-based resource group manager:
 
@@ -112,11 +96,11 @@ To set up a database-based resource group manager:
    specifies the JDBC URL of the database: ``resource-groups.config-db-url = <jdbc_url>``, where ``<jdbc_url>`` is the
    JDBC URL of the database.
 
-   Note : Currently only MySQL is supported.
+   Note: Currently only MySQL is supported.
 
 ``etc/resource-groups.properties`` should be similar to this following example:
 
-.. code-block:: text
+.. code-block:: properties
 
     resource-groups.configuration-manager=db
     resource-groups.config-db-url=jdbc:mysql://localhost:3306/resource_groups?user=<user>&password=<password>
@@ -131,8 +115,7 @@ The resource group configuration must be populated through tables
 ``resource_groups_global_properties``, ``resource_groups``, and ``selectors``. If any of the tables
 do not exist when Presto starts, they are created automatically.
 
-The rules in the ``selectors`` table are processed in descending order of the values in the
-``priority`` field.
+The rules in the ``selectors`` table are processed in descending order of the values in the ``priority`` field.
 
 Database Resource Group Manager Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -156,8 +139,7 @@ Database Resource Group Manager Properties
        ``exact_match_source_selectors`` table to configure resource group
        selection rules which define exact name based matches for source, environment
        and query type. By default, the rules are only loaded from the
-       ``selectors`` table, with a regex-based filter for ``source``, among
-       other filters.
+       ``selectors`` table, with a regex-based filter for ``source``, among other filters.
      - ``false``
 
 Resource Group Properties
@@ -171,19 +153,15 @@ Here are the key properties that can be set for a Resource Group:
 * ``maxQueued`` (required): The maximum number of queries that can be queued in the resource group.
   If this limit is reached, new queries will be rejected.
 
-* ``hardCpuLimit`` (optional): maximum amount of CPU time this
-  group may use in a period.
+* ``hardCpuLimit`` (optional): maximum amount of CPU time this group may use in a period.
 
 * ``softMemoryLimit`` (required): The maximum amount of memory that the resource group can use.
-  This can be specified in absolute terms (like "10GB") or as a percentage of the total available
-  memory (like "50%").
+  This can be specified in absolute terms (like "10GB") or as a percentage of the total available memory (like "50%").
 
-* ``hardConcurrencyLimit`` (required): The maximum number of queries that the resource group
-  can run concurrently.
+* ``hardConcurrencyLimit`` (required): The maximum number of queries that the resource group can run concurrently.
 
 * ``softConcurrencyLimit`` (optional): The soft limit on the number of concurrent queries.
-  If this limit is exceeded, the scheduler will try to prevent new queries from starting,
-  but it won't force running queries to stop.
+  If this limit is exceeded, the scheduler will try to prevent new queries from starting, but it won't force running queries to stop.
 
 * ``softCpuLimit`` (optional): maximum amount of CPU time this
   group may use in a period (see ``cpuQuotaPeriod``), before a penalty is applied to
@@ -205,8 +183,7 @@ Here are the key properties that can be set for a Resource Group:
     Queued queries are selected strictly according to their priority.
 
 * ``schedulingWeight`` (optional): The weight for the resource group when the parent group uses the ``weighted``
-  scheduling policy. A higher weight means that the group gets a larger share of the parent group's
-  resources.
+  scheduling policy. A higher weight means that the group gets a larger share of the parent group's resources.
 
 * ``jmxExport`` (optional):  If set to ``true``, the statistics of the resource group will be exported with JMX.
   Defaults to ``false``.
@@ -221,12 +198,11 @@ Here are the key properties that can be set for a Resource Group:
   - ``totalMemoryLimit`` (optional): Specify an absolute value (for example, ``1GB``)
     for the maximum distributed memory a query may consume.
 
-  - ``cpuTimeLimit`` (optional): Specify Specify an absolute value (for example, ``1h``)
+  - ``cpuTimeLimit`` (optional): Specify an absolute value (for example, ``1h``)
     for the maximum CPU time a query may use.
 
-* ``workerPerQueryLimit`` (optional): specifies the minimum number of workers that have to
-  be available for each query. Intended to be used in elastic clusters where number of workers
-  varies over time.
+* ``workerPerQueryLimit`` (optional): specifies the minimum number of workers that have to be available for each query.
+  Intended to be used in elastic clusters where number of workers varies over time.
 
 * ``subGroups`` (optional): list of sub-groups. A list of sub-groups within the resource group.
   Each sub-group can have its own set of properties.
@@ -236,10 +212,9 @@ Here are the key properties that can be set for a Resource Group:
 Scheduling Weight Example
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Schedule weighting is a method of assigning a priority to a resource. Sub-groups
-with a higher scheduling weight are given higher priority. For example, to
-ensure timely execution of scheduled pipeline queries, weight them higher than
-adhoc queries.
+Schedule weighting is a method of assigning a priority to a resource.
+Sub-groups with a higher scheduling weight are given higher priority.
+For example, to ensure timely execution of scheduled pipeline queries, weight them higher than adhoc queries.
 
 Here's an example:
 
@@ -250,8 +225,7 @@ parent group's resources (because 3 is 75% of the total weight of 4), and the ``
 get 25% of the parent group's resources (because 1 is 25% of the total weight of 4).
 
 Schedule weighting allows you to prioritize certain subgroups over others in terms of resource allocation.
-In this example, queries from the ``engineering`` subgroup will be prioritized over queries
-from the ``marketing`` subgroup.
+In this example, queries from the ``engineering`` subgroup will be prioritized over queries from the ``marketing`` subgroup.
 
 
 Selector Rules
@@ -263,8 +237,7 @@ Here are the key components of selector rules in PrestoDB:
 
 * ``user`` (optional): This is a regular expression that matches the user who is submitting the query.
 
-* ``source`` (optional): This matches the source of the query, which is typically the
-  application submitting the query.
+* ``source`` (optional): This matches the source of the query, which is typically the application submitting the query.
 
 * ``queryType`` (optional): String to match against the type of the query submitted:
 
@@ -360,11 +333,9 @@ There are four selectors, that define which queries run in which resource group:
   source regular expression and the query user respectively.
 
   Consider a query with a source ``jdbc#powerfulbi``, user ``kayla``, and
-  client tags ``hipri`` and ``fast``. This query is routed to the ``global.adhoc.bi-powerfulbi.kayla``
-  resource group.
+  client tags ``hipri`` and ``fast``. This query is routed to the ``global.adhoc.bi-powerfulbi.kayla`` resource group.
 
-* The last selector is a catch-all, which places all queries that have not yet been matched into a per-user
-  adhoc group.
+* The last selector is a catch-all, which places all queries that have not yet been matched into a per-user adhoc group.
 
 Together, these selectors implement the following policy:
 
@@ -380,20 +351,20 @@ For the remaining users:
 * Non-DDL queries with a source that includes ``pipeline`` in its name run under the ``global.pipeline`` group, with a total concurrency of 45, and a per-user
   concurrency of 5. Queries are run in FIFO order.
 
-* For BI tools, each tool can run up to 10 concurrent queries, and each user can run up to 3. If the total demand
-  exceeds the limit of 10, the user with the fewest running queries gets the next concurrency slot. This policy
-  results in fairness when under contention.
+* For BI tools, each tool can run up to 10 concurrent queries, and each user can run up to 3.
+  If the total demand exceeds the limit of 10, the user with the fewest running queries gets the next concurrency slot.
+  This policy results in fairness when under contention.
 
 * All remaining queries are placed into a per-user group under ``global.adhoc.other`` that behaves similarly.
 
-File Resource Group Manager
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File-Based Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. literalinclude:: resources-groups-example.json
    :language: json
 
-Database Resource Group Manager
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Database-Based Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: sql
 
@@ -401,7 +372,7 @@ Database Resource Group Manager
     INSERT INTO resource_groups_global_properties (name, value) VALUES ('cpu_quota_period', '1h');
 
     -- Every row in resource_groups table indicates a resource group.
-    -- The enviroment name is 'test_environment', make sure it matches `node.environment` in your cluster.
+    -- The environment name is 'test_environment', make sure it matches `node.environment` in your cluster.
     -- The parent-child relationship is indicated by the ID in 'parent' column.
 
     -- create a root group 'global' with NULL parent

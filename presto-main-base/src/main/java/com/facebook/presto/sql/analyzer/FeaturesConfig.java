@@ -91,6 +91,7 @@ public class FeaturesConfig
     private boolean groupedExecutionEnabled = true;
     private boolean recoverableGroupedExecutionEnabled;
     private boolean partitionAwareGroupedExecutionEnabled;
+    private boolean groupedExecutionWhenCapableEnabled;
     private double maxFailedTaskPercentage = 0.3;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
@@ -162,6 +163,7 @@ public class FeaturesConfig
     private boolean pushPartialAggregationThroughJoin;
     private boolean pushSemiJoinThroughUnion;
     private boolean pushAggregationThroughDisjointUnion;
+    private boolean optimizeCascadingFiltersAndProjections;
     private boolean optimizeJoinFanOut;
     private boolean simplifyCoalesceOverJoinKeys;
     private boolean pushdownThroughUnnest;
@@ -190,6 +192,12 @@ public class FeaturesConfig
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
     private int dynamicFilteringRangeRowLimitPerDriver;
+    private DistributedDynamicFilterStrategy distributedDynamicFilterStrategy = DistributedDynamicFilterStrategy.DISABLED;
+    private Duration distributedDynamicFilterMaxWaitTime = new Duration(2, SECONDS);
+    private int distributedDynamicFilterMaxWaitExtensions = 2;
+    private DataSize distributedDynamicFilterMaxSize = new DataSize(1, MEGABYTE);
+    private double distributedDynamicFilterCardinalityRatioThreshold = 0.1;
+    private boolean distributedDynamicFilterOnReplicatedJoins;
 
     private boolean fragmentResultCachingEnabled;
 
@@ -358,6 +366,7 @@ public class FeaturesConfig
     private ShuffleForTableScanStrategy tableScanShuffleStrategy = ShuffleForTableScanStrategy.DISABLED;
     private boolean skipPushdownThroughExchangeForRemoteProjection;
     private boolean pullConstantProjectionAboveExchange;
+    private PullRowLocalChainAboveExchangeStrategy pullRowLocalChainAboveExchangeStrategy = PullRowLocalChainAboveExchangeStrategy.DISABLED;
     private String remoteFunctionNamesForFixedParallelism = "";
     private int remoteFunctionFixedParallelismTaskCount = 10;
 
@@ -485,6 +494,13 @@ public class FeaturesConfig
         ALWAYS
     }
 
+    public enum DistributedDynamicFilterStrategy
+    {
+        DISABLED,
+        COST_BASED,
+        ALWAYS
+    }
+
     public enum PushDownFilterThroughCrossJoinStrategy
     {
         DISABLED,
@@ -530,6 +546,15 @@ public class FeaturesConfig
     {
         DISABLED,
         ALWAYS_ENABLED,
+        COST_BASED
+    }
+
+    public enum PullRowLocalChainAboveExchangeStrategy
+    {
+        DISABLED,
+        ALWAYS_ENABLED,
+        // TODO: COST_BASED currently applies the rewrite structurally (same as ALWAYS_ENABLED);
+        // cost-based selection is a separate layer to be implemented later.
         COST_BASED
     }
 
@@ -707,6 +732,19 @@ public class FeaturesConfig
     public FeaturesConfig setPartitionAwareGroupedExecutionEnabled(boolean partitionAwareGroupedExecutionEnabled)
     {
         this.partitionAwareGroupedExecutionEnabled = partitionAwareGroupedExecutionEnabled;
+        return this;
+    }
+
+    public boolean isGroupedExecutionWhenCapableEnabled()
+    {
+        return groupedExecutionWhenCapableEnabled;
+    }
+
+    @Config("grouped-execution-when-capable-enabled")
+    @ConfigDescription("Use grouped execution for any grouped-execution-capable (bucketed) fragment, even when no downstream operator makes it individually beneficial (e.g. a bucketed scan feeding a shuffle or a bucketed table write)")
+    public FeaturesConfig setGroupedExecutionWhenCapableEnabled(boolean groupedExecutionWhenCapableEnabled)
+    {
+        this.groupedExecutionWhenCapableEnabled = groupedExecutionWhenCapableEnabled;
         return this;
     }
 
@@ -1639,6 +1677,86 @@ public class FeaturesConfig
         return this;
     }
 
+    public DistributedDynamicFilterStrategy getDistributedDynamicFilterStrategy()
+    {
+        return distributedDynamicFilterStrategy;
+    }
+
+    @Config("distributed-dynamic-filter.strategy")
+    @ConfigDescription("When to add distributed dynamic filters to joins for split-level pruning")
+    public FeaturesConfig setDistributedDynamicFilterStrategy(DistributedDynamicFilterStrategy distributedDynamicFilterStrategy)
+    {
+        this.distributedDynamicFilterStrategy = distributedDynamicFilterStrategy;
+        return this;
+    }
+
+    public Duration getDistributedDynamicFilterMaxWaitTime()
+    {
+        return distributedDynamicFilterMaxWaitTime;
+    }
+
+    @Config("distributed-dynamic-filter.max-wait-time")
+    public FeaturesConfig setDistributedDynamicFilterMaxWaitTime(Duration distributedDynamicFilterMaxWaitTime)
+    {
+        this.distributedDynamicFilterMaxWaitTime = distributedDynamicFilterMaxWaitTime;
+        return this;
+    }
+
+    @Min(0)
+    public int getDistributedDynamicFilterMaxWaitExtensions()
+    {
+        return distributedDynamicFilterMaxWaitExtensions;
+    }
+
+    @Config("distributed-dynamic-filter.max-wait-extensions")
+    @ConfigDescription("Maximum number of additional max-wait-time cycles to grant a partitioned dynamic filter when partition contributions are still arriving. Total wall = (1 + extensions) * max-wait-time. Set to 0 to disable adaptive extension.")
+    public FeaturesConfig setDistributedDynamicFilterMaxWaitExtensions(int distributedDynamicFilterMaxWaitExtensions)
+    {
+        this.distributedDynamicFilterMaxWaitExtensions = distributedDynamicFilterMaxWaitExtensions;
+        return this;
+    }
+
+    public DataSize getDistributedDynamicFilterMaxSize()
+    {
+        return distributedDynamicFilterMaxSize;
+    }
+
+    @Config("distributed-dynamic-filter.max-size")
+    @ConfigDescription("Maximum size of coordinator-side merged dynamic filter before collapsing to min/max range")
+    public FeaturesConfig setDistributedDynamicFilterMaxSize(DataSize distributedDynamicFilterMaxSize)
+    {
+        this.distributedDynamicFilterMaxSize = distributedDynamicFilterMaxSize;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getDistributedDynamicFilterCardinalityRatioThreshold()
+    {
+        return distributedDynamicFilterCardinalityRatioThreshold;
+    }
+
+    @Config("distributed-dynamic-filter.cardinality-ratio-threshold")
+    @ConfigDescription("Maximum build/probe cardinality ratio for cost-based dynamic filter creation")
+    public FeaturesConfig setDistributedDynamicFilterCardinalityRatioThreshold(double distributedDynamicFilterCardinalityRatioThreshold)
+    {
+        this.distributedDynamicFilterCardinalityRatioThreshold = distributedDynamicFilterCardinalityRatioThreshold;
+        return this;
+    }
+
+    public boolean isDistributedDynamicFilterOnReplicatedJoins()
+    {
+        return distributedDynamicFilterOnReplicatedJoins;
+    }
+
+    @Config("distributed-dynamic-filter.on-replicated-joins")
+    @ConfigDescription("Add distributed dynamic filters to REPLICATED (broadcast) joins. Disabled by default because Velox's in-fragment pushdown already covers them")
+    public FeaturesConfig setDistributedDynamicFilterOnReplicatedJoins(boolean distributedDynamicFilterOnReplicatedJoins)
+    {
+        this.distributedDynamicFilterOnReplicatedJoins = distributedDynamicFilterOnReplicatedJoins;
+        return this;
+    }
+
     public boolean isFragmentResultCachingEnabled()
     {
         return fragmentResultCachingEnabled;
@@ -1765,6 +1883,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isOptimizeCascadingFiltersAndProjections()
+    {
+        return optimizeCascadingFiltersAndProjections;
+    }
+
+    @Config("optimizer.optimize-cascading-filters-and-projections")
+    @ConfigDescription("Coalesce cascading projections by fully inlining deterministic child expressions and merge adjacent filter/project so shared subexpressions are co-located for native (Velox) CSE")
+    public FeaturesConfig setOptimizeCascadingFiltersAndProjections(boolean optimizeCascadingFiltersAndProjections)
+    {
+        this.optimizeCascadingFiltersAndProjections = optimizeCascadingFiltersAndProjections;
+        return this;
+    }
     public boolean isOptimizeJoinFanOut()
     {
         return optimizeJoinFanOut;
@@ -3700,6 +3830,19 @@ public class FeaturesConfig
     public FeaturesConfig setPullConstantProjectionAboveExchange(boolean pullConstantProjectionAboveExchange)
     {
         this.pullConstantProjectionAboveExchange = pullConstantProjectionAboveExchange;
+        return this;
+    }
+
+    public PullRowLocalChainAboveExchangeStrategy getPullRowLocalChainAboveExchangeStrategy()
+    {
+        return pullRowLocalChainAboveExchangeStrategy;
+    }
+
+    @Config("optimizer.pull-row-local-chain-above-exchange-strategy")
+    @ConfigDescription("Strategy for pulling a chain of row-local operators (unnest, deterministic projections) above a remote exchange so the exchange shuffles the smaller pre-expansion input. Options are DISABLED, ALWAYS_ENABLED, COST_BASED")
+    public FeaturesConfig setPullRowLocalChainAboveExchangeStrategy(PullRowLocalChainAboveExchangeStrategy pullRowLocalChainAboveExchangeStrategy)
+    {
+        this.pullRowLocalChainAboveExchangeStrategy = pullRowLocalChainAboveExchangeStrategy;
         return this;
     }
 

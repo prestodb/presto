@@ -1394,4 +1394,11 @@ class NodeConfig : public ConfigBase {
   std::string nodeLocation() const;
 };
 
+/// Applies gflag.* properties from a config map to gflags.
+/// Strips the "gflag." prefix and converts hyphens to underscores to derive
+/// the flag name. Uses SET_FLAG_IF_DEFAULT so command-line flags take
+/// precedence.
+void applyGFlags(
+    const std::unordered_map<std::string, std::string>& configs) noexcept;
+
 } // namespace facebook::presto

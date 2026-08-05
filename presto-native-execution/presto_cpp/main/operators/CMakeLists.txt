@@ -17,6 +17,7 @@ add_library(
   BroadcastExchangeSource.cpp
   BroadcastFile.cpp
   BroadcastWrite.cpp
+  IcebergMergeProcessorOperator.cpp
   MaterializedExchange.cpp
   MaterializedOutput.cpp
   MaterializedOutputBuffer.cpp
@@ -31,11 +32,8 @@ target_link_libraries(
   presto_operators
   presto_common
   presto_native-cpp2
-  velox_core
-  velox_exec
-  velox_presto_serializer
-  velox_vector
-  velox_row_fast
+  velox
+  velox_hive_iceberg_splitreader
 )
 
 if(PRESTO_ENABLE_TESTING)

@@ -2709,6 +2709,138 @@ public class TestIndirectColumnLineage
     }
 
     /**
+     * Assert the per-output-column DIRECT-lineage entries (subtype-aware), as
+     * exposed by {@link Analysis#getColumnLineageForField(Field)}. Compared
+     * against a map of output-column-name to the expected set of DIRECT
+     * {@link ColumnLineageEntry} (including subtype). INDIRECT entries are
+     * stripped before comparison so this helper focuses on the direct subtype.
+     */
+    private void assertDirectLineageWithSubtype(
+            @Language("SQL") String query,
+            Map<String, Set<ColumnLineageEntry>> expectedDirectPerColumn)
+    {
+        transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .readOnly()
+                .execute(CLIENT_SESSION, session -> {
+                    Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP, Optional.empty(), query);
+                    Statement statement = SQL_PARSER.createStatement(query);
+                    Analysis analysis = analyzer.analyzeSemantic(statement, false);
+
+                    Map<String, Set<ColumnLineageEntry>> actual = new LinkedHashMap<>();
+                    for (Field field : analysis.getOutputDescriptor().getVisibleFields()) {
+                        String name = field.getName().orElse("?");
+                        Set<ColumnLineageEntry> directOnly = analysis.getColumnLineageForField(field).stream()
+                                .filter(entry -> entry.getTransformationType() == TransformationType.DIRECT)
+                                .collect(ImmutableSet.toImmutableSet());
+                        actual.put(name, directOnly);
+                    }
+                    assertEquals(actual, expectedDirectPerColumn,
+                            "Direct-lineage subtype mismatch for: " + query);
+                });
+    }
+
+    private static ColumnLineageEntry directWithSubtype(QualifiedObjectName table, String column, TransformationSubtype subtype)
+    {
+        return new ColumnLineageEntry(table, column, TransformationType.DIRECT, subtype);
+    }
+
+    @Test
+    public void testDirectSubtypeIdentityForBareColumnReference()
+    {
+        assertDirectLineageWithSubtype(
+                "SELECT a, b FROM t1",
+                ImmutableMap.of(
+                        "a", ImmutableSet.of(directWithSubtype(T1, "a", TransformationSubtype.IDENTITY)),
+                        "b", ImmutableSet.of(directWithSubtype(T1, "b", TransformationSubtype.IDENTITY))));
+    }
+
+    @Test
+    public void testDirectSubtypeTransformationForScalarExpression()
+    {
+        assertDirectLineageWithSubtype(
+                "SELECT a + b AS x, cast(c AS varchar) AS y FROM t1",
+                ImmutableMap.of(
+                        "x", ImmutableSet.of(
+                                directWithSubtype(T1, "a", TransformationSubtype.TRANSFORMATION),
+                                directWithSubtype(T1, "b", TransformationSubtype.TRANSFORMATION)),
+                        "y", ImmutableSet.of(
+                                directWithSubtype(T1, "c", TransformationSubtype.TRANSFORMATION))));
+    }
+
+    @Test
+    public void testDirectSubtypeAggregationForAggregateExpression()
+    {
+        assertDirectLineageWithSubtype(
+                "SELECT sum(a) AS s, max(b) AS m FROM t1",
+                ImmutableMap.of(
+                        "s", ImmutableSet.of(directWithSubtype(T1, "a", TransformationSubtype.AGGREGATION)),
+                        "m", ImmutableSet.of(directWithSubtype(T1, "b", TransformationSubtype.AGGREGATION))));
+    }
+
+    @Test
+    public void testDirectSubtypeAggregationPropagatesAcrossMultipleSources()
+    {
+        // sum(a + b) — both a and b feed an aggregate, so both record AGGREGATION
+        // (not TRANSFORMATION). Subtype is determined by the outermost SELECT expression.
+        assertDirectLineageWithSubtype(
+                "SELECT sum(a + b) AS s FROM t1",
+                ImmutableMap.of(
+                        "s", ImmutableSet.of(
+                                directWithSubtype(T1, "a", TransformationSubtype.AGGREGATION),
+                                directWithSubtype(T1, "b", TransformationSubtype.AGGREGATION))));
+    }
+
+    @Test
+    public void testDirectSubtypePreservedThroughBareReferenceFromSubquery()
+    {
+        // Inner SELECT applies an aggregate; outer SELECT is a bare column reference.
+        // The outer Identifier must inherit AGGREGATION from the inner — not re-tag as IDENTITY.
+        assertDirectLineageWithSubtype(
+                "SELECT x FROM (SELECT sum(a) AS x FROM t1)",
+                ImmutableMap.of(
+                        "x", ImmutableSet.of(directWithSubtype(T1, "a", TransformationSubtype.AGGREGATION))));
+    }
+
+    @Test
+    public void testDirectSubtypePreservedThroughBareReferenceFromScalarExpression()
+    {
+        // Inner SELECT applies a TRANSFORMATION; outer is a bare reference.
+        // Bare reference inherits TRANSFORMATION verbatim from the inner.
+        assertDirectLineageWithSubtype(
+                "SELECT x FROM (SELECT a + b AS x FROM t1)",
+                ImmutableMap.of(
+                        "x", ImmutableSet.of(
+                                directWithSubtype(T1, "a", TransformationSubtype.TRANSFORMATION),
+                                directWithSubtype(T1, "b", TransformationSubtype.TRANSFORMATION))));
+    }
+
+    @Test
+    public void testDirectSubtypePreservedThroughCte()
+    {
+        // Same shape but using a CTE — subtype propagation must survive
+        // CTE expansion just like subquery expansion.
+        assertDirectLineageWithSubtype(
+                "WITH cte AS (SELECT sum(a) AS x FROM t1) SELECT x FROM cte",
+                ImmutableMap.of(
+                        "x", ImmutableSet.of(directWithSubtype(T1, "a", TransformationSubtype.AGGREGATION))));
+    }
+
+    @Test
+    public void testDirectSubtypeRetagsWhenOuterAppliesTransformation()
+    {
+        // Outer SELECT applies an arithmetic transformation on an inner aggregate result.
+        // The outer expression is non-trivial (x + 1), so subtype reflects the OUTER op:
+        // TRANSFORMATION. Information about the inner AGGREGATION is lost — that's the
+        // documented semantic ("subtype describes the most recent non-trivial transformation").
+        assertDirectLineageWithSubtype(
+                "SELECT x + 1 AS y FROM (SELECT sum(a) AS x FROM t1)",
+                ImmutableMap.of(
+                        "y", ImmutableSet.of(directWithSubtype(T1, "a", TransformationSubtype.TRANSFORMATION))));
+    }
+
+    /**
      * Assert per-target-column direct and indirect lineage for write statements
      * (INSERT INTO ... SELECT and CREATE TABLE AS SELECT). Reads from
      * {@link Analysis#getUpdatedSourceColumns()}, which holds an

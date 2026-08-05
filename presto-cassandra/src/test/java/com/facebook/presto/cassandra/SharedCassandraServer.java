@@ -16,8 +16,9 @@ package com.facebook.presto.cassandra;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.testing.QueryRunner;
 
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.util.Date;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestTables;
 
@@ -31,7 +32,7 @@ public final class SharedCassandraServer
     private static final Logger log = Logger.get(SharedCassandraServer.class);
 
     private static final String SMOKE_TEST_KEYSPACE = "smoke_test";
-    private static final Timestamp DATE_TIME_LOCAL = Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 3, 4, 5, 0));
+    private static final Date DATE_TIME_LOCAL = Date.from(ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneOffset.UTC).toInstant());
 
     private static volatile CassandraServer instance;
     private static volatile boolean tpchTablesCreated;

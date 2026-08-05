@@ -22,7 +22,7 @@ _______________
 * Fix serialization bug causing maps with string-valued enum keys to be displayed as illegible strings in Presto CLI.
 * Fix parsing logic for prepared statements to be consistent with regular statements.
 * Improve memory usage for fragment result caching.
-* Add support for disabling query result compression via client and server-side configuration properties. Clients can disable compressed responses using the ``--disable-compression`` flag or ``disableCompression`` driver property. Compression can be disabled server-wide by using the configuration property: ``query-results.compression-enabled=false``
+* Add support for disabling query result compression with client and server-side configuration properties. Clients can disable compressed responses using the ``--disable-compression`` flag or ``disableCompression`` driver property. Compression can be disabled server-wide by using the configuration property: ``query-results.compression-enabled=false``
 * Add support in affinity scheduler to enable cache for bucketed table scan that has remote source.
 * Add ``enum_key`` to get the key corresponding to an enum value: `ENUM_KEY(EnumType) -> VARCHAR`.
 

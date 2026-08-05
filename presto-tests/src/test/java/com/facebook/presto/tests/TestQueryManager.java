@@ -452,6 +452,7 @@ public class TestQueryManager
                 query,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 new QueryStats(
                         DateTime.parse("1991-09-06T05:00-05:30").getMillis(),
                         DateTime.parse("1991-09-06T05:01-05:30").getMillis(),

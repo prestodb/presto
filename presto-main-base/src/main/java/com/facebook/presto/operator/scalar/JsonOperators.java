@@ -50,6 +50,7 @@ import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
@@ -338,7 +339,7 @@ public final class JsonOperators
         try {
             SliceOutput output = new DynamicSliceOutput(25);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
-                jsonGenerator.writeString(printTimestampWithoutTimeZone(properties.getTimeZoneKey(), value));
+                jsonGenerator.writeString(printTimestampWithoutTimeZone(properties.isLegacyTimestamp() ? properties.getTimeZoneKey() : UTC_KEY, value));
             }
             return output.slice();
         }

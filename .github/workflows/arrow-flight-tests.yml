@@ -13,6 +13,11 @@ env:
   MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end
   RETRY: .github/bin/retry
 
+concurrency:
+  # Cancel superseded in-progress runs for the same PR/branch to save CI capacity; never cancel master.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -29,7 +34,7 @@ jobs:
         with:
           filters: |
             codechange:
-              - '!presto-docs/**'
+              - '!(presto-docs{,/**})'
 
   arrowflight-java-tests:
     runs-on: ubuntu-latest
@@ -87,13 +92,13 @@ jobs:
       # Run Maven tests for the target module, excluding native tests
       - name: Maven Tests
         if: needs.changes.outputs.codechange == 'true'
-        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*"
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*,!TestArrowFederationNativeQueries*"
 
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
     needs: changes
     container:
-      image: prestodb/presto-native-dependency:0.299-202606161331-03dfaf88
+      image: prestodb/presto-native-dependency:0.299-202607281131-55ac7c49
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -220,7 +225,7 @@ jobs:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.299-202606161331-03dfaf88
+      image: prestodb/presto-native-dependency:0.299-202607281131-55ac7c49
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -230,7 +235,8 @@ jobs:
       fail-fast: false
       matrix:
         modules:
-          - :presto-base-arrow-flight # Only run tests for the `presto-base-arrow-flight` module
+          - :presto-base-arrow-flight
+          - :presto-flight-shim
 
     timeout-minutes: 80
     concurrency:
@@ -315,7 +321,7 @@ jobs:
           mvn test \
             ${MAVEN_TEST} \
             -pl ${{ matrix.modules }} \
-            -Dtest="TestArrowFlightNativeQueries*" \
+            -Dtest="TestArrowFlightNativeQueries*,TestArrowFederationNativeQueries*" \
             -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
             -DDATA_DIR=${RUNNER_TEMP} \
             -Duser.timezone=America/Bahia_Banderas \

@@ -16,27 +16,33 @@ package com.facebook.presto.cassandra;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import io.airlift.slice.Slice;
 
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraRecordCursor
         implements RecordCursor
 {
     private final List<FullCassandraType> fullCassandraTypes;
+    private final ConnectorSession session;
     private final ResultSet rs;
     private Row currentRow;
     private long count;
     private Iterator<Row> iterator;
 
-    public CassandraRecordCursor(CassandraSession cassandraSession, List<FullCassandraType> fullCassandraTypes, String cql)
+    public CassandraRecordCursor(CassandraSession cassandraSession, ConnectorSession connectorSession, List<FullCassandraType> fullCassandraTypes, String cql)
     {
+        this.session = requireNonNull(connectorSession, "connectorSession is null");
         this.fullCassandraTypes = fullCassandraTypes;
         rs = cassandraSession.execute(cql);
         this.iterator = rs.iterator();
@@ -107,6 +113,8 @@ public class CassandraRecordCursor
                 return currentRow.getLong(i);
             case TIMESTAMP:
                 return currentRow.getInstant(i).toEpochMilli();
+            case TIMESTAMP_WITH_TIMEZONE:
+                return packDateTimeWithZone(currentRow.getInstant(i).toEpochMilli(), TimeZoneKey.UTC_KEY);
             case DATE:
                 return currentRow.getLocalDate(i).toEpochDay();
             case FLOAT:

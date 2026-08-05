@@ -1569,7 +1569,7 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
         RowDelta rowDelta = icebergTable.newRowDelta();
-
+        handle.getIcebergTableName().getSnapshotId().ifPresent(rowDelta::validateFromSnapshot);
         Optional<String> branchName = handle.getIcebergTableName().getBranchName();
         if (branchName.isPresent()) {
             rowDelta.toBranch(branchName.get());
@@ -1750,7 +1750,7 @@ public abstract class IcebergAbstractMetadata
             }
             else if (tableVersion.getVersionExpressionType() instanceof TimestampType) {
                 long timestampValue = (long) tableVersion.getTableVersion();
-                long millisUtc = ((TimestampType) tableVersion.getVersionExpressionType()).getPrecision().toMillis(timestampValue);
+                long millisUtc = ((TimestampType) tableVersion.getVersionExpressionType()).toEpochMillis(timestampValue);
                 return getSnapshotIdTimeOperator(table, millisUtc, tableVersion.getVersionOperator());
             }
             else if (tableVersion.getVersionExpressionType() instanceof BigintType) {

@@ -35,6 +35,8 @@ void unregisterPrestoToVeloxConnector(const std::string& connectorName);
 const PrestoToVeloxConnector& getPrestoToVeloxConnector(
     const std::string& connectorName);
 
+bool hasPrestoToVeloxConnector(const std::string& connectorName);
+
 class PrestoToVeloxConnector {
  public:
   virtual ~PrestoToVeloxConnector() = default;
@@ -101,6 +103,20 @@ class PrestoToVeloxConnector {
       velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(
       const protocol::ExecuteProcedureHandle* executeProcedureHandle,
+      const TypeParser& typeParser) const {
+    return {};
+  }
+
+  // Layer 3b: MERGE handle wiring for UPDATE / MERGE on iceberg V3.
+  // Connectors that support MERGE override this to build an
+  // IcebergInsertTableHandle with WriteKind::kMerge (or equivalent) so
+  // the engine's TableWriter picks the right DataSink. Default returns
+  // nullptr → translator dispatches VELOX_UNSUPPORTED, same surface as
+  // the other MERGE-unaware connectors.
+  [[nodiscard]] virtual std::unique_ptr<
+      velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::MergeHandle* mergeHandle,
       const TypeParser& typeParser) const {
     return {};
   }

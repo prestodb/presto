@@ -194,7 +194,7 @@ public class TestOrcMetadataReader
                                     .setSum(45)
                                     .build(),
                             isRowGroup),
-                    new StringStatistics(null, null, 45));
+                    new StringStatistics(null, null, false, false, 45));
         }
         // and the ORIGINAL version row group stats (but not rolled up stats)
         assertEquals(
@@ -204,7 +204,7 @@ public class TestOrcMetadataReader
                                 .setSum(45)
                                 .build(),
                         true),
-                new StringStatistics(null, null, 45));
+                new StringStatistics(null, null, false, false, 45));
 
         // having only a min or max should work
         assertEquals(
@@ -214,7 +214,7 @@ public class TestOrcMetadataReader
                                 .setMinimum("ant")
                                 .build(),
                         true),
-                new StringStatistics(utf8Slice("ant"), null, 0));
+                new StringStatistics(utf8Slice("ant"), null, false, false, 0));
         assertEquals(
                 OrcMetadataReader.toStringStatistics(
                         ORC_HIVE_8732,
@@ -222,7 +222,7 @@ public class TestOrcMetadataReader
                                 .setMaximum("cat")
                                 .build(),
                         true),
-                new StringStatistics(null, utf8Slice("cat"), 0));
+                new StringStatistics(null, utf8Slice("cat"), false, false, 0));
 
         // normal full stat
         assertEquals(
@@ -234,7 +234,7 @@ public class TestOrcMetadataReader
                                 .setSum(79)
                                 .build(),
                         true),
-                new StringStatistics(utf8Slice("ant"), utf8Slice("cat"), 79));
+                new StringStatistics(utf8Slice("ant"), utf8Slice("cat"), false, false, 79));
 
         for (Slice prefix : ALL_UTF8_SEQUENCES) {
             for (int testCodePoint : TEST_CODE_POINTS) {
@@ -285,6 +285,8 @@ public class TestOrcMetadataReader
         return new StringStatistics(
                 minStringTruncateToValidRange(min, version),
                 maxStringTruncateToValidRange(max, version),
+                false,
+                false,
                 sum);
     }
 

@@ -118,7 +118,7 @@ With Alluxio file system this approach supports the following features:
   `alluxio fs distributedLoad <https://docs.alluxio.io/os/user/stable/en/operation/User-CLI.html#distributedload>`_,
   in addition to caching data transparently based on the data access pattern.
 * **Read/write Types and Data Policies**: Users can customize read and write modes for Presto when reading from and writing to Alluxio.
-  E.g.  tell Presto read to skip caching data when reading from certain locations and avoid cache thrashing, or set TTLs on files in given locations using
+  For example, tell Presto read operations to skip caching data when reading from certain locations and avoid cache thrashing, or set TTLs on files in given locations using
   `alluxio fs setTtl <https://docs.alluxio.io/os/user/stable/en/operation/User-CLI.html#setttl>`_.
 * **Check Working Set**: Users can verify which files are cached to understand and optimize Presto performance. For example, users can check the output from Alluxio command line
   `alluxio fs ls <https://docs.alluxio.io/os/user/stable/en/operation/User-CLI.html#ls>`_,

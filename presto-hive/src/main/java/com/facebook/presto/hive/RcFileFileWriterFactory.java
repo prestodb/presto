@@ -51,6 +51,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class RcFileFileWriterFactory
         implements HiveFileWriterFactory
@@ -109,7 +110,7 @@ public class RcFileFileWriterFactory
             rcFileEncoding = new BinaryRcFileEncoding();
         }
         else if (ColumnarSerDe.class.getName().equals(storageFormat.getSerDe())) {
-            rcFileEncoding = createTextVectorEncoding(schema, hiveStorageTimeZone);
+            rcFileEncoding = createTextVectorEncoding(schema, session.getSqlFunctionProperties().isLegacyTimestamp() ? hiveStorageTimeZone : UTC);
         }
         else {
             return Optional.empty();

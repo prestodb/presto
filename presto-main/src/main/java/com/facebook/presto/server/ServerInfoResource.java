@@ -58,10 +58,12 @@ public class ServerInfoResource
     private final long startTime = System.nanoTime();
     private final NodeResourceStatusProvider nodeResourceStatusProvider;
     private final ResourceGroupManager resourceGroupManager;
+    private final boolean startupCompleteRequiredForActive;
+    private final ServerStartupState serverStartupState;
     private NodeState nodeState = ACTIVE;
 
     @Inject
-    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler, NodeResourceStatusProvider nodeResourceStatusProvider, ResourceGroupManager resourceGroupManager)
+    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler, NodeResourceStatusProvider nodeResourceStatusProvider, ResourceGroupManager resourceGroupManager, ServerStartupState serverStartupState)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
@@ -71,13 +73,15 @@ public class ServerInfoResource
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
         this.nodeResourceStatusProvider = requireNonNull(nodeResourceStatusProvider, "nodeResourceStatusProvider is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
+        this.startupCompleteRequiredForActive = serverConfig.isStartupCompleteRequiredForActive();
+        this.serverStartupState = requireNonNull(serverStartupState, "serverStartupState is null");
     }
 
     @GET
     @Produces({APPLICATION_JSON, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public ServerInfo getInfo()
     {
-        boolean starting = resourceManager ? true : !catalogStore.areCatalogsLoaded();
+        boolean starting = resourceManager ? true : (startupCompleteRequiredForActive ? !serverStartupState.isStartupComplete() : !catalogStore.areCatalogsLoaded());
         return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
     }
 
@@ -121,7 +125,9 @@ public class ServerInfoResource
         if (shutdownHandler.isShutdownRequested()) {
             return SHUTTING_DOWN;
         }
-        else if (!nodeResourceStatusProvider.hasResources() || !resourceGroupManager.isConfigurationManagerLoaded()) {
+        else if (!nodeResourceStatusProvider.hasResources()
+                || !resourceGroupManager.isConfigurationManagerLoaded()
+                || (startupCompleteRequiredForActive && !serverStartupState.isStartupComplete())) {
             return INACTIVE;
         }
         else {

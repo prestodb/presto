@@ -31,6 +31,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -395,6 +396,23 @@ public final class RowExpressionVerifier
             OperatorType expectedOperatorType = getOperatorType(expected.getOperator());
             if (expectedOperatorType.equals(actualOperatorType)) {
                 return process(expected.getLeft(), ((CallExpression) actual).getArguments().get(0)) && process(expected.getRight(), ((CallExpression) actual).getArguments().get(1));
+            }
+        }
+        return false;
+    }
+
+    @Override
+    protected Boolean visitArithmeticUnary(ArithmeticUnaryExpression expected, RowExpression actual)
+    {
+        // A positive sign is a no-op in the plan (e.g. +x is stored as x), so match against the operand directly.
+        if (expected.getSign() == ArithmeticUnaryExpression.Sign.PLUS) {
+            return process(expected.getValue(), actual);
+        }
+        // A negative sign is represented as a call to the NEGATION operator over the operand.
+        if (actual instanceof CallExpression) {
+            FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(((CallExpression) actual).getFunctionHandle());
+            if (functionMetadata.getOperatorType().isPresent() && functionMetadata.getOperatorType().get().equals(OperatorType.NEGATION)) {
+                return process(expected.getValue(), ((CallExpression) actual).getArguments().get(0));
             }
         }
         return false;

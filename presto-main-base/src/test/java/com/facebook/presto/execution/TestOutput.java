@@ -78,4 +78,34 @@ public class TestOutput
 
         assertEquals(actual, expected);
     }
+
+    @Test
+    public void testRoundTripWithUnifiedColumnLineage()
+    {
+        QualifiedObjectName tableName = QualifiedObjectName.valueOf("catalog.schema.table");
+        Output expected = new Output(
+                new ConnectorId("connectorId"),
+                "schema",
+                "table",
+                Optional.of(
+                        ImmutableList.of(
+                                OutputColumnMetadata.fromColumnLineage(
+                                        "revenue", "double",
+                                        ImmutableSet.of(
+                                                new ColumnLineageEntry(tableName, "totalprice", TransformationType.DIRECT, TransformationSubtype.AGGREGATION),
+                                                new ColumnLineageEntry(tableName, "orderstatus", TransformationType.INDIRECT, TransformationSubtype.FILTER),
+                                                new ColumnLineageEntry(tableName, "custkey", TransformationType.INDIRECT, TransformationSubtype.JOIN))))),
+                Optional.empty());
+
+        String json = codec.toJson(expected);
+        Output actual = codec.fromJson(json);
+
+        assertEquals(actual, expected);
+
+        OutputColumnMetadata column = actual.getColumns().get().get(0);
+        // Direct AGGREGATION entry projects back to a SourceColumn via the legacy getter
+        assertEquals(column.getSourceColumns().size(), 1);
+        assertEquals(column.getIndirectSourceColumns().size(), 2);
+        assertEquals(column.getColumnLineage().size(), 3);
+    }
 }

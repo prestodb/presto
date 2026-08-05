@@ -61,6 +61,7 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_AVERAGE_INPUT_DATA_SIZE_PER_EXECUTOR = "spark_average_input_data_size_per_executor";
     public static final String SPARK_MAX_EXECUTOR_COUNT = "spark_max_executor_count";
     public static final String SPARK_MIN_EXECUTOR_COUNT = "spark_min_executor_count";
+    public static final String SPARK_MAX_TASK_INFOS_IN_QUERY_COMPLETED_EVENT = "spark_max_task_infos_in_query_completed_event";
     public static final String SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION = "spark_average_input_data_size_per_partition";
     public static final String SPARK_MAX_HASH_PARTITION_COUNT = "spark_max_hash_partition_count";
     public static final String SPARK_MIN_HASH_PARTITION_COUNT = "spark_min_hash_partition_count";
@@ -215,6 +216,11 @@ public class PrestoSparkSessionProperties
                         SPARK_MIN_EXECUTOR_COUNT,
                         "Minimum count of executors to run a query",
                         prestoSparkConfig.getMinExecutorCount(),
+                        false),
+                integerProperty(
+                        SPARK_MAX_TASK_INFOS_IN_QUERY_COMPLETED_EVENT,
+                        "Maximum number of task infos to deserialize and retain when assembling the query completed event; bounds driver memory on queries with very large task counts",
+                        prestoSparkConfig.getMaxTaskInfosInQueryCompletedEvent(),
                         false),
                 dataSizeProperty(
                         SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION,
@@ -406,6 +412,11 @@ public class PrestoSparkSessionProperties
     public static int getMinExecutorCount(Session session)
     {
         return session.getSystemProperty(SPARK_MIN_EXECUTOR_COUNT, Integer.class);
+    }
+
+    public static int getMaxTaskInfosInQueryCompletedEvent(Session session)
+    {
+        return session.getSystemProperty(SPARK_MAX_TASK_INFOS_IN_QUERY_COMPLETED_EVENT, Integer.class);
     }
 
     public static DataSize getAverageInputDataSizePerPartition(Session session)

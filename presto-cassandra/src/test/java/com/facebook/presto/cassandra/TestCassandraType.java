@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -35,8 +36,8 @@ public class TestCassandraType
     public void testGetCassandraTypeForStringTypes()
     {
         // VARCHAR is an alias of TEXT in driver 4.x, so DataTypes.TEXT resolves to TEXT
-        assertEquals(CassandraType.getCassandraType(DataTypes.TEXT), CassandraType.TEXT);
-        assertEquals(CassandraType.getCassandraType(DataTypes.ASCII), CassandraType.ASCII);
+        assertEquals(CassandraType.getCassandraType(TEST_SESSION.toConnectorSession(), DataTypes.TEXT), CassandraType.TEXT);
+        assertEquals(CassandraType.getCassandraType(TEST_SESSION.toConnectorSession(), DataTypes.ASCII), CassandraType.ASCII);
     }
 
     @Test
@@ -56,7 +57,7 @@ public class TestCassandraType
     {
         // vector<float, 3> is exposed by the driver as a VectorType (which extends CustomType);
         // it must be classified as VECTOR, not CUSTOM.
-        assertEquals(CassandraType.getCassandraType(DataTypes.vectorOf(DataTypes.FLOAT, 3)), CassandraType.VECTOR);
+        assertEquals(CassandraType.getCassandraType(TEST_SESSION.toConnectorSession(), DataTypes.vectorOf(DataTypes.FLOAT, 3)), CassandraType.VECTOR);
         assertEquals(CassandraType.VECTOR.getTypeArgumentSize(), 1);
     }
 

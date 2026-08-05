@@ -219,7 +219,8 @@ Property Name                                        Description
                                                      Example: ``https://localhost:8181``
 
 ``iceberg.rest.auth.type``                           The authentication type to use.
-                                                     Available values are ``NONE`` or ``OAUTH2`` (default: ``NONE``).
+                                                     Available values are ``NONE``, ``BASIC`` or ``OAUTH2``
+                                                     (default: ``NONE``).
                                                      ``OAUTH2`` requires either a credential or token.
 
 ``iceberg.rest.auth.oauth2.uri``                     OAUTH2 server endpoint URI.
@@ -236,6 +237,12 @@ Property Name                                        Description
                                                      ``iceberg.rest.auth.oauth2.credential``.
                                                      Example: ``PRINCIPAL_ROLE:ALL``
 
+``iceberg.rest.auth.basic.username``                 Username for Basic Auth against the REST catalog server
+                                                     Example: ``test_user``
+
+``iceberg.rest.auth.basic.password``                 Password for Basic Auth against the REST catalog server
+                                                     Example: ``my$ecretPass``
+
 ``iceberg.rest.nested.namespace.enabled``            In REST Catalogs, tables are grouped into namespaces, that can be
                                                      nested. But if a large number of recursive namespaces result in
                                                      lower performance, querying nested namespaces can be disabled.
@@ -246,6 +253,37 @@ Property Name                                        Description
 
 ``iceberg.catalog.warehouse``                        A catalog warehouse root path for Iceberg tables (optional).
                                                      Example: ``s3://warehouse/``
+
+``iceberg.rest.proxy.hostname``                      IP address or hostname of the proxy server (required when access to
+                                                     the REST catalog is through a proxy).
+                                                     Example: ``proxy.example.com``
+
+``iceberg.rest.proxy.port``                          Port for the proxy server (required when access to the REST catalog
+                                                     is through a proxy).
+                                                     Example: ``8080``
+
+``iceberg.rest.proxy.username``                      Username for proxy Basic authentication (optional).
+                                                     Example: ``proxy_user``
+
+``iceberg.rest.proxy.password``                      Password for proxy Basic authentication (optional).
+                                                     Example: ``proxy_password``
+
+``iceberg.rest.tls.enabled``                         Whether to enable TLS for REST catalog communication
+                                                     (default: ``false``).
+
+``iceberg.rest.tls.keystore-path``                   The path to the keystore file for mutual TLS authentication with the REST
+                                                     catalog server (PEM or JKS format).
+                                                     Example: ``/path/to/keystore.jks``
+
+``iceberg.rest.tls.keystore-password``               The password for the keystore file.
+                                                     Example: ``keystore_password``
+
+``iceberg.rest.tls.truststore-path``                 The path to the truststore file for REST catalog TLS communication
+                                                     (PEM or JKS format).
+                                                     Example: ``/path/to/truststore.jks``
+
+``iceberg.rest.tls.truststore-password``             The password for the truststore file for REST catalog TLS communication.
+                                                     Example: ``truststore_password``
 
 ==================================================== ============================================================
 
@@ -389,6 +427,8 @@ Property Name                                           Description             
                                                         when calculating the closest snapshot when picking
                                                         statistics. A value of 1 means a single record is equivalent
                                                         to 1 millisecond of time difference.
+
+``iceberg.commit-number-retries``                       Number of times to retry a commit before failing              ``4``                              Yes                 Yes
 
 ``iceberg.pushdown-filter-enabled``                     Experimental: Enable filter pushdown for Iceberg. This is     ``false``                          No                  Yes
                                                         only supported with Presto C++.

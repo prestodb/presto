@@ -55,7 +55,7 @@ SPI Changes
 
 * Remove ``owner`` from ``ConnectorTableMetadata``.
 * Replace the  generic ``getServices()`` method in ``Plugin`` with specific
-  methods such as ``getConnectorFactories()``, ``getTypes()``, etc.
+  methods such as ``getConnectorFactories()`` or ``getTypes()``.
   Dependencies like ``TypeManager`` are now provided directly rather
   than being injected into ``Plugin``.
 * Add first-class support for functions in the SPI. This replaces the old

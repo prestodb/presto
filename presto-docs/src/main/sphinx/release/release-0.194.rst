@@ -34,8 +34,8 @@ JDBC Driver Changes
 -------------------
 
 * Allow configuring connection network timeout with ``setNetworkTimeout()``.
-* Allow setting client tags via the ``ClientTags`` client info property.
-* Expose update type via ``getUpdateType()`` on ``PrestoStatement``.
+* Allow setting client tags with the ``ClientTags`` client info property.
+* Expose update type with ``getUpdateType()`` on ``PrestoStatement``.
 
 Hive Changes
 ------------
@@ -43,7 +43,7 @@ Hive Changes
 * Consistently fail queries that attempt to read partitions that are offline.
   Previously, the query can have one of the following outcomes: fail as expected,
   skip those partitions and finish successfully, or hang indefinitely.
-* Allow setting username used to access Hive metastore via the ``hive.metastore.username`` config property.
+* Allow setting username used to access Hive metastore with the ``hive.metastore.username`` config property.
 * Add ``hive_storage_format`` and ``respect_table_format`` session properties, corresponding to
   the ``hive.storage-format`` and ``hive.respect-table-format`` config properties.
 * Reduce ORC file reader memory consumption by allocating buffers lazily.

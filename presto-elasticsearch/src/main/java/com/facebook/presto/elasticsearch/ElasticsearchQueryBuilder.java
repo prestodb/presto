@@ -26,10 +26,12 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorSession;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -134,7 +136,8 @@ public final class ElasticsearchQueryBuilder
         return outerBuilder.build()._toQuery();
     }
 
-    private static FieldValue getValue(ConnectorSession session, Type type, Object value)
+    @VisibleForTesting
+    static FieldValue getValue(ConnectorSession session, Type type, Object value)
     {
         if (type.equals(BOOLEAN)) {
             return FieldValue.of((boolean) value);
@@ -161,10 +164,10 @@ public final class ElasticsearchQueryBuilder
         }
 
         if (type.equals(TIMESTAMP)) {
-            checkState(session.getSqlFunctionProperties().isLegacyTimestamp(), "New timestamp semantics not yet supported");
-
             String dateValue = Instant.ofEpochMilli((Long) value)
-                    .atZone(ZoneId.of(session.getSqlFunctionProperties().getTimeZoneKey().getId()))
+                    .atZone(session.getSqlFunctionProperties().isLegacyTimestamp() ?
+                            ZoneId.of(session.getSqlFunctionProperties().getTimeZoneKey().getId()) :
+                            ZoneOffset.UTC)
                     .toLocalDateTime()
                     .format(ISO_DATE_TIME);
 

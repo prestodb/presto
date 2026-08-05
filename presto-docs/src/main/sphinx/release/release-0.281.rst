@@ -49,7 +49,7 @@ ________________________________
 
 JDBC Changes
 ____________
-* Add ConnectorSession parameter to  all methods of ``JdbcClient`` interface. That makes it possible to pass specific options to JDBC driver implementation via session parameters.
+* Add ConnectorSession parameter to  all methods of ``JdbcClient`` interface. That makes it possible to pass specific options to JDBC driver implementation through session parameters.
 
 **Credits**
 ===========

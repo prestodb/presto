@@ -36,6 +36,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.CharType.createCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -127,10 +128,28 @@ public class TestArrowFlightQueries
     }
 
     @Test
-    public void testSelectTime()
+    public void testSelectTimeNonLegacy()
     {
-        MaterializedResult actualRow = computeActual("SELECT * from event WHERE id = 1");
-        Session session = getSession();
+        Session session = Session.builder(getSession())
+                .setSystemProperty(LEGACY_TIMESTAMP, "false")
+                .build();
+        MaterializedResult actualRow = computeActual(session, "SELECT * from event WHERE id = 1");
+        MaterializedResult expectedRow = resultBuilder(session, INTEGER, DATE, TIME, TIMESTAMP)
+                .row(1,
+                        getDate("2004-12-31"),
+                        getTimeAtZone("23:59:59", TimeZoneKey.UTC_KEY),
+                        getDateTimeAtZone("2005-12-31 23:59:59", TimeZoneKey.UTC_KEY))
+                .build();
+        assertTrue(actualRow.equals(expectedRow));
+    }
+
+    @Test
+    public void testSelectTimeLegacy()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(LEGACY_TIMESTAMP, "true")
+                .build();
+        MaterializedResult actualRow = computeActual(session, "SELECT * from event WHERE id = 1");
         MaterializedResult expectedRow = resultBuilder(session, INTEGER, DATE, TIME, TIMESTAMP)
                 .row(1,
                         getDate("2004-12-31"),

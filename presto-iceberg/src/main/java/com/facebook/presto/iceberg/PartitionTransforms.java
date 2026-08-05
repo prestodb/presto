@@ -44,6 +44,7 @@ import static com.facebook.presto.common.type.Decimals.readBigDecimal;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -91,6 +92,12 @@ public final class PartitionTransforms
                             block -> transformBlock(TIMESTAMP, block, transformYear),
                             ValueTransform.from(TIMESTAMP, transformYear));
                 }
+                if (type.equals(TIMESTAMP_MICROSECONDS)) {
+                    LongUnaryOperator transformYear = value -> epochYear(Math.floorDiv(value, 1000));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_MICROSECONDS, block, transformYear),
+                            ValueTransform.from(TIMESTAMP_MICROSECONDS, transformYear));
+                }
                 if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
                     LongUnaryOperator transformYear = value -> epochYear(unpackMillisUtc(value));
                     return new ColumnTransform(transform, INTEGER,
@@ -110,6 +117,12 @@ public final class PartitionTransforms
                     return new ColumnTransform(transform, INTEGER,
                             block -> transformBlock(TIMESTAMP, block, transformMonth),
                             ValueTransform.from(TIMESTAMP, transformMonth));
+                }
+                if (type.equals(TIMESTAMP_MICROSECONDS)) {
+                    LongUnaryOperator transformMonth = value -> epochMonth(Math.floorDiv(value, 1000));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_MICROSECONDS, block, transformMonth),
+                            ValueTransform.from(TIMESTAMP_MICROSECONDS, transformMonth));
                 }
                 if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
                     LongUnaryOperator transformMonth = value -> epochMonth(unpackMillisUtc(value));
@@ -131,6 +144,12 @@ public final class PartitionTransforms
                             block -> transformBlock(TIMESTAMP, block, transformDay),
                             ValueTransform.from(TIMESTAMP, transformDay));
                 }
+                if (type.equals(TIMESTAMP_MICROSECONDS)) {
+                    LongUnaryOperator transformDay = value -> epochDay(Math.floorDiv(value, 1000));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_MICROSECONDS, block, transformDay),
+                            ValueTransform.from(TIMESTAMP_MICROSECONDS, transformDay));
+                }
                 if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
                     LongUnaryOperator transformDay = value -> epochDay(unpackMillisUtc(value));
                     return new ColumnTransform(transform, INTEGER,
@@ -144,6 +163,12 @@ public final class PartitionTransforms
                     return new ColumnTransform(transform, INTEGER,
                             block -> transformBlock(TIMESTAMP, block, transformHour),
                             ValueTransform.from(TIMESTAMP, transformHour));
+                }
+                if (type.equals(TIMESTAMP_MICROSECONDS)) {
+                    LongUnaryOperator transformHour = value -> epochHour(Math.floorDiv(value, 1000));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_MICROSECONDS, block, transformHour),
+                            ValueTransform.from(TIMESTAMP_MICROSECONDS, transformHour));
                 }
                 if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
                     LongUnaryOperator transformHour = value -> epochHour(unpackMillisUtc(value));

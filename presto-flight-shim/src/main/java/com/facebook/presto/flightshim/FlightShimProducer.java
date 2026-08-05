@@ -124,7 +124,6 @@ public class FlightShimProducer
             log.debug("Request for connector: %s", request.getConnectorId());
 
             FlightShimPluginManager.ConnectorCodecs connectorCodecs = pluginManager.getConnectorCodecs(request.getConnectorId());
-            requireNonNull(connectorCodecs, format("Requested connector not loaded: %s", request.getConnectorId()));
 
             ConnectorSplit connectorSplit = connectorCodecs.getCodecSplit().fromJson(request.getSplitBytes());
 
@@ -149,8 +148,11 @@ public class FlightShimProducer
             ).collect(toImmutableList());
 
             AtomicInteger fieldCount = new AtomicInteger();
-            List<ColumnMetadata> columnsMetadata = request.getFields().stream().map(field ->
-                            ColumnMetadata.builder().setName(field.getName().orElse(format("$col%s$", fieldCount.incrementAndGet()))).setType(field.getType()).build())
+            List<ColumnMetadata> columnsMetadata = request.getFields().stream()
+                    .map(field -> ColumnMetadata.builder()
+                                    .setName(field.getName().orElse(format("$col%s$", fieldCount.incrementAndGet())))
+                                    .setType(field.getType().orElseThrow(() -> new IllegalArgumentException("Field type not present")))
+                            .build())
                     .collect(toImmutableList());
 
             if (columnHandles.size() != columnsMetadata.size()) {

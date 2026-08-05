@@ -356,13 +356,13 @@ public class ConnectorManager
             removeConnectorInternal(connectorId);
             removeConnectorInternal(createInformationSchemaConnectorId(connectorId));
             removeConnectorInternal(createSystemTablesConnectorId(connectorId));
-            metadataManager.getFunctionAndTypeManager().getTableFunctionRegistry().removeTableFunctions(connectorId);
-            metadataManager.getFunctionAndTypeManager().removeTableFunctionProcessorProvider(connectorId);
         });
     }
 
     private synchronized void removeConnectorInternal(ConnectorId connectorId)
     {
+        metadataManager.getFunctionAndTypeManager().getTableFunctionRegistry().removeTableFunctions(connectorId);
+        metadataManager.getFunctionAndTypeManager().removeTableFunctionProcessorProvider(connectorId);
         splitManager.removeConnectorSplitManager(connectorId);
         pageSourceManager.removeConnectorPageSourceProvider(connectorId);
         pageSinkManager.removeConnectorPageSinkProvider(connectorId);

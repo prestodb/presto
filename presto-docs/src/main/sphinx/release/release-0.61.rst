@@ -63,7 +63,7 @@ Miscellaneous
 
 * General improvements to the JDBC driver, specifically with respect to metadata handling.
 
-* Fix division by zero errors in variance aggregation functions (``VARIANCE``, ``STDDEV``, etc.).
+* Fix division by zero errors in variance aggregation functions like ``VARIANCE`` or ``STDDEV``.
 
 * Fix a bug when using ``DISTINCT`` aggregations in the ``HAVING`` clause.
 
@@ -73,4 +73,4 @@ Miscellaneous
 
 * Fix handling of timestamps in maps and lists in Hive connector.
 
-* Add instrumentation for Hive metastore and HDFS API calls to track failures and latency. These metrics are exposed via JMX.
+* Add instrumentation for Hive metastore and HDFS API calls to track failures and latency. These metrics are exposed through JMX.
