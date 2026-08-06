@@ -258,6 +258,12 @@ public final class IcebergUtil
 
     public static final int DEFAULT_MIN_INPUT_FILES = 5;
 
+    public enum RewriteStrategy
+    {
+        SORT,
+        BINPACK
+    }
+
     private static final Schema LINEAGE_ONLY_SCHEMA = new Schema(LAST_UPDATED_SEQUENCE_NUMBER);
     private static final InclusiveMetricsEvaluator MATCH_ALL_LINEAGE_EVALUATOR =
             new InclusiveMetricsEvaluator(LINEAGE_ONLY_SCHEMA, alwaysTrue());

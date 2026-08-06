@@ -1519,17 +1519,21 @@ Argument Name         required   type            Description
 
 ``table_name``        Yes        string          Name of the table to update.
 
-``filter``                       string          Predicate as a string used for filtering the files. Currently
-                                                 only rewrite of whole partitions is supported. Filter on partition
-                                                 columns. The default value is ``true``.
+``strategy``                     string          Name of the strategy - binpack or sort. Defaults to binpack.
+                                                 Must be ``'sort'`` when using ``sorted_by``.
 
 ``sorted_by``                    array of        Specify an array of one or more columns to use for sorting. When
                                  strings         performing a rewrite, the specified sorting definition must be
                                                  compatible with the table's own sorting property, if one exists.
                                                  Supports standard column sorting (example, ``'col ASC'``) and
                                                  z-order sorting (example, ``'zorder(col1, col2)'``).
+                                                 **Requires** ``strategy`` to be set to ``'sort'``.
 
 ``options``                      map             Options to be used for data files rewrite. See options table below.
+
+``filter``                       string          Predicate as a string used for filtering the files. Currently
+                                                 only rewrite of whole partitions is supported. Filter on partition
+                                                 columns. The default value is ``true``.
 ===================== ========== =============== =======================================================================
 
 Rewrite Options
@@ -1579,13 +1583,11 @@ Examples
 
 * Rewrite the data files in partitions specified by a filter in table ``db.sample`` to the newest partition spec::
 
-    CALL iceberg.system.rewrite_data_files('db', 'sample', 'partition_key = 1');
     CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample', filter => 'partition_key = 1');
 
 * Rewrite the data files in partitions specified by a filter in table ``db.sample`` to the newest partition spec and a sorting definition::
 
-    CALL iceberg.system.rewrite_data_files('db', 'sample', 'partition_key = 1', ARRAY['join_date DESC NULLS FIRST', 'emp_id ASC NULLS LAST']);
-    CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample', filter => 'partition_key = 1', sorted_by => ARRAY['join_date']);
+    CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample', strategy => 'sort', sorted_by => ARRAY['join_date DESC NULLS FIRST', 'emp_id ASC NULLS LAST'], filter => 'partition_key = 1');
 
 * Rewrite only small files (less than 100MB) in table ``db.sample``::
 
@@ -1627,9 +1629,10 @@ Examples
     CALL iceberg.system.rewrite_data_files(
         schema => 'db',
         table_name => 'sample',
-        filter => 'partition_key = 1',
+        strategy => 'sort',
         sorted_by => ARRAY['join_date'],
-        options => map(array['min-input-files'], array['3'])
+        options => map(array['min-input-files'], array['3']),
+        filter => 'partition_key = 1'
     );
 
 * Use z-order sorting for multi-dimensional data clustering::
@@ -1637,12 +1640,45 @@ Examples
     CALL iceberg.system.rewrite_data_files(
         schema => 'db',
         table_name => 'sample',
+        strategy => 'sort',
         sorted_by => ARRAY['zorder(customer_id, order_date)']
     );
 
   Z-order sorting creates a space-filling curve that interleaves bits from multiple columns,
   providing better data locality for queries that filter on multiple dimensions. This is
   particularly useful for tables with multiple commonly-queried columns.
+
+* Use binpack strategy (default) for fast file consolidation without sorting::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'db',
+        table_name => 'sample'
+    );
+
+  Binpack is the default strategy and is ideal for simple file consolidation where data ordering
+  is not important. It's significantly faster and uses less memory than sorting.
+
+* Use sort strategy to sort by table's default sort order::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'db',
+        table_name => 'sample',
+        strategy => 'sort'
+    );
+
+  When strategy is ``'sort'`` without ``sorted_by``, it uses the table's default sort order.
+
+* Use sort strategy with explicit sorting columns::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'db',
+        table_name => 'sample',
+        strategy => 'sort',
+        sorted_by => ARRAY['join_date']
+    );
+
+  Sort strategy is required when using ``sorted_by``. It provides better compression and query
+  performance through data clustering but is slower and more memory-intensive than binpack.
 
 Rewrite Manifests
 ^^^^^^^^^^^^^^^^^
@@ -1730,6 +1766,7 @@ performance.
     CALL iceberg.system.rewrite_data_files(
         schema => 'sales',
         table_name => 'orders',
+        strategy => 'sort',
         sorted_by => ARRAY['zorder(customer_id, order_date)']
     );
 
@@ -1738,6 +1775,7 @@ performance.
     CALL iceberg.system.rewrite_data_files(
         schema => 'analytics',
         table_name => 'events',
+        strategy => 'sort',
         sorted_by => ARRAY['zorder(user_id, event_time, event_type)']
     );
 
