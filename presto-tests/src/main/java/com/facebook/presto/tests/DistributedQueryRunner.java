@@ -1163,6 +1163,25 @@ public class DistributedQueryRunner
         }
     }
 
+    @Override
+    public void loadTVFProvider(String tvfProviderName)
+    {
+        for (TestingPrestoServer server : servers) {
+            server.getMetadata().getFunctionAndTypeManager().loadTVFProvider(
+                    tvfProviderName,
+                    server.getPluginNodeManager(),
+                    server.getAuthClientConfigs());
+        }
+    }
+
+    @Override
+    public void loadFunctionsFromTableFunctionRegistries()
+    {
+        for (TestingPrestoServer server : servers) {
+            server.loadFunctionsFromTableFunctionRegistries();
+        }
+    }
+
     private static void closeUnchecked(AutoCloseable closeable)
     {
         try {
