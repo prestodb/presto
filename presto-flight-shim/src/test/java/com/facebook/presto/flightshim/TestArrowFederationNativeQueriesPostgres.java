@@ -29,6 +29,7 @@ import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createJdbcConnectorProperties;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createNativeQueryRunner;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createSchema;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -114,9 +115,12 @@ public class TestArrowFederationNativeQueriesPostgres
             throws Exception
     {
         QueryRunner queryRunner =
-                createNativeQueryRunner(ImmutableList.of(getConnectorId()), ImmutableList.of(getConnectorName()), server.getPort());
+                createNativeQueryRunner(ImmutableList.of(getConnectorId()), ImmutableList.of(getConnectorName()), server.getPort(), sidecarEnabled);
         queryRunner.installPlugin(new PostgreSqlPlugin());
         queryRunner.createCatalog(getConnectorId(), getConnectorName(), createJdbcConnectorProperties(postgresContainer.getJdbcUrl()));
+        if (sidecarEnabled) {
+            setupNativeSidecarPlugin(queryRunner);
+        }
         return queryRunner;
     }
 
