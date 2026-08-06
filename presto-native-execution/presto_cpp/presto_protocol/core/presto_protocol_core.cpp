@@ -12035,6 +12035,13 @@ void to_json(json& j, const TaskStats& p) {
       "rawInputDataSizeInBytes");
   to_json_key(
       j,
+      "scanRawInputDataSizeInBytes",
+      p.scanRawInputDataSizeInBytes,
+      "TaskStats",
+      "int64_t",
+      "scanRawInputDataSizeInBytes");
+  to_json_key(
+      j,
       "rawInputPositions",
       p.rawInputPositions,
       "TaskStats",
@@ -12344,6 +12351,13 @@ void from_json(const json& j, TaskStats& p) {
       "TaskStats",
       "int64_t",
       "rawInputDataSizeInBytes");
+  from_json_key(
+      j,
+      "scanRawInputDataSizeInBytes",
+      p.scanRawInputDataSizeInBytes,
+      "TaskStats",
+      "int64_t",
+      "scanRawInputDataSizeInBytes");
   from_json_key(
       j,
       "rawInputPositions",

@@ -44,6 +44,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -429,6 +430,45 @@ public class TestQueryStats
         assertEquals(queryStats.getProcessedInputPositions(), 250);
         assertEquals(queryStats.getOutputDataSize().toBytes(), 5040);
         assertEquals(queryStats.getOutputPositions(), 100);
+    }
+
+    @Test
+    public void testScanRawInputDataSizeExcludesExchangeOnLivePath()
+    {
+        // On the running/live path an exchange-only stage sits on top of a leaf-scan
+        // stage. rawInputDataSize aggregates every stage (so it includes the exchange
+        // input), but scanRawInputDataSize must count the leaf-scan stage only.
+        BasicStageExecutionStats scanStage = basicStageStats(8620L, 8620L, 150L);
+        BasicStageExecutionStats exchangeStage = basicStageStats(5384L, 0L, 100L);
+
+        BasicStageExecutionStats aggregated = BasicStageExecutionStats.aggregateBasicStageStats(
+                ImmutableList.of(exchangeStage, scanStage));
+
+        // rawInputDataSize over-counts by the exchange bytes; scanRawInputDataSize does not.
+        assertEquals(aggregated.getRawInputDataSizeInBytes(), 8620L + 5384L);
+        assertEquals(aggregated.getScanRawInputDataSizeInBytes(), 8620L);
+    }
+
+    private static BasicStageExecutionStats basicStageStats(long rawInputDataSizeInBytes, long scanRawInputDataSizeInBytes, long rawInputPositions)
+    {
+        return new BasicStageExecutionStats(
+                false,
+                0, 0, 0, 0,
+                0, 0, 0, 0,
+                0, 0, 0, 0,
+                rawInputDataSizeInBytes,
+                scanRawInputDataSizeInBytes,
+                rawInputPositions,
+                0.0,
+                0.0,
+                0L,
+                0L,
+                new Duration(0, NANOSECONDS),
+                new Duration(0, NANOSECONDS),
+                false,
+                ImmutableSet.of(),
+                0L,
+                OptionalDouble.empty());
     }
 
     @Test
@@ -834,6 +874,7 @@ public class TestQueryStats
                 0L,
 
                 rawInputDataSize,
+                0L,
                 rawInputPositions,
 
                 inputDataSize,

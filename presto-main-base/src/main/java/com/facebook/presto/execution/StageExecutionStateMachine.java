@@ -274,6 +274,7 @@ public class StageExecutionStateMachine
         long totalCpuTime = 0;
 
         long rawInputDataSizeInBytes = 0;
+        long scanRawInputDataSizeInBytes = 0;
         long rawInputPositions = 0;
 
         boolean fullyBlocked = true;
@@ -316,6 +317,8 @@ public class StageExecutionStateMachine
 
             totalAllocationInBytes += taskStats.getTotalAllocationInBytes();
 
+            scanRawInputDataSizeInBytes += taskStats.getScanRawInputDataSizeInBytes();
+
             if (containsTableScans) {
                 rawInputDataSizeInBytes += taskStats.getRawInputDataSizeInBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
@@ -346,6 +349,7 @@ public class StageExecutionStateMachine
                 completedSplits,
 
                 rawInputDataSizeInBytes,
+                scanRawInputDataSizeInBytes,
                 rawInputPositions,
 
                 cumulativeUserMemory,
