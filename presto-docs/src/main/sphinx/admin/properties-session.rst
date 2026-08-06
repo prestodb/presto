@@ -526,6 +526,18 @@ performance by allowing the aggregation to pre-reduce data before the join is pe
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-partial-aggregation-through-join\`\``.
 
+``push_partial_aggregation_through_outer_join``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``push_partial_aggregation_through_join``, extends partial
+aggregation pushdown to the preserved (non-null-generating) side of outer joins,
+provided all aggregation inputs come from that side and the aggregation functions
+are safe to evaluate on null-extended rows. This can further reduce the amount of
+data flowing into the join operator for outer join queries.
+
 ``push_semi_join_through_union``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
