@@ -34,16 +34,40 @@
     </scm>
 
     <repositories>
+        <!-- Central must be listed before jitpack.io. JitPack maps io.github.<user> onto
+             github.com/<user>/<repo> and answers 200 with an empty stub jar for artifacts it
+             cannot build (e.g. io.github.hakky54:sslcontext-kickstart, pulled in transitively by
+             pinot-common), which silently shadows the real jar from Central. -->
+        <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
     </repositories>
 
     <pluginRepositories>
         <pluginRepository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </pluginRepository>
+        <pluginRepository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </pluginRepository>
     </pluginRepositories>
 
