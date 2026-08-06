@@ -150,17 +150,16 @@ public abstract class AbstractTestFlightShimPlugins
             throws Exception
     {
         super.close();
-        if (server != null && producer != null) {
-            server.shutdown();
-            producer.shutdown();
-        }
         if (server != null) {
-            server.close();
-            server = null;
+            server.shutdown();
         }
         if (producer != null) {
             producer.close();
             producer = null;
+        }
+        if (server != null) {
+            server.close();
+            server = null;
         }
         if (allocator != null) {
             allocator.close();
