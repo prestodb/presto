@@ -90,6 +90,13 @@ public class StatusResource
                 operatingSystemMXBean == null ? 0 : operatingSystemMXBean.getSystemCpuLoad(),
                 memoryMXBean.getHeapMemoryUsage().getUsed(),
                 memoryMXBean.getHeapMemoryUsage().getMax(),
-                memoryMXBean.getNonHeapMemoryUsage().getUsed());
+                memoryMXBean.getNonHeapMemoryUsage().getUsed(),
+                0L, // asyncDataCacheBytes: native-only (Prestissimo AsyncDataCache); not applicable on JVM
+                0L, // queryMemoryBytes: native-only; JVM query memory is on-heap
+                -1L, // gpuMemoryUsedBytes: native-only (Prestissimo cuDF); -1 sentinel on JVM
+                -1L, // gpuMemoryCapacityBytes: native-only (Prestissimo cuDF); -1 sentinel on JVM
+                -1L, // gpuPoolAllocatedBytes: native-only (Prestissimo cuDF); -1 sentinel on JVM
+                -1L, // gpuUtilizationPercent: native-only (Prestissimo cuDF/NVML); -1 sentinel on JVM
+                -1L); // gpuMemoryBandwidthPercent: native-only (Prestissimo cuDF/NVML); -1 sentinel on JVM
     }
 }

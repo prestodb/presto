@@ -113,6 +113,18 @@ target_link_libraries(
 
 if(PRESTO_ENABLE_CUDF)
   target_link_libraries(presto_server_lib velox_cudf_exec)
+  # NVML (libnvidia-ml) for GPU utilization in /v1/status. CUDA::nvml provides
+  # the nvml.h include dir and links the driver stub (real lib comes from the
+  # NVIDIA runtime at run time).
+  find_package(CUDAToolkit REQUIRED)
+  # CUDAToolkit can be found (nvcc, cuda_runtime.h) yet NOT create the CUDA::nvml target when the
+  # NVML stub (libnvidia-ml.so from cuda-nvml-dev) is missing from the build image. Without this
+  # guard, linking would silently no-op and produce a presto_server with zero NVML symbols
+  # (gpuUtilizationPercent stays -1 at runtime). Fail the build loudly instead.
+  if(NOT TARGET CUDA::nvml)
+    message(FATAL_ERROR "CUDA::nvml target not found. Install cuda-nvml-dev (or ensure libnvidia-ml.so is in the CUDA toolkit lib/stubs directory) in the build image.")
+  endif()
+  target_link_libraries(presto_server_lib CUDA::nvml)
 endif()
 
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is
