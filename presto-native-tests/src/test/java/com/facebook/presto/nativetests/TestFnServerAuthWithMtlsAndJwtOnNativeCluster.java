@@ -16,8 +16,8 @@ package com.facebook.presto.nativetests;
 import com.facebook.presto.tests.AbstractTestFnServerAuth;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.utils.FnServerAuthTestUtils;
-import org.testng.annotations.BeforeClass;
 
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
 
 /**
@@ -31,21 +31,15 @@ import static java.lang.Boolean.parseBoolean;
 public class TestFnServerAuthWithMtlsAndJwtOnNativeCluster
         extends AbstractTestFnServerAuth
 {
-    private boolean sidecarEnabled;
-
-    @BeforeClass
-    @Override
-    public void init()
-            throws Exception
-    {
-        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
-        super.init();
-    }
-
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        return FnServerAuthTestUtils.createNativeRunnerWithMtlsAndJwt(sidecarEnabled);
+        boolean sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
+        DistributedQueryRunner queryRunner = FnServerAuthTestUtils.createNativeRunnerWithMtlsAndJwt(sidecarEnabled);
+        if (sidecarEnabled) {
+            setupNativeSidecarPlugin(queryRunner);
+        }
+        return queryRunner;
     }
 }

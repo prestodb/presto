@@ -319,10 +319,18 @@ public class FnServerAuthTestUtils
 
     private static Map<String, String> buildCoordinatorProperties(boolean includeJwt)
     {
+        return buildCoordinatorProperties(includeJwt, false);
+    }
+
+    private static Map<String, String> buildCoordinatorProperties(boolean includeJwt, boolean sidecarEnabled)
+    {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.<String, String>builder()
                 .putAll(getCoordinatorMtlsProperties());
         if (includeJwt) {
             builder.putAll(getJwtProperties(JWT_SHARED_SECRET));
+        }
+        if (sidecarEnabled) {
+            builder.putAll(NativeQueryRunnerUtils.getNativeSidecarProperties());
         }
         return builder.build();
     }
@@ -414,7 +422,7 @@ public class FnServerAuthTestUtils
             queryRunner = DistributedQueryRunner.builder(defaultTpchSession())
                     .setNodeCount(1)
                     .setExtraProperties(NativeQueryRunnerUtils.getNativeWorkerSystemProperties())
-                    .setCoordinatorProperties(buildCoordinatorProperties(includeJwt))
+                    .setCoordinatorProperties(buildCoordinatorProperties(includeJwt, sidecarEnabled))
                     .setExternalWorkerLauncher(
                             getHttpsNativeWorkerLauncher(prestoServerPath.toString(), functionServerUri, includeJwt, sidecarEnabled))
                     .build();
