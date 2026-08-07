@@ -2979,6 +2979,48 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testCreateTableWithNotNullConstraintInitializesStatistics()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("create_not_null_stats");
+        try {
+            // Create table with NOT NULL constraint
+            List<ColumnMetadata> columns = ImmutableList.of(
+                    ColumnMetadata.builder().setName("c_custkey").setType(BIGINT).setNullable(false).build());
+
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
+                    tableName,
+                    columns,
+                    createTableProperties(TEXTFILE));
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                ConnectorMetadata metadata = transaction.getMetadata();
+                metadata.createTable(session, tableMetadata, false);
+                transaction.commit();
+            }
+
+            // Verify statistics are initialized immediately after table creation.
+            // Regression test: metastore constraint registration can invalidate
+            // the connection before statistics are written.
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+            PartitionStatistics stats = metastoreClient.getTableStatistics(
+                    METASTORE_CONTEXT,
+                    tableName.getSchemaName(),
+                    tableName.getTableName());
+
+            // Table was just created with no data — row count should be 0, not unknown
+            assertTrue(stats.getBasicStatistics().getRowCount().isPresent(),
+                    "Row count should be present after CREATE TABLE with NOT NULL constraints");
+            assertEquals(stats.getBasicStatistics().getRowCount().getAsLong(), 0L,
+                    "Row count should be 0 for newly created empty table");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
     public void testTableCreationIgnoreExisting()
     {
         List<Column> columns = ImmutableList.of(new Column("dummy", HiveType.valueOf("uniontype<smallint,tinyint>"), Optional.empty(), Optional.empty()));
