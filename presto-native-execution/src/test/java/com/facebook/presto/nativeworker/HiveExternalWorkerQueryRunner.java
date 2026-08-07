@@ -33,7 +33,9 @@ public class HiveExternalWorkerQueryRunner
         NativeQueryRunnerUtils.createAllTables(javaQueryRunner);
         javaQueryRunner.close();
 
-        // Launch distributed runner.
+        // Launch distributed runner. Set the WORKER_IMAGE property (e.g. -DWORKER_IMAGE=<image>
+        // or the WORKER_IMAGE environment variable) to run native workers inside containers
+        // instead of the presto_server binary on the host.
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder().build();
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);
