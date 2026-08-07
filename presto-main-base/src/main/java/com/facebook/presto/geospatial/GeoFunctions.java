@@ -155,7 +155,7 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stLineString(@SqlType("array(" + GEOMETRY_TYPE_NAME + ")") Block input)
     {
-        CoordinateSequence coordinates = readPointCoordinates(input, "ST_LineString", true);
+        CoordinateSequence coordinates = readPointCoordinates(input, "ST_LineString", false);
         if (coordinates.size() < 2) {
             return serialize(createJtsEmptyLineString());
         }

@@ -1064,7 +1064,9 @@ public class TestGeoFunctions
         assertFunction("ST_LineString(array[ST_GeometryFromText('POINT (1 2)'), ST_GeometryFromText('POINT (3 4)')])", GEOMETRY, "LINESTRING (1 2, 3 4)");
 
         // Duplicate consecutive points throws exception
-        assertInvalidFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(1, 2)])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: consecutive duplicate points at index 2");
+        // Consecutive duplicate points are allowed (Sedona ST_MakeLine / SpatialBench Q7 parity).
+        assertFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(1, 2)])", GEOMETRY, "LINESTRING (1 2, 1 2)");
+        assertFunction("ST_Length(ST_LineString(array[ST_Point(1, 2), ST_Point(1, 2)]))", DOUBLE, 0.0);
         assertFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(3, 4), ST_Point(1, 2)])", GEOMETRY, "LINESTRING (1 2, 3 4, 1 2)");
 
         // Single point
