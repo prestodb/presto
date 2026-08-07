@@ -2499,7 +2499,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   auto outputType = ROW(std::move(outputNames), std::move(outputTypes));
 
   // Build CallTypedExpr inputs: FieldAccess for columns, Constant for literals
-  // (Velox #18267 folds RPCNode args into CallTypedExpr: field refs vs constants)
+  // (Velox #18267 folds RPCNode args into CallTypedExpr: field refs vs
+  // constants)
   std::vector<core::TypedExprPtr> callInputs;
   callInputs.reserve(argumentColumns.size());
   for (size_t i = 0; i < argumentColumns.size(); ++i) {
