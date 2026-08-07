@@ -15,16 +15,35 @@
 #include <arrow/c/abi.h>
 #include <arrow/c/bridge.h>
 #include <arrow/flight/api.h>
+#include <arrow/status.h>
+#include <fmt/format.h>
 #include <folly/base64.h>
+#include <atomic>
+#include <optional>
 #include <utility>
 #include "presto_cpp/main/common/ConfigReader.h"
+#include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/connectors/arrow_flight/ArrowFlightErrors.h"
 #include "presto_cpp/main/connectors/arrow_flight/Macros.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/vector/arrow/Bridge.h"
 
 using namespace facebook::velox::connector;
 
 namespace facebook::presto {
 namespace {
+std::atomic<int32_t> kActiveArrowFlightStreams{0};
+
+int64_t elapsedNanos(const std::chrono::steady_clock::time_point& start) {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(
+             std::chrono::steady_clock::now() - start)
+      .count();
+}
+
+int64_t toMillis(int64_t nanos) {
+  return nanos / 1'000'000;
+}
+
 std::shared_ptr<arrow::flight::Location> getDefaultLocation(
     const std::shared_ptr<ArrowFlightConfig>& config) {
   auto defaultHost = config->defaultServerHostname();
@@ -141,6 +160,114 @@ ArrowFlightDataSource::~ArrowFlightDataSource() {
   cancel();
 }
 
+void ArrowFlightDataSource::startStream() {
+  if (streamStarted_) {
+    return;
+  }
+  streamStarted_ = true;
+  streamStart_ = std::chrono::steady_clock::now();
+  streamsStarted_.addValue(1);
+  RECORD_METRIC_VALUE(kCounterArrowFlightStreamsStarted, 1);
+}
+
+void ArrowFlightDataSource::finishStream(StreamOutcome outcome) {
+  if (!streamStarted_) {
+    return;
+  }
+
+  if (streamActive_) {
+    streamActive_ = false;
+    kActiveArrowFlightStreams.fetch_sub(1);
+    RECORD_METRIC_VALUE(
+        kCounterArrowFlightActiveStreams, kActiveArrowFlightStreams.load());
+  }
+
+  const auto streamNanos = elapsedNanos(streamStart_);
+  streamWallNanos_.addValue(streamNanos);
+  RECORD_METRIC_VALUE(
+      kCounterArrowFlightStreamLatencyMs, toMillis(streamNanos));
+
+  switch (outcome) {
+    case StreamOutcome::kCompleted:
+      streamsCompleted_.addValue(1);
+      RECORD_METRIC_VALUE(kCounterArrowFlightStreamsCompleted, 1);
+      break;
+    case StreamOutcome::kFailed:
+      streamsFailed_.addValue(1);
+      RECORD_METRIC_VALUE(kCounterArrowFlightStreamsFailed, 1);
+      break;
+    case StreamOutcome::kCancelled:
+      streamsCancelled_.addValue(1);
+      RECORD_METRIC_VALUE(kCounterArrowFlightStreamsCancelled, 1);
+      break;
+  }
+
+  streamStarted_ = false;
+}
+
+void ArrowFlightDataSource::closeResources(bool cancelReader) {
+  if (currentReader_ != nullptr) {
+    if (cancelReader) {
+      currentReader_->Cancel();
+    }
+    currentReader_.reset();
+  }
+
+  if (currentClient_ != nullptr) {
+    auto status = currentClient_->Close();
+    if (!status.ok()) {
+      LOG(WARNING) << "Failed to close Arrow Flight client: "
+                   << status.message();
+    }
+    currentClient_.reset();
+  }
+}
+
+void ArrowFlightDataSource::recordError(
+    ErrorPhase phase,
+    std::string_view category) {
+  errors_.addValue(1);
+  switch (phase) {
+    case ErrorPhase::kConnect:
+      RECORD_METRIC_VALUE(kCounterArrowFlightConnectErrors, 1);
+      break;
+    case ErrorPhase::kAuthenticate:
+      RECORD_METRIC_VALUE(kCounterArrowFlightAuthenticateErrors, 1);
+      break;
+    case ErrorPhase::kDoGet:
+      RECORD_METRIC_VALUE(kCounterArrowFlightDoGetErrors, 1);
+      break;
+    case ErrorPhase::kRead:
+      RECORD_METRIC_VALUE(kCounterArrowFlightReadErrors, 1);
+      break;
+    case ErrorPhase::kDecode:
+      RECORD_METRIC_VALUE(kCounterArrowFlightDecodeErrors, 1);
+      break;
+  }
+  recordCategoryCounter(category);
+
+  std::string_view phaseStr;
+  switch (phase) {
+    case ErrorPhase::kConnect:
+      phaseStr = "connect";
+      break;
+    case ErrorPhase::kAuthenticate:
+      phaseStr = "authenticate";
+      break;
+    case ErrorPhase::kDoGet:
+      phaseStr = "doGet";
+      break;
+    case ErrorPhase::kRead:
+      phaseStr = "read";
+      break;
+    case ErrorPhase::kDecode:
+      phaseStr = "decode";
+      break;
+  }
+  const auto key = fmt::format("arrowFlightError.{}.{}", phaseStr, category);
+  errorStats_[key].addValue(1);
+}
+
 void ArrowFlightDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   auto flightSplit = std::dynamic_pointer_cast<ArrowFlightSplit>(split);
   VELOX_CHECK(
@@ -151,36 +278,92 @@ void ArrowFlightDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
       "Cannot add new split while previous client/reader are still active. "
       "Previous split must reach EOS or be cancelled first.");
 
-  auto flightEndpointStr =
-      folly::base64Decode(flightSplit->flightEndpointBytes_);
+  startStream();
+  auto phase = ErrorPhase::kConnect;
+  bool errorRecorded = false;
+  try {
+    auto flightEndpointStr =
+        folly::base64Decode(flightSplit->flightEndpointBytes_);
+    auto deserializeResult =
+        arrow::flight::FlightEndpoint::Deserialize(flightEndpointStr);
+    if (!deserializeResult.ok()) {
+      recordError(phase, errorCategory(deserializeResult.status()));
+      errorRecorded = true;
+      raiseFlightError(deserializeResult.status());
+    }
+    auto flightEndpoint = std::move(deserializeResult).ValueUnsafe();
 
-  arrow::flight::FlightEndpoint flightEndpoint;
-  AFC_ASSIGN_OR_RAISE(
-      flightEndpoint,
-      arrow::flight::FlightEndpoint::Deserialize(flightEndpointStr));
+    arrow::flight::Location loc;
+    if (!flightEndpoint.locations.empty()) {
+      loc = flightEndpoint.locations[0];
+    } else {
+      VELOX_CHECK_NOT_NULL(
+          defaultLocation_,
+          "No location from Flight endpoint, default host or port is missing");
+      loc = *defaultLocation_;
+    }
 
-  arrow::flight::Location loc;
-  if (!flightEndpoint.locations.empty()) {
-    loc = flightEndpoint.locations[0];
-  } else {
-    VELOX_CHECK_NOT_NULL(
-        defaultLocation_,
-        "No location from Flight endpoint, default host or port is missing");
-    loc = *defaultLocation_;
+    const auto connectStart = std::chrono::steady_clock::now();
+    auto connectResult =
+        arrow::flight::FlightClient::Connect(loc, *clientOpts_);
+    const auto connectNanos = elapsedNanos(connectStart);
+    connectWallNanos_.addValue(connectNanos);
+    RECORD_METRIC_VALUE(
+        kCounterArrowFlightConnectLatencyMs, toMillis(connectNanos));
+    if (!connectResult.ok()) {
+      recordError(phase, errorCategory(connectResult.status()));
+      errorRecorded = true;
+      raiseFlightError(connectResult.status());
+    }
+    currentClient_ = std::move(connectResult).ValueUnsafe();
+
+    phase = ErrorPhase::kAuthenticate;
+    CallOptionsAddHeaders callOptsAddHeaders{};
+    const auto authenticateStart = std::chrono::steady_clock::now();
+    try {
+      authenticator_->authenticateClient(
+          currentClient_,
+          connectorQueryCtx_->sessionProperties(),
+          callOptsAddHeaders);
+    } catch (...) {
+      const auto authenticateNanos = elapsedNanos(authenticateStart);
+      authenticateWallNanos_.addValue(authenticateNanos);
+      RECORD_METRIC_VALUE(
+          kCounterArrowFlightAuthenticateLatencyMs,
+          toMillis(authenticateNanos));
+      throw;
+    }
+    const auto authenticateNanos = elapsedNanos(authenticateStart);
+    authenticateWallNanos_.addValue(authenticateNanos);
+    RECORD_METRIC_VALUE(
+        kCounterArrowFlightAuthenticateLatencyMs, toMillis(authenticateNanos));
+
+    phase = ErrorPhase::kDoGet;
+    const auto doGetStart = std::chrono::steady_clock::now();
+    auto doGetResult =
+        currentClient_->DoGet(callOptsAddHeaders, flightEndpoint.ticket);
+    const auto doGetNanos = elapsedNanos(doGetStart);
+    doGetWallNanos_.addValue(doGetNanos);
+    RECORD_METRIC_VALUE(
+        kCounterArrowFlightDoGetLatencyMs, toMillis(doGetNanos));
+    if (!doGetResult.ok()) {
+      recordError(phase, errorCategory(doGetResult.status()));
+      errorRecorded = true;
+      raiseFlightError(doGetResult.status());
+    }
+    currentReader_ = std::move(doGetResult).ValueUnsafe();
+    streamActive_ = true;
+    kActiveArrowFlightStreams.fetch_add(1);
+    RECORD_METRIC_VALUE(
+        kCounterArrowFlightActiveStreams, kActiveArrowFlightStreams.load());
+  } catch (...) {
+    if (!errorRecorded) {
+      recordError(phase, currentExceptionCategory());
+    }
+    closeResources(true);
+    finishStream(StreamOutcome::kFailed);
+    throw;
   }
-
-  AFC_ASSIGN_OR_RAISE(
-      currentClient_, arrow::flight::FlightClient::Connect(loc, *clientOpts_));
-
-  CallOptionsAddHeaders callOptsAddHeaders{};
-  authenticator_->authenticateClient(
-      currentClient_,
-      connectorQueryCtx_->sessionProperties(),
-      callOptsAddHeaders);
-
-  AFC_ASSIGN_OR_RAISE(
-      currentReader_,
-      currentClient_->DoGet(callOptsAddHeaders, flightEndpoint.ticket));
 }
 
 std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
@@ -188,45 +371,99 @@ std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
     velox::ContinueFuture& /* unused */) {
   VELOX_CHECK_NOT_NULL(currentReader_, "Missing split, call addSplit() first");
 
-  AFC_ASSIGN_OR_RAISE(auto chunk, currentReader_->Next());
+  arrow::flight::FlightStreamChunk chunk;
+  const auto batchWaitStart = std::chrono::steady_clock::now();
+  bool errorRecorded = false;
+  try {
+    auto chunkResult = currentReader_->Next();
+    const auto batchWaitNanos = elapsedNanos(batchWaitStart);
+    batchWaitWallNanos_.addValue(batchWaitNanos);
+    RECORD_METRIC_VALUE(
+        kCounterArrowFlightBatchWaitLatencyMs, toMillis(batchWaitNanos));
+    if (!chunkResult.ok()) {
+      recordError(ErrorPhase::kRead, errorCategory(chunkResult.status()));
+      errorRecorded = true;
+      raiseFlightError(chunkResult.status());
+    }
+    chunk = std::move(chunkResult).ValueUnsafe();
+  } catch (...) {
+    if (!errorRecorded) {
+      const auto batchWaitNanos = elapsedNanos(batchWaitStart);
+      batchWaitWallNanos_.addValue(batchWaitNanos);
+      RECORD_METRIC_VALUE(
+          kCounterArrowFlightBatchWaitLatencyMs, toMillis(batchWaitNanos));
+      recordError(ErrorPhase::kRead, currentExceptionCategory());
+    }
+    closeResources(true);
+    finishStream(StreamOutcome::kFailed);
+    throw;
+  }
 
   // Null values in the chunk indicates that the Flight stream is complete.
   if (!chunk.data) {
-    currentReader_ = nullptr;
-    if (currentClient_ != nullptr) {
-      auto status = currentClient_->Close();
-      if (!status.ok()) {
-        LOG(WARNING)
-            << "Failed to close Arrow Flight client after stream completion: "
-            << status.message();
-      }
-      currentClient_.reset();
-    }
+    finishStream(StreamOutcome::kCompleted);
+    closeResources(false);
     return nullptr;
   }
 
-  // Extract only required columns from the record batch as a velox RowVector.
-  auto output = projectOutputColumns(chunk.data);
+  velox::RowVectorPtr output;
+  const auto decodeStart = std::chrono::steady_clock::now();
+  try {
+    output = projectOutputColumns(chunk.data);
+  } catch (...) {
+    const auto decodeNanos = elapsedNanos(decodeStart);
+    decodeWallNanos_.addValue(decodeNanos);
+    RECORD_METRIC_VALUE(
+        kCounterArrowFlightDecodeLatencyMs, toMillis(decodeNanos));
+    recordError(ErrorPhase::kDecode, currentExceptionCategory());
+    finishStream(StreamOutcome::kFailed);
+    closeResources(true);
+    throw;
+  }
+  const auto decodeNanos = elapsedNanos(decodeStart);
+  decodeWallNanos_.addValue(decodeNanos);
+  RECORD_METRIC_VALUE(
+      kCounterArrowFlightDecodeLatencyMs, toMillis(decodeNanos));
 
-  completedRows_ += output->size();
-  completedBytes_ += output->estimateFlatSize();
+  const auto rowCount = output->size();
+  const auto byteCount = output->estimateFlatSize();
+  batches_.addValue(1);
+  rows_.addValue(rowCount);
+  bytes_.addValue(byteCount);
+  completedRows_ += rowCount;
+  completedBytes_ += byteCount;
+  RECORD_METRIC_VALUE(kCounterArrowFlightBatchesReceived, 1);
+  RECORD_METRIC_VALUE(kCounterArrowFlightRowsReceived, rowCount);
+  RECORD_METRIC_VALUE(kCounterArrowFlightBytesReceived, byteCount);
   return output;
 }
 
 void ArrowFlightDataSource::cancel() {
-  if (currentReader_ != nullptr) {
-    currentReader_->Cancel();
-    currentReader_.reset();
+  if (streamActive_ || currentReader_ != nullptr || currentClient_ != nullptr) {
+    finishStream(StreamOutcome::kCancelled);
   }
+  closeResources(true);
+}
 
-  if (currentClient_ != nullptr) {
-    auto status = currentClient_->Close();
-    if (!status.ok()) {
-      LOG(WARNING) << "Failed to close Arrow Flight client during cancel: "
-                   << status.message();
-    }
-    currentClient_.reset();
-  }
+std::unordered_map<std::string, velox::RuntimeMetric>
+ArrowFlightDataSource::getRuntimeStats() {
+  std::unordered_map<std::string, velox::RuntimeMetric> stats;
+  stats.emplace("arrowFlightConnectWallNanos", connectWallNanos_);
+  stats.emplace("arrowFlightAuthenticateWallNanos", authenticateWallNanos_);
+  stats.emplace("arrowFlightDoGetWallNanos", doGetWallNanos_);
+  stats.emplace("arrowFlightBatchWaitWallNanos", batchWaitWallNanos_);
+  stats.emplace("arrowFlightDecodeWallNanos", decodeWallNanos_);
+  stats.emplace("arrowFlightStreamWallNanos", streamWallNanos_);
+  stats.emplace("arrowFlightBatches", batches_);
+  stats.emplace("arrowFlightRows", rows_);
+  stats.emplace("arrowFlightBytes", bytes_);
+  stats.emplace("arrowFlightErrors", errors_);
+  stats.emplace("arrowFlightStreamsStarted", streamsStarted_);
+  stats.emplace("arrowFlightStreamsCompleted", streamsCompleted_);
+  stats.emplace("arrowFlightStreamsFailed", streamsFailed_);
+  stats.emplace("arrowFlightStreamsCancelled", streamsCancelled_);
+  stats.insert(errorStats_.begin(), errorStats_.end());
+  return stats;
 }
 
 velox::RowVectorPtr ArrowFlightDataSource::projectOutputColumns(

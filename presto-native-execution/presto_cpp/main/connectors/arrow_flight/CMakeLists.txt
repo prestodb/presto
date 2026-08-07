@@ -22,6 +22,7 @@ add_library(
   presto_flight_connector
   OBJECT
   ArrowFlightConnector.cpp
+  ArrowFlightErrors.cpp
   ArrowPrestoToVeloxConnector.cpp
   ArrowFlightConfig.cpp
 )
@@ -30,7 +31,7 @@ target_compile_definitions(presto_flight_connector PUBLIC PRESTO_ENABLE_ARROW_FL
 
 target_link_libraries(
   presto_flight_connector
-  velox
+  velox_connector
   ArrowFlight::arrow_flight_shared
   presto_flight_connector_utils
   presto_flight_connector_auth

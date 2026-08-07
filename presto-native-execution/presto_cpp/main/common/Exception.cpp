@@ -102,6 +102,43 @@ VeloxToPrestoExceptionTranslator::VeloxToPrestoExceptionTranslator() {
        .name = "EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT",
        .type = protocol::ErrorType::INSUFFICIENT_RESOURCES});
 
+  // Register Arrow Flight connector errors raised by the native client
+  registerError(
+      velox::error_source::kErrorSourceExternal,
+      presto_error_name::kArrowFlightRemoteErrorName,
+      {.code = presto_error_code::kArrowFlightRemoteErrorCode,
+       .name = presto_error_name::kArrowFlightRemoteErrorName,
+       .type = protocol::ErrorType::EXTERNAL});
+
+  registerError(
+      velox::error_source::kErrorSourceExternal,
+      presto_error_name::kArrowFlightUnavailableErrorName,
+      {.code = presto_error_code::kArrowFlightUnavailableErrorCode,
+       .name = presto_error_name::kArrowFlightUnavailableErrorName,
+       .type = protocol::ErrorType::EXTERNAL,
+       .retriable = true});
+
+  registerError(
+      velox::error_source::kErrorSourceExternal,
+      presto_error_name::kArrowFlightAuthErrorName,
+      {.code = presto_error_code::kArrowFlightAuthErrorCode,
+       .name = presto_error_name::kArrowFlightAuthErrorName,
+       .type = protocol::ErrorType::EXTERNAL});
+
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      presto_error_name::kArrowFlightInternalErrorName,
+      {.code = presto_error_code::kArrowFlightInternalErrorCode,
+       .name = presto_error_name::kArrowFlightInternalErrorName,
+       .type = protocol::ErrorType::INTERNAL_ERROR});
+
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      presto_error_name::kArrowFlightResourceErrorName,
+      {.code = presto_error_code::kArrowFlightResourceErrorCode,
+       .name = presto_error_name::kArrowFlightResourceErrorName,
+       .type = protocol::ErrorType::INSUFFICIENT_RESOURCES});
+
   // Register user errors
   registerError(
       velox::error_source::kErrorSourceUser,
@@ -177,6 +214,13 @@ protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
 
   const auto& errorSource = e.errorSource();
   const auto& errorCode = e.errorCode();
+
+  // Exact downstream Presto error codes travel encoded in the errorCode
+  // string; reproduce them verbatim instead of consulting the registry.
+  if (auto passthrough = passthrough_error::decode(errorCode)) {
+    error.errorCode = std::move(*passthrough);
+    return error;
+  }
 
   auto itrErrorCodesMap = errorMap_.find(errorSource);
   if (itrErrorCodesMap != errorMap_.end()) {

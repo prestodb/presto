@@ -16,14 +16,17 @@
 #include <folly/init/Init.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/connectors/arrow_flight/Macros.h"
 #include "presto_cpp/main/connectors/arrow_flight/tests/utils/ArrowFlightConnectorTestBase.h"
 #include "presto_cpp/main/connectors/arrow_flight/tests/utils/ArrowFlightPlanBuilder.h"
 #include "presto_cpp/main/connectors/arrow_flight/tests/utils/Utils.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/config/Config.h"
+#include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PortUtil.h"
+#include "velox/exec/tests/utils/QueryAssertions.h"
 
 using namespace arrow;
 using namespace facebook::velox;
@@ -129,6 +132,71 @@ TEST_F(ArrowFlightConnectorTest, dataSource) {
           .splits(makeSplits({"sample-data"}))
           .copyResults(pool()),
       "column with name 'ducks' not found");
+}
+
+TEST_F(ArrowFlightConnectorTest, runtimeStats) {
+  std::vector<int64_t> idData = {1, 2, 3};
+  std::vector<int32_t> valueData = {10, 20, 30};
+
+  updateTable(
+      "sample-data",
+      makeArrowTable(
+          {"id", "value"},
+          {makeNumericArray<arrow::Int64Type>(idData),
+           makeNumericArray<arrow::Int32Type>(valueData)}));
+
+  auto plan = ArrowFlightPlanBuilder()
+                  .flightTableScan(velox::ROW(
+                      {"id", "value"}, {velox::BIGINT(), velox::INTEGER()}))
+                  .planNode();
+
+  std::shared_ptr<velox::exec::Task> task;
+  AssertQueryBuilder(plan)
+      .splits(makeSplits({"sample-data"}))
+      .copyResults(pool(), task);
+
+  const auto opStats = toOperatorStats(task->taskStats());
+  ASSERT_EQ(opStats.count("TableScan"), 1);
+  const auto& runtimeStats = opStats.at("TableScan").runtimeStats;
+  ASSERT_EQ(runtimeStats.at("arrowFlightRows").sum, 3);
+  ASSERT_EQ(runtimeStats.at("arrowFlightBatches").sum, 1);
+  ASSERT_GT(runtimeStats.at("arrowFlightBytes").sum, 0);
+  ASSERT_GT(runtimeStats.at("arrowFlightConnectWallNanos").sum, 0);
+  ASSERT_EQ(runtimeStats.at("arrowFlightStreamsStarted").sum, 1);
+  ASSERT_EQ(runtimeStats.at("arrowFlightStreamsCompleted").sum, 1);
+  ASSERT_EQ(runtimeStats.at("arrowFlightStreamsFailed").sum, 0);
+  ASSERT_EQ(runtimeStats.at("arrowFlightErrors").sum, 0);
+}
+
+// End-to-end check that server-attached Presto error metadata survives the
+// gRPC round trip and surfaces as a typed error with the downstream name.
+TEST_F(ArrowFlightConnectorTest, prestoErrorPropagation) {
+  server_->setDoGetFailure(flight::MakeFlightError(
+      flight::FlightStatusCode::Unavailable,
+      "connection refused",
+      "presto-error-name=JDBC_ERROR\npresto-error-code=67108864\n"
+      "presto-error-type=EXTERNAL\npresto-error-retriable=false"));
+
+  auto plan = ArrowFlightPlanBuilder()
+                  .flightTableScan(velox::ROW({{"id", velox::BIGINT()}}))
+                  .planNode();
+
+  try {
+    AssertQueryBuilder(plan)
+        .splits(makeSplits({"sample-data"}))
+        .copyResults(pool());
+    FAIL() << "expected query to fail";
+  } catch (const velox::VeloxException& e) {
+    EXPECT_EQ(e.errorSource(), "EXTERNAL");
+    EXPECT_FALSE(e.isRetriable());
+    EXPECT_NE(e.message().find("JDBC_ERROR: "), std::string::npos);
+    const auto decoded = passthrough_error::decode(e.errorCode());
+    ASSERT_TRUE(decoded.has_value());
+    EXPECT_EQ(decoded->name, "JDBC_ERROR");
+    EXPECT_EQ(decoded->code, 67108864);
+    EXPECT_EQ(decoded->type, protocol::ErrorType::EXTERNAL);
+    EXPECT_FALSE(decoded->retriable);
+  }
 }
 
 TEST_F(ArrowFlightConnectorTest, multipleBatches) {

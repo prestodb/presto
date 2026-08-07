@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include <chrono>
 #include "presto_cpp/main/connectors/arrow_flight/ArrowFlightConfig.h"
 #include "presto_cpp/main/connectors/arrow_flight/auth/Authenticator.h"
 #include "velox/connectors/Connector.h"
@@ -100,9 +101,7 @@ class ArrowFlightDataSource : public velox::connector::DataSource {
   }
 
   std::unordered_map<std::string, velox::RuntimeMetric> getRuntimeStats()
-      override {
-    return {};
-  }
+      override;
 
   void cancel() override;
 
@@ -110,16 +109,42 @@ class ArrowFlightDataSource : public velox::connector::DataSource {
   velox::RowTypePtr outputType_;
 
  private:
+  enum class ErrorPhase { kConnect, kAuthenticate, kDoGet, kRead, kDecode };
+  enum class StreamOutcome { kCompleted, kFailed, kCancelled };
+
   /// Convert an Arrow record batch to Velox RowVector.
   /// Process only those columns that are present in outputType_.
   velox::RowVectorPtr projectOutputColumns(
       const std::shared_ptr<arrow::RecordBatch>& input);
+  void startStream();
+  void finishStream(StreamOutcome outcome);
+  void closeResources(bool cancelReader);
+  void recordError(ErrorPhase phase, std::string_view category);
 
   std::vector<std::string> columnMapping_;
   std::unique_ptr<arrow::flight::FlightClient> currentClient_;
   std::unique_ptr<arrow::flight::FlightStreamReader> currentReader_;
   uint64_t completedRows_ = 0;
   uint64_t completedBytes_ = 0;
+  bool streamStarted_ = false;
+  bool streamActive_ = false;
+  std::chrono::steady_clock::time_point streamStart_;
+  velox::RuntimeMetric connectWallNanos_{velox::RuntimeCounter::Unit::kNanos};
+  velox::RuntimeMetric authenticateWallNanos_{
+      velox::RuntimeCounter::Unit::kNanos};
+  velox::RuntimeMetric doGetWallNanos_{velox::RuntimeCounter::Unit::kNanos};
+  velox::RuntimeMetric batchWaitWallNanos_{velox::RuntimeCounter::Unit::kNanos};
+  velox::RuntimeMetric decodeWallNanos_{velox::RuntimeCounter::Unit::kNanos};
+  velox::RuntimeMetric streamWallNanos_{velox::RuntimeCounter::Unit::kNanos};
+  velox::RuntimeMetric batches_;
+  velox::RuntimeMetric rows_;
+  velox::RuntimeMetric bytes_{velox::RuntimeCounter::Unit::kBytes};
+  velox::RuntimeMetric errors_;
+  velox::RuntimeMetric streamsStarted_;
+  velox::RuntimeMetric streamsCompleted_;
+  velox::RuntimeMetric streamsFailed_;
+  velox::RuntimeMetric streamsCancelled_;
+  std::unordered_map<std::string, velox::RuntimeMetric> errorStats_;
   std::shared_ptr<Authenticator> authenticator_;
   const velox::connector::ConnectorQueryCtx* const connectorQueryCtx_;
   const std::shared_ptr<ArrowFlightConfig> flightConfig_;

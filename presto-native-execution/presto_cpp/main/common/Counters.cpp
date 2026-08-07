@@ -30,6 +30,53 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumHTTPRequest, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterNumHTTPRequestError, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterHTTPRequestLatencyMs, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterArrowFlightConnectLatencyMs, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterArrowFlightAuthenticateLatencyMs, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterArrowFlightDoGetLatencyMs, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterArrowFlightBatchWaitLatencyMs, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterArrowFlightDecodeLatencyMs, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterArrowFlightStreamLatencyMs, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterArrowFlightConnectErrors, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightAuthenticateErrors, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightDoGetErrors, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightReadErrors, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightDecodeErrors, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightUserErrors, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightExternalErrors, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightInsufficientResourcesErrors,
+      facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightInternalErrors, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightStreamsStarted, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightStreamsCompleted, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightStreamsFailed, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightStreamsCancelled, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightActiveStreams, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterArrowFlightBatchesReceived, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterArrowFlightRowsReceived, facebook::velox::StatType::SUM);
+  DEFINE_METRIC(
+      kCounterArrowFlightBytesReceived, facebook::velox::StatType::SUM);
   DEFINE_HISTOGRAM_METRIC(
       kCounterHTTPRequestSizeBytes,
       1 * 1024, // 1KB bucket size
