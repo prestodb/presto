@@ -117,7 +117,8 @@ public class PruneUnreferencedOutputs
         implements PlanOptimizer
 {
     @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
     {
         requireNonNull(plan, "plan is null");
 

@@ -91,7 +91,6 @@ public class OptimizeTopNUsingRowId
         implements PlanOptimizer
 {
     private final Metadata metadata;
-    private boolean isEnabledForTesting;
 
     public OptimizeTopNUsingRowId(Metadata metadata)
     {
@@ -99,21 +98,16 @@ public class OptimizeTopNUsingRowId
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean collectInformation)
     {
-        isEnabledForTesting = isSet;
+        return collectInformation || isOptimizeTopNUsingRowIdEnabled(session);
     }
 
     @Override
-    public boolean isEnabled(Session session)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
     {
-        return isEnabledForTesting || isOptimizeTopNUsingRowIdEnabled(session);
-    }
-
-    @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
-    {
-        if (isEnabled(session)) {
+        if (isEnabled(session, collectInformation)) {
             Rewriter rewriter = new Rewriter(session, metadata, idAllocator, variableAllocator, metadata.getFunctionAndTypeManager());
             PlanNode rewritten = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
             return PlanOptimizerResult.optimizerResult(rewritten, rewriter.isPlanChanged());

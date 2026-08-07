@@ -102,13 +102,14 @@ public class IterativeOptimizer
     }
 
     @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
     {
         // only disable new rules if we have legacy rules to fall back to
         if (!SystemSessionProperties.isNewOptimizerEnabled(session) && !legacyRules.isEmpty()) {
             boolean planChanged = false;
             for (PlanOptimizer optimizer : legacyRules) {
-                PlanOptimizerResult planOptimizerResult = optimizer.optimize(plan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                PlanOptimizerResult planOptimizerResult = optimizer.optimize(plan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector, collectInformation);
                 plan = planOptimizerResult.getPlanNode();
                 planChanged = planChanged || planOptimizerResult.isOptimizerTriggered();
             }

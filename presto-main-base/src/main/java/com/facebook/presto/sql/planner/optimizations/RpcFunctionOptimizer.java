@@ -106,7 +106,8 @@ public class RpcFunctionOptimizer
             TypeProvider types,
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean collectInformation)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
