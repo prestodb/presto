@@ -39,6 +39,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_USING_R
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS;
 import static com.facebook.presto.SystemSessionProperties.PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE;
 import static com.facebook.presto.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
+import static com.facebook.presto.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_OUTER_JOIN;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -65,6 +66,7 @@ public class TestLocalQueries
                 .setCatalog("local")
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
+                .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_OUTER_JOIN, "true")
                 .build();
 
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
