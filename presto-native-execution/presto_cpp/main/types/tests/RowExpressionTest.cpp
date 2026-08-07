@@ -21,6 +21,7 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/Expressions.h"
 #include "velox/functions/prestosql/types/JsonRegistration.h"
+#include "velox/vector/SimpleVector.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -53,6 +54,26 @@ class RowExpressionTest : public ::testing::Test {
 
     ASSERT_EQ(cexpr->type()->toString(), type);
     ASSERT_EQ(cexpr->value().toJson(cexpr->type()), value);
+  }
+
+  template <typename T>
+  void testDecimalConstantExpression(
+      const std::string& str,
+      const std::string& type,
+      T unscaledValue) {
+    json j = json::parse(str);
+    std::shared_ptr<protocol::RowExpression> p = j;
+
+    auto cexpr = std::static_pointer_cast<const ConstantTypedExpr>(
+        converter_->toVeloxExpr(p));
+
+    ASSERT_EQ(cexpr->type()->toString(), type);
+    ASSERT_TRUE(cexpr->hasValueVector());
+
+    auto vector = cexpr->toConstantVector(pool_.get());
+    ASSERT_EQ(vector->type()->toString(), type);
+    ASSERT_FALSE(vector->isNullAt(0));
+    ASSERT_EQ(vector->as<SimpleVector<T>>()->valueAt(0), unscaledValue);
   }
 
   std::string makeCastToVarchar(
@@ -118,6 +139,28 @@ TEST_F(RowExpressionTest, bigInt) {
         }
     )";
   testConstantExpression(str, "BIGINT", "1");
+}
+
+TEST_F(RowExpressionTest, shortDecimal) {
+  std::string str = R"##(
+        {
+            "@type": "constant",
+            "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAAGYAAAAAAAAA",
+            "type": "decimal(5, 2)"
+        }
+    )##";
+  testDecimalConstantExpression<int64_t>(str, "DECIMAL(5, 2)", 102);
+}
+
+TEST_F(RowExpressionTest, longDecimal) {
+  std::string str = R"##(
+        {
+            "@type": "constant",
+            "valueBlock": "DAAAAElOVDEyOF9BUlJBWQEAAAAAZAAAAAAAAAAAAAAAAAAAAA==",
+            "type": "decimal(24, 2)"
+        }
+    )##";
+  testDecimalConstantExpression<int128_t>(str, "DECIMAL(24, 2)", 100);
 }
 
 TEST_F(RowExpressionTest, doubleNull) {
