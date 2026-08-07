@@ -4,7 +4,7 @@ Release 0.299
 
 **Breaking Changes**
 ====================
-* Fix partition filter cache metrics association. BREAKING: Metric names changed from partitionnamescache* to partitionfiltercache*. Users monitoring these JMX metrics must update their dashboards, alerts, and scripts to use the new metric names. The old metrics tracked the partition filter cache (filtered partition queries), not the partition names cache, as the name suggested. #27960 <https://github.com/prestodb/presto/pull/27960>_
+* Fix partition filter cache metrics association. BREAKING: Metric names changed from `partitionnamescache*` to `partitionfiltercache*`. Users monitoring these JMX metrics must update their dashboards, alerts, and scripts to use the new metric names. The old metrics tracked the partition filter cache (filtered partition queries), not the partition names cache, as the name suggested. #27960 <https://github.com/prestodb/presto/pull/27960>_
 * Add explicit strategy parameter to rewrite_data_files procedure with binpack and sort strategies. Breaking change: Default behavior changed from sort to binpack for faster rewrites. Existing queries that rely on data ordering must add strategy => 'sort' to maintain previous behavior. Queries using sorted_by must now explicitly specify strategy => 'sort'. #28092 <https://github.com/prestodb/presto/pull/28092>_
 * Upgrade minimum Elasticsearch version from 6 to 9 (breaking) in response to CVE-2024-52980. #25320
 
@@ -45,12 +45,9 @@ _______________
 * Add the ``optimize_join_fan_out`` session property (config property ``optimizer.optimize-join-fan-out``, default disabled). When enabled, the optimizer collapses a fan-out equi-join whose preserved side is an aggregation grouped by a strict superset of the join keys: it packs the non-key columns with ``array_agg(row(...))`` so the join becomes unique on the join key, then re-expands them with a local ``UNNEST`` above the join, reducing the rows shuffled through the distributed join. `#27970 <https://github.com/prestodb/presto/pull/27970>`_
 * Add the materialized view query optimizer to the inner query of ``CREATE TABLE AS`` and ``INSERT`` statements, not just bare ``SELECT``. `#27917 <https://github.com/prestodb/presto/pull/27917>`_
 * Add validation to reject non-deterministic and session-time functions in ``CREATE MATERIALIZED VIEW`` definitions. `#28220 <https://github.com/prestodb/presto/pull/28220>`_
-* Added optimizer rule ``parallelize_chained_aggregation`` (default: false) that inserts a local round-robin exchange to parallelize the outer PARTIAL in chained aggregations. `#27884 <https://github.com/prestodb/presto/pull/27884>`_
+* Add optimizer rule ``parallelize_chained_aggregation`` (default: false) that inserts a local round-robin exchange to parallelize the outer PARTIAL in chained aggregations. `#27884 <https://github.com/prestodb/presto/pull/27884>`_
 * Update ST_Equals function for empty geometries to return true regardless of geometry types. `#27015 <https://github.com/prestodb/presto/pull/27015>`_
 * Update default value of `deprecated.legacy-timestamp` to false. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
-
-General Presto-on-Spark Changes
-_______________________________
 * Update the driver-side metadata sidecar registration of worker functions into the Airlift bootstrap. `#27699 <https://github.com/prestodb/presto/pull/27699>`_
 
 Prestissimo (Native Execution) Changes
