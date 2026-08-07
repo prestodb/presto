@@ -259,6 +259,12 @@ public class FunctionAndTypeManager
             }
 
             @Override
+            public FunctionHandle lookupJavaBuiltInFunction(String functionName, List<TypeSignatureProvider> fromTypes)
+            {
+                return FunctionAndTypeManager.this.lookupFunction(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, functionName), fromTypes);
+            }
+
+            @Override
             public FunctionHandle resolveFunction(
                     Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
                     Optional<TransactionId> transactionId,
