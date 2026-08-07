@@ -2498,16 +2498,30 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   outputTypes.push_back(resultType);
   auto outputType = ROW(std::move(outputNames), std::move(outputTypes));
 
+  // Build CallTypedExpr inputs: FieldAccess for columns, Constant for literals
+  // (Velox #18267 folds RPCNode args into CallTypedExpr: field refs vs
+  // constants)
+  std::vector<core::TypedExprPtr> callInputs;
+  callInputs.reserve(argumentColumns.size());
+  for (size_t i = 0; i < argumentColumns.size(); ++i) {
+    if (constantInputs[i] != nullptr) {
+      callInputs.push_back(
+          std::make_shared<core::ConstantTypedExpr>(constantInputs[i]));
+    } else {
+      callInputs.push_back(
+          std::make_shared<core::FieldAccessTypedExpr>(
+              argumentTypes[i], argumentColumns[i]));
+    }
+  }
+  auto call = std::make_shared<core::CallTypedExpr>(
+      resultType, std::move(callInputs), node->functionName);
+
   return std::make_shared<core::RPCNode>(
       node->id,
       sourceNode,
-      node->functionName,
-      resultType,
+      std::move(call),
       node->outputVariable.name,
       std::move(outputType),
-      std::move(argumentColumns),
-      std::move(argumentTypes),
-      std::move(constantInputs),
       veloxStreamingMode,
       dispatchBatchSize);
 }
