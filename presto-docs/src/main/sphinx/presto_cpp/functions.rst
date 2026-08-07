@@ -6,3 +6,4 @@ Presto C++ Functions
     :maxdepth: 1
 
     functions/sketch.rst
+    functions/table-functions.rst
