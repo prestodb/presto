@@ -284,7 +284,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   // applies if 'enableBufferCopy_' is true
   const bool immediateBufferTransfer_;
 
-  folly::CPUThreadPoolExecutor* const driverExecutor_;
+  folly::CPUThreadPoolExecutor* const exchangeHttpCpuExecutor_;
 
   std::shared_ptr<http::HttpClient> httpClient_;
   http::JwtOptions jwtOptions_;
