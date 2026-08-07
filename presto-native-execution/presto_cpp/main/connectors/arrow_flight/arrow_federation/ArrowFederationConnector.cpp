@@ -19,6 +19,7 @@
 #include <utility>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/common/ConfigReader.h"
+#include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/connectors/arrow_flight/Macros.h"
 #include "velox/vector/arrow/Bridge.h"
 
@@ -138,6 +139,19 @@ std::optional<velox::RowVectorPtr> ArrowFederationDataSource::next(
     uint64_t size,
     velox::ContinueFuture& future) {
   return ArrowFlightDataSource::next(size, future);
+}
+
+void ArrowFederationDataSource::handleArrowError(const arrow::Status& status) {
+  auto detail = arrow::flight::FlightStatusDetail::UnwrapStatus(status);
+  if (detail != nullptr) {
+    auto extraInfo = detail->extra_info();
+    if (!extraInfo.empty()) {
+      protocol::ExecutionFailureInfo failureInfo;
+      auto fi = json::parse(extraInfo);
+      protocol::from_json(fi, failureInfo);
+      throw ExecutionFailureException(status.message(), failureInfo);
+    }
+  }
 }
 
 std::unique_ptr<velox::connector::DataSource>

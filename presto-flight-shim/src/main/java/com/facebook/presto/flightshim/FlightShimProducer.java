@@ -20,11 +20,13 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.plugin.arrow.ArrowBatchSource;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
@@ -34,14 +36,19 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ErrorCause;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.type.TypeDeserializer;
+import com.facebook.presto.util.Failures;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.flight.BackpressureStrategy;
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.ErrorFlightMetadata;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
@@ -65,6 +72,8 @@ public class FlightShimProducer
         extends NoOpFlightProducer
         implements AutoCloseable
 {
+    public static final String METADATA_KEY_ARROW_STATUS_CODE = "x-arrow-status";
+    public static final String METADATA_KEY_ARROW_STATUS_BIN = "grpc-status-details-bin";
     private static final Logger log = Logger.get(FlightShimProducer.class);
     private static final int CLIENT_POLL_TIME = 5000;  // Backpressure poll time ms
     private final BufferAllocator allocator;
@@ -73,6 +82,7 @@ public class FlightShimProducer
     private final FlightShimConfig config;
     private final ExecutorService shimExecutor;
     private final JsonCodec<FlightShimRequest> requestCodec;
+    private final JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec;
 
     @Inject
     public FlightShimProducer(
@@ -82,13 +92,15 @@ public class FlightShimProducer
             @ForFlightShimServer ExecutorService shimExecutor,
             PageSourceManager pageSourceManager,
             TypeDeserializer typeDeserializer,
-            BlockEncodingManager blockEncodingManager)
+            BlockEncodingManager blockEncodingManager,
+            JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec)
     {
         this.allocator = allocator.newChildAllocator("flight-shim", 0, Long.MAX_VALUE);
         this.pluginManager = requireNonNull(pluginManager, "pluginManager is null");
         this.config = requireNonNull(config, "config is null");
         this.shimExecutor = requireNonNull(shimExecutor, "shimExecutor is null");
         this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
+        this.executionFailureInfoCodec = requireNonNull(executionFailureInfoCodec, "executionFailureInfoCodec is null");
         requireNonNull(typeDeserializer, "typeDeserializer is null");
         requireNonNull(blockEncodingManager, "blockEncodingManager is null");
 
@@ -184,7 +196,8 @@ public class FlightShimProducer
         catch (Throwable t) {
             final String message = "Error getting connector flight stream";
             log.error(t, message);
-            listener.error(CallStatus.INTERNAL.withCause(t).withDescription(format("%s [%s]", message, t)).toRuntimeException());
+            final CallStatus callStatus = createCallStatusWithFailureInfo(t).withDescription(format("%s [%s]", message, t));
+            listener.error(callStatus.toRuntimeException());
         }
         finally {
             log.debug(format("Processing GetStream completed [columns=%d, rows=%d, batches=%d]", columnCount, rowCount, batchCount));
@@ -213,5 +226,37 @@ public class FlightShimProducer
         }
         pluginManager.stop();
         allocator.close();
+    }
+
+    private CallStatus createCallStatusWithFailureInfo(Throwable t)
+    {
+        CallStatus callStatus = CallStatus.INTERNAL.withCause(t);
+        try {
+            final ExecutionFailureInfo failureInfoFull = Failures.toFailure(t);
+
+            // NOTE: gRPC has limit of metadata size, only include necessary info
+            final ExecutionFailureInfo failureInfo = new ExecutionFailureInfo(
+                    failureInfoFull.getType(),
+                    failureInfoFull.getMessage(),
+                    null,
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    new ErrorLocation(1, 1),
+                    failureInfoFull.getErrorCode(),
+                    new HostAddress("0.0.0.0", 0),
+                    ErrorCause.UNKNOWN);
+            byte[] failureInfoBytes = executionFailureInfoCodec.toJsonBytes(failureInfo);
+
+            final ErrorFlightMetadata metadata = new ErrorFlightMetadata();
+            // NOTE: must include metadata with a valid gRPC status code for arrow-cpp client to receive metadata status binary
+            metadata.insert(METADATA_KEY_ARROW_STATUS_CODE, String.valueOf(io.grpc.Status.Code.INTERNAL.value()));
+            metadata.insert(METADATA_KEY_ARROW_STATUS_BIN, failureInfoBytes);
+
+            return callStatus.withMetadata(metadata);
+        }
+        catch (Exception e) {
+            log.error(e, "Unable to serialize failure information");
+            return callStatus;
+        }
     }
 }

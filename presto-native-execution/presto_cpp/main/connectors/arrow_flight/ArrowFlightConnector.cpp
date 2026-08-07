@@ -178,9 +178,12 @@ void ArrowFlightDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
       connectorQueryCtx_->sessionProperties(),
       callOptsAddHeaders);
 
-  AFC_ASSIGN_OR_RAISE(
-      currentReader_,
-      currentClient_->DoGet(callOptsAddHeaders, flightEndpoint.ticket));
+  auto result = currentClient_->DoGet(callOptsAddHeaders, flightEndpoint.ticket);
+  if (!result.ok()) {
+    handleArrowError(result.status());
+    VELOX_CHECK(result.ok(), result.status().message());
+  }
+  currentReader_ = std::move(result).ValueUnsafe();
 }
 
 std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
