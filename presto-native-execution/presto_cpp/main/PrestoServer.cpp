@@ -86,6 +86,7 @@
 
 #ifdef PRESTO_ENABLE_CUDF
 #include "velox/experimental/cudf/CudfConfig.h"
+#include "velox/experimental/cudf/exec/PrestoAggregateFunctions.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/expression/PrestoFunctions.h"
 #endif
@@ -1530,6 +1531,11 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
+#ifdef PRESTO_ENABLE_CUDF
+  velox::cudf_velox::registerPrestoFunctions(prestoBuiltinFunctionPrefix_);
+  velox::cudf_velox::registerPrestoAggregateFunctions(
+      prestoBuiltinFunctionPrefix_);
+#endif
 
   if (velox::connector::hasConnector(
           velox::connector::hive::HiveConnectorFactory::kHiveConnectorName) ||
