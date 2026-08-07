@@ -142,7 +142,8 @@ public class AddLocalExchanges
     }
 
     @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
     {
         LocalExchangeParentPreferenceStrategy strategy = getLocalExchangeParentPreferenceStrategy(session);
         Optional<StatsProvider> statsProvider = Optional.empty();

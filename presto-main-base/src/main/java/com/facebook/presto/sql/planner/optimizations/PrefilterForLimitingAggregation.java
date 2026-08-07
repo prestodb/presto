@@ -99,7 +99,6 @@ public class PrefilterForLimitingAggregation
 
     private final Metadata metadata;
     private final StatsCalculator statsCalculator;
-    private boolean isEnabledForTesting;
 
     public PrefilterForLimitingAggregation(Metadata metadata, StatsCalculator statsCalculator)
     {
@@ -108,15 +107,9 @@ public class PrefilterForLimitingAggregation
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean collectInformation)
     {
-        isEnabledForTesting = isSet;
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || SystemSessionProperties.isPrefilterForGroupbyLimit(session);
+        return collectInformation || SystemSessionProperties.isPrefilterForGroupbyLimit(session);
     }
 
     @Override
@@ -126,9 +119,10 @@ public class PrefilterForLimitingAggregation
             TypeProvider types,
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean collectInformation)
     {
-        if (isEnabled(session)) {
+        if (isEnabled(session, collectInformation)) {
             Rewriter rewriter = new Rewriter(session, metadata, types, statsCalculator, idAllocator, variableAllocator);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan);
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());

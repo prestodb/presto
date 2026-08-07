@@ -125,7 +125,6 @@ public class PushdownSubfields
 {
     private final Metadata metadata;
     private final ExpressionOptimizerProvider expressionOptimizerProvider;
-    private boolean isEnabledForTesting;
 
     public PushdownSubfields(Metadata metadata, ExpressionOptimizerProvider expressionOptimizerProvider)
     {
@@ -134,25 +133,20 @@ public class PushdownSubfields
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean collectInformation)
     {
-        isEnabledForTesting = isSet;
+        return collectInformation || isPushdownSubfieldsEnabled(session);
     }
 
     @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || isPushdownSubfieldsEnabled(session);
-    }
-
-    @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
 
-        if (!isEnabled(session)) {
+        if (!isEnabled(session, collectInformation)) {
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
 

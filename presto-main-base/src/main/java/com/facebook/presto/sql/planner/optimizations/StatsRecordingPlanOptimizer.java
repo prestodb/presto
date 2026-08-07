@@ -49,13 +49,14 @@ public final class StatsRecordingPlanOptimizer
             TypeProvider types,
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean collectInformation)
     {
         PlanOptimizerResult result;
         long duration;
         try {
             long start = System.nanoTime();
-            result = delegate.optimize(plan, session, types, variableAllocator, idAllocator, warningCollector);
+            result = delegate.optimize(plan, session, types, variableAllocator, idAllocator, warningCollector, collectInformation);
             duration = System.nanoTime() - start;
         }
         catch (RuntimeException e) {
