@@ -203,6 +203,7 @@ public class MaterializedViewJoinQueryRewriter
                 Optional<GroupBy> newGroupBy = querySpecification.getGroupBy().map(gb ->
                         expressionRewriter.rewriteGroupBy(gb, querySpecification.getSelect().getSelectItems()));
                 Optional<OrderBy> newOrderBy = querySpecification.getOrderBy().map(expressionRewriter::rewriteOrderBy);
+                Optional<Expression> newHaving = querySpecification.getHaving().map(expressionRewriter::rewriteExpression);
 
                 if (isMaterializedViewDataConsistencyEnabled(session)) {
                     // TupleDomain.all() is stricter than extracting partition predicates from the
@@ -221,7 +222,7 @@ public class MaterializedViewJoinQueryRewriter
                         Optional.of(newFrom),
                         newWhere,
                         newGroupBy,
-                        querySpecification.getHaving(),
+                        newHaving,
                         newOrderBy,
                         querySpecification.getOffset(),
                         querySpecification.getLimit());
@@ -236,10 +237,6 @@ public class MaterializedViewJoinQueryRewriter
         {
             if (mvInfo.getWhereClause().isPresent()) {
                 log.debug("JOIN MV rewrite rejected: MV has WHERE clause. MV=%s", materializedViewName);
-                return false;
-            }
-            if (querySpecification.getHaving().isPresent()) {
-                log.debug("JOIN MV rewrite rejected: query has HAVING. MV=%s", materializedViewName);
                 return false;
             }
             if (mvInfo.getGroupBy().isPresent()) {
@@ -353,6 +350,7 @@ public class MaterializedViewJoinQueryRewriter
                 }
             }
             querySpecification.getWhere().ifPresent(where -> checker.process(where, null));
+            querySpecification.getHaving().ifPresent(having -> checker.process(having, null));
             querySpecification.getOrderBy().ifPresent(orderBy ->
                     orderBy.getSortItems().forEach(sortItem -> checker.process(sortItem.getSortKey(), null)));
 
@@ -375,41 +373,65 @@ public class MaterializedViewJoinQueryRewriter
 
         private boolean areAggregatesCompatible(QuerySpecification querySpecification)
         {
-            Map<Expression, Identifier> baseToViewColumnMap = mvInfo.getBaseToViewColumnMap();
-
             for (SelectItem item : querySpecification.getSelect().getSelectItems()) {
                 if (!(item instanceof SingleColumn)) {
                     continue;
                 }
                 Expression expr = ((SingleColumn) item).getExpression();
-                if (!(expr instanceof FunctionCall)) {
-                    continue;
-                }
-                FunctionCall funcCall = (FunctionCall) expr;
-                if (!SUPPORTED_FUNCTION_CALLS.contains(funcCall.getName())) {
-                    continue;
-                }
-
-                boolean refRewritten = expressionRewriter.referencesRewrittenTable(funcCall);
-                boolean refOther = expressionRewriter.referencesOtherTable(funcCall);
-
-                if (refRewritten && refOther) {
+                if (expr instanceof FunctionCall
+                        && SUPPORTED_FUNCTION_CALLS.contains(((FunctionCall) expr).getName())
+                        && !isAggregateCompatible((FunctionCall) expr)) {
                     return false;
                 }
-                if (!refRewritten && !refOther && mvInfo.getGroupBy().isPresent()) {
-                    if (!baseToViewColumnMap.containsKey(funcCall)) {
-                        return false;
+            }
+
+            // HAVING aggregates (which can be nested inside comparisons/logical ops)
+            // are subject to the same compatibility rules as SELECT aggregates.
+            if (querySpecification.getHaving().isPresent()) {
+                AtomicBoolean compatible = new AtomicBoolean(true);
+                new DefaultTraversalVisitor<Void, Void>()
+                {
+                    @Override
+                    protected Void visitFunctionCall(FunctionCall node, Void context)
+                    {
+                        if (SUPPORTED_FUNCTION_CALLS.contains(node.getName())) {
+                            if (!isAggregateCompatible(node)) {
+                                compatible.set(false);
+                            }
+                            // Do not traverse into aggregate arguments.
+                            return null;
+                        }
+                        return super.visitFunctionCall(node, context);
                     }
-                }
-                if (!refRewritten && refOther && mvInfo.getGroupBy().isPresent()) {
+                }.process(querySpecification.getHaving().get(), null);
+                if (!compatible.get()) {
                     return false;
                 }
-                if (refRewritten && !refOther && mvInfo.getGroupBy().isPresent()) {
-                    if (!ASSOCIATIVE_REWRITE_FUNCTIONS.contains(funcCall.getName())
-                            && !NON_ASSOCIATIVE_REWRITE_FUNCTIONS.containsKey(funcCall.getName())) {
-                        return false;
-                    }
+            }
+            return true;
+        }
+
+        private boolean isAggregateCompatible(FunctionCall funcCall)
+        {
+            boolean refRewritten = expressionRewriter.referencesRewrittenTable(funcCall);
+            boolean refOther = expressionRewriter.referencesOtherTable(funcCall);
+
+            // Aggregate spanning both the swapped and a non-swapped table cannot be rolled up.
+            if (refRewritten && refOther) {
+                return false;
+            }
+            if (mvInfo.getGroupBy().isPresent()) {
+                // Aggregate over no table columns (e.g. COUNT(*)) must be pre-computed by the MV.
+                if (!refRewritten && !refOther) {
+                    return mvInfo.getBaseToViewColumnMap().containsKey(funcCall);
                 }
+                // Aggregate over only the non-swapped table cannot use the pre-aggregated MV.
+                if (!refRewritten) {
+                    return false;
+                }
+                // Aggregate over only the swapped table must be roll-up-able.
+                return ASSOCIATIVE_REWRITE_FUNCTIONS.contains(funcCall.getName())
+                        || NON_ASSOCIATIVE_REWRITE_FUNCTIONS.containsKey(funcCall.getName());
             }
             return true;
         }
