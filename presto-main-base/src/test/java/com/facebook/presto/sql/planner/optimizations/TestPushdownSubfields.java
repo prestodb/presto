@@ -21,15 +21,20 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static java.util.Collections.emptyList;
 
 /**
  * Regression tests for {@link PushdownSubfields#visitMergeWriter} and
@@ -48,10 +53,16 @@ public class TestPushdownSubfields
 {
     private static final SchemaTableName TARGET_TABLE = new SchemaTableName("schema", "table");
 
+    @BeforeClass
+    @Override
+    public void setUp()
+    {
+        tester = new RuleTester(emptyList(), ImmutableMap.of(PUSHDOWN_SUBFIELDS_ENABLED, "true"));
+    }
+
     private PushdownSubfields newOptimizer()
     {
         PushdownSubfields optimizer = new PushdownSubfields(tester().getMetadata(), tester().getExpressionManager());
-        optimizer.setEnabledForTesting(true);
         return optimizer;
     }
 

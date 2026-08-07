@@ -255,7 +255,7 @@ public class SqlQueryScheduler
                 splitSourceFactory,
                 session);
 
-        this.rootStageId = stageExecutions.stream().reduce((first, second) -> second).get().getStageExecution().getStageExecutionId().getStageId();
+        this.rootStageId = stageExecutions.get(stageExecutions.size() - 1).getStageExecution().getStageExecutionId().getStageId();
 
         stageExecutions.stream()
                 .forEach(execution -> this.stageExecutions.put(execution.getStageExecution().getStageExecutionId().getStageId(), execution));
@@ -655,7 +655,7 @@ public class SqlQueryScheduler
         PlanFragment fragment = subPlan.getFragment();
         PlanNode newRoot = fragment.getRoot();
         for (PlanOptimizer optimizer : runtimePlanOptimizers) {
-            newRoot = optimizer.optimize(newRoot, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector).getPlanNode();
+            newRoot = optimizer.optimize(newRoot, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector, false).getPlanNode();
         }
         if (newRoot != fragment.getRoot()) {
             Optional<StatsAndCosts> estimatedStatsAndCosts = fragment.getStatsAndCosts();
