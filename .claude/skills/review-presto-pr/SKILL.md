@@ -77,6 +77,11 @@ git show <commit> --stat
 Using `"$BASE"...HEAD` (three dots) diffs against the merge-base, which is
 correct even when the base branch has advanced or was created from a release tag.
 
+**Advancing Velox:**
+It is preferred that PRs updating the Velox git submodule are restricted to updating the submodule only.
+They should only include code and test changes in presto-native* modules needed for the underlying Velox changes.
+Features that require subsequent presto-native* module changes should be implemented in a separate PR after the Velox update is merged.
+
 ### 3. Code Style Checklist
 
 Verify adherence to Presto style guidelines:
@@ -90,6 +95,8 @@ Verify adherence to Presto style guidelines:
 - [ ] **Class structure**: Fields before methods, ordered by access level (public -> private)
 - [ ] **Nullability**: Using `@Nullable` annotation where appropriate
 - [ ] **Validation**: Constructor arguments validated with `requireNonNull` and `checkArgument`
+
+Verify adherence to Velox style guidelines in presto-native-execution/velox/CODING_STYLE.md for any C++ code changes.
 
 ### 4. Code Safety and Quality
 
@@ -163,6 +170,21 @@ SPI changes require extra scrutiny:
 - Follow RESTful conventions (proper use of GET/POST/PUT/DELETE, resource-based URLs)
 - Consistent with existing endpoint patterns in the codebase
 - Proper error responses and status codes
+
+#### For presto-native* Module Changes
+- If the code is implementing a SQL function or operator change which is available in Presto Java then ensure the logic of the native code is consistent with it.
+  Focus on logic errors, off-by-one, null/empty handling, boundary conditions, integer overflow, floating point edge cases (NaN, Inf, negative zero).
+  Ensure the PR has e2e tests using Native and HiveQueryRunners that verify the C++ implementation against the Java implementation for a variety of inputs, including edge cases.
+- Ensure that presto_protocol changes included in the PR are not manually written and can be generated using command
+
+```bash
+cd presto-native-execution/velox/presto_protocol
+make presto_protocol
+```
+- Check usage of smart pointers and RAII for resource management. Ensure that raw pointers are not used unless absolutely necessary and are properly managed. If raw pointers are needed then check memory safety : Use-after-free, double-free, leaks, dangling pointers/references and ownership issues.
+- Check for buffer overflows in any memory copies or array accesses. Ensure that all buffer sizes are properly checked.
+- Ensure that exceptions are caught appropriately and that error messages are informative. The error message should try to include suggestions to fix user errors and should not include internal details that are not useful to users.
+- Ensure correct use of VELOX_CHECK_* vs VELOX_USER_CHECK_*. VELOX_CHECK_* should be used for internal consistency checks that indicate a bug if they fail, while VELOX_USER_CHECK_* should be used for validating user input and providing informative error messages.
 
 ### 6. Test Coverage
 
