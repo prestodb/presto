@@ -86,6 +86,11 @@ public class TestIcebergCopyOnWriteDelete
             // DELETE on the partition column removes the entire partition — supported for COW.
             assertUpdate("DELETE FROM " + tableName + " WHERE id = 3", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES (1, 10), (2, 1)");
+
+            // Verify the COW partition delete is reflected in Iceberg metadata system tables.
+            assertQuery("SELECT COUNT(*) > 0 FROM \"" + tableName + "$snapshots\" WHERE operation = 'delete'", "VALUES (true)");
+            assertQuery("SELECT COUNT(*) > 0 FROM \"" + tableName + "$history\" WHERE snapshot_id IS NOT NULL", "VALUES (true)");
+            assertQuery("SELECT COUNT(*) > 0 FROM \"" + tableName + "$manifests\"", "VALUES (true)");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
