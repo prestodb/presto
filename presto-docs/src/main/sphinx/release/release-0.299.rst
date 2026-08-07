@@ -4,6 +4,9 @@ Release 0.299
 
 **Breaking Changes**
 ====================
+* Fix partition filter cache metrics association. BREAKING: Metric names changed from partitionnamescache* to partitionfiltercache*. Users monitoring these JMX metrics must update their dashboards, alerts, and scripts to use the new metric names. The old metrics tracked the partition filter cache (filtered partition queries), not the partition names cache, as the name suggested. #27960 <https://github.com/prestodb/presto/pull/27960>_
+* Add explicit strategy parameter to rewrite_data_files procedure with binpack and sort strategies. Breaking change: Default behavior changed from sort to binpack for faster rewrites. Existing queries that rely on data ordering must add strategy => 'sort' to maintain previous behavior. Queries using sorted_by must now explicitly specify strategy => 'sort'. #28092 <https://github.com/prestodb/presto/pull/28092>_
+* Upgrade minimum Elasticsearch version from 6 to 9 (breaking) in response to CVE-2024-52980. #25320
 
 **Highlights**
 ==============
