@@ -46,7 +46,7 @@ _______________
 * Update ST_Equals function for empty geometries to return true regardless of geometry types. `#27015 <https://github.com/prestodb/presto/pull/27015>`_
 * Update default value of `deprecated.legacy-timestamp` to false. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
 
-General Presto-on-spark Changes
+General Presto-on-Spark Changes
 _______________________________
 * Update the driver-side metadata sidecar registration of worker functions into the Airlift bootstrap. `#27699 <https://github.com/prestodb/presto/pull/27699>`_
 
@@ -78,7 +78,7 @@ ___________________________
 
 Delta Lake Connector Changes
 ____________________________
-* Add support for reading Variant columns as JSON columns Presto Parquet. `#27552 <https://github.com/prestodb/presto/pull/27552>`_
+* Add support for reading Variant columns as JSON columns in Presto when reading Parquet files. `#27552 <https://github.com/prestodb/presto/pull/27552>`_
 * Add support for reading Variant data as JSON. `#27552 <https://github.com/prestodb/presto/pull/27552>`_
 
 Hive Connector Changes
@@ -104,7 +104,7 @@ _________________________
 * Add support for Basic Auth against the REST catalog server. `#28103 <https://github.com/prestodb/presto/pull/28103>`_
 * Add support for iceberg write-default. `#27912 <https://github.com/prestodb/presto/pull/27912>`_
 * Add support to enable TLS for REST catalog communication. `#28103 <https://github.com/prestodb/presto/pull/28103>`_
-* Adds read support of row lineage columns as per Iceberg V3 spec. `#27743 <https://github.com/prestodb/presto/pull/27743>`_
+* Add read support for row lineage columns as per Iceberg V3 spec. `#27743 <https://github.com/prestodb/presto/pull/27743>`_
 
 Lance Connector Changes
 _______________________
