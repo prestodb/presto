@@ -53,6 +53,16 @@ class ConfigBase {
       const std::string& propertyName,
       const folly::Optional<std::string>& defaultValue = {});
 
+  /// Updates the default value of an already-registered property.
+  /// Returns true if the property was found and updated, false otherwise.
+  /// This is useful for presto-on-spark to specify specific overrides in code
+  /// which might be different from regular presto deployment.
+  /// Pass folly::none to clear the default (making the property have no
+  /// default).
+  bool updatePropertyDefault(
+      const std::string& propertyName,
+      const folly::Optional<std::string>& newDefaultValue);
+
   /// Adds or replaces value at the given key. Can be used by debugging or
   /// testing code.
   /// Returns previous value if there was any.
