@@ -47,6 +47,7 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
 import java.util.HashMap;
 import java.util.List;
@@ -83,7 +84,6 @@ public class OracleClient
         extends BaseJdbcClient
 {
     private static final Logger LOG = Logger.get(OracleClient.class);
-    private final int fetchSize;
 
     private final boolean synonymsEnabled;
     private final int numberDefaultScale;
@@ -100,7 +100,6 @@ public class OracleClient
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.numberDefaultScale = oracleConfig.getNumberDefaultScale();
-        this.fetchSize = config.getFetchSize();
     }
 
     private String[] getTableTypes()
@@ -122,17 +121,13 @@ public class OracleClient
                 escapeNamePattern(schemaName, Optional.of(escape)).orElse(null),
                 escapeNamePattern(tableName, Optional.of(escape)).orElse(null),
                 getTableTypes());
-        resultSet.setFetchSize(fetchSize);
+        try {
+            resultSet.setFetchSize(fetchSize);
+        }
+        catch (SQLFeatureNotSupportedException e) {
+            // safeguard
+        }
         return resultSet;
-    }
-
-    @Override
-    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
-            throws SQLException
-    {
-        PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(fetchSize);
-        return statement;
     }
 
     @Override
