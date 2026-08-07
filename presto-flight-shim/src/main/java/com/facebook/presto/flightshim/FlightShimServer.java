@@ -21,13 +21,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.util.Modules;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.grpc.ContextPropagatingExecutorService;
 import org.apache.arrow.memory.BufferAllocator;
+import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
@@ -41,11 +44,12 @@ public class FlightShimServer
 
     public static Injector initialize(Map<String, String> config, Module... extraModules)
     {
-        Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
-                .add(new FlightShimModule())
-                .add(new JsonModule())
-                .add(extraModules)
-                .build());
+        List<Module> modules = ImmutableList.of(
+                new MBeanModule(),
+                new FlightShimModule(),
+                new JsonModule());
+
+        Bootstrap app = new Bootstrap(Modules.override(modules).with(extraModules));
 
         // Required for ConnectorManager - add as optional property because required will prevent loading config from file
         Map<String, String> optionalConfigProperties = new HashMap<>();
