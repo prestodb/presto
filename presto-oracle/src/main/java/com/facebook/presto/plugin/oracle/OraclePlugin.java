@@ -12,19 +12,20 @@
  * limitations under the License.
  */
 package com.facebook.presto.plugin.oracle;
-import com.facebook.presto.plugin.jdbc.JdbcPlugin;
+
+import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.google.common.collect.ImmutableList;
 
 /**
- *  Initialize OraclePlugin class for prestoDB
+ * Initialize OraclePlugin class for prestoDB
  */
 public class OraclePlugin
-        extends JdbcPlugin
+        implements Plugin
 {
-    /**
-     *  Oracle Plugin Constructor
-     */
-    public OraclePlugin()
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        super("oracle", new OracleClientModule());
+        return ImmutableList.of(new OracleConnectorFactory());
     }
 }
