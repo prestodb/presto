@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnType;
 import com.facebook.presto.spi.security.ViewSecurity;
+import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -2384,12 +2387,50 @@ class AstBuilder
 
         Optional<Expression> defaultExpression = Optional.empty();
         if (context.DEFAULT() != null && context.expression() != null) {
-            defaultExpression = Optional.of((Expression) visit(context.expression()));
+            defaultExpression = Optional.of((Expression) visit(context.expression().get(0)));
         }
 
+        if (context.DEFAULT() != null && (context.GENERATED() != null || context.AS() != null)) {
+            throw new ParsingException("Setting a default expression on a derived column is not supported.");
+        }
+
+        Optional<DerivedColumnSpec> derivedColumnExpressionSpec = Optional.empty();
+        Identifier columnIdentifier = (Identifier) visit(context.identifier());
+        Optional<Expression> derivedColumnExpression = Optional.empty();
+        if (context.AS() != null && !context.expression().isEmpty()) {
+            SqlBaseParser.ExpressionContext tree = context.expression().get(0);
+            check(tree != null, "expression is null ", context);
+            Expression validatedDerivedColumnExpression = (Expression) visit(tree);
+            DerivedColumnType derivedColumnType = DerivedColumnType.PERSISTENT;
+            if (context.GENERATED() != null && context.ALWAYS() != null) {
+                derivedColumnType = DerivedColumnType.GENERATED_ALWAYS_PERSISTENT;
+            }
+            if (context.VIRTUAL() != null) {
+                derivedColumnType = DerivedColumnType.VIRTUAL;
+            }
+            derivedColumnExpression = Optional.of(validatedDerivedColumnExpression);
+            // tree.getText() gets the expression as text, but messes it up by removing spaces. e.g. (CAST(c1 AS decimal) * DECIMAL '10.5') becomes (CAST(c1ASdecimal)*DECIMAL'10.5')
+            derivedColumnExpressionSpec = Optional.of(
+                    new DerivedColumnSpec(derivedColumnType,
+                            ExpressionFormatter.formatExpression(validatedDerivedColumnExpression, Optional.empty()),
+                            columnIdentifier.getValue(),
+                            -1,
+                            getType(context.type())));
+        }
+
+        if (derivedColumnExpressionSpec.isPresent()) {
+            return new ColumnDefinition(Optional.of(getLocation(context)),
+                    columnIdentifier,
+                    getType(context.type()),
+                    nullable,
+                    properties,
+                    comment,
+                    derivedColumnExpression,
+                    derivedColumnExpressionSpec);
+        }
         return new ColumnDefinition(
                 getLocation(context),
-                (Identifier) visit(context.identifier()),
+                columnIdentifier,
                 getType(context.type()),
                 nullable, properties,
                 comment,
