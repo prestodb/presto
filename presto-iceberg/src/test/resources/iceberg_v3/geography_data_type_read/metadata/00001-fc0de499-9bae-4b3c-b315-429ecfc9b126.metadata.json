@@ -1,0 +1,105 @@
+{
+    "format-version": 3,
+    "table-uuid": "e775998b-967c-4436-b5a3-f2dba21470b2",
+    "location": "file://FILEPATH",
+    "last-sequence-number": 1,
+    "last-updated-ms": 1780609418785,
+    "last-column-id": 5,
+    "current-schema-id": 0,
+    "schemas": [
+        {
+            "type": "struct",
+            "schema-id": 0,
+            "fields": [
+                {
+                    "id": 1,
+                    "name": "store_id",
+                    "required": false,
+                    "type": "int"
+                },
+                {
+                    "id": 2,
+                    "name": "store_name",
+                    "required": false,
+                    "type": "string"
+                },
+                {
+                    "id": 3,
+                    "name": "located_at",
+                    "required": false,
+                    "type": "geography"
+                }
+            ]
+        }
+    ],
+    "default-spec-id": 0,
+    "partition-specs": [
+        {
+            "spec-id": 0,
+            "fields": []
+        }
+    ],
+    "last-partition-id": 999,
+    "default-sort-order-id": 0,
+    "sort-orders": [
+        {
+            "order-id": 0,
+            "fields": []
+        }
+    ],
+    "properties": {
+        "history.expire.max-snapshot-age-ms": "86400000",
+        "snowflake.operation.1.1780609417422000000": "{\"ts\":1780609418784}"
+    },
+    "current-snapshot-id": 4760062627703231896,
+    "next-row-id": 2,
+    "refs": {
+        "main": {
+            "snapshot-id": 4760062627703231896,
+            "type": "branch"
+        }
+    },
+    "snapshots": [
+        {
+            "sequence-number": 1,
+            "snapshot-id": 4760062627703231896,
+            "timestamp-ms": 1780609417422,
+            "summary": {
+                "operation": "append",
+                "manifests-created": "1",
+                "snowflake.operation.1.1780609417422000000": "{\"ts\":1780609418531}",
+                "manifests-kept": "0",
+                "manifests-replaced": "0",
+                "added-data-files": "1",
+                "added-records": "2",
+                "added-files-size": "1536",
+                "changed-partition-count": "1",
+                "total-records": "2",
+                "total-files-size": "1536",
+                "total-data-files": "1",
+                "total-delete-files": "0",
+                "total-position-deletes": "0",
+                "total-equality-deletes": "0",
+                "iceberg-version": "Apache Iceberg unspecified (commit aaa35511426877ea789755ae5424a3f3f28324d3)"
+            },
+            "manifest-list": "file://FILEPATH/metadata/snap.avro",
+            "schema-id": 0,
+            "first-row-id": 0,
+            "added-rows": 2
+        }
+    ],
+    "statistics": [],
+    "partition-statistics": [],
+    "snapshot-log": [
+        {
+            "timestamp-ms": 1780609417422,
+            "snapshot-id": 4760062627703231896
+        }
+    ],
+    "metadata-log": [
+        {
+            "timestamp-ms": 1780609399284,
+            "metadata-file": "file://FILEPATH/metadata/00000-2eaa09d8-19f4-4b31-b26f-3d89b0326ce4.metadata.json"
+        }
+    ]
+}
