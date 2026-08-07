@@ -950,7 +950,13 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitUpdate(UpdateNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            return new UpdateNode(node.getSourceLocation(), node.getId(), node.getSource(), node.getRowId(), node.getColumnValueAndRowIdSymbols(), node.getOutputVariables());
+            ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
+            node.getRowId().ifPresent(r -> builder.add(r));
+            for (VariableReferenceExpression variable : node.getColumnValueAndRowIdSymbols()) {
+                builder.add(variable);
+            }
+            PlanNode source = context.rewrite(node.getSource(), builder.build());
+            return new UpdateNode(node.getSourceLocation(), node.getId(), source, node.getRowId(), node.getColumnValueAndRowIdSymbols(), node.getOutputVariables());
         }
 
         @Override
