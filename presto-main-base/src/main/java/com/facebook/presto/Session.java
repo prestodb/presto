@@ -39,6 +39,7 @@ import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.sql.analyzer.CTEInformationCollector;
+import com.facebook.presto.sql.analyzer.MaterializedViewInfoCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
 import com.facebook.presto.transaction.TransactionManager;
@@ -109,6 +110,7 @@ public final class Session
     private final OptimizerInformationCollector optimizerInformationCollector = new OptimizerInformationCollector();
     private final OptimizerResultCollector optimizerResultCollector = new OptimizerResultCollector();
     private final CTEInformationCollector cteInformationCollector = new CTEInformationCollector();
+    private final MaterializedViewInfoCollector materializedViewInfoCollector = new MaterializedViewInfoCollector();
     private final Map<PlanNodeId, PlanNodeStatsEstimate> planNodeStatsMap = new HashMap<>();
     private final Map<PlanNodeId, PlanCostEstimate> planNodeCostMap = new HashMap<>();
 
@@ -349,6 +351,11 @@ public final class Session
     public CTEInformationCollector getCteInformationCollector()
     {
         return cteInformationCollector;
+    }
+
+    public MaterializedViewInfoCollector getMaterializedViewInfoCollector()
+    {
+        return materializedViewInfoCollector;
     }
 
     public Map<PlanNodeId, PlanNodeStatsEstimate> getPlanNodeStatsMap()
