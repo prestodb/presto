@@ -392,6 +392,12 @@ void MaterializedOutput::addInput(RowVectorPtr input) {
 
   output_.reset();
 
+  // Reserve drain headroom while this operator is reclaimable.
+  {
+    velox::exec::Operator::ReclaimableSectionGuard guard(this);
+    buffer_->ensureDrainMemoryHeadroom();
+  }
+
   if (flatBufferSize_ >= targetSizeInBytes_) {
     flushBatch();
   }
@@ -490,13 +496,8 @@ void MaterializedOutput::noMoreInput() {
 }
 
 BlockingReason MaterializedOutput::isBlocked(ContinueFuture* future) {
-  if (blockingReason_ != BlockingReason::kNotBlocked) {
-    *future = std::move(future_);
-    auto reason = blockingReason_;
-    blockingReason_ = BlockingReason::kNotBlocked;
-    return reason;
-  }
-  return BlockingReason::kNotBlocked;
+  // Drain at the high watermark or park until below the low watermark.
+  return buffer_->backpressure(future);
 }
 
 bool MaterializedOutput::isFinished() {

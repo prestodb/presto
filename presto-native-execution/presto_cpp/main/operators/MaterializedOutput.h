@@ -116,8 +116,7 @@ class MaterializedOutput : public velox::exec::Operator {
   velox::RowVectorPtr getOutput() override;
 
   bool needsInput() const override {
-    return !finished_ &&
-        blockingReason_ == velox::exec::BlockingReason::kNotBlocked;
+    return !finished_;
   }
 
   void noMoreInput() override;
@@ -212,9 +211,6 @@ class MaterializedOutput : public velox::exec::Operator {
   std::optional<int32_t> fixedRowSize_;
 
   // Operator state.
-  velox::exec::BlockingReason blockingReason_{
-      velox::exec::BlockingReason::kNotBlocked};
-  velox::ContinueFuture future_;
   bool finished_{false};
 
   // Reusable per-batch buffers.

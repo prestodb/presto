@@ -243,6 +243,10 @@ SystemConfig::SystemConfig() {
           NUM_PROP(
               kExchangeMaterializationOutputBufferPerPartitionMaxBytes,
               130L * 1024),
+          NUM_PROP(kExchangeMaterializationOutputBufferHighWatermarkRatio, 0.9),
+          NUM_PROP(kExchangeMaterializationOutputBufferLowWatermarkRatio, 0.7),
+          NUM_PROP(
+              kExchangeMaterializationOutputBufferDrainChunkMultiplier, 2.0),
           NUM_PROP(kExchangeMaterializationReclaimDrainThresholdRatio, 0.67),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
@@ -801,6 +805,27 @@ int64_t SystemConfig::exchangeMaterializationOutputBufferPerPartitionMaxBytes()
   return optionalProperty<int64_t>(
              kExchangeMaterializationOutputBufferPerPartitionMaxBytes)
       .value_or(130L * 1024);
+}
+
+double SystemConfig::exchangeMaterializationOutputBufferHighWatermarkRatio()
+    const {
+  return optionalProperty<double>(
+             kExchangeMaterializationOutputBufferHighWatermarkRatio)
+      .value_or(0.9);
+}
+
+double SystemConfig::exchangeMaterializationOutputBufferLowWatermarkRatio()
+    const {
+  return optionalProperty<double>(
+             kExchangeMaterializationOutputBufferLowWatermarkRatio)
+      .value_or(0.7);
+}
+
+double SystemConfig::exchangeMaterializationOutputBufferDrainChunkMultiplier()
+    const {
+  return optionalProperty<double>(
+             kExchangeMaterializationOutputBufferDrainChunkMultiplier)
+      .value_or(2.0);
 }
 
 double SystemConfig::exchangeMaterializationReclaimDrainThresholdRatio() const {
