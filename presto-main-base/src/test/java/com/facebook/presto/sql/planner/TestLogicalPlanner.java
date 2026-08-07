@@ -100,6 +100,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATI
 import static com.facebook.presto.SystemSessionProperties.PREFER_SORT_MERGE_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_SEMI_JOIN_AGAINST_VALUES_TO_FILTER_MAX_SIZE;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.SINGLE_NODE_EXECUTION_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
@@ -1685,8 +1686,12 @@ public class TestLogicalPlanner
                                         anyTree(tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))),
                                         anyTree(tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey")))))));
 
-        // values node provides stats
+        // values node provides stats; disable the values-to-filter rewrite so the semi join survives to exercise sizing
+        Session keepSemiJoin = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(REWRITE_SEMI_JOIN_AGAINST_VALUES_TO_FILTER_MAX_SIZE, "0")
+                .build();
         assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".orders WHERE orders.custkey NOT IN (SELECT t.a FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT)) t(a))",
+                keepSemiJoin,
                 output(
                         anyTree(
                                 semiJoin("CUSTKEY", "T_A", "OUT", Optional.of(SemiJoinNode.DistributionType.REPLICATED),

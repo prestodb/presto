@@ -311,6 +311,7 @@ public class FeaturesConfig
     private boolean rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin = true;
     private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
     private boolean leftJoinNullFilterToSemiJoin = true;
+    private int rewriteSemiJoinAgainstValuesToFilterMaxSize = 10000;
     private boolean broadcastJoinWithSmallBuildUnknownProbe;
     private boolean addPartialNodeForRowNumberWithLimit = true;
     private boolean inferInequalityPredicates;
@@ -3234,6 +3235,19 @@ public class FeaturesConfig
     public FeaturesConfig setLeftJoinNullFilterToSemiJoin(boolean leftJoinNullFilterToSemiJoin)
     {
         this.leftJoinNullFilterToSemiJoin = leftJoinNullFilterToSemiJoin;
+        return this;
+    }
+
+    public int getRewriteSemiJoinAgainstValuesToFilterMaxSize()
+    {
+        return this.rewriteSemiJoinAgainstValuesToFilterMaxSize;
+    }
+
+    @Config("optimizer.rewrite-semi-join-against-values-to-filter-max-size")
+    @ConfigDescription("Rewrite a semi/anti join against an inline literal VALUES list of at most this many rows into an IN / NOT IN filter on the source; 0 disables the rewrite")
+    public FeaturesConfig setRewriteSemiJoinAgainstValuesToFilterMaxSize(int rewriteSemiJoinAgainstValuesToFilterMaxSize)
+    {
+        this.rewriteSemiJoinAgainstValuesToFilterMaxSize = rewriteSemiJoinAgainstValuesToFilterMaxSize;
         return this;
     }
 

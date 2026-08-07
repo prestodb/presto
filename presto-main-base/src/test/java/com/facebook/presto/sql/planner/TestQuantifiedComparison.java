@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -20,6 +21,7 @@ import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.REWRITE_SEMI_JOIN_AGAINST_VALUES_TO_FILTER_MAX_SIZE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
@@ -31,11 +33,18 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 public class TestQuantifiedComparison
         extends BasePlanTest
 {
+    private Session keepSemiJoin()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(REWRITE_SEMI_JOIN_AGAINST_VALUES_TO_FILTER_MAX_SIZE, "0")
+                .build();
+    }
+
     @Test
     public void testQuantifiedComparisonEqualsAny()
     {
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey = ANY (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
-        assertPlan(query, anyTree(
+        assertPlan(query, keepSemiJoin(), anyTree(
                 filter("S",
                         project(
                                 semiJoin("X", "Y", "S",
@@ -47,7 +56,7 @@ public class TestQuantifiedComparison
     public void testQuantifiedComparisonNotEqualsAll()
     {
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey <> ALL (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
-        assertPlan(query, anyTree(
+        assertPlan(query, keepSemiJoin(), anyTree(
                 filter("NOT S",
                         project(
                                 semiJoin("X", "Y", "S",

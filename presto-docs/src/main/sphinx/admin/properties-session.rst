@@ -671,6 +671,24 @@ the join key.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.rewrite-bucketed-semi-join-to-join\`\``.
 
+``rewrite_semi_join_against_values_to_filter_max_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``10000``
+
+Rewrite a semi-join or anti-join whose filtering source is an inline literal ``VALUES`` list of at
+most this many rows into an ``IN`` or ``NOT IN`` predicate directly on the source. This lets scan-level
+pushdowns such as partition pruning fire, matching the plan produced by the equivalent literal
+``WHERE x NOT IN (1, 2, 3)`` form. NULL list elements are handled so the rewritten predicate preserves
+the original join's semantics. Above this size the hash semi-join is kept, because inlining a very large
+list bloats the plan and the connector compacts an oversized scan-level domain into a coarse range. Set
+to ``0`` to disable the rewrite.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.rewrite-semi-join-against-values-to-filter-max-size\`\``.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.rewrite-semi-join-against-values-to-filter-max-size\`\``.
+
 ``simplify_aggregations_over_constant``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
