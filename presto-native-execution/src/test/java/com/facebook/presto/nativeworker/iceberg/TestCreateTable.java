@@ -16,11 +16,16 @@ package com.facebook.presto.nativeworker.iceberg;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder;
+import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestCreateTable
         extends AbstractTestQueryFramework
@@ -215,6 +220,78 @@ public class TestCreateTable
         finally {
             assertUpdate(String.format("DROP TABLE IF EXISTS %s", targetTable));
             assertUpdate(String.format("DROP TABLE IF EXISTS %s", sourceTable));
+        }
+    }
+
+    @Test
+    public void testPlanFragmentPartitioningOfCTAS()
+    {
+        String sourceTable = "test_line_item";
+        String targetTable = "test_plan_fragment_partitioning_of_ctas";
+        try {
+            long count = (long) getExpectedQueryRunner().execute(getSession(), "CREATE TABLE " + sourceTable + " AS SELECT * FROM tpch.tiny.lineitem", ImmutableList.of(BIGINT))
+                    .getOnlyValue();
+            assertEquals(count, 60175L);
+
+            // For non-partitioned target tables, the plan fragment containing the writer node is of SCALED distributed type.
+            String distributedPlanForUnpartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) CREATE TABLE %s AS SELECT * FROM %s", targetTable, sourceTable))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 1 [SCALED]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 2 [SOURCE]"));
+
+            // Native workers do not currently support partitioned writer.
+            // For partitioned target tables, the plan fragment containing the writer node is still of SCALED distributed type.
+            String distributedPlanForPartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 200)'])" +
+                                    " AS SELECT * FROM %s", targetTable, sourceTable))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 1 [SCALED]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 2 [SOURCE]"));
+        }
+        finally {
+            assertUpdate(getSession(), "DROP TABLE IF EXISTS " + targetTable);
+            assertUpdate(getSession(), "DROP TABLE IF EXISTS " + sourceTable);
+        }
+    }
+
+    @Test
+    public void testPlanFragmentPartitioningOfInsertIntoTable()
+    {
+        String sourceTable = "test_line_item_2";
+        String unpartitionedTableName = "plan_fragment_partitioning_of_unpartitioned_insert";
+        String partitionedTableName = "plan_fragment_partitioning_of_partitioned_insert";
+        try {
+            long count = (long) getExpectedQueryRunner().execute(getSession(), "CREATE TABLE " + sourceTable + " AS SELECT * FROM tpch.tiny.lineitem", ImmutableList.of(BIGINT))
+                    .getOnlyValue();
+            assertEquals(count, 60175L);
+
+            // For non-partitioned target tables, the plan fragment containing the writer node is of SCALED distributed type.
+            assertUpdate(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", unpartitionedTableName, sourceTable), 0);
+            String distributedPlanForUnpartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) INSERT INTO %s SELECT * FROM %s", unpartitionedTableName, sourceTable))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 1 [SCALED]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 2 [SOURCE]"));
+
+            // Native workers do not currently support partitioned writer.
+            // For partitioned target tables, the plan fragment containing the writer node is still of SCALED distributed type.
+            assertUpdate(format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)']) AS SELECT * FROM %s WITH NO DATA",
+                    partitionedTableName, sourceTable), 0);
+            String distributedPlanForPartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) INSERT INTO %s SELECT * FROM %s", partitionedTableName, sourceTable))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 1 [SCALED]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 2 [SOURCE]"));
+        }
+        finally {
+            assertUpdate(getSession(), "DROP TABLE IF EXISTS " + partitionedTableName);
+            assertUpdate(getSession(), "DROP TABLE IF EXISTS " + unpartitionedTableName);
+            assertUpdate(getSession(), "DROP TABLE IF EXISTS " + sourceTable);
         }
     }
 }

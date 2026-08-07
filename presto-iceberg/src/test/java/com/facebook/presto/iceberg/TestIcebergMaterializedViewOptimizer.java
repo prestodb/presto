@@ -251,9 +251,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             tableFinish(
                                     exchange(
-                                            exchange(
-                                                    node(TableWriterNode.class, exchange(exchange(project(staleDsBranch)))),
-                                                    node(TableWriterNode.class, exchange(exchange(project(staleRegDateBranch)))))))));
+                                            node(TableWriterNode.class, exchange(exchange(exchange(project(staleDsBranch), project(staleRegDateBranch)))))))));
 
             Session skipStorageSession = Session.builder(getQueryRunner().getDefaultSession())
                     .setSystemProperty("materialized_view_force_stale", "true")
@@ -422,9 +420,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             tableFinish(
                                     exchange(
-                                            exchange(
-                                                    node(TableWriterNode.class, anyTree(firstBranch)),
-                                                    node(TableWriterNode.class, anyTree(secondBranch)))))));
+                                            node(TableWriterNode.class, exchange(exchange(exchange(firstBranch, secondBranch))))))));
 
             Session skipStorageSession = Session.builder(getQueryRunner().getDefaultSession())
                     .setSystemProperty("materialized_view_force_stale", "true")
@@ -514,9 +510,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             tableFinish(
                                     exchange(
-                                            exchange(
-                                                    node(TableWriterNode.class, anyTree(deltaBranchOrders)),
-                                                    node(TableWriterNode.class, anyTree(deltaBranchCustomers)))))));
+                                            node(TableWriterNode.class, exchange(exchange(exchange(anyTree(deltaBranchOrders), anyTree(deltaBranchCustomers)))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_active_orders");
@@ -803,9 +797,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             tableFinish(
                                     exchange(
-                                            exchange(
-                                                    node(TableWriterNode.class, exchange(exchange(staleBranchJan02))),
-                                                    node(TableWriterNode.class, exchange(exchange(staleBranchJan01))))))));
+                                            node(TableWriterNode.class, exchange(exchange(exchange(staleBranchJan02, staleBranchJan01))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_passthrough");
@@ -917,9 +909,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             tableFinish(
                                     exchange(
-                                            exchange(
-                                                    node(TableWriterNode.class, exchange(exchange(intersectBranchBoth))),
-                                                    node(TableWriterNode.class, exchange(exchange(intersectBranchTable2Only))))))));
+                                            node(TableWriterNode.class, exchange(exchange(exchange(intersectBranchBoth, intersectBranchTable2Only))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_intersect");
@@ -1025,9 +1015,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             tableFinish(
                                     exchange(
-                                            exchange(
-                                                    node(TableWriterNode.class, exchange(exchange(intersectBranchBoth))),
-                                                    node(TableWriterNode.class, exchange(exchange(intersectBranchTable2Only))))))));
+                                            node(TableWriterNode.class, exchange(exchange(exchange(intersectBranchBoth, intersectBranchTable2Only))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_intersect_left");
@@ -1124,9 +1112,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             tableFinish(
                                     exchange(
-                                            exchange(
-                                                    node(TableWriterNode.class, exchange(exchange(intersectBranch1))),
-                                                    node(TableWriterNode.class, exchange(exchange(intersectBranch2))))))));
+                                            node(TableWriterNode.class, exchange(exchange(exchange(intersectBranch1, intersectBranch2))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_intersect_right");
@@ -1424,9 +1410,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             tableFinish(
                                     exchange(
-                                            exchange(
-                                                    node(TableWriterNode.class, exchange(exchange(firstStaleBranch))),
-                                                    node(TableWriterNode.class, exchange(exchange(secondStaleBranch))))))));
+                                            node(TableWriterNode.class, exchange(exchange(exchange(firstStaleBranch, secondStaleBranch))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_except");
@@ -1680,9 +1664,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             tableFinish(
                                     exchange(
-                                            exchange(
-                                                    node(TableWriterNode.class, exchange(exchange(exceptBranch1))),
-                                                    node(TableWriterNode.class, exchange(exchange(exceptBranch2))))))));
+                                                    node(TableWriterNode.class, exchange(exchange(exchange(exceptBranch1, exceptBranch2))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_jexj");
@@ -1770,9 +1752,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             tableFinish(
                                     exchange(
-                                            exchange(
-                                                    node(TableWriterNode.class, exchange(exchange(exceptBranch))),
-                                                    node(TableWriterNode.class, exchange(exchange(exceptBranch))))))));
+                                            node(TableWriterNode.class, exchange(exchange(exchange(exceptBranch, exceptBranch))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_jexjr");
@@ -1884,9 +1864,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             tableFinish(
                                     exchange(
-                                            exchange(
-                                                    node(TableWriterNode.class, exchange(exchange(exceptBranch1))),
-                                                    node(TableWriterNode.class, exchange(exchange(exceptBranch2))))))));
+                                            node(TableWriterNode.class, exchange(exchange(exchange(exceptBranch1, exceptBranch2))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_jexjb");

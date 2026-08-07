@@ -71,6 +71,14 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::MergeHandle* mergeHandle,
       const TypeParser& typeParser) const final;
 
+  std::unique_ptr<velox::core::PartitionFunctionSpec>
+  createVeloxPartitionFunctionSpec(
+      const protocol::ConnectorPartitioningHandle* partitioningHandle,
+      const std::vector<int>& bucketToPartition,
+      const std::vector<velox::column_index_t>& channels,
+      const std::vector<velox::VectorPtr>& constValues,
+      bool& effectivelyGather) const final;
+
  private:
   std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
   toIcebergColumns(
