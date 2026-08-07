@@ -96,6 +96,18 @@ public class OrcSelectivePageSource
     }
 
     @Override
+    public long getDecompressedBytes()
+    {
+        return orcDataSource.getReadBytes();
+    }
+
+    @Override
+    public long getDecompressedPositions()
+    {
+        return recordReader.getReadPositions();
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return orcDataSource.getReadTimeNanos();
