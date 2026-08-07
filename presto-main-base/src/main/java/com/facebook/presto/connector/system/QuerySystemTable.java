@@ -38,6 +38,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -67,6 +68,8 @@ public class QuerySystemTable
             .column("started", TIMESTAMP)
             .column("last_heartbeat", TIMESTAMP)
             .column("end", TIMESTAMP)
+            .column("total_cpu_time", BIGINT)
+            .column("total_memory", DOUBLE)
             .build();
 
     private final QueryManager queryManager;
@@ -121,7 +124,9 @@ public class QuerySystemTable
                     toTimeStampInMillis(queryStats.getCreateTime()),
                     toTimeStampInMillis(queryStats.getExecutionStartTime()),
                     toTimeStampInMillis(queryStats.getLastHeartbeat()),
-                    toTimeStampInMillis(queryStats.getEndTime()));
+                    toTimeStampInMillis(queryStats.getEndTime()),
+                    toMillis(queryStats.getTotalCpuTime()),
+                    queryStats.getCumulativeTotalMemory());
         }
         return table.build().cursor();
     }
