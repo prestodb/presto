@@ -2434,40 +2434,47 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   // Parse the result type from the protocol output variable.
   auto resultType = typeParser_.parse(node->outputVariable.type);
 
-  // Extract argument types and constant values from the protocol argument
-  // expressions. The Java planner sends both `arguments` (original
-  // expressions for type/constant extraction) and `argumentColumns`
-  // (column names for runtime reads by RPCOperator).
-  std::vector<TypePtr> argumentTypes;
-  std::vector<VectorPtr> constantInputs;
-  argumentTypes.reserve(node->arguments.size());
-  constantInputs.reserve(node->arguments.size());
-  for (const auto& arg : node->arguments) {
-    auto veloxExpr = exprConverter_.toVeloxExpr(arg);
-    argumentTypes.push_back(veloxExpr->type());
+  // Build the RPC call arguments. The Java planner sends both `arguments`
+  // (original expressions, for type/constant extraction) and `argumentColumns`
+  // (the column names RPCOperator reads at runtime for non-constant args). Each
+  // argument becomes a ConstantTypedExpr (constant literal) or a
+  // FieldAccessTypedExpr (column reference).
+  VELOX_CHECK_EQ(
+      node->arguments.size(),
+      node->argumentColumns.size(),
+      "RPCNode arguments and argumentColumns must have the same size");
+  std::vector<core::TypedExprPtr> callInputs;
+  callInputs.reserve(node->arguments.size());
+  for (size_t i = 0; i < node->arguments.size(); ++i) {
+    auto veloxExpr = exprConverter_.toVeloxExpr(node->arguments[i]);
 
-    // Extract constant value. Unwrap CastTypedExpr if present — the Java
-    // planner wraps string literals in CAST(x AS VARCHAR) which hides the
-    // inner ConstantTypedExpr from a direct dynamic_cast.
-    const core::ITypedExpr* innerExpr = veloxExpr.get();
-    if (auto* castExpr = dynamic_cast<const core::CastTypedExpr*>(innerExpr)) {
+    // Unwrap CastTypedExpr if present — the Java planner wraps string literals
+    // in CAST(x AS VARCHAR) which hides the inner ConstantTypedExpr from a
+    // direct dynamic_cast.
+    core::TypedExprPtr innerExpr = veloxExpr;
+    if (auto* castExpr =
+            dynamic_cast<const core::CastTypedExpr*>(veloxExpr.get())) {
       if (!castExpr->inputs().empty()) {
-        innerExpr = castExpr->inputs()[0].get();
+        innerExpr = castExpr->inputs()[0];
       }
     }
-    if (auto* constExpr =
-            dynamic_cast<const core::ConstantTypedExpr*>(innerExpr)) {
-      constantInputs.push_back(constExpr->toConstantVector(pool_));
+    if (auto constExpr =
+            std::dynamic_pointer_cast<const core::ConstantTypedExpr>(
+                innerExpr)) {
+      callInputs.push_back(std::move(constExpr));
     } else {
-      constantInputs.push_back(nullptr);
+      // A column argument is read at runtime by RPCOperator directly from the
+      // source column named argumentColumns[i] (resolved by name to a channel),
+      // so the FieldAccess must carry that source column's actual type. The
+      // argument expression's own type (e.g. an outer CAST target) is not what
+      // the operator reads; using the source-schema type keeps the declared
+      // argument type consistent with the vector actually read, and fails
+      // loudly if the planner ever names a column the source does not produce.
+      callInputs.push_back(
+          std::make_shared<core::FieldAccessTypedExpr>(
+              sourceNode->outputType()->findChild(node->argumentColumns[i]),
+              node->argumentColumns[i]));
     }
-  }
-
-  // Read argument column names from the protocol node.
-  std::vector<std::string> argumentColumns;
-  argumentColumns.reserve(node->argumentColumns.size());
-  for (const auto& col : node->argumentColumns) {
-    argumentColumns.push_back(col);
   }
 
   // Determine streaming mode.
@@ -2498,16 +2505,15 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   outputTypes.push_back(resultType);
   auto outputType = ROW(std::move(outputNames), std::move(outputTypes));
 
+  auto call = std::make_shared<core::CallTypedExpr>(
+      resultType, std::move(callInputs), node->functionName);
+
   return std::make_shared<core::RPCNode>(
       node->id,
       sourceNode,
-      node->functionName,
-      resultType,
+      std::move(call),
       node->outputVariable.name,
       std::move(outputType),
-      std::move(argumentColumns),
-      std::move(argumentTypes),
-      std::move(constantInputs),
       veloxStreamingMode,
       dispatchBatchSize);
 }
