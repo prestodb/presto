@@ -46,10 +46,12 @@ import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
@@ -88,17 +90,35 @@ public abstract class AbstractNativeProcess
     private static final String WORKER_CONNECTOR_CONFIG_DIR = "catalog";
     private static final int SIGSYS = 31;
 
+    private static final String PORT_FILE_NAME = "http-server.port";
+    private static final Duration PORT_DISCOVERY_POLL_INTERVAL = Duration.valueOf("200ms");
+
     private final String executablePath;
     private final String programArguments;
-    private final PrestoSparkHttpServerClient serverClient;
-    private final URI location;
-    private final int port;
+    private final String nodeInternalAddress;
+    private final OkHttpClient httpClient;
+    private final JsonCodec<ServerInfo> serverInfoCodec;
+    private final ScheduledExecutorService scheduledExecutorService;
+    private final Duration maxErrorDuration;
     private final Executor executor;
-    private final RequestErrorTracker errorTracker;
+
+    private volatile int port;
+    private volatile URI location;
+    private volatile PrestoSparkHttpServerClient serverClient;
+    private volatile RequestErrorTracker errorTracker;
+
+    private final boolean subprocessSelectsPort;
+    private final String configDirName;
 
     private volatile Process process;
     private volatile ProcessOutputPipe processOutputPipe;
+    private volatile Path configPath;
 
+    /**
+     * Legacy constructor: Java pre-picks the port with {@link #getAvailableTcpPort} and
+     * hands it to the subprocess via configuration. Kept for callers that have not
+     * migrated to the subprocess-selects-port model.
+     */
     protected AbstractNativeProcess(
             String executablePath,
             String programArguments,
@@ -109,29 +129,74 @@ public abstract class AbstractNativeProcess
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration)
     {
+        this(executablePath, programArguments, nodeInternalAddress, httpClient, executor,
+                scheduledExecutorService, serverInfoCodec, maxErrorDuration, false);
+    }
+
+    /**
+     * When {@code subprocessSelectsPort} is true, port, location, and HTTP client
+     * initialization is deferred until {@link #start} reads the bound port from
+     * {@code <etc_dir>/http-server.port}. Subclasses that opt in must configure the
+     * native binary with {@code http-server.http.port=0} and
+     * {@code http-server.report-bound-port-to-file=true}.
+     */
+    protected AbstractNativeProcess(
+            String executablePath,
+            String programArguments,
+            String nodeInternalAddress,
+            OkHttpClient httpClient,
+            Executor executor,
+            ScheduledExecutorService scheduledExecutorService,
+            JsonCodec<ServerInfo> serverInfoCodec,
+            Duration maxErrorDuration,
+            boolean subprocessSelectsPort)
+    {
         this.executablePath = requireNonNull(executablePath, "executablePath is null");
         this.programArguments = requireNonNull(programArguments, "programArguments is null");
-        requireNonNull(nodeInternalAddress, "nodeInternalAddress is null");
-        this.port = getAvailableTcpPort(nodeInternalAddress);
-        this.location = HttpUrl.parse("http://" + nodeInternalAddress + ":" + getPort()).uri();
-        this.serverClient = new PrestoSparkHttpServerClient(
-                requireNonNull(httpClient, "httpClient is null"),
-                location,
-                serverInfoCodec);
+        this.nodeInternalAddress = requireNonNull(nodeInternalAddress, "nodeInternalAddress is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.executor = requireNonNull(executor, "executor is null");
+        this.scheduledExecutorService = requireNonNull(scheduledExecutorService, "scheduledExecutorService is null");
+        this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
+        this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
+        this.subprocessSelectsPort = subprocessSelectsPort;
+
+        if (subprocessSelectsPort) {
+            // Port, location, serverClient, errorTracker deferred until start().
+            this.configDirName = UUID.randomUUID().toString();
+        }
+        else {
+            this.port = getAvailableTcpPort(nodeInternalAddress);
+            this.configDirName = String.valueOf(this.port);
+            initializePortDependentFields(this.port);
+        }
+    }
+
+    private void initializePortDependentFields(int boundPort)
+    {
+        initializePortDependentFields(boundPort, maxErrorDuration);
+    }
+
+    private void initializePortDependentFields(int boundPort, Duration errorBudget)
+    {
+        this.port = boundPort;
+        this.location = HttpUrl.parse("http://" + nodeInternalAddress + ":" + boundPort).uri();
+        this.serverClient = new PrestoSparkHttpServerClient(httpClient, location, serverInfoCodec);
         this.errorTracker = new RequestErrorTracker(
                 "NativeExecution",
                 location,
                 NATIVE_EXECUTION_TASK_ERROR,
                 NATIVE_EXECUTION_TASK_ERROR_MESSAGE,
-                maxErrorDuration,
+                errorBudget,
                 scheduledExecutorService,
                 "getting native process status");
     }
 
     /**
      * Starts the external native process. Blocks until the process responds at /v1/info
-     * or until the error tracker exhausts its budget.
+     * or until the error tracker exhausts its budget. In subprocess-selects-port mode
+     * this also blocks until the subprocess writes its bound port to
+     * {@code <etc_dir>/http-server.port}.
      */
     public synchronized void start()
             throws ExecutionException, InterruptedException, IOException
@@ -156,12 +221,73 @@ public abstract class AbstractNativeProcess
             throw new PrestoException(NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR, format("Cannot start %s", processBuilder.command()), e);
         }
 
+        if (subprocessSelectsPort) {
+            try {
+                awaitPortDiscovery();
+            }
+            catch (PrestoException e) {
+                close();
+                throw e;
+            }
+        }
+
         try {
             getServerInfoWithRetry().get();
         }
         catch (Throwable t) {
             close();
             throw propagateStartFailure(t);
+        }
+    }
+
+    private void awaitPortDiscovery()
+    {
+        if (configPath == null) {
+            throw new PrestoException(
+                    NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR,
+                    "configPath was not populated before awaitPortDiscovery — likely a getLaunchCommand() bug");
+        }
+        Path portFile = configPath.resolve(PORT_FILE_NAME);
+        long deadlineNanos = System.nanoTime() + maxErrorDuration.roundTo(TimeUnit.NANOSECONDS);
+        long pollMillis = PORT_DISCOVERY_POLL_INTERVAL.roundTo(TimeUnit.MILLISECONDS);
+        while (true) {
+            if (Files.exists(portFile)) {
+                try {
+                    int boundPort = Integer.parseInt(new String(Files.readAllBytes(portFile), UTF_8).trim());
+                    if (boundPort <= 0 || boundPort > 65535) {
+                        throw new PrestoException(
+                                NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR,
+                                format("Invalid bound port %s read from %s", boundPort, portFile));
+                    }
+                    Duration remainingBudget = new Duration(Math.max(0L, deadlineNanos - System.nanoTime()), TimeUnit.NANOSECONDS);
+                    log.info("Native subprocess reported bound port %s (via %s)", boundPort, portFile);
+                    initializePortDependentFields(boundPort, remainingBudget);
+                    return;
+                }
+                catch (IOException | NumberFormatException e) {
+                    log.warn(e, "Port file exists but not yet readable — will retry: %s", portFile);
+                }
+            }
+            if (!process.isAlive()) {
+                throw new PrestoException(
+                        NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR,
+                        format("Native subprocess exited before writing port file %s (exit code %s)", portFile, process.exitValue()));
+            }
+            if (System.nanoTime() >= deadlineNanos) {
+                throw new PrestoException(
+                        NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR,
+                        format("Native subprocess did not write port file %s within %s", portFile, maxErrorDuration));
+            }
+            try {
+                Thread.sleep(pollMillis);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new PrestoException(
+                        NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR,
+                        "Interrupted while waiting for native subprocess to write port file",
+                        e);
+            }
         }
     }
 
@@ -409,7 +535,7 @@ public abstract class AbstractNativeProcess
     private List<String> getLaunchCommand()
             throws IOException
     {
-        String configPath = Paths.get(resolveProcessWorkingPath("./"), String.valueOf(port)).toAbsolutePath().toString();
+        String configPathStr = Paths.get(resolveProcessWorkingPath("./"), configDirName).toAbsolutePath().toString();
         ImmutableList.Builder<String> command = ImmutableList.builder();
         List<String> argsList = Arrays.asList(programArguments.split("\\s+"));
         boolean etcDirSet = false;
@@ -417,15 +543,16 @@ public abstract class AbstractNativeProcess
             String arg = argsList.get(i);
             if (arg.equals("--etc_dir")) {
                 etcDirSet = true;
-                configPath = argsList.get(i + 1);
+                configPathStr = argsList.get(i + 1);
                 break;
             }
         }
         command.add(executablePath).addAll(argsList);
         if (!etcDirSet) {
-            command.add("--etc_dir").add(configPath);
-            populateConfigurationFiles(Paths.get(configPath));
+            command.add("--etc_dir").add(configPathStr);
+            populateConfigurationFiles(Paths.get(configPathStr));
         }
+        this.configPath = Paths.get(configPathStr).toAbsolutePath();
         ImmutableList<String> commandList = command.build();
         log.info("Launching native process using command: %s", String.join(" ", commandList));
         return commandList;
@@ -455,7 +582,7 @@ public abstract class AbstractNativeProcess
         return configBasePath.resolve(WORKER_CONNECTOR_CONFIG_DIR);
     }
 
-    private static class ProcessOutputPipe
+    static class ProcessOutputPipe
             implements Runnable
     {
         private final long pid;
