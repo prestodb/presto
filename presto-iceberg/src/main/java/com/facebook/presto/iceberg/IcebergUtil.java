@@ -239,7 +239,6 @@ public final class IcebergUtil
 {
     private static final Logger log = Logger.get(IcebergUtil.class);
     public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
-    public static final int MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS = 2;
     public static final int MIN_FORMAT_VERSION_FOR_ROW_LINEAGE = 3;
     public static final int MAX_FORMAT_VERSION_FOR_METADATA_TABLES = 3;
     public static final int MAX_SUPPORTED_FORMAT_VERSION = 3;

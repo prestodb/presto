@@ -37,6 +37,7 @@ import com.facebook.presto.hive.PartitionSet;
 import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
+import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.iceberg.procedure.context.IcebergCommonProcedureContext;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionContext;
@@ -90,6 +91,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicates;
 import com.google.common.base.VerifyException;
@@ -110,6 +112,7 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IncrementalAppendScan;
 import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
@@ -163,6 +166,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -222,7 +226,6 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.SORTED_BY_PROPE
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
-import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_ROW_LINEAGE;
 import static com.facebook.presto.iceberg.IcebergUtil.buildColumnMetadata;
@@ -795,13 +798,29 @@ public abstract class IcebergAbstractMetadata
         }
 
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
-        ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
-        commitTasks.forEach(task -> handleTask(task, icebergTable, rowDelta, writtenFiles, referencedDataFiles));
+        ImmutableSet.Builder<String> referencedDataFilesBuilder = ImmutableSet.builder();
+        commitTasks.forEach(task -> handleTask(task, icebergTable, rowDelta, writtenFiles, referencedDataFilesBuilder));
+        Set<String> referencedDataFiles = referencedDataFilesBuilder.build();
 
-        rowDelta.validateDataFilesExist(referencedDataFiles.build());
+        rowDelta.validateDataFilesExist(referencedDataFiles);
         if (this.transactionContext.getIsolationLevel() == SERIALIZABLE) {
             rowDelta.validateNoConflictingDataFiles();
         }
+
+        // V3: replace any prior DV for a re-mutated data file with the merged DV the worker just
+        // wrote, and bound the added-DV conflict check to the read snapshot. The DV map rides on
+        // the (inner) insert handle for the UPDATE/MERGE path; other write paths carry no DVs
+        // (empty map). No-op for V2 position deletes.
+        Map<String, DeleteFile> existingDeletionVectors = writableTableHandle instanceof IcebergInsertTableHandle
+                ? ((IcebergInsertTableHandle) writableTableHandle).getExistingDeletionVectors()
+                : ImmutableMap.of();
+        // Match prior DVs to re-touched data files through the same key helper the enumeration
+        // side uses, so the two representations always agree. (The raw referencedDataFiles set is
+        // kept for validateDataFilesExist, which must see the unmodified Iceberg paths.)
+        Set<String> referencedDeletionVectorKeys = referencedDataFiles.stream()
+                .map(IcebergAbstractMetadata::deletionVectorKey)
+                .collect(toImmutableSet());
+        replaceDeletionVectors(rowDelta, writableTableHandle.getTableName().getSnapshotId(), existingDeletionVectors, referencedDeletionVectorKeys::contains);
 
         // Ensure a row that is updated by this commit was not deleted by a separate commit
         if (operationType == UPDATE_BEFORE || operationType == UPDATE_AFTER) {
@@ -842,6 +861,9 @@ public abstract class IcebergAbstractMetadata
             case POSITION_DELETES:
                 handleFinishPositionDeletes(task, partitionSpec, partitionColumnTypes, rowDelta, writtenFiles, referencedDataFiles);
                 break;
+            case DELETION_VECTOR:
+                handleFinishDeletionVector(task, partitionSpec, partitionColumnTypes, rowDelta, writtenFiles, referencedDataFiles);
+                break;
             case DATA:
                 handleFinishData(task, icebergTable, partitionSpec, partitionColumnTypes, rowDelta::addRows, writtenFiles);
                 break;
@@ -852,6 +874,22 @@ public abstract class IcebergAbstractMetadata
 
     private void handleFinishPositionDeletes(CommitTaskData task, PartitionSpec partitionSpec, Type[] partitionColumnTypes, RowDelta rowDelta, ImmutableSet.Builder<String> writtenFiles, ImmutableSet.Builder<String> referencedDataFiles)
     {
+        // V3 deletion-vector commits arrive here when the page sink reports
+        // FileContent.POSITION_DELETES but populates the Puffin-only
+        // contentOffset/contentSizeInBytes fields (CommitTaskData docstring).
+        // V3 tables forbid Parquet position-delete files, so route those to the
+        // PUFFIN/deletion-vector builder instead of the V2 Parquet builder. A
+        // well-formed DV fragment always sets both fields together; a fragment
+        // with exactly one set is malformed and must fail loudly here rather than
+        // silently falling through to the V2 Parquet builder (which would emit a
+        // corrupt position-delete file for a V3 table).
+        verify(task.getContentOffset().isPresent() == task.getContentSizeInBytes().isPresent(),
+                "Deletion-vector commit task must set both contentOffset and contentSizeInBytes, or neither: %s", task.getPath());
+        if (task.getContentOffset().isPresent() && task.getContentSizeInBytes().isPresent()) {
+            handleFinishDeletionVector(task, partitionSpec, partitionColumnTypes, rowDelta, writtenFiles, referencedDataFiles);
+            return;
+        }
+
         FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
                 .withPath(task.getPath())
                 .withFormat(task.getFileFormat().toIceberg())
@@ -868,6 +906,42 @@ public abstract class IcebergAbstractMetadata
         rowDelta.addDeletes(deleteBuilder.build());
         writtenFiles.add(task.getPath());
         task.getReferencedDataFile().ifPresent(referencedDataFiles::add);
+    }
+
+    /**
+     * V3 deletion-vector commit handler. Builds a PUFFIN-format position-delete entry with
+     * referencedDataFile + contentOffset + contentSizeInBytes so that V3 tables accept the
+     * row-level mutation. UPDATE/MERGE share this commit path via the POSITION_DELETES ->
+     * deletion-vector routing in {@link #handleFinishPositionDeletes}.
+     */
+    private void handleFinishDeletionVector(CommitTaskData task, PartitionSpec partitionSpec, Type[] partitionColumnTypes, RowDelta rowDelta, ImmutableSet.Builder<String> writtenFiles, ImmutableSet.Builder<String> referencedDataFiles)
+    {
+        String referencedDataFile = task.getReferencedDataFile()
+                .orElseThrow(() -> new VerifyException("Deletion-vector commit task missing referencedDataFile"));
+        long contentOffset = task.getContentOffset()
+                .orElseThrow(() -> new VerifyException("Deletion-vector commit task missing contentOffset"));
+        long contentSizeInBytes = task.getContentSizeInBytes()
+                .orElseThrow(() -> new VerifyException("Deletion-vector commit task missing contentSizeInBytes"));
+
+        FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
+                .withPath(task.getPath())
+                .withFileSizeInBytes(task.getFileSizeInBytes())
+                .ofPositionDeletes()
+                .withFormat(FileFormat.PUFFIN)
+                .withReferencedDataFile(referencedDataFile)
+                .withContentOffset(contentOffset)
+                .withContentSizeInBytes(contentSizeInBytes)
+                .withMetrics(task.getMetrics().metrics());
+
+        if (!partitionSpec.fields().isEmpty()) {
+            String partitionDataJson = task.getPartitionDataJson()
+                    .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+            deleteBuilder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+        }
+
+        rowDelta.addDeletes(deleteBuilder.build());
+        writtenFiles.add(task.getPath());
+        referencedDataFiles.add(referencedDataFile);
     }
 
     private void handleFinishData(CommitTaskData task, Table icebergTable, PartitionSpec partitionSpec, Type[] partitionColumnTypes, Consumer<DataFile> dataFileConsumer, ImmutableSet.Builder<String> writtenFiles)
@@ -926,21 +1000,30 @@ public abstract class IcebergAbstractMetadata
         validateBranchExists(icebergTableHandle, icebergTable);
         int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
 
-        if (formatVersion > MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS) {
-            throw new PrestoException(NOT_SUPPORTED,
-                    format("Iceberg table updates for format version %s are not supported yet", formatVersion));
+        // V3 tables use deletion vectors natively and do not require an explicit
+        // write.update.mode='merge-on-read' table property.
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
+            throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
+                    format("Iceberg table updates require at least format version %d", MIN_FORMAT_VERSION_FOR_DELETE));
         }
-
-        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE ||
+        if (formatVersion < 3 &&
                 !Optional.ofNullable(icebergTable.properties().get(TableProperties.UPDATE_MODE))
                         .map(mode -> mode.equals(MERGE_ON_READ.modeName()))
                         .orElse(false)) {
             throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
-                    "Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
+                    "Iceberg table updates require update mode to be merge-on-read");
         }
         validateTableMode(session, icebergTable);
 
-        IcebergInsertTableHandle insertHandle = new IcebergInsertTableHandle(
+        // Capture existing DVs (V3 only) so UPDATE/MERGE seeds (worker) and replaces (commit) a
+        // data file's prior DV; empty for V2 tables and first-time mutations. Carried on the
+        // inner insert handle so both the Prestissimo bridge (reads the inner insert handle) and
+        // finishWrite (receives the inner insert handle) can reach it.
+        Map<String, DeleteFile> existingDeletionVectors = formatVersion >= 3
+                ? enumerateExistingDeletionVectors(icebergTable)
+                : ImmutableMap.of();
+
+        IcebergInsertTableHandle insertHandle = IcebergInsertTableHandle.forMergeOnRead(
                 icebergTableHandle.getSchemaName(),
                 icebergTableHandle.getIcebergTableName(),
                 toPrestoSchema(icebergTable.schema(), typeManager),
@@ -951,7 +1034,8 @@ public abstract class IcebergAbstractMetadata
                 getCompressionCodec(session),
                 icebergTable.properties(),
                 getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
-                Optional.empty());
+                Optional.empty(),
+                existingDeletionVectors);
 
         Map<Integer, PrestoIcebergPartitionSpec> partitionSpecs = transformValues(icebergTable.specs(), partitionSpec -> toPrestoPartitionSpec(partitionSpec, typeManager));
 
@@ -1550,27 +1634,173 @@ public abstract class IcebergAbstractMetadata
         if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
             throw new PrestoException(NOT_SUPPORTED, format("This connector only supports delete where one or more partitions are deleted entirely for table versions older than %d", MIN_FORMAT_VERSION_FOR_DELETE));
         }
-        if (formatVersion > MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS) {
-            throw new PrestoException(NOT_SUPPORTED,
-                    format("Iceberg table updates for format version %s are not supported yet", formatVersion));
-        }
-        if (getDeleteMode(icebergTable) == RowLevelOperationMode.COPY_ON_WRITE) {
+        // V3 tables use deletion vectors natively; write.delete.mode defaults to copy-on-write
+        // in the Iceberg spec but V3 always supports row-level deletes via DV files, so only
+        // reject copy-on-write for pre-V3 tables.
+        if (formatVersion < 3 && getDeleteMode(icebergTable) == RowLevelOperationMode.COPY_ON_WRITE) {
             throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely. To enable row level deletions, change the write.delete.mode table property to `merge-on-read`.");
         }
         validateTableMode(session, icebergTable);
 
-        return handle;
+        // Surface a typed DELETE handle the Prestissimo bridge recognises. V2 tables use
+        // Parquet position deletes; V3 tables use one deletion vector (Puffin) per data file.
+        FileContent fileContent = formatVersion >= 3
+                ? FileContent.DELETION_VECTOR
+                : FileContent.POSITION_DELETES;
+
+        // V3 tables use one deletion vector per data file. Capture the DVs that already exist
+        // for the current snapshot so the worker can seed the new DV (union of positions) and
+        // the commit can replace the old one; V2 position-delete paths are unaffected.
+        Map<String, DeleteFile> existingDeletionVectors = formatVersion >= 3
+                ? enumerateExistingDeletionVectors(icebergTable)
+                : ImmutableMap.of();
+
+        return new IcebergDeleteTableHandle(
+                handle.getSchemaName(),
+                handle.getIcebergTableName(),
+                toPrestoSchema(icebergTable.schema(), typeManager),
+                toPrestoPartitionSpec(icebergTable.spec(), typeManager),
+                getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
+                icebergTable.location(),
+                getFileFormat(icebergTable),
+                getCompressionCodec(session),
+                icebergTable.properties(),
+                getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
+                Optional.empty(),
+                fileContent,
+                existingDeletionVectors);
+    }
+
+    /**
+     * Enumerates the deletion vectors that already exist for the current snapshot of
+     * {@code icebergTable}, keyed by the data file each DV references. V3
+     * DELETE/UPDATE/MERGE uses this to seed and replace a data file's prior DV so the
+     * one-DV-per-data-file invariant holds across repeated mutations. Returns an empty map
+     * when the table has no snapshot yet.
+     *
+     * <p>Reads only the current snapshot's delete manifests (which carry deletion vectors)
+     * rather than planning every data file via {@code newScan().planFiles()}, so the cost
+     * scales with the number of deletion vectors, not the table size. {@code beginDelete} /
+     * {@code beginMerge} receive only the table handle (the connector SPI does not pass the
+     * mutation predicate), so the enumeration cannot be scoped by the DELETE/MERGE filter here;
+     * limiting it to delete manifests is the tightest scoping available at this layer.
+     */
+    private static Map<String, DeleteFile> enumerateExistingDeletionVectors(Table icebergTable)
+    {
+        Snapshot snapshot = icebergTable.currentSnapshot();
+        if (snapshot == null) {
+            return ImmutableMap.of();
+        }
+        Map<Integer, PartitionSpec> specsById = icebergTable.specs();
+        Map<String, DeleteFile> deletionVectors = new HashMap<>();
+        // ManifestReader.iterator() yields only live (non-deleted) entries, so replaced/removed
+        // DVs are not surfaced here.
+        for (ManifestFile manifest : snapshot.deleteManifests(icebergTable.io())) {
+            try (CloseableIterable<org.apache.iceberg.DeleteFile> deleteFiles =
+                    ManifestFiles.readDeleteManifest(manifest, icebergTable.io(), specsById)) {
+                for (org.apache.iceberg.DeleteFile deleteFile : deleteFiles) {
+                    if (deleteFile.format() == FileFormat.PUFFIN && deleteFile.referencedDataFile() != null) {
+                        // A data file may surface across multiple delete manifests; the first DV
+                        // seen per referenced data file wins (they are identical).
+                        deletionVectors.putIfAbsent(
+                                deletionVectorKey(deleteFile.referencedDataFile()),
+                                DeleteFile.fromIceberg(deleteFile));
+                    }
+                }
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        return ImmutableMap.copyOf(deletionVectors);
+    }
+
+    /**
+     * Canonical identity for the data-file path that keys {@code existingDeletionVectors}. Applied
+     * on both the enumeration side (Iceberg manifest {@code referencedDataFile}) and the commit
+     * side (the {@code referencedDataFile} carried in {@link CommitTaskData}) so the two always
+     * agree. Centralized here so the {@code CharSequence} is resolved to a {@code String} exactly
+     * once and any future path normalization is applied identically to both sides.
+     */
+    private static String deletionVectorKey(CharSequence referencedDataFile)
+    {
+        return referencedDataFile.toString();
+    }
+
+    /**
+     * For a V3 mutation that re-touches data files already carrying a deletion vector, removes
+     * each prior DV from {@code rowDelta} so the merged DV the worker just wrote (union of old +
+     * new positions) becomes the single DV for that data file, preserving Iceberg's
+     * one-DV-per-data-file invariant. Only DVs whose referenced data file was actually
+     * re-mutated (accepted by {@code wasReferenced}) are removed.
+     *
+     * <p>Also bounds {@code MergingSnapshotProducer.validateAddedDVs} to the snapshot this
+     * mutation read from by calling {@link RowDelta#validateFromSnapshot}. Without this, that
+     * check walks all ancestor snapshots and rejects the prior DV — now a committed ancestor —
+     * as a concurrently added DV. Genuine concurrent DV additions after the read snapshot are
+     * still correctly rejected.
+     */
+    @VisibleForTesting
+    static void replaceDeletionVectors(
+            RowDelta rowDelta,
+            Optional<Long> readSnapshotId,
+            Map<String, DeleteFile> existingDeletionVectors,
+            Predicate<String> wasReferenced)
+    {
+        if (existingDeletionVectors.isEmpty()) {
+            return;
+        }
+        // A mutation that observed existing deletion vectors must have read from a pinned
+        // snapshot. Require it explicitly rather than silently falling back to the commit-time
+        // current snapshot, which would bound the conflict check to a later snapshot and accept
+        // genuine concurrent DV additions as non-conflicting (a silent lost-update).
+        verify(readSnapshotId.isPresent(), "readSnapshotId must be present when replacing existing deletion vectors");
+        boolean replacedAny = false;
+        for (Map.Entry<String, DeleteFile> entry : existingDeletionVectors.entrySet()) {
+            if (!wasReferenced.test(entry.getKey())) {
+                continue;
+            }
+            rowDelta.removeDeletes(toIcebergDeletionVector(entry.getKey(), entry.getValue()));
+            replacedAny = true;
+        }
+        if (replacedAny) {
+            rowDelta.validateFromSnapshot(readSnapshotId.get());
+        }
+    }
+
+    /**
+     * Reconstructs the prior deletion vector as an Iceberg {@link org.apache.iceberg.DeleteFile}
+     * so {@link RowDelta#removeDeletes} can drop it. Iceberg's DeleteFileSet identity is
+     * (location, contentOffset, contentSizeInBytes), so the unpartitioned spec is sufficient for
+     * the removal to match the manifest entry regardless of the table's real partitioning.
+     */
+    @VisibleForTesting
+    static org.apache.iceberg.DeleteFile toIcebergDeletionVector(String referencedDataFile, DeleteFile deleteFile)
+    {
+        return FileMetadata.deleteFileBuilder(PartitionSpec.unpartitioned())
+                .ofPositionDeletes()
+                .withPath(deleteFile.path())
+                .withFormat(FileFormat.PUFFIN)
+                .withFileSizeInBytes(deleteFile.fileSizeInBytes())
+                .withRecordCount(deleteFile.recordCount())
+                .withReferencedDataFile(referencedDataFile)
+                .withContentOffset(deleteFile.getContentOffset()
+                        .orElseThrow(() -> new VerifyException("Existing deletion vector missing contentOffset: " + deleteFile.path())))
+                .withContentSizeInBytes(deleteFile.getContentSizeInBytes()
+                        .orElseThrow(() -> new VerifyException("Existing deletion vector missing contentSizeInBytes: " + deleteFile.path())))
+                .build();
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishDeleteWithOutput(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        IcebergDeleteTableHandle handle = (IcebergDeleteTableHandle) tableHandle;
+        SchemaTableName schemaTableName = new SchemaTableName(handle.getSchemaName(), handle.getTableName().getTableName());
+        Table icebergTable = getIcebergTable(session, schemaTableName);
 
         RowDelta rowDelta = icebergTable.newRowDelta();
-        handle.getIcebergTableName().getSnapshotId().ifPresent(rowDelta::validateFromSnapshot);
-        Optional<String> branchName = handle.getIcebergTableName().getBranchName();
+        handle.getTableName().getSnapshotId().ifPresent(rowDelta::validateFromSnapshot);
+        Optional<String> branchName = handle.getTableName().getBranchName();
         if (branchName.isPresent()) {
             rowDelta.toBranch(branchName.get());
         }
@@ -1582,12 +1812,33 @@ public abstract class IcebergAbstractMetadata
 
         for (CommitTaskData task : commitTasks) {
             PartitionSpec spec = icebergTable.specs().get(task.getPartitionSpecId());
-            FileMetadata.Builder builder = FileMetadata.deleteFileBuilder(spec)
-                    .ofPositionDeletes()
-                    .withPath(task.getPath())
-                    .withFileSizeInBytes(task.getFileSizeInBytes())
-                    .withFormat(FileFormat.fromString(task.getFileFormat().name()))
-                    .withMetrics(task.getMetrics().metrics());
+            FileMetadata.Builder builder = FileMetadata.deleteFileBuilder(spec);
+
+            if (handle.getFileContent() == FileContent.DELETION_VECTOR) {
+                // V3 deletion-vector branch: build a PUFFIN position-delete entry carrying the
+                // referenced data file plus the Puffin blob offset/size the worker wrote.
+                String referencedDataFile = task.getReferencedDataFile()
+                        .orElseThrow(() -> new VerifyException("Deletion-vector commit task missing referencedDataFile"));
+                long contentOffset = task.getContentOffset()
+                        .orElseThrow(() -> new VerifyException("Deletion-vector commit task missing contentOffset"));
+                long contentSizeInBytes = task.getContentSizeInBytes()
+                        .orElseThrow(() -> new VerifyException("Deletion-vector commit task missing contentSizeInBytes"));
+                builder.ofPositionDeletes()
+                        .withPath(task.getPath())
+                        .withFileSizeInBytes(task.getFileSizeInBytes())
+                        .withFormat(FileFormat.PUFFIN)
+                        .withReferencedDataFile(referencedDataFile)
+                        .withContentOffset(contentOffset)
+                        .withContentSizeInBytes(contentSizeInBytes)
+                        .withMetrics(task.getMetrics().metrics());
+            }
+            else {
+                builder.ofPositionDeletes()
+                        .withPath(task.getPath())
+                        .withFileSizeInBytes(task.getFileSizeInBytes())
+                        .withFormat(FileFormat.fromString(task.getFileFormat().name()))
+                        .withMetrics(task.getMetrics().metrics());
+            }
 
             if (!spec.fields().isEmpty()) {
                 String partitionDataJson = task.getPartitionDataJson()
@@ -1606,6 +1857,17 @@ public abstract class IcebergAbstractMetadata
 
         if (!referencedDataFiles.isEmpty()) {
             rowDelta.validateDataFilesExist(referencedDataFiles);
+        }
+
+        // V3: replace any prior DV for a re-mutated data file with the merged DV the worker just
+        // wrote, and bound the added-DV conflict check to the read snapshot. No-op for V2.
+        if (handle.getFileContent() == FileContent.DELETION_VECTOR) {
+            // Match through the same key helper the enumeration side uses (raw referencedDataFiles
+            // is retained above for validateDataFilesExist).
+            Set<String> referencedDeletionVectorKeys = referencedDataFiles.stream()
+                    .map(IcebergAbstractMetadata::deletionVectorKey)
+                    .collect(toImmutableSet());
+            replaceDeletionVectors(rowDelta, handle.getTableName().getSnapshotId(), handle.getExistingDeletionVectors(), referencedDeletionVectorKeys::contains);
         }
 
         rowDelta.commit();
@@ -1829,16 +2091,18 @@ public abstract class IcebergAbstractMetadata
         validateBranchExists(handle, icebergTable);
         int formatVersion = opsFromTable(icebergTable).current().formatVersion();
 
-        if (formatVersion > MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS) {
-            throw new PrestoException(NOT_SUPPORTED,
-                    format("Iceberg table updates for format version %s are not supported yet", formatVersion));
+        // V3 tables use deletion vectors natively and do not require an explicit
+        // write.update.mode='merge-on-read' table property.
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
+            throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
+                    format("Iceberg table updates require at least format version %d", MIN_FORMAT_VERSION_FOR_DELETE));
         }
-
-        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE ||
+        if (formatVersion < 3 &&
                 !Optional.ofNullable(icebergTable.properties().get(TableProperties.UPDATE_MODE))
                         .map(mode -> mode.equals(MERGE_ON_READ.modeName()))
                         .orElse(false)) {
-            throw new RuntimeException("Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
+            throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
+                    "Iceberg table updates require update mode to be merge-on-read");
         }
         validateTableMode(session, icebergTable);
         return handle
