@@ -28,7 +28,6 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -52,10 +51,11 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_USING_ROW_ID;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topN;
@@ -98,7 +98,8 @@ public class TestOptimizeTopNUsingRowId
     public void testBasicRewrite()
     {
         // lineitem has 16 columns, sorting by 1 gives savings of 15 >= 10 threshold.
-        // With unique column available, the optimization should produce SemiJoin plan.
+        // With unique column available, the optimization should produce an INNER join on $row_id
+        // (1:1, colocation-eligible) between the wide source and the narrow-TopN winners.
         assertPlanWithSession(
                 "SELECT * FROM lineitem ORDER BY orderkey LIMIT 10",
                 enabledSession(),
@@ -106,13 +107,11 @@ public class TestOptimizeTopNUsingRowId
                 output(
                         topN(10, ImmutableList.of(sort("ORDERKEY", ASCENDING, LAST)),
                                 anyTree(
-                                        node(FilterNode.class,
+                                        join(INNER, ImmutableList.of(equiJoinClause("ROW_ID", "ROW_ID_CLONE")),
                                                 anyTree(
-                                                        semiJoin("ROW_ID", "ROW_ID_CLONE", "SEMI_JOIN_OUTPUT",
-                                                                anyTree(
-                                                                        tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey", "ROW_ID", "$row_id"))),
-                                                                anyTree(
-                                                                        tableScan("lineitem", ImmutableMap.of("ROW_ID_CLONE", "$row_id"))))))))));
+                                                        tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey", "ROW_ID", "$row_id"))),
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("ROW_ID_CLONE", "$row_id"))))))));
     }
 
     @Test
@@ -173,39 +172,55 @@ public class TestOptimizeTopNUsingRowId
                 output(
                         topN(5, ImmutableList.of(sort("NAME", ASCENDING, LAST)),
                                 anyTree(
-                                        node(FilterNode.class,
+                                        join(INNER, ImmutableList.of(equiJoinClause("ROW_ID", "ROW_ID_CLONE")),
                                                 anyTree(
-                                                        semiJoin("ROW_ID", "ROW_ID_CLONE", "SEMI_JOIN_OUTPUT",
-                                                                anyTree(
-                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "ROW_ID", "$row_id"))),
-                                                                anyTree(
-                                                                        tableScan("nation", ImmutableMap.of("ROW_ID_CLONE", "$row_id"))))))))));
+                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "ROW_ID", "$row_id"))),
+                                                anyTree(
+                                                        tableScan("nation", ImmutableMap.of("ROW_ID_CLONE", "$row_id"))))))));
     }
 
     @Test
     public void testTopNRowNumberBasicRewrite()
     {
         // lineitem has 16 columns; row_number() partitioned by orderkey ordered by linenumber
-        // narrows to 2 key columns, savings of 14 >= 10 threshold. With a unique column available,
-        // the optimization should produce an outer TopNRowNumber over a SemiJoin whose build side
-        // is an inner (narrow) TopNRowNumber.
+        // narrows to 2 key columns, savings of 14 >= 10 threshold. Even with rn <= 2 (more than one row per
+        // partition) the inner TopNRowNumber has already assigned the final ranks, so there is NO outer
+        // TopNRowNumber: the rewrite produces an INNER $row_id join whose build side is the inner (narrow)
+        // TopNRowNumber, with the inner ranking carried through and surfaced by a Project.
         assertPlanWithSession(
                 "SELECT * FROM (SELECT *, row_number() OVER (PARTITION BY orderkey ORDER BY linenumber) rn FROM lineitem) WHERE rn <= 2",
                 enabledSession(),
                 true,
                 output(
-                        anyTree(
-                                topNRowNumber(outer -> outer.partial(false),
-                                        anyTree(
-                                                node(FilterNode.class,
-                                                        anyTree(
-                                                                semiJoin("ROW_ID", "ROW_ID_CLONE", "SEMI_JOIN_OUTPUT",
-                                                                        anyTree(
-                                                                                tableScan("lineitem", ImmutableMap.of("ROW_ID", "$row_id"))),
-                                                                        anyTree(
-                                                                                topNRowNumber(inner -> inner.partial(false),
-                                                                                        anyTree(
-                                                                                                tableScan("lineitem", ImmutableMap.of("ROW_ID_CLONE", "$row_id")))))))))))));
+                        join(INNER, ImmutableList.of(equiJoinClause("ROW_ID", "ROW_ID_CLONE")),
+                                anyTree(
+                                        tableScan("lineitem", ImmutableMap.of("ROW_ID", "$row_id"))),
+                                anyTree(
+                                        topNRowNumber(inner -> inner.partial(false),
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("ROW_ID_CLONE", "$row_id"))))))));
+    }
+
+    @Test
+    public void testTopNRowNumberDropsOuterForSingleRowPerPartition()
+    {
+        // rn <= 1 (one row per partition): because the join key is the unique $row_id, the join-back is 1:1 and
+        // the inner (narrow) TopNRowNumber has already selected the winning row per partition and assigned its
+        // rank. The outer TopNRowNumber (and the wide re-shuffle it forces) is redundant; the inner ranking is
+        // carried through the join and surfaced by a Project. The only non-partial TopNRowNumber left is the
+        // inner one, on the join build side (same shape as testTopNRowNumberBasicRewrite, which covers rn <= 2).
+        assertPlanWithSession(
+                "SELECT * FROM (SELECT *, row_number() OVER (PARTITION BY orderkey ORDER BY linenumber) rn FROM lineitem) WHERE rn <= 1",
+                enabledSession(),
+                true,
+                output(
+                        join(INNER, ImmutableList.of(equiJoinClause("ROW_ID", "ROW_ID_CLONE")),
+                                anyTree(
+                                        tableScan("lineitem", ImmutableMap.of("ROW_ID", "$row_id"))),
+                                anyTree(
+                                        topNRowNumber(inner -> inner.partial(false),
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("ROW_ID_CLONE", "$row_id"))))))));
     }
 
     @Test
@@ -244,7 +259,7 @@ public class TestOptimizeTopNUsingRowId
     {
         // Unpartitioned row_number() over the wide orders table (9 columns). With a low
         // column-savings threshold the rewrite fires, producing the $row_id / $row_id_clone
-        // SemiJoin (the outer/inner TopNRowNumber nesting is asserted in testTopNRowNumberBasicRewrite).
+        // INNER join (the outer/inner TopNRowNumber nesting is asserted in testTopNRowNumberBasicRewrite).
         Session lowThreshold = Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID, "true")
                 .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS, "1")
@@ -255,12 +270,11 @@ public class TestOptimizeTopNUsingRowId
                 lowThreshold,
                 true,
                 output(
-                        anyTree(
-                                semiJoin("ROW_ID", "ROW_ID_CLONE", "SEMI_JOIN_OUTPUT",
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("ROW_ID", "$row_id"))),
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("ROW_ID_CLONE", "$row_id")))))));
+                        join(INNER, ImmutableList.of(equiJoinClause("ROW_ID", "ROW_ID_CLONE")),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ROW_ID", "$row_id"))),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ROW_ID_CLONE", "$row_id"))))));
     }
 
     private Session enabledSession()
