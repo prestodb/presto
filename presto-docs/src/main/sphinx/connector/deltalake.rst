@@ -52,6 +52,13 @@ Property Name                                   Description                     
                                                 ``true``.
 ``delta.case-sensitive-partitions-enabled``     Allows matching the names of partitioned columns in a     ``true``
                                                 case-sensitive manner.
+
+``delta.deletion-vectors-enabled``              Enables support for reading deletion vectors in delta
+                                                tables. Inline deletion vectors are not supported.        ``false``
+
+``delta.deletion-vectors-max-size``             Maximum size in bytes allowed for deletion vectors.       ``104857600``
+                                                This limit prevents reading excessively large             (100 MB)
+                                                deletion vectors.
 =============================================== ========================================================= ============
 
 Delta Lake connector reuses many of the modules existing in Hive connector.
