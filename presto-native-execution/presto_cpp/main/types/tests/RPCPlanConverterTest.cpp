@@ -159,15 +159,72 @@ TEST_F(RPCPlanConverterTest, rpcNodeWithRegisteredFunction) {
   EXPECT_EQ(veloxRpcNode->functionName(), "fb_llm_inference");
   EXPECT_EQ(veloxRpcNode->outputColumn(), "__rpc_result");
 
-  // Verify argumentColumns are passed through.
-  ASSERT_EQ(veloxRpcNode->argumentColumns().size(), 1);
-  EXPECT_EQ(veloxRpcNode->argumentColumns()[0], "comment");
+  // Verify the call argument: a single column reference to "comment", typed
+  // VARCHAR. A variable reference is not a constant, so it becomes a
+  // FieldAccessTypedExpr column argument rather than a ConstantTypedExpr.
+  ASSERT_EQ(veloxRpcNode->call()->inputs().size(), 1);
+  auto* field = dynamic_cast<const core::FieldAccessTypedExpr*>(
+      veloxRpcNode->call()->inputs()[0].get());
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->name(), "comment");
+  EXPECT_EQ(field->type()->kind(), TypeKind::VARCHAR);
+}
 
-  // Verify argumentTypes are extracted from argument expressions.
-  ASSERT_EQ(veloxRpcNode->argumentTypes().size(), 1);
-  EXPECT_EQ(veloxRpcNode->argumentTypes()[0]->kind(), TypeKind::VARCHAR);
+// A column argument's FieldAccess must carry the SOURCE column's actual type,
+// not the argument expression's declared type. In production the Java planner
+// hoists the argument expression (e.g. a CAST) into the source column, so the
+// two normally agree; this test forces them to differ (source column "num" is
+// BIGINT while the argument expression is declared VARCHAR) to pin that the
+// converter uses the authoritative source-schema type. RPCOperator reads that
+// column by name at runtime, so a FieldAccess typed from the argument
+// expression would misdeclare the vector actually read.
+TEST_F(RPCPlanConverterTest, columnArgUsesSourceColumnType) {
+  exec_rpc::AsyncRPCFunctionRegistry::testingClear();
+  exec_rpc::AsyncRPCFunctionRegistry::registerFunction(
+      "fb_llm_inference", []() { return nullptr; });
 
-  // Verify constantInputs: arg 0 is a variable reference (nullptr).
-  ASSERT_EQ(veloxRpcNode->constantInputs().size(), 1);
-  EXPECT_EQ(veloxRpcNode->constantInputs()[0], nullptr);
+  // Source produces column "num" of type BIGINT.
+  auto valuesNode = std::make_shared<protocol::ValuesNode>();
+  valuesNode->_type = "com.facebook.presto.sql.planner.plan.ValuesNode";
+  valuesNode->id = "0";
+  protocol::VariableReferenceExpression numVar;
+  numVar.name = "num";
+  numVar.type = "bigint";
+  valuesNode->outputVariables.push_back(numVar);
+
+  // The RPC argument references "num" but with a DIFFERENT declared type
+  // (varchar), as a hoisted CAST(num AS varchar) would present it.
+  // argumentColumns names the source column the operator actually reads.
+  auto rpcNode = std::make_shared<protocol::RPCNode>();
+  rpcNode->_type = "com.facebook.presto.sql.planner.plan.RPCNode";
+  rpcNode->id = "8";
+  rpcNode->source = valuesNode;
+  rpcNode->functionName = "fb_llm_inference";
+  auto arg = std::make_shared<protocol::VariableReferenceExpression>();
+  arg->_type = "variable";
+  arg->name = "num";
+  arg->type = "varchar"; // differs from the source column's BIGINT
+  rpcNode->arguments.push_back(arg);
+  rpcNode->argumentColumns = {"num"};
+  rpcNode->outputVariable.name = "__rpc_result";
+  rpcNode->outputVariable.type = "varchar";
+  rpcNode->streamingMode = protocol::RPCNodeStreamingMode::PER_ROW;
+  rpcNode->dispatchBatchSize = 0;
+
+  VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+  auto veloxPlan = converter.toVeloxQueryPlan(
+      std::dynamic_pointer_cast<protocol::PlanNode>(rpcNode),
+      nullptr,
+      "20260124_042527_00001_gp3te.1.0.0.0");
+  auto veloxRpcNode = std::dynamic_pointer_cast<const core::RPCNode>(veloxPlan);
+  ASSERT_NE(veloxRpcNode, nullptr);
+
+  ASSERT_EQ(veloxRpcNode->call()->inputs().size(), 1);
+  auto* field = dynamic_cast<const core::FieldAccessTypedExpr*>(
+      veloxRpcNode->call()->inputs()[0].get());
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->name(), "num");
+  // Authoritative source-column type (BIGINT), NOT the argument's declared
+  // VARCHAR: this is the column RPCOperator reads by name at runtime.
+  EXPECT_EQ(field->type()->kind(), TypeKind::BIGINT);
 }
