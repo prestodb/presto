@@ -21,6 +21,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.MetadataColumns;
+import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
@@ -38,6 +40,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -198,6 +201,90 @@ public abstract class TestIcebergRowLineageBase
         }
     }
 
+    /**
+     * Regression test: a row whose _row_id/_last_updated_sequence_number were explicitly
+     * written into the physical data file (as an external writer like Spark does for a
+     * row-preserving UPDATE/MERGE, to override the firstRowId+position fallback) must report
+     * the same values whether or not the query also predicates/orders on that column. Presto's
+     * native connector previously only taught the reader about these columns' physical field
+     * IDs when they appeared in a filter predicate, so a plain projection query silently fell
+     * back to firstRowId+position (for _row_id) or the file's own dataSequenceNumber (for
+     * _last_updated_sequence_number) instead of reading the real per-row value.
+     */
+    @Test
+    public void testRowLineageConsistentAcrossPredicateAndProjectionOnlyQueries()
+            throws Exception
+    {
+        String tableName = "test_row_lineage_predicate_vs_projection";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3");
+            Schema schema = table.schema();
+
+            // Pure insert: relies on the firstRowId + position fallback.
+            writeRecords(table, GenericRecord.create(schema).copy("id", 1, "value", "one"));
+            table.refresh();
+
+            // Simulate a row-preserving external UPDATE/MERGE (e.g. real Spark MERGE INTO):
+            // the new data file explicitly carries _row_id/_last_updated_sequence_number
+            // values that must override the positional/file-level fallback.
+            Schema lineageSchema = MetadataColumns.schemaWithRowLineage(schema);
+            Record updatedRow = GenericRecord.create(lineageSchema);
+            updatedRow.setField("id", 2);
+            updatedRow.setField("value", "two-updated");
+            updatedRow.setField(MetadataColumns.ROW_ID.name(), 42L);
+            updatedRow.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), 99L);
+            writeRecordsWithSchema(table, lineageSchema, updatedRow);
+            table.refresh();
+
+            MaterializedResult unfiltered = computeActual(
+                    "SELECT id, \"_row_id\", \"_last_updated_sequence_number\" FROM " + tableName +
+                            " ORDER BY id");
+            MaterializedResult filtered = computeActual(
+                    "SELECT id, \"_row_id\", \"_last_updated_sequence_number\" FROM " + tableName +
+                            " WHERE \"_row_id\" IS NOT NULL ORDER BY id");
+
+            assertEquals(unfiltered.getRowCount(), 2);
+            Map<Integer, long[]> unfilteredById = rowIdAndSeqById(unfiltered);
+            Map<Integer, long[]> filteredById = rowIdAndSeqById(filtered);
+            assertEquals(unfilteredById.keySet(), filteredById.keySet(),
+                    "plain projection and predicate-filtered queries must see the same rows");
+            for (Integer id : unfilteredById.keySet()) {
+                assertEquals(unfilteredById.get(id)[0], filteredById.get(id)[0],
+                        "_row_id must match between unfiltered and filtered queries for id=" + id);
+                assertEquals(unfilteredById.get(id)[1], filteredById.get(id)[1],
+                        "_last_updated_sequence_number must match between unfiltered and filtered queries for id=" + id);
+            }
+
+            assertEquals(unfilteredById.get(2)[0], 42L,
+                    "_row_id should reflect the file's explicit physical value, not firstRowId+position");
+            assertEquals(unfilteredById.get(2)[1], 99L,
+                    "_last_updated_sequence_number should reflect the file's explicit physical value, not the file's dataSequenceNumber");
+        }
+        finally {
+            try {
+                catalog.dropTable(tableId, true);
+            }
+            catch (Exception ignored) {
+            }
+        }
+    }
+
+    private static Map<Integer, long[]> rowIdAndSeqById(MaterializedResult result)
+    {
+        Map<Integer, long[]> byId = new HashMap<>();
+        for (MaterializedRow row : result.getMaterializedRows()) {
+            int id = (Integer) row.getField(0);
+            Long rowId = (Long) row.getField(1);
+            Long seqNum = (Long) row.getField(2);
+            assertNotNull(rowId, "_row_id should not be null for id=" + id);
+            assertNotNull(seqNum, "_last_updated_sequence_number should not be null for id=" + id);
+            byId.put(id, new long[] {rowId, seqNum});
+        }
+        return byId;
+    }
+
     protected void assertPrestoRowLineageMatchesExpected(String tableName, List<long[]> expectedPairs)
     {
         MaterializedResult result = computeActual(
@@ -261,6 +348,38 @@ public abstract class TestIcebergRowLineageBase
         DataWriter<Record> writer = Parquet.writeData(HadoopOutputFile.fromPath(filePath, conf))
                 .forTable(table)
                 .createWriterFunc(GenericParquetWriter::create)
+                .overwrite()
+                .build();
+        try {
+            for (Record record : records) {
+                writer.write(record);
+            }
+        }
+        finally {
+            writer.close();
+        }
+
+        table.newAppend().appendFile(writer.toDataFile()).commit();
+    }
+
+    /**
+     * Like {@link #writeRecords}, but writes against an explicit schema rather than
+     * {@code table.schema()} -- needed to write physical {@code _row_id}/
+     * {@code _last_updated_sequence_number} values via {@link MetadataColumns#schemaWithRowLineage}.
+     */
+    protected void writeRecordsWithSchema(Table table, Schema writeSchema, Record... records)
+            throws Exception
+    {
+        String filename = "data-" + UUID.randomUUID() + ".parquet";
+        org.apache.hadoop.fs.Path filePath = new org.apache.hadoop.fs.Path(
+                table.location(), "data/" + filename);
+        Configuration conf = new Configuration();
+
+        DataWriter<Record> writer = Parquet.writeData(HadoopOutputFile.fromPath(filePath, conf))
+                .schema(writeSchema)
+                .withSpec(table.spec())
+                .createWriterFunc(GenericParquetWriter::create)
+                .metricsConfig(MetricsConfig.forTable(table))
                 .overwrite()
                 .build();
         try {
