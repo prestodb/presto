@@ -685,6 +685,7 @@ public class TestStringFunctions
     public void testCharLeftTrim()
     {
         assertFunction("LTRIM(CAST('' AS CHAR(20)))", createVarcharType(20), "");
+        assertFunction("LTRIM(CAST('   ' AS CHAR(3)))", createVarcharType(3), "");
         assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)))", createVarcharType(9), "hello");
         assertFunction("LTRIM(CAST('  hello' AS CHAR(7)))", createVarcharType(7), "hello");
         assertFunction("LTRIM(CAST('hello  ' AS CHAR(7)))", createVarcharType(7), "hello");
