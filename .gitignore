@@ -69,3 +69,6 @@ presto-native-execution/deps-install
 /docker/presto-cli-*-executable.jar
 /docker/presto-server-*.tar.gz
 /docker/presto-function-server-executable.jar
+.claude/
+test-result-AFTER-fix.txt
+test-result-BEFORE-fix.txt
