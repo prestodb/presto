@@ -16,9 +16,11 @@ package com.facebook.presto.plugin.oracle;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.jmx.JmxPlugin;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 
 import java.util.HashMap;
@@ -48,6 +50,25 @@ public class OracleQueryRunner
     public static DistributedQueryRunner createOracleQueryRunner(OracleServerTester server, Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createOracleQueryRunner(server, ImmutableMap.of(), tables);
+    }
+
+    public static DistributedQueryRunner createOracleQueryRunner(
+            OracleServerTester server,
+            Map<String, String> extraConnectorProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createOracleQueryRunner(server, "oracle", extraConnectorProperties, tables);
+    }
+
+    public static DistributedQueryRunner createOracleQueryRunner(
+            OracleServerTester server,
+            String catalogName,
+            Map<String, String> extraConnectorProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession()).build();
@@ -55,14 +76,18 @@ public class OracleQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
+            queryRunner.installPlugin(new JmxPlugin());
+            queryRunner.createCatalog("jmx", "jmx");
+
             Map<String, String> connectorProperties = new HashMap<>();
+            connectorProperties.putAll(extraConnectorProperties);
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
             connectorProperties.putIfAbsent("connection-user", OracleServerTester.TEST_USER);
             connectorProperties.putIfAbsent("connection-password", OracleServerTester.TEST_PASS);
             connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new OraclePlugin());
-            queryRunner.createCatalog("oracle", "oracle", connectorProperties);
+            queryRunner.createCatalog(catalogName, "oracle", connectorProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
