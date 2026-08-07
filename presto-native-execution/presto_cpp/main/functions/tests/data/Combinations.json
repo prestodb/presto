@@ -19,6 +19,7 @@
       "typeVariableConstraints": [
         {
           "comparableRequired": false,
+          "hashableRequired": false,
           "name": "__user_t1",
           "nonDecimalNumericRequired": false,
           "orderableRequired": false,
