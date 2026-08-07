@@ -172,9 +172,9 @@ public class PrestoNativeQueryRunnerUtils
                         .build());
                 this.security = "legacy";
                 this.useExternalWorkerLauncher = true;
-                // Run native workers in containers when a WORKER_IMAGE property is set;
+                // Run native workers in containers when a `workerImage` property is set;
                 // otherwise launch the presto_server binary directly on the host.
-                this.workerImage = getProperty("WORKER_IMAGE");
+                this.workerImage = getProperty("workerImage");
             }
             else {
                 this.extraProperties.putAll(ImmutableMap.of(
@@ -382,9 +382,9 @@ public class PrestoNativeQueryRunnerUtils
                         .putAll(getNativeWorkerSystemProperties())
                         .build());
                 this.useExternalWorkerLauncher = true;
-                // Run native workers in containers when a WORKER_IMAGE property is set;
+                // Run native workers in containers when a `workerImage` property is set;
                 // otherwise launch the presto_server binary directly on the host.
-                this.workerImage = getProperty("WORKER_IMAGE");
+                this.workerImage = getProperty("workerImage");
             }
             else {
                 this.extraProperties.putAll(ImmutableMap.of(
@@ -554,9 +554,9 @@ public class PrestoNativeQueryRunnerUtils
                         .putAll(getNativeWorkerSystemProperties())
                         .build());
                 this.useExternalWorkerLauncher = true;
-                // Run native workers in containers when a WORKER_IMAGE property is set;
+                // Run native workers in containers when a `workerImage` property is set;
                 // otherwise launch the presto_server binary directly on the host.
-                this.workerImage = getProperty("WORKER_IMAGE");
+                this.workerImage = getProperty("workerImage");
             }
             else {
                 this.extraProperties.putAll(ImmutableMap.of(
@@ -847,7 +847,7 @@ public class PrestoNativeQueryRunnerUtils
 
         public ExternalWorkerLauncherBuilder setWorkerImage(Optional<String> workerImage)
         {
-            this.workerImage = requireNonNull(workerImage, "containerImage is null");
+            this.workerImage = requireNonNull(workerImage, "workerImage is null");
             return this;
         }
 
