@@ -19,13 +19,13 @@ _______________
 * Fix BATCH-mode RPC dispatch dropping and under-batching rows by gathering RPC input to a single driver in the local plan. `#28230 <https://github.com/prestodb/presto/pull/28230>`_
 * Fix incorrect epoch-second and nanosecond decomposition for pre-1970 (negative) timestamps in TimestampType; getEpochSecond and getNanos now use floor division instead of truncation toward zero. `#27935 <https://github.com/prestodb/presto/pull/27935>`_
 * Fix the ``optimize_row_in_predicate`` optimization so it applies to constant-folded ``ROW(...) IN (...)`` predicates, enabling per-column predicate derivation and partition pruning that previously did not occur. `#27942 <https://github.com/prestodb/presto/pull/27942>`_
-* Fix timestamp operations to match the SQL specification. The value of a TIMESTAMP type is not affected by the session time zone. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
+* Fix timestamp operations to match the SQL specification. The value of a ``TIMESTAMP`` type is not affected by the session time zone. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
 * Improve outer joins on skewed ``NULL`` join keys by spreading the null keys across partitions in their native type. This is controlled by the existing ``randomize_outer_join_null_key`` session property. `#28153 <https://github.com/prestodb/presto/pull/28153>`_
 * Improve the ``optimize_cascading_filters_and_projections`` optimization to avoid duplicating multiply-referenced non-trivial expressions when coalescing cascading projections. `#28216 <https://github.com/prestodb/presto/pull/28216>`_
-* Add JOIN support to the materialized view query optimizer. Queries that join a base table covered by a materialized view with another table can now be rewritten to scan the materialized view in place of the base table, subject to safety guards (matching GROUP BY, no aggregates over non-swapped tables, supported join types). `#27733 <https://github.com/prestodb/presto/pull/27733>`_
+* Add ``JOIN`` support to the materialized view query optimizer. Queries that join a base table covered by a materialized view with another table can now be rewritten to scan the materialized view in place of the base table, subject to safety guards (matching ``GROUP BY``, no aggregates over non-swapped tables, supported join types). `#27733 <https://github.com/prestodb/presto/pull/27733>`_
 * Add ``scanRawInputDataSizeInBytes`` to task statistics, reporting the raw input data size read by table scan operators. `#28222 <https://github.com/prestodb/presto/pull/28222>`_
 * Add ``scanRawInputDataSize`` to basic query statistics. `#28222 <https://github.com/prestodb/presto/pull/28222>`_
-* Add ``native_exchange_materialization_enabled`` session property (Presto on Spark native codepath only) to control whether Velox native workers use MaterializedOutput/MaterializedExchange operators. When set to ``true``, enables materialized exchange; when 
+* Add ``native_exchange_materialization_enabled`` session property (Presto on Spark native codepath only) to control whether Velox native workers use MaterializedOutput/MaterializedExchange operators. When set to ``true``, enables materialized exchange; when ``false`` (default), falls back to PartitionAndSerialize + ShuffleWrite.
 * Add a driver-side metadata sidecar that registers native-only Velox functions into the Java planner at driver bootstrap. `#27698 <https://github.com/prestodb/presto/pull/27698>`_
 * Add configuration and session properties for legacy ``ST_Equals`` behavior. `#27015 <https://github.com/prestodb/presto/pull/27015>`_
 * Add configuration property ``server.startup-complete-required-for-active`` to report a node as not ready (``/v1/info`` ``starting`` and ``/v1/info/state``) until server startup has fully completed. Defaults to ``false``. `#28193 <https://github.com/prestodb/presto/pull/28193>`_
@@ -47,7 +47,7 @@ _______________
 * Add validation to reject non-deterministic and session-time functions in ``CREATE MATERIALIZED VIEW`` definitions. `#28220 <https://github.com/prestodb/presto/pull/28220>`_
 * Add optimizer rule ``parallelize_chained_aggregation`` (default: false) that inserts a local round-robin exchange to parallelize the outer PARTIAL in chained aggregations. `#27884 <https://github.com/prestodb/presto/pull/27884>`_
 * Update ST_Equals function for empty geometries to return true regardless of geometry types. `#27015 <https://github.com/prestodb/presto/pull/27015>`_
-* Update default value of `deprecated.legacy-timestamp` to false. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
+* Update default value of ``deprecated.legacy-timestamp`` to false. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
 * Update the driver-side metadata sidecar registration of worker functions into the Airlift bootstrap. `#27699 <https://github.com/prestodb/presto/pull/27699>`_
 
 Prestissimo (Native Execution) Changes
