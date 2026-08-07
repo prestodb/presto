@@ -425,11 +425,11 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
-    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope)
     {
         long startTime = System.nanoTime();
         try {
-            return delegate.beginUpdate(session, tableHandle, updatedColumns);
+            return delegate.beginUpdate(session, tableHandle, updatedColumns, updateScope);
         }
         finally {
             stats.recordBeginUpdateCall(System.nanoTime() - startTime);

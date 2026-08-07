@@ -29,11 +29,13 @@ import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.hive.HiveOutputInfo;
 import com.facebook.presto.hive.HiveOutputMetadata;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.PartitionSet;
+import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
@@ -82,6 +84,7 @@ import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
+import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.security.ViewSecurity;
@@ -775,8 +778,13 @@ public abstract class IcebergAbstractMetadata
                 .collect(toImmutableList()), icebergTable.location())));
     }
 
-    private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, SchemaTableName tableName, IcebergWritableTableHandle writableTableHandle, Collection<Slice> fragments, ChangelogOperation operationType)
+    private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, SchemaTableName tableName,
+                                                          IcebergWritableTableHandle writableTableHandle,
+                                                          Collection<Slice> fragments,
+                                                          ChangelogOperation operationType,
+                                                          Optional<RowExpression> writeScope)
     {
+        requireNonNull(writeScope, "writeScope is null");
         if (fragments.isEmpty()) {
             return Optional.empty();
         }
@@ -793,6 +801,22 @@ public abstract class IcebergAbstractMetadata
         if (branchName.isPresent()) {
             rowDelta.toBranch(branchName.get());
         }
+
+        writeScope.ifPresent(scope -> {
+            DomainTranslator.ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator()
+                    .fromPredicate(session, scope, new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(session), session).toColumnExtractor());
+
+            Map<String, IcebergColumnHandle> nameToColumnHandlesMapping = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager)
+                    .stream()
+                    .collect(Collectors.toMap(BaseHiveColumnHandle::getName, e -> e));
+            TupleDomain<IcebergColumnHandle> entireColumnDomain = decomposedFilter.getTupleDomain()
+                    .transform(subfield -> subfield.getPath().isEmpty() ? subfield.getRootName() : null)
+                    .transform(nameToColumnHandlesMapping::get);
+
+            if (!entireColumnDomain.isAll()) {
+                rowDelta.conflictDetectionFilter(toIcebergExpression(entireColumnDomain));
+            }
+        });
 
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
@@ -970,7 +994,7 @@ public abstract class IcebergAbstractMetadata
 
         finishWrite(session,
                 new SchemaTableName(insertTableHandle.getSchemaName(), insertTableHandle.getTableName().getTableName()),
-                insertTableHandle, fragments, UPDATE_AFTER);
+                insertTableHandle, fragments, UPDATE_AFTER, Optional.empty());
     }
 
     @Override
@@ -1822,7 +1846,7 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
@@ -1841,6 +1865,7 @@ public abstract class IcebergAbstractMetadata
             throw new RuntimeException("Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
         }
         validateTableMode(session, icebergTable);
+        this.transactionContext.setQueryWriteScope(session.getQueryId(), updateScope);
         return handle
                 .withUpdatedColumns(updatedColumns.stream()
                         .map(IcebergColumnHandle.class::cast)
@@ -1863,7 +1888,8 @@ public abstract class IcebergAbstractMetadata
                 getCompressionCodec(session),
                 icebergTable.properties(),
                 handle.getSortOrder());
-        finishWrite(session, handle.getSchemaTableName(), outputTableHandle, fragments, UPDATE_AFTER);
+        finishWrite(session, handle.getSchemaTableName(), outputTableHandle, fragments, UPDATE_AFTER,
+                this.transactionContext.getQueryWriteScope(session.getQueryId()));
     }
 
     protected Optional<String> getDataLocationBasedOnWarehouseDataDir(SchemaTableName schemaTableName)

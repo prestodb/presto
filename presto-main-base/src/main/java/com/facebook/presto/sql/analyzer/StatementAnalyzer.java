@@ -3642,7 +3642,22 @@ class StatementAnalyzer
                     warningCollector);
 
             Scope tableScope = analyzer.analyze(table, scope);
-            update.getWhere().ifPresent(where -> analyzeWhere(update, tableScope, where));
+            Optional<RowExpression> updateScopePredicate = update.getWhere().map(whereExpression -> {
+                analyzeWhere(update, tableScope, whereExpression);
+                try {
+                    return SqlToRowExpressionTranslator.translate(
+                            whereExpression,
+                            analysis.getTypes(),
+                            ImmutableMap.of(),
+                            metadata.getFunctionAndTypeManager(),
+                            session);
+                }
+                catch (Exception e) {
+                    // Returns Optional.empty() if the WHERE condition cannot be translated.
+                    return null;
+                }
+            });
+            analysis.setWritePredicateScope(updateScopePredicate);
 
             ImmutableList.Builder<ExpressionAnalysis> analysesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
