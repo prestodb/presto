@@ -352,7 +352,7 @@ public class TestGroupInnerJoinsByConnectorRuleSet
     private RuleAssert assertGroupInnerJoinsByConnectorRuleSet()
     {
         // For testing, we do not wish to push down pulled up predicates
-        return tester.assertThat(new GroupInnerJoinsByConnectorRuleSet.OnlyJoinRule(tester.getMetadata(), (plan, session, types, variableAllocator, idAllocator, warningCollector) -> PlanOptimizerResult.optimizerResult(plan, false)),
+        return tester.assertThat(new GroupInnerJoinsByConnectorRuleSet.OnlyJoinRule(tester.getMetadata(), (plan, session, types, variableAllocator, idAllocator, warningCollector, collectInformation) -> PlanOptimizerResult.optimizerResult(plan, false)),
                 ImmutableList.of(CATALOG_SUPPORTING_JOIN_PUSHDOWN, OTHER_CATALOG_SUPPORTING_JOIN_PUSHDOWN));
     }
 

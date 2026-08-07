@@ -81,7 +81,6 @@ public class ShardJoins
     private final Metadata metadata;
     private final FunctionAndTypeManager functionAndTypeManager;
     private final StatsCalculator statsCalculator;
-    private boolean isEnabledForTesting;
 
     public ShardJoins(Metadata metadata, FunctionAndTypeManager functionAndTypeManager, StatsCalculator statsCalculator)
     {
@@ -91,21 +90,16 @@ public class ShardJoins
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean collectInformation)
     {
-        isEnabledForTesting = isSet;
+        return collectInformation || !getShardedJoinStrategy(session).equals(DISABLED);
     }
 
     @Override
-    public boolean isEnabled(Session session)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
     {
-        return isEnabledForTesting || !getShardedJoinStrategy(session).equals(DISABLED);
-    }
-
-    @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
-    {
-        if (isEnabled(session)) {
+        if (isEnabled(session, collectInformation)) {
             Rewriter rewriter = new Rewriter(session, metadata, functionAndTypeManager, idAllocator, variableAllocator);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new HashSet<>());
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());

@@ -358,7 +358,7 @@ public class GroupInnerJoinsByConnectorRuleSet
                         TypeProvider.viewOf(variableAllocator.getVariables()),
                         variableAllocator,
                         idAllocator,
-                        context.getWarningCollector()).getPlanNode();
+                        context.getWarningCollector(), false).getPlanNode();
             }
             return node;
         }

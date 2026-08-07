@@ -31,7 +31,8 @@ public class ReplicateSemiJoinInDelete
         implements PlanOptimizer
 {
     @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
     {
         if (isBroadcastSemiJoinForDeleteEnabled(session)) {
             requireNonNull(plan, "plan is null");

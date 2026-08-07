@@ -111,7 +111,7 @@ public class Optimizer
                     throw new PrestoException(QUERY_PLANNING_TIMEOUT, String.format("The query optimizer exceeded the timeout of %s.", getQueryAnalyzerTimeout(session).toString()));
                 }
                 long start = System.nanoTime();
-                PlanOptimizerResult optimizerResult = optimizer.optimize(root, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                PlanOptimizerResult optimizerResult = optimizer.optimize(root, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector, false);
                 requireNonNull(optimizerResult, format("%s returned a null plan", optimizer.getClass().getName()));
                 if (enableVerboseRuntimeStats || trackOptimizerRuntime(session, optimizer)) {
                     session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", getOptimizerNameForLog(optimizer)), NANO, System.nanoTime() - start);
@@ -166,8 +166,8 @@ public class Optimizer
         boolean isTriggered = planOptimizerResult.isOptimizerTriggered();
         boolean isApplicable =
                 isTriggered ||
-                        !optimizer.isEnabled(session) && isVerboseOptimizerInfoEnabled(session) &&
-                                optimizer.isApplicable(oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                        !optimizer.isEnabled(session, false) && isVerboseOptimizerInfoEnabled(session) &&
+                                optimizer.isApplicable(oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator);
         boolean isCostBased = isTriggered && optimizer.isCostBased(session);
         String statsSource = optimizer.getStatsSource();
 

@@ -349,7 +349,8 @@ public class TestRpcFunctionOptimizer
                 TypeProvider.empty(),
                 variableAllocator,
                 idAllocator,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
 
         assertTrue(result.isOptimizerTriggered(), "Plan should be optimized when TRY wraps an RPC function");
         assertTrue(containsPlanNode(result.getPlanNode(), RPCNode.class),
@@ -411,7 +412,8 @@ public class TestRpcFunctionOptimizer
                 TypeProvider.empty(),
                 variableAllocator,
                 idAllocator,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
 
         assertFalse(result.isOptimizerTriggered(), "Plan should not be optimized when TRY does not wrap an RPC function");
         assertFalse(containsPlanNode(result.getPlanNode(), RPCNode.class),
@@ -458,7 +460,8 @@ public class TestRpcFunctionOptimizer
                 TypeProvider.empty(),
                 variableAllocator,
                 idAllocator,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
 
         assertTrue(result.isOptimizerTriggered(), "Plan should be optimized for direct RPC function calls");
         assertTrue(containsPlanNode(result.getPlanNode(), RPCNode.class),
@@ -558,7 +561,7 @@ public class TestRpcFunctionOptimizer
         Session session = TestingSession.testSessionBuilder().build();
 
         PlanOptimizerResult result = optimizer.optimize(
-                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP, false);
 
         assertTrue(result.isOptimizerTriggered(), "Plan should be optimized for multi-param TRY");
         assertTrue(containsPlanNode(result.getPlanNode(), RPCNode.class),
@@ -591,7 +594,7 @@ public class TestRpcFunctionOptimizer
         Session session = TestingSession.testSessionBuilder().build();
 
         return optimizer.optimize(
-                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP, false);
     }
 
     @Test
@@ -631,7 +634,7 @@ public class TestRpcFunctionOptimizer
         Session session = TestingSession.testSessionBuilder().build();
 
         PlanOptimizerResult rpcResult = optimizer.optimize(
-                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP, false);
         assertTrue(rpcResult.isOptimizerTriggered());
 
         int rpcCount = countPlanNodes(rpcResult.getPlanNode(), RPCNode.class);
@@ -650,7 +653,7 @@ public class TestRpcFunctionOptimizer
 
         PruneUnreferencedOutputs pruner = new PruneUnreferencedOutputs();
         PlanOptimizerResult pruneResult = pruner.optimize(
-                outputNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+                outputNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP, false);
 
         PlanNode prunedPlan = pruneResult.getPlanNode();
         assertEquals(countPlanNodes(prunedPlan, RPCNode.class), 3,
@@ -749,7 +752,7 @@ public class TestRpcFunctionOptimizer
         Session session = TestingSession.testSessionBuilder().build();
 
         PlanOptimizerResult result = optimizer.optimize(
-                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP, false);
 
         assertTrue(result.isOptimizerTriggered());
         assertTrue(containsPlanNode(result.getPlanNode(), RPCNode.class));
@@ -794,7 +797,7 @@ public class TestRpcFunctionOptimizer
                 rpcPlan.getOutputVariables());
         PruneUnreferencedOutputs pruner = new PruneUnreferencedOutputs();
         PlanOptimizerResult pruneResult = pruner.optimize(
-                outputNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+                outputNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP, false);
         assertEquals(countPlanNodes(pruneResult.getPlanNode(), RPCNode.class), 1,
                 "RPCNode must survive pruning for a TRY(CAST(rpc_fn())) body");
     }
@@ -885,7 +888,7 @@ public class TestRpcFunctionOptimizer
         RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(() -> ImmutableSet.of("test_rpc_function"), null, policy);
 
         PlanOptimizerResult result = optimizer.optimize(
-                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP, false);
 
         RPCNode rpcNode = (RPCNode) findPlanNode(result.getPlanNode(), RPCNode.class);
         assertTrue(rpcNode != null, "Optimized plan should contain an RPCNode");
