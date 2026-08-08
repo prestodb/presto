@@ -20,6 +20,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -212,6 +213,31 @@ public class TestJdbcQueryBuilder
                 builder.add((Long) resultSet.getObject("col_0"));
             }
             assertEquals(builder.build(), ImmutableSet.of(68L, 180L, 196L));
+        }
+    }
+
+    @Test
+    public void testBuildSqlWithCommentInjectionInUser()
+            throws SQLException
+    {
+        // The session user is embedded in the trailing /* */ comment sent to the remote database.
+        // A user name that closes the comment must not be able to append its own predicate and
+        // widen the result set beyond the single matching row.
+        ConnectorSession injectionSession = new TestingConnectorSession(
+                new ConnectorIdentity("*/ OR \"col_0\" >= 0 -- ", Optional.empty(), Optional.empty()),
+                ImmutableList.of());
+
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(columns.get(0), Domain.singleValue(BIGINT, 128L)));
+
+        Connection connection = database.getConnection();
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, injectionSession, connection, "", "", "test_table", columns, tupleDomain, Optional.empty());
+                ResultSet resultSet = preparedStatement.executeQuery()) {
+            ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
+            while (resultSet.next()) {
+                builder.add((Long) resultSet.getObject("col_0"));
+            }
+            assertEquals(builder.build(), ImmutableSet.of(128L));
         }
     }
 
