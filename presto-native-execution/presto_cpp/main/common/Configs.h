@@ -693,6 +693,22 @@ class SystemConfig : public ConfigBase {
       kExchangeMaterializationOutputBufferPerPartitionMaxBytes{
           "exchange.materialization.output-buffer.per-partition-max-bytes"};
 
+  /// Producer-blocking watermark. Must exceed the low ratio. Default: 0.9.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferHighWatermarkRatio{
+          "exchange.materialization.output-buffer.high-watermark-ratio"};
+
+  /// Producer-wake watermark. Must be below the high ratio. Default: 0.7.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferLowWatermarkRatio{
+          "exchange.materialization.output-buffer.low-watermark-ratio"};
+
+  /// Maximum collect() size as a multiple of the partition drain threshold.
+  /// Default: 2.0.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferDrainChunkMultiplier{
+          "exchange.materialization.output-buffer.drain-chunk-multiplier"};
+
   /// Fraction of the per-partition drain threshold used during memory reclaim.
   /// The reclaim drain threshold is generally lower than the regular drain
   /// threshold, but high enough that draining actually reduces memory. Without
@@ -1181,6 +1197,12 @@ class SystemConfig : public ConfigBase {
   int64_t exchangeMaterializationOutputBufferMaxBytes() const;
 
   int64_t exchangeMaterializationOutputBufferPerPartitionMaxBytes() const;
+
+  double exchangeMaterializationOutputBufferHighWatermarkRatio() const;
+
+  double exchangeMaterializationOutputBufferLowWatermarkRatio() const;
+
+  double exchangeMaterializationOutputBufferDrainChunkMultiplier() const;
 
   double exchangeMaterializationReclaimDrainThresholdRatio() const;
 
