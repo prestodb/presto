@@ -79,6 +79,9 @@ public final class IcebergSessionProperties
     public static final String MATERIALIZED_VIEW_DEFAULT_MAX_SNAPSHOTS_PER_REFRESH = "materialized_view_default_max_snapshots_per_refresh";
     public static final String AGGREGATE_PUSH_DOWN_ENABLED = "aggregate_push_down_enabled";
     public static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    private static final String DYNAMIC_FILTER_EXTENDED_METRICS = "dynamic_filter_extended_metrics";
+    private static final String DYNAMIC_FILTER_WARMUP_ENABLED = "dynamic_filter_warmup_enabled";
+    private static final String DYNAMIC_FILTER_WARMUP_WEIGHT_PER_TASK = "dynamic_filter_warmup_weight_per_task";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -288,7 +291,23 @@ public final class IcebergSessionProperties
                             }
                             return dataSize;
                         },
-                        DataSize::toString));
+                        DataSize::toString))
+                .add(booleanProperty(
+                        DYNAMIC_FILTER_EXTENDED_METRICS,
+                        "Emit extended metrics for dynamic filter diagnostics in Iceberg split sources",
+                        icebergConfig.isDynamicFilterExtendedMetrics(),
+                        false))
+                .add(booleanProperty(
+                        DYNAMIC_FILTER_WARMUP_ENABLED,
+                        "When enabled, dispatch a warmup batch of splits before pausing for the dynamic filter",
+                        icebergConfig.isDynamicFilterWarmupEnabled(),
+                        false))
+                .add(doubleProperty(
+                        DYNAMIC_FILTER_WARMUP_WEIGHT_PER_TASK,
+                        "Split weight per task to dispatch during warmup before pausing for the dynamic filter. " +
+                                "Multiplied by task count to compute total warmup budget. 0 disables warmup budget (full eager dispatch).",
+                        icebergConfig.getDynamicFilterWarmupWeightPerTask(),
+                        false));
 
         nessieConfig.ifPresent((config) -> propertiesBuilder
                 .add(stringProperty(
@@ -470,5 +489,20 @@ public final class IcebergSessionProperties
     public static DataSize getTargetMaxFileSize(ConnectorSession session)
     {
         return session.getProperty(TARGET_MAX_FILE_SIZE, DataSize.class);
+    }
+
+    public static boolean isDynamicFilterExtendedMetrics(ConnectorSession session)
+    {
+        return session.getProperty(DYNAMIC_FILTER_EXTENDED_METRICS, Boolean.class);
+    }
+
+    public static boolean isDynamicFilterWarmupEnabled(ConnectorSession session)
+    {
+        return session.getProperty(DYNAMIC_FILTER_WARMUP_ENABLED, Boolean.class);
+    }
+
+    public static double getDynamicFilterWarmupWeightPerTask(ConnectorSession session)
+    {
+        return session.getProperty(DYNAMIC_FILTER_WARMUP_WEIGHT_PER_TASK, Double.class);
     }
 }

@@ -34,11 +34,14 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodePoolType;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.NodePartitionMap;
@@ -47,6 +50,7 @@ import com.facebook.presto.sql.planner.PlanFragmenterUtils;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -62,6 +66,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -69,7 +75,9 @@ import java.util.function.Supplier;
 import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
+import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedScaleWriterProducerBuffer;
+import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
@@ -89,6 +97,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static com.google.common.collect.Streams.findLast;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -106,6 +115,7 @@ public class SectionExecutionFactory
     private final NodeScheduler nodeScheduler;
     private final int splitBatchSize;
     private final boolean isEnableWorkerIsolation;
+    private final DynamicFilterService dynamicFilterService;
 
     @Inject
     public SectionExecutionFactory(
@@ -117,7 +127,8 @@ public class SectionExecutionFactory
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
             NodeScheduler nodeScheduler,
-            QueryManagerConfig queryManagerConfig)
+            QueryManagerConfig queryManagerConfig,
+            DynamicFilterService dynamicFilterService)
     {
         this(
                 metadata,
@@ -129,7 +140,8 @@ public class SectionExecutionFactory
                 schedulerStats,
                 nodeScheduler,
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getScheduleSplitBatchSize(),
-                queryManagerConfig.isEnableWorkerIsolation());
+                queryManagerConfig.isEnableWorkerIsolation(),
+                dynamicFilterService);
     }
 
     public SectionExecutionFactory(
@@ -142,7 +154,8 @@ public class SectionExecutionFactory
             SplitSchedulerStats schedulerStats,
             NodeScheduler nodeScheduler,
             int splitBatchSize,
-            boolean isEnableWorkerIsolation)
+            boolean isEnableWorkerIsolation,
+            DynamicFilterService dynamicFilterService)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
@@ -154,6 +167,7 @@ public class SectionExecutionFactory
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
         this.splitBatchSize = splitBatchSize;
         this.isEnableWorkerIsolation = isEnableWorkerIsolation;
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
     }
 
     /**
@@ -175,6 +189,7 @@ public class SectionExecutionFactory
         Map<PartitioningHandle, NodePartitionMap> partitioningCache = new HashMap<>();
         TableWriteInfo tableWriteInfo = createTableWriteInfo(section.getPlan(), metadata, session);
         Optional<Predicate<Node>> nodePredicate = getNodePoolSelectionPredicate(section.getPlan());
+        splitSourceFactory.registerDynamicFilters(section.getPlan(), session);
         List<StageExecutionAndScheduler> sectionStages = createStreamingLinkedStageExecutions(
                 session,
                 locationsConsumer,
@@ -187,7 +202,23 @@ public class SectionExecutionFactory
                 splitSourceFactory,
                 attemptId,
                 cteMaterializationTracker);
-        StageExecutionAndScheduler rootStage = sectionStages.stream().reduce((first, second) -> second).get();
+        if (isDistributedDynamicFilterEnabled(session)) {
+            QueryId queryId = session.getQueryId();
+            DynamicFilterPusher pusher = new DynamicFilterPusher(
+                    session.getRuntimeStats(),
+                    isVerboseRuntimeStatsEnabled(session));
+            for (StageExecutionAndScheduler stageAndScheduler : sectionStages) {
+                SqlStageExecution stageExecution = stageAndScheduler.getStageExecution();
+                for (PlanNodeId scanNodeId : stageExecution.getFragment().getTableScanSchedulingOrder()) {
+                    Set<String> filterIds = dynamicFilterService.getFilterIdsForScan(queryId, scanNodeId);
+                    for (String filterId : filterIds) {
+                        dynamicFilterService.getFilter(queryId, filterId)
+                                .ifPresent(joinFilter -> pusher.startPushing(filterId, scanNodeId, joinFilter, stageExecution));
+                    }
+                }
+            }
+        }
+        StageExecutionAndScheduler rootStage = findLast(sectionStages.stream()).get();
         rootStage.getStageExecution().setOutputBuffers(outputBuffers);
         return new SectionExecution(rootStage, sectionStages);
     }
@@ -244,7 +275,7 @@ public class SectionExecutionFactory
                     attemptId,
                     cteMaterializationTracker);
             stageExecutionAndSchedulers.addAll(subTree);
-            childStagesBuilder.add(subTree.stream().reduce((first, second) -> second).get().getStageExecution());
+            childStagesBuilder.add(findLast(subTree.stream()).get().getStageExecution());
         }
         Set<SqlStageExecution> childStageExecutions = childStagesBuilder.build();
         stageExecution.addStateChangeListener(newState -> {
@@ -303,7 +334,37 @@ public class SectionExecutionFactory
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
-            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, cteMaterializationTracker);
+            splitSourceFactory.setTaskCountHint(nodeSelector.getActiveNodes().size());
+
+            boolean hasDpp = isDistributedDynamicFilterEnabled(session)
+                    && !dynamicFilterService.getAllFiltersForQuery(session.getQueryId()).isEmpty();
+
+            if (hasDpp) {
+                forEachJoinDynamicFilter(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), (filter, isBroadcastBuild) -> {
+                    if (isBroadcastBuild) {
+                        filter.setExpectedPartitions(1);
+                    }
+                });
+                AtomicBoolean nonBroadcastSized = new AtomicBoolean();
+                stageExecution.addStateChangeListener(newState -> {
+                    if (newState.ordinal() < StageExecutionState.FINISHED_TASK_SCHEDULING.ordinal()) {
+                        return;
+                    }
+                    if (!nonBroadcastSized.compareAndSet(false, true)) {
+                        return;
+                    }
+                    int actualTaskCount = stageExecution.getAllTasks().size();
+                    if (actualTaskCount > 0) {
+                        forEachJoinDynamicFilter(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), (filter, isBroadcastBuild) -> {
+                            if (!isBroadcastBuild) {
+                                filter.setExpectedPartitions(actualTaskCount);
+                            }
+                        });
+                    }
+                });
+            }
+
+            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, cteMaterializationTracker, hasDpp);
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStageExecutions.stream()
@@ -335,6 +396,10 @@ public class SectionExecutionFactory
             if (!splitSources.isEmpty() && (plan.getFragment().getPartitioning().equals(SINGLE_DISTRIBUTION))) {
                 NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, null, nodePredicate);
                 List<InternalNode> nodes = nodeSelector.selectRandomNodes(1);
+                splitSourceFactory.setTaskCountHint(nodes.size());
+                if (isDistributedDynamicFilterEnabled(session)) {
+                    setExpectedPartitionsForFilters(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), nodes.size());
+                }
                 return new FixedSourcePartitionedScheduler(
                         stageExecution,
                         splitSources,
@@ -414,6 +479,10 @@ public class SectionExecutionFactory
                     bucketNodeMap = nodePartitionMap.asBucketNodeMap();
                 }
 
+                splitSourceFactory.setTaskCountHint(stageNodeList.size());
+                if (isDistributedDynamicFilterEnabled(session)) {
+                    setExpectedPartitionsForFilters(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), stageNodeList.size());
+                }
                 FixedSourcePartitionedScheduler fixedSourcePartitionedScheduler = new FixedSourcePartitionedScheduler(
                         stageExecution,
                         splitSources,
@@ -445,6 +514,9 @@ public class SectionExecutionFactory
                 List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
                 // todo this should asynchronously wait a standard timeout period before failing
                 checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
+                if (isDistributedDynamicFilterEnabled(session)) {
+                    setExpectedPartitionsForFilters(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), partitionToNode.size());
+                }
                 return new FixedCountScheduler(stageExecution, partitionToNode);
             }
         }
@@ -486,6 +558,42 @@ public class SectionExecutionFactory
             checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
             return Optional.of(nodePartitionMap.getBucketToPartition());
         }
+    }
+
+    @VisibleForTesting
+    static void setExpectedPartitionsForFilters(DynamicFilterService dynamicFilterService, QueryId queryId, PlanNode root, int taskCount)
+    {
+        forEachJoinDynamicFilter(dynamicFilterService, queryId, root, (filter, isBroadcastBuild) -> filter.setExpectedPartitions(taskCount));
+    }
+
+    @VisibleForTesting
+    static void forEachJoinDynamicFilter(
+            DynamicFilterService dynamicFilterService,
+            QueryId queryId,
+            PlanNode root,
+            BiConsumer<JoinDynamicFilter, Boolean> action)
+    {
+        for (JoinNode joinNode : PlanNodeSearcher.searchFrom(root).where(node -> node instanceof JoinNode).<JoinNode>findAll()) {
+            boolean isBroadcastBuild = buildSubtreeIsReplicated(joinNode.getRight());
+            for (String filterId : joinNode.getDynamicFilters().keySet()) {
+                dynamicFilterService.getFilter(queryId, filterId).ifPresent(f -> action.accept(f, isBroadcastBuild));
+            }
+        }
+        for (SemiJoinNode semiJoinNode : PlanNodeSearcher.searchFrom(root).where(node -> node instanceof SemiJoinNode).<SemiJoinNode>findAll()) {
+            boolean isBroadcastBuild = buildSubtreeIsReplicated(semiJoinNode.getFilteringSource());
+            for (String filterId : semiJoinNode.getDynamicFilters().keySet()) {
+                dynamicFilterService.getFilter(queryId, filterId).ifPresent(f -> action.accept(f, isBroadcastBuild));
+            }
+        }
+    }
+
+    private static boolean buildSubtreeIsReplicated(PlanNode buildSubtree)
+    {
+        return PlanNodeSearcher.searchFrom(buildSubtree)
+                .where(node -> node instanceof RemoteSourceNode)
+                .<RemoteSourceNode>findFirst()
+                .map(node -> node.getExchangeType() == REPLICATE)
+                .orElse(false);
     }
 
     private static ListenableFuture<?> whenAllStages(Collection<SqlStageExecution> stageExecutions, Predicate<StageExecutionState> predicate)
