@@ -2500,10 +2500,19 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   // Build CallTypedExpr inputs: FieldAccess for columns, Constant for literals
   // (Velox #18267 folds RPCNode args into CallTypedExpr: field refs vs
-  // constants)
+  // constants). Planner emits one entry per argument, so argumentColumns,
+  // argumentTypes, and constantInputs must be aligned. Enforce with checks to
+  // fail loudly if planner contract drifts.
+  VELOX_CHECK_EQ(argumentColumns.size(), argumentTypes.size());
+  VELOX_CHECK_EQ(argumentColumns.size(), constantInputs.size());
   std::vector<core::TypedExprPtr> callInputs;
   callInputs.reserve(argumentColumns.size());
   for (size_t i = 0; i < argumentColumns.size(); ++i) {
+    // Exactly one of column ref or constant must be set per argument.
+    VELOX_CHECK(
+        (argumentColumns[i] != nullptr) ^ (constantInputs[i] != nullptr),
+        "Expected exactly one of argumentColumns or constantInputs to be set at position {}",
+        i);
     if (constantInputs[i] != nullptr) {
       callInputs.push_back(
           std::make_shared<core::ConstantTypedExpr>(constantInputs[i]));
