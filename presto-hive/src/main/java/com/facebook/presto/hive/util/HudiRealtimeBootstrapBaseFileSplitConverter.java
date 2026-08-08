@@ -19,6 +19,7 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.hadoop.realtime.HoodieRealtimeBootstrapBaseFileSplit;
+import org.apache.hudi.storage.StoragePath;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -51,7 +52,7 @@ public class HudiRealtimeBootstrapBaseFileSplitConverter
             HoodieRealtimeBootstrapBaseFileSplit hudiSplit = (HoodieRealtimeBootstrapBaseFileSplit) split;
 
             customSplitInfo.put(CUSTOM_FILE_SPLIT_CLASS_KEY, HoodieRealtimeBootstrapBaseFileSplit.class.getName());
-            customSplitInfo.put(BASE_PATH_KEY, hudiSplit.getBasePath());
+            customSplitInfo.put(BASE_PATH_KEY, hudiSplit.getBasePath().toString());
             customSplitInfo.put(MAX_COMMIT_TIME_KEY, hudiSplit.getMaxCommitTime());
             customSplitInfo.put(DELTA_FILE_PATHS_KEY, String.join(",", hudiSplit.getDeltaLogPaths()));
             customSplitInfo.put(BOOTSTRAP_FILE_SPLIT_PATH, hudiSplit.getBootstrapFileSplit().getPath().toString());
@@ -71,7 +72,7 @@ public class HudiRealtimeBootstrapBaseFileSplitConverter
         if (!isNullOrEmpty(customFileSplitClass) && HoodieRealtimeBootstrapBaseFileSplit.class.getName().equals(customFileSplitClass)) {
             String deltaFilePaths = customSplitInfo.get(DELTA_FILE_PATHS_KEY);
             List<String> deltaLogPaths = isNullOrEmpty(deltaFilePaths) ? Collections.emptyList() : Arrays.asList(deltaFilePaths.split(","));
-            List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new Path(p))).collect(Collectors.toList());
+            List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new StoragePath(p))).collect(Collectors.toList());
             FileSplit bootstrapFileSplit = new FileSplit(
                     new Path(customSplitInfo.get(BOOTSTRAP_FILE_SPLIT_PATH)),
                     parseLong(customSplitInfo.get(BOOTSTRAP_FILE_SPLIT_START)),
