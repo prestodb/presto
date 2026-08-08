@@ -47,6 +47,7 @@
         <dep.airlift.version>0.230</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
+        <dep.zero-allocation-hashing.version>0.27ea0</dep.zero-allocation-hashing.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
         <dep.aws-sdk.version>1.12.782</dep.aws-sdk.version>
         <dep.okhttp.version>5.3.2</dep.okhttp.version>
@@ -1228,6 +1229,12 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
                 <version>2.0.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.openhft</groupId>
+                <artifactId>zero-allocation-hashing</artifactId>
+                <version>${dep.zero-allocation-hashing.version}</version>
             </dependency>
 
             <dependency>
