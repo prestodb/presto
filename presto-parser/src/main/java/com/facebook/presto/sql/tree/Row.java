@@ -19,33 +19,58 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public final class Row
         extends Expression
 {
-    private final List<Expression> items;
+    private final List<Field> fields;
 
-    public Row(List<Expression> items)
+    public Row(List<Field> fields)
     {
-        this(Optional.empty(), items);
+        this(Optional.empty(), fields);
     }
 
-    public Row(NodeLocation location, List<Expression> items)
+    public Row(NodeLocation location, List<Field> fields)
     {
-        this(Optional.of(location), items);
+        this(Optional.of(location), fields);
     }
 
-    private Row(Optional<NodeLocation> location, List<Expression> items)
+    private Row(Optional<NodeLocation> location, List<Field> fields)
     {
         super(location);
-        requireNonNull(items, "items is null");
-        this.items = ImmutableList.copyOf(items);
+        requireNonNull(fields, "fields is null");
+        this.fields = ImmutableList.copyOf(fields);
     }
 
-    public List<Expression> getItems()
+    /**
+     * Creates a row where no field declares a name, e.g. {@code ROW(1, 2)}.
+     */
+    public static Row unnamed(List<Expression> items)
     {
-        return items;
+        return new Row(toUnnamedFields(items));
+    }
+
+    /**
+     * Creates a row where no field declares a name, e.g. {@code ROW(1, 2)}.
+     */
+    public static Row unnamed(NodeLocation location, List<Expression> items)
+    {
+        return new Row(location, toUnnamedFields(items));
+    }
+
+    private static List<Field> toUnnamedFields(List<Expression> items)
+    {
+        requireNonNull(items, "items is null");
+        return items.stream()
+                .map(Field::new)
+                .collect(toImmutableList());
+    }
+
+    public List<Field> getFields()
+    {
+        return fields;
     }
 
     @Override
@@ -57,13 +82,13 @@ public final class Row
     @Override
     public List<? extends Node> getChildren()
     {
-        return items;
+        return fields;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(items);
+        return Objects.hash(fields);
     }
 
     @Override
@@ -76,6 +101,93 @@ public final class Row
             return false;
         }
         Row other = (Row) obj;
-        return Objects.equals(this.items, other.items);
+        return Objects.equals(this.fields, other.fields);
+    }
+
+    /**
+     * A single field of a row constructor: an expression with an optionally declared field name,
+     * e.g. the {@code 1 AS a} in {@code ROW(1 AS a, 2)}.
+     */
+    public static final class Field
+            extends Node
+    {
+        private final Optional<Identifier> name;
+        private final Expression expression;
+
+        public Field(Expression expression)
+        {
+            this(Optional.empty(), Optional.empty(), expression);
+        }
+
+        public Field(Optional<Identifier> name, Expression expression)
+        {
+            this(Optional.empty(), name, expression);
+        }
+
+        public Field(NodeLocation location, Optional<Identifier> name, Expression expression)
+        {
+            this(Optional.of(location), name, expression);
+        }
+
+        private Field(Optional<NodeLocation> location, Optional<Identifier> name, Expression expression)
+        {
+            super(location);
+            this.name = requireNonNull(name, "name is null");
+            this.expression = requireNonNull(expression, "expression is null");
+        }
+
+        public Optional<Identifier> getName()
+        {
+            return name;
+        }
+
+        public Expression getExpression()
+        {
+            return expression;
+        }
+
+        @Override
+        protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
+        {
+            return visitor.visitRowField(this, context);
+        }
+
+        @Override
+        public List<? extends Node> getChildren()
+        {
+            ImmutableList.Builder<Node> children = ImmutableList.builder();
+            name.ifPresent(children::add);
+            children.add(expression);
+            return children.build();
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, expression);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            Field other = (Field) obj;
+            return Objects.equals(this.name, other.name) &&
+                    Objects.equals(this.expression, other.expression);
+        }
+
+        @Override
+        public String toString()
+        {
+            if (name.isPresent()) {
+                return expression + " AS " + name.get();
+            }
+            return expression.toString();
+        }
     }
 }

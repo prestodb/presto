@@ -151,7 +151,7 @@ public final class QueryUtil
 
     public static Row row(Expression... values)
     {
-        return new Row(ImmutableList.copyOf(values));
+        return Row.unnamed(ImmutableList.copyOf(values));
     }
 
     public static Relation aliased(Relation relation, String alias)

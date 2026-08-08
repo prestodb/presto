@@ -498,12 +498,19 @@ public class DefaultTreeRewriter<C>
     @Override
     protected Node visitRow(Row node, C context)
     {
-        List<Expression> items = process(node.getItems(), context);
-        if (sameElements(node.getItems(), items)) {
+        List<Expression> items = node.getFields().stream()
+                .map(Row.Field::getExpression)
+                .collect(ImmutableList.toImmutableList());
+        List<Expression> rewritten = process(items, context);
+        if (sameElements(items, rewritten)) {
             return node;
         }
 
-        return new Row(items);
+        ImmutableList.Builder<Row.Field> fields = ImmutableList.builder();
+        for (int i = 0; i < rewritten.size(); i++) {
+            fields.add(new Row.Field(node.getFields().get(i).getName(), rewritten.get(i)));
+        }
+        return new Row(fields.build());
     }
 
     @Override

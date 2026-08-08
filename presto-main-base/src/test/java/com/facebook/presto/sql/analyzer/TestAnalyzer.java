@@ -1088,6 +1088,20 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testRowWithDuplicateFieldNames()
+    {
+        // a row type with duplicate field names cannot be round-tripped through its TypeSignature,
+        // so it has to be rejected during analysis rather than surfacing later
+        assertFails(DUPLICATE_COLUMN_NAME, "SELECT ROW(1 AS a, 2 AS a)");
+        assertFails(DUPLICATE_COLUMN_NAME, "SELECT ROW(1 AS \"a\", 2 AS a)");
+
+        // matching CAST(... AS ROW(...)), field names are compared exactly, so these are distinct
+        analyze("SELECT ROW(1 AS a, 2 AS A)");
+        analyze("SELECT ROW(1 AS a, 2)");
+        analyze("SELECT ROW(1, 2)");
+    }
+
+    @Test
     public void testCaseInsensitiveDuplicateWithQuery()
     {
         assertFails(DUPLICATE_RELATION,

@@ -726,6 +726,35 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowWithFieldNames()
+    {
+        // field names can be declared without repeating the field types
+        assertQuery("SELECT r.a, r.b FROM (SELECT ROW(1 AS a, 'x' AS b) AS r)", "SELECT 1, 'x'");
+
+        // the optional AS may be omitted, as in a SELECT list
+        assertQuery("SELECT r.a FROM (SELECT ROW(1 a) AS r)", "SELECT 1");
+
+        // equivalent to spelling the type out in a CAST
+        assertQuery("SELECT ROW(1 AS a, 2 AS b) = CAST(ROW(1, 2) AS ROW(a integer, b integer))", "SELECT true");
+
+        // rows may be partially named
+        assertQuery("SELECT r.a FROM (SELECT ROW(1 AS a, 2) AS r)", "SELECT 1");
+
+        // named and anonymous rows remain comparable
+        assertQuery("SELECT ROW(1 AS a) = ROW(1)", "SELECT true");
+
+        // field access stays case insensitive, matching CAST(... AS ROW(...))
+        assertQuery("SELECT r.A FROM (SELECT ROW(1 AS a) AS r)", "SELECT 1");
+
+        // VALUES takes its column names from the row field names
+        assertQuery("SELECT a, b FROM (VALUES ROW(1 AS a, 'x' AS b))", "SELECT 1, 'x'");
+        assertQuery("SELECT a FROM (VALUES ROW(1 AS a), ROW(2 AS a))", "SELECT 1 UNION ALL SELECT 2");
+
+        // when rows disagree about a field name, the column stays unnamed
+        assertQueryFails("SELECT a FROM (VALUES ROW(1 AS a), ROW(2 AS b))", ".*'a' cannot be resolved.*");
+    }
+
+    @Test
     public void testPullRowLocalChainAboveExchange()
     {
         // Result-equality (enabled vs disabled) over CROSS JOIN UNNEST shapes where a repartitioning

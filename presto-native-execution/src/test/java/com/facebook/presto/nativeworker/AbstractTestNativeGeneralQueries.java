@@ -757,6 +757,20 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testRowWithFieldNames()
+    {
+        // A named ROW type has to survive planning, the Presto -> Velox type signature round trip,
+        // and the row_constructor special form. The projections below are anchored on a table scan
+        // so they are evaluated on the worker rather than folded away on the coordinator.
+        assertQuery("SELECT ROW(nationkey AS nk, name AS nm) FROM nation");
+        assertQuery("SELECT ROW(nationkey AS nk, regionkey) FROM nation");
+        assertQuery("SELECT r.nk FROM (SELECT ROW(nationkey AS nk) AS r FROM nation)");
+        assertQuery("SELECT ROW(orderkey AS ok, custkey AS ck) FROM orders WHERE orderkey < 100");
+        assertQuery("SELECT ROW(x AS a, y AS b) FROM (VALUES (1, 'x')) t(x, y)");
+        assertQuery("SELECT a, b FROM (VALUES ROW(1 AS a, 'x' AS b))");
+    }
+
+    @Test
     public void testValues()
     {
         assertQuery("SELECT 1, 0.24, ceil(4.5), 'A not too short ASCII string'");
