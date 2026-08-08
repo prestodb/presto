@@ -81,7 +81,18 @@ public class NativeArrowFederationConnectorUtils
                 .build();
     }
 
-    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String prestoServerPath, int flightServerPort, List<String> connectorIds, List<String> connectorNames)
+    public static Map<String, String> getNativeSidecarProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("coordinator-sidecar-enabled", "true")
+                .put("exclude-invalid-worker-session-properties", "true")
+                .put("presto.default-namespace", "native.default")
+                // inline-sql-functions is overridden to be true in sidecar enabled native clusters.
+                .put("inline-sql-functions", "true")
+                .build();
+    }
+
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String prestoServerPath, int flightServerPort, List<String> connectorIds, List<String> connectorNames, boolean isCoordinatorSidecarEnabled)
     {
         checkArgument(connectorIds.size() == connectorNames.size(), "connectorId and connectorNames must be the same size");
 
@@ -97,6 +108,12 @@ public class NativeArrowFederationConnectorUtils
                         "presto.version=testversion%n" +
                         "system-memory-gb=4%n" +
                         "http-server.http.port=0%n", discoveryUri);
+
+                if (isCoordinatorSidecarEnabled) {
+                    configProperties = format("%s%n" +
+                            "native-sidecar=true%n" +
+                            "presto.default-namespace=native.default%n", configProperties);
+                }
 
                 Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
                 Files.write(tempDirectoryPath.resolve("node.properties"),
@@ -150,13 +167,13 @@ public class NativeArrowFederationConnectorUtils
         });
     }
 
-    public static QueryRunner createNativeQueryRunner(List<String> connectorIds, int port)
+    public static QueryRunner createNativeQueryRunner(List<String> connectorIds, int port, boolean isCoordinatorSidecarEnabled)
             throws Exception
     {
-        return createNativeQueryRunner(connectorIds, connectorIds, port);
+        return createNativeQueryRunner(connectorIds, connectorIds, port, isCoordinatorSidecarEnabled);
     }
 
-    public static QueryRunner createNativeQueryRunner(List<String> connectorIds, List<String> connectorNames, int port)
+    public static QueryRunner createNativeQueryRunner(List<String> connectorIds, List<String> connectorNames, int port, boolean isCoordinatorSidecarEnabled)
             throws Exception
     {
         Path prestoServerPath = Paths.get(getProperty("PRESTO_SERVER")
@@ -171,14 +188,19 @@ public class NativeArrowFederationConnectorUtils
                 .setSchema("tpch")
                 .build();
 
+        Map<String, String> extraProperties = new HashMap<>(getNativeWorkerSystemProperties());
+        if (isCoordinatorSidecarEnabled) {
+            extraProperties.putAll(getNativeSidecarProperties());
+        }
+
         DistributedQueryRunner.Builder queryRunnerBuilder = DistributedQueryRunner.builder(session);
         Optional<Integer> workerCount = getProperty("WORKER_COUNT").map(Integer::parseInt);
         workerCount.ifPresent(queryRunnerBuilder::setNodeCount);
 
         DistributedQueryRunner queryRunner = queryRunnerBuilder
-                .setExtraProperties(getNativeWorkerSystemProperties())
+                .setExtraProperties(extraProperties)
                 .setExternalWorkerLauncher(
-                        getExternalWorkerLauncher(prestoServerPath.toString(), port, connectorIds, connectorNames))
+                        getExternalWorkerLauncher(prestoServerPath.toString(), port, connectorIds, connectorNames, isCoordinatorSidecarEnabled))
                 .build();
 
         try {

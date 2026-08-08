@@ -50,6 +50,8 @@ import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunne
 import static com.facebook.presto.redis.RedisQueryRunner.createTpchTableDescriptions;
 import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
 import static com.facebook.presto.redis.util.RedisTestUtils.createEmptyTableDescriptions;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+import static java.lang.Boolean.parseBoolean;
 
 public class TestArrowFederationNativeQueriesMixedConnectors
         extends AbstractTestQueryFramework
@@ -71,6 +73,7 @@ public class TestArrowFederationNativeQueriesMixedConnectors
     private BufferAllocator allocator;
     private FlightShimProducer producer;
     private FlightServer server;
+    private boolean sidecarEnabled;
 
     public TestArrowFederationNativeQueriesMixedConnectors()
             throws Exception
@@ -106,6 +109,7 @@ public class TestArrowFederationNativeQueriesMixedConnectors
         server = FlightShimServer.start(injector, FlightServer.builder(), getCatalogPropertiesMap());
         allocator = injector.getInstance(BufferAllocator.class);
         producer = injector.getInstance(FlightShimProducer.class);
+        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "false"));
         super.init();
     }
 
@@ -152,7 +156,10 @@ public class TestArrowFederationNativeQueriesMixedConnectors
     {
         QueryRunner queryRunner =
                 createNativeQueryRunner(
-                        ImmutableList.of(MYSQL_CONNECTOR_ID, POSTGRES_CONNECTOR_ID, REDIS_CONNECTOR_ID, MONGO_CONNECTOR_ID), server.getPort());
+                        ImmutableList.of(MYSQL_CONNECTOR_ID, POSTGRES_CONNECTOR_ID, REDIS_CONNECTOR_ID, MONGO_CONNECTOR_ID), server.getPort(), sidecarEnabled);
+        if (sidecarEnabled) {
+            setupNativeSidecarPlugin(queryRunner);
+        }
         installPlugins(queryRunner, postgresContainer.getJdbcUrl(), mysqlContainer.getJdbcUrl(), embeddedRedis, mongoQueryRunner);
         return queryRunner;
     }
