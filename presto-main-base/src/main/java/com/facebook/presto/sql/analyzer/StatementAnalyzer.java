@@ -626,7 +626,7 @@ class StatementAnalyzer
                     node = rows.get(0);
                     if (node instanceof Row) {
                         int columnIndex = Math.min(i, queryColumnTypes.size() - 1);
-                        node = ((Row) rows.get(0)).getItems().get(columnIndex);
+                        node = ((Row) rows.get(0)).getFields().get(columnIndex).getExpression();
                     }
                 }
                 if (i == expectedColumns.size()) {
@@ -4033,51 +4033,49 @@ class StatementAnalyzer
         {
             checkState(node.getRows().size() >= 1);
 
-            List<List<Type>> rowTypes = node.getRows().stream()
+            List<RowType> rowTypes = node.getRows().stream()
                     .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
                     .map(type -> {
                         if (type instanceof RowType) {
-                            return type.getTypeParameters();
+                            return (RowType) type;
                         }
-                        return ImmutableList.of(type);
+                        return RowType.anonymous(ImmutableList.of(type));
                     })
                     .collect(toImmutableList());
 
-            // determine common super type of the rows
-            List<Type> fieldTypes = new ArrayList<>(rowTypes.iterator().next());
-            for (List<Type> rowType : rowTypes) {
+            // determine common super type of the rows, preserving field names declared consistently
+            // by every row so that they can be used as the relation's column names
+            RowType commonSuperRowType = rowTypes.iterator().next();
+            for (RowType rowType : rowTypes) {
                 // check field count consistency for rows
-                if (rowType.size() != fieldTypes.size()) {
+                if (rowType.getTypeParameters().size() != commonSuperRowType.getTypeParameters().size()) {
                     throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
                             node,
                             "Values rows have mismatched types: %s vs %s",
-                            rowTypes.get(0),
-                            rowType);
+                            rowTypes.get(0).getTypeParameters(),
+                            rowType.getTypeParameters());
                 }
 
-                for (int i = 0; i < rowType.size(); i++) {
-                    Type fieldType = rowType.get(i);
-                    Type superType = fieldTypes.get(i);
-
-                    Optional<Type> commonSuperType = functionAndTypeResolver.getCommonSuperType(fieldType, superType);
-                    if (!commonSuperType.isPresent()) {
-                        throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
-                                node,
-                                "Values rows have mismatched types: %s vs %s",
-                                rowTypes.get(0),
-                                rowType);
-                    }
-                    fieldTypes.set(i, commonSuperType.get());
+                Optional<Type> commonSuperType = functionAndTypeResolver.getCommonSuperType(rowType, commonSuperRowType);
+                if (!commonSuperType.isPresent()) {
+                    throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                            node,
+                            "Values rows have mismatched types: %s vs %s",
+                            rowTypes.get(0).getTypeParameters(),
+                            rowType.getTypeParameters());
                 }
+                commonSuperRowType = (RowType) commonSuperType.get();
             }
+
+            List<Type> fieldTypes = commonSuperRowType.getTypeParameters();
 
             // add coercions for the rows
             for (Expression row : node.getRows()) {
                 if (row instanceof Row) {
-                    List<Expression> items = ((Row) row).getItems();
-                    for (int i = 0; i < items.size(); i++) {
+                    List<Row.Field> rowFields = ((Row) row).getFields();
+                    for (int i = 0; i < rowFields.size(); i++) {
                         Type expectedType = fieldTypes.get(i);
-                        Expression item = items.get(i);
+                        Expression item = rowFields.get(i).getExpression();
                         Type actualType = analysis.getType(item);
                         if (!actualType.equals(expectedType)) {
                             analysis.addCoercion(item, expectedType, functionAndTypeResolver.isTypeOnlyCoercion(actualType, expectedType));
@@ -4093,8 +4091,8 @@ class StatementAnalyzer
                 }
             }
 
-            List<Field> fields = fieldTypes.stream()
-                    .map(valueType -> Field.newUnqualified(node.getLocation(), Optional.empty(), valueType))
+            List<Field> fields = commonSuperRowType.getFields().stream()
+                    .map(field -> Field.newUnqualified(node.getLocation(), field.getName(), field.getType()))
                     .collect(toImmutableList());
 
             return createAndAssignScope(node, scope, fields);

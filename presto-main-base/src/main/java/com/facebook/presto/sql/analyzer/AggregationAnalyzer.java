@@ -676,8 +676,15 @@ class AggregationAnalyzer
         @Override
         public Boolean visitRow(Row node, final Void context)
         {
-            return node.getItems().stream()
-                    .allMatch(item -> process(item, context));
+            return node.getFields().stream()
+                    .allMatch(field -> process(field, context));
+        }
+
+        @Override
+        public Boolean visitRowField(Row.Field node, final Void context)
+        {
+            // A declared field name is not a reference, so only the value expression is checked.
+            return process(node.getExpression(), context);
         }
 
         @Override

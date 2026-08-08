@@ -640,7 +640,7 @@ public class QueryPlanner
         mergeRowFields.add(new GenericLiteral("TINYINT", String.valueOf(UPDATE_OPERATION_NUMBER)));
         // case_number INTEGER = 0 (there is only the implicit "UPDATE all matched" case)
         mergeRowFields.add(new GenericLiteral("INTEGER", "0"));
-        Row mergeRowExpression = new Row(mergeRowFields.build());
+        Row mergeRowExpression = Row.unnamed(mergeRowFields.build());
 
         List<VariableReferenceExpression> mergeColumnVariables = mergeColumnVariablesBuilder.build();
         RowType mergeRowType = createMergeRowType(dataColumns);
@@ -859,7 +859,7 @@ public class QueryPlanner
                 mergeCondition = LogicalBinaryExpression.and(mergeCondition, rewrittenCondition);
             }
 
-            whenClauses.add(new WhenClause(mergeCondition, new Row(joinResultBuilder.build())));
+            whenClauses.add(new WhenClause(mergeCondition, Row.unnamed(joinResultBuilder.build())));
         }
 
         // Build the "else" clause for the SearchedCaseExpression
@@ -872,7 +872,7 @@ public class QueryPlanner
         // The case number column value: -1
         joinElseBuilder.add(new GenericLiteral("INTEGER", "-1"));
 
-        SearchedCaseExpression caseExpression = new SearchedCaseExpression(whenClauses.build(), Optional.of(new Row(joinElseBuilder.build())));
+        SearchedCaseExpression caseExpression = new SearchedCaseExpression(whenClauses.build(), Optional.of(Row.unnamed(joinElseBuilder.build())));
 
         RowType mergeRowType = createMergeRowType(mergeAnalysis.getTargetColumnsMetadata());
         Table targetTable = mergeAnalysis.getTargetTable();

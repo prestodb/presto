@@ -1404,3 +1404,99 @@ TEST_F(RowExpressionTest, dereference) {
 
   ASSERT_EQ(fieldAccess->name(), "partkey");
 }
+
+TEST_F(RowExpressionTest, rowConstructorWithFieldNames) {
+  // ROW(nationkey AS nk, name AS nm) -- the declared field names travel to
+  // Velox in the ROW_CONSTRUCTOR return type, so they must survive the type
+  // signature round trip.
+  std::string str = R"##(
+    {
+       "@type":"special",
+       "form":"ROW_CONSTRUCTOR",
+       "returnType":"row(nk bigint,nm varchar)",
+       "arguments":[
+          {
+             "@type":"variable",
+             "name":"nationkey",
+             "type":"bigint"
+          },
+          {
+             "@type":"variable",
+             "name":"name",
+             "type":"varchar"
+          }
+       ]
+    }
+  )##";
+
+  json j = json::parse(str);
+  std::shared_ptr<protocol::RowExpression> p = j;
+
+  auto call = std::dynamic_pointer_cast<const CallTypedExpr>(
+      converter_->toVeloxExpr(p));
+  ASSERT_NE(call, nullptr);
+  ASSERT_EQ(call->name(), "row_constructor");
+
+  // RowType::equals compares field names and is case sensitive, so this is an
+  // exact check.
+  ASSERT_EQ(*call->type(), *ROW({"nk", "nm"}, {BIGINT(), VARCHAR()}));
+}
+
+TEST_F(RowExpressionTest, rowConstructorWithPartialFieldNames) {
+  // ROW(nationkey AS nk, regionkey) -- a row may name only some of its fields.
+  std::string str = R"##(
+    {
+       "@type":"special",
+       "form":"ROW_CONSTRUCTOR",
+       "returnType":"row(nk bigint,bigint)",
+       "arguments":[
+          {
+             "@type":"variable",
+             "name":"nationkey",
+             "type":"bigint"
+          },
+          {
+             "@type":"variable",
+             "name":"regionkey",
+             "type":"bigint"
+          }
+       ]
+    }
+  )##";
+
+  json j = json::parse(str);
+  std::shared_ptr<protocol::RowExpression> p = j;
+
+  auto call = std::dynamic_pointer_cast<const CallTypedExpr>(
+      converter_->toVeloxExpr(p));
+  ASSERT_NE(call, nullptr);
+  ASSERT_EQ(call->name(), "row_constructor");
+  ASSERT_EQ(*call->type(), *ROW({"nk", ""}, {BIGINT(), BIGINT()}));
+}
+
+TEST_F(RowExpressionTest, rowConstructorWithDelimitedFieldName) {
+  // Field names needing quoting are emitted delimited by
+  // RowFieldName::toString().
+  std::string str = R"##(
+    {
+       "@type":"special",
+       "form":"ROW_CONSTRUCTOR",
+       "returnType":"row(\"Mixed Case\" bigint)",
+       "arguments":[
+          {
+             "@type":"variable",
+             "name":"nationkey",
+             "type":"bigint"
+          }
+       ]
+    }
+  )##";
+
+  json j = json::parse(str);
+  std::shared_ptr<protocol::RowExpression> p = j;
+
+  auto call = std::dynamic_pointer_cast<const CallTypedExpr>(
+      converter_->toVeloxExpr(p));
+  ASSERT_NE(call, nullptr);
+  ASSERT_EQ(*call->type(), *ROW({"Mixed Case"}, {BIGINT()}));
+}

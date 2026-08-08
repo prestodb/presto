@@ -124,6 +124,7 @@ import io.airlift.slice.SliceUtf8;
 import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -167,6 +168,7 @@ import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessC
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.isTopMostReference;
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.isUnusedArgumentForAccessControl;
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.resolveSubfield;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDER_BY;
@@ -424,12 +426,25 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitRow(Row node, StackableAstVisitorContext<Context> context)
         {
-            List<Type> types = node.getItems().stream()
-                    .map((child) -> process(child, context))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
+            Set<String> declaredNames = new HashSet<>();
+            for (Row.Field field : node.getFields()) {
+                Type fieldType = process(field.getExpression(), context);
+                Optional<Identifier> name = field.getName();
+                if (!name.isPresent()) {
+                    fields.add(RowType.field(fieldType));
+                    continue;
+                }
+                // Field names are compared exactly, matching CAST(... AS ROW(...)), where
+                // TypeSignature rejects only exact duplicates. The check is required because a row
+                // type with duplicate field names cannot be round-tripped through its TypeSignature.
+                if (!declaredNames.add(name.get().getValue())) {
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, node, "Duplicate field name '%s' in ROW", name.get().getValue());
+                }
+                fields.add(RowType.field(name.get().getValue(), fieldType, name.get().isDelimited()));
+            }
 
-            Type type = RowType.anonymous(types);
-            return setExpressionType(node, type);
+            return setExpressionType(node, RowType.from(fields.build()));
         }
 
         @Override
