@@ -384,6 +384,28 @@ public class TestPredicatePushdown
                                 tableScan("orders", ImmutableMap.of(
                                         "orderkey", "orderkey")))));
 
+        // Identities referenced multiple times in a disjunction should still be pushed down.
+        // Regression for https://github.com/prestodb/presto/issues/27813 - without this case
+        // a predicate like (col = 'a' OR col IN ('b')) on a partition column is left above
+        // an identity ProjectNode and never reaches connector partition pruning.
+        assertPlan(
+                "WITH t AS (SELECT orderkey x FROM orders) " +
+                        "SELECT * FROM t WHERE x = 1 OR x = 2",
+                anyTree(
+                        filter("orderkey = BIGINT '1' OR orderkey = BIGINT '2'",
+                                tableScan("orders", ImmutableMap.of(
+                                        "orderkey", "orderkey")))));
+
+        // Identities referenced multiple times via a mix of '=' and IN should also be pushed down.
+        // This mirrors the exact predicate shape from issue #27813.
+        assertPlan(
+                "WITH t AS (SELECT orderkey x FROM orders) " +
+                        "SELECT * FROM t WHERE x = 1 OR x IN (2, 3)",
+                anyTree(
+                        filter("orderkey = BIGINT '1' OR orderkey IN (BIGINT '2', BIGINT '3')",
+                                tableScan("orders", ImmutableMap.of(
+                                        "orderkey", "orderkey")))));
+
         // Non-deterministic predicate should not be pushed down
         assertPlan(
                 "WITH t AS (SELECT rand() * orderkey x FROM orders) " +
