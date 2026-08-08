@@ -73,7 +73,8 @@ public class TestSortedExchangeRule
                 builder.getTypes(),
                 variableAllocator,
                 idAllocator,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
 
         // Plan should remain unchanged - still has SortNode
         assertTrue(result.getPlanNode() instanceof SortNode);
@@ -111,7 +112,8 @@ public class TestSortedExchangeRule
                 builder.getTypes(),
                 variableAllocator,
                 idAllocator,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
 
         // SortNode should be removed and ordering moved to ExchangeNode
         assertTrue(result.getPlanNode() instanceof ExchangeNode);
@@ -161,7 +163,8 @@ public class TestSortedExchangeRule
                 builder.getTypes(),
                 variableAllocator,
                 idAllocator,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
 
         // Verify ordering moved to exchange
         assertTrue(result.getPlanNode() instanceof ExchangeNode);
@@ -201,7 +204,8 @@ public class TestSortedExchangeRule
                 builder.getTypes(),
                 variableAllocator,
                 idAllocator,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
 
         // Plan should remain unchanged since exchange is not remote
         assertTrue(result.getPlanNode() instanceof SortNode);
@@ -234,7 +238,8 @@ public class TestSortedExchangeRule
                 builder.getTypes(),
                 variableAllocator,
                 idAllocator,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
 
         // Plan should remain unchanged since exchange is REPLICATE type
         assertTrue(result.getPlanNode() instanceof SortNode);
@@ -296,7 +301,8 @@ public class TestSortedExchangeRule
                 builder.getTypes(),
                 variableAllocator,
                 idAllocator,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
 
         // Expected result after optimization:
         // Sort1 -> Project -> Exchange1 (NO ordering) -> Project -> Exchange2 (WITH ordering) -> Values
@@ -381,7 +387,8 @@ public class TestSortedExchangeRule
                 builder.getTypes(),
                 variableAllocator,
                 idAllocator,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                false);
 
         // The sort should NOT be pushed down because varX is not in source output [a, b]
         assertTrue(result.getPlanNode() instanceof SortNode, "Sort should remain because ordering variable not in source output");
