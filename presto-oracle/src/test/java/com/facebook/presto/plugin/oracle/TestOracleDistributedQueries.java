@@ -414,9 +414,9 @@ public class TestOracleDistributedQueries
         assertUpdate("INSERT INTO test_charn_filter SELECT shipmode FROM lineitem", 60175);
 
         assertQuery("SELECT count(*) FROM test_charn_filter WHERE TRIM(shipmode) = 'AIR'", "VALUES (8491)");
-        assertQuery("SELECT count(*) FROM test_charn_filter WHERE TRIM(shipmode) = 'AIR    '", "VALUES (8491)");
-        assertQuery("SELECT count(*) FROM test_charn_filter WHERE TRIM(shipmode) = 'AIR       '", "VALUES (8491)");
-        assertQuery("SELECT count(*) FROM test_charn_filter WHERE TRIM(shipmode) = 'AIR            '", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE TRIM(shipmode) = TRIM('AIR    ')", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE TRIM(shipmode) = TRIM('AIR       ')", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE TRIM(shipmode) = TRIM('AIR            ')", "VALUES (8491)");
         assertQuery("SELECT count(*) FROM test_charn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
 
         assertUpdate("CREATE TABLE test_varcharn_filter (shipmode VARCHAR(10))");
