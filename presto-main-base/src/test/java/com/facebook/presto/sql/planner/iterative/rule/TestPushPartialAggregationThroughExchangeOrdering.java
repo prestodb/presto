@@ -39,7 +39,7 @@ public class TestPushPartialAggregationThroughExchangeOrdering
         // preserves aggregation output variable ordering when creating PARTIAL and FINAL
         // AggregationNodes. HashMap would scramble "sum_x" and "min_y" causing
         // BIGINT vs VARCHAR type mismatch at PartitionedOutput in Velox.
-        PlanNode result = tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager(), false))
+        PlanNode result = tester().assertThat(new PushPartialAggregationThroughExchangeRuleSet(getFunctionManager(), false).withoutProjectionRule())
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BIGINT);
                     VariableReferenceExpression x = p.variable("x", BIGINT);
