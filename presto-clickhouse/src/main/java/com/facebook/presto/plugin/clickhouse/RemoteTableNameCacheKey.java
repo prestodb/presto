@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.facebook.presto.plugin.jdbc.JdbcIdentity;
+
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -20,16 +22,16 @@ import static java.util.Objects.requireNonNull;
 
 final class RemoteTableNameCacheKey
 {
-    private final ClickHouseIdentity identity;
+    private final JdbcIdentity identity;
     private final String schema;
 
-    RemoteTableNameCacheKey(ClickHouseIdentity identity, String schema)
+    RemoteTableNameCacheKey(JdbcIdentity identity, String schema)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.schema = requireNonNull(schema, "schema is null");
     }
 
-    ClickHouseIdentity getIdentity()
+    JdbcIdentity getIdentity()
     {
         return identity;
     }

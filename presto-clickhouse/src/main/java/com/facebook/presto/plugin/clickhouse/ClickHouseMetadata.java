@@ -14,6 +14,10 @@
 package com.facebook.presto.plugin.clickhouse;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
+import com.facebook.presto.plugin.jdbc.JdbcIdentity;
+import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -73,19 +77,19 @@ public class ClickHouseMetadata
     @Override
     public boolean schemaExists(ConnectorSession session, String schemaName)
     {
-        return clickHouseClient.schemaExists(ClickHouseIdentity.from(session), schemaName);
+        return clickHouseClient.schemaExists(session, JdbcIdentity.from(session), schemaName);
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.copyOf(clickHouseClient.getSchemaNames(ClickHouseIdentity.from(session)));
+        return ImmutableList.copyOf(clickHouseClient.getSchemaNames(session, JdbcIdentity.from(session)));
     }
 
     @Override
-    public ClickHouseTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return clickHouseClient.getTableHandle(session, ClickHouseIdentity.from(session), tableName);
+        return clickHouseClient.getTableHandle(session, JdbcIdentity.from(session), tableName);
     }
 
     @Override
@@ -95,7 +99,7 @@ public class ClickHouseMetadata
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
-        ClickHouseTableHandle tableHandle = (ClickHouseTableHandle) table;
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new ClickHouseTableLayoutHandle(tableHandle, constraint.getSummary(), Optional.empty(), Optional.empty(), Optional.empty()));
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
@@ -109,11 +113,16 @@ public class ClickHouseMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
 
     {
-        ClickHouseTableHandle handle = (ClickHouseTableHandle) table;
+        JdbcTableHandle handle = (JdbcTableHandle) table;
 
         ImmutableList.Builder<ColumnMetadata> columnMetadata = ImmutableList.builder();
-        for (ClickHouseColumnHandle column : clickHouseClient.getColumns(session, handle)) {
-            columnMetadata.add(column.getColumnMetadata(normalizeIdentifier(session, column.getColumnName())));
+        for (JdbcColumnHandle column : clickHouseClient.getColumns(session, handle)) {
+            ColumnMetadata.Builder builder = ColumnMetadata.builder()
+                    .setName(normalizeIdentifier(session, column.getColumnName()))
+                    .setType(column.getColumnType())
+                    .setNullable(column.isNullable());
+            column.getComment().ifPresent(builder::setComment);
+            columnMetadata.add(builder.build());
         }
         return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
     }
@@ -121,17 +130,17 @@ public class ClickHouseMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return clickHouseClient.getTableNames(session, ClickHouseIdentity.from(session), schemaName);
+        return clickHouseClient.getTableNames(session, JdbcIdentity.from(session), schemaName);
     }
 
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ClickHouseTableHandle clickHouseTableHandle = (ClickHouseTableHandle) tableHandle;
+        JdbcTableHandle clickHouseTableHandle = (JdbcTableHandle) tableHandle;
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (ClickHouseColumnHandle column : clickHouseClient.getColumns(session, clickHouseTableHandle)) {
-            columnHandles.put(normalizeIdentifier(session, column.getColumnMetadata(column.getColumnName()).getName()), column);
+        for (JdbcColumnHandle column : clickHouseClient.getColumns(session, clickHouseTableHandle)) {
+            columnHandles.put(normalizeIdentifier(session, column.getColumnName()), column);
         }
         return columnHandles.build();
     }
@@ -149,7 +158,7 @@ public class ClickHouseMetadata
         }
         for (SchemaTableName tableName : tables) {
             try {
-                ClickHouseTableHandle tableHandle = clickHouseClient.getTableHandle(session, ClickHouseIdentity.from(session), tableName);
+                JdbcTableHandle tableHandle = clickHouseClient.getTableHandle(session, JdbcIdentity.from(session), tableName);
                 if (tableHandle == null) {
                     continue;
                 }
@@ -165,7 +174,13 @@ public class ClickHouseMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        return ((ClickHouseColumnHandle) columnHandle).getColumnMetadata();
+        JdbcColumnHandle jdbcColumnHandle = (JdbcColumnHandle) columnHandle;
+        ColumnMetadata.Builder builder = ColumnMetadata.builder()
+                .setName(jdbcColumnHandle.getColumnName())
+                .setType(jdbcColumnHandle.getColumnType())
+                .setNullable(jdbcColumnHandle.isNullable());
+        jdbcColumnHandle.getComment().ifPresent(builder::setComment);
+        return builder.build();
     }
 
     @Override
@@ -174,15 +189,15 @@ public class ClickHouseMetadata
         if (!allowDropTable) {
             throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this catalog");
         }
-        ClickHouseTableHandle handle = (ClickHouseTableHandle) tableHandle;
-        clickHouseClient.dropTable(ClickHouseIdentity.from(session), handle);
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+        clickHouseClient.dropTable(JdbcIdentity.from(session), handle);
     }
 
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        ClickHouseOutputTableHandle handle = clickHouseClient.beginCreateTable(session, tableMetadata);
-        setRollback(() -> clickHouseClient.rollbackCreateTable(ClickHouseIdentity.from(session), handle));
+        JdbcOutputTableHandle handle = clickHouseClient.beginCreateTable(session, tableMetadata);
+        setRollback(() -> clickHouseClient.rollbackCreateTable(JdbcIdentity.from(session), handle));
         return handle;
     }
 
@@ -195,8 +210,8 @@ public class ClickHouseMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        ClickHouseOutputTableHandle handle = (ClickHouseOutputTableHandle) tableHandle;
-        clickHouseClient.commitCreateTable(ClickHouseIdentity.from(session), handle);
+        JdbcOutputTableHandle handle = (JdbcOutputTableHandle) tableHandle;
+        clickHouseClient.commitCreateTable(JdbcIdentity.from(session), handle);
         clearRollback();
         return Optional.empty();
     }
@@ -219,67 +234,67 @@ public class ClickHouseMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ClickHouseOutputTableHandle handle = clickHouseClient.beginInsertTable(session, getTableMetadata(session, tableHandle));
-        setRollback(() -> clickHouseClient.rollbackCreateTable(ClickHouseIdentity.from(session), handle));
+        JdbcOutputTableHandle handle = clickHouseClient.beginInsertTable(session, getTableMetadata(session, tableHandle));
+        setRollback(() -> clickHouseClient.rollbackCreateTable(JdbcIdentity.from(session), handle));
         return handle;
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        ClickHouseOutputTableHandle clickHouseInsertHandle = (ClickHouseOutputTableHandle) tableHandle;
-        clickHouseClient.finishInsertTable(ClickHouseIdentity.from(session), clickHouseInsertHandle);
+        JdbcOutputTableHandle clickHouseInsertHandle = (JdbcOutputTableHandle) tableHandle;
+        clickHouseClient.finishInsertTable(JdbcIdentity.from(session), clickHouseInsertHandle);
         return Optional.empty();
     }
 
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata)
     {
-        ClickHouseTableHandle tableHandle = (ClickHouseTableHandle) table;
-        clickHouseClient.addColumn(ClickHouseIdentity.from(session), tableHandle, columnMetadata);
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        clickHouseClient.addColumn(JdbcIdentity.from(session), tableHandle, columnMetadata);
     }
 
     @Override
     public void dropColumn(ConnectorSession session, ConnectorTableHandle table, ColumnHandle column)
     {
-        ClickHouseTableHandle tableHandle = (ClickHouseTableHandle) table;
-        ClickHouseColumnHandle columnHandle = (ClickHouseColumnHandle) column;
-        clickHouseClient.dropColumn(ClickHouseIdentity.from(session), tableHandle, columnHandle);
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        clickHouseClient.dropColumn(JdbcIdentity.from(session), tableHandle, columnHandle);
     }
 
     @Override
     public void renameColumn(ConnectorSession session, ConnectorTableHandle table, ColumnHandle column, String target)
     {
-        ClickHouseTableHandle tableHandle = (ClickHouseTableHandle) table;
-        ClickHouseColumnHandle columnHandle = (ClickHouseColumnHandle) column;
-        clickHouseClient.renameColumn(ClickHouseIdentity.from(session), tableHandle, columnHandle, target);
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        clickHouseClient.renameColumn(JdbcIdentity.from(session), tableHandle, columnHandle, target);
     }
 
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle table, SchemaTableName newTableName)
     {
-        ClickHouseTableHandle tableHandle = (ClickHouseTableHandle) table;
-        clickHouseClient.renameTable(ClickHouseIdentity.from(session), tableHandle, newTableName);
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        clickHouseClient.renameTable(JdbcIdentity.from(session), tableHandle, newTableName);
     }
 
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
-        ClickHouseTableHandle handle = (ClickHouseTableHandle) tableHandle;
-        List<ClickHouseColumnHandle> columns = columnHandles.stream().map(ClickHouseColumnHandle.class::cast).collect(Collectors.toList());
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+        List<JdbcColumnHandle> columns = columnHandles.stream().map(JdbcColumnHandle.class::cast).collect(Collectors.toList());
         return clickHouseClient.getTableStatistics(session, handle, columns, constraint.getSummary());
     }
 
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        clickHouseClient.createSchema(ClickHouseIdentity.from(session), schemaName);
+        clickHouseClient.createSchema(JdbcIdentity.from(session), schemaName);
     }
 
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        clickHouseClient.dropSchema(ClickHouseIdentity.from(session), schemaName);
+        clickHouseClient.dropSchema(JdbcIdentity.from(session), schemaName);
     }
 
     @Override

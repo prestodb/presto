@@ -17,6 +17,8 @@ import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
+import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.CharMatcher;
 
@@ -44,10 +46,12 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.clickhouse.DateTimeUtil.getMillisOfDay;
-import static com.facebook.presto.plugin.clickhouse.ReadMapping.longReadMapping;
-import static com.facebook.presto.plugin.clickhouse.ReadMapping.sliceReadMapping;
+import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.plugin.jdbc.mapping.ReadMapping.createBooleanReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.ReadMapping.createDoubleReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.ReadMapping.createLongReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.ReadMapping.createSliceReadMapping;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
@@ -61,37 +65,37 @@ public final class StandardReadMappings
 
     public static ReadMapping booleanReadMapping()
     {
-        return ReadMapping.booleanReadMapping(BOOLEAN, ResultSet::getBoolean);
+        return createBooleanReadMapping(BOOLEAN, ResultSet::getBoolean);
     }
 
     public static ReadMapping tinyintReadMapping()
     {
-        return longReadMapping(TINYINT, ResultSet::getByte);
+        return createLongReadMapping(TINYINT, ResultSet::getByte);
     }
 
     public static ReadMapping smallintReadMapping()
     {
-        return longReadMapping(SMALLINT, ResultSet::getShort);
+        return createLongReadMapping(SMALLINT, ResultSet::getShort);
     }
 
     public static ReadMapping integerReadMapping()
     {
-        return longReadMapping(INTEGER, ResultSet::getInt);
+        return createLongReadMapping(INTEGER, ResultSet::getInt);
     }
 
     public static ReadMapping bigintReadMapping()
     {
-        return longReadMapping(BIGINT, ResultSet::getLong);
+        return createLongReadMapping(BIGINT, ResultSet::getLong);
     }
 
     public static ReadMapping realReadMapping()
     {
-        return longReadMapping(REAL, (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)));
+        return createLongReadMapping(REAL, (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)));
     }
 
     public static ReadMapping doubleReadMapping()
     {
-        return ReadMapping.doubleReadMapping(DOUBLE, ResultSet::getDouble);
+        return createDoubleReadMapping(DOUBLE, ResultSet::getDouble);
     }
 
     public static ReadMapping decimalReadMapping(DecimalType decimalType)
@@ -99,30 +103,30 @@ public final class StandardReadMappings
         // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
         int scale = decimalType.getScale();
         if (decimalType.isShort()) {
-            return longReadMapping(decimalType, (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale));
+            return createLongReadMapping(decimalType, (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale));
         }
-        return sliceReadMapping(decimalType, (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), scale));
+        return createSliceReadMapping(decimalType, (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), scale));
     }
 
     public static ReadMapping charReadMapping(CharType charType)
     {
         requireNonNull(charType, "charType is null");
-        return sliceReadMapping(charType, (resultSet, columnIndex) -> utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex))));
+        return createSliceReadMapping(charType, (resultSet, columnIndex) -> utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex))));
     }
 
     public static ReadMapping varcharReadMapping(VarcharType varcharType)
     {
-        return sliceReadMapping(varcharType, (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)));
+        return createSliceReadMapping(varcharType, (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)));
     }
 
     public static ReadMapping varbinaryReadMapping()
     {
-        return sliceReadMapping(VARBINARY, (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)));
+        return createSliceReadMapping(VARBINARY, (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)));
     }
 
     public static ReadMapping dateReadMapping()
     {
-        return longReadMapping(DATE, (resultSet, columnIndex) -> {
+        return createLongReadMapping(DATE, (resultSet, columnIndex) -> {
             Date date = resultSet.getDate(columnIndex);
             return DateTimeUtil.convertDateToZonedDays(date);
         });
@@ -130,7 +134,7 @@ public final class StandardReadMappings
 
     public static ReadMapping timeReadMapping()
     {
-        return longReadMapping(TIME, (resultSet, columnIndex) -> {
+        return createLongReadMapping(TIME, (resultSet, columnIndex) -> {
             Time time = resultSet.getTime(columnIndex);
             return getMillisOfDay(time);
         });
@@ -138,7 +142,7 @@ public final class StandardReadMappings
 
     public static ReadMapping timestampReadMapping()
     {
-        return longReadMapping(TIMESTAMP, (resultSet, columnIndex) -> {
+        return createLongReadMapping(TIMESTAMP, (resultSet, columnIndex) -> {
             Timestamp timestamp = resultSet.getTimestamp(columnIndex);
             // In ClickHouse JDBC 0.3.2+, getTimestamp() properly includes milliseconds
             // so we don't need to extract them separately from getString()
@@ -146,10 +150,12 @@ public final class StandardReadMappings
         });
     }
 
-    public static Optional<ReadMapping> jdbcTypeToPrestoType(ClickHouseTypeHandle type, boolean mapStringAsVarchar)
+    public static Optional<ReadMapping> jdbcTypeToPrestoType(JdbcTypeHandle type, boolean mapStringAsVarchar)
     {
-        String jdbcTypeName = type.getJdbcTypeName()
-                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + type));
+        String jdbcTypeName = type.getJdbcTypeName();
+        if (jdbcTypeName == null) {
+            throw new PrestoException(JDBC_ERROR, "Type name is missing: " + type);
+        }
         int columnSize = type.getColumnSize();
 
         switch (jdbcTypeName.replaceAll("\\(.*\\)$", "")) {
@@ -213,7 +219,8 @@ public final class StandardReadMappings
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
-                if (columnSize > VarcharType.MAX_LENGTH) {
+                // columnSize of 0 indicates unbounded VARCHAR (from NULL in metadata)
+                if (columnSize == 0 || columnSize > VarcharType.MAX_LENGTH) {
                     return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
                 }
                 return Optional.of(varcharReadMapping(createVarcharType(columnSize)));

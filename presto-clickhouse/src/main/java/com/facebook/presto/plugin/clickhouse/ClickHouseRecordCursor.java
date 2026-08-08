@@ -15,6 +15,8 @@ package com.facebook.presto.plugin.clickhouse;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.plugin.jdbc.JdbcIdentity;
+import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
@@ -63,10 +65,13 @@ public class ClickHouseRecordCursor
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
 
         for (int i = 0; i < this.columnHandles.length; i++) {
-            ReadMapping readMapping = clickHouseClient.toPrestoType(columnHandles.get(i).getClickHouseTypeHandle())
+            ClickHouseTypeHandle clickHouseType = columnHandles.get(i).getClickHouseTypeHandle();
+            ReadMapping readMapping = clickHouseClient.toPrestoType(session, clickHouseType.toJdbcTypeHandle())
                     .orElseThrow(() -> new VerifyException("Unsupported column type"));
             Class<?> javaType = readMapping.getType().getJavaType();
-            ReadFunction readFunction = readMapping.getReadFunction();
+            com.facebook.presto.plugin.jdbc.mapping.ReadFunction jdbcReadFunction = readMapping.getReadFunction();
+            // Use JDBC ReadFunction directly - it has the same structure as ClickHouse ReadFunction
+            ReadFunction readFunction = (ReadFunction) jdbcReadFunction;
 
             if (javaType == boolean.class) {
                 booleanReadFunctions[i] = (BooleanReadFunction) readFunction;
@@ -86,7 +91,7 @@ public class ClickHouseRecordCursor
         }
 
         try {
-            connection = clickHouseClient.getConnection(ClickHouseIdentity.from(session), split);
+            connection = clickHouseClient.getConnection(JdbcIdentity.from(session), (ClickHouseSplit) split);
             statement = clickHouseClient.buildSql(session, connection, split, columnHandles);
             log.debug("Executing: %s", statement.toString());
             resultSet = statement.executeQuery();
