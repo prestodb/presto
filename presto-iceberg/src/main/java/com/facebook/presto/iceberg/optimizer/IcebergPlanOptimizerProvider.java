@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.IcebergTableProperties;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -41,24 +42,40 @@ public class IcebergPlanOptimizerProvider
             StandardFunctionResolution functionResolution,
             FunctionMetadataManager functionMetadataManager,
             IcebergTableProperties tableProperties,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            ConnectorSystemConfig connectorSystemConfig)
     {
         requireNonNull(transactionManager, "transactionManager is null");
         requireNonNull(rowExpressionService, "rowExpressionService is null");
         requireNonNull(functionResolution, "functionResolution is null");
         requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         requireNonNull(typeManager, "typeManager is null");
-        this.planOptimizers = ImmutableSet.of(
-                new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager),
-                new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager),
-                new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager, tableProperties));
-        this.logicalPlanOptimizers = ImmutableSet.of(
-                new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager),
-                new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager),
-                new IcebergAggregationOptimizer(transactionManager, functionResolution),
-                new IcebergMetadataOptimizer(functionMetadataManager, typeManager, transactionManager, rowExpressionService, functionResolution),
-                new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager, tableProperties),
-                new IcebergEqualityDeleteAsJoin(functionResolution, transactionManager, typeManager));
+        requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
+
+        ImmutableSet.Builder<ConnectorPlanOptimizer> planOptimizerBuilder = ImmutableSet.<ConnectorPlanOptimizer>builder()
+                .add(new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager))
+                .add(new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager));
+        ImmutableSet.Builder<ConnectorPlanOptimizer> logicalPlanOptimizerBuilder = ImmutableSet.<ConnectorPlanOptimizer>builder()
+                .add(new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager))
+                .add(new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager))
+                .add(new IcebergAggregationOptimizer(transactionManager, functionResolution))
+                .add(new IcebergMetadataOptimizer(functionMetadataManager, typeManager, transactionManager, rowExpressionService, functionResolution));
+
+        // IcebergParquetDereferencePushDown hoists a nested field into a top level column whose name is the
+        // flattened subfield path ("msg$_$_$x") while its required subfield keeps the original root ("msg.x").
+        // The Java Parquet reader resolves such columns through the subfield path and ignores the column name,
+        // but Velox requires the required subfield root to match the column handle name and fails the scan with
+        // "Required subfield does not match column name". Native workers get equivalent pruning from
+        // PushdownSubfields, which preserves the base column name.
+        if (!connectorSystemConfig.isNativeExecution()) {
+            planOptimizerBuilder.add(new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager, tableProperties));
+            logicalPlanOptimizerBuilder.add(new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager, tableProperties));
+        }
+
+        logicalPlanOptimizerBuilder.add(new IcebergEqualityDeleteAsJoin(functionResolution, transactionManager, typeManager));
+
+        this.planOptimizers = planOptimizerBuilder.build();
+        this.logicalPlanOptimizers = logicalPlanOptimizerBuilder.build();
     }
 
     @Override
