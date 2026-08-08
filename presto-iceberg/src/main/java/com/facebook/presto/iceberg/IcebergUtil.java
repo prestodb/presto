@@ -515,6 +515,11 @@ public final class IcebergUtil
             return HiveType.HIVE_LONG;
         }
 
+        // Special handling for GEOMETRY type: geometry stored as well-known binary in iceberg
+        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.GEOMETRY) {
+            return HiveType.HIVE_BINARY;
+        }
+
         return HiveType.valueOf(sanitizeTypeString(icebergType));
     }
 
@@ -532,20 +537,20 @@ public final class IcebergUtil
         if (icebergType.isStructType()) {
             org.apache.iceberg.types.Types.StructType structType = icebergType.asStructType();
             List<String> fieldStrings = structType.fields().stream()
-                    .map(field -> sanitizeFieldName(field.name()) + ":" + sanitizeTypeString(field.type()))
+                    .map(field -> sanitizeFieldName(field.name()) + ":" + icebergTypeToHiveType(field.type()).toString())
                     .collect(toImmutableList());
             return "struct<" + String.join(",", fieldStrings) + ">";
         }
 
         if (icebergType.isListType()) {
             org.apache.iceberg.types.Types.ListType listType = icebergType.asListType();
-            return "array<" + sanitizeTypeString(listType.elementType()) + ">";
+            return "array<" + icebergTypeToHiveType(listType.elementType()).toString() + ">";
         }
 
         if (icebergType.isMapType()) {
             org.apache.iceberg.types.Types.MapType mapType = icebergType.asMapType();
-            return "map<" + sanitizeTypeString(mapType.keyType()) + "," +
-                    sanitizeTypeString(mapType.valueType()) + ">";
+            return "map<" + icebergTypeToHiveType(mapType.keyType()).toString() + "," +
+                    icebergTypeToHiveType(mapType.valueType()).toString() + ">";
         }
 
         // Fallback to default conversion for any other types
