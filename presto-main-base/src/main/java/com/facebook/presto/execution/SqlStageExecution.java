@@ -55,6 +55,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -140,6 +141,7 @@ public final class SqlStageExecution
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
 
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
+    private final List<Consumer<RemoteTask>> taskCreatedListeners = new CopyOnWriteArrayList<>();
 
     @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
@@ -449,6 +451,14 @@ public final class SqlStageExecution
                 .collect(toImmutableList());
     }
 
+    public synchronized void addTaskCreatedListener(Consumer<RemoteTask> listener)
+    {
+        taskCreatedListeners.add(listener);
+        for (RemoteTask task : getAllTasks()) {
+            listener.accept(task);
+        }
+    }
+
     // We only support removeRemoteSource for single task stage because stages with many tasks introduce coordinator to worker HTTP requests in bursty manner.
     // See https://github.com/prestodb/presto/pull/11065 for a similar issue.
     public void removeRemoteSourceIfSingleTaskStage(TaskId remoteSourceTaskId)
@@ -548,6 +558,10 @@ public final class SqlStageExecution
 
         task.addStateChangeListener(new StageTaskListener(taskId));
         task.addFinalTaskInfoListener(this::updateFinalTaskInfo);
+
+        for (Consumer<RemoteTask> listener : taskCreatedListeners) {
+            listener.accept(task);
+        }
 
         if (!stateMachine.getState().isDone()) {
             task.start();

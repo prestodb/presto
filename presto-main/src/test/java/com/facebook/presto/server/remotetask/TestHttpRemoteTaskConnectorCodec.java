@@ -52,6 +52,8 @@ import com.facebook.presto.execution.TaskTestUtils;
 import com.facebook.presto.execution.TestQueryManager;
 import com.facebook.presto.execution.TestSqlTaskManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.DynamicFilterService;
+import com.facebook.presto.execution.scheduler.DynamicFilterStats;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.ColumnHandleJacksonModule;
@@ -777,7 +779,11 @@ public class TestHttpRemoteTaskConnectorCodec
                                 internalCommunicationConfig,
                                 createTestMetadataManager(),
                                 new TestQueryManager(),
-                                new HandleResolver());
+                                new HandleResolver(),
+                                new DynamicFilterService(),
+                                new DynamicFilterStats(),
+                                JsonCodec.jsonCodec(DynamicFilterResponse.class),
+                                JsonCodec.jsonCodec(DynamicFilterPushRequest.class));
                     }
                 });
         Injector injector = app
