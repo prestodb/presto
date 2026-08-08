@@ -15,7 +15,12 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <gtest/gtest.h>
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
@@ -189,3 +194,165 @@ INSTANTIATE_TEST_CASE_P(
     AnnouncerTest,
     AnnouncerTestSuite,
     ::testing::Values(true, false));
+
+#ifdef PRESTO_ENABLE_JWT
+namespace {
+
+// Discovery server that reports the cluster-internal bearer of every
+// announcement it receives, empty when the header is absent.
+// makeDiscoveryServer above ignores the request entirely, which is why an
+// announcement missing the header went unnoticed.
+std::unique_ptr<facebook::presto::test::HttpServerWrapper>
+makeBearerCapturingDiscoveryServer(
+    std::function<void(const std::string&)> onAnnouncement) {
+  auto httpServer = createHttpServer(/*useHttps=*/false);
+
+  httpServer->registerPut(
+      R"(/v1/announcement/(.+))",
+      [onAnnouncement = std::move(onAnnouncement)](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) mutable {
+        onAnnouncement(message->getHeaders().getSingleOrEmpty(
+            http::kPrestoInternalBearer));
+        proxygen::ResponseBuilder(downstream)
+            .status(http::kHttpAccepted, "Accepted")
+            .sendWithEOM();
+      });
+  return std::make_unique<facebook::presto::test::HttpServerWrapper>(
+      std::move(httpServer));
+}
+
+// Fires its promise with the bearer of the first announcement, so the test does
+// not have to wait for the announcer's steady state.
+class BearerCapturingDiscoverer : public CoordinatorDiscoverer {
+ public:
+  explicit BearerCapturingDiscoverer(
+      folly::Promise<std::string> bearerPromise) {
+    auto onAnnouncement =
+        [promiseHolder = std::make_shared<PromiseHolder<std::string>>(
+             std::move(bearerPromise)),
+         captured = std::make_shared<std::atomic<bool>>(false)](
+            const std::string& bearer) {
+          // The discovery server runs on an 8-thread IO pool, so announcements
+          // can land concurrently; claim the one-shot promise with an atomic
+          // exchange rather than a non-atomic isFulfilled() check, since a
+          // second setValue() on a folly::Promise throws
+          // PromiseAlreadySatisfied.
+          if (!captured->exchange(true)) {
+            promiseHolder->get().setValue(bearer);
+          }
+        };
+    discoveryServer_ =
+        makeBearerCapturingDiscoveryServer(std::move(onAnnouncement));
+    serverAddress_ = discoveryServer_->start().get();
+  }
+
+  folly::SocketAddress updateAddress() override {
+    return serverAddress_;
+  }
+
+ private:
+  std::unique_ptr<test::HttpServerWrapper> discoveryServer_;
+  folly::SocketAddress serverAddress_;
+};
+
+std::unique_ptr<facebook::velox::config::ConfigBase> makeConfig(
+    std::unordered_map<std::string, std::string> values) {
+  return std::make_unique<facebook::velox::config::ConfigBase>(
+      std::move(values), /*_mutable=*/true);
+}
+
+// Announces once and returns whatever arrived in X-Presto-Internal-Bearer.
+// The options are snapshotted in PeriodicServiceInventoryManager's constructor,
+// so the config has to be installed before the Announcer is constructed, not
+// merely before start().
+std::string announceAndCaptureBearer(bool jwtEnabled) {
+  SystemConfig::instance()->initialize(makeConfig(
+      {{std::string(SystemConfig::kMutableConfig), "true"},
+       {std::string(SystemConfig::kInternalCommunicationJwtEnabled),
+        jwtEnabled ? "true" : "false"},
+       {std::string(SystemConfig::kInternalCommunicationSharedSecret),
+        "announcer-test-secret"}}));
+
+  NodeConfig::instance()->initialize(makeConfig(
+      {{std::string(NodeConfig::kMutableConfig), "true"},
+       {std::string(NodeConfig::kNodeId), "announcer-test-node"}}));
+
+  auto [promise, future] = folly::makePromiseContract<std::string>();
+  auto discoverer =
+      std::make_shared<BearerCapturingDiscoverer>(std::move(promise));
+
+  Announcer announcer(
+      "127.0.0.1",
+      /*useHttps=*/false,
+      1234,
+      discoverer,
+      "testversion",
+      "testing",
+      "announcer-test-node",
+      "test-node-location",
+      "DEFAULT",
+      true,
+      {"hive"},
+      50 /*milliseconds*/,
+      /*sslContext=*/nullptr);
+
+  announcer.start();
+  // Bound the wait so a wiring regression fails the test instead of hanging the
+  // whole presto_server_test process; the announcer fires every 50ms, so 30s is
+  // an ample ceiling. stop() still runs on the timeout path because the base
+  // destructor does not.
+  auto semiFuture = std::move(future);
+  folly::Try<std::string> result;
+  try {
+    result = std::move(semiFuture).getTry(std::chrono::seconds(30));
+  } catch (const folly::FutureTimeout&) {
+    announcer.stop();
+    ADD_FAILURE() << "announcement never arrived; no "
+                  << http::kPrestoInternalBearer << " captured";
+    return {};
+  }
+  if (!result.hasValue()) {
+    announcer.stop();
+    ADD_FAILURE() << "announcement failed: " << result.exception().what();
+    return {};
+  }
+  auto bearer = std::move(result.value());
+  announcer.stop();
+  return bearer;
+}
+
+} // namespace
+
+// SystemConfig and NodeConfig are process-global and presto_server_test runs
+// many suites in one process, so restore both to a default-valued config after
+// each case rather than leaving this test's JWT settings installed.
+class AnnouncerJwtTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    FLAGS_velox_memory_leak_check_enabled = true;
+  }
+
+  void TearDown() override {
+    SystemConfig::instance()->initialize(makeConfig({}));
+    NodeConfig::instance()->initialize(makeConfig({}));
+  }
+};
+
+// The announcement is built by hand in Announcer rather than through
+// RequestBuilder, so nothing else guards that it carries the internal JWT: a
+// coordinator that authenticates the announcement endpoint 401s an unsigned
+// announcement and the node never registers.
+TEST_F(AnnouncerJwtTest, carriesInternalJwtWhenEnabled) {
+  const auto bearer = announceAndCaptureBearer(/*jwtEnabled=*/true);
+  ASSERT_FALSE(bearer.empty())
+      << "announcement carried no " << http::kPrestoInternalBearer;
+  // A signed JWS is three dot-separated segments.
+  EXPECT_EQ(std::count(bearer.begin(), bearer.end(), '.'), 2);
+}
+
+TEST_F(AnnouncerJwtTest, omitsInternalJwtWhenDisabled) {
+  EXPECT_TRUE(announceAndCaptureBearer(/*jwtEnabled=*/false).empty());
+}
+#endif // PRESTO_ENABLE_JWT
