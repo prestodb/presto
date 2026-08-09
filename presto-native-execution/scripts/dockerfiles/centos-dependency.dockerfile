@@ -32,11 +32,15 @@ COPY velox/scripts /velox/scripts
 # Copy extra script called during setup.
 # from https://github.com/facebookincubator/velox/pull/14016
 COPY velox/CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch /velox
+COPY velox/CMake/resolve_dependency_modules/arrow/arrow-testing-boost.patch /velox
+ENV VELOX_ARROW_CMAKE_PATCH="/velox/cmake-compatibility.patch /velox/arrow-testing-boost.patch"
+COPY velox/CMake/resolve_dependency_modules/fbthrift/compactv1-protocol-refiller.patch /velox
+ENV VELOX_FBTHRIFT_CMAKE_PATCH=/velox/compactv1-protocol-refiller.patch
 COPY CMake/arrow/arrow-flight.patch /scripts
-ENV VELOX_ARROW_CMAKE_PATCH=/velox/cmake-compatibility.patch
 ENV EXTRA_ARROW_PATCH=/scripts/arrow-flight.patch
 RUN bash -c "mkdir build && \
-    (cd build && ../scripts/setup-centos.sh && \
+    (cd build && export VELOX_BUILD_SHARED=ON && \
+                 ../scripts/setup-centos.sh && \
                  ../scripts/setup-adapters.sh && \
                  source ../velox/scripts/setup-centos9.sh && \
                  source ../velox/scripts/setup-centos-adapters.sh && \

@@ -16,11 +16,12 @@ package com.facebook.presto.connector.system.jdbc;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 
 import java.util.Optional;
+
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.StreamSupport.stream;
 
 final class FilterUtil
 {
@@ -61,7 +62,7 @@ final class FilterUtil
         if (!filter.isPresent()) {
             return items;
         }
-        return Iterables.filter(items, Predicates.equalTo(filter.get()));
+        return stream(items.spliterator(), false).filter(item -> item.equals(filter.get())).collect(toList());
     }
 
     public static <T> boolean emptyOrEquals(Optional<T> value, T other)

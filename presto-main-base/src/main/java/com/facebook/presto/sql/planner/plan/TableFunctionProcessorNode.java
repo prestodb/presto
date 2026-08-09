@@ -34,7 +34,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class TableFunctionProcessorNode
@@ -274,7 +274,7 @@ public class TableFunctionProcessorNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newSources)
     {
-        Optional<PlanNode> newSource = newSources.isEmpty() ? Optional.empty() : Optional.of(getOnlyElement(newSources));
+        Optional<PlanNode> newSource = newSources.isEmpty() ? Optional.empty() : Optional.of(newSources.stream().collect(onlyElement()));
         return new TableFunctionProcessorNode(getId(), name, properOutputs, newSource, pruneWhenEmpty, passThroughSpecifications, requiredVariables, markerVariables, specification, prePartitioned, preSorted, hashSymbol, handle);
     }
 

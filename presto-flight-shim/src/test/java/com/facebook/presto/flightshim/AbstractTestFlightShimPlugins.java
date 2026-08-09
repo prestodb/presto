@@ -23,7 +23,6 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
-import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
@@ -31,6 +30,7 @@ import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.function.table.Descriptor;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
@@ -108,6 +108,11 @@ public abstract class AbstractTestFlightShimPlugins
 
     protected abstract String getConnectorId();
 
+    protected String getConnectorName()
+    {
+        return getConnectorId();
+    }
+
     protected abstract String getPluginBundles();
 
     @BeforeClass
@@ -126,7 +131,7 @@ public abstract class AbstractTestFlightShimPlugins
 
         // Create the catalog for the test connector, avoid loading other catalogs
         ImmutableMap.Builder<String, String> propertyBuilder = ImmutableMap.builder();
-        propertyBuilder.put("connector.name", getConnectorId()).putAll(getConnectorProperties());
+        propertyBuilder.put("connector.name", getConnectorName()).putAll(getConnectorProperties());
         configBuilder.put("catalog.config-dir", "src/test/resources/etc/catalog");
 
         Injector injector = FlightShimServer.initialize(configBuilder.build());
@@ -145,17 +150,16 @@ public abstract class AbstractTestFlightShimPlugins
             throws Exception
     {
         super.close();
-        if (server != null && producer != null) {
-            server.shutdown();
-            producer.shutdown();
-        }
         if (server != null) {
-            server.close();
-            server = null;
+            server.shutdown();
         }
         if (producer != null) {
             producer.close();
             producer = null;
+        }
+        if (server != null) {
+            server.close();
+            server = null;
         }
         if (allocator != null) {
             allocator.close();
@@ -502,10 +506,10 @@ public abstract class AbstractTestFlightShimPlugins
         String split = createTpchSplit(TPCH_TABLE, partNumber, totalParts);
         byte[] splitBytes = split.getBytes(StandardCharsets.UTF_8);
 
-        ImmutableList.Builder<RowType.Field> fieldBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Descriptor.Field> fieldBuilder = ImmutableList.builder();
         ImmutableList.Builder<byte[]> columnBuilder = ImmutableList.builder();
         for (TpchColumnHandle columnHandle : columnHandles) {
-            fieldBuilder.add(new RowType.Field(Optional.of(columnHandle.getColumnName()), columnHandle.getType()));
+            fieldBuilder.add(new Descriptor.Field(Optional.of(columnHandle.getColumnName()), Optional.of(columnHandle.getType())));
             columnBuilder.add(TPCH_COLUMN_JSON_CODEC.toJsonBytes(columnHandle));
         }
 

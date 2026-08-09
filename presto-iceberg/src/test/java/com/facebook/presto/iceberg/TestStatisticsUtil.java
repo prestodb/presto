@@ -322,6 +322,7 @@ public class TestStatisticsUtil
                 Optional.empty(),
                 partitioned ? PARTITION_KEY : REGULAR,
                 ImmutableList.of(),
+                Optional.empty(),
                 Optional.empty());
     }
 

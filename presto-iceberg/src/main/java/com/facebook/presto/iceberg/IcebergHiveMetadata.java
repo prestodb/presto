@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -67,15 +68,14 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseMetastoreTableOperations;
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
 import org.apache.iceberg.PartitionSpec;
@@ -96,7 +96,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveStatisticsUtil.createPartitionStatistics;
@@ -149,7 +148,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -166,15 +164,13 @@ import static org.apache.iceberg.Transactions.createTableTransaction;
 public class IcebergHiveMetadata
         extends IcebergAbstractMetadata
 {
-    public static final int MAXIMUM_PER_QUERY_TABLE_CACHE_SIZE = 1000;
-
+    private static final Logger LOG = Logger.get(IcebergHiveMetadata.class);
     private final IcebergCatalogName catalogName;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
     private final IcebergHiveTableOperationsConfig hiveTableOperationsConfig;
     private final ConnectorSystemConfig connectorSystemConfig;
-    private final Cache<SchemaTableName, Optional<Table>> tableCache;
     private final ManifestFileCache manifestFileCache;
 
     public IcebergHiveMetadata(
@@ -204,7 +200,6 @@ public class IcebergHiveMetadata
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hiveTableOperationsConfig = requireNonNull(hiveTableOperationsConfig, "hiveTableOperationsConfig is null");
-        this.tableCache = CacheBuilder.newBuilder().maximumSize(MAXIMUM_PER_QUERY_TABLE_CACHE_SIZE).build();
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
         this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
     }
@@ -286,17 +281,7 @@ public class IcebergHiveMetadata
     private Optional<Table> getHiveTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         IcebergTableName name = IcebergTableName.from(schemaTableName.getTableName());
-        try {
-            return tableCache.get(schemaTableName, () ->
-                    metastore.getTable(getMetastoreContext(session), schemaTableName.getSchemaName(), name.getTableName()));
-        }
-        catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
-        }
-        catch (ExecutionException e) {
-            throw new RuntimeException("Unexpected checked exception by cache load from metastore", e);
-        }
+        return metastore.getTable(getMetastoreContext(session), schemaTableName.getSchemaName(), name.getTableName());
     }
 
     @Override
@@ -462,7 +447,45 @@ public class IcebergHiveMetadata
                 throw new PrestoException(NOT_SUPPORTED, "Table " + handle.getSchemaTableName() + " contains Iceberg path override properties and cannot be dropped from Presto");
             }
         }
-        metastore.dropTable(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName(), true);
+
+        Optional<Table> hiveTable = getHiveTable(session, handle.getSchemaTableName());
+        boolean shouldDeleteData = hiveTable
+                .map(t -> t.getParameters()
+                        .getOrDefault(HiveTableOperations.PRESTO_DELETE_DATA_ON_DROP, "false"))
+                .map(Boolean::parseBoolean)
+                .orElse(false);
+
+        // When shouldDeleteData is true, first use Iceberg's CatalogUtil to delete all
+        // data and metadata files across every snapshot (the S3-safe approach), then
+        // let the metastore drop the HMS entry and remove the table directory.
+        // When shouldDeleteData is false, only remove the HMS entry.
+        if (shouldDeleteData) {
+            // Capture Iceberg metadata before dropping the HMS entry, because
+            // table.operations().current() re-queries HMS and will fail with
+            // TableNotFoundException after the entry is removed.
+            Optional<TableMetadata> icebergMetadata = Optional.empty();
+            try {
+                icebergMetadata = Optional.of(((BaseTable) table).operations().current());
+            }
+            catch (RuntimeException e) {
+                LOG.warn(e, "Could not read metadata for %s before drop; data files will not be deleted", handle.getSchemaTableName());
+                shouldDeleteData = false;
+            }
+            icebergMetadata.ifPresent(metadata -> {
+                try {
+                    CatalogUtil.dropTableData(table.io(), metadata);
+                }
+                catch (RuntimeException e) {
+                    LOG.warn(e, "Failed to delete table data for %s", handle.getSchemaTableName());
+                }
+            });
+        }
+
+        metastore.dropTable(
+                getMetastoreContext(session),
+                handle.getSchemaName(),
+                handle.getIcebergTableName().getTableName(),
+                shouldDeleteData);
     }
 
     @Override
@@ -674,12 +697,12 @@ public class IcebergHiveMetadata
 
         List<Column> partitionColumns = table.getPartitionColumns();
         List<String> partitionColumnNames = partitionColumns.stream()
-                .map(Column::getName)
+                .map(column -> column.getName().toLowerCase(ENGLISH))
                 .collect(toImmutableList());
         List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table);
         Map<String, Type> columnTypes = hiveColumnHandles.stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
-                .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
+                .collect(toImmutableMap(column -> column.getName().toLowerCase(ENGLISH), column -> column.getHiveType().getType(typeManager)));
 
         Map<List<String>, ComputedStatistics> computedStatisticsMap = createComputedStatisticsToPartitionMap(computedStatistics, partitionColumnNames, columnTypes);
 
@@ -712,7 +735,7 @@ public class IcebergHiveMetadata
     }
 
     @Override
-    public void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation)
+    public void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation, boolean deleteDataOnDrop)
     {
         String tableLocation = metadataLocation.getName();
         HdfsContext hdfsContext = new HdfsContext(
@@ -741,7 +764,8 @@ public class IcebergHiveMetadata
                 .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
                 .setParameter("EXTERNAL", "TRUE")
                 .setParameter(BaseMetastoreTableOperations.TABLE_TYPE_PROP, BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
-                .setParameter(BaseMetastoreTableOperations.METADATA_LOCATION_PROP, tableMetadata.metadataFileLocation());
+                .setParameter(BaseMetastoreTableOperations.METADATA_LOCATION_PROP, tableMetadata.metadataFileLocation())
+                .setParameter(HiveTableOperations.PRESTO_DELETE_DATA_ON_DROP, String.valueOf(deleteDataOnDrop));
         Table table = builder.build();
 
         PrestoPrincipal owner = new PrestoPrincipal(USER, table.getOwner());
@@ -797,8 +821,6 @@ public class IcebergHiveMetadata
         catch (TableAlreadyExistsException e) {
             throw new PrestoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
         }
-
-        tableCache.invalidate(viewName);
     }
 
     @Override
@@ -816,8 +838,6 @@ public class IcebergHiveMetadata
         catch (TableNotFoundException e) {
             throw new PrestoException(NOT_FOUND, "Materialized view not found: " + schemaTableName);
         }
-
-        tableCache.invalidate(schemaTableName);
     }
 
     @Override
@@ -855,8 +875,6 @@ public class IcebergHiveMetadata
                     viewName.getTableName(),
                     updatedTable,
                     privileges);
-
-            tableCache.invalidate(viewName);
         }
     }
 

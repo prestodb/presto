@@ -78,7 +78,9 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
@@ -87,7 +89,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Stack;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -312,10 +313,10 @@ public class CanonicalPlanGenerator
         List<PlanNode> sources = new ArrayList<>();
         ImmutableList.Builder<RowExpression> allFilters = ImmutableList.builder();
         ImmutableList.Builder<EquiJoinClause> criterias = ImmutableList.builder();
-        Stack<JoinNode> stack = new Stack<>();
+        Deque<JoinNode> stack = new ArrayDeque<>();
 
         stack.push(node);
-        while (!stack.empty()) {
+        while (!stack.isEmpty()) {
             JoinNode top = stack.pop();
             top.getCriteria().forEach(criterias::add);
             // ReorderJoins can move predicates between `criteria` and `filters`, so we put all equalities

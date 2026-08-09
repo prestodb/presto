@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.elasticsearch.decoders;
 
+import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.facebook.presto.common.block.BlockBuilder;
 import io.airlift.slice.Slices;
-import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
@@ -25,8 +25,8 @@ public class IdColumnDecoder
         implements Decoder
 {
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(Hit hit, Supplier<Object> getter, BlockBuilder output)
     {
-        VARCHAR.writeSlice(output, Slices.utf8Slice(hit.getId()));
+        VARCHAR.writeSlice(output, Slices.utf8Slice(hit.id()));
     }
 }

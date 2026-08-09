@@ -106,6 +106,6 @@ Record Set Provider: ExampleRecordSetProvider
 
 The record set provider creates a record set which in turn creates a
 record cursor that returns the actual data to Presto.
-``ExampleRecordCursor`` reads data from a URI via HTTP. Each line
+``ExampleRecordCursor`` reads data from a URI by using HTTP. Each line
 corresponds to a single row. Lines are split on comma into individual
 field values which are then returned to Presto.

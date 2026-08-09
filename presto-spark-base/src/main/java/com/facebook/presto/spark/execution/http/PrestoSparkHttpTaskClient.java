@@ -190,6 +190,26 @@ public class PrestoSparkHttpTaskClient
         return result;
     }
 
+    public void deleteTask(TaskId taskId)
+    {
+        Request request = new Request.Builder()
+                .url(getTaskUri(taskId).toString())
+                .delete()
+                .build();
+
+        RequestErrorTracker errorTracker = new RequestErrorTracker(
+                "NativeExecution",
+                location,
+                NATIVE_EXECUTION_TASK_ERROR,
+                "deleteTask encountered too many errors talking to native process",
+                remoteTaskMaxErrorDuration,
+                scheduledExecutorService,
+                "delete native task");
+        SettableFuture<Void> result = SettableFuture.create();
+        scheduleVoidRequest(request, new BytesResponseHandler(), errorTracker, result);
+        getFutureValue(result);
+    }
+
     public TaskInfo getTaskInfo(TaskId taskId)
     {
         Request request = setContentTypeHeaders(new Request.Builder())

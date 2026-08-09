@@ -10,11 +10,11 @@ Synopsis
     MERGE INTO target_table [ [ AS ]  target_alias ]
     USING { source_table | query } [ [ AS ] source_alias ]
     ON search_condition
-    WHEN MATCHED THEN
+    WHEN MATCHED [ AND condition ] THEN
         UPDATE SET ( column = expression [, ...] )
-    WHEN MATCHED THEN
+    WHEN MATCHED [ AND condition ] THEN
         DELETE
-    WHEN NOT MATCHED THEN
+    WHEN NOT MATCHED [ AND condition ] THEN
         INSERT [ column_list ]
         VALUES (expression, ...)
 
@@ -32,6 +32,11 @@ When the condition is met, one of the following ``MATCHED`` actions can be taken
 When the condition is not met, the ``NOT MATCHED`` action inserts a new row into the target table. The ``INSERT`` expressions can depend on any field of the source.
 
 A ``MERGE`` statement can contain any combination of ``WHEN MATCHED`` and ``WHEN NOT MATCHED`` clauses. For example, you can use ``WHEN MATCHED THEN DELETE`` together with ``WHEN NOT MATCHED THEN INSERT`` to delete existing matched rows and insert new unmatched rows in a single atomic operation.
+
+Each ``WHEN`` clause may carry an optional additional ``AND condition`` predicate that restricts when that clause fires.
+The predicate is a boolean expression that may reference columns from both the target table and the source relation.
+Clauses are evaluated in textual order; for each input row, the first clause whose ``MATCHED`` / ``NOT MATCHED`` state holds and whose optional ``AND`` predicate is true is the one that fires.
+A row matched by the ``ON`` clause that satisfies no ``WHEN MATCHED`` predicate (and where no predicate-less ``WHEN MATCHED`` clause exists) results in no action for that row; the same is true of source rows that satisfy no ``WHEN NOT MATCHED`` predicate.
 
 The ``MERGE`` command requires each target row to match at most one source row. An exception is raised when a single target table row matches more than one source row.
 If a source row is not matched by the ``WHEN MATCHED`` clause and there is no ``WHEN NOT MATCHED`` clause, the source row is ignored.
@@ -102,6 +107,25 @@ Delete all rows in the target table that match the source. Rows in the target ta
         ON s.product_id = d.product_id
     WHEN MATCHED THEN
         DELETE
+
+Conditional WHEN clauses
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Apply a delta from the source. Update the existing count when the result is positive, delete the row when the result is exactly zero, and insert a new row only when the incoming delta is non-zero.
+Clauses are evaluated in textual order, so the ``UPDATE`` predicate is checked before ``DELETE``.
+
+.. code-block:: text
+
+    MERGE INTO inventory AS t
+        USING incoming AS s
+        ON t.id = s.id
+    WHEN MATCHED AND t.count + s.count_delta > 0 THEN
+        UPDATE SET count = t.count + s.count_delta
+    WHEN MATCHED AND t.count + s.count_delta = 0 THEN
+        DELETE
+    WHEN NOT MATCHED AND s.count_delta <> 0 THEN
+        INSERT (id, count)
+        VALUES (s.id, s.count_delta)
 
 Limitations
 -----------

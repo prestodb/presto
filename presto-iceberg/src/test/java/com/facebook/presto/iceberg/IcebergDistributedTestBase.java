@@ -382,8 +382,21 @@ public abstract class IcebergDistributedTestBase
         assertEquals(icebergTable.schema().findField("country").initialDefault(), "IN");
         assertEquals(icebergTable.schema().findField("country").writeDefault(), "IN");
         assertQuery(session, "SELECT id, name, country FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN')");
+        // Test filter pushdown on column with initial-default (matching value)
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE country = 'IN' ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN')");
+        // Test filter pushdown on column with initial-default (non-matching value)
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE country = 'US'", "SELECT 1 WHERE false");
+        // Test filter pushdown with IS NOT NULL
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE country IS NOT NULL ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN')");
+        // Test filter pushdown with IS NULL
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE country IS NULL", "SELECT 1 WHERE false");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(3, 'Charlie', 'US')", 1);
         assertQuery(session, "SELECT id, name, country FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN'), (3, 'Charlie', 'US')");
+        // Test filter after new data inserted
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE country = 'IN' ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN')");
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE country = 'US'", "VALUES (3, 'Charlie', 'US')");
+        // Test combined filter on file column and default column
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE id > 1 AND country = 'IN'", "VALUES (2, 'Bob', 'IN')");
         assertUpdate(session, "DROP TABLE " + tableName);
 
         // Test empty string default
@@ -1899,7 +1912,7 @@ public abstract class IcebergDistributedTestBase
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'DDDD')", 2);
             assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'FFFF')", 2);
 
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id'], options => map(array['rewrite-all'], array['true']))", schema, tableName), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', strategy => 'sort', sorted_by => ARRAY['id'], options => map(array['rewrite-all'], array['true']))", schema, tableName), 7);
             MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
             assertEquals(result.getOnlyColumnAsSet().size(), 1);
             String filePath = String.valueOf(result.getOnlyValue());
@@ -1922,7 +1935,7 @@ public abstract class IcebergDistributedTestBase
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'AAAA')", 2);
             assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'BBBB')", 2);
 
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id'], options => map(array['rewrite-all'], array['true']))", schema, tableName), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', strategy => 'sort', sorted_by => ARRAY['id'], options => map(array['rewrite-all'], array['true']))", schema, tableName), 7);
             MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
             assertEquals(result.getOnlyColumnAsSet().size(), 3);
             for (Object filePath : result.getOnlyColumnAsSet()) {
@@ -1946,7 +1959,7 @@ public abstract class IcebergDistributedTestBase
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'DDDD')", 2);
             assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'FFFF')", 2);
 
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC'], options => map(array['rewrite-all'], array['true']))", schema, tableName), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', strategy => 'sort', sorted_by => ARRAY['id DESC'], options => map(array['rewrite-all'], array['true']))", schema, tableName), 7);
             MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
             assertEquals(result.getOnlyColumnAsSet().size(), 1);
             String filePath = String.valueOf(result.getOnlyValue());
@@ -1969,7 +1982,7 @@ public abstract class IcebergDistributedTestBase
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'AAAA')", 2);
             assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'BBBB')", 2);
 
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC'], options => map(array['rewrite-all'], array['true']))", schema, tableName), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', strategy => 'sort', sorted_by => ARRAY['id DESC'], options => map(array['rewrite-all'], array['true']))", schema, tableName), 7);
             MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
             assertEquals(result.getOnlyColumnAsSet().size(), 3);
             for (Object filePath : result.getOnlyColumnAsSet()) {
@@ -1996,7 +2009,7 @@ public abstract class IcebergDistributedTestBase
                 assertTrue(isFileSorted(String.valueOf(filePath), "id", "DESC"));
             }
 
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC', 'emp_name ASC'], options => map(array['rewrite-all'], array['true']))", schema, tableName), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', strategy => 'sort', sorted_by => ARRAY['id DESC', 'emp_name ASC'], options => map(array['rewrite-all'], array['true']))", schema, tableName), 7);
             MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
             assertEquals(result.getOnlyColumnAsSet().size(), 1);
             String filePath = String.valueOf(result.getOnlyValue());
@@ -2022,10 +2035,10 @@ public abstract class IcebergDistributedTestBase
                 assertTrue(isFileSorted(String.valueOf(filePath), "id", "ASC"));
             }
 
-            assertQueryFails(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC'])", schema, tableName),
+            assertQueryFails(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', strategy => 'sort', sorted_by => ARRAY['id DESC'])", schema, tableName),
                     "Specified sort order is incompatible with the target table's internal sort order");
 
-            assertQueryFails(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['emp_name ASC', 'id ASC'])", schema, tableName),
+            assertQueryFails(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', strategy => 'sort', sorted_by => ARRAY['emp_name ASC', 'id ASC'])", schema, tableName),
                     "Specified sort order is incompatible with the target table's internal sort order");
         }
         finally {
@@ -2052,6 +2065,7 @@ public abstract class IcebergDistributedTestBase
                     "CALL system.rewrite_data_files(" +
                             "schema => '%s', " +
                             "table_name => '%s', " +
+                            "strategy => 'sort', " +
                             "filter => 'emp_name = ''AAAAA''', " +
                             "sorted_by => ARRAY['id desc'], " +
                             "options => map(array['rewrite-all'], array['true']))",
@@ -2062,6 +2076,7 @@ public abstract class IcebergDistributedTestBase
                     "CALL system.rewrite_data_files(" +
                             "schema => '%s', " +
                             "table_name => '%s', " +
+                            "strategy => 'sort', " +
                             "filter => 'emp_name = ''BBBBB''', " +
                             "sorted_by => ARRAY['id asc'], " +
                             "options => map(array['rewrite-all'], array['true']))",
@@ -2782,6 +2797,12 @@ public abstract class IcebergDistributedTestBase
 
             assertQuery("select snapshot_id from \"test_expire_snapshot_with_deleted_entry$snapshots\"", "values " + snapshotId1 + ", " + snapshotId2 + ", " + snapshotId3);
 
+            // Explicitly set `gc.enabled = true` to guarantee snapshot expiration works across all catalogs.
+            // Some catalogs (like Nessie) default to `false`, which would break snapshot expiration functionality.
+            table.updateProperties()
+                    .set("gc.enabled", "true")
+                    .commit();
+
             // Expire `snapshotId2` which contains a DELETED entry to delete a data file which is still referenced by `snapshotId1`
             assertUpdate(format("call iceberg.system.expire_snapshots(schema => '%s', table_name => '%s', snapshot_ids => ARRAY[%d])", "tpch", "test_expire_snapshot_with_deleted_entry", snapshotId2));
             assertQuery("select snapshot_id from \"test_expire_snapshot_with_deleted_entry$snapshots\"", "values " + snapshotId1 + ", " + snapshotId3);
@@ -2792,6 +2813,42 @@ public abstract class IcebergDistributedTestBase
         }
         finally {
             assertUpdate("drop table if exists test_expire_snapshot_with_deleted_entry");
+        }
+    }
+
+    @Test
+    public void testExecutingDeletionAfterExpireSnapshots()
+    {
+        String schema = getSession().getSchema().get();
+        String tableName = "test_delete_after_expire_snapshots";
+        try {
+            assertUpdate(format("create table %s (a int, b varchar)", tableName));
+            assertUpdate(format("insert into %s values(1, '1001'), (1, '1002')", tableName), 2);
+            Table table = loadTable(tableName);
+            long snapshotId1 = table.currentSnapshot().snapshotId();
+
+            // Explicitly set `gc.enabled = true` to guarantee snapshot expiration works across all catalogs.
+            // Some catalogs (like Nessie) default to `false`, which would break snapshot expiration functionality.
+            table.updateProperties()
+                    .set("gc.enabled", "true")
+                    .commit();
+
+            assertUpdate(format("insert into %s values(2, '1003'), (2, '1004')", tableName), 2);
+            table = loadTable(tableName);
+            long snapshotId2 = table.currentSnapshot().snapshotId();
+
+            assertQuery(format("select snapshot_id from \"%s$snapshots\"", tableName), "values " + snapshotId1 + ", " + snapshotId2);
+
+            // Expire previous snapshot to retain only the newest one
+            assertUpdate(format("call system.expire_snapshots(schema => '%s', table_name => '%s', snapshot_ids => %s)", schema, tableName, "ARRAY[" + snapshotId1 + "]"));
+            assertQuery(format("select snapshot_id from \"%s$snapshots\"", tableName), "values " + snapshotId2);
+
+            // After this, the delete operation should execute successfully
+            assertUpdate(format("delete from %s where a > 1 and b < '1004'", tableName), 1);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (1, '1002'), (2, '1004')");
+        }
+        finally {
+            assertUpdate("drop table if exists " + tableName);
         }
     }
 
@@ -4036,6 +4093,111 @@ public abstract class IcebergDistributedTestBase
         }
         finally {
             assertUpdate("DROP TABLE " + sourceTable);
+            assertUpdate("DROP TABLE " + targetTable);
+        }
+    }
+
+    @Test
+    public void testMergeWhenClausePredicates()
+    {
+        String targetTable = "merge_when_predicates_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (id INT, count INT)", targetTable));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 5), (2, 10), (3, 7)", targetTable), 3);
+
+            @Language("SQL") String mergeSql =
+                    format("MERGE INTO %s t USING ", targetTable) +
+                            "(VALUES (1, -3), (2, -10), (3, 0), (4, 8), (5, 0)) AS s(id, count_delta) " +
+                            "ON t.id = s.id " +
+                            "WHEN MATCHED AND t.count + s.count_delta > 0 THEN UPDATE SET count = t.count + s.count_delta " +
+                            "WHEN MATCHED AND t.count + s.count_delta = 0 THEN DELETE " +
+                            "WHEN NOT MATCHED AND s.count_delta <> 0 THEN INSERT (id, count) VALUES (s.id, s.count_delta)";
+
+            assertUpdate(mergeSql, 4);
+
+            assertQuery("SELECT * FROM " + targetTable, "VALUES (1, 2), (3, 7), (4, 8)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + targetTable);
+        }
+    }
+
+    @Test
+    public void testMergeWhenClauseOrderSensitivity()
+    {
+        String targetTable = "merge_when_order_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (id INT, status VARCHAR)", targetTable));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 'new'), (2, 'new')", targetTable), 2);
+
+            @Language("SQL") String mergeSql =
+                    format("MERGE INTO %s t USING ", targetTable) +
+                            "(VALUES (1, 100), (2, 5)) AS s(id, amount) " +
+                            "ON t.id = s.id " +
+                            "WHEN MATCHED AND s.amount > 50 THEN UPDATE SET status = 'big' " +
+                            "WHEN MATCHED AND s.amount <= 50 THEN UPDATE SET status = 'small'";
+
+            assertUpdate(mergeSql, 2);
+
+            assertQuery("SELECT * FROM " + targetTable, "VALUES (1, 'big'), (2, 'small')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + targetTable);
+        }
+    }
+
+    @Test
+    public void testMergeWhenClauseAllPredicatesFailIsNoOp()
+    {
+        String targetTable = "merge_when_noop_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (id INT, value INT)", targetTable));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 10), (2, 20)", targetTable), 2);
+
+            @Language("SQL") String mergeSql =
+                    format("MERGE INTO %s t USING ", targetTable) +
+                            "(VALUES (1, 100), (3, 0)) AS s(id, delta) " +
+                            "ON t.id = s.id " +
+                            "WHEN MATCHED AND s.delta < 0 THEN UPDATE SET value = t.value + s.delta " +
+                            "WHEN NOT MATCHED AND s.delta <> 0 THEN INSERT (id, value) VALUES (s.id, s.delta)";
+
+            assertUpdate(mergeSql, 0);
+
+            assertQuery("SELECT * FROM " + targetTable, "VALUES (1, 10), (2, 20)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + targetTable);
+        }
+    }
+
+    @Test
+    public void testMergeWhenClauseAnalyzerErrors()
+    {
+        String targetTable = "merge_when_errors_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (id INT, value INT)", targetTable));
+
+            assertQueryFails(
+                    format("MERGE INTO %s t USING (VALUES (1, 10)) AS s(id, delta) ON t.id = s.id " +
+                            "WHEN MATCHED AND s.delta + 1 THEN UPDATE SET value = s.delta", targetTable),
+                    ".*The MERGE WHEN condition must evaluate to a boolean.*");
+
+            assertQueryFails(
+                    format("MERGE INTO %s t USING (VALUES (1, 10)) AS s(id, delta) ON t.id = s.id " +
+                            "WHEN MATCHED AND s.nonexistent > 0 THEN UPDATE SET value = s.delta", targetTable),
+                    ".*'s\\.nonexistent' cannot be resolved.*");
+
+            assertQueryFails(
+                    format("MERGE INTO %s t USING (VALUES (1, 10)) AS s(id, delta) ON t.id = s.id " +
+                            "WHEN MATCHED AND count(s.delta) > 0 THEN UPDATE SET value = s.delta", targetTable),
+                    ".*MERGE WHEN clause cannot contain aggregations.*");
+
+            assertQueryFails(
+                    format("MERGE INTO %s t USING (VALUES (1, 10)) AS s(id, delta) ON t.id = s.id " +
+                            "WHEN MATCHED AND row_number() OVER (ORDER BY s.delta) > 0 THEN UPDATE SET value = s.delta", targetTable),
+                    ".*MERGE WHEN clause cannot contain aggregations, window functions or grouping operations.*");
+        }
+        finally {
             assertUpdate("DROP TABLE " + targetTable);
         }
     }

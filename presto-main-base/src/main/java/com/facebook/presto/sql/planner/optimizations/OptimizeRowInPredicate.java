@@ -14,6 +14,9 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.Metadata;
@@ -25,6 +28,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -40,10 +44,12 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeRowInPredicate;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.or;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -219,19 +225,55 @@ public class OptimizeRowInPredicate
             }
 
             int arity = rowFields.size();
-            List<SpecialFormExpression> candidateRows = new ArrayList<>(args.size() - 1);
+            List<List<RowExpression>> candidateRows = new ArrayList<>(args.size() - 1);
             for (int i = 1; i < args.size(); i++) {
-                if (!(args.get(i) instanceof SpecialFormExpression)) {
+                Optional<List<RowExpression>> candidate = normalizeCandidateRow(args.get(i), arity);
+                if (!candidate.isPresent()) {
                     return Optional.empty();
                 }
-                SpecialFormExpression candidate = (SpecialFormExpression) args.get(i);
-                if (candidate.getForm() != ROW_CONSTRUCTOR || candidate.getArguments().size() != arity) {
-                    return Optional.empty();
-                }
-                candidateRows.add(candidate);
+                candidateRows.add(candidate.get());
             }
 
             return Optional.of(new RowFields(fieldVars, candidateRows));
+        }
+
+        /**
+         * Normalizes one candidate row from the IN list into its per-field expressions. A candidate
+         * appears either as an unfolded ROW_CONSTRUCTOR special form, or — when all of its fields are
+         * literals — as a constant-folded ConstantExpression of RowType. The latter is what the
+         * expression optimizer produces for real queries (e.g. {@code (a, b) IN ((1, 2), (3, 4))}),
+         * so handling it is what makes this rule fire in production rather than only in unit tests.
+         * Returns empty if the candidate does not match the expected arity/shape.
+         */
+        private static Optional<List<RowExpression>> normalizeCandidateRow(RowExpression candidate, int arity)
+        {
+            if (candidate instanceof SpecialFormExpression) {
+                SpecialFormExpression row = (SpecialFormExpression) candidate;
+                if (row.getForm() != ROW_CONSTRUCTOR || row.getArguments().size() != arity) {
+                    return Optional.empty();
+                }
+                return Optional.of(row.getArguments());
+            }
+
+            if (candidate instanceof ConstantExpression) {
+                ConstantExpression constant = (ConstantExpression) candidate;
+                if (constant.isNull() || !(constant.getType() instanceof RowType) || !(constant.getValue() instanceof Block)) {
+                    return Optional.empty();
+                }
+                List<Type> fieldTypes = ((RowType) constant.getType()).getTypeParameters();
+                Block rowBlock = (Block) constant.getValue();
+                if (fieldTypes.size() != arity || rowBlock.getPositionCount() != arity) {
+                    return Optional.empty();
+                }
+                ImmutableList.Builder<RowExpression> fields = ImmutableList.builder();
+                for (int fieldIdx = 0; fieldIdx < arity; fieldIdx++) {
+                    Type fieldType = fieldTypes.get(fieldIdx);
+                    fields.add(constant(readNativeValue(fieldType, rowBlock, fieldIdx), fieldType));
+                }
+                return Optional.of(fields.build());
+            }
+
+            return Optional.empty();
         }
 
         /**
@@ -249,11 +291,11 @@ public class OptimizeRowInPredicate
 
             // Build: (col1 = v1_1 AND col2 = v1_2) OR (col1 = v2_1 AND col2 = v2_2) OR ...
             ImmutableList.Builder<RowExpression> disjuncts = ImmutableList.builder();
-            for (SpecialFormExpression candidate : rowFields.candidateRows) {
+            for (List<RowExpression> candidate : rowFields.candidateRows) {
                 ImmutableList.Builder<RowExpression> conjuncts = ImmutableList.builder();
                 for (int fieldIdx = 0; fieldIdx < arity; fieldIdx++) {
                     VariableReferenceExpression leftVar = rowFields.fieldVars.get(fieldIdx);
-                    RowExpression rightVal = candidate.getArguments().get(fieldIdx);
+                    RowExpression rightVal = candidate.get(fieldIdx);
 
                     conjuncts.add(new CallExpression(
                             EQUAL.name(),
@@ -316,8 +358,8 @@ public class OptimizeRowInPredicate
             VariableReferenceExpression fieldVar = rowFields.fieldVars.get(fieldIdx);
 
             ImmutableList.Builder<RowExpression> columnValues = ImmutableList.builder();
-            for (SpecialFormExpression candidate : rowFields.candidateRows) {
-                columnValues.add(candidate.getArguments().get(fieldIdx));
+            for (List<RowExpression> candidate : rowFields.candidateRows) {
+                columnValues.add(candidate.get(fieldIdx));
             }
 
             return new SpecialFormExpression(
@@ -332,9 +374,9 @@ public class OptimizeRowInPredicate
         private static final class RowFields
         {
             final List<VariableReferenceExpression> fieldVars;
-            final List<SpecialFormExpression> candidateRows;
+            final List<List<RowExpression>> candidateRows;
 
-            RowFields(List<VariableReferenceExpression> fieldVars, List<SpecialFormExpression> candidateRows)
+            RowFields(List<VariableReferenceExpression> fieldVars, List<List<RowExpression>> candidateRows)
             {
                 this.fieldVars = fieldVars;
                 this.candidateRows = candidateRows;

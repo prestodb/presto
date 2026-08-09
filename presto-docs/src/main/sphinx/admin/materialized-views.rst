@@ -106,7 +106,7 @@ when the view's data may be stale:
 
 **USE_STITCHING** (default)
   Reads fresh data from storage, recomputes stale data from base tables,
-  and combines results via UNION.
+  and combines results with UNION.
 
   - Provides up-to-date results without refreshing the storage
   - The materialized view itself is not updated
@@ -184,7 +184,7 @@ to use UNION::
         JOIN customers c ON o.customer_id = c.customer_id
                         AND o.order_date = c.reg_date
         WHERE o.order_date IN ('2024-01-15', '2024-01-16')  -- Stale partition filter
-          AND c.reg_date IN ('2024-01-15', '2024-01-16')    -- Propagated via equivalence
+          AND c.reg_date IN ('2024-01-15', '2024-01-16')    -- Propagated through equivalence
           AND o.order_date >= '2024-01-01'  -- Original filter preserved
     )
 
@@ -213,7 +213,7 @@ See connector-specific documentation for details on staleness tracking requireme
 Predicate stitching does not work with:
 
 * **Outer joins**: LEFT, RIGHT, and FULL OUTER joins
-* **Non-deterministic functions**: ``RANDOM()``, ``NOW()``, ``UUID()``, etc.
+* **Non-deterministic functions**: ``RANDOM()``, ``NOW()``, ``UUID()``
 
 **Security Constraints**
 
@@ -235,8 +235,8 @@ are not directly in the materialized view's output.
 **Column Equivalence**
 
 When tables are joined with equality predicates, those columns become equivalent for
-predicate propagation purposes. This applies to any type of staleness predicate
-(partition-based, snapshot-based, etc.). For example with partition predicates::
+predicate propagation purposes. This applies to any type of staleness predicate such as 
+partition-based or snapshot-based. For example, with partition predicates::
 
     CREATE TABLE orders (order_id BIGINT, customer_id BIGINT, order_date VARCHAR)
       WITH (partitioning = ARRAY['order_date']);
@@ -317,8 +317,8 @@ However, this is typically much cheaper than:
 1. **Predicate granularity**: For partition-based connectors, choose partition columns that align
    with data modification patterns
 
-   * Too coarse (e.g., partitioning by year): Recomputes too much data
-   * Too fine (e.g., partitioning by second): Too many partitions to manage
+   * Too coarse (for example, partitioning by year): Recomputes too much data
+   * Too fine (for example, partitioning by second): Too many partitions to manage
 
 2. **Refresh frequency**: Balance freshness needs with refresh costs
 

@@ -79,27 +79,6 @@ When both ``scale_writers`` and ``redistribute_writes`` are set to ``true``,
 
 The corresponding configuration property is :ref:`admin/properties:\`\`scale-writers\`\``.
 
-``task_writer_count``
-^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** ``integer``
-* **Default value:** ``1``
-
-Default number of local parallel table writer threads per worker. It is required
-to be a power of two for a Java query engine.
-
-The corresponding configuration property is :ref:`admin/properties:\`\`task.writer-count\`\``.
-
-``task_partitioned_writer_count``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** ``integer``
-* **Default value:** ``task_writer_count``
-
-Number of local parallel table writer threads per worker for partitioned writes. If not
-set, the number set by ``task_writer_count`` will be used. It is required to be a power
-of two for a Java query engine.
-
 ``single_node_execution_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -208,6 +187,59 @@ The corresponding configuration property is :ref:`admin/properties:\`\`try-funct
 When enabled, JSON objects are cast to ROW types by matching fields by name instead of position, preventing incorrect results when JSON field order differs.
 
 For more information and examples, see :ref:`functions/json:cast to json`.
+
+Remote Function (RPC) Properties
+--------------------------------
+
+These properties control execution of remote (RPC) functions, which dispatch each
+invocation to an external service.
+
+``rpc_function_optimizer_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Enables the RPC function optimizer, which rewrites RPC function calls to use
+asynchronous ``RPCNode`` execution.
+
+``rpc_streaming_mode``
+^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``PER_ROW``, ``BATCH``, ``AUTOMATIC``
+* **Default value:** ``PER_ROW``
+
+Controls how RPC function calls are dispatched. ``PER_ROW`` dispatches each row
+individually. ``BATCH`` accumulates rows and dispatches them in batches (see
+``rpc_dispatch_batch_size``). ``AUTOMATIC`` is resolved to ``PER_ROW`` or ``BATCH``
+at query planning time from the estimated input row count (see
+``rpc_batch_min_rows``); if the planner has no row-count estimate, it falls back to
+``PER_ROW``. The default deployment resolves ``AUTOMATIC`` to ``PER_ROW``; a
+deployment may install a custom ``RpcExecutionPolicy`` to enable stats-driven
+resolution.
+
+``rpc_batch_min_rows``
+^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Restrictions:** must be greater than ``0``
+* **Default value:** ``2000``
+
+When ``rpc_streaming_mode`` is ``AUTOMATIC``, the estimated input row count at or
+above which ``BATCH`` is chosen; below it, ``PER_ROW`` is chosen. Has no effect
+unless a deployment installs a stats-driven RPC execution policy: the default
+policy ignores this value and always resolves ``AUTOMATIC`` to ``PER_ROW``.
+
+``rpc_dispatch_batch_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``128``
+
+Batch size for RPC function dispatch in ``BATCH`` streaming mode. ``0`` collects all
+rows and dispatches once at the end; values greater than ``0`` flush every N rows
+during input processing.
 
 Spilling Properties
 -------------------
@@ -339,6 +371,16 @@ to become overloaded due to excessive resource utilization.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`task.writer-count\`\``.
 
+``task_partitioned_writer_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``task_writer_count``
+
+Number of local parallel table writer threads per worker for partitioned writes. If not
+set, the number set by ``task_writer_count`` will be used. It is required to be a power
+of two for a Java query engine.
+
 Optimizer Properties
 --------------------
 
@@ -351,6 +393,22 @@ Optimizer Properties
 Enables optimization for aggregations on dictionaries.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.dictionary-aggregation\`\``.
+
+``optimize_cascading_filters_and_projections``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Coalesce cascading projections by fully inlining deterministic child expressions into the parent
+projection (the opposite tradeoff from ``InlineProjections``), and merge an adjacent filter and
+projection by inlining the projection's expressions into the filter predicate. This co-locates
+shared subexpressions within a single operator so the native (Velox) engine's
+common-subexpression elimination can deduplicate them, which matches Velox's preferred
+filter-then-project shape. Non-deterministic expressions that are referenced more than once and
+inputs to ``TRY(...)`` are never inlined, preserving semantics.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-cascading-filters-and-projections\`\``.
 
 ``optimize_hash_generation``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -368,6 +426,21 @@ It is often helpful to disable this property when using :doc:`/sql/explain` in o
 to make the query plan easier to read.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-hash-generation\`\``.
+
+``optimize_join_fan_out``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Collapse a fan-out equi-join whose preserved side is itself an aggregation grouped by, or an
+inner join keyed on, a strict superset of the join keys. The preserved side's non-key columns
+are packed with ``array_agg(row(...))`` so the join becomes ``N``-to-``1`` (unique on the join
+key), and a local ``UNNEST`` above the join re-expands them, reproducing the original rows.
+This moves the row multiplication out of the distributed join (smaller build, less shuffle of
+duplicated rows) into a streaming local ``UNNEST``.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-join-fan-out\`\``.
 
 ``pre_aggregate_before_grouping_sets``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -515,7 +588,7 @@ Only fires for single-grouping-set aggregations with deterministic arguments and
 union branches. ``GROUPING SETS``, ``ROLLUP``, ``CUBE``, and global (no-``GROUP BY``)
 aggregations are not pushed.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-aggregation-through-disjoint-union\`\``.
+The corresponding configuration property is ``optimizer.push-aggregation-through-disjoint-union``.
 
 ``join_reordering_strategy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -786,7 +859,7 @@ enabled. Disabled by default because cloning additional probe-side work adds pla
 and runtime overhead, which only pays off when the build side is large enough to dominate
 the join cost.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.join-prefilter-build-side-with-complex-probe-side\`\``.
+The corresponding configuration property is ``optimizer.join-prefilter-build-side-with-complex-probe-side``.
 
 ``push_filter_through_selecting_aggregation``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1042,6 +1115,36 @@ For example, when enabled, the following query::
 is internally optimized to use a single ``max_by(ROW(v1, v2, v3), k)`` call with field extraction,
 reducing both CPU and memory usage.
 
+``pull_constant_projection_above_exchange``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Pull constant assignments in projections above remote exchanges so that constant values are not
+serialized and shuffled across the network. When enabled, constants produced by a ``ProjectNode``
+directly below a remote ``ExchangeNode`` are moved to a new ``ProjectNode`` above the exchange,
+narrowing the exchange output layout. Constants used in partitioning, hashing, or ordering are not
+pulled up, and for multi-source (``UNION``) exchanges only constants that are identical across all
+sources are pulled up. This is the session-level counterpart of the configuration property
+:ref:`admin/properties:\`\`optimizer.pull-constant-projection-above-exchange\`\``.
+
+``pull_row_local_chain_above_exchange_strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Allowed values:** ``DISABLED``, ``ALWAYS_ENABLED``, ``COST_BASED``
+* **Default value:** ``DISABLED``
+
+Strategy for pulling a chain of row-local operators (``UNNEST`` and deterministic projections) above a
+repartitioning remote ``ExchangeNode`` so the exchange shuffles the smaller pre-expansion input rather
+than the post-expansion (fanned-out and widened) rows. With ``ALWAYS_ENABLED`` the rewrite is applied
+whenever it is legal (every partitioning, hashing, or ordering variable is produced unchanged below the
+chain), independent of cost or statistics. ``COST_BASED`` currently behaves like ``ALWAYS_ENABLED``;
+cost-based selection is a separate layer to be added later. This is the session-level counterpart of the
+configuration property
+:ref:`admin/properties:\`\`optimizer.pull-row-local-chain-above-exchange-strategy\`\``.
+
 ``grouped_execution``
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -1079,3 +1182,37 @@ When partition-aware execution is not applicable (for example: non-partitioned t
 columns in join conditions), the query falls back to standard grouped execution automatically.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`partition-aware-grouped-execution-enabled\`\``.
+
+``grouped_execution_when_capable``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``grouped_execution``, runs grouped execution for any grouped-execution-capable
+(bucketed) fragment even when no downstream operator makes grouping individually beneficial. Normally
+grouped execution engages only when an operator such as a colocated join or a final aggregation on the
+bucket key makes it worthwhile; with this property a bucketed scan that merely feeds a shuffle (for
+example a join or aggregation on a non-bucket key), or a bucketed-to-bucketed table write, also runs one
+bucket per lifespan -- avoiding a re-partition of already-bucketed data and bounding per-lifespan memory
+to a single bucket.
+
+Grouping a capable fragment is always correct, but reading fewer buckets at a time can reduce scan
+parallelism, so it is most beneficial for memory- or aggregation-bound workloads and may regress
+scan-throughput-bound queries. It is disabled by default.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`grouped-execution-when-capable-enabled\`\``.
+
+Geometry Properties
+-------------------
+
+``legacy_st_equals``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable legacy behavior for the ``ST_Equals`` geospatial function.
+See ``ST_Equals`` in :ref:`functions/geospatial:Relationship Tests` for details on the behavior differences.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`legacy-st-equals\`\``.

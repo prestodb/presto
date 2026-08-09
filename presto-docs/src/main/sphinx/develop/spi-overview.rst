@@ -20,7 +20,7 @@ Plugin Metadata
 ---------------
 
 Each plugin identifies an entry point: an implementation of the
-``Plugin`` interface. This class name is provided to Presto via
+``Plugin`` interface. This class name is provided to Presto through 
 the standard Java ``ServiceLoader`` interface: the classpath contains
 a resource file named ``com.facebook.presto.spi.Plugin`` in the
 ``META-INF/services`` directory. The content of this file is a
@@ -49,8 +49,8 @@ is ready to create an instance of a connector to back a catalog. There are simil
 methods for ``Type``, ``ParametricType``, ``Function``, ``SystemAccessControl``, and
 ``EventListenerFactory`` objects.
 
-Building Plugins via Maven
---------------------------
+Building Plugins with Maven
+---------------------------
 
 Plugins depend on the SPI from Presto:
 
@@ -99,7 +99,7 @@ functionality for the Presto coordinator. Presto SPI defines different service
 provider factories and service providers that allow customization of session
 property providers, function namespace managers, type managers, expression
 optimizers, and plan checkers. The following service providers can be accessed
-via their respective provider factories.
+through their respective provider factories.
 
 +----------------------+----------------------------------------+---------------------------------+
 |       Service        |             Provider Factory           |        Service Provider         |
@@ -126,7 +126,7 @@ Native Sidecar Plugin
 ---------------------
 
 The ``NativeSidecarPlugin`` class implements ``CoordinatorPlugin`` interface
-and returns the following service providers via their respective provider
+and returns the following service providers through their respective provider
 factories.
 
 +----------------------+----------------------------------------------+---------------------------------------+

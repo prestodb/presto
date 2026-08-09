@@ -375,8 +375,8 @@ enabling connectors to dynamically provide these callable distributed procedures
 as a ``Provider<DistributedProcedure>``, which ensures an instance is created on-demand when a procedure needs to be executed. The following steps will
 guide you through implementing and supplying a distributed procedure in your connector.
 
-1. Procedure Provider Class
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. DistributedProcedure Provider Class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 An implementation class must implement the ``Provider<DistributedProcedure>`` interface. In its constructor, it can use @Inject to receive any Guice-managed
 dependencies. The class is required to implement the ``get()`` method from the Provider interface, which is responsible for constructing and returning a

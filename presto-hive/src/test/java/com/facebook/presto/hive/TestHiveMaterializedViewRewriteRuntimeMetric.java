@@ -125,6 +125,48 @@ public class TestHiveMaterializedViewRewriteRuntimeMetric
         }
     }
 
+    @Test
+    public void testMaterializedViewRewriteForCreateTableAsSelectAndInsert()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "false")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned_ctas_insert_metric";
+        String view = "orders_view_ctas_insert_metric";
+        String ctasTarget = "shadow_ctas_target_metric";
+        String insertTarget = "shadow_insert_target_metric";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, orderpriority, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, '2020-01-02' as ds FROM orders WHERE orderkey > 1000", table));
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                    "AS SELECT orderkey, orderpriority, ds FROM %s", view, table));
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 255);
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+            queryRunner.execute(format("CREATE TABLE %s (orderkey bigint, orderpriority varchar)", insertTarget));
+
+            // Query references the base table directly. The MV optimizer must recurse into the
+            // CTAS / INSERT inner Query for the rewrite to fire. Without the visitor recursion fix,
+            // the inner Query is never visited, no substitution happens, and the runtime metric
+            // stays at zero, which fails this assertion.
+            String selectBaseTable = format("SELECT orderkey, orderpriority FROM %s WHERE ds='2020-01-01' ORDER BY orderkey", table);
+
+            assertMaterializedViewRewriteOccurred(session, format("CREATE TABLE %s AS %s", ctasTarget, selectBaseTable));
+            queryRunner.execute("DROP TABLE IF EXISTS " + ctasTarget);
+
+            assertMaterializedViewRewriteOccurred(session, format("INSERT INTO %s %s", insertTarget, selectBaseTable));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + insertTarget);
+            queryRunner.execute("DROP TABLE IF EXISTS " + ctasTarget);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
     /**
      * Runs the given query and asserts that the materialized-view rewrite runtime metric was incremented
      * (i.e. the optimizer rewrote at least one query specification to read from a materialized view).

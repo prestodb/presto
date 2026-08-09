@@ -169,6 +169,7 @@ import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
@@ -881,6 +882,32 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testTrim()
+    {
+        assertExpression("trim(BOTH FROM ' abc ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.empty()));
+        assertExpression("trim(LEADING FROM ' abc ')",
+                new Trim(Trim.Specification.LEADING, new StringLiteral(" abc "), Optional.empty()));
+        assertExpression("trim(TRAILING FROM ' abc ')",
+                new Trim(Trim.Specification.TRAILING, new StringLiteral(" abc "), Optional.empty()));
+
+        assertExpression("trim(BOTH ' ' FROM ' abc ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+        assertExpression("trim(LEADING ' ' FROM ' abc ')",
+                new Trim(Trim.Specification.LEADING, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+        assertExpression("trim(TRAILING ' ' FROM ' abc ')",
+                new Trim(Trim.Specification.TRAILING, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+
+        assertExpression("trim(' abc ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.empty()));
+        assertExpression("trim(' ' FROM ' abc ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+        assertExpression("trim(' abc ', ' ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+        assertInvalidExpression("trim(FROM ' abc ')", "The 'trim' function must have specification, char or both arguments when it takes FROM");
     }
 
     @Test
@@ -1877,6 +1904,111 @@ public class TestSqlParser
                                 new MergeInsert(
                                         ImmutableList.of(new Identifier("product_id"), new Identifier("sales")),
                                         ImmutableList.of(nameReference("ms", "product_id"), nameReference("ms", "sales"))))));
+    }
+
+    @Test
+    public void testMergeWithConditions()
+    {
+        NodeLocation location = new NodeLocation(1, 1);
+
+        assertStatement("" +
+                        "MERGE INTO product_sales AS s\n" +
+                        "  USING monthly_sales AS ms\n" +
+                        "  ON s.product_id = ms.product_id\n" +
+                        "WHEN MATCHED AND s.sales + ms.sales > 0 THEN\n" +
+                        "  UPDATE SET\n" +
+                        "      sales = sales + ms.sales",
+                new Merge(
+                        location,
+                        new AliasedRelation(location, table(QualifiedName.of("product_sales")), new Identifier("s"), null),
+                        aliased(table(QualifiedName.of("monthly_sales")), "ms"),
+                        equal(nameReference("s", "product_id"), nameReference("ms", "product_id")),
+                        ImmutableList.of(
+                                new MergeUpdate(
+                                        location,
+                                        Optional.of(new ComparisonExpression(
+                                                ComparisonExpression.Operator.GREATER_THAN,
+                                                new ArithmeticBinaryExpression(
+                                                        ArithmeticBinaryExpression.Operator.ADD,
+                                                        nameReference("s", "sales"),
+                                                        nameReference("ms", "sales")),
+                                                new LongLiteral("0"))),
+                                        ImmutableList.of(
+                                                new MergeUpdate.Assignment(new Identifier("sales"), new ArithmeticBinaryExpression(
+                                                        ArithmeticBinaryExpression.Operator.ADD, nameReference("sales"), nameReference("ms", "sales"))))))));
+
+        assertStatement("" +
+                        "MERGE INTO product_sales AS s\n" +
+                        "  USING monthly_sales AS ms\n" +
+                        "  ON s.product_id = ms.product_id\n" +
+                        "WHEN MATCHED AND s.sales + ms.sales = 0 THEN\n" +
+                        "  DELETE",
+                new Merge(
+                        location,
+                        new AliasedRelation(location, table(QualifiedName.of("product_sales")), new Identifier("s"), null),
+                        aliased(table(QualifiedName.of("monthly_sales")), "ms"),
+                        equal(nameReference("s", "product_id"), nameReference("ms", "product_id")),
+                        ImmutableList.of(
+                                new MergeDelete(
+                                        location,
+                                        Optional.of(new ComparisonExpression(
+                                                ComparisonExpression.Operator.EQUAL,
+                                                new ArithmeticBinaryExpression(
+                                                        ArithmeticBinaryExpression.Operator.ADD,
+                                                        nameReference("s", "sales"),
+                                                        nameReference("ms", "sales")),
+                                                new LongLiteral("0")))))));
+
+        assertStatement("" +
+                        "MERGE INTO product_sales AS s\n" +
+                        "  USING monthly_sales AS ms\n" +
+                        "  ON s.product_id = ms.product_id\n" +
+                        "WHEN NOT MATCHED AND ms.sales <> 0 THEN\n" +
+                        "  INSERT (product_id, sales)\n" +
+                        "  VALUES (ms.product_id, ms.sales)",
+                new Merge(
+                        location,
+                        new AliasedRelation(location, table(QualifiedName.of("product_sales")), new Identifier("s"), null),
+                        aliased(table(QualifiedName.of("monthly_sales")), "ms"),
+                        equal(nameReference("s", "product_id"), nameReference("ms", "product_id")),
+                        ImmutableList.of(
+                                new MergeInsert(
+                                        location,
+                                        Optional.of(new ComparisonExpression(
+                                                ComparisonExpression.Operator.NOT_EQUAL,
+                                                nameReference("ms", "sales"),
+                                                new LongLiteral("0"))),
+                                        ImmutableList.of(new Identifier("product_id"), new Identifier("sales")),
+                                        ImmutableList.of(nameReference("ms", "product_id"), nameReference("ms", "sales"))))));
+
+        assertStatement("" +
+                        "MERGE INTO product_sales AS s\n" +
+                        "  USING monthly_sales AS ms\n" +
+                        "  ON s.product_id = ms.product_id\n" +
+                        "WHEN MATCHED AND s.sales + ms.sales > 0 THEN\n" +
+                        "  UPDATE SET\n" +
+                        "      sales = sales + ms.sales\n" +
+                        "WHEN MATCHED THEN\n" +
+                        "  DELETE",
+                new Merge(
+                        location,
+                        new AliasedRelation(location, table(QualifiedName.of("product_sales")), new Identifier("s"), null),
+                        aliased(table(QualifiedName.of("monthly_sales")), "ms"),
+                        equal(nameReference("s", "product_id"), nameReference("ms", "product_id")),
+                        ImmutableList.of(
+                                new MergeUpdate(
+                                        location,
+                                        Optional.of(new ComparisonExpression(
+                                                ComparisonExpression.Operator.GREATER_THAN,
+                                                new ArithmeticBinaryExpression(
+                                                        ArithmeticBinaryExpression.Operator.ADD,
+                                                        nameReference("s", "sales"),
+                                                        nameReference("ms", "sales")),
+                                                new LongLiteral("0"))),
+                                        ImmutableList.of(
+                                                new MergeUpdate.Assignment(new Identifier("sales"), new ArithmeticBinaryExpression(
+                                                        ArithmeticBinaryExpression.Operator.ADD, nameReference("sales"), nameReference("ms", "sales"))))),
+                                new MergeDelete(location))));
     }
 
     @Test

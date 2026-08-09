@@ -49,7 +49,7 @@ import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCan
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
@@ -293,8 +293,8 @@ public class TestCanonicalPlanGenerator
     private void assertDifferentCanonicalLeafSubPlan(String sql1, String sql2)
             throws Exception
     {
-        PlanFragment fragment1 = getOnlyElement(getLeafSubPlans(subplan(sql1, OPTIMIZED_AND_VALIDATED, false))).getFragment();
-        PlanFragment fragment2 = getOnlyElement(getLeafSubPlans(subplan(sql2, OPTIMIZED_AND_VALIDATED, false))).getFragment();
+        PlanFragment fragment1 = getLeafSubPlans(subplan(sql1, OPTIMIZED_AND_VALIDATED, false)).stream().collect(onlyElement()).getFragment();
+        PlanFragment fragment2 = getLeafSubPlans(subplan(sql2, OPTIMIZED_AND_VALIDATED, false)).stream().collect(onlyElement()).getFragment();
         Optional<CanonicalPlanFragment> canonicalPlan1 = generateCanonicalPlanFragment(fragment1.getRoot(), fragment1.getPartitioningScheme(), objectMapper, getQueryRunner().getDefaultSession());
         Optional<CanonicalPlanFragment> canonicalPlan2 = generateCanonicalPlanFragment(fragment2.getRoot(), fragment2.getPartitioningScheme(), objectMapper, getQueryRunner().getDefaultSession());
         assertTrue(canonicalPlan1.isPresent());
@@ -324,8 +324,8 @@ public class TestCanonicalPlanGenerator
     private void assertDifferentCanonicalLeafPlan(String sql1, String sql2, PlanCanonicalizationStrategy strategy)
             throws Exception
     {
-        PlanFragment fragment1 = getOnlyElement(getLeafSubPlans(subplan(sql1, OPTIMIZED_AND_VALIDATED, false))).getFragment();
-        PlanFragment fragment2 = getOnlyElement(getLeafSubPlans(subplan(sql2, OPTIMIZED_AND_VALIDATED, false))).getFragment();
+        PlanFragment fragment1 = getLeafSubPlans(subplan(sql1, OPTIMIZED_AND_VALIDATED, false)).stream().collect(onlyElement()).getFragment();
+        PlanFragment fragment2 = getLeafSubPlans(subplan(sql2, OPTIMIZED_AND_VALIDATED, false)).stream().collect(onlyElement()).getFragment();
         Optional<CanonicalPlan> canonicalPlan1 = generateCanonicalPlan(fragment1.getRoot(), strategy, objectMapper, getQueryRunner().getDefaultSession());
         Optional<CanonicalPlan> canonicalPlan2 = generateCanonicalPlan(fragment2.getRoot(), strategy, objectMapper, getQueryRunner().getDefaultSession());
         assertTrue(canonicalPlan1.isPresent());

@@ -37,6 +37,17 @@ void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p) {
     throw ParseError(std::string(e.what()) + " ConnectorSplit");
   }
 
+  if (j.contains("customSerializedValue")) {
+    VELOX_CHECK(
+        !type.empty() && type[0] != '$',
+        "Internal handle type '{}' should not have customSerializedValue",
+        type);
+    std::string binaryData =
+        velox::encoding::Base64::decode(j["customSerializedValue"].get<std::string>());
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   if (type == "$remote") {
     auto k = std::make_shared<RemoteSplit>();
     j.get_to(*k);

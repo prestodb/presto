@@ -548,7 +548,24 @@ public interface ConnectorMetadata
 
     /**
      * Begin insert query
+     *
+     * @param session the session
+     * @param tableHandle the table handle
+     * @param insertColumnNames the list of column names that are explicitly specified in the INSERT statement.
+     *                          This allows connectors to distinguish between columns that are omitted (and should
+     *                          use default values) versus columns that are explicitly set to NULL.
+     *                          An empty list indicates no explicit column specification (e.g. INSERT INTO table VALUES ...),
+     *                          which implies inserting into all columns.
      */
+    default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> insertColumnNames)
+    {
+        return beginInsert(session, tableHandle);
+    }
+
+    /**
+     * @deprecated Use {@link #beginInsert(ConnectorSession, ConnectorTableHandle, List)} instead
+     */
+    @Deprecated
     default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
@@ -825,6 +842,16 @@ public interface ConnectorMetadata
     default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support refresh materialized views");
+    }
+
+    /**
+     * Begin refresh materialized view, carrying the refresh scope (the {@code REFRESH MATERIALIZED VIEW WHERE}
+     * predicate, {@code Optional.empty()} when there is no WHERE). Connectors that scope refresh work should
+     * override this; the default ignores the scope and delegates to the no-predicate overload.
+     */
+    default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<RowExpression> refreshScopePredicate)
+    {
+        return beginRefreshMaterializedView(session, tableHandle);
     }
 
     /**

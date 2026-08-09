@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.BigintType;
@@ -42,6 +43,7 @@ import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -65,6 +67,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -76,6 +79,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METAD
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.Z_ORDER;
+import static com.facebook.presto.iceberg.IcebergUtil.deserializeIcebergValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.PartitionTransforms.getColumnTransform;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -89,8 +93,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class IcebergPageSink
         implements ConnectorPageSink
@@ -111,8 +113,13 @@ public class IcebergPageSink
     private final FileFormat fileFormat;
     private final PagePartitioner pagePartitioner;
     private final Table table;
+    private final long targetMaxFileSize;
+    private final List<IcebergColumnHandle> inputColumns;
+    private final Set<String> insertedColumns;
 
     private final List<WriteContext> writers = new ArrayList<>();
+    private final List<WriteContext> closedWriters = new ArrayList<>();
+    private final Collection<Slice> commitTasks = new ArrayList<>();
 
     private long writtenBytes;
     private long systemMemoryUsage;
@@ -133,14 +140,20 @@ public class IcebergPageSink
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             List<IcebergColumnHandle> inputColumns,
+            List<String> insertedColumns,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
             FileFormat fileFormat,
             int maxOpenWriters,
             List<SortField> sortOrder,
-            SortParameters sortParameters)
+            SortParameters sortParameters,
+            long targetMaxFileSize)
     {
         requireNonNull(inputColumns, "inputColumns is null");
+        this.targetMaxFileSize = targetMaxFileSize;
+        requireNonNull(insertedColumns, "insertedColumns is null");
+        this.inputColumns = ImmutableList.copyOf(inputColumns);
+        this.insertedColumns = ImmutableSet.copyOf(insertedColumns);
         this.table = requireNonNull(table, "table is null");
         this.outputSchema = table.schema();
         this.partitionSpec = table.spec();
@@ -223,28 +236,18 @@ public class IcebergPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        Collection<Slice> commitTasks = new ArrayList<>();
-
-        for (WriteContext context : writers) {
-            context.getWriter().commit();
-
-            CommitTaskData task = new CommitTaskData(
-                    context.getPath().toString(),
-                    context.writer.getFileSizeInBytes(),
-                    new MetricsWrapper(context.writer.getMetrics()),
-                    partitionSpec.specId(),
-                    context.getPartitionData().map(PartitionData::toJson),
-                    fileFormat,
-                    null,
-                    DATA);
-
-            commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
+        for (int i = 0; i < writers.size(); i++) {
+            WriteContext context = writers.get(i);
+            if (context != null) {
+                closeWriter(context);
+                writers.set(i, null);
+            }
         }
 
-        writtenBytes = writers.stream()
+        writtenBytes = closedWriters.stream()
                 .mapToLong(writer -> writer.getWriter().getWrittenBytes())
                 .sum();
-        validationCpuNanos = writers.stream()
+        validationCpuNanos = closedWriters.stream()
                 .mapToLong(writer -> writer.getWriter().getValidationCpuNanos())
                 .sum();
 
@@ -256,6 +259,19 @@ public class IcebergPageSink
     {
         RuntimeException error = null;
         for (WriteContext context : writers) {
+            try {
+                if (context != null) {
+                    context.getWriter().rollback();
+                }
+            }
+            catch (Throwable t) {
+                if (error == null) {
+                    error = new RuntimeException("Exception during rollback");
+                }
+                error.addSuppressed(t);
+            }
+        }
+        for (WriteContext context : closedWriters) {
             try {
                 if (context != null) {
                     context.getWriter().rollback();
@@ -286,7 +302,8 @@ public class IcebergPageSink
 
     private void writePage(Page page)
     {
-        int[] writerIndexes = getWriterIndexes(page);
+        Page pageWithWriteDefaults = fillWriteDefaults(page);
+        int[] writerIndexes = getWriterIndexes(pageWithWriteDefaults);
 
         // position count for each writer
         int[] sizes = new int[writers.size()];
@@ -317,7 +334,7 @@ public class IcebergPageSink
             }
 
             // if write is partitioned across multiple writers, filter page using dictionary blocks
-            Page pageForWriter = page;
+            Page pageForWriter = pageWithWriteDefaults;
             if (positions.length != page.getPositionCount()) {
                 verify(positions.length == counts[index]);
                 pageForWriter = pageForWriter.getPositions(positions, 0, positions.length);
@@ -332,7 +349,59 @@ public class IcebergPageSink
 
             writtenBytes += (writer.getWrittenBytes() - currentWritten);
             systemMemoryUsage += (writer.getSystemMemoryUsage() - currentMemory);
+            if (writer.getWrittenBytes() >= targetMaxFileSize) {
+                closeWriter(writers.get(index));
+                writers.set(index, null);
+            }
         }
+    }
+
+    private Page fillWriteDefaults(Page page)
+    {
+        Block[] blocks = new Block[page.getChannelCount()];
+        boolean pageChanged = false;
+
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            Block block = page.getBlock(channel);
+            if (channel >= inputColumns.size()) {
+                blocks[channel] = block;
+                continue;
+            }
+            IcebergColumnHandle column = inputColumns.get(channel);
+
+            boolean shouldApplyWriteDefault = shouldApplyWriteDefault(column, block);
+            if (!shouldApplyWriteDefault) {
+                blocks[channel] = block;
+                continue;
+            }
+
+            blocks[channel] = fillBlockWithDefault(block, column);
+            pageChanged = true;
+        }
+
+        if (!pageChanged) {
+            return page;
+        }
+
+        return new Page(page.getPositionCount(), blocks);
+    }
+
+    private boolean shouldApplyWriteDefault(IcebergColumnHandle column, Block block)
+    {
+        return isOmittedInsertColumn(column) &&
+                column.getWriteDefaultValue().isPresent() &&
+                block.mayHaveNull();
+    }
+
+    private boolean isOmittedInsertColumn(IcebergColumnHandle column)
+    {
+        return !insertedColumns.isEmpty() && !insertedColumns.contains(column.getName());
+    }
+
+    private Block fillBlockWithDefault(Block block, IcebergColumnHandle column)
+    {
+        Object writeDefaultValue = deserializeIcebergValue(column.getType(), column.getWriteDefaultValue().get(), column.getName());
+        return RunLengthEncodedBlock.create(column.getType(), writeDefaultValue, block.getPositionCount());
     }
 
     private int[] getWriterIndexes(Page page)
@@ -390,8 +459,30 @@ public class IcebergPageSink
             }
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
-        verify(!writers.contains(null));
         return writerIndexes;
+    }
+
+    private void closeWriter(WriteContext writeContext)
+    {
+        long currentWritten = writeContext.getWriter().getWrittenBytes();
+        long currentMemory = writeContext.getWriter().getSystemMemoryUsage();
+        writeContext.getWriter().commit();
+        writtenBytes += (writeContext.getWriter().getWrittenBytes() - currentWritten);
+        systemMemoryUsage += (writeContext.getWriter().getSystemMemoryUsage() - currentMemory);
+
+        CommitTaskData task = new CommitTaskData(
+                writeContext.getPath().toString(),
+                writeContext.getWriter().getFileSizeInBytes(),
+                new MetricsWrapper(writeContext.getWriter().getMetrics()),
+                partitionSpec.specId(),
+                writeContext.getPartitionData().map(PartitionData::toJson),
+                fileFormat,
+                null,
+                DATA);
+
+        commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
+
+        closedWriters.add(writeContext);
     }
 
     private WriteContext createWriter(Optional<PartitionData> partitionData, Path outputPath)
@@ -454,8 +545,9 @@ public class IcebergPageSink
             return type.getSlice(block, position).toStringUtf8();
         }
         if (type instanceof TimestampType) {
-            long timestamp = type.getLong(block, position);
-            return ((TimestampType) type).getPrecision() == MILLISECONDS ? MILLISECONDS.toMicros(timestamp) : timestamp;
+            // Iceberg expects epoch-microseconds. toEpochMicros converts both TIMESTAMP (p=3, millis)
+            // and TIMESTAMP_MICROSECONDS (p=6, micros) to the required unit.
+            return ((TimestampType) type).toEpochMicros(type.getLong(block, position));
         }
         if (type instanceof TimeType) {
             long time = type.getLong(block, position);
@@ -469,14 +561,13 @@ public class IcebergPageSink
         if (type instanceof TimestampType && functionProperties.isLegacyTimestamp()) {
             long timestampValue = (long) value;
             TimestampType timestampType = (TimestampType) type;
-            Instant instant = Instant.ofEpochSecond(timestampType.getPrecision().toSeconds(timestampValue),
-                    timestampType.getPrecision().toNanos(timestampValue % timestampType.getPrecision().convert(1, SECONDS)));
+            Instant instant = Instant.ofEpochSecond(timestampType.getEpochSecond(timestampValue),
+                    timestampType.getNanos(timestampValue));
             LocalDateTime localDateTime = instant
                     .atZone(ZoneId.of(functionProperties.getTimeZoneKey().getId()))
                     .toLocalDateTime();
 
-            return timestampType.getPrecision().convert(localDateTime.toEpochSecond(ZoneOffset.UTC), SECONDS) +
-                    timestampType.getPrecision().convert(localDateTime.getNano(), NANOSECONDS);
+            return timestampType.fromEpochComponents(localDateTime.toEpochSecond(ZoneOffset.UTC), localDateTime.getNano());
         }
         return value;
     }

@@ -107,7 +107,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.UnmodifiableIterator;
 import jakarta.annotation.Nullable;
@@ -736,7 +735,7 @@ class RelationPlanner
             for (Expression complexExpression : complexJoinExpressions) {
                 Set<InPredicate> inPredicates = subqueryPlanner.collectInPredicateSubqueries(complexExpression, node);
                 if (!inPredicates.isEmpty()) {
-                    InPredicate inPredicate = Iterables.getLast(inPredicates);
+                    InPredicate inPredicate = inPredicates.stream().reduce((first, second) -> second).get();
                     throw notSupportedException(inPredicate, "IN with subquery predicate in join condition");
                 }
             }

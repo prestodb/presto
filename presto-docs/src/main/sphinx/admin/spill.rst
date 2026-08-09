@@ -65,7 +65,7 @@ excessive spilling for queries that consume large amounts of memory per node.
 These queries would finish much quicker if spill were disabled because they
 would execute in the reserved pool. However, doing so could also significantly
 reduce cluster concurrency. In such a situation we recommend disabling the 
-reserved memory pool via the ``experimental.reserved-pool-enabled`` config 
+reserved memory pool by using the ``experimental.reserved-pool-enabled`` configuration 
 property.
 
 Spill Disk Space

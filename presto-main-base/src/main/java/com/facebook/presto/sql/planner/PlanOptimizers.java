@@ -33,6 +33,8 @@ import com.facebook.presto.sql.planner.iterative.rule.AddDistinctForSemiJoinBuil
 import com.facebook.presto.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNode;
+import com.facebook.presto.sql.planner.iterative.rule.CoalesceCascadingProjections;
+import com.facebook.presto.sql.planner.iterative.rule.CollapseFanoutJoinWithArrayAggUnnest;
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxDistinctFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxPercentileFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
@@ -58,6 +60,7 @@ import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinNullFilterToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinWithArrayContainsToEquiJoinCondition;
 import com.facebook.presto.sql.planner.iterative.rule.MergeDuplicateAggregation;
+import com.facebook.presto.sql.planner.iterative.rule.MergeFilterAndProjection;
 import com.facebook.presto.sql.planner.iterative.rule.MergeFilters;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
@@ -95,7 +98,9 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneTopNColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneUpdateSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneWindowColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PullConstantProjectionAboveExchange;
 import com.facebook.presto.sql.planner.iterative.rule.PullConstantsAboveGroupBy;
+import com.facebook.presto.sql.planner.iterative.rule.PullRowLocalChainAboveExchange;
 import com.facebook.presto.sql.planner.iterative.rule.PullUpExpressionInLambdaRules;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughDisjointUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
@@ -184,6 +189,7 @@ import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import com.facebook.presto.sql.planner.optimizations.CteProjectionAndPredicatePushDown;
+import com.facebook.presto.sql.planner.optimizations.DefaultRpcExecutionPolicy;
 import com.facebook.presto.sql.planner.optimizations.GroupInnerJoinsByConnectorRuleSet;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.HistoricalStatisticsEquivalentPlanMarkingOptimizer;
@@ -213,6 +219,7 @@ import com.facebook.presto.sql.planner.optimizations.ReplaceConstantVariableRefe
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import com.facebook.presto.sql.planner.optimizations.RewriteIfOverAggregation;
 import com.facebook.presto.sql.planner.optimizations.RewriteWriterTarget;
+import com.facebook.presto.sql.planner.optimizations.RpcExecutionPolicy;
 import com.facebook.presto.sql.planner.optimizations.RpcFunctionOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ShardJoins;
@@ -266,7 +273,8 @@ public class PlanOptimizers
             ExpressionOptimizerManager expressionOptimizerManager,
             TaskManagerConfig taskManagerConfig,
             AccessControl accessControl,
-            @Named("rpcFunctionNames") Supplier<Set<String>> rpcFunctionNames)
+            @Named("rpcFunctionNames") Supplier<Set<String>> rpcFunctionNames,
+            RpcExecutionPolicy rpcExecutionPolicy)
     {
         this(metadata,
                 sqlParser,
@@ -285,7 +293,8 @@ public class PlanOptimizers
                 expressionOptimizerManager,
                 taskManagerConfig,
                 accessControl,
-                rpcFunctionNames);
+                rpcFunctionNames,
+                rpcExecutionPolicy);
     }
 
     @PostConstruct
@@ -302,6 +311,11 @@ public class PlanOptimizers
         optimizerStats.unexport(exporter);
     }
 
+    // Non-injected convenience constructor (no RPC functions configured): used by callers that
+    // build PlanOptimizers outside Guice, e.g. tests. It hardcodes an empty rpc-function set and
+    // the no-op DefaultRpcExecutionPolicy; the production path uses the @Inject constructor, which
+    // receives the (possibly deployment-overridden) RpcExecutionPolicy binding. Since no RPC
+    // function is registered here, the policy is never consulted anyway.
     public PlanOptimizers(
             Metadata metadata,
             SqlParser sqlParser,
@@ -338,7 +352,8 @@ public class PlanOptimizers
                 expressionOptimizerManager,
                 taskManagerConfig,
                 accessControl,
-                ImmutableSet::of);
+                ImmutableSet::of,
+                new DefaultRpcExecutionPolicy());
     }
 
     public PlanOptimizers(
@@ -359,7 +374,8 @@ public class PlanOptimizers
             ExpressionOptimizerManager expressionOptimizerManager,
             TaskManagerConfig taskManagerConfig,
             AccessControl accessControl,
-            Supplier<Set<String>> rpcFunctionNames)
+            Supplier<Set<String>> rpcFunctionNames,
+            RpcExecutionPolicy rpcExecutionPolicy)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -652,9 +668,24 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder().add(new RemoveRedundantCastToVarcharInJoinClause(metadata.getFunctionAndTypeManager()))
                                 .addAll(new RemoveMapCastRule(metadata.getFunctionAndTypeManager()).rules()).build()));
 
+        // RewriteRowExpressions below may rewrite certain external functions into RPC functions,
+        // which RpcFunctionOptimizer subsequently converts into RPCNodes. To simplify the plan that
+        // RpcFunctionOptimizer has to process, extract the remote functions into their own
+        // projections first, before RewriteRowExpressions runs. As a result, RewriteRowExpressions
+        // emits the RPC functions within a dedicated remote ProjectNode rather than nested inside
+        // arbitrary expressions.
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(
+                        new RewriteFilterWithExternalFunctionToProject(metadata.getFunctionAndTypeManager()),
+                        new PlanRemoteProjections(metadata.getFunctionAndTypeManager()))));
+
         builder.add(new IterativeOptimizer(metadata, ruleStats, statsCalculator, estimatedExchangesCostCalculator,
                 new RewriteRowExpressions(expressionOptimizerManager).rules()));
-        builder.add(new RpcFunctionOptimizer(rpcFunctionNames));
+        builder.add(new RpcFunctionOptimizer(rpcFunctionNames, statsCalculator, rpcExecutionPolicy));
 
         builder.add(new IterativeOptimizer(
                 metadata,
@@ -684,6 +715,13 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(new MergeMinMaxByAggregations(metadata.getFunctionAndTypeManager()))));
+
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(new CollapseFanoutJoinWithArrayAggUnnest(metadata.getFunctionAndTypeManager()))));
 
         // In RewriteIfOverAggregation, we can only optimize when the aggregation output is used in only one IF expression, and not used in any other expressions (excluding
         // identity assignments). Hence we need to simplify projection assignments to combine/inline expressions in assignments so as to identify the candidate IF expressions.
@@ -903,14 +941,6 @@ public class PlanOptimizers
         // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(
                 new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)),
-                new IterativeOptimizer(
-                        metadata,
-                        ruleStats,
-                        statsCalculator,
-                        costCalculator,
-                        ImmutableSet.of(
-                                new RewriteFilterWithExternalFunctionToProject(metadata.getFunctionAndTypeManager()),
-                                new PlanRemoteProjections(metadata.getFunctionAndTypeManager()))),
                 projectionPushDown,
                 new PruneUnreferencedOutputs());
 
@@ -1087,6 +1117,24 @@ public class PlanOptimizers
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
         builder.add(projectionPushDown);
         builder.add(inlineProjections);
+        // Pull constant projections above remote exchanges after all other optimizers
+        // have had a chance to generate constants below exchanges
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new PullConstantProjectionAboveExchange())));
+        // Pull a chain of row-local operators (unnest + deterministic projections) above a remote
+        // repartition exchange so the exchange shuffles the smaller pre-expansion input. Placed after
+        // the final projectionPushDown so PushProjectionThroughExchange will not push the chain back
+        // below the exchange. Cost-based and gated (default off).
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new PullRowLocalChainAboveExchange(metadata.getFunctionAndTypeManager()))));
         builder.add(new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager())); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
         builder.add(new IterativeOptimizer(
@@ -1204,6 +1252,20 @@ public class PlanOptimizers
         builder.add(new MetadataDeleteOptimizer(metadata));
 
         builder.add(new RewriteWriterTarget(metadata, accessControl));
+
+        // Velox-oriented CSE preparation: coalesce cascading projections and merge adjacent
+        // filter/project so shared subexpressions are co-located within a single operator for
+        // native (Velox) common-subexpression elimination. Gated behind
+        // optimize_cascading_filters_and_projections (default OFF). Runs last, just before the
+        // distributed plan / fragments are generated.
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(
+                        new CoalesceCascadingProjections(metadata.getFunctionAndTypeManager()),
+                        new MergeFilterAndProjection(metadata.getFunctionAndTypeManager()))));
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point

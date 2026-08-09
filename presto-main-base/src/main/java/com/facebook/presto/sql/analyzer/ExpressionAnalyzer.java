@@ -109,6 +109,7 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
@@ -117,7 +118,6 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.slice.SliceUtf8;
@@ -127,6 +127,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -197,7 +198,7 @@ import static com.facebook.presto.util.LegacyRowFieldOrdinalAccessUtil.parseAnon
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
@@ -1251,14 +1252,14 @@ public class ExpressionAnalyzer
         private boolean containsFeatures(Expression expression)
         {
             if (expression instanceof Identifier) {
-                return ((Identifier) expression).getValue().toLowerCase().contains("features");
+                return ((Identifier) expression).getValue().toLowerCase(Locale.US).contains("features");
             }
             if (expression instanceof SymbolReference) {
-                return ((SymbolReference) expression).getName().toLowerCase().contains("features");
+                return ((SymbolReference) expression).getName().toLowerCase(Locale.US).contains("features");
             }
             if (expression instanceof DereferenceExpression) {
                 DereferenceExpression deref = (DereferenceExpression) expression;
-                return containsFeatures(deref.getBase()) || deref.getField().getValue().toLowerCase().contains("features");
+                return containsFeatures(deref.getBase()) || deref.getField().getValue().toLowerCase(Locale.US).contains("features");
             }
             return false;
         }
@@ -1295,7 +1296,7 @@ public class ExpressionAnalyzer
             if (orderBy.getSortItems().size() != 1) {
                 throw new SemanticException(INVALID_ORDER_BY, orderBy, "Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY (actual: %s)", orderBy.getSortItems().size());
             }
-            Expression sortKey = Iterables.getOnlyElement(orderBy.getSortItems()).getSortKey();
+            Expression sortKey = orderBy.getSortItems().stream().collect(onlyElement()).getSortKey();
             Type sortKeyType = getExpressionType(sortKey);
             if (!isNumericType(sortKeyType) && !isDateTimeType(sortKeyType)) {
                 throw new SemanticException(TYPE_MISMATCH, sortKey, "Window frame of type RANGE PRECEDING or FOLLOWING requires that sort item type be numeric, datetime or interval (actual: %s)", sortKeyType);
@@ -1315,7 +1316,7 @@ public class ExpressionAnalyzer
             }
 
             // resolve function to calculate frame boundary value (add / subtract offset from sortKey)
-            SortItem.Ordering ordering = Iterables.getOnlyElement(orderBy.getSortItems()).getOrdering();
+            SortItem.Ordering ordering = orderBy.getSortItems().stream().collect(onlyElement()).getOrdering();
             OperatorType operatorType;
             FunctionHandle function;
             if ((boundType == PRECEDING && ordering == ASCENDING) || (boundType == FOLLOWING && ordering == DESCENDING)) {
@@ -1400,6 +1401,18 @@ public class ExpressionAnalyzer
 
             Type resultType = process(parameters.get(NodeRef.of(node)), context);
             return setExpressionType(node, resultType);
+        }
+
+        @Override
+        protected Type visitTrim(Trim node, StackableAstVisitorContext<Context> context)
+        {
+            ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+            arguments.add(node.getTrimSource());
+            node.getTrimCharacter().ifPresent(arguments::add);
+
+            FunctionCall functionCall = new FunctionCall(QualifiedName.of(node.getSpecification().getFunctionName()), arguments.build());
+            Type type = process(functionCall, context);
+            return setExpressionType(node, type);
         }
 
         @Override
@@ -1532,7 +1545,7 @@ public class ExpressionAnalyzer
                 scalarSubqueries.add(NodeRef.of(node));
             }
             sourceFields.add(queryScope.getRelationType().getFieldByIndex(0));
-            Type type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
+            Type type = queryScope.getRelationType().getVisibleFields().stream().collect(onlyElement()).getType();
             return setExpressionType(node, type);
         }
 

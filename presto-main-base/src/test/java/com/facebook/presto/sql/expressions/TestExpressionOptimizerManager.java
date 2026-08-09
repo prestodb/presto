@@ -143,7 +143,7 @@ public class TestExpressionOptimizerManager
     private void createPropertiesFile(String fileName, Map<String, String> propertiesMap)
             throws IOException
     {
-        File newProperties = new File(directory, fileName);
+        File newProperties = directory.toPath().resolve(fileName).toFile();
         newProperties.deleteOnExit();
         Properties properties = new Properties();
         properties.putAll(propertiesMap);

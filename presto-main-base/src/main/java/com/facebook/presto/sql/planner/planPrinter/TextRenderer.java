@@ -31,7 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.units.DataSize.succinctBytes;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
@@ -216,7 +216,7 @@ public class TextRenderer
     {
         if (operators.size() == 1) {
             // don't display operator (plan node) name again
-            return ImmutableMap.of(getOnlyElement(operators), "");
+            return ImmutableMap.of(operators.stream().collect(onlyElement()), "");
         }
 
         if (operators.contains("LookupJoinOperator") && operators.contains("HashBuilderOperator")) {

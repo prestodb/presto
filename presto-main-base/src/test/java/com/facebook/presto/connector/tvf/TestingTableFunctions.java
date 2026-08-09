@@ -72,7 +72,7 @@ import static com.facebook.presto.spi.function.table.TableFunctionProcessorState
 import static com.facebook.presto.spi.function.table.TableFunctionProcessorState.Processed.usedInputAndProduced;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -655,7 +655,7 @@ public class TestingTableFunctions
                     if (input == null) {
                         return FINISHED;
                     }
-                    Optional<Page> inputPage = getOnlyElement(input);
+                    Optional<Page> inputPage = input.stream().collect(onlyElement());
                     return inputPage.map(TableFunctionProcessorState.Processed::usedInputAndProduced).orElseThrow(NoSuchElementException::new);
                 };
             }
@@ -711,7 +711,7 @@ public class TestingTableFunctions
                     return FINISHED;
                 }
 
-                Page page = getOnlyElement(input).orElseThrow(NoSuchElementException::new);
+                Page page = input.stream().collect(onlyElement()).orElseThrow(NoSuchElementException::new);
                 BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
                 for (long index = processedPositions; index < processedPositions + page.getPositionCount(); index++) {
                     // TODO check for long overflow
@@ -814,7 +814,7 @@ public class TestingTableFunctions
                     return FINISHED;
                 }
 
-                Page page = getOnlyElement(input).orElseThrow(NoSuchElementException::new);
+                Page page = input.stream().collect(onlyElement()).orElseThrow(NoSuchElementException::new);
                 if (processedRounds == 0) {
                     BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
                     for (long index = processedPositions; index < processedPositions + page.getPositionCount(); index++) {

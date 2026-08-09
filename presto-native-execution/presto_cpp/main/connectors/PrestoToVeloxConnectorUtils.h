@@ -52,11 +52,15 @@ velox::common::CompressionKind toFileCompressionKind(
 velox::connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
     protocol::hive::ColumnType type);
 
+/// Threads index columns into the resulting handle so index lookups can reuse
+/// this conversion path. Index columns are placed right after dataColumns to
+/// mirror the velox HiveTableHandle constructor ordering.
 std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
     const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
     const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
     const std::string& tableName,
     const protocol::List<protocol::Column>& dataColumns,
+    const std::vector<std::string>& indexColumns,
     const protocol::TableHandle& tableHandle,
     const std::vector<velox::connector::hive::HiveColumnHandlePtr>&
         columnHandles,

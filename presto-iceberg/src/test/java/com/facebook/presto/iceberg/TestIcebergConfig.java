@@ -22,6 +22,7 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.airlift.units.DataSize.succinctDataSize;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
@@ -35,6 +36,7 @@ import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
 import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
@@ -68,6 +70,7 @@ public class TestIcebergConfig
                 .setManifestCacheExpireDuration(IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT)
                 .setManifestCacheMaxContentLength(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT)
                 .setSplitManagerThreads(Runtime.getRuntime().availableProcessors())
+                .setCommitNumberRetries(COMMIT_NUM_RETRIES_DEFAULT)
                 .setMetadataPreviousVersionsMax(METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT)
                 .setMetadataDeleteAfterCommit(METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT)
                 .setMetricsMaxInferredColumn(METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT)
@@ -78,7 +81,8 @@ public class TestIcebergConfig
                 .setMaterializedViewDefaultStorageSchema(null)
                 .setMaterializedViewMaxChangedPartitions(100)
                 .setMaterializedViewDefaultMaxSnapshotsPerRefresh(0)
-                .setAggregatePushDownEnabled(true));
+                .setAggregatePushDownEnabled(true)
+                .setTargetMaxFileSize(succinctDataSize(1, GIGABYTE)));
     }
 
     @Test
@@ -109,6 +113,7 @@ public class TestIcebergConfig
                 .put("iceberg.io.manifest.cache.max-content-length", "10485760")
                 .put("iceberg.io.manifest.cache.max-chunk-size", "1MB")
                 .put("iceberg.split-manager-threads", "42")
+                .put("iceberg.commit-number-retries", "10")
                 .put("iceberg.metadata-previous-versions-max", "1")
                 .put("iceberg.metadata-delete-after-commit", "true")
                 .put("iceberg.metrics-max-inferred-column", "16")
@@ -119,6 +124,7 @@ public class TestIcebergConfig
                 .put("iceberg.materialized-view-max-changed-partitions", "2000")
                 .put("iceberg.materialized-view-default-max-snapshots-per-refresh", "10")
                 .put("iceberg.aggregate-push-down-enabled", "false")
+                .put("iceberg.target-max-file-size", "512MB")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -146,6 +152,7 @@ public class TestIcebergConfig
                 .setManifestCacheMaxContentLength(10485760)
                 .setManifestCacheMaxChunkSize(succinctDataSize(1, MEGABYTE))
                 .setSplitManagerThreads(42)
+                .setCommitNumberRetries(10)
                 .setMetadataPreviousVersionsMax(1)
                 .setMetadataDeleteAfterCommit(true)
                 .setMetricsMaxInferredColumn(16)
@@ -155,7 +162,8 @@ public class TestIcebergConfig
                 .setMaterializedViewDefaultStorageSchema("_mv_storage")
                 .setMaterializedViewMaxChangedPartitions(2000)
                 .setMaterializedViewDefaultMaxSnapshotsPerRefresh(10)
-                .setAggregatePushDownEnabled(false);
+                .setAggregatePushDownEnabled(false)
+                .setTargetMaxFileSize(succinctDataSize(512, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }

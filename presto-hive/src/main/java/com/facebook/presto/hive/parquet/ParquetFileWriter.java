@@ -25,6 +25,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -58,7 +59,9 @@ public class ParquetFileWriter
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
-            CompressionCodecName compressionCodecName)
+            CompressionCodecName compressionCodecName,
+            DateTimeZone writerTimezone,
+            String prestoVersion)
     {
         requireNonNull(outputStream, "outputStream is null");
 
@@ -69,7 +72,9 @@ public class ParquetFileWriter
                 columnNames,
                 fileColumnTypes,
                 parquetWriterOptions,
-                compressionCodecName.getHadoopCompressionCodecClassName());
+                compressionCodecName.getHadoopCompressionCodecClassName(),
+                writerTimezone,
+                prestoVersion);
 
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "fileInputColumnIndexes is null");
@@ -86,7 +91,11 @@ public class ParquetFileWriter
     @Override
     public long getWrittenBytes()
     {
-        return parquetWriter.getWrittenBytes() + parquetWriter.getBufferedBytes();
+        if (parquetWriter.isClosed()) {
+            return parquetWriter.getWrittenBytes();
+        }
+        return parquetWriter.getWrittenBytes()
+                + parquetWriter.getBufferedBytes();
     }
 
     @Override

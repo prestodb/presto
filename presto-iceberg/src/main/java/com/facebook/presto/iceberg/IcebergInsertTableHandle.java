@@ -18,15 +18,20 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public class IcebergInsertTableHandle
         extends IcebergWritableTableHandle
         implements ConnectorInsertTableHandle
 {
+    private final List<String> insertedColumns;
+
     public IcebergInsertTableHandle(
             String schemaName,
             IcebergTableName tableName,
@@ -41,7 +46,43 @@ public class IcebergInsertTableHandle
             Optional<SchemaTableName> materializedViewName)
     {
         this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
-                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false);
+                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, List.of());
+    }
+
+    public IcebergInsertTableHandle(
+            String schemaName,
+            IcebergTableName tableName,
+            PrestoIcebergSchema schema,
+            PrestoIcebergPartitionSpec partitionSpec,
+            List<IcebergColumnHandle> inputColumns,
+            String outputPath,
+            FileFormat fileFormat,
+            HiveCompressionCodec compressionCodec,
+            Map<String, String> storageProperties,
+            List<SortField> sortOrder,
+            Optional<SchemaTableName> materializedViewName,
+            List<String> insertedColumns)
+    {
+        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
+                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, insertedColumns);
+    }
+
+    public IcebergInsertTableHandle(
+            String schemaName,
+            IcebergTableName tableName,
+            PrestoIcebergSchema schema,
+            PrestoIcebergPartitionSpec partitionSpec,
+            List<IcebergColumnHandle> inputColumns,
+            String outputPath,
+            FileFormat fileFormat,
+            HiveCompressionCodec compressionCodec,
+            Map<String, String> storageProperties,
+            List<SortField> sortOrder,
+            Optional<SchemaTableName> materializedViewName,
+            boolean fullRefreshRequired)
+    {
+        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
+                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, fullRefreshRequired, List.of());
     }
 
     @JsonCreator
@@ -57,7 +98,8 @@ public class IcebergInsertTableHandle
             @JsonProperty("storageProperties") Map<String, String> storageProperties,
             @JsonProperty("sortOrder") List<SortField> sortOrder,
             @JsonProperty("materializedViewName") Optional<SchemaTableName> materializedViewName,
-            @JsonProperty("fullRefreshRequired") boolean fullRefreshRequired)
+            @JsonProperty("fullRefreshRequired") boolean fullRefreshRequired,
+            @JsonProperty("insertedColumns") List<String> insertedColumns)
     {
         super(
                 schemaName,
@@ -72,5 +114,12 @@ public class IcebergInsertTableHandle
                 sortOrder,
                 materializedViewName,
                 fullRefreshRequired);
+        this.insertedColumns = ImmutableList.copyOf(requireNonNull(insertedColumns, "insertedColumns is null"));
+    }
+
+    @JsonProperty
+    public List<String> getInsertedColumns()
+    {
+        return insertedColumns;
     }
 }

@@ -29,6 +29,7 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   List<SortField> sortOrder = {};
   std::shared_ptr<SchemaTableName> materializedViewName = {};
   bool fullRefreshRequired = {};
+  List<String> insertedColumns = {};
 
   IcebergInsertTableHandle() noexcept;
 };

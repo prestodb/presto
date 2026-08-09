@@ -51,10 +51,10 @@ Presto offers the ability to merge multiple Set Digest data sketches.
 Serialization
 -------------
 
-Data sketches such as those created via the use of MinHash or HyperLogLog can be serialized into a varbinary data type.
+Data sketches such as those created with the use of MinHash or HyperLogLog can be serialized into a varbinary data type.
 Serializing these data structures allows them to be efficiently stored and, if needed, transferred between different
 systems or sessions.
-Once stored, they can then be deserialized back into to their original state when they need to be used again.
+Once stored, they can then be deserialized back into their original state when they need to be used again.
 In the context of Presto, you might normally do this using functions that convert these data sketches to and from binary.
 An example might include using ``to_utf8()`` or ``from_utf8()``.
 

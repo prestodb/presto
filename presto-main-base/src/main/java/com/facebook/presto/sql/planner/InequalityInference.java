@@ -25,12 +25,12 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -50,8 +50,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class InequalityInference
 {
@@ -157,7 +157,7 @@ public class InequalityInference
 
         if (!inferredFirstArgument.isPresent() ||
                 !inferredSecondArgument.isPresent() ||
-                (outerVariables.isPresent() && Iterables.any(variablesReferencedInInferredPredicate, in(outerVariables.get())))) {
+                (outerVariables.isPresent() && variablesReferencedInInferredPredicate.stream().anyMatch(in(outerVariables.get())))) {
             return Optional.empty();
         }
 
@@ -237,7 +237,7 @@ public class InequalityInference
 
         private Builder extractInequalityInferenceCandidates(RowExpression expression)
         {
-            Iterable<RowExpression> candidates = filter(extractConjuncts(expression), isInequalityInferenceCandidate());
+            List<RowExpression> candidates = extractConjuncts(expression).stream().filter(isInequalityInferenceCandidate()).collect(toList());
             for (RowExpression conjunct : candidates) {
                 addInequalityInferenceCandidate(conjunct);
             }

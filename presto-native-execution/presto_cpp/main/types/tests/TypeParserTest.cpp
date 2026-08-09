@@ -67,3 +67,17 @@ TEST_F(TypeParserTest, parseEnumTypes) {
           "test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"HAPPY\":\"ONXW2ZJAOZQWY5LF\" , \"SAD\":\"KNHU2RJAKZAUYVKF\"})"),
       "Unsupported type: test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"HAPPY\":\"ONXW2ZJAOZQWY5LF\" , \"SAD\":\"KNHU2RJAKZAUYVKF\"})");
 }
+
+TEST_F(TypeParserTest, materializedLogicalTypesAliasToVarchar) {
+  // Varchar-backed Presto logical types have no Velox type. When materialized
+  // into a projection column (e.g. an RPC result feeding
+  // LIKE/regexp/json_extract), their type string reaches the parser and must
+  // resolve to varchar rather than throw "Failed to parse type ... Type not
+  // registered".
+  TypeParser typeParser = TypeParser();
+  for (const auto* name :
+       {"LikePattern", "Re2JRegExp", "JsonPath", "CodePoints"}) {
+    EXPECT_EQ(typeParser.parse(name)->toString(), "VARCHAR")
+        << "type: " << name;
+  }
+}

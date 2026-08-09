@@ -25,7 +25,6 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -128,7 +127,7 @@ public class MultipleDistinctAggregationToMarkDistinct
 
                 VariableReferenceExpression marker = markers.get(inputs);
                 if (marker == null) {
-                    marker = context.getVariableAllocator().newVariable(Iterables.getLast(inputs).getName(), BOOLEAN, "distinct");
+                    marker = context.getVariableAllocator().newVariable(inputs.stream().reduce((first, second) -> second).get().getName(), BOOLEAN, "distinct");
                     markers.put(inputs, marker);
 
                     ImmutableSet.Builder<VariableReferenceExpression> distinctVariables = ImmutableSet.<VariableReferenceExpression>builder()

@@ -14,12 +14,12 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.airlift.resolver.ArtifactResolver;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.resolver.ArtifactResolver;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.nio.file.Paths;
 import java.util.Map;
 
 public class TestPluginManagerConfig
@@ -28,7 +28,7 @@ public class TestPluginManagerConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(PluginManagerConfig.class)
-                .setInstalledPluginsDir(new File("plugin"))
+                .setInstalledPluginsDir(Paths.get("plugin").toFile())
                 .setPlugins((String) null)
                 .setDisabledConnectors("")
                 .setMavenLocalRepository(ArtifactResolver.USER_LOCAL_REPO)
@@ -47,7 +47,7 @@ public class TestPluginManagerConfig
                 .build();
 
         PluginManagerConfig expected = new PluginManagerConfig()
-                .setInstalledPluginsDir(new File("plugins-dir"))
+                .setInstalledPluginsDir(Paths.get("plugins-dir").toFile())
                 .setPlugins(ImmutableList.of("a", "b", "c"))
                 .setDisabledConnectors("scuba,prism")
                 .setMavenLocalRepository("local-repo")

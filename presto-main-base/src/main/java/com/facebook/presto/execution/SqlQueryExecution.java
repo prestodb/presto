@@ -222,6 +222,7 @@ public class SqlQueryExecution
 
             stateMachine.setUpdateInfo(queryAnalysis.getUpdateInfo());
             stateMachine.setExpandedQuery(queryAnalysis.getExpandedQuery());
+            stateMachine.setMaterializedViewRewrittenQuery(queryAnalysis.getMaterializedViewRewrittenQuery());
 
             stateMachine.beginColumnAccessPermissionChecking();
             getSession().getRuntimeStats().recordWallAndCpuTime(

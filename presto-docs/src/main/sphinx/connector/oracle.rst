@@ -180,13 +180,18 @@ Oracle to PrestoDB type mapping
 The connector maps Oracle types to the corresponding PrestoDB types:
 
 .. list-table:: Oracle to PrestoDB type mapping
-  :widths: 50, 50
   :header-rows: 1
 
   * - Oracle type
     - PrestoDB type
   * - ``BLOB``
     - ``VARBINARY``
+  * - ``BINARY_FLOAT``
+    - ``REAL``
+  * - ``REAL``
+    - ``REAL``
+  * - ``BINARY_DOUBLE``
+    - ``DOUBLE``
 
 Oracle Connector Limitations
 ----------------------------

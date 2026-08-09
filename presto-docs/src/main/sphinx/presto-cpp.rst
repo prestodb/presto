@@ -34,7 +34,7 @@ A Presto C++ worker can be configured as a sidecar to customize the Java
 coordinator's functionality for Presto C++ clusters. The Presto C++ sidecar
 implements additional REST endpoints to provide the coordinator more
 information about the Presto C++ worker, such as session properties and
-functions, via the ``NativeSidecarPlugin``. It is recommended to configure
+functions, by using the ``NativeSidecarPlugin``. It is recommended to configure
 at least one worker in the Presto C++ cluster as a sidecar. See :doc:`presto_cpp/sidecar`
 and :ref:`native-sidecar-plugin` for more details.
 

@@ -14,6 +14,9 @@
 package com.facebook.presto.plugin.openlineage;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.ColumnLineageEntry;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.TransformationSubtype;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
@@ -34,6 +37,8 @@ import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineage.DatasetFacetsBuilder;
 import io.openlineage.client.OpenLineage.InputDataset;
 import io.openlineage.client.OpenLineage.InputDatasetBuilder;
+import io.openlineage.client.OpenLineage.InputField;
+import io.openlineage.client.OpenLineage.InputFieldTransformations;
 import io.openlineage.client.OpenLineage.JobBuilder;
 import io.openlineage.client.OpenLineage.OutputDataset;
 import io.openlineage.client.OpenLineage.RunEvent;
@@ -45,7 +50,10 @@ import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -334,18 +342,7 @@ public class OpenLineageEventListener
             outputColumns.forEach(column ->
                     columnLineageDatasetFacetFieldsBuilder.put(column.getColumnName(),
                             openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                                    .inputFields(column
-                                            .getSourceColumns()
-                                            .stream()
-                                            .map(inputColumn -> openLineage.newInputFieldBuilder()
-                                                    .field(inputColumn.getColumnName())
-                                                    .namespace(this.datasetNamespace)
-                                                    .name(getDatasetName(
-                                                            inputColumn.getTableName().getCatalogName(),
-                                                            inputColumn.getTableName().getSchemaName(),
-                                                            inputColumn.getTableName().getObjectName()))
-                                                    .build())
-                                            .collect(toImmutableList()))
+                                    .inputFields(buildInputFieldsForOutputColumn(column))
                                     .build()));
 
             ImmutableList.Builder<OpenLineage.InputField> inputFields = ImmutableList.builder();
@@ -381,6 +378,104 @@ public class OpenLineageEventListener
                             .build());
         }
         return ImmutableList.of();
+    }
+
+    private List<InputField> buildInputFieldsForOutputColumn(OutputColumnMetadata column)
+    {
+        LinkedHashMap<InputFieldKey, ImmutableList.Builder<InputFieldTransformations>> perInput = new LinkedHashMap<>();
+
+        for (ColumnLineageEntry entry : column.getColumnLineage()) {
+            InputFieldKey key = inputKeyFor(entry.getTableName(), entry.getColumnName());
+            ImmutableList.Builder<InputFieldTransformations> transformations =
+                    perInput.computeIfAbsent(key, k -> ImmutableList.builder());
+            transformations.add(openLineage.newInputFieldTransformationsBuilder()
+                    .type(entry.getTransformationType().name())
+                    .subtype(entry.getTransformationSubtype().name())
+                    .description(describeSubtype(entry.getTransformationSubtype()))
+                    .masking(false)
+                    .build());
+        }
+
+        ImmutableList.Builder<InputField> result = ImmutableList.builder();
+        for (Map.Entry<InputFieldKey, ImmutableList.Builder<InputFieldTransformations>> e : perInput.entrySet()) {
+            List<InputFieldTransformations> transformations = e.getValue().build();
+            OpenLineage.InputFieldBuilder builder = openLineage.newInputFieldBuilder()
+                    .field(e.getKey().field)
+                    .namespace(e.getKey().namespace)
+                    .name(e.getKey().name);
+            if (!transformations.isEmpty()) {
+                builder.transformations(transformations);
+            }
+            result.add(builder.build());
+        }
+        return result.build();
+    }
+
+    private InputFieldKey inputKeyFor(QualifiedObjectName table, String columnName)
+    {
+        return new InputFieldKey(
+                this.datasetNamespace,
+                getDatasetName(table.getCatalogName(), table.getSchemaName(), table.getObjectName()),
+                columnName);
+    }
+
+    private static String describeSubtype(TransformationSubtype subtype)
+    {
+        switch (subtype) {
+            case IDENTITY:
+                return "Direct projection of the source column";
+            case TRANSFORMATION:
+                return "Source column transformed in the projection";
+            case AGGREGATION:
+                return "Source column aggregated in the projection";
+            case JOIN:
+                return "Source column used in a JOIN predicate";
+            case FILTER:
+                return "Source column used in a WHERE or HAVING predicate";
+            case GROUP_BY:
+                return "Source column used in GROUP BY";
+            case SORT:
+                return "Source column used in ORDER BY";
+            case WINDOW:
+                return "Source column used in a window partition or sort key";
+            case CONDITIONAL:
+                return "Source column used in a CASE/IF condition";
+            default:
+                return subtype.name();
+        }
+    }
+
+    private static final class InputFieldKey
+    {
+        private final String namespace;
+        private final String name;
+        private final String field;
+
+        private InputFieldKey(String namespace, String name, String field)
+        {
+            this.namespace = requireNonNull(namespace, "namespace is null");
+            this.name = requireNonNull(name, "name is null");
+            this.field = requireNonNull(field, "field is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof InputFieldKey)) {
+                return false;
+            }
+            InputFieldKey other = (InputFieldKey) o;
+            return namespace.equals(other.namespace) && name.equals(other.name) && field.equals(other.field);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(namespace, name, field);
+        }
     }
 
     private String getDatasetName(String catalogName, String schemaName, String tableName)

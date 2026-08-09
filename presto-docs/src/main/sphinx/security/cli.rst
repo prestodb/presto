@@ -92,7 +92,7 @@ Additional Kerberos Debugging Information
 
 You can enable additional Kerberos debugging information for the Presto CLI
 process by passing ``-Dsun.security.krb5.debug=true`` as a JVM argument when
-starting the CLI process. Doing so requires invoking the CLI JAR via ``java``
+starting the CLI process. Doing so requires invoking the CLI JAR by using ``java``
 instead of running the self-executable JAR directly. The self-executable jar
 file cannot pass the option to the JVM.
 

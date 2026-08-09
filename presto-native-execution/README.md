@@ -80,30 +80,84 @@ Compilers (and versions) not mentioned are known to not work or have not been tr
 | macOS | `clang15 (or later)` |
 
 ### Build Prestissimo
-#### Parquet and S3 Support
-Parquet support is enabled by default. To disable it, add `-DPRESTO_ENABLE_PARQUET=OFF`
-to the `EXTRA_CMAKE_FLAGS` environment variable.
+#### Using Comma-Separated Optional Features (Recommended)
 
-`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS -DPRESTO_ENABLE_PARQUET=OFF"`
+You can enable multiple optional features using a single comma-separated list:
 
-To enable S3 support, add `-DPRESTO_ENABLE_S3=ON` to the `EXTRA_CMAKE_FLAGS`
-environment variable.
+```bash
+export PRESTO_OPTIONAL_FEATURES="s3,parquet,hdfs,jwt"
+make release
+```
 
-`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DPRESTO_ENABLE_S3=ON"`
+Or inline:
 
-S3 support needs the [AWS SDK C++](https://github.com/aws/aws-sdk-cpp) library.
+```bash
+PRESTO_OPTIONAL_FEATURES="s3,parquet,hdfs" make release
+```
+
+**Note:** Whitespace around commas is automatically handled, so `"s3, parquet, hdfs"` works the same as `"s3,parquet,hdfs"`.
+
+**Important:** Invalid feature names will cause the build to fail immediately with an error message listing valid features. This prevents silent misconfiguration.
+
+**Available features:**
+
+|    Feature Name    |        Description      | Default |
+|--------------------|-------------------------|---------|
+| `s3`               | S3 support              | OFF     |
+| `hdfs`             | HDFS support            | OFF     |
+| `gcs`              | GCS support             | OFF     |
+| `abfs`             | ABFS support            | OFF     |
+| `parquet`          | Parquet support         | **ON**  |
+| `cudf`             | cuDF GPU support        | OFF     |
+| `remote-functions` | Remote function support | OFF     |
+| `jwt`              | JWT authentication      | OFF     |
+| `arrow-flight`     | Arrow Flight connector  | OFF     |
+| `spatial`          | Spatial support         | **ON**  |
+| `no-parquet`       | Disable Parquet support | —       |
+| `no-spatial`       | Disable Spatial support | —       |
+
+To explicitly disable a default-ON feature, use the `no-` prefix:
+
+```bash
+# Disable Parquet and Spatial (both ON by default)
+PRESTO_OPTIONAL_FEATURES="s3,no-parquet,no-spatial" make release
+```
+
+**Examples:**
+
+```bash
+# Enable S3, Parquet, and JWT
+PRESTO_OPTIONAL_FEATURES="s3,parquet,jwt" make release
+
+# Enable all storage connectors
+PRESTO_OPTIONAL_FEATURES="s3,hdfs,gcs,abfs" make release
+
+# Enable GPU support with Parquet
+PRESTO_OPTIONAL_FEATURES="cudf,parquet" \
+CUDA_ARCHITECTURES=80 \
+CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+make release
+```
+
+**Note:** Individual flags (e.g., `PRESTO_ENABLE_S3=ON`) are still supported but deprecated. Use `PRESTO_OPTIONAL_FEATURES` for new projects.
+
+#### File System Support
+
+S3, GCS, HDFS, and Azure support require their corresponding libraries.
+S3 for example needs the [AWS SDK C++](https://github.com/aws/aws-sdk-cpp) library.
 This dependency can be installed by running the target platform build script
 from the `presto/presto-native-execution` directory.
+For S3 support, run
 
 `./velox/scripts/setup-centos9.sh install_aws_deps`
     Or
 `./velox/scripts/setup-ubuntu.sh install_aws_deps`
 
 #### JWT Authentication
-To enable JWT authentication support, add `-DPRESTO_ENABLE_JWT=ON` to the
-`EXTRA_CMAKE_FLAGS` environment variable.
 
-`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DPRESTO_ENABLE_JWT=ON"`
+To enable JWT authentication support, add to the `PRESTO_OPTIONAL_FEATURES` environment variable:
+
+`export PRESTO_OPTIONAL_FEATURES="${PRESTO_OPTIONAL_FEATURES},jwt"`
 
 JWT authentication support needs the [JWT CPP](https://github.com/Thalhammer/jwt-cpp) library.
 This dependency can be installed by running the script below from the
@@ -130,24 +184,27 @@ follow these steps:
 * Use `make unittest` to build and run tests.
 
 #### Arrow Flight Connector
-To enable Arrow Flight connector support, add to the `EXTRA_CMAKE_FLAGS` environment variable:
-`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DPRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR=ON"`
+
+To enable Arrow Flight connector support, add to the `PRESTO_OPTIONAL_FEATURES` environment variable:
+
+`export PRESTO_OPTIONAL_FEATURES="${PRESTO_OPTIONAL_FEATURES},arrow-flight"`
 
 The Arrow Flight connector requires the Arrow Flight library. You can install this dependency
 by running the following script from the `presto/presto-native-execution` directory:
 
 `./scripts/setup-adapters.sh arrow_flight`
 
-#### Nvidia cuDF GPU Support
+#### NVIDIA cuDF GPU Support
 
 To enable support with [cuDF](https://github.com/facebookincubator/velox/tree/main/velox/experimental/cudf),
-add to the `EXTRA_CMAKE_FLAGS` environment variable:
-`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DPRESTO_ENABLE_CUDF=ON"`
+add to the `PRESTO_OPTIONAL_FEATURES` environment variable:
 
-In some environments, the CUDA_ARCHITECTURES and CUDA_COMPILER location must be explicitly set.
+`export PRESTO_OPTIONAL_FEATURES="${PRESTO_OPTIONAL_FEATURES},cudf"`
+
+In some environments, the CUDA_ARCHITECTURES and CUDA_COMPILER must be explicitly set.
 The make command will look like:
 
-`CUDA_ARCHITECTURES=80 CUDA_COMPILER=/usr/local/cuda/bin/nvcc EXTRA_CMAKE_FLAGS=" -DPRESTO_ENABLE_CUDF=ON" make`
+`CUDA_ARCHITECTURES=80 CUDA_COMPILER=/usr/local/cuda/bin/nvcc PRESTO_OPTIONAL_FEATURES="cudf" make`
 
 The required dependencies are bundled from the Velox setup scripts.
 

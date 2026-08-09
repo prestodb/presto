@@ -2,7 +2,7 @@
 Password Authenticator
 ======================
 
-Presto supports authentication with a username and password via a custom
+Presto supports authentication with a username and password through a custom
 password authenticator that validates the credentials and creates a principal.
 
 Implementation

@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.common.ColumnLineageEntry;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.SourceColumn;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.TransformationSubtype;
+import com.facebook.presto.common.TransformationType;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
@@ -38,6 +41,7 @@ import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.ProcedureAnalysisContext;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -67,6 +71,7 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableFunctionInvocation;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -221,19 +226,32 @@ public class Analysis
 
     private Optional<String> expandedQuery = Optional.empty();
 
+    private Optional<String> materializedViewRewrittenQuery = Optional.empty();
+
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
     private Optional<QuerySpecification> currentQuerySpecification = Optional.empty();
 
     // Track WHERE clause from the query accessing a view for subquery analysis such as materialized view
     private Optional<Expression> viewAccessorWhereClause = Optional.empty();
 
-    // Maps each output Field to its originating SourceColumn(s) for column-level lineage tracking.
-    private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
+    // Maps each output Field to its DIRECT column-lineage entries (table column + DIRECT/<subtype>).
+    // Subtype defaults to IDENTITY for legacy callers; SELECT-list analysis populates
+    // TRANSFORMATION or AGGREGATION when the expression is non-trivial.
+    private final Multimap<Field, ColumnLineageEntry> originColumnDetails = HashMultimap.create();
 
     // Maps each analyzed Expression to the Field(s) it produces, supporting expression-level lineage.
     private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
 
     private Optional<List<OutputColumnMetadata>> updatedSourceColumns = Optional.empty();
+
+    // Globally accumulating indirect source columns (WHERE, JOIN, GROUP BY, HAVING, ORDER BY, DISTINCT).
+    // These affect all output columns equally.
+    private final Set<ColumnLineageEntry> indirectSourceColumns = new LinkedHashSet<>();
+
+    // Per-field indirect source columns (CONDITIONAL, WINDOW).
+    // These only affect the specific output column whose expression contains the CASE/IF or window function.
+    // Propagated through CTEs, subqueries, views, and set operations alongside direct source columns.
+    private final Multimap<Field, ColumnLineageEntry> perFieldIndirectSources = HashMultimap.create();
 
     // names of tables and aliased relations. All names are resolved case-insensitive.
     private final Map<NodeRef<Relation>, QualifiedName> relationNames = new LinkedHashMap<>();
@@ -1107,6 +1125,16 @@ public class Analysis
         return expandedQuery;
     }
 
+    public void setMaterializedViewRewrittenQuery(String materializedViewRewrittenQuery)
+    {
+        this.materializedViewRewrittenQuery = Optional.of(materializedViewRewrittenQuery);
+    }
+
+    public Optional<String> getMaterializedViewRewrittenQuery()
+    {
+        return materializedViewRewrittenQuery;
+    }
+
     public void setCurrentSubquery(QuerySpecification currentSubQuery)
     {
         this.currentQuerySpecification = Optional.of(currentSubQuery);
@@ -1175,12 +1203,73 @@ public class Analysis
 
     public void addSourceColumns(Field field, Set<SourceColumn> sourceColumn)
     {
-        originColumnDetails.putAll(field, sourceColumn);
+        addSourceColumns(field, sourceColumn, TransformationSubtype.IDENTITY);
+    }
+
+    public void addSourceColumns(Field field, Set<SourceColumn> sourceColumn, TransformationSubtype subtype)
+    {
+        requireNonNull(subtype, "subtype is null");
+        for (SourceColumn source : sourceColumn) {
+            originColumnDetails.put(field, new ColumnLineageEntry(
+                    source.getTableName(),
+                    source.getColumnName(),
+                    TransformationType.DIRECT,
+                    subtype));
+        }
+    }
+
+    /**
+     * Add raw {@link ColumnLineageEntry} entries (preserving subtype) as
+     * direct lineage for {@code field}. Use this when copying lineage from
+     * upstream fields where the original subtype matters — e.g. a bare
+     * column reference at the SELECT level that wraps an aggregated or
+     * transformed inner column.
+     */
+    public void addColumnLineageEntries(Field field, Set<ColumnLineageEntry> entries)
+    {
+        originColumnDetails.putAll(field, entries);
     }
 
     public Set<SourceColumn> getSourceColumns(Field field)
     {
+        return originColumnDetails.get(field).stream()
+                .map(entry -> new SourceColumn(entry.getTableName(), entry.getColumnName()))
+                .collect(toImmutableSet());
+    }
+
+    /**
+     * Subtype-preserving counterpart to {@link #getSourceColumns(Field)}.
+     * Returns the direct {@link ColumnLineageEntry} entries for this field
+     * exactly as the analyzer recorded them.
+     */
+    public Set<ColumnLineageEntry> getDirectLineageEntries(Field field)
+    {
         return ImmutableSet.copyOf(originColumnDetails.get(field));
+    }
+
+    /**
+     * Subtype-preserving counterpart to
+     * {@link #getExpressionSourceColumns(Expression)}: returns the direct
+     * {@link ColumnLineageEntry} entries reachable from the fields this
+     * expression produces, preserving each entry's transformation subtype.
+     */
+    public Set<ColumnLineageEntry> getExpressionDirectLineageEntries(Expression expression)
+    {
+        return fieldLineage.get(NodeRef.of(expression)).stream()
+                .flatMap(field -> originColumnDetails.get(field).stream())
+                .collect(toImmutableSet());
+    }
+
+    /**
+     * Propagates all lineage (direct source columns with their transformation
+     * subtype + per-field indirect) from sourceField to newField. Use this
+     * whenever creating a new Field that represents the same column through
+     * an alias, CTE, view, or set operation to avoid missing propagation.
+     */
+    public void propagateLineage(Field newField, Field sourceField)
+    {
+        addColumnLineageEntries(newField, getDirectLineageEntries(sourceField));
+        addPerFieldIndirectSources(newField, getPerFieldIndirectSources(sourceField));
     }
 
     public void addExpressionFields(Expression expression, Collection<Field> fields)
@@ -1188,10 +1277,16 @@ public class Analysis
         fieldLineage.putAll(NodeRef.of(expression), fields);
     }
 
+    public Collection<Field> getExpressionFields(Expression expression)
+    {
+        return fieldLineage.get(NodeRef.of(expression));
+    }
+
     public Set<SourceColumn> getExpressionSourceColumns(Expression expression)
     {
         return fieldLineage.get(NodeRef.of(expression)).stream()
-                .flatMap(field -> getSourceColumns(field).stream())
+                .flatMap(field -> getDirectLineageEntries(field).stream())
+                .map(entry -> new SourceColumn(entry.getTableName(), entry.getColumnName()))
                 .collect(toImmutableSet());
     }
 
@@ -1203,6 +1298,55 @@ public class Analysis
     public Optional<List<OutputColumnMetadata>> getUpdatedSourceColumns()
     {
         return updatedSourceColumns;
+    }
+
+    public void addIndirectSourceColumns(Set<ColumnLineageEntry> entries)
+    {
+        indirectSourceColumns.addAll(entries);
+    }
+
+    public Set<ColumnLineageEntry> getIndirectSourceColumns()
+    {
+        return ImmutableSet.copyOf(indirectSourceColumns);
+    }
+
+    public void addPerFieldIndirectSources(Field field, Set<ColumnLineageEntry> entries)
+    {
+        perFieldIndirectSources.putAll(field, entries);
+    }
+
+    public Set<ColumnLineageEntry> getPerFieldIndirectSources(Field field)
+    {
+        return ImmutableSet.copyOf(perFieldIndirectSources.get(field));
+    }
+
+    /**
+     * Returns the full indirect sources for a field: query-level + per-field.
+     */
+    public Set<ColumnLineageEntry> getAllIndirectSourcesForField(Field field)
+    {
+        ImmutableSet.Builder<ColumnLineageEntry> builder = ImmutableSet.builder();
+        builder.addAll(indirectSourceColumns);
+        builder.addAll(perFieldIndirectSources.get(field));
+        return builder.build();
+    }
+
+    /**
+     * Returns the unified column-lineage for a field, combining direct
+     * sources (each carrying its {@link TransformationType#DIRECT}
+     * subtype as recorded by the analyzer) and all indirect sources
+     * (query-level + per-field). New code constructing
+     * {@code OutputColumnMetadata} should prefer this over the split
+     * {@link #getSourceColumns(Field)} / {@link #getAllIndirectSourcesForField(Field)}
+     * accessors.
+     */
+    public Set<ColumnLineageEntry> getColumnLineageForField(Field field)
+    {
+        ImmutableSet.Builder<ColumnLineageEntry> builder = ImmutableSet.builder();
+        builder.addAll(originColumnDetails.get(field));
+        builder.addAll(indirectSourceColumns);
+        builder.addAll(perFieldIndirectSources.get(field));
+        return builder.build();
     }
 
     public void registerTableForColumnMasking(QualifiedObjectName table, String column, String identity)
@@ -1298,13 +1442,17 @@ public class Analysis
         private final List<ColumnHandle> columns;
         private final Query query;
         private final SchemaTableName materializedViewName;
+        // The refresh WHERE predicate (legacy WHERE-based refresh only; empty when there is no WHERE),
+        // carried to the connector at execution time so it can scope refresh work.
+        private final Optional<RowExpression> refreshScopePredicate;
 
-        public RefreshMaterializedViewAnalysis(TableHandle target, List<ColumnHandle> columns, Query query, SchemaTableName materializedViewName)
+        public RefreshMaterializedViewAnalysis(TableHandle target, List<ColumnHandle> columns, Query query, SchemaTableName materializedViewName, Optional<RowExpression> refreshScopePredicate)
         {
             this.target = requireNonNull(target, "target is null");
             this.columns = requireNonNull(columns, "columns is null");
             this.query = requireNonNull(query, "query is null");
             this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
+            this.refreshScopePredicate = requireNonNull(refreshScopePredicate, "refreshScopePredicate is null");
             checkArgument(columns.size() > 0, "No columns given to insert");
         }
 
@@ -1326,6 +1474,11 @@ public class Analysis
         public SchemaTableName getMaterializedViewName()
         {
             return materializedViewName;
+        }
+
+        public Optional<RowExpression> getRefreshScopePredicate()
+        {
+            return refreshScopePredicate;
         }
     }
 

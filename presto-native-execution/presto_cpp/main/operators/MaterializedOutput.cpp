@@ -119,6 +119,7 @@ MaterializedOutput::MaterializedOutput(
               kMinTargetSize,
               SystemConfig::instance()
                   ->exchangeMaterializationPartitioningRowBatchBufferSize())),
+      rowGroupMaxBytes_(buffer_->partitionDrainThreshold()),
       fixedRowSize_(
           row::CompactRow::fixedRowSize(
               std::dynamic_pointer_cast<const RowType>(
@@ -242,14 +243,22 @@ void MaterializedOutput::serializeVariableWidthRows(
 void MaterializedOutput::ensureFlatBufferCapacity(int64_t additionalBytes) {
   const auto requiredSize = flatBufferSize_ + additionalBytes;
   const auto currentCapacity = flatBuffer_ ? flatBuffer_->capacity() : 0;
-  if (requiredSize > static_cast<int64_t>(currentCapacity)) {
-    const auto newSize =
-        std::max(requiredSize, static_cast<int64_t>(currentCapacity) * 2);
-    if (!flatBuffer_) {
-      flatBuffer_ = velox::AlignedBuffer::allocate<char>(newSize, pool());
-    } else {
-      velox::AlignedBuffer::reallocate<char>(&flatBuffer_, newSize);
-    }
+  // Nothing to do once a buffer exists and is large enough.
+  if (flatBuffer_ != nullptr &&
+      requiredSize <= static_cast<int64_t>(currentCapacity)) {
+    return;
+  }
+  // Always allocate a non-null buffer on first use, even for a zero-byte batch
+  // (e.g. a zero-column / row-count-only output type where
+  // CompactRow::fixedRowSize() == 0). serializeRows() and buildRowGroup() index
+  // into flatBuffer_ unconditionally, so a null buffer would be dereferenced
+  // and crash. Allocate at least one byte.
+  const auto newSize = std::max<int64_t>(
+      {requiredSize, static_cast<int64_t>(currentCapacity) * 2, 1});
+  if (!flatBuffer_) {
+    flatBuffer_ = velox::AlignedBuffer::allocate<char>(newSize, pool());
+  } else {
+    velox::AlignedBuffer::reallocate<char>(&flatBuffer_, newSize);
   }
 }
 
@@ -388,8 +397,9 @@ void MaterializedOutput::addInput(RowVectorPtr input) {
   }
 }
 
-std::unique_ptr<folly::IOBuf> MaterializedOutput::buildRowGroup(
-    const std::vector<int32_t>& rowIndices) {
+void MaterializedOutput::flushRowGroup(
+    int32_t partition,
+    std::vector<int32_t>& rowIndices) {
   using TRowSize = serializer::TRowSize;
   const auto kHeaderSize = serializer::detail::RowGroupHeader::size();
 
@@ -421,7 +431,8 @@ std::unique_ptr<folly::IOBuf> MaterializedOutput::buildRowGroup(
     dest += rowSizes_[idx];
   }
   iobuf->append(totalBytes);
-  return iobuf;
+  buffer_->enqueue(partition, std::move(iobuf));
+  rowIndices.clear();
 }
 
 void MaterializedOutput::flushBatch() {
@@ -441,9 +452,24 @@ void MaterializedOutput::flushBatch() {
       continue;
     }
 
-    auto iobuf = buildRowGroup(rows);
+    std::vector<int32_t> rowGroupRows;
+    rowGroupRows.reserve(rows.size());
+    int64_t rowGroupBytes = serializer::detail::RowGroupHeader::size();
+    for (auto row : rows) {
+      const auto rowBytes =
+          static_cast<int64_t>(sizeof(serializer::TRowSize)) + rowSizes_[row];
+      if (!rowGroupRows.empty() &&
+          rowGroupBytes + rowBytes > rowGroupMaxBytes_) {
+        flushRowGroup(partition, rowGroupRows);
+        rowGroupBytes = serializer::detail::RowGroupHeader::size();
+      }
+      rowGroupRows.push_back(row);
+      rowGroupBytes += rowBytes;
+    }
 
-    buffer_->enqueue(partition, std::move(iobuf));
+    if (!rowGroupRows.empty()) {
+      flushRowGroup(partition, rowGroupRows);
+    }
   }
 
   // Reset accumulated state.

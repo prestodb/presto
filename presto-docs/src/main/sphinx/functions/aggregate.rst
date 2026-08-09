@@ -447,7 +447,7 @@ General Aggregate Functions
         SELECT set_agg(x) FROM (VALUES(ROW(ROW(1, null))), ROW((ROW(2, 'a'))), ROW((ROW(1, null))), (null)) t(x) -- ARRAY[ROW(1, null), ROW(2, 'a'), null]
 
 
-.. function:: set_union(array(T)) -> array(T)
+.. function:: set_union(array[T]) -> array[T]
 
     Returns an array of all the distinct values contained in each array of the input.
 
@@ -581,7 +581,7 @@ Map Aggregate Functions
             ) AS t(maps);
             --{'a'->6,'b'->5,'c'->4,'d'->6}
 
-.. function:: multimap_agg(key, value) -> map(K,array(V))
+.. function:: multimap_agg(key, value) -> map(K,array[V])
 
     Returns a multimap created from the input ``key`` / ``value`` pairs.
     Each key can be associated with multiple values.
@@ -1482,7 +1482,7 @@ That is, for a random variable :math:`x`, they approximate
 
 where :math:`f(x)` is the partial density function of :math:`x`.
 
-.. function:: differential_entropy(sample_size, x)
+.. function:: differential_entropy(sample_size, x) -> double
 
     Returns the approximate log-2 differential entropy from a random variable's sample outcomes. The function internally
     creates a reservoir (see [Black2015]_), then calculates the
@@ -1509,7 +1509,7 @@ where :math:`f(x)` is the partial density function of :math:`x`.
         or ``(bucket_count, x, 1.0, "fixed_histogram_jacknife", min, max)``,
         as they have better convergence.
 
-.. function:: differential_entropy(sample_size, x, weight)
+.. function:: differential_entropy(sample_size, x, weight) -> double
 
     Returns the approximate log-2 differential entropy from a random variable's sample outcomes. The function
     internally creates a weighted reservoir (see [Efraimidis2006]_), then calculates the
@@ -1626,7 +1626,7 @@ Reservoir sample functions use a fixed sample size, as opposed to
 fixed total size while still guaranteeing that each record in dataset has an
 equal probability of being chosen. See [Vitter1985]_.
 
-.. function:: reservoir_sample(initial_sample: array(T), initial_processed_count: bigint, values_to_sample: T, desired_sample_size: int) -> row(processed_count: bigint, sample: array(T))
+.. function:: reservoir_sample(initial_sample: array[T], initial_processed_count: bigint, values_to_sample: T, desired_sample_size: int) -> row(processed_count: bigint, sample: array[T])
 
     Computes a new reservoir sample given:
     

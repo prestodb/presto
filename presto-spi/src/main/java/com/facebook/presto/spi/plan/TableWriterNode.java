@@ -25,6 +25,7 @@ import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.RowChangeParadigm;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -436,16 +437,26 @@ public final class TableWriterNode
     {
         private final TableHandle handle;
         private final SchemaTableName schemaTableName;
+        // The refresh WHERE predicate (empty when there is no WHERE), carried from analysis so it can
+        // be passed to the connector's beginRefreshMaterializedView at execution time. Planning-only;
+        // this WriterTarget is converted to an ExecutionWriterTarget before fragments are serialized.
+        private final Optional<RowExpression> refreshScopePredicate;
 
-        public RefreshMaterializedViewReference(TableHandle handle, SchemaTableName schemaTableName)
+        public RefreshMaterializedViewReference(TableHandle handle, SchemaTableName schemaTableName, Optional<RowExpression> refreshScopePredicate)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.refreshScopePredicate = requireNonNull(refreshScopePredicate, "refreshScopePredicate is null");
         }
 
         public TableHandle getHandle()
         {
             return handle;
+        }
+
+        public Optional<RowExpression> getRefreshScopePredicate()
+        {
+            return refreshScopePredicate;
         }
 
         @Override

@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout presto source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.PRESTODB_CI_TOKEN }}
           show-progress: false
@@ -52,7 +52,7 @@ jobs:
           fi
 
       - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
@@ -190,7 +190,7 @@ jobs:
 
     steps:
       - name: Checkout presto source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-tags: true
           show-progress: false
@@ -198,7 +198,7 @@ jobs:
           persist-credentials: true
 
       - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}

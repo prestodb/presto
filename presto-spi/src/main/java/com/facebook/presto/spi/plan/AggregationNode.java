@@ -53,6 +53,7 @@ public final class AggregationNode
     private final Optional<VariableReferenceExpression> groupIdVariable;
     private final Optional<Integer> aggregationId;
     private final List<VariableReferenceExpression> outputs;
+    private final List<VariableReferenceExpression> aggregationOutputs;
 
     @JsonCreator
     public AggregationNode(
@@ -107,9 +108,11 @@ public final class AggregationNode
         checkArgument(preGroupedVariables.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedVariables), "Pre-grouped variables must be a subset of the grouping keys");
         this.preGroupedVariables = unmodifiableList(new ArrayList<>(preGroupedVariables));
 
+        this.aggregationOutputs = unmodifiableList(new ArrayList<>(this.aggregations.keySet()));
+
         ArrayList<VariableReferenceExpression> keys = new ArrayList<>(groupingSets.getGroupingKeys());
         hashVariable.ifPresent(keys::add);
-        keys.addAll(new ArrayList<>(aggregations.keySet()));
+        keys.addAll(aggregationOutputs);
 
         this.outputs = unmodifiableList(keys);
     }
@@ -181,6 +184,20 @@ public final class AggregationNode
     public Map<VariableReferenceExpression, Aggregation> getAggregations()
     {
         return aggregations;
+    }
+
+    // Serializes the aggregation output variables in deterministic Java-side
+    // (LinkedHashMap) iteration order so native workers (Prestissimo) can build
+    // the AggregationNode output schema in the same order. Without this, the
+    // C++ protocol deserializes `aggregations` into std::map<VRE> (sorted by
+    // name), which can diverge from Java's order and cause type mismatches at
+    // exchange operators (see #27902). Marked READ_ONLY because it is derived
+    // from `aggregations` — the JsonCreator constructor reconstructs the same
+    // order from the LinkedHashMap copy of `aggregations`.
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    public List<VariableReferenceExpression> getAggregationOutputs()
+    {
+        return aggregationOutputs;
     }
 
     @JsonProperty

@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergSplitSource;
+import com.facebook.presto.iceberg.IcebergUtil.RewriteStrategy;
 import com.facebook.presto.iceberg.procedure.splits.RewriteDataFilesIcebergSplitSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableMap;
@@ -33,17 +34,14 @@ public class IcebergRewriteDataFilesProcedureContext
 {
     final Table table;
     final IcebergAbstractMetadata metadata;
+    final RewriteStrategy strategy;
     final Map<String, String> options;
 
-    public IcebergRewriteDataFilesProcedureContext(Table table, IcebergAbstractMetadata metadata)
-    {
-        this(table, metadata, ImmutableMap.of());
-    }
-
-    public IcebergRewriteDataFilesProcedureContext(Table table, IcebergAbstractMetadata metadata, Map<String, String> options)
+    public IcebergRewriteDataFilesProcedureContext(Table table, IcebergAbstractMetadata metadata, RewriteStrategy strategy, Map<String, String> options)
     {
         this.table = requireNonNull(table, "table is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.strategy = requireNonNull(strategy, "strategy is null");
         this.options = ImmutableMap.copyOf(requireNonNull(options, "options is null"));
     }
 
@@ -55,6 +53,11 @@ public class IcebergRewriteDataFilesProcedureContext
     public IcebergAbstractMetadata getMetadata()
     {
         return metadata;
+    }
+
+    public RewriteStrategy getStrategy()
+    {
+        return strategy;
     }
 
     public Map<String, String> getOptions()

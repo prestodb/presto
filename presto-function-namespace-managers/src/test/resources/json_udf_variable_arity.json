@@ -1,0 +1,22 @@
+{
+  "udfSignatureMap": {
+    "format_any": [
+      {
+        "docString": "formats a template with a variable number of arguments of any type",
+        "functionKind": "SCALAR",
+        "outputType": "varchar",
+        "paramTypes": [
+          "varchar",
+          "__ANY__"
+        ],
+        "schema": "test_schema",
+        "variableArity": true,
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      }
+    ]
+  }
+}

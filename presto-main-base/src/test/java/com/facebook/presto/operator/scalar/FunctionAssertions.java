@@ -88,7 +88,6 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
@@ -150,6 +149,7 @@ import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.tr
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.facebook.presto.util.Failures.toFailure;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
@@ -373,7 +373,7 @@ public final class FunctionAssertions
         // we should only have a single result
         assertEquals(resultSet.size(), 1, "Expected only one result unique result, but got " + resultSet);
 
-        return Iterables.getOnlyElement(resultSet);
+        return resultSet.stream().collect(onlyElement());
     }
 
     public void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
@@ -664,7 +664,7 @@ public final class FunctionAssertions
             assertType(result.getTypes(), expectedType);
             assertEquals(result.getTypes().size(), 1);
             assertEquals(result.getMaterializedRows().size(), 1);
-            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
+            Object queryResult = result.getMaterializedRows().stream().collect(onlyElement()).getField(0);
             results.add(queryResult);
         }
 
@@ -693,7 +693,7 @@ public final class FunctionAssertions
             assertType(result.getTypes(), expectedType);
             assertEquals(result.getTypes().size(), 1);
             assertEquals(result.getMaterializedRows().size(), 1);
-            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
+            Object queryResult = result.getMaterializedRows().stream().collect(onlyElement()).getField(0);
             results.add(queryResult);
         }
 
@@ -756,7 +756,7 @@ public final class FunctionAssertions
         // we should only have a single result
         assertEquals(resultSet.size(), 1, "Expected only [" + expected + "] result unique result, but got " + resultSet);
 
-        assertEquals((boolean) Iterables.getOnlyElement(resultSet), expected);
+        assertEquals((boolean) resultSet.stream().collect(onlyElement()), expected);
     }
 
     private List<Boolean> executeFilterWithAll(String filter, Session session, boolean executeWithNoInputColumns, ExpressionCompiler compiler)
@@ -806,7 +806,7 @@ public final class FunctionAssertions
             }
             else {
                 assertEquals(result.getMaterializedRows().size(), 1);
-                queryResult = (Boolean) Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
+                queryResult = (Boolean) result.getMaterializedRows().stream().collect(onlyElement()).getField(0);
             }
             results.add(queryResult);
         }
@@ -1159,18 +1159,18 @@ public final class FunctionAssertions
 
     private static RowType createTestRowType(int numberOfFields)
     {
-        Iterator<Type> types = Iterables.<Type>cycle(
+        List<Type> typeCycle = ImmutableList.of(
                 BIGINT,
                 INTEGER,
                 VARCHAR,
                 DOUBLE,
                 BOOLEAN,
                 VARBINARY,
-                RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR)))).iterator();
+                RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR))));
 
         List<RowType.Field> fields = new ArrayList<>();
         for (int fieldIdx = 0; fieldIdx < numberOfFields; fieldIdx++) {
-            fields.add(new RowType.Field(Optional.of("nested_column_" + fieldIdx), types.next()));
+            fields.add(new RowType.Field(Optional.of("nested_column_" + fieldIdx), typeCycle.get(fieldIdx % typeCycle.size())));
         }
 
         return RowType.from(fields);
@@ -1178,19 +1178,19 @@ public final class FunctionAssertions
 
     private static Block createTestRowData(RowType rowType)
     {
-        Iterator<Object> values = Iterables.cycle(
+        List<Object> valueCycle = ImmutableList.of(
                 1234L,
                 34,
                 "hello",
                 12.34d,
                 true,
                 Slices.wrappedBuffer((byte) 0xab),
-                createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getBlock(0)).iterator();
+                createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getBlock(0));
 
         final int numFields = rowType.getFields().size();
         Object[] rowValues = new Object[numFields];
         for (int fieldIdx = 0; fieldIdx < numFields; fieldIdx++) {
-            rowValues[fieldIdx] = values.next();
+            rowValues[fieldIdx] = valueCycle.get(fieldIdx % valueCycle.size());
         }
 
         return createRowBlock(rowType.getTypeParameters(), rowValues);

@@ -20,9 +20,11 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.security.AccessControl;
@@ -42,6 +44,8 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 import jakarta.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,15 +55,21 @@ import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedVi
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.spi.MaterializedViewDefinition.TableColumn;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardMaterializedViewProperties.isCrossCatalogEnabled;
+import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_COLUMN_WITHOUT_LINEAGE;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_ALREADY_EXISTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CreateMaterializedViewTask
@@ -83,8 +93,17 @@ public class CreateMaterializedViewTask
     public ListenableFuture<?> execute(CreateMaterializedView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
+        MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
 
-        Optional<TableHandle> viewHandle = metadata.getMetadataResolver(session).getTableHandle(viewName);
+        if (!metadataResolver.catalogExists(viewName.getCatalogName())) {
+            throw new SemanticException(MISSING_CATALOG, "Catalog '%s' does not exist", viewName.getCatalogName());
+        }
+
+        if (!metadataResolver.schemaExists(viewName.getCatalogSchemaName())) {
+            throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", viewName.getSchemaName());
+        }
+
+        Optional<TableHandle> viewHandle = metadataResolver.getTableHandle(viewName);
         if (viewHandle.isPresent()) {
             if (!statement.isNotExists()) {
                 throw new SemanticException(MATERIALIZED_VIEW_ALREADY_EXISTS, statement, "Materialized view '%s' already exists", viewName);
@@ -125,22 +144,45 @@ public class CreateMaterializedViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser, Optional.of(parameters));
 
-        List<SchemaTableName> baseTables = analysis.getTableNodes().stream()
-                .map(table -> {
-                    QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
-                    if (!viewName.getCatalogName().equals(tableName.getCatalogName())) {
-                        throw new SemanticException(
-                                NOT_SUPPORTED,
-                                statement,
-                                "Materialized view %s created from a base table in a different catalog %s is not supported.",
-                                viewName, tableName);
-                    }
+        List<String> baseTableCatalogsList = new ArrayList<>();
+        Map<String, QualifiedObjectName> uniqueTables = new LinkedHashMap<>();
+        analysis.getTableNodes().forEach(table -> {
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
+            if (!viewName.getCatalogName().equals(tableName.getCatalogName())) {
+                if (isLegacyMaterializedViews(session)) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            statement,
+                            "Cross-catalog materialized views require legacy_materialized_views=false.");
+                }
+                if (!isCrossCatalogEnabled(properties)) {
+                    throw new SemanticException(NOT_SUPPORTED,
+                            format("Cross-catalog materialized views are not enabled. " +
+                                            "Materialized view %s cannot be created from a base table %s in a different catalog %s.",
+                                    viewName, tableName, tableName.getCatalogName()));
+                }
+            }
+            String key = String.format("%s.%s.%s", tableName.getCatalogName(), tableName.getSchemaName(), tableName.getObjectName());
+            uniqueTables.putIfAbsent(key, tableName);
+        });
+        List<SchemaTableName> baseTables = uniqueTables.values().stream()
+                .map(tableName -> {
+                    baseTableCatalogsList.add(tableName.getCatalogName());
                     return toSchemaTableName(tableName);
                 })
-                .distinct()
                 .collect(toImmutableList());
 
         MaterializedViewColumnMappingExtractor extractor = new MaterializedViewColumnMappingExtractor(analysis, session, metadata);
+        Map<String, Map<SchemaTableName, String>> columnMappings = extractor.getMaterializedViewColumnMappings();
+        Map<String, List<TableColumn>> derivedColumnMappings = extractor.getMaterializedViewDerivedColumnMappings();
+
+        // Mapped and derived columns are disjoint subsets of the output columns, so any surplus
+        // output column has no base-table lineage.
+        if (columnMetadata.size() > columnMappings.size() + derivedColumnMappings.size()) {
+            warningCollector.add(new PrestoWarning(
+                    MATERIALIZED_VIEW_COLUMN_WITHOUT_LINEAGE,
+                    format("Materialized view %s has columns with no base-table lineage", viewName)));
+        }
 
         if (isLegacyMaterializedViews(session) && statement.getSecurity().isPresent()) {
             throw new SemanticException(
@@ -164,10 +206,12 @@ public class CreateMaterializedViewTask
                 viewName.getSchemaName(),
                 viewName.getObjectName(),
                 baseTables,
+                Optional.of(baseTableCatalogsList),
                 owner,
                 securityMode,
-                extractor.getMaterializedViewColumnMappings(),
+                columnMappings,
                 extractor.getMaterializedViewDirectColumnMappings(),
+                derivedColumnMappings,
                 extractor.getBaseTablesOnOuterJoinSide(),
                 Optional.empty());
         try {

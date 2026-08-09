@@ -867,6 +867,9 @@ public class TestNativeSidecarPlugin
                         "MAP(ARRAY[5, 7], ARRAY[2, 2]), " +
                         "MAP(), " +
                         "MAP(ARRAY[12, 72], ARRAY[4, 12])");
+
+        // Verify UNKNOWN type expressions produce a structured error instead of crashing the sidecar.
+        assertQueryFails(session, "SELECT array_except(ARRAY[], ARRAY[])", ".*Errors encountered while optimizing expressions\\..*", true);
     }
 
     @Test

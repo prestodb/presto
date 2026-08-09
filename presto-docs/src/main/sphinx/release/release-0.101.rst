@@ -24,7 +24,7 @@ General Changes
   (``errorCode`` previously existed but was always zero).
 * Fix ``DatabaseMetaData.getIdentifierQuoteString()`` in JDBC driver.
 * Handle thread interruption in JDBC driver ``ResultSet``.
-* Add ``history`` command and support for running previous commands via ``!n`` to the CLI.
+* Add ``history`` command and support for running previous commands with ``!n`` to the CLI.
 * Change Driver to make as much progress as possible before blocking.  This improves
   responsiveness of some limit queries.
 * Add predicate push down support to JMX connector.
@@ -39,7 +39,7 @@ Web UI Changes
 --------------
 
 The main page of the web UI has been completely rewritten to use ReactJS. It also has
-a number of new features, such as the ability to pause auto-refresh via the "Z" key and
+a number of new features, such as the ability to pause auto-refresh by using the "Z" key and
 also with a toggle in the UI.
 
 Hive Changes

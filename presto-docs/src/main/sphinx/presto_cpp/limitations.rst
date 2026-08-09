@@ -180,7 +180,7 @@ The ``spatial_partitions`` scalar function is not supported in Presto C++.
 This function was an internal utility for spatial join optimization and was never
 fully documented or publicly supported. It worked with the ``spatial_partitioning``
 aggregate function (see `Aggregate Functions`_) by consuming a KD-tree representation
-loaded via a session property. The query optimizer would automatically use this
+loaded by using a session property. The query optimizer would automatically use this
 function to partition data for spatial joins.
 
 Due to its internal nature, lack of documentation, limited usage, and incompatibility

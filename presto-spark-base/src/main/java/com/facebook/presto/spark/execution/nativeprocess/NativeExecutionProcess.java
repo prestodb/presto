@@ -18,6 +18,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
@@ -132,6 +133,10 @@ public class NativeExecutionProcess
         if (nativeTempStorageHandle.isPresent()) {
             workerProperty.updateTempStorageConfig(nativeTempStorageHandle.get());
         }
+
+        workerProperty.getSystemConfig()
+                .update(NativeExecutionSystemConfig.EXCHANGE_MATERIALIZATION_ENABLED,
+                        String.valueOf(SystemSessionProperties.isNativeExchangeMaterializationEnabled(session)));
     }
 
     protected SparkConf getSparkConf()

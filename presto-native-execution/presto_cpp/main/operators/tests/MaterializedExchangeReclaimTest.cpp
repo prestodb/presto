@@ -26,6 +26,7 @@ namespace facebook::presto::operators::test {
 
 using Reclaimer = MaterializedOutputBuffer::Reclaimer;
 
+constexpr int64_t kKB = 1L << 10;
 constexpr int64_t kMB = 1L << 20;
 
 namespace {
@@ -85,7 +86,7 @@ TEST_F(ReclaimerTest, emptyPoolReturnsImmediately) {
   EXPECT_EQ(reclaimer.reclaim(buffer.pool(), 10 * kMB, 5000, stats), 0);
 }
 
-TEST_F(ReclaimerTest, reclaimableReportsPoolUsage) {
+TEST_F(ReclaimerTest, reclaimableReportsBufferedBytes) {
   NoOpShuffleFactory factory;
   MaterializedOutputBuffer buffer(
       /*numPartitions=*/1,
@@ -95,16 +96,19 @@ TEST_F(ReclaimerTest, reclaimableReportsPoolUsage) {
       rootPool_.get());
   Reclaimer reclaimer(&buffer);
 
-  void* allocation = buffer.pool()->allocate(10 * kMB);
+  // Enqueue data above reclaimDrainThreshold (87KB) but below drainThreshold
+  // (130KB) so it stays buffered and is reported as reclaimable.
+  auto iobuf = buffer.allocateTrackedIOBuf(100 * kKB);
+  iobuf->append(100 * kKB);
+  buffer.enqueue(0, std::move(iobuf));
 
+  EXPECT_GT(buffer.bufferedBytes(), 0);
   uint64_t reclaimableBytes = 0;
   EXPECT_TRUE(reclaimer.reclaimableBytes(*buffer.pool(), reclaimableBytes));
-  EXPECT_EQ(reclaimableBytes, 10 * kMB);
-
-  buffer.pool()->free(allocation, 10 * kMB);
+  EXPECT_GT(reclaimableBytes, 0);
 }
 
-TEST_F(ReclaimerTest, fullDrainFromBackgroundThread) {
+TEST_F(ReclaimerTest, reclaimFlushesBufferedData) {
   NoOpShuffleFactory factory;
   MaterializedOutputBuffer buffer(
       /*numPartitions=*/1,
@@ -114,22 +118,20 @@ TEST_F(ReclaimerTest, fullDrainFromBackgroundThread) {
       rootPool_.get());
   Reclaimer reclaimer(&buffer);
 
-  void* allocation = buffer.pool()->allocate(10 * kMB);
+  // Enqueue data above reclaimDrainThreshold so reclaim flushes it.
+  auto iobuf = buffer.allocateTrackedIOBuf(100 * kKB);
+  iobuf->append(100 * kKB);
+  buffer.enqueue(0, std::move(iobuf));
 
-  std::thread drainer([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    buffer.pool()->free(allocation, 10 * kMB);
-  });
+  auto prevUsed = buffer.pool()->usedBytes();
+  EXPECT_GT(prevUsed, 0);
 
   memory::MemoryReclaimer::Stats stats;
-  auto freedBytes = reclaimer.reclaim(buffer.pool(), 10 * kMB, 5000, stats);
-  drainer.join();
-
-  EXPECT_EQ(freedBytes, 10 * kMB);
-  EXPECT_EQ(buffer.pool()->usedBytes(), 0);
+  auto freedBytes = reclaimer.reclaim(buffer.pool(), 100 * kKB, 5000, stats);
+  EXPECT_GT(freedBytes, 0);
 }
 
-TEST_F(ReclaimerTest, partialDrainBeforeTimeout) {
+TEST_F(ReclaimerTest, reclaimReturnsImmediatelyWhenNothingBuffered) {
   NoOpShuffleFactory factory;
   MaterializedOutputBuffer buffer(
       /*numPartitions=*/1,
@@ -139,153 +141,15 @@ TEST_F(ReclaimerTest, partialDrainBeforeTimeout) {
       rootPool_.get());
   Reclaimer reclaimer(&buffer);
 
-  void* allocation1 = buffer.pool()->allocate(5 * kMB);
-  void* allocation2 = buffer.pool()->allocate(5 * kMB);
-
-  std::thread drainer([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(30));
-    buffer.pool()->free(allocation1, 5 * kMB);
-  });
-
-  memory::MemoryReclaimer::Stats stats;
-  auto freedBytes = reclaimer.reclaim(buffer.pool(), 10 * kMB, 200, stats);
-  drainer.join();
-
-  EXPECT_EQ(freedBytes, 5 * kMB);
-  EXPECT_EQ(buffer.pool()->usedBytes(), 5 * kMB);
-
-  buffer.pool()->free(allocation2, 5 * kMB);
-}
-
-TEST_F(ReclaimerTest, timeoutReturnsZeroWhenNothingDrains) {
-  NoOpShuffleFactory factory;
-  MaterializedOutputBuffer buffer(
-      /*numPartitions=*/1,
-      /*shuffleWriterInfo=*/"",
-      &factory,
-      "test.0.0.0.0",
-      rootPool_.get());
-  Reclaimer reclaimer(&buffer);
-
+  // Allocate directly from the pool (not via enqueue). The reclaimer cannot
+  // free this because it only knows about partition buffers.
   void* allocation = buffer.pool()->allocate(10 * kMB);
 
   memory::MemoryReclaimer::Stats stats;
   auto freedBytes = reclaimer.reclaim(buffer.pool(), 10 * kMB, 100, stats);
-
-  EXPECT_EQ(freedBytes, 0);
-  EXPECT_EQ(buffer.pool()->usedBytes(), 10 * kMB);
-
-  buffer.pool()->free(allocation, 10 * kMB);
-}
-
-TEST_F(ReclaimerTest, zeroWaitReturnsImmediately) {
-  NoOpShuffleFactory factory;
-  MaterializedOutputBuffer buffer(
-      /*numPartitions=*/1,
-      /*shuffleWriterInfo=*/"",
-      &factory,
-      "test.0.0.0.0",
-      rootPool_.get());
-  Reclaimer reclaimer(&buffer);
-
-  void* allocation = buffer.pool()->allocate(10 * kMB);
-
-  memory::MemoryReclaimer::Stats stats;
-  auto freedBytes = reclaimer.reclaim(buffer.pool(), 10 * kMB, 0, stats);
-
   EXPECT_EQ(freedBytes, 0);
 
   buffer.pool()->free(allocation, 10 * kMB);
-}
-
-TEST_F(ReclaimerTest, targetLargerThanUsage) {
-  NoOpShuffleFactory factory;
-  MaterializedOutputBuffer buffer(
-      /*numPartitions=*/1,
-      /*shuffleWriterInfo=*/"",
-      &factory,
-      "test.0.0.0.0",
-      rootPool_.get());
-  Reclaimer reclaimer(&buffer);
-
-  void* allocation = buffer.pool()->allocate(5 * kMB);
-
-  std::thread drainer([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(30));
-    buffer.pool()->free(allocation, 5 * kMB);
-  });
-
-  memory::MemoryReclaimer::Stats stats;
-  auto freedBytes = reclaimer.reclaim(buffer.pool(), 100 * kMB, 5000, stats);
-  drainer.join();
-
-  EXPECT_EQ(freedBytes, 5 * kMB);
-  EXPECT_EQ(buffer.pool()->usedBytes(), 0);
-}
-
-TEST_F(ReclaimerTest, incrementalDrain) {
-  NoOpShuffleFactory factory;
-  MaterializedOutputBuffer buffer(
-      /*numPartitions=*/1,
-      /*shuffleWriterInfo=*/"",
-      &factory,
-      "test.0.0.0.0",
-      rootPool_.get());
-  Reclaimer reclaimer(&buffer);
-
-  void* allocation1 = buffer.pool()->allocate(3 * kMB);
-  void* allocation2 = buffer.pool()->allocate(3 * kMB);
-  void* allocation3 = buffer.pool()->allocate(4 * kMB);
-
-  std::thread drainer([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    buffer.pool()->free(allocation1, 3 * kMB);
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    buffer.pool()->free(allocation2, 3 * kMB);
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    buffer.pool()->free(allocation3, 4 * kMB);
-  });
-
-  memory::MemoryReclaimer::Stats stats;
-  auto freedBytes = reclaimer.reclaim(buffer.pool(), 10 * kMB, 5000, stats);
-  drainer.join();
-
-  EXPECT_EQ(freedBytes, 10 * kMB);
-  EXPECT_EQ(buffer.pool()->usedBytes(), 0);
-}
-
-TEST_F(ReclaimerTest, consecutiveReclaims) {
-  NoOpShuffleFactory factory;
-  MaterializedOutputBuffer buffer(
-      /*numPartitions=*/1,
-      /*shuffleWriterInfo=*/"",
-      &factory,
-      "test.0.0.0.0",
-      rootPool_.get());
-  Reclaimer reclaimer(&buffer);
-
-  void* allocation1 = buffer.pool()->allocate(5 * kMB);
-
-  std::thread drainer1([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(30));
-    buffer.pool()->free(allocation1, 5 * kMB);
-  });
-
-  memory::MemoryReclaimer::Stats stats;
-  auto freedBytes1 = reclaimer.reclaim(buffer.pool(), 5 * kMB, 5000, stats);
-  drainer1.join();
-  EXPECT_EQ(freedBytes1, 5 * kMB);
-
-  void* allocation2 = buffer.pool()->allocate(8 * kMB);
-
-  std::thread drainer2([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(30));
-    buffer.pool()->free(allocation2, 8 * kMB);
-  });
-
-  auto freedBytes2 = reclaimer.reclaim(buffer.pool(), 8 * kMB, 5000, stats);
-  drainer2.join();
-  EXPECT_EQ(freedBytes2, 8 * kMB);
 }
 
 TEST_F(ReclaimerTest, reclaimSkippedAfterClose) {
@@ -327,6 +191,25 @@ TEST_F(ReclaimerTest, reclaimBlockedWhenAborted) {
 
   memory::MemoryReclaimer::Stats stats;
   auto freedBytes = reclaimer.reclaim(buffer.pool(), 10 * kMB, 100, stats);
+  EXPECT_EQ(freedBytes, 0);
+
+  buffer.pool()->free(allocation, 10 * kMB);
+}
+
+TEST_F(ReclaimerTest, zeroWaitReturnsImmediately) {
+  NoOpShuffleFactory factory;
+  MaterializedOutputBuffer buffer(
+      /*numPartitions=*/1,
+      /*shuffleWriterInfo=*/"",
+      &factory,
+      "test.0.0.0.0",
+      rootPool_.get());
+  Reclaimer reclaimer(&buffer);
+
+  void* allocation = buffer.pool()->allocate(10 * kMB);
+
+  memory::MemoryReclaimer::Stats stats;
+  auto freedBytes = reclaimer.reclaim(buffer.pool(), 10 * kMB, 0, stats);
   EXPECT_EQ(freedBytes, 0);
 
   buffer.pool()->free(allocation, 10 * kMB);

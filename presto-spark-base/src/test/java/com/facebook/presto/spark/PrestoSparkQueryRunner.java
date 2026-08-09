@@ -305,6 +305,27 @@ public class PrestoSparkQueryRunner
             ImmutableList<Module> additionalModules,
             int availableCpuCount)
     {
+        this(
+                defaultCatalog,
+                additionalConfigProperties,
+                hiveProperties,
+                additionalSparkProperties,
+                dataDirectory,
+                additionalModules,
+                availableCpuCount,
+                ImmutableMap.of());
+    }
+
+    public PrestoSparkQueryRunner(
+            String defaultCatalog,
+            Map<String, String> additionalConfigProperties,
+            Map<String, String> hiveProperties,
+            Map<String, String> additionalSparkProperties,
+            Optional<Path> dataDirectory,
+            ImmutableList<Module> additionalModules,
+            int availableCpuCount,
+            Map<String, String> defaultSessionProperties)
+    {
         setupLogging();
 
         ImmutableMap.Builder<String, String> configProperties = ImmutableMap.builder();
@@ -334,7 +355,7 @@ public class PrestoSparkQueryRunner
 
         Injector injector = injectorFactory.create(new PrestoSparkBootstrapTimer(systemTicker(), false));
 
-        defaultSession = testSessionBuilder(injector.getInstance(SessionPropertyManager.class))
+        Session.SessionBuilder sessionBuilder = testSessionBuilder(injector.getInstance(SessionPropertyManager.class))
                 .setCatalog(defaultCatalog)
                 .setSchema("tpch")
                 // Sql-Standard Access Control Checker
@@ -348,8 +369,9 @@ public class PrestoSparkQueryRunner
                                 ImmutableMap.of(),
                                 ImmutableMap.of(),
                                 Optional.empty(),
-                                Optional.empty()))
-                .build();
+                                Optional.empty()));
+        defaultSessionProperties.forEach(sessionBuilder::setSystemProperty);
+        defaultSession = sessionBuilder.build();
 
         transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
@@ -551,6 +573,7 @@ public class PrestoSparkQueryRunner
     @Override
     public MaterializedResult execute(Session session, String sql)
     {
+        lock.readLock().lock();
         try {
             return executeWithStrategies(session, sql, getExecutionStrategies(session));
         }
@@ -560,6 +583,9 @@ public class PrestoSparkQueryRunner
             }
 
             throw failure;
+        }
+        finally {
+            lock.readLock().unlock();
         }
     }
 

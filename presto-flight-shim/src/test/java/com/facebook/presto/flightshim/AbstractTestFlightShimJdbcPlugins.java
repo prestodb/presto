@@ -17,7 +17,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
-import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
@@ -25,6 +24,7 @@ import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTransactionHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.function.table.Descriptor;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -137,10 +137,10 @@ public abstract class AbstractTestFlightShimJdbcPlugins
         String split = createJdbcSplit(getConnectorId(), "tpch", TPCH_TABLE);
         byte[] splitBytes = split.getBytes(StandardCharsets.UTF_8);
 
-        ImmutableList.Builder<RowType.Field> fieldBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Descriptor.Field> fieldBuilder = ImmutableList.builder();
         ImmutableList.Builder<byte[]> columnBuilder = ImmutableList.builder();
         for (TpchColumnHandle columnHandle : columnHandles) {
-            fieldBuilder.add(new RowType.Field(Optional.of(columnHandle.getColumnName()), columnHandle.getType()));
+            fieldBuilder.add(new Descriptor.Field(Optional.of(columnHandle.getColumnName()), Optional.of(columnHandle.getType())));
             columnBuilder.add(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(convertToJdbcColumnHandle(columnHandle)));
         }
 
@@ -156,11 +156,11 @@ public abstract class AbstractTestFlightShimJdbcPlugins
         JdbcColumnHandle orderKeyHandle = convertToJdbcColumnHandle(getOrderKeyColumn());
         byte[] splitBytes = Files.readAllBytes(getResourceFile("split_tuple_domain.json").toPath());
 
-        ImmutableList.Builder<RowType.Field> fieldBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Descriptor.Field> fieldBuilder = ImmutableList.builder();
         List<JdbcColumnHandle> columnHandles = ImmutableList.of(orderKeyHandle);
         ImmutableList.Builder<byte[]> columnBuilder = ImmutableList.builder();
         for (JdbcColumnHandle columnHandle : columnHandles) {
-            fieldBuilder.add(new RowType.Field(Optional.of(columnHandle.getColumnName()), columnHandle.getColumnType()));
+            fieldBuilder.add(new Descriptor.Field(Optional.of(columnHandle.getColumnName()), Optional.of(columnHandle.getColumnType())));
             columnBuilder.add(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(columnHandle));
         }
 
@@ -185,11 +185,11 @@ public abstract class AbstractTestFlightShimJdbcPlugins
         JdbcColumnHandle orderKeyHandle = convertToJdbcColumnHandle(getOrderKeyColumn());
         byte[] splitBytes = Files.readAllBytes(getResourceFile("split_additional_predicate.json").toPath());
 
-        ImmutableList.Builder<RowType.Field> fieldBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Descriptor.Field> fieldBuilder = ImmutableList.builder();
         List<JdbcColumnHandle> columnHandles = ImmutableList.of(orderKeyHandle);
         ImmutableList.Builder<byte[]> columnBuilder = ImmutableList.builder();
         for (JdbcColumnHandle columnHandle : columnHandles) {
-            fieldBuilder.add(new RowType.Field(Optional.of(columnHandle.getColumnName()), columnHandle.getColumnType()));
+            fieldBuilder.add(new Descriptor.Field(Optional.of(columnHandle.getColumnName()), Optional.of(columnHandle.getColumnType())));
             columnBuilder.add(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(columnHandle));
         }
 

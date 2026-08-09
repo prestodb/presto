@@ -333,10 +333,12 @@ public class TestSimplifyPlanWithEmptyInput
         // This SQL forces a Project (cast + constant column) over an empty source,
         // and we verify the entire chain collapses to the expected plan rather
         // than leaving a dangling Project + LocalExchange + emptyValues.
+        // The collapsed empty Values emits its columns in [t, k] order; the OutputNode remaps
+        // them back to the [k, t] result order, so the query output is unchanged.
         assertPlan(
                 "SELECT CAST(orderkey AS varchar) AS k, 'tag' AS t " +
                         "FROM (SELECT orderkey FROM orders WHERE false)",
                 enableOptimization(),
-                output(ImmutableList.of("k", "t"), values("k", "t")));
+                output(ImmutableList.of("k", "t"), values("t", "k")));
     }
 }

@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -40,7 +42,14 @@ public class TestGlueHiveMetastoreConfig
                 .setGetPartitionThreads(50)
                 .setIamRole(null)
                 .setAwsAccessKey(null)
-                .setAwsSecretKey(null));
+                .setAwsSecretKey(null)
+                .setColumnStatisticsEnabled(false)
+                .setReadStatisticsThreads(10)
+                .setWriteStatisticsThreads(10)
+                .setMaxUnprocessedKeysRetries(3)
+                .setUnprocessedKeysRetryMinDelay(new Duration(100, TimeUnit.MILLISECONDS))
+                .setUnprocessedKeysRetryMaxDelay(new Duration(5, TimeUnit.SECONDS))
+                .setFailOnMissingPartitionInStatisticsUpdate(true));
     }
 
     @Test
@@ -60,6 +69,13 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.iam-role", "role")
                 .put("hive.metastore.glue.aws-access-key", "ABC")
                 .put("hive.metastore.glue.aws-secret-key", "DEF")
+                .put("hive.metastore.glue.read-statistics-threads", "42")
+                .put("hive.metastore.glue.write-statistics-threads", "43")
+                .put("hive.metastore.glue.column-statistics-enabled", "true")
+                .put("hive.metastore.glue.max-unprocessed-keys-retries", "5")
+                .put("hive.metastore.glue.unprocessed-keys-retry-min-delay", "50ms")
+                .put("hive.metastore.glue.unprocessed-keys-retry-max-delay", "10s")
+                .put("hive.metastore.glue.fail-on-missing-partition-in-statistics-update", "false")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -75,7 +91,14 @@ public class TestGlueHiveMetastoreConfig
                 .setGetPartitionThreads(42)
                 .setIamRole("role")
                 .setAwsAccessKey("ABC")
-                .setAwsSecretKey("DEF");
+                .setAwsSecretKey("DEF")
+                .setReadStatisticsThreads(42)
+                .setWriteStatisticsThreads(43)
+                .setColumnStatisticsEnabled(true)
+                .setMaxUnprocessedKeysRetries(5)
+                .setUnprocessedKeysRetryMinDelay(new Duration(50, TimeUnit.MILLISECONDS))
+                .setUnprocessedKeysRetryMaxDelay(new Duration(10, TimeUnit.SECONDS))
+                .setFailOnMissingPartitionInStatisticsUpdate(false);
 
         assertFullMapping(properties, expected);
     }

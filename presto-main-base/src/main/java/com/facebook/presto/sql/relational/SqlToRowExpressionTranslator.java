@@ -94,6 +94,7 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
@@ -551,14 +552,51 @@ public final class SqlToRowExpressionTranslator
                     .map(TypeSignatureProvider::new)
                     .collect(toImmutableList());
 
-            return call(node.getName().toString(),
-                    functionAndTypeResolver.resolveFunction(
-                            Optional.of(sessionFunctions),
-                            transactionId,
-                            functionAndTypeResolver.qualifyObjectName(node.getName()),
-                            argumentTypes),
-                    getType(node),
-                    arguments);
+            FunctionHandle functionHandle = functionAndTypeResolver.resolveFunction(
+                    Optional.of(sessionFunctions),
+                    transactionId,
+                    functionAndTypeResolver.qualifyObjectName(node.getName()),
+                    argumentTypes);
+
+            OptionalInt varArgPosStart = functionAndTypeResolver.getFunctionMetadata(functionHandle).getVarArgPosStart();
+            if (varArgPosStart.isPresent()) {
+                return foldAnyVariadicTailToJson(node, arguments, varArgPosStart.getAsInt());
+            }
+
+            return call(node.getName().toString(), functionHandle, getType(node), arguments);
+        }
+
+        // A call to a variable-arity "__ANY__" function: pack the trailing (any-typed) arguments into a
+        // single JSON value -- CAST(ROW(tail...) AS JSON) -- and dispatch to the concrete (head..., json)
+        // overload, so the RowExpression layer only ever sees a fixed-arity, executable call.
+        private RowExpression foldAnyVariadicTailToJson(FunctionCall node, List<RowExpression> arguments, int varArgPosStart)
+        {
+            List<RowExpression> tail = arguments.subList(varArgPosStart, arguments.size());
+            RowExpression tailRow = specialForm(
+                    ROW_CONSTRUCTOR,
+                    RowType.anonymous(tail.stream().map(RowExpression::getType).collect(toImmutableList())),
+                    tail);
+            RowExpression tailJson = call(
+                    CAST.name(),
+                    functionAndTypeResolver.lookupCast("CAST", tailRow.getType(), JSON),
+                    JSON,
+                    tailRow);
+
+            List<RowExpression> foldedArguments = ImmutableList.<RowExpression>builder()
+                    .addAll(arguments.subList(0, varArgPosStart))
+                    .add(tailJson)
+                    .build();
+            List<TypeSignatureProvider> foldedArgumentTypes = foldedArguments.stream()
+                    .map(RowExpression::getType)
+                    .map(Type::getTypeSignature)
+                    .map(TypeSignatureProvider::new)
+                    .collect(toImmutableList());
+            FunctionHandle concreteFunctionHandle = functionAndTypeResolver.resolveFunction(
+                    Optional.of(sessionFunctions),
+                    transactionId,
+                    functionAndTypeResolver.qualifyObjectName(node.getName()),
+                    foldedArgumentTypes);
+            return call(node.getName().toString(), concreteFunctionHandle, getType(node), foldedArguments);
         }
 
         @Override
@@ -1136,6 +1174,18 @@ public final class SqlToRowExpressionTranslator
             }
 
             throw new UnsupportedOperationException("not yet implemented: " + node.getField());
+        }
+
+        @Override
+        protected RowExpression visitTrim(Trim node, Context context)
+        {
+            String functionName = node.getSpecification().getFunctionName();
+            RowExpression trimSource = process(node.getTrimSource(), context);
+            if (node.getTrimCharacter().isPresent()) {
+                RowExpression trimChar = process(node.getTrimCharacter().get(), context);
+                return call(functionAndTypeResolver, functionName, getType(node), trimSource, trimChar);
+            }
+            return call(functionAndTypeResolver, functionName, getType(node), trimSource);
         }
 
         @Override

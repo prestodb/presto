@@ -704,6 +704,17 @@ class SystemConfig : public ConfigBase {
       kExchangeMaterializationReclaimDrainThresholdRatio{
           "exchange.materialization.reclaim-drain-threshold-ratio"};
 
+  /// Wait for the writer to drain after flushing partition buffers during
+  /// reclaim. Default: false.
+  static constexpr std::string_view
+      kExchangeMaterializationReclaimWaitForWriterDrainEnabled{
+          "exchange.materialization.reclaim-wait-for-writer-drain-enabled"};
+
+  /// Use high reclaim priority (-1) for the output buffer pool.
+  /// Default: false (uses default priority 0).
+  static constexpr std::string_view kExchangeMaterializationReclaimHighPriority{
+      "exchange.materialization.reclaim-high-priority"};
+
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatsFilter{
@@ -1173,6 +1184,10 @@ class SystemConfig : public ConfigBase {
 
   double exchangeMaterializationReclaimDrainThresholdRatio() const;
 
+  bool exchangeMaterializationReclaimWaitForWriterDrainEnabled() const;
+
+  bool exchangeMaterializationReclaimHighPriority() const;
+
   bool enableSerializedPageChecksum() const;
 
   bool enableVeloxTaskLogging() const;
@@ -1378,5 +1393,12 @@ class NodeConfig : public ConfigBase {
 
   std::string nodeLocation() const;
 };
+
+/// Applies gflag.* properties from a config map to gflags.
+/// Strips the "gflag." prefix and converts hyphens to underscores to derive
+/// the flag name. Uses SET_FLAG_IF_DEFAULT so command-line flags take
+/// precedence.
+void applyGFlags(
+    const std::unordered_map<std::string, std::string>& configs) noexcept;
 
 } // namespace facebook::presto

@@ -200,6 +200,8 @@ import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.optimizations.DefaultRpcExecutionPolicy;
+import com.facebook.presto.sql.planner.optimizations.RpcExecutionPolicy;
 import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
@@ -485,6 +487,10 @@ public class PrestoSparkModule
                 .annotatedWith(Names.named("rpcFunctionNames"))
                 .toInstance(ImmutableSet::of);
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
+        // PlanOptimizers injects an RpcExecutionPolicy. Presto-on-Spark has no RPC functions
+        // (empty rpcFunctionNames above), so bind the no-op OSS default; AUTOMATIC resolves to
+        // PER_ROW and the policy is never consulted here.
+        newOptionalBinder(binder, RpcExecutionPolicy.class).setDefault().to(DefaultRpcExecutionPolicy.class).in(Scopes.SINGLETON);
         binder.bind(AdaptivePlanOptimizers.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPlanOptimizerManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);

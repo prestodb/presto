@@ -21,7 +21,6 @@ import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -30,6 +29,7 @@ import java.util.Map;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -61,7 +61,7 @@ public class TestUnion
                 .findAll();
 
         assertEquals(remotes.size(), 1, "There should be exactly one RemoteExchange");
-        assertEquals(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType(), GATHER);
+        assertEquals(((ExchangeNode) remotes.stream().collect(onlyElement())).getType(), GATHER);
         assertPlanIsFullyDistributed(plan);
     }
 
@@ -83,7 +83,7 @@ public class TestUnion
                 .findAll();
 
         assertEquals(remotes.size(), 1, "There should be exactly one RemoteExchange");
-        assertEquals(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType(), GATHER);
+        assertEquals(((ExchangeNode) remotes.stream().collect(onlyElement())).getType(), GATHER);
 
         int numberOfPartialTopN = searchFrom(plan.getRoot())
                 .where(planNode -> planNode instanceof TopNNode && ((TopNNode) planNode).getStep().equals(TopNNode.Step.PARTIAL))

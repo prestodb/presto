@@ -28,7 +28,6 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
-import com.google.common.collect.Iterables;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +38,7 @@ import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.relational.ProjectNodeUtils.isIdentity;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -141,7 +141,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
             return Optional.empty();
         }
 
-        RowExpression semiJoinOutputReference = Iterables.getOnlyElement(semiJoinOutputReferences);
+        RowExpression semiJoinOutputReference = semiJoinOutputReferences.stream().collect(onlyElement());
         RowExpression remainingPredicate = logicalRowExpressions.combineConjuncts(conjuncts.stream()
                 .filter(conjunct -> conjunct != semiJoinOutputReference)
                 .collect(toImmutableList()));

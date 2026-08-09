@@ -1086,18 +1086,6 @@ public final class GeoFunctions
     }
 
     @SqlNullable
-    @Description("Returns TRUE if the given geometries represent the same geometry")
-    @ScalarFunction("ST_Equals")
-    @SqlType(BOOLEAN)
-    public static Boolean stEquals(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
-    {
-        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.Equals(rightGeometry);
-    }
-
-    @SqlNullable
     @Description("Returns TRUE if the Geometries spatially intersect in 2D - (share any portion of space) and FALSE if they don't (they are Disjoint)")
     @ScalarFunction("ST_Intersects")
     @SqlType(BOOLEAN)
@@ -1303,7 +1291,7 @@ public final class GeoFunctions
         }
     }
 
-    private static void verifySameSpatialReference(OGCGeometry leftGeometry, OGCGeometry rightGeometry)
+    static void verifySameSpatialReference(OGCGeometry leftGeometry, OGCGeometry rightGeometry)
     {
         checkArgument(Objects.equals(leftGeometry.getEsriSpatialReference(), rightGeometry.getEsriSpatialReference()), "Input geometries must have the same spatial reference");
     }
@@ -1452,5 +1440,44 @@ public final class GeoFunctions
             delta >>= 5;
         }
         stringBuilder.append(Character.toChars((int) (delta + 0x3f)));
+    }
+
+    @ScalarFunction("ST_Equals")
+    @Description("Returns TRUE if the given geometries represent the same geometry")
+    public static final class LegacyStEquals
+    {
+        private LegacyStEquals() {}
+
+        @SqlNullable
+        @SqlType(BOOLEAN)
+        public static Boolean stEquals(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+        {
+            OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+            OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
+            verifySameSpatialReference(leftGeometry, rightGeometry);
+            return leftGeometry.Equals(rightGeometry);
+        }
+    }
+
+    @ScalarFunction("ST_Equals")
+    @Description("Returns TRUE if the given geometries represent the same geometry or both are empty")
+    public static final class StEquals
+    {
+        private StEquals() {}
+
+        @SqlNullable
+        @SqlType(BOOLEAN)
+        public static Boolean stEquals(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+        {
+            OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+            OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
+            verifySameSpatialReference(leftGeometry, rightGeometry);
+
+            if (leftGeometry.isEmpty() && rightGeometry.isEmpty()) {
+                return true;
+            }
+
+            return leftGeometry.Equals(rightGeometry);
+        }
     }
 }

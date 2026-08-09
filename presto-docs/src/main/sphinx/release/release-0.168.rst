@@ -20,11 +20,11 @@ General Changes
 * Add :doc:`/connector/memory`.
 * Add :func:`!arrays_overlap` and :func:`!array_except` functions.
 * Allow concatenating more than two arrays with ``concat()`` or maps with :func:`!map_concat`.
-* Add a time limit for the iterative optimizer. It can be adjusted via the ``iterative_optimizer_timeout``
+* Add a time limit for the iterative optimizer. It can be adjusted with the ``iterative_optimizer_timeout``
   session property or ``experimental.iterative-optimizer-timeout`` configuration option.
 * ``ROW`` types are now orderable if all of the field types are orderable.
   This allows using them in comparison expressions, ``ORDER BY`` and
-  functions that require orderable types (e.g., :func:`!max`).
+  functions that require orderable types (for example, :func:`!max`).
 
 JDBC Driver Changes
 -------------------

@@ -55,7 +55,16 @@ public final class TableHandle
             ConnectorTransactionHandle transaction,
             ConnectorTableLayoutHandle connectorTableLayout)
     {
-        this(connectorId, connectorHandle, transaction, Optional.of(connectorTableLayout), Optional.empty());
+        // [ICEBERG-FIX] Use Optional.ofNullable instead of Optional.of:
+        // The Thrift wire form encodes an absent layout as null. WRITE-side code
+        // paths that do not go through SELECT (e.g. beginMerge(), beginUpdate(),
+        // beginInsert() for native UPDATE/MERGE) produce a TableHandle with no
+        // ConnectorTableLayoutHandle. Drift's auto-generated TableHandleCodec
+        // reads the layout field, gets null, and calls this @ThriftConstructor;
+        // Optional.of(null) then NPEs and bubbles up as
+        // "Can not deserialize instance from bytes" inside ThriftCodecWrapper.
+        // ofNullable correctly maps null → Optional.empty.
+        this(connectorId, connectorHandle, transaction, Optional.ofNullable(connectorTableLayout), Optional.empty());
     }
 
     public TableHandle(

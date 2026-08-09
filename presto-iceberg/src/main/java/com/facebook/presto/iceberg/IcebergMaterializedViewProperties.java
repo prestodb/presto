@@ -36,9 +36,11 @@ import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIA
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_STALE_READ_BEHAVIOR;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME;
+import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_USE_TIMESTAMP_BASED_STALENESS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.durationProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static java.lang.String.format;
@@ -58,6 +60,7 @@ public class IcebergMaterializedViewProperties
     public static final String STALE_READ_BEHAVIOR = "stale_read_behavior";
     public static final String STALENESS_WINDOW = "staleness_window";
     public static final String REFRESH_TYPE = "refresh_type";
+    public static final String USE_TIMESTAMP_BASED_STALENESS = "use_timestamp_based_staleness";
     public static final String MAX_SNAPSHOTS_PER_REFRESH = "max_snapshots_per_refresh";
 
     private static final List<MaterializedViewProperty> MV_ONLY_PROPERTIES = ImmutableList.of(
@@ -107,6 +110,13 @@ public class IcebergMaterializedViewProperties
                             value -> value == null ? null : ((MaterializedViewRefreshType) value).name()),
                     PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE,
                     value -> ((MaterializedViewRefreshType) value).name()),
+            creationOnly(
+                    booleanProperty(
+                            USE_TIMESTAMP_BASED_STALENESS,
+                            "Use timestamp-based staleness evaluation instead of snapshot-based",
+                            null,
+                            false),
+                    PRESTO_MATERIALIZED_VIEW_USE_TIMESTAMP_BASED_STALENESS),
             updatable(
                     new PropertyMetadata<>(
                             MAX_SNAPSHOTS_PER_REFRESH,
@@ -234,6 +244,11 @@ public class IcebergMaterializedViewProperties
     public static Optional<MaterializedViewRefreshType> getRefreshType(Map<String, Object> properties)
     {
         return Optional.ofNullable((MaterializedViewRefreshType) properties.get(REFRESH_TYPE));
+    }
+
+    public static Optional<Boolean> getUseTimestampBasedStaleness(Map<String, Object> properties)
+    {
+        return Optional.ofNullable((Boolean) properties.get(USE_TIMESTAMP_BASED_STALENESS));
     }
 
     public static OptionalInt getMaxSnapshotsPerRefresh(Map<String, Object> properties)

@@ -1015,6 +1015,13 @@ public class BuiltInTypeAndFunctionNamespaceManager
             builder.scalar(LegacyLogFunction.class);
         }
 
+        if (functionsConfig.isLegacyStEquals()) {
+            builder.scalar(GeoFunctions.LegacyStEquals.class);
+        }
+        else {
+            builder.scalar(GeoFunctions.StEquals.class);
+        }
+
         // Replace some aggregations for Velox to override intermediate aggregation type.
         if (functionsConfig.isUseAlternativeFunctionSignatures()) {
             builder.override(ARBITRARY_AGGREGATION, ALTERNATIVE_ARBITRARY_AGGREGATION);

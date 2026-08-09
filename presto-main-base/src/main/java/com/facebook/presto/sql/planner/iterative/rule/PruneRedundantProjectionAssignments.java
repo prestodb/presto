@@ -31,7 +31,6 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.getFirst;
 
 public class PruneRedundantProjectionAssignments
         implements Rule<ProjectNode>
@@ -59,7 +58,7 @@ public class PruneRedundantProjectionAssignments
         projections.get(true).forEach(entry -> childAssignments.put(entry.getKey(), entry.getValue()));
         projections.get(true).forEach(entry -> parentAssignments.put(entry.getKey(), entry.getKey()));
         for (Map.Entry<RowExpression, ImmutableMap<VariableReferenceExpression, RowExpression>> entry : uniqueProjections.entrySet()) {
-            VariableReferenceExpression variable = getFirst(entry.getValue().keySet(), null);
+            VariableReferenceExpression variable = entry.getValue().keySet().stream().findFirst().orElse(null);
             checkState(variable != null, "variable should not be null");
             childAssignments.put(variable, entry.getKey());
             entry.getValue().keySet().forEach(v -> parentAssignments.put(v, variable));

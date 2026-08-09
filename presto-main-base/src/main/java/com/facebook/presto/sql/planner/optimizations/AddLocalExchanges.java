@@ -27,6 +27,7 @@ import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -57,7 +58,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -122,7 +122,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -275,7 +275,7 @@ public class AddLocalExchanges
                                     new SortNode(
                                             sortNode.getSourceLocation(),
                                             sortNode.getId(),
-                                            getOnlyElement(sortNode.getSources()),
+                                            sortNode.getSources().stream().collect(onlyElement()),
                                             sortNode.getOrderingScheme(),
                                             true,
                                             sortNode.getPartitionBy()),
@@ -890,10 +890,20 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitRPC(RPCNode node, StreamPreferredProperties parentPreferences)
         {
-            // RPCNode benefits from multiple drivers for concurrent RPC dispatch.
-            // For constant-only queries (1 row, no table source), the C++
-            // RPCPlanNodeTranslator::maxDrivers() forces single-driver to avoid
-            // ROUND_ROBIN distribution issues.
+            // BATCH accumulates rows into one large request sized to the backend's
+            // batch limits. Fanning the input round-robin across N drivers would
+            // produce N under-filled batches (and, for the synthetic single-row
+            // constant-args case, leave drivers empty), so require a single
+            // stream: a local GATHER runs the RPC stage single-driver while
+            // upstream scan/filter still run in parallel. The gather is a pipeline breaker, so single-driver no
+            // longer collapses the whole fused pipeline. Concurrency in BATCH
+            // comes from multiple in-flight async batches (congestion window +
+            // per-tier rate limiter), not from driver count.
+            if (node.getStreamingMode() == RPCNode.StreamingMode.BATCH) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+            }
+            // PER_ROW dispatches one RPC per row and benefits from multiple
+            // drivers for concurrent dispatch.
             return planAndEnforceChildren(node, parentPreferences.withDefaultParallelism(session), parentPreferences.withDefaultParallelism(session));
         }
 

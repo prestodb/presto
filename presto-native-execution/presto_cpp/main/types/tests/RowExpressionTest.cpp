@@ -1262,6 +1262,52 @@ TEST_F(RowExpressionTest, likeWithEscape) {
   ASSERT_EQ(callExpr->toString(), "presto.default.like(\"type\",%BRASS,#)");
 }
 
+TEST_F(RowExpressionTest, likeMaterializedPattern) {
+  // When a constant LIKE pattern is materialized into a projection column (e.g.
+  // an RPC function result feeding LIKE), the second argument arrives as a
+  // LikePattern-typed variable rather than an inline cast(... as LikePattern).
+  // This previously failed conversion; it must now resolve to a plain
+  // like(input, patternColumn) with the LikePattern column typed as varchar.
+  std::string str = R"##(
+      {
+         "@type" : "call",
+            "displayName" : "LIKE",
+            "functionHandle" : {
+              "@type" : "$static",
+              "signature" : {
+                "name" : "presto.default.like",
+                "kind" : "SCALAR",
+                "typeVariableConstraints" : [ ],
+                "longVariableConstraints" : [ ],
+                "returnType" : "boolean",
+                "argumentTypes" : [ "varchar", "LikePattern" ],
+                "variableArity" : false
+              },
+              "builtInFunctionKind": "ENGINE"
+            },
+            "returnType" : "boolean",
+            "arguments" : [ {
+              "@type" : "variable",
+              "name" : "type",
+              "type" : "varchar(25)"
+            }, {
+              "@type" : "variable",
+              "name" : "pattern",
+              "type" : "LikePattern"
+            } ]
+      }
+    )##";
+
+  json j = json::parse(str);
+  std::shared_ptr<protocol::RowExpression> p = j;
+
+  auto expr = converter_->toVeloxExpr(p);
+
+  auto callExpr = std::dynamic_pointer_cast<const CallTypedExpr>(expr);
+  ASSERT_NE(callExpr, nullptr);
+  ASSERT_EQ(callExpr->toString(), "presto.default.like(\"type\",\"pattern\")");
+}
+
 TEST_F(RowExpressionTest, dereference) {
   std::string str = R"##(
     {

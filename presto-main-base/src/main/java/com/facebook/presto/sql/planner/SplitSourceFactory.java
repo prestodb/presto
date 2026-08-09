@@ -17,10 +17,14 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayoutResult;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -52,7 +56,6 @@ import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSourceProvider;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -74,13 +77,14 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class SplitSourceFactory
@@ -253,12 +257,38 @@ public class SplitSourceFactory
                     : ImmutableMap.of();
 
             // Use LazySplitSource to defer the potentially expensive MetaStore
-            // call (split enumeration) until splits are actually needed,
-            // consistent with visitTableScan(). The table layout is guaranteed
-            // to be resolved by the connector's plan optimizer
-            // (ApplyConnectorOptimization).
+            // call (split enumeration and layout resolution) until splits are
+            // actually needed, consistent with visitTableScan().
             SplitSource splitSource = new LazySplitSource(
-                    () -> splitSourceProvider.getSplits(session, table, strategy, warningCollector, partitionColumnMapping));
+                    () -> {
+                        // The index source's table handle frequently arrives
+                        // without a resolved layout (IndexJoinOptimizer passes
+                        // the bare TableScan handle, and the connector plan
+                        // optimizer does not always fold the static partition
+                        // predicate into it). When that happens,
+                        // SplitManager.getSplits falls back to
+                        // Constraint.alwaysTrue() and enumerates ALL
+                        // partitions, ignoring static partition predicates.
+                        // Resolve a pruned layout from the node's
+                        // currentConstraint so partition predicates prune the
+                        // index side.
+                        TableHandle resolvedTable = table;
+                        if (!resolvedTable.getLayout().isPresent()
+                                && !node.getCurrentConstraint().isAll()) {
+                            TableLayoutResult layoutResult = metadata.getLayout(
+                                    session,
+                                    resolvedTable,
+                                    new Constraint<ColumnHandle>(node.getCurrentConstraint()),
+                                    Optional.empty());
+                            resolvedTable = layoutResult.getLayout().getNewTableHandle();
+                        }
+                        return splitSourceProvider.getSplits(
+                                session,
+                                resolvedTable,
+                                strategy,
+                                warningCollector,
+                                partitionColumnMapping);
+                    });
             splitSources.add(splitSource);
 
             return ImmutableMap.of(node.getId(), splitSource);
@@ -294,7 +324,7 @@ public class SplitSourceFactory
                     Map<PlanNodeId, SplitSource> nodeSplits = node.getSource().accept(this, context);
                     // TODO: when this happens we should switch to either BERNOULLI or page sampling
                     if (nodeSplits.size() == 1) {
-                        PlanNodeId planNodeId = getOnlyElement(nodeSplits.keySet());
+                        PlanNodeId planNodeId = nodeSplits.keySet().stream().collect(onlyElement());
                         SplitSource sampledSplitSource = new SampledSplitSource(nodeSplits.get(planNodeId), node.getSampleRatio());
                         return ImmutableMap.of(planNodeId, sampledSplitSource);
                     }

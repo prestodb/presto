@@ -43,6 +43,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -141,6 +142,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_COMMENT;
@@ -239,6 +241,7 @@ public final class IcebergUtil
     public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
     public static final int MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS = 2;
     public static final int MIN_FORMAT_VERSION_FOR_ROW_LINEAGE = 3;
+    public static final int MAX_FORMAT_VERSION_FOR_METADATA_TABLES = 3;
     public static final int MAX_SUPPORTED_FORMAT_VERSION = 3;
 
     public static final long DOUBLE_POSITIVE_ZERO = 0x0000000000000000L;
@@ -254,6 +257,12 @@ public final class IcebergUtil
     protected static final String VIEW_OWNER = "view_owner";
 
     public static final int DEFAULT_MIN_INPUT_FILES = 5;
+
+    public enum RewriteStrategy
+    {
+        SORT,
+        BINPACK
+    }
 
     private static final Schema LINEAGE_ONLY_SCHEMA = new Schema(LAST_UPDATED_SEQUENCE_NUMBER);
     private static final InclusiveMetricsEvaluator MATCH_ALL_LINEAGE_EVALUATOR =
@@ -340,6 +349,16 @@ public final class IcebergUtil
         if (formatVersion < minVersion) {
             throw new PrestoException(NOT_SUPPORTED, errorMessage);
         }
+    }
+
+    public static ColumnMetadata buildColumnMetadata(IcebergColumnHandle column)
+    {
+        return ColumnMetadata.builder()
+                .setName(column.getName())
+                .setType(column.getType())
+                .setComment(column.getComment().orElse(null))
+                .setHidden(column.getColumnType() == SYNTHESIZED)
+                .build();
     }
 
     public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(IcebergTableHandle tableHandle, Table table, TypeManager typeManager)
@@ -496,7 +515,64 @@ public final class IcebergUtil
             return HiveType.HIVE_LONG;
         }
 
-        return HiveType.toHiveType(HiveSchemaUtil.convert(icebergType));
+        return HiveType.valueOf(sanitizeTypeString(icebergType));
+    }
+
+    /**
+     * Converts Iceberg type to Hive type string with sanitized field names.
+     * Hive's TypeInfoParser doesn't support special characters like hyphens in field names,
+     * so we replace them with underscores to make the type string parseable.
+     */
+    private static String sanitizeTypeString(org.apache.iceberg.types.Type icebergType)
+    {
+        if (icebergType.isPrimitiveType()) {
+            return HiveSchemaUtil.convert(icebergType).getTypeName();
+        }
+
+        if (icebergType.isStructType()) {
+            org.apache.iceberg.types.Types.StructType structType = icebergType.asStructType();
+            List<String> fieldStrings = structType.fields().stream()
+                    .map(field -> sanitizeFieldName(field.name()) + ":" + sanitizeTypeString(field.type()))
+                    .collect(toImmutableList());
+            return "struct<" + String.join(",", fieldStrings) + ">";
+        }
+
+        if (icebergType.isListType()) {
+            org.apache.iceberg.types.Types.ListType listType = icebergType.asListType();
+            return "array<" + sanitizeTypeString(listType.elementType()) + ">";
+        }
+
+        if (icebergType.isMapType()) {
+            org.apache.iceberg.types.Types.MapType mapType = icebergType.asMapType();
+            return "map<" + sanitizeTypeString(mapType.keyType()) + "," +
+                    sanitizeTypeString(mapType.valueType()) + ">";
+        }
+
+        // Fallback to default conversion for any other types
+        return HiveSchemaUtil.convert(icebergType).getTypeName();
+    }
+
+    /**
+     * Sanitizes field names for Hive Metastore type string storage.
+     * Hive's TypeInfoParser rejects special characters like '-' in struct field names.
+     * We replace them with '_' to make the type string parseable by HMS.
+     *
+     * Note: This sanitization is ONLY for HMS type string storage. The actual
+     * Iceberg schema (stored in Iceberg metadata JSON) preserves the original
+     * field names. The Parquet files use makeCompatibleName encoding (e.g. aws_x2Dregion).
+     * This method is intentionally different from makeCompatibleName — HMS just needs
+     * a valid parseable type string, not the exact encoded name.
+     *
+     * Note: Simple underscore replacement could cause name collisions
+     * (e.g. "aws-region" and "aws_region" both become "aws_region") but this
+     * is acceptable since HMS type string is not used for query execution in
+     * the Iceberg connector. Query execution uses the Iceberg metadata JSON
+     * which preserves original field names, and Parquet reading uses makeCompatibleName
+     * encoding to match the hex-encoded names in the files.
+     */
+    private static String sanitizeFieldName(String fieldName)
+    {
+        return fieldName.replaceAll("[^a-zA-Z0-9_]", "_");
     }
 
     public static FileFormat getFileFormat(Table table)
@@ -677,14 +753,13 @@ public final class IcebergUtil
     }
 
     protected static NullableValue parsePartitionValue(
-            FileFormat fileFormat,
             String partitionStringValue,
             Type prestoType,
             String partitionName)
     {
         verifyPartitionTypeSupported(partitionName, prestoType);
 
-        Object partitionValue = deserializePartitionValue(prestoType, partitionStringValue, partitionName);
+        Object partitionValue = deserializeIcebergValue(prestoType, partitionStringValue, partitionName);
         return partitionValue == null ? NullableValue.asNull(prestoType) : NullableValue.of(prestoType, partitionValue);
     }
 
@@ -816,7 +891,7 @@ public final class IcebergUtil
         return new Schema(Types.StructType.of(icebergColumns).asStructType().fields());
     }
 
-    public static Object deserializePartitionValue(Type type, String valueString, String name)
+    public static Object deserializeIcebergValue(Type type, String valueString, String name)
     {
         if (valueString == null) {
             return null;
@@ -968,7 +1043,11 @@ public final class IcebergUtil
             Object value = partition.get(index, javaClass);
 
             if (value == null) {
-                partitionKeys.put(field.fieldId(), new HivePartitionKey(colName, Optional.empty()));
+                HivePartitionKey partitionValue = new HivePartitionKey(colName, Optional.empty());
+                partitionKeys.put(field.fieldId(), partitionValue);
+                if (field.transform().isIdentity()) {
+                    partitionKeys.put(sourceId, partitionValue);
+                }
             }
             else {
                 HivePartitionKey partitionValue;
@@ -1319,6 +1398,9 @@ public final class IcebergUtil
                 }
                 propertiesBuilder.put(ORC_COMPRESSION, compressionCodec.getOrcCompressionKind().name());
                 break;
+            case NIMBLE:
+                // Nimble handles compression internally; no table property needed.
+                break;
         }
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
@@ -1513,6 +1595,23 @@ public final class IcebergUtil
         return Long.parseLong(table.properties()
                 .getOrDefault(SPLIT_SIZE,
                         String.valueOf(SPLIT_SIZE_DEFAULT)));
+    }
+
+    /**
+     * Checks if throwable or any cause is an Avro exception (manifest version incompatibility).
+     */
+    public static boolean isAvroException(Throwable t)
+    {
+        if (t == null) {
+            return false;
+        }
+        // Check if this exception is from Avro package
+        Package exceptionPackage = t.getClass().getPackage();
+        if (exceptionPackage != null && exceptionPackage.getName().startsWith("org.apache.avro")) {
+            return true;
+        }
+        // Recursively check the full cause chain
+        return t != t.getCause() && isAvroException(t.getCause());
     }
 
     public static DataSize getTargetSplitSize(long sessionValueProperty, long icebergScanTargetSplitSize)

@@ -31,6 +31,7 @@ import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATIS
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MIN_OUTPUT_BUFFER_CHUNK_SIZE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_RESET_OUTPUT_BUFFER;
+import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_VERIFY_COMPRESSION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -54,6 +55,7 @@ public class ColumnWriterOptions
     private final int maxFlattenedMapKeyCount;
     private final boolean resetOutputBuffer;
     private final boolean lazyOutputBuffer;
+    private final boolean verifyCompression;
 
     public ColumnWriterOptions(
             CompressionKind compressionKind,
@@ -72,7 +74,8 @@ public class ColumnWriterOptions
             boolean mapStatisticsEnabled,
             int maxFlattenedMapKeyCount,
             boolean resetOutputBuffer,
-            boolean lazyOutputBuffer)
+            boolean lazyOutputBuffer,
+            boolean verifyCompression)
     {
         checkArgument(maxFlattenedMapKeyCount > 0, "maxFlattenedMapKeyCount must be positive: %s", maxFlattenedMapKeyCount);
         requireNonNull(compressionMaxBufferSize, "compressionMaxBufferSize is null");
@@ -94,6 +97,7 @@ public class ColumnWriterOptions
         this.maxFlattenedMapKeyCount = maxFlattenedMapKeyCount;
         this.resetOutputBuffer = resetOutputBuffer;
         this.lazyOutputBuffer = lazyOutputBuffer;
+        this.verifyCompression = verifyCompression;
     }
 
     public CompressionKind getCompressionKind()
@@ -180,6 +184,12 @@ public class ColumnWriterOptions
     {
         return lazyOutputBuffer;
     }
+
+    public boolean isVerifyCompression()
+    {
+        return verifyCompression;
+    }
+
     /**
      * Create a copy of this ColumnWriterOptions, but disable string and integer dictionary encodings.
      */
@@ -210,7 +220,8 @@ public class ColumnWriterOptions
                 .setMapStatisticsEnabled(isMapStatisticsEnabled())
                 .setMaxFlattenedMapKeyCount(getMaxFlattenedMapKeyCount())
                 .setResetOutputBuffer(resetOutputBuffer)
-                .setLazyOutputBuffer(lazyOutputBuffer);
+                .setLazyOutputBuffer(lazyOutputBuffer)
+                .setVerifyCompression(verifyCompression);
     }
 
     public static Builder builder()
@@ -237,6 +248,7 @@ public class ColumnWriterOptions
         private int maxFlattenedMapKeyCount = DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT;
         private boolean resetOutputBuffer = DEFAULT_RESET_OUTPUT_BUFFER;
         private boolean lazyOutputBuffer = DEFAULT_LAZY_OUTPUT_BUFFER;
+        private boolean verifyCompression = DEFAULT_VERIFY_COMPRESSION;
 
         private Builder() {}
 
@@ -342,6 +354,12 @@ public class ColumnWriterOptions
             return this;
         }
 
+        public Builder setVerifyCompression(boolean verifyCompression)
+        {
+            this.verifyCompression = verifyCompression;
+            return this;
+        }
+
         public ColumnWriterOptions build()
         {
             return new ColumnWriterOptions(
@@ -361,7 +379,8 @@ public class ColumnWriterOptions
                     mapStatisticsEnabled,
                     maxFlattenedMapKeyCount,
                     resetOutputBuffer,
-                    lazyOutputBuffer);
+                    lazyOutputBuffer,
+                    verifyCompression);
         }
     }
 }

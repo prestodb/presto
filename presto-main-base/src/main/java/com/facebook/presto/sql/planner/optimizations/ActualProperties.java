@@ -48,7 +48,7 @@ import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.tr
 import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateToCoalesce;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -91,7 +91,7 @@ public class ActualProperties
                 .build();
 
         List<LocalProperty<VariableReferenceExpression>> updatedLocalProperties = LocalProperties.normalizeAndPrune(ImmutableList.<LocalProperty<VariableReferenceExpression>>builder()
-                .addAll(transform(updatedLocalConstants, ConstantProperty::new))
+                .addAll(updatedLocalConstants.stream().map(ConstantProperty::new).collect(toImmutableList()))
                 .addAll(localProperties)
                 .build());
 

@@ -25,6 +25,7 @@ import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.UniqueProperty;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -61,7 +62,6 @@ import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -85,7 +85,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
@@ -115,6 +114,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toMap;
 
@@ -160,7 +160,7 @@ public class PropertyDerivations
         if (properties.getLocalProperties().isEmpty()) {
             return Optional.empty();
         }
-        LocalProperty<VariableReferenceExpression> localProperty = Iterables.getOnlyElement(properties.getLocalProperties());
+        LocalProperty<VariableReferenceExpression> localProperty = properties.getLocalProperties().stream().collect(onlyElement());
         if (localProperty instanceof UniqueProperty) {
             return Optional.of(ActualProperties.builderFrom(properties).local(ImmutableList.of(new GroupingProperty<>(ImmutableList.of(((UniqueProperty<VariableReferenceExpression>) localProperty).getColumn())))).build());
         }
@@ -197,20 +197,20 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitOutput(OutputNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties)
+            return inputProperties.stream().collect(onlyElement())
                     .translateVariable(column -> PropertyDerivations.filterIfMissing(node.getOutputVariables(), column));
         }
 
         @Override
         public ActualProperties visitEnforceSingleRow(EnforceSingleRowNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
         public ActualProperties visitAssignUniqueId(AssignUniqueId node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
             ImmutableList.Builder<LocalProperty<VariableReferenceExpression>> newLocalProperties = ImmutableList.builder();
             newLocalProperties.addAll(properties.getLocalProperties());
@@ -248,13 +248,13 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitMarkDistinct(MarkDistinctNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
         public ActualProperties visitWindow(WindowNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
             // If the input is completely pre-partitioned and sorted, then the original input properties will be respected
             Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
@@ -304,7 +304,7 @@ public class PropertyDerivations
             ImmutableList.Builder<LocalProperty<VariableReferenceExpression>> localProperties = ImmutableList.builder();
 
             if (node.getSource().isPresent()) {
-                ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+                ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
                 // Only the partitioning properties of the source are passed-through, because the pass-through mechanism preserves the partitioning values.
                 // Sorting properties might be broken because input rows can be shuffled or nulls can be inserted as the result of pass-through.
@@ -354,7 +354,7 @@ public class PropertyDerivations
                 inputToOutputMappings.putIfAbsent(argument, argument);
             }
 
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = inputProperties.stream().collect(onlyElement());
             return ActualProperties.builderFrom(properties.translateVariable(column -> Optional.ofNullable(inputToOutputMappings.get(column))))
                     .propertiesFromUniqueColumn(properties.getPropertiesFromUniqueColumn().flatMap(x -> uniqueToGroupProperties(x.translateVariable(column -> Optional.ofNullable(inputToOutputMappings.get(column))))))
                     .build();
@@ -363,7 +363,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitAggregation(AggregationNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
             ActualProperties translated = properties.translateVariable(variable -> node.getGroupingKeys().contains(variable) ? Optional.of(variable) : Optional.empty());
             return ActualProperties.builderFrom(translated)
@@ -374,7 +374,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitRowNumber(RowNumberNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         private static Optional<ActualProperties> uniqueProperties(Optional<ActualProperties> properties)
@@ -388,7 +388,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitTopNRowNumber(TopNRowNumberNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
             ImmutableList.Builder<LocalProperty<VariableReferenceExpression>> localProperties = ImmutableList.builder();
             localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
@@ -405,7 +405,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitTopN(TopNNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
             List<SortingProperty<VariableReferenceExpression>> localProperties = node.getOrderingScheme().getOrderByVariables().stream()
                     .map(column -> new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)))
@@ -420,7 +420,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitSort(SortNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
             List<SortingProperty<VariableReferenceExpression>> localProperties = node.getOrderingScheme().getOrderByVariables().stream()
                     .map(column -> new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)))
@@ -435,13 +435,13 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitLimit(LimitNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
         public ActualProperties visitDistinctLimit(DistinctLimitNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
             return ActualProperties.builderFrom(properties)
                     .local(LocalProperties.grouped(node.getDistinctVariables()))
@@ -469,13 +469,13 @@ public class PropertyDerivations
         public ActualProperties visitDelete(DeleteNode node, List<ActualProperties> inputProperties)
         {
             // drop all symbols in property because delete doesn't pass on any of the columns
-            return Iterables.getOnlyElement(inputProperties).translateVariable(symbol -> Optional.empty());
+            return inputProperties.stream().collect(onlyElement()).translateVariable(symbol -> Optional.empty());
         }
 
         @Override
         public ActualProperties visitUpdate(UpdateNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties).translateVariable(symbol -> Optional.empty());
+            return inputProperties.stream().collect(onlyElement()).translateVariable(symbol -> Optional.empty());
         }
 
         @Override
@@ -487,7 +487,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitMergeProcessor(MergeProcessorNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties).translateVariable(symbol -> Optional.empty());
+            return inputProperties.stream().collect(onlyElement()).translateVariable(symbol -> Optional.empty());
         }
 
         @Override
@@ -796,7 +796,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitFilter(FilterNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
             Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>(properties.getConstants());
             TupleDomain<VariableReferenceExpression> tupleDomain = new RowExpressionDomainTranslator(metadata).fromPredicate(session.toConnectorSession(), node.getPredicate(), BASIC_COLUMN_EXTRACTOR).getTupleDomain();
@@ -812,7 +812,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitProject(ProjectNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
             ActualProperties translatedProperties = properties.translateRowExpression(node.getAssignments().getMap());
 
@@ -871,7 +871,7 @@ public class PropertyDerivations
 
         private ActualProperties visitPartitionedWriter(List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
             if (properties.isCoordinatorOnly()) {
                 return ActualProperties.builder()
@@ -886,7 +886,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitCallDistributedProcedure(CallDistributedProcedureNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
             if (properties.isCoordinatorOnly()) {
                 return ActualProperties.builder()
@@ -901,13 +901,13 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitTableWriteMerge(TableWriterMergeNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
         public ActualProperties visitSample(SampleNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
@@ -915,7 +915,7 @@ public class PropertyDerivations
         {
             Set<VariableReferenceExpression> passThroughInputs = ImmutableSet.copyOf(node.getReplicateVariables());
 
-            return Iterables.getOnlyElement(inputProperties).translateVariable(column -> {
+            return inputProperties.stream().collect(onlyElement()).translateVariable(column -> {
                 if (passThroughInputs.contains(column)) {
                     return Optional.of(column);
                 }

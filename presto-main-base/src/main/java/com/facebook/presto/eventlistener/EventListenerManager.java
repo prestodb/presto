@@ -29,6 +29,9 @@ import com.google.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public class EventListenerManager
 {
     private static final Logger log = Logger.get(EventListenerManager.class);
-    private static final File EVENT_LISTENER_CONFIGURATION = new File("etc/event-listener.properties");
+    private static final Path EVENT_LISTENER_CONFIGURATION = Paths.get("etc/event-listener.properties");
     private static final String EVENT_LISTENER_PROPERTY_NAME = "event-listener.name";
     private final List<File> configFiles;
     private final Map<String, EventListenerFactory> eventListenerFactories = new ConcurrentHashMap<>();
@@ -74,10 +77,10 @@ public class EventListenerManager
         checkState(loading.compareAndSet(false, true), "Event listeners already loaded");
         List<File> configFiles = this.configFiles;
         if (configFiles.isEmpty()) {
-            if (!EVENT_LISTENER_CONFIGURATION.exists()) {
+            if (!Files.exists(EVENT_LISTENER_CONFIGURATION)) {
                 return;
             }
-            configFiles = ImmutableList.of(EVENT_LISTENER_CONFIGURATION);
+            configFiles = ImmutableList.of(EVENT_LISTENER_CONFIGURATION.toFile());
         }
         configFiles.forEach(this::createEventListener);
     }

@@ -221,7 +221,6 @@ public class RowType
         private final Optional<String> name;
         private final boolean delimited;
 
-        @JsonCreator
         public Field(@JsonProperty("name") Optional<String> name, @JsonProperty("type") Type type)
         {
             this(name, type, false);

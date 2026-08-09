@@ -3,13 +3,13 @@ System Connector
 ================
 
 The System connector provides information and metrics about the currently
-running Presto cluster. It makes this available via normal SQL queries.
+running Presto cluster. It makes this available through normal SQL queries.
 
 Configuration
 -------------
 
 The System connector doesn't need to be configured: it is automatically
-available via a catalog named ``system``.
+available through a catalog named ``system``.
 
 Using the System Connector
 --------------------------

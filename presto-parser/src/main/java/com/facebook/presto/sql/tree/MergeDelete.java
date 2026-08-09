@@ -16,24 +16,37 @@ package com.facebook.presto.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class MergeDelete
         extends MergeCase
 {
     public MergeDelete()
     {
-        this(Optional.empty());
+        this(Optional.empty(), Optional.empty());
     }
 
     public MergeDelete(NodeLocation location)
     {
-        this(Optional.of(location));
+        this(Optional.of(location), Optional.empty());
     }
 
     public MergeDelete(Optional<NodeLocation> location)
     {
-        super(location);
+        this(location, Optional.empty());
+    }
+
+    public MergeDelete(NodeLocation location, Optional<Expression> condition)
+    {
+        this(Optional.of(location), condition);
+    }
+
+    public MergeDelete(Optional<NodeLocation> location, Optional<Expression> condition)
+    {
+        super(location, condition);
     }
 
     @Override
@@ -57,13 +70,15 @@ public class MergeDelete
     @Override
     public List<? extends Node> getChildren()
     {
-        return ImmutableList.of();
+        ImmutableList.Builder<Node> builder = ImmutableList.builder();
+        getCondition().ifPresent(builder::add);
+        return builder.build();
     }
 
     @Override
     public int hashCode()
     {
-        return MergeDelete.class.hashCode();
+        return Objects.hash(MergeDelete.class, getCondition());
     }
 
     @Override
@@ -72,12 +87,19 @@ public class MergeDelete
         if (this == obj) {
             return true;
         }
-        return obj != null && getClass() == obj.getClass();
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        MergeDelete o = (MergeDelete) obj;
+        return Objects.equals(getCondition(), o.getCondition());
     }
 
     @Override
     public String toString()
     {
-        return "MergeDelete{}";
+        return toStringHelper(this)
+                .add("condition", getCondition().orElse(null))
+                .omitNullValues()
+                .toString();
     }
 }

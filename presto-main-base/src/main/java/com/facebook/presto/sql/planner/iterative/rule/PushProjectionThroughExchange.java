@@ -20,6 +20,7 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isPullConstantProjectionAboveExchange;
 import static com.facebook.presto.SystemSessionProperties.isSkipPushdownThroughExchangeForRemoteProjection;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
@@ -82,6 +84,14 @@ public class PushProjectionThroughExchange
     {
         ExchangeNode exchange = captures.get(CHILD);
         if (isSkipPushdownThroughExchangeForRemoteProjection(context.getSession()) && project.getLocality().equals(ProjectNode.Locality.REMOTE)) {
+            return Result.empty();
+        }
+
+        // When pulling constant projections above exchanges is enabled, do not push a projection
+        // that consists solely of symbol references and constants back below the exchange. This
+        // prevents ping-ponging with PullConstantProjectionAboveExchange. Gated on the session
+        // property so the default plan is unchanged when the feature is disabled.
+        if (isPullConstantProjectionAboveExchange(context.getSession()) && isSymbolOrConstantProjection(project)) {
             return Result.empty();
         }
 
@@ -173,6 +183,12 @@ public class PushProjectionThroughExchange
     private static boolean isSymbolToSymbolProjection(ProjectNode project)
     {
         return project.getAssignments().getExpressions().stream().allMatch(e -> e instanceof VariableReferenceExpression);
+    }
+
+    private static boolean isSymbolOrConstantProjection(ProjectNode project)
+    {
+        return project.getAssignments().getExpressions().stream().allMatch(
+                e -> e instanceof VariableReferenceExpression || e instanceof ConstantExpression);
     }
 
     private static Map<VariableReferenceExpression, VariableReferenceExpression> extractExchangeOutputToInput(ExchangeNode exchange, int sourceIndex)

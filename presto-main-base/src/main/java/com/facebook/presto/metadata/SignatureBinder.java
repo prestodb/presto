@@ -75,6 +75,12 @@ public class SignatureBinder
     // 4 is chosen arbitrarily here. This limit is set to avoid having infinite loops in iterative solving.
     private static final int SOLVE_ITERATION_LIMIT = 4;
 
+    // Prefix for the synthetic, per-position type variables that an "any" variadic tail
+    // (StandardTypes.ANY as the last formal of a variable-arity signature) expands into. Each
+    // trailing argument binds an independent, unconstrained variable, so a mixed-type tail such
+    // as (varchar, double, varchar) binds without unifying to a common supertype.
+    private static final String ANY_VARARG_VARIABLE_PREFIX = "$any$";
+
     private final FunctionAndTypeManager functionAndTypeManager;
     private final Signature declaredSignature;
     private final boolean allowCoercion;
@@ -318,13 +324,19 @@ public class SignatureBinder
         }
 
         if (formalTypeSignature.getParameters().isEmpty()) {
-            TypeVariableConstraint typeVariableConstraint = typeVariableConstraints.get(formalTypeSignature.getBase());
+            String base = formalTypeSignature.getBase();
+            TypeVariableConstraint typeVariableConstraint = typeVariableConstraints.get(base);
+            if (typeVariableConstraint == null && isAnyVarargVariable(base)) {
+                // synthetic per-position variable produced by an "any" variadic tail: unconstrained,
+                // so it binds to whatever concrete type appears at this position.
+                typeVariableConstraint = new TypeVariableConstraint(base, false, false, null, false);
+            }
             if (typeVariableConstraint == null) {
                 return true;
             }
             Type actualType = functionAndTypeManager.getType(actualTypeSignatureProvider.getTypeSignature());
             resultBuilder.add(new TypeParameterSolver(
-                    formalTypeSignature.getBase(),
+                    base,
                     actualType,
                     typeVariableConstraint));
             return true;
@@ -365,9 +377,19 @@ public class SignatureBinder
         return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP);
     }
 
+    private static boolean isAnyVarargType(TypeSignature typeSignature)
+    {
+        return StandardTypes.ANY.equals(typeSignature.getBase()) && typeSignature.getParameters().isEmpty();
+    }
+
+    private static boolean isAnyVarargVariable(String base)
+    {
+        return base.startsWith(ANY_VARARG_VARIABLE_PREFIX);
+    }
+
     private Set<String> typeVariablesOf(TypeSignature typeSignature)
     {
-        if (typeVariableConstraints.containsKey(typeSignature.getBase())) {
+        if (typeVariableConstraints.containsKey(typeSignature.getBase()) || isAnyVarargVariable(typeSignature.getBase())) {
             return ImmutableSet.of(typeSignature.getBase());
         }
         Set<String> variables = new HashSet<>();
@@ -477,7 +499,15 @@ public class SignatureBinder
 
     private boolean allTypeVariablesBound(BoundVariables boundVariables)
     {
-        return boundVariables.getTypeVariables().keySet().equals(typeVariableConstraints.keySet());
+        Set<String> boundTypeVariables = boundVariables.getTypeVariables().keySet();
+        // Synthetic per-position variables from an "any" variadic tail are not part of the declared
+        // constraints; ignore them and require exactly the declared type variables to be bound.
+        for (String bound : boundTypeVariables) {
+            if (!isAnyVarargVariable(bound) && !typeVariableConstraints.containsKey(bound)) {
+                return false;
+            }
+        }
+        return boundTypeVariables.containsAll(typeVariableConstraints.keySet());
     }
 
     private static TypeSignatureParameter applyBoundVariables(TypeSignatureParameter parameter, BoundVariables boundVariables)
@@ -515,6 +545,16 @@ public class SignatureBinder
         int variableArityArgumentsCount = actualArity - formalTypeSignatures.size() + 1;
         if (variableArityArgumentsCount == 0) {
             return formalTypeSignatures.subList(0, formalTypeSignatures.size() - 1);
+        }
+        // An "any" variadic tail expands to a distinct fresh type variable per trailing position,
+        // so each argument binds its own concrete type (no unification across the tail).
+        if (isAnyVarargType(formalTypeSignatures.get(formalTypeSignatures.size() - 1))) {
+            ImmutableList.Builder<TypeSignature> builder = ImmutableList.builder();
+            builder.addAll(formalTypeSignatures.subList(0, formalTypeSignatures.size() - 1));
+            for (int i = 0; i < variableArityArgumentsCount; i++) {
+                builder.add(new TypeSignature(ANY_VARARG_VARIABLE_PREFIX + i));
+            }
+            return builder.build();
         }
         if (variableArityArgumentsCount == 1) {
             return formalTypeSignatures;

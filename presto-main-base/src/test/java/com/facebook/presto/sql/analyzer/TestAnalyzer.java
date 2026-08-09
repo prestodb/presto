@@ -26,6 +26,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -2506,5 +2507,115 @@ public class TestAnalyzer
         finally {
             executor.shutdownNow();
         }
+    }
+
+    // The refresh scope (the REFRESH MATERIALIZED VIEW WHERE predicate) is captured during analysis and
+    // carried to the connector. These tests pin down the exact RowExpression StatementAnalyzer produces.
+    @Test
+    public void testRefreshMaterializedViewCapturesWhereScopePredicate()
+    {
+        // the integer literal coerces to the BIGINT column type, so no explicit cast is needed
+        assertEquals(refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a = 5"), Optional.of("EQUAL(a, 5)"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesCompoundScopePredicate()
+    {
+        assertEquals(
+                refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a >= 1 AND a <= 10"),
+                Optional.of("AND(GREATER_THAN_OR_EQUAL(a, 1), LESS_THAN_OR_EQUAL(a, 10))"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesGreaterThanScopePredicate()
+    {
+        assertEquals(refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a > 5"), Optional.of("GREATER_THAN(a, 5)"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesNotEqualScopePredicate()
+    {
+        assertEquals(refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a <> 5"), Optional.of("NOT_EQUAL(a, 5)"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesOrScopePredicate()
+    {
+        assertEquals(
+                refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a = 1 OR a = 2"),
+                Optional.of("OR(EQUAL(a, 1), EQUAL(a, 2))"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesInScopePredicate()
+    {
+        assertEquals(
+                refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a IN (1, 2, 3)"),
+                Optional.of("IN(a, 1, 2, 3)"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewWithoutWhereHasEmptyScope()
+    {
+        assertEquals(refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1"), Optional.empty());
+    }
+
+    // Negative cases: unsupported WHERE shapes are rejected during analysis (no scope predicate is produced),
+    // so the connector never receives a scope it cannot reason about.
+    @Test
+    public void testRefreshMaterializedViewRejectsNonColumnLeftSide()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a + 1 = 5");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewRejectsNonLiteralRightSide()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a = a");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewRejectsNegation()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE NOT (a = 5)");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewRejectsNonLiteralInList()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a IN (a)");
+    }
+
+    @Test
+    public void testCreateMaterializedViewRejectsNonDeterministicFunction()
+    {
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, rand() r FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a FROM t1 WHERE rand() >= 0");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, sum(b * random()) s FROM t1 GROUP BY a");
+    }
+
+    @Test
+    public void testCreateMaterializedViewRejectsSessionTimeFunction()
+    {
+        // now()/current_timestamp() are function calls; CURRENT_TIMESTAMP/CURRENT_DATE are CurrentTime nodes
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, now() ts FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, current_timestamp ts FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, current_date d FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a FROM t1 WHERE current_timestamp IS NOT NULL");
+    }
+
+    @Test
+    public void testCreateMaterializedViewAllowsDeterministicFunction()
+    {
+        analyze("CREATE MATERIALIZED VIEW s1.mv_det AS SELECT a, abs(b) c FROM t1");
+    }
+
+    private Optional<String> refreshScopePredicate(String query)
+    {
+        Optional<RowExpression> predicate = analyzeAndGetAnalysis(CLIENT_SESSION, query)
+                .getRefreshMaterializedViewAnalysis()
+                .orElseThrow(() -> new AssertionError("no refresh materialized view analysis"))
+                .getRefreshScopePredicate();
+        return predicate.map(RowExpression::toString);
     }
 }

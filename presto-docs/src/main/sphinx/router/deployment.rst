@@ -9,7 +9,7 @@ Download the Presto router tarball, :maven_download:`router`, and unpack it.
 The tarball will contain a single top-level directory,
 |presto_router_release|, which we will call the *installation* directory.
 
-Router needs a *data* directory for storing logs, etc.
+Router needs a *data* directory for storing logs and other data. 
 We recommend creating a data directory outside of the installation directory,
 which allows it to be easily preserved when upgrading Presto.
 

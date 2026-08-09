@@ -61,6 +61,11 @@ public final class StandardTypes
     public static final String DISTINCT_TYPE = "DistinctType";
     public static final String UUID = "uuid";
     public static final String UNKNOWN = "unknown";
+    // Internal sentinel usable ONLY as the tail type of a variable-arity function signature. It means
+    // "each trailing argument may be any type, bound independently" (no unification across the tail,
+    // unlike a shared type variable). It is not a registered Type and never reaches execution -- the
+    // dispatcher folds the tail into a single JSON argument. The __NAME__ form marks it as internal.
+    public static final String ANY = "__ANY__";
 
     private StandardTypes() {}
 

@@ -25,6 +25,7 @@ import okhttp3.OkHttpClient;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -33,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 
 /**
  * Guice module that wires the driver-side metadata sidecar.
@@ -68,6 +70,12 @@ public class DriverSidecarModule
         binder.bind(WorkerFunctionRegistryTool.class)
                 .to(DriverSidecarFunctionRegistryTool.class)
                 .in(Scopes.SINGLETON);
+        // Default: no automatic binary discovery — operators must set
+        // `metadata-sidecar.executable-path` in config. Deployments can override
+        // this binding to plug in a launcher-layer lookup.
+        newOptionalBinder(binder, MetadataSidecarProcessFactory.SidecarBinaryLocator.class)
+                .setDefault()
+                .toInstance(Optional::empty);
     }
 
     @Provides

@@ -61,6 +61,7 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.joda.time.DateTimeZone;
@@ -72,6 +73,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -83,6 +85,7 @@ import static com.facebook.presto.common.type.StandardTypes.CHAR;
 import static com.facebook.presto.common.type.StandardTypes.DATE;
 import static com.facebook.presto.common.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
+import static com.facebook.presto.common.type.StandardTypes.JSON;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.REAL;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
@@ -153,7 +156,8 @@ public class ParquetPageSourceFactory
     private final ParquetMetadataSource parquetMetadataSource;
 
     @Inject
-    public ParquetPageSourceFactory(TypeManager typeManager,
+    public ParquetPageSourceFactory(
+            TypeManager typeManager,
             StandardFunctionResolution functionResolution,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
@@ -166,7 +170,7 @@ public class ParquetPageSourceFactory
         this.parquetMetadataSource = requireNonNull(parquetMetadataSource, "parquetMetadataSource is null");
     }
 
-    public static ConnectorPageSource createParquetPageSource(
+    public ConnectorPageSource createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
             ConnectorSession session,
             Configuration configuration,
@@ -254,6 +258,9 @@ public class ParquetPageSourceFactory
                 nextStart += block.getRowCount();
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+
+            Optional<DateTimeZone> timezone = Optional.ofNullable(fileMetaData.getKeyValueMetaData().get("writer.time.zone")).map(DateTimeZone::forID);
+
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks.build(),
@@ -266,13 +273,15 @@ public class ParquetPageSourceFactory
                     parquetPredicate,
                     blockIndexStores,
                     columnIndexFilterEnabled,
-                    fileDecryptor);
+                    fileDecryptor,
+                    timezone);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
-            ImmutableList.Builder<Boolean> rowIndexColumns = ImmutableList.builder();
-            for (HiveColumnHandle column : columns) {
+            OptionalInt rowPositionColumnIndex = OptionalInt.empty();
+            for (int idx = 0; idx < columns.size(); idx++) {
+                HiveColumnHandle column = columns.get(idx);
                 checkArgument(column == PARQUET_ROW_INDEX_COLUMN || column.getColumnType() == REGULAR || column.getColumnType() == SYNTHESIZED, "column type must be REGULAR: %s", column);
 
                 String name = column.getName();
@@ -281,7 +290,10 @@ public class ParquetPageSourceFactory
                 namesBuilder.add(name);
                 typesBuilder.add(type);
 
-                rowIndexColumns.add(column == PARQUET_ROW_INDEX_COLUMN);
+                if (column == PARQUET_ROW_INDEX_COLUMN) {
+                    checkArgument(rowPositionColumnIndex.isEmpty(), "Requesting more than 1 row number columns is not allowed.");
+                    rowPositionColumnIndex = OptionalInt.of(idx);
+                }
 
                 if (column.getColumnType() == SYNTHESIZED) {
                     if (column == PARQUET_ROW_INDEX_COLUMN) {
@@ -307,7 +319,7 @@ public class ParquetPageSourceFactory
                     fieldsBuilder.add(Optional.empty());
                 }
             }
-            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), rowIndexColumns.build(), namesBuilder.build(), hiveFileContext.getStats());
+            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), rowPositionColumnIndex, namesBuilder.build(), hiveFileContext.getStats());
         }
         catch (Exception e) {
             try {
@@ -442,6 +454,8 @@ public class ParquetPageSourceFactory
                     GroupType bagGroupType = bagType.asGroupType();
                     return checkSchemaMatch(bagGroupType, type.getTypeParameters().get(0)) ||
                             (bagGroupType.getFields().size() == 1 && checkSchemaMatch(bagGroupType.getFields().get(0), type.getTypeParameters().get(0)));
+                case JSON:
+                    return parquetType.asGroupType().getLogicalTypeAnnotation() instanceof LogicalTypeAnnotation.VariantLogicalTypeAnnotation;
                 default:
                     return false;
             }

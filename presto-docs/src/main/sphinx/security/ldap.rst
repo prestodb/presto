@@ -126,8 +126,7 @@ Property                                                Description
 Based on the LDAP server implementation type, the property
 ``ldap.user-bind-pattern`` can be used as described below.
 
-Active Directory
-****************
+.. rubric:: Active Directory
 
 .. code-block:: none
 
@@ -139,8 +138,7 @@ Example:
 
     ldap.user-bind-pattern=${USER}@corp.example.com
 
-OpenLDAP
-********
+.. rubric:: OpenLDAP
 
 .. code-block:: none
 
@@ -179,8 +177,7 @@ Property                                                Description
 Based on the LDAP server implementation type, the property
 ``ldap.group-auth-pattern`` can be used as described below.
 
-Active Directory
-****************
+.. rubric:: Active Directory
 
 .. code-block:: none
 
@@ -192,8 +189,7 @@ Example:
 
     ldap.group-auth-pattern=(&(objectClass=person)(sAMAccountName=${USER})(memberof=CN=AuthorizedGroup,OU=Asia,DC=corp,DC=example,DC=com))
 
-OpenLDAP
-********
+.. rubric:: OpenLDAP
 
 .. code-block:: none
 
@@ -224,8 +220,8 @@ Presto CLI
 
 See :doc:`/clients/presto-cli` for instructions to set up Presto CLI.
 
-Environment Configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Presto CLI Environment Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 TLS Configuration
 ~~~~~~~~~~~~~~~~~

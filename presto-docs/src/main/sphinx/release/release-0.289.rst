@@ -24,8 +24,8 @@ _______________
 * Fix stddev and variance functions to always return correct results when input is constant. :pr:`23447`
 * Add an optimization to remove cross join when one side of inputs is a single row of constant values. The optimization is controlled by the session property ``remove_cross_join_with_constant_single_row_input`` (default is ``true```). :pr:`23081`
 * Add configuration property ``warn-on-possible-nans`` and session property ``warn_on_possible_nans`` to produce a warning on division operations or comparison operations involving double or real types. Division operations are common causes of accidental creation of NaNs, and the semantics of comparison operations involving NaNs changed considerably in the most recent Presto release. :pr:`23059`
-* Add function :func:`ip_prefix_collapse`. :pr:`23445`
-* Add function :func:`array_split_into_chunks`. :pr:`23264`
+* Add function :func:`!ip_prefix_collapse`. :pr:`23445`
+* Add function :func:`!array_split_into_chunks`. :pr:`23264`
 * Add a warning when an ``IGNORE NULL``` clause is used on any non lag, lead, first, last, or nth value function.  In future releases these queries will fail. :pr:`23325`
 * Add treatment of low confidence, zero estimations as ``UNKNOWN`` during joins, with the ``treat-low-confidence-zero-estimation-as-unknown`` session property :pr:`23047`
 * Add confidence based broadcasting, side of join with highest confidence will be on build side.  This can be enabled with the ``confidence_based_broadcast`` session property :pr:`23016`
@@ -62,7 +62,7 @@ ______________________
 * Fix filtering by info columns ``$file_size`` and ``$file_modified_time``, which were ignored before. :pr:`23411`
 * Fix hash calculation for Timestamp column to be hive compatible when writing to a table bucketed by Timestamp.  :pr:`22980`
 * Add config ``hive.legacy-timestamp-bucketing`` and session property ``hive.legacy_timestamp_bucketing`` to use the original hash function for Timestamp column, which is not hive compatible. :pr:`22980`
-* Add support for setting the max size in bytes for the directory listing cache. This can be set via the new ``hive.file-status-cache.max-retained-size`` configuration property. ``hive.file-status-cache-size`` is now deprecated. :pr:`23176`
+* Add support for setting the max size in bytes for the directory listing cache. This can be set with the new ``hive.file-status-cache.max-retained-size`` configuration property. ``hive.file-status-cache-size`` is now deprecated. :pr:`23176`
 * Add support to skip empty files using configuration property ``hive.skip_empty_files``. :pr:`22727`
 * Add support for decimal batch reader :pr:`22636`
 

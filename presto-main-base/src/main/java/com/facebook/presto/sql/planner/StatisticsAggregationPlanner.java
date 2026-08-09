@@ -54,7 +54,7 @@ import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.sql.relational.SqlFunctionUtils.sqlFunctionToRowExpression;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticsAggregationPlanner
@@ -180,7 +180,7 @@ public class StatisticsAggregationPlanner
                 .add(input.getType())
                 .build()));
         FunctionMetadata functionMeta = functionAndTypeResolver.getFunctionMetadata(functionHandle);
-        Type inputType = functionAndTypeResolver.getType(getOnlyElement(functionMeta.getArgumentTypes()));
+        Type inputType = functionAndTypeResolver.getType(functionMeta.getArgumentTypes().stream().collect(onlyElement()));
         Type outputType = functionAndTypeResolver.getType(functionMeta.getReturnType());
 
         // todo: fix this hack

@@ -460,7 +460,29 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
   auto likePatternExpr =
       std::dynamic_pointer_cast<const protocol::CallExpression>(
           pexpr.arguments[1]);
-  VELOX_CHECK_NOT_NULL(likePatternExpr);
+  if (likePatternExpr == nullptr) {
+    // The pattern is not an inline cast('<pattern>' as LikePattern) /
+    // like_pattern(...) call — it was materialized into a column/variable
+    // upstream. This happens when an RPC function result feeds a LIKE: the
+    // optimizer hoists the constant pattern into a projection below the
+    // RPCNode, so the pattern arrives here as a (constant-valued) column
+    // reference rather than an inline cast. Convert it directly and pass it as
+    // the pattern argument. Velox's like() supports a non-literal pattern via
+    // its per-row path, so this is correct (it only forgoes the
+    // compiled-constant-pattern fast path).
+    //
+    // Scope: this covers a materialized cast(... as LikePattern) (plain LIKE).
+    // A materialized `LIKE ... ESCAPE` pattern is a like_pattern(pattern,
+    // escape) column; Velox has no like_pattern function, so that projection
+    // fails to compile upstream (a hard, non-silent failure) — the escape
+    // cannot be recovered from the column reference here. Materialized LIKE ...
+    // ESCAPE is therefore unsupported; plain materialized LIKE is the supported
+    // path.
+    args.emplace_back(toVeloxExpr(pexpr.arguments[1]));
+    auto returnType = typeParser_->parse(pexpr.returnType);
+    return std::make_shared<CallTypedExpr>(
+        returnType, args, getFunctionName(signature));
+  }
   auto likePatternBuiltin =
       std::static_pointer_cast<protocol::BuiltInFunctionHandle>(
           likePatternExpr->functionHandle);

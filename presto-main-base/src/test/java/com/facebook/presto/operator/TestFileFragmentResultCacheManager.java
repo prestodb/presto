@@ -31,6 +31,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -84,13 +85,13 @@ public class TestFileFragmentResultCacheManager
             throws IOException
     {
         checkState(cacheDirectory != null);
-        File[] files = new File(cacheDirectory).listFiles();
+        File[] files = Paths.get(cacheDirectory).toFile().listFiles();
         if (files != null) {
             for (File file : files) {
                 Files.deleteIfExists(file.toPath());
             }
         }
-        Files.deleteIfExists(new File(cacheDirectory).toPath());
+        Files.deleteIfExists(Paths.get(cacheDirectory));
     }
 
     @Test(timeOut = 30_000)
@@ -272,7 +273,7 @@ public class TestFileFragmentResultCacheManager
     private long getCachePhysicalSize(URI cacheDirectory)
     {
         checkState(cacheDirectory != null);
-        File[] files = new File(cacheDirectory).listFiles();
+        File[] files = Paths.get(cacheDirectory).toFile().listFiles();
         long physicalSize = 0;
         if (files != null) {
             for (File file : files) {

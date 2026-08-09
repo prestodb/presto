@@ -19,6 +19,8 @@ import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,7 +37,7 @@ public class PasswordAuthenticatorManager
 {
     private static final Logger log = Logger.get(PasswordAuthenticatorManager.class);
 
-    private static final File CONFIG_FILE = new File("etc/password-authenticator.properties");
+    private static final Path CONFIG_FILE = Paths.get("etc/password-authenticator.properties");
     private static final String NAME_PROPERTY = "password-authenticator.name";
 
     private final AtomicBoolean required = new AtomicBoolean();
@@ -60,7 +62,7 @@ public class PasswordAuthenticatorManager
             return;
         }
 
-        File configFileLocation = CONFIG_FILE.getAbsoluteFile();
+        File configFileLocation = CONFIG_FILE.toAbsolutePath().toFile();
         Map<String, String> properties = new HashMap<>(loadProperties(configFileLocation));
 
         String name = properties.remove(NAME_PROPERTY);

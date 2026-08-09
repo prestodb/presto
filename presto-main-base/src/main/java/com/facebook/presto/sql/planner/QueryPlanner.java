@@ -63,6 +63,7 @@ import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
@@ -116,8 +117,8 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -128,7 +129,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeUpdateMergeEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSkipRedundantSort;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -173,6 +177,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -226,7 +231,7 @@ public class QueryPlanner
         builder = handleSubqueries(builder, query, orderBy);
         List<Expression> outputs = analysis.getOutputExpressions(query);
         builder = handleSubqueries(builder, query, outputs);
-        builder = project(builder, Iterables.concat(orderBy, outputs));
+        builder = project(builder, Stream.concat(orderBy.stream(), outputs.stream()).collect(toImmutableList()));
         builder = sort(builder, query);
         builder = offset(builder, query.getOffset());
         builder = limit(builder, query);
@@ -259,7 +264,7 @@ public class QueryPlanner
             else {
                 // ORDER BY requires output fields, groups and translated aggregations to be visible for queries with aggregation
                 List<Expression> orderByAggregates = analysis.getOrderByAggregates(node.getOrderBy().get());
-                builder = project(builder, Iterables.concat(outputs, orderByAggregates));
+                builder = project(builder, Stream.concat(outputs.stream(), orderByAggregates.stream()).collect(toImmutableList()));
                 outputs = toSymbolReferences(computeOutputs(builder, outputs));
                 List<Expression> complexOrderByAggregatesToRemap = orderByAggregates.stream()
                         .filter(expression -> !analysis.isColumnReference(expression))
@@ -272,7 +277,7 @@ public class QueryPlanner
 
         List<Expression> orderBy = analysis.getOrderByExpressions(node);
         builder = handleSubqueries(builder, node, orderBy);
-        builder = project(builder, Iterables.concat(orderBy, outputs));
+        builder = project(builder, Stream.concat(orderBy.stream(), outputs.stream()).collect(toImmutableList()));
 
         builder = distinct(builder, node);
         builder = sort(builder, node);
@@ -330,14 +335,39 @@ public class QueryPlanner
         PlanBuilder finalBuilder = builder;
         Optional<VariableReferenceExpression> rowId = rowIdField.map(f ->
                 new VariableReferenceExpression(Optional.empty(), finalBuilder.translate(new FieldReference(relationPlan.getDescriptor().indexOf(f))).getName(), f.getType()));
-        List<VariableReferenceExpression> deleteNodeOutputVariables = ImmutableList.of(
-                variableAllocator.newVariable("partialrows", BIGINT),
-                variableAllocator.newVariable("fragment", VARBINARY));
+        // [ICEBERG-FIX bug 1B]: Declare 3 output variables to mirror
+        // TableWriterNode's named-slot contract (rowCountVariable,
+        // fragmentVariable, tableCommitContextVariable). Without the
+        // 3rd commitcontext var, AddExchanges builds the gather
+        // PartitioningScheme.outputLayout with only 2 cols. Velox's
+        // PartitionedOutputNode strictly projects the wire to that
+        // 2-col outputLayout, dropping the runtime DeleteOperator's
+        // 3rd commit-context block — the coordinator-side
+        // TableFinishOperator then throws
+        // ArrayIndexOutOfBoundsException on page.getBlock(CONTEXT_CHANNEL=2).
+        // Java-only path "works" only because Java's
+        // PartitionedOutputOperator iterates page.getBlocks() directly
+        // rather than honoring the declared outputLayout — a leniency
+        // Velox does not share. Declaring the 3rd var fixes both paths
+        // and matches the precedent in TableWriterNode.
+        // [ICEBERG-FIX]: the commitcontext (3rd) output is emitted only by the
+        // native (Velox) DeleteOperator -> TableFinishOperator CONTEXT_CHANNEL=2
+        // pipeline. Non-native (Java) execution emits only 2 columns
+        // (partialrows, fragment); declaring a 3rd there fails at runtime with
+        // "Runtime channel not found for variable: commitcontext" (e.g. DELETE
+        // inside a multi-statement transaction). Gate the 3rd var on native.
+        ImmutableList.Builder<VariableReferenceExpression> deleteOutputsBuilder = ImmutableList.builder();
+        deleteOutputsBuilder.add(variableAllocator.newVariable("partialrows", BIGINT));
+        deleteOutputsBuilder.add(variableAllocator.newVariable("fragment", VARBINARY));
+        if (isNativeExecutionEnabled(session)) {
+            deleteOutputsBuilder.add(variableAllocator.newVariable("commitcontext", VARBINARY));
+        }
+        List<VariableReferenceExpression> deleteNodeOutputVariables = deleteOutputsBuilder.build();
 
         return new DeleteNode(getSourceLocation(node), idAllocator.getNextId(), finalBuilder.getRoot(), rowId, deleteNodeOutputVariables, Optional.empty());
     }
 
-    public UpdateNode plan(Update node)
+    public InternalPlanNode plan(Update node)
     {
         RelationType descriptor = analysis.getOutputDescriptor(node.getTable());
         TableHandle handle = analysis.getTableHandle(node.getTable());
@@ -350,7 +380,36 @@ public class QueryPlanner
                 .filter(entry -> updatedColumnNames.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
                 .collect(toImmutableList());
-        handle = metadata.beginUpdate(session, handle, updatedColumns);
+        // [ICEBERG-FIX]: When native_update_merge_enabled is set we
+        // rewrite UPDATE into a MERGE-style pipeline below; in that case the
+        // connector receives beginMerge() rather than beginUpdate(). Skip
+        // beginUpdate to avoid mutating the connector handle along the
+        // wrong code path (iceberg's beginUpdate stamps updatedColumns; we
+        // don't want that handle reaching the merge pipeline).
+        //
+        // Gate on native execution as well: the MERGE rewrite emits
+        // MergeWriterNode/MergeProcessorNode that only Velox/Prestissimo
+        // workers execute, and IcebergAbstractMetadata.beginMerge() requires
+        // autocommit (it rejects multi-statement transactions). For non-native
+        // execution -- which includes UPDATE inside an explicit
+        // (non-autocommit) transaction on the Java connector -- fall back to
+        // the legacy beginUpdate path, which supports transactional UPDATE.
+        boolean rewriteAsMerge = isNativeUpdateMergeEnabled(session) && isNativeExecutionEnabled(session);
+        // [ICEBERG-FIX bug 5 — defensive]: IcebergAbstractMetadata.beginMerge()
+        // throws NOT_SUPPORTED for tables outside the supported row-level
+        // format-version range (today: format-version 2..3). Avoid an
+        // unrecoverable throw mid-plan by short-circuiting back to the OSS
+        // UpdateNode (COPY_ON_WRITE) path when the format-version property is
+        // absent or outside the supported range. Non-Iceberg connectors
+        // never set the "format_version" property, so they also fall
+        // through to the OSS path — which is the right answer for them
+        // (they don't implement beginMerge either).
+        if (rewriteAsMerge && !isMergeSupportedFormatVersion(handle)) {
+            rewriteAsMerge = false;
+        }
+        if (!rewriteAsMerge) {
+            handle = metadata.beginUpdate(session, handle, updatedColumns);
+        }
 
         String catalogName = handle.getConnectorId().getCatalogName();
         List<String> targetColumnNames = node.getAssignments().stream()
@@ -376,12 +435,35 @@ public class QueryPlanner
         List<Expression> orderedColumnValues = orderedColumnValuesBuilder.build();
 
         // add rowId column
-        Optional<ColumnHandle> rowIdHandle = metadata.getUpdateRowIdColumn(session, handle, updatedColumns);
+        // [ICEBERG-FIX bug 5]: When rewriteAsMerge is on, the connector
+        // will later receive beginMerge() instead of beginUpdate(), and
+        // ConnectorMergeSink.storeMergedRows() expects the MERGE-shaped
+        // row-id column (ROW(file_path, row_position, spec_id,
+        // partition_struct) — `MERGE_TARGET_ROW_ID_DATA` in Iceberg). The
+        // UPDATE-shaped column produced by getUpdateRowIdColumn()
+        // (ROW(row_position, <unmodified data cols>)) is incompatible with
+        // that contract — feeding it through MergeProcessorNode produces
+        // "Field not found: $row_id" at the MergeProcessor since the
+        // MergeWriterNode declares the MERGE-shaped variable. Dispatch on
+        // rewriteAsMerge so the planner threads through the right column
+        // handle from the start. Variable name mirrors OSS
+        // StatementAnalyzer.java:2401 so downstream rules / plan dumps
+        // that match on the literal name keep working.
+        Optional<ColumnHandle> rowIdHandle;
+        String rowIdVariableName;
+        if (rewriteAsMerge) {
+            rowIdHandle = Optional.ofNullable(metadata.getMergeTargetTableRowIdColumnHandle(session, handle));
+            rowIdVariableName = "$target_table_row_id";
+        }
+        else {
+            rowIdHandle = metadata.getUpdateRowIdColumn(session, handle, updatedColumns);
+            rowIdVariableName = "$rowId";
+        }
         Optional<Field> rowIdField = Optional.empty();
         if (rowIdHandle.isPresent()) {
             Type rowIdType = metadata.getColumnMetadata(session, handle, rowIdHandle.get()).getType();
             rowIdField = Optional.of(Field.newUnqualified(node.getLocation(), Optional.empty(), rowIdType));
-            VariableReferenceExpression rowIdVariable = variableAllocator.newVariable(getSourceLocation(node), "$rowId", rowIdType);
+            VariableReferenceExpression rowIdVariable = variableAllocator.newVariable(getSourceLocation(node), rowIdVariableName, rowIdType);
             outputVariablesBuilder.add(rowIdVariable);
             columns.put(rowIdVariable, rowIdHandle.get());
             fields.add(rowIdField.get());
@@ -413,12 +495,50 @@ public class QueryPlanner
                 new VariableReferenceExpression(Optional.empty(), finalBuilder.translate(new FieldReference(relationPlan.getDescriptor().indexOf(f))).getName(), f.getType()));
         rowId.ifPresent(r -> updatedColumnValuesBuilder.add(r));
 
-        List<VariableReferenceExpression> outputs = ImmutableList.of(
-                variableAllocator.newVariable("partialrows", BIGINT),
-                variableAllocator.newVariable("fragment", VARBINARY));
+        // [ICEBERG-FIX bug 5]: Declare 3 output variables on the
+        // UPDATE-as-MERGE writer to mirror the Bug 1B DeleteNode fix.
+        // PartitioningScheme.outputLayout is built from these vars;
+        // Velox's PartitionedOutputNode strictly projects the wire to
+        // that declared layout, and the coordinator-side
+        // TableFinishOperator reads getBlock(CONTEXT_CHANNEL=2). A 2-col
+        // declaration drops the runtime 3rd commit-context block and
+        // throws ArrayIndexOutOfBoundsException there. Same root cause
+        // as Bug 1B, just on the MergeWriterNode side.
+        // [ICEBERG-FIX]: 3rd commitcontext output is native-only (see
+        // plan(Delete)). rewriteAsMerge implies native execution, so the MERGE
+        // pipeline still gets all 3; a non-native legacy UpdateNode emits 2.
+        ImmutableList.Builder<VariableReferenceExpression> outputsBuilder = ImmutableList.builder();
+        outputsBuilder.add(variableAllocator.newVariable("partialrows", BIGINT));
+        outputsBuilder.add(variableAllocator.newVariable("fragment", VARBINARY));
+        if (isNativeExecutionEnabled(session)) {
+            outputsBuilder.add(variableAllocator.newVariable("commitcontext", VARBINARY));
+        }
+        List<VariableReferenceExpression> outputs = outputsBuilder.build();
 
         Optional<PlanNodeId> tableScanId = getIdForLeftTableScan(relationPlan.getRoot());
         checkArgument(tableScanId.isPresent(), "tableScanId not present");
+
+        if (rewriteAsMerge) {
+            // [ICEBERG-FIX]: Rewrite UPDATE into a MergeWriterNode +
+            // MergeProcessorNode pipeline so native (Prestissimo) workers can
+            // execute it via the existing MERGE translation path. The
+            // simpler "one source row per target row" form of plan(Merge):
+            // no JOIN, no MarkDistinct, no multiple-match filter — the
+            // existing UPDATE source subtree (TableScan -> Filter(WHERE) ->
+            // Project(coerced SET exprs)) already produces a deterministic
+            // 1:1 projection of the target. Gated by
+            // native_update_merge_enabled (SystemSessionProperties).
+            return planUpdateAsMerge(
+                    node,
+                    descriptor,
+                    finalBuilder,
+                    outputVariables,
+                    rowId,
+                    targetColumnNames,
+                    orderedColumnValues,
+                    planAndMappings,
+                    outputs);
+        }
 
         // create update node
         return new UpdateNode(
@@ -428,6 +548,183 @@ public class QueryPlanner
                 rowId,
                 updatedColumnValuesBuilder.build(),
                 outputs);
+    }
+
+    /**
+     * [ICEBERG-FIX]: Wraps the UPDATE source subtree in a
+     * MergeProcessorNode + MergeWriterNode pair, mirroring the relevant
+     * suffix of {@link #plan(Merge)} (lines 633-696). Used when
+     * {@code native_update_merge_enabled} is on.
+     *
+     * <p>Differences vs {@link #plan(Merge)}:
+     * <ul>
+     *   <li>Source subtree is the UPDATE's TableScan -> Filter -> Project,
+     *       which already produces one row per target row -- no RIGHT JOIN,
+     *       no AssignUniqueId, no MarkDistinct, no multiple-match filter.
+     *   <li>The merge_row Row expression is built unconditionally as
+     *       Row(col1, col2, ..., colN, UPDATE_OPERATION_NUMBER, 0). For
+     *       columns being updated, the value comes from the coerced SET
+     *       projection (via {@code planAndMappings}); for columns not
+     *       updated, the value is the original column variable from the
+     *       table scan.
+     *   <li>{@code metadata.beginMerge(session, targetTableHandle)} is
+     *       called here (skipped in plan(Update) above), since the
+     *       connector contract is now merge, not update.
+     * </ul>
+     */
+    private MergeWriterNode planUpdateAsMerge(
+            Update node,
+            RelationType descriptor,
+            PlanBuilder finalBuilder,
+            List<VariableReferenceExpression> outputVariables,
+            Optional<VariableReferenceExpression> rowId,
+            List<String> targetColumnNames,
+            List<Expression> orderedColumnValues,
+            PlanAndMappings planAndMappings,
+            List<VariableReferenceExpression> outputs)
+    {
+        checkArgument(rowId.isPresent(), "UPDATE-as-MERGE requires a rowId column");
+        VariableReferenceExpression rowIdVariable = rowId.get();
+        TableHandle targetTableHandle = analysis.getTableHandle(node.getTable());
+
+        // Build MergeTarget (mirrors plan(Merge) lines 633-648).
+        RowChangeParadigm rowChangeParadigm = metadata.getRowChangeParadigm(session, targetTableHandle);
+        TableMetadata targetTableMetadata = metadata.getTableMetadata(session, targetTableHandle);
+        List<ColumnMetadata> dataColumns = targetTableMetadata.getMetadata().getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .collect(toImmutableList());
+        List<Type> targetColumnsDataTypes = dataColumns.stream()
+                .map(ColumnMetadata::getType)
+                .collect(toImmutableList());
+
+        TableWriterNode.MergeParadigmAndTypes mergeParadigmAndTypes =
+                new TableWriterNode.MergeParadigmAndTypes(rowChangeParadigm, targetColumnsDataTypes, rowIdVariable.getType());
+
+        Optional<MergeHandle> mergeHandle = Optional.of(metadata.beginMerge(session, targetTableHandle));
+        TableWriterNode.MergeTarget mergeTarget =
+                new TableWriterNode.MergeTarget(targetTableHandle, mergeHandle, targetTableMetadata.getTable(), mergeParadigmAndTypes);
+
+        // Build merge_row = Row(col1_val, col2_val, ..., UPDATE_OPERATION_NUMBER, case_number=0).
+        // For columns being updated, take the value from the coerced SET projection
+        // (planAndMappings.get(setExpr)); for non-updated columns, take the original
+        // column variable from the table scan.
+        //
+        // [ICEBERG-FIX] Iterate dataColumns (the non-hidden data columns,
+        // exactly N entries) rather than descriptor.getAllFields() which may also
+        // include hidden fields like rowId/row_change_id. Misaligning the field
+        // count produces a Row whose actual RowType disagrees with the declared
+        // mergeRowType (created from dataColumns + 2 trailing literals), and
+        // PlanNode validation rejects the resulting projection with
+        // "type of variable 'merge_row' is expected to be ..., but the actual
+        // type is ...". outputVariables[0..N-1] are positionally aligned with
+        // dataColumns (same TableScan column order).
+        ImmutableList.Builder<Expression> mergeRowFields = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> mergeColumnVariablesBuilder = ImmutableList.builder();
+        for (int i = 0; i < dataColumns.size(); i++) {
+            ColumnMetadata column = dataColumns.get(i);
+            VariableReferenceExpression originalColumnVariable = outputVariables.get(i);
+            mergeColumnVariablesBuilder.add(originalColumnVariable);
+
+            String columnName = column.getName();
+            int setIndex = targetColumnNames.indexOf(columnName);
+            if (setIndex >= 0) {
+                Expression setExpression = orderedColumnValues.get(setIndex);
+                VariableReferenceExpression projectedVariable = planAndMappings.get(setExpression);
+                mergeRowFields.add(createSymbolReference(projectedVariable));
+            }
+            else {
+                mergeRowFields.add(createSymbolReference(originalColumnVariable));
+            }
+        }
+        // operation TINYINT = UPDATE_OPERATION_NUMBER
+        mergeRowFields.add(new GenericLiteral("TINYINT", String.valueOf(UPDATE_OPERATION_NUMBER)));
+        // case_number INTEGER = 0 (there is only the implicit "UPDATE all matched" case)
+        mergeRowFields.add(new GenericLiteral("INTEGER", "0"));
+        Row mergeRowExpression = new Row(mergeRowFields.build());
+
+        List<VariableReferenceExpression> mergeColumnVariables = mergeColumnVariablesBuilder.build();
+        RowType mergeRowType = createMergeRowType(dataColumns);
+        VariableReferenceExpression mergeRowColumnVariable = variableAllocator.newVariable("merge_row", mergeRowType);
+
+        // Project the merge_row alongside the existing forwarded variables.
+        Assignments.Builder projectionAssignments = Assignments.builder();
+        projectionAssignments.put(rowIdVariable, rowIdVariable);
+        for (VariableReferenceExpression columnVariable : mergeColumnVariables) {
+            projectionAssignments.put(columnVariable, columnVariable);
+        }
+        projectionAssignments.put(mergeRowColumnVariable, rowExpression(mergeRowExpression, sqlPlannerContext));
+
+        ProjectNode mergeRowProject = new ProjectNode(
+                idAllocator.getNextId(),
+                finalBuilder.getRoot(),
+                projectionAssignments.build());
+
+        // Build the MergeProcessorNode (mirrors plan(Merge) lines 657-683).
+        VariableReferenceExpression mergeOperationVariable = variableAllocator.newVariable("operation", TINYINT);
+        VariableReferenceExpression insertFromUpdateVariable = variableAllocator.newVariable("insert_from_update", TINYINT);
+        List<VariableReferenceExpression> mergeProjectedVariables = ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(mergeColumnVariables)
+                .add(mergeOperationVariable)
+                .add(rowIdVariable)
+                .add(insertFromUpdateVariable)
+                .build();
+
+        MergeProcessorNode mergeProcessorNode = new MergeProcessorNode(
+                getSourceLocation(node),
+                idAllocator.getNextId(),
+                mergeRowProject,
+                mergeTarget,
+                rowIdVariable,
+                mergeRowColumnVariable,
+                mergeColumnVariables,
+                mergeProjectedVariables);
+
+        return new MergeWriterNode(
+                getSourceLocation(node),
+                idAllocator.getNextId(),
+                mergeProcessorNode,
+                mergeTarget,
+                mergeProjectedVariables,
+                outputs);
+    }
+
+    /**
+     * [ICEBERG-FIX bug 5 — defensive]: Returns true iff the target table's
+     * {@code format_version} property is within the range supported by the
+     * MERGE rewrite path. Iceberg's {@code IcebergAbstractMetadata.beginMerge()}
+     * throws {@code NOT_SUPPORTED} for tables outside the row-level
+     * supported range (today: format-versions 2..3); the OSS
+     * {@code COPY_ON_WRITE} {@code UpdateNode} path is the safe fallback for
+     * everything else.
+     *
+     * <p>Non-Iceberg connectors do not set the {@code "format_version"}
+     * property at all, so this returns false for them too — which is the
+     * right answer since those connectors also do not implement
+     * {@code beginMerge}.
+     *
+     * <p>The supported-range constants are intentionally hardcoded rather
+     * than imported from Iceberg's {@code IcebergUtil} because
+     * {@code QueryPlanner} lives in {@code presto-main-base} and must not
+     * depend on the {@code presto-iceberg} module.
+     */
+    private boolean isMergeSupportedFormatVersion(TableHandle handle)
+    {
+        // Iceberg property key is "format-version" (hyphen) as exposed via
+        // SQL: WITH ("format-version" = '2'). NOT "format_version".
+        Object formatVersion = metadata.getTableMetadata(session, handle)
+                .getMetadata()
+                .getProperties()
+                .get("format-version");
+        if (formatVersion == null) {
+            return false;
+        }
+        try {
+            int version = Integer.parseInt(formatVersion.toString());
+            return version >= 2 && version <= 3;
+        }
+        catch (NumberFormatException ignored) {
+            return false;
+        }
     }
 
     /**
@@ -554,6 +851,13 @@ public class QueryPlanner
             SymbolReference targetUniqueIdColumnSymbolReference = createSymbolReference(targetUniqueIdColumnVariable);
             Expression mergeCondition = mergeCase instanceof MergeInsert ?
                     new IsNullPredicate(targetUniqueIdColumnSymbolReference) : new IsNotNullPredicate(targetUniqueIdColumnSymbolReference);
+
+            if (mergeCase.getCondition().isPresent()) {
+                Expression caseCondition = mergeCase.getCondition().get();
+                joinSubPlan = subqueryPlanner.handleSubqueries(joinSubPlan, caseCondition, mergeStmt, sqlPlannerContext);
+                Expression rewrittenCondition = coerceIfNecessary(analysis, caseCondition, joinSubPlan.rewrite(caseCondition));
+                mergeCondition = LogicalBinaryExpression.and(mergeCondition, rewrittenCondition);
+            }
 
             whenClauses.add(new WhenClause(mergeCondition, new Row(joinResultBuilder.build())));
         }
@@ -682,9 +986,19 @@ public class QueryPlanner
                 mergeColumnVariables,
                 mergeProjectedVariables);
 
+        // [ICEBERG-FIX bug 7]: Declare 3 output variables on the MERGE
+        // writer to mirror the Bug 1B / Bug 5 fix.
+        // PartitioningScheme.outputLayout is built from these vars;
+        // Velox's PartitionedOutputNode strictly projects the wire to
+        // that declared layout, and the coordinator-side
+        // TableFinishOperator reads getBlock(CONTEXT_CHANNEL=2). A 2-col
+        // declaration drops the runtime 3rd commit-context block and
+        // throws ArrayIndexOutOfBoundsException there. Same root cause
+        // as Bug 1B, just on the MergeWriterNode side.
         List<VariableReferenceExpression> mergeWriterOutputs = ImmutableList.of(
                 variableAllocator.newVariable("partialrows", BIGINT),
-                variableAllocator.newVariable("fragment", VARBINARY));
+                variableAllocator.newVariable("fragment", VARBINARY),
+                variableAllocator.newVariable("commitcontext", VARBINARY));
 
         return new MergeWriterNode(
                 getSourceLocation(mergeStmt),
@@ -864,7 +1178,7 @@ public class QueryPlanner
 
     private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions, RelationPlan parentRelationPlan)
     {
-        return project(subPlan, Iterables.concat(expressions, toSymbolReferences(parentRelationPlan.getFieldMappings())));
+        return project(subPlan, Stream.concat(Streams.stream(expressions), toSymbolReferences(parentRelationPlan.getFieldMappings()).stream()).collect(toImmutableList()));
     }
 
     private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions)
@@ -1029,10 +1343,10 @@ public class QueryPlanner
                 .map(Optional::get)
                 .forEach(arguments::add);
 
-        Iterable<Expression> inputs = Iterables.concat(groupByExpressions, arguments.build());
+        List<Expression> inputs = Stream.concat(groupByExpressions.stream(), arguments.build().stream()).collect(toImmutableList());
         subPlan = handleSubqueries(subPlan, node, inputs);
 
-        if (!Iterables.isEmpty(inputs)) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
+        if (!inputs.isEmpty()) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
             subPlan = project(subPlan, inputs);
         }
 
@@ -1322,7 +1636,7 @@ public class QueryPlanner
             ImmutableList.Builder<Expression> inputsBuilder = ImmutableList.<Expression>builder()
                     .addAll(windowFunction.getArguments())
                     .addAll(window.getPartitionBy())
-                    .addAll(Iterables.transform(getSortItemsFromOrderBy(window.getOrderBy()), SortItem::getSortKey));
+                    .addAll(getSortItemsFromOrderBy(window.getOrderBy()).stream().map(SortItem::getSortKey).collect(toImmutableList()));
 
             if (startValue.isPresent()) {
                 inputsBuilder.add(startValue.get());
@@ -1506,7 +1820,7 @@ public class QueryPlanner
         // Then, coerce the sortKey so that we can add / subtract the offset.
         // Note: for that we cannot rely on the usual mechanism of using the coerce() method. The coerce() method can only handle one coercion for a node,
         // while the sortKey node might require several different coercions, e.g. one for frame start and one for frame end.
-        Expression sortKey = Iterables.getOnlyElement(window.getOrderBy().get().getSortItems()).getSortKey();
+        Expression sortKey = window.getOrderBy().get().getSortItems().stream().collect(onlyElement()).getSortKey();
         VariableReferenceExpression sortKeyCoercedForFrameBoundCalculation = coercions.get(sortKey);
         Optional<Type> coercion = frameOffset.map(analysis::getSortKeyCoercionForFrameBoundCalculation);
         if (coercion.isPresent()) {

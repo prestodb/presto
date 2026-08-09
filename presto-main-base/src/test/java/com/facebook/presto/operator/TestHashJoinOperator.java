@@ -44,7 +44,6 @@ import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -69,6 +68,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -190,7 +190,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypesWithoutHash(), buildPages.getTypesWithoutHash()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probePages.getTypesWithoutHash().stream(), buildPages.getTypesWithoutHash().stream()).collect(toImmutableList()))
                 .row("20", 1020L, 2020L, "20", 30L, 40L)
                 .row("21", 1021L, 2021L, "21", 31L, 41L)
                 .row("22", 1022L, 2022L, "22", 32L, 42L)
@@ -318,12 +318,12 @@ public class TestHashJoinOperator
 
                 if (whenSpill != WhenSpill.NEVER) {
                     // spill one
-                    result.add(ImmutableList.of(probeHashEnabled, concat(singletonList(whenSpill), nCopies(PARTITION_COUNT - 1, WhenSpill.NEVER))));
+                    result.add(ImmutableList.of(probeHashEnabled, Stream.concat(singletonList(whenSpill).stream(), nCopies(PARTITION_COUNT - 1, WhenSpill.NEVER).stream()).collect(toImmutableList())));
                 }
             }
 
-            result.add(ImmutableList.of(probeHashEnabled, concat(asList(WhenSpill.DURING_BUILD, WhenSpill.AFTER_BUILD), nCopies(PARTITION_COUNT - 2, WhenSpill.NEVER))));
-            result.add(ImmutableList.of(probeHashEnabled, concat(asList(WhenSpill.DURING_BUILD, WhenSpill.DURING_USAGE), nCopies(PARTITION_COUNT - 2, WhenSpill.NEVER))));
+            result.add(ImmutableList.of(probeHashEnabled, Stream.concat(asList(WhenSpill.DURING_BUILD, WhenSpill.AFTER_BUILD).stream(), nCopies(PARTITION_COUNT - 2, WhenSpill.NEVER).stream()).collect(toImmutableList())));
+            result.add(ImmutableList.of(probeHashEnabled, Stream.concat(asList(WhenSpill.DURING_BUILD, WhenSpill.DURING_USAGE).stream(), nCopies(PARTITION_COUNT - 2, WhenSpill.NEVER).stream()).collect(toImmutableList())));
         }
         return result;
     }
@@ -474,7 +474,7 @@ public class TestHashJoinOperator
 
             List<Page> actualPages = getPages(pageBuffer);
 
-            MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypesWithoutHash(), buildPages.getTypesWithoutHash()))
+            MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probePages.getTypesWithoutHash().stream(), buildPages.getTypesWithoutHash().stream()).collect(toImmutableList()))
                     .row("20", 123_000L, "20", 200L)
                     .row("20", 123_000L, "20", 200L)
                     .row("20", 123_000L, "20", 200L)
@@ -485,7 +485,7 @@ public class TestHashJoinOperator
                     .row("33", 123_003L, "33", 303L)
                     .build();
 
-            assertEqualsIgnoreOrder(getProperColumns(joinOperator, concat(probePages.getTypes(), buildPages.getTypes()), probePages, actualPages).getMaterializedRows(), expected.getMaterializedRows());
+            assertEqualsIgnoreOrder(getProperColumns(joinOperator, Stream.concat(probePages.getTypes().stream(), buildPages.getTypes().stream()).collect(toImmutableList()), probePages, actualPages).getMaterializedRows(), expected.getMaterializedRows());
         }
         finally {
             joinOperatorFactory.noMoreOperators();
@@ -601,7 +601,7 @@ public class TestHashJoinOperator
 
         List<Page> pages = getPages(pageBuffer);
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probe2Pages.getTypesWithoutHash(), buildPages.getTypesWithoutHash()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probe2Pages.getTypesWithoutHash().stream(), buildPages.getTypesWithoutHash().stream()).collect(toImmutableList()))
                 .row("20", 123_000L, "20", 200L)
                 .row("20", 123_000L, "20", 200L)
                 .row("20", 123_000L, "20", 200L)
@@ -612,7 +612,7 @@ public class TestHashJoinOperator
                 .row("33", 123_003L, "33", 303L)
                 .build();
 
-        assertEqualsIgnoreOrder(getProperColumns(lookupOperator1, concat(probe2Pages.getTypes(), buildPages.getTypes()), probe2Pages, pages).getMaterializedRows(), expected.getMaterializedRows());
+        assertEqualsIgnoreOrder(getProperColumns(lookupOperator1, Stream.concat(probe2Pages.getTypes().stream(), buildPages.getTypes().stream()).collect(toImmutableList()), probe2Pages, pages).getMaterializedRows(), expected.getMaterializedRows());
     }
 
     private static void processRow(final Driver joinDriver, final TaskStateMachine taskStateMachine)
@@ -739,7 +739,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildPages.getTypesWithoutHash().stream()).collect(toImmutableList()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -779,7 +779,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildTypes.stream()).collect(toImmutableList()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -820,7 +820,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildTypes.stream()).collect(toImmutableList()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -854,7 +854,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildTypes.stream()).collect(toImmutableList()))
                 .row("20", 1020L, 2020L, "20", 30L, 40L)
                 .row("21", 1021L, 2021L, "21", 31L, 41L)
                 .row("22", 1022L, 2022L, "22", 32L, 42L)
@@ -903,7 +903,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildTypes.stream()).collect(toImmutableList()))
                 .row("20", 1020L, 2020L, null, null, null)
                 .row("21", 1021L, 2021L, null, null, null)
                 .row("22", 1022L, 2022L, null, null, null)
@@ -955,7 +955,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildTypes.stream()).collect(toImmutableList()))
                 .row("a", "a")
                 .row(null, null)
                 .row(null, null)
@@ -1000,7 +1000,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildTypes.stream()).collect(toImmutableList()))
                 .row("a", "a")
                 .row(null, null)
                 .row(null, null)
@@ -1042,7 +1042,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildTypes.stream()).collect(toImmutableList()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -1087,7 +1087,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildTypes.stream()).collect(toImmutableList()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", null)
@@ -1128,7 +1128,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildPages.getTypesWithoutHash().stream()).collect(toImmutableList()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -1174,7 +1174,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildPages.getTypesWithoutHash().stream()).collect(toImmutableList()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", null)
@@ -1356,7 +1356,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildTypes.stream()).collect(toImmutableList()))
                 .row("a", null)
                 .row("b", null)
                 .row(null, null)
@@ -1402,7 +1402,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildTypes.stream()).collect(toImmutableList()))
                 .row("a", null)
                 .row("b", null)
                 .row(null, null)
@@ -1447,7 +1447,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes)).build();
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildTypes.stream()).collect(toImmutableList())).build();
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
@@ -1692,7 +1692,7 @@ public class TestHashJoinOperator
 
     private static <T> List<T> concat(List<T> initialElements, List<T> moreElements)
     {
-        return ImmutableList.copyOf(Iterables.concat(initialElements, moreElements));
+        return Stream.concat(initialElements.stream(), moreElements.stream()).collect(toImmutableList());
     }
 
     private static class BuildSideSetup

@@ -287,7 +287,7 @@ public class TestColumnMask
                     new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey"));
             assertions.assertFails(
                     "SELECT (SELECT min(custkey) FROM customer WHERE customer.custkey = orders.custkey) FROM orders",
-                    "\\Qline 1:1: Column 'orderkey' cannot be resolved\\E");
+                    ".*Invalid column mask for 'local.tiny.customer.custkey':.*\\Qline 1:1: Column 'orderkey' cannot be resolved\\E.*");
         });
     }
 
@@ -332,7 +332,7 @@ public class TestColumnMask
                     USER,
                     new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "unknown_column"));
 
-            assertions.assertFails("SELECT orderkey FROM orders", "\\Qline 1:1: Column 'unknown_column' cannot be resolved\\E");
+            assertions.assertFails("SELECT orderkey FROM orders", ".*Invalid column mask for 'local.tiny.orders.orderkey':.*\\Qline 1:1: Column 'unknown_column' cannot be resolved\\E.*");
         });
 
         // invalid type

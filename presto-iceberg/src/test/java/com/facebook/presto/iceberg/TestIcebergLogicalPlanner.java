@@ -22,6 +22,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -75,6 +76,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.predicate.Domain.create;
 import static com.facebook.presto.common.predicate.Domain.multipleValues;
@@ -129,6 +131,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -140,6 +143,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -3496,5 +3500,59 @@ public class TestIcebergLogicalPlanner
     private static Subfield nestedColumn(String column)
     {
         return new Subfield(column);
+    }
+
+    @Test
+    public void testMergeWhenClausePredicateAppearsInPlan()
+    {
+        String targetTable = "merge_plan_when_" + randomTableSuffix();
+        String matchedMarker = "987654321";
+        String notMatchedMarker = "123456789";
+        // PushdownSubfields fails on MERGE's synthetic $target_table_row_id variable.
+        Session sessionWithoutSubfieldPushdown = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "false")
+                .build();
+        try {
+            getQueryRunner().execute(sessionWithoutSubfieldPushdown,
+                    format("CREATE TABLE %s (id INT, value INT)", targetTable));
+
+            @Language("SQL") String withConditions = format(
+                    "MERGE INTO %s t USING (VALUES (1, 5)) AS s(id, delta) ON t.id = s.id " +
+                            "WHEN MATCHED AND s.delta > %s THEN UPDATE SET value = t.value + s.delta " +
+                            "WHEN NOT MATCHED AND s.delta > %s THEN INSERT (id, value) VALUES (s.id, s.delta)",
+                    targetTable, matchedMarker, notMatchedMarker);
+            @Language("SQL") String withoutConditions = format(
+                    "MERGE INTO %s t USING (VALUES (1, 5)) AS s(id, delta) ON t.id = s.id " +
+                            "WHEN MATCHED THEN UPDATE SET value = t.value + s.delta " +
+                            "WHEN NOT MATCHED THEN INSERT (id, value) VALUES (s.id, s.delta)",
+                    targetTable);
+
+            String planWithConditions = planText(withConditions, sessionWithoutSubfieldPushdown);
+            assertTrue(planWithConditions.contains(matchedMarker),
+                    "Plan with WHEN MATCHED predicate should mention marker " + matchedMarker + " but was:\n" + planWithConditions);
+            assertTrue(planWithConditions.contains(notMatchedMarker),
+                    "Plan with WHEN NOT MATCHED predicate should mention marker " + notMatchedMarker + " but was:\n" + planWithConditions);
+
+            String planWithoutConditions = planText(withoutConditions, sessionWithoutSubfieldPushdown);
+            assertFalse(planWithoutConditions.contains(matchedMarker),
+                    "Plan without WHEN predicates should not mention marker " + matchedMarker + " but was:\n" + planWithoutConditions);
+            assertFalse(planWithoutConditions.contains(notMatchedMarker),
+                    "Plan without WHEN predicates should not mention marker " + notMatchedMarker + " but was:\n" + planWithoutConditions);
+        }
+        finally {
+            getQueryRunner().execute(sessionWithoutSubfieldPushdown, "DROP TABLE " + targetTable);
+        }
+    }
+
+    private String planText(@Language("SQL") String sql, Session session)
+    {
+        Plan actualPlan = plan(sql, session);
+        return textLogicalPlan(
+                actualPlan.getRoot(),
+                actualPlan.getTypes(),
+                StatsAndCosts.empty(),
+                getQueryRunner().getMetadata().getFunctionAndTypeManager(),
+                session,
+                0);
     }
 }

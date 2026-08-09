@@ -1070,8 +1070,8 @@ public class HiveMetadata
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
 
-        if ((bucketProperty.isPresent() || !partitionedBy.isEmpty()) && getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
-            throw new PrestoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema url is set");
+        if (bucketProperty.isPresent() && getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
+            throw new PrestoException(NOT_SUPPORTED, "Bucketing columns not supported when Avro schema url is set");
         }
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
@@ -1604,7 +1604,7 @@ public class HiveMetadata
     @Override
     public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        verifyJvmTimeZone();
+        verifyJvmTimeZone(session);
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
         MetastoreContext metastoreContext = getMetastoreContext(session);
@@ -1675,7 +1675,7 @@ public class HiveMetadata
                 List<String> partitionValues = partitionValuesList.get(i);
                 ComputedStatistics collectedStatistics = computedStatisticsMap.containsKey(partitionValues)
                         ? computedStatisticsMap.get(partitionValues)
-                        : computedStatisticsMap.get(canonicalizePartitionValues(partitionName, partitionValues, partitionTypes));
+                        : computedStatisticsMap.get(canonicalizePartitionValues(session, partitionName, partitionValues, partitionTypes));
                 if (collectedStatistics == null) {
                     partitionStatistics.put(partitionValues, emptyPartitionStatistics.get());
                 }
@@ -1700,6 +1700,7 @@ public class HiveMetadata
     }
 
     private Map<ColumnStatisticMetadata, Block> getColumnStatistics(
+            ConnectorSession session,
             Map<List<String>, ComputedStatistics> statistics,
             String partitionName,
             List<String> partitionValues,
@@ -1708,17 +1709,17 @@ public class HiveMetadata
         Optional<Map<ColumnStatisticMetadata, Block>> columnStatistics = Optional.ofNullable(statistics.get(partitionValues))
                 .map(ComputedStatistics::getColumnStatistics);
         return columnStatistics
-                .orElseGet(() -> getColumnStatistics(statistics, canonicalizePartitionValues(partitionName, partitionValues, partitionTypes)));
+                .orElseGet(() -> getColumnStatistics(statistics, canonicalizePartitionValues(session, partitionName, partitionValues, partitionTypes)));
     }
 
-    private List<String> canonicalizePartitionValues(String partitionName, List<String> partitionValues, List<Type> partitionTypes)
+    private List<String> canonicalizePartitionValues(ConnectorSession session, String partitionName, List<String> partitionValues, List<Type> partitionTypes)
     {
         verify(partitionValues.size() == partitionTypes.size(), "Expected partitionTypes size to be %s but got %s", partitionValues.size(), partitionTypes.size());
         Block[] parsedPartitionValuesBlocks = new Block[partitionValues.size()];
         for (int i = 0; i < partitionValues.size(); i++) {
             String partitionValue = partitionValues.get(i);
             Type partitionType = partitionTypes.get(i);
-            parsedPartitionValuesBlocks[i] = parsePartitionValue(partitionName, partitionValue, partitionType, timeZone).asBlock();
+            parsedPartitionValuesBlocks[i] = parsePartitionValue(Optional.of(session), partitionName, partitionValue, partitionType, timeZone).asBlock();
         }
 
         return createPartitionValues(partitionTypes, new Page(parsedPartitionValuesBlocks), 0);
@@ -1727,7 +1728,7 @@ public class HiveMetadata
     @Override
     public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        verifyJvmTimeZone();
+        verifyJvmTimeZone(session);
         metastore.setQueryRuntimeStats(session.getRuntimeStats());
 
         if (getExternalLocation(tableMetadata.getProperties()) != null) {
@@ -2048,20 +2049,30 @@ public class HiveMetadata
             int bucketCount,
             Set<String> existingFileNames)
     {
-        if (existingFileNames.size() == bucketCount) {
-            // fast path for common case
+        // Extract unique bucket numbers from existing file names
+        Set<Integer> existingBuckets = existingFileNames.stream()
+                .map(HiveWriterFactory::getBucketNumber)
+                .filter(OptionalInt::isPresent)
+                .map(OptionalInt::getAsInt)
+                .collect(toImmutableSet());
+
+        if (existingBuckets.size() == bucketCount) {
+            // fast path for common case - all buckets have files
             return ImmutableList.of();
         }
+
         String fileExtension = getFileExtension(fromHiveStorageFormat(storageFormat), compressionCodec);
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
         for (int i = 0; i < bucketCount; i++) {
-            String targetFileName = isFileRenamingEnabled(session) ? String.valueOf(i) : computeBucketedFileName(session.getQueryId(), i) + fileExtension;
-            if (!existingFileNames.contains(targetFileName)) {
+            if (!existingBuckets.contains(i)) {
+                String targetFileName = isFileRenamingEnabled(session) ? String.valueOf(i) : computeBucketedFileName(session.getQueryId(), i) + fileExtension;
                 missingFileNamesBuilder.add(targetFileName);
             }
         }
         List<String> missingFileNames = missingFileNamesBuilder.build();
-        verify(existingFileNames.size() + missingFileNames.size() == bucketCount);
+        verify(existingBuckets.size() + missingFileNames.size() == bucketCount,
+                "Expected %s buckets, but found %s existing and %s missing",
+                bucketCount, existingBuckets.size(), missingFileNames.size());
         return missingFileNames;
     }
 
@@ -2073,7 +2084,7 @@ public class HiveMetadata
 
     private HiveInsertTableHandle beginInsertInternal(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        verifyJvmTimeZone();
+        verifyJvmTimeZone(session);
         metastore.setQueryRuntimeStats(session.getRuntimeStats());
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
@@ -2282,7 +2293,7 @@ public class HiveMetadata
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partitionName, partitionValues, partitionTypes), timeZone);
+                        getColumnStatistics(session, partitionComputedStatistics, partitionName, partitionValues, partitionTypes), timeZone);
                 metastore.finishInsertIntoExistingPartition(
                         session,
                         handle.getSchemaName(),
@@ -2347,7 +2358,7 @@ public class HiveMetadata
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partitionName, partitionValues, partitionTypes),
+                        getColumnStatistics(session, partitionComputedStatistics, partitionName, partitionValues, partitionTypes),
                         timeZone);
 
                 // New partition or overwriting existing partition by staging and moving the new partition
@@ -2578,7 +2589,7 @@ public class HiveMetadata
         Map<String, Map<SchemaTableName, String>> directColumnMappings = viewDefinition.getDirectColumnMappingsAsMap();
         Map<SchemaTableName, Map<String, String>> viewToBasePartitionMap = getViewToBasePartitionMap(materializedViewTable, baseTables, directColumnMappings);
 
-        MaterializedDataPredicates materializedDataPredicates = getMaterializedDataPredicates(metastore, metastoreContext, typeManager, materializedViewTable, timeZone);
+        MaterializedDataPredicates materializedDataPredicates = getMaterializedDataPredicates(session, metastore, metastoreContext, typeManager, materializedViewTable, timeZone);
 
         // Partitions to keep track of for materialized view freshness are the partitions of every base table
         // that are not available/updated to the materialized view yet.
@@ -2586,7 +2597,7 @@ public class HiveMetadata
                 .collect(toImmutableMap(
                         baseTable -> new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName()),
                         baseTable -> {
-                            MaterializedDataPredicates baseTableMaterializedPredicates = getMaterializedDataPredicates(metastore, metastoreContext, typeManager, baseTable, timeZone);
+                            MaterializedDataPredicates baseTableMaterializedPredicates = getMaterializedDataPredicates(session, metastore, metastoreContext, typeManager, baseTable, timeZone);
                             SchemaTableName schemaTableName = new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName());
                             Map<String, String> viewToBaseIndirectMappedColumns = viewToBaseTableOnOuterJoinSideIndirectMappedPartitions(viewDefinition, baseTable).orElse(ImmutableMap.of());
 
@@ -3532,9 +3543,9 @@ public class HiveMetadata
         return result.build();
     }
 
-    private void verifyJvmTimeZone()
+    private void verifyJvmTimeZone(ConnectorSession session)
     {
-        if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
+        if (session.getSqlFunctionProperties().isLegacyTimestamp() && !allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             throw new PrestoException(HIVE_TIMEZONE_MISMATCH, format(
                     "To write Hive data, your JVM timezone must match the Hive storage timezone. Add -Duser.timezone=%s to your JVM arguments.",
                     timeZone.getID()));

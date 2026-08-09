@@ -60,9 +60,9 @@ import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -434,7 +434,7 @@ public class TestTVFConnectorFactory
     public static class TestTvfTableFunctionHandleResolver
             implements TableFunctionHandleResolver
     {
-        Set<Class<? extends ConnectorTableFunctionHandle>> handles = Sets.newHashSet();
+        Set<Class<? extends ConnectorTableFunctionHandle>> handles = new HashSet<>();
 
         @Override
         public Set<Class<? extends ConnectorTableFunctionHandle>> getTableFunctionHandleClasses()
@@ -451,7 +451,7 @@ public class TestTVFConnectorFactory
     public static class TestTvfTableFunctionSplitResolver
             implements TableFunctionSplitResolver
     {
-        Set<Class<? extends ConnectorSplit>> handles = Sets.newHashSet();
+        Set<Class<? extends ConnectorSplit>> handles = new HashSet<>();
 
         @Override
         public Set<Class<? extends ConnectorSplit>> getTableFunctionSplitClasses()

@@ -464,4 +464,41 @@ public class TestPreAggregateBeforeGroupId
                 "Output variable types must preserve original aggregation ordering to avoid " +
                 "type mismatch at PartitionedOutput in Velox native execution");
     }
+
+    @Test
+    public void testAggregationOutputsPreservesInsertionOrder()
+    {
+        // Regression test for #27902: AggregationNode.getAggregationOutputs() is
+        // the explicit list serialized to native workers so they can build the
+        // output schema in Java's order. Names chosen so alphabetical sort
+        // [count_a, sum_x] differs from insertion order [sum_x, count_a]; the
+        // getter must return insertion order. The rule is disabled here -- we
+        // only inspect the input AggregationNode, not the rewrite.
+        tester().assertThat(new PreAggregateBeforeGroupId(getFunctionManager()))
+                .setSystemProperty(PRE_AGGREGATE_BEFORE_GROUPING_SETS, "false")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a", BIGINT);
+                    VariableReferenceExpression x = p.variable("x", BIGINT);
+                    AggregationNode aggregationNode = p.aggregation(agg -> agg
+                            .addAggregation(
+                                    p.variable("sum_x", BIGINT),
+                                    p.rowExpression("sum(x)"))
+                            .addAggregation(
+                                    p.variable("count_a", BIGINT),
+                                    p.rowExpression("count(a)"))
+                            .globalGrouping()
+                            .step(AggregationNode.Step.PARTIAL)
+                            .source(p.values(a, x)));
+
+                    List<String> outputNames = aggregationNode.getAggregationOutputs().stream()
+                            .map(VariableReferenceExpression::getName)
+                            .collect(Collectors.toList());
+                    assertEquals(outputNames, ImmutableList.of("sum_x", "count_a"),
+                            "getAggregationOutputs() must return aggregations.keySet() in " +
+                            "LinkedHashMap insertion order so native workers build the " +
+                            "schema in Java's order");
+                    return aggregationNode;
+                })
+                .doesNotFire();
+    }
 }

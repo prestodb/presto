@@ -52,7 +52,6 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.sun.management.ThreadMXBean;
 import org.apache.http.client.utils.URIBuilder;
@@ -102,7 +101,7 @@ import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragme
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.graph.Traverser.forTree;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -245,7 +244,7 @@ public class SqlQueryScheduler
         this.sectionedPlan = extractStreamingSections(plan);
         this.summarizeTaskInfo = summarizeTaskInfo;
 
-        OutputBufferId rootBufferId = getOnlyElement(rootOutputBuffers.getBuffers().keySet());
+        OutputBufferId rootBufferId = rootOutputBuffers.getBuffers().keySet().stream().collect(onlyElement());
         List<StageExecutionAndScheduler> stageExecutions = createStageExecutions(
                 sectionExecutionFactory,
                 (fragmentId, tasks, noMoreExchangeLocations) -> updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations),
@@ -256,7 +255,7 @@ public class SqlQueryScheduler
                 splitSourceFactory,
                 session);
 
-        this.rootStageId = Iterables.getLast(stageExecutions).getStageExecution().getStageExecutionId().getStageId();
+        this.rootStageId = stageExecutions.stream().reduce((first, second) -> second).get().getStageExecution().getStageExecutionId().getStageId();
 
         stageExecutions.stream()
                 .forEach(execution -> this.stageExecutions.put(execution.getStageExecution().getStageExecutionId().getStageId(), execution));
@@ -703,7 +702,7 @@ public class SqlQueryScheduler
             outputBuffers = createInitialEmptyOutputBuffers(sectionRootFragment.getPartitioningScheme().getPartitioning().getHandle())
                     .withBuffer(new OutputBufferId(0), BROADCAST_PARTITION_ID)
                     .withNoMoreBufferIds();
-            OutputBufferId rootBufferId = getOnlyElement(outputBuffers.getBuffers().keySet());
+            OutputBufferId rootBufferId = outputBuffers.getBuffers().keySet().stream().collect(onlyElement());
             locationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) ->
                     updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations);
         }

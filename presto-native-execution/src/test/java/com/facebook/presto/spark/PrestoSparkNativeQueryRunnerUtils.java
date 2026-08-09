@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.log.Level.WARN;
+import static com.facebook.presto.SystemSessionProperties.NATIVE_EXCHANGE_MATERIALIZATION_ENABLED;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters;
@@ -70,9 +71,28 @@ public class PrestoSparkNativeQueryRunnerUtils
     private static final String SPARK_SHUFFLE_MANAGER = "spark.shuffle.manager";
     private static final String FALLBACK_SPARK_SHUFFLE_MANAGER = "spark.fallback.shuffle.manager";
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
+    private static final Map<String, String> NATIVE_EXECUTION_SESSION_PROPERTIES = ImmutableMap.of(
+            NATIVE_EXCHANGE_MATERIALIZATION_ENABLED,
+            "false");
+    private static final Map<String, String> NATIVE_EXECUTION_SYSTEM_CONFIGS = ImmutableMap.of(
+            "exchange.materialization.enabled",
+            "false");
     private static Optional<Path> dataDirectory = Optional.empty();
 
     private PrestoSparkNativeQueryRunnerUtils() {}
+
+    public static Map<String, String> getNativeExecutionSystemConfigs()
+    {
+        return NATIVE_EXECUTION_SYSTEM_CONFIGS;
+    }
+
+    public static Map<String, String> getNativeExecutionSystemConfigs(Map<String, String> overrides)
+    {
+        return ImmutableMap.<String, String>builder()
+                .putAll(NATIVE_EXECUTION_SYSTEM_CONFIGS)
+                .putAll(overrides)
+                .build();
+    }
 
     public static Map<String, String> getNativeExecutionSparkConfigs()
     {
@@ -103,7 +123,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     {
         PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule(),
                 new NativeExecutionConfigModule(
-                        ImmutableMap.of(),
+                        NATIVE_EXECUTION_SYSTEM_CONFIGS,
                         ImmutableMap.of(
                                 "hive",
                                 ImmutableMap.of("connector.name", "hive"))));
@@ -130,7 +150,7 @@ public class PrestoSparkNativeQueryRunnerUtils
                 "hive",
                 new NativeExecutionModule(),
                 new NativeExecutionConfigModule(
-                        additionalSystemConfigs,
+                        getNativeExecutionSystemConfigs(additionalSystemConfigs),
                         catalogBuilder.build()));
 
         // Add connectors on the Java side to make them visible during planning.
@@ -172,7 +192,7 @@ public class PrestoSparkNativeQueryRunnerUtils
                 "tpchstandard",
                 new NativeExecutionModule(),
                 new NativeExecutionConfigModule(
-                        ImmutableMap.of(),
+                        NATIVE_EXECUTION_SYSTEM_CONFIGS,
                         ImmutableMap.of(
                                 "tpchstandard",
                                 ImmutableMap.of("connector.name", "tpch"))));
@@ -190,7 +210,8 @@ public class PrestoSparkNativeQueryRunnerUtils
                 additionalSparkProperties,
                 dataDir,
                 nativeModules,
-                AVAILABLE_CPU_COUNT);
+                AVAILABLE_CPU_COUNT,
+                NATIVE_EXECUTION_SESSION_PROPERTIES);
 
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
         if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {

@@ -21,23 +21,29 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class RPCNode
         extends InternalPlanNode
 {
+    // AUTOMATIC is a coordinator-only planning value. RpcFunctionOptimizer resolves it to
+    // PER_ROW or BATCH from the estimated input cardinality before constructing the node, so
+    // a serialized RPCNode never carries AUTOMATIC (the native protocol only understands
+    // PER_ROW / BATCH). The comment is kept outside the enum body because the native protocol
+    // generator (java-to-struct-json.py) mis-parses interior enum comments.
     public enum StreamingMode
     {
         PER_ROW,
-        BATCH
+        BATCH,
+        AUTOMATIC
     }
 
     private final PlanNode source;
@@ -90,6 +96,9 @@ public class RPCNode
                 this.argumentColumns.size());
         this.outputVariable = requireNonNull(outputVariable, "outputVariable is null");
         this.streamingMode = streamingMode != null ? streamingMode : StreamingMode.PER_ROW;
+        checkArgument(
+                this.streamingMode != StreamingMode.AUTOMATIC,
+                "RPCNode streamingMode must be PER_ROW or BATCH, not AUTOMATIC (coordinator-only value); resolve it before constructing the node");
         this.dispatchBatchSize = dispatchBatchSize;
 
         ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.builder();
@@ -166,7 +175,7 @@ public class RPCNode
                 getSourceLocation(),
                 getId(),
                 getStatsEquivalentPlanNode(),
-                Iterables.getOnlyElement(newChildren),
+                newChildren.stream().collect(onlyElement()),
                 functionName,
                 arguments,
                 argumentColumns,

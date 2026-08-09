@@ -16,16 +16,19 @@ package com.facebook.presto.parquet;
 import com.facebook.presto.parquet.reader.ColumnChunk;
 import com.facebook.presto.parquet.reader.PageReader;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
+import org.joda.time.DateTimeZone;
+
+import java.util.Optional;
 
 public interface ColumnReader
 {
     boolean isInitialized();
 
-    void init(PageReader pageReader, Field field, RowRanges rowRanges);
+    void init(PageReader pageReader, Field field, RowRanges rowRanges, Optional<DateTimeZone> timezone);
 
     void prepareNextRead(int batchSize);
 
-    ColumnChunk readNext();
+    ColumnChunk readNext(Optional<DateTimeZone> timezone);
 
     long getRetainedSizeInBytes();
 }

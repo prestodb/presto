@@ -28,7 +28,7 @@ _______________
 * Add session property ``optimizers_to_enable_verbose_runtime_stats`` to enable runtime tracking for a set of optimizers.
 * Add support for ``EXPLAIN (TYPE VALIDATE)`` of ``EXPLAIN`` queries. Previously such queries would fail with an error.
 * Improve performance of cluster statistics reporting in the Presto coordinator by adding the configuration property ``cluster-stats-cache-expiration-duration``. The property is ``0`` (disabled) by default.
-* Add support for serializing nested data structures via server-side configuration properties using the configuration property ``nested-data-serialization-enabled``. The property is enabled by default with the value ``TRUE``.
+* Add support for serializing nested data structures with server-side configuration properties using the configuration property ``nested-data-serialization-enabled``. The property is enabled by default with the value ``TRUE``.
 * Add a Redis-based historical statistics provider.  For more information, see :doc:`Redis HBO Provider </plugin/redis-hbo-provider>`.
 * Add principal name support in the resource group selection criteria.
 * Add ``noisy_count_if_gaussian(condition, noiseScale[, randomSeed])`` aggregation which calculates the number of ``TRUE`` input values, and then adds random Gaussian noise with 0 mean and standard deviation of ``noise_scale`` to the true count. Optional ``randomSeed`` is used to get a fixed value of noise, often for reproducibility purposes. If ``randomSeed`` is omitted, ``SecureRandom`` is used. If ``randomSeed`` is provided, ``Random`` is used.

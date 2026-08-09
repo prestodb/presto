@@ -67,6 +67,7 @@ import java.io.Closeable;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -88,14 +89,13 @@ import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Predicates.notNull;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.stream.Collectors.toList;
 
 public class SqlTaskManager
         implements TaskManager, Closeable
@@ -336,7 +336,9 @@ public class SqlTaskManager
     @Override
     public List<TaskInfo> getAllTaskInfo()
     {
-        return ImmutableList.copyOf(transform(tasks.asMap().values(), SqlTask::getTaskInfo));
+        return tasks.asMap().values().stream()
+                .map(SqlTask::getTaskInfo)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -495,7 +497,10 @@ public class SqlTaskManager
     public void removeOldTasks()
     {
         long oldestAllowedTaskInMillis = currentTimeMillis() - infoCacheTime.toMillis();
-        for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask::getTaskInfo), notNull())) {
+        for (TaskInfo taskInfo : tasks.asMap().values().stream()
+                .map(SqlTask::getTaskInfo)
+                .filter(Objects::nonNull)
+                .collect(toList())) {
             TaskId taskId = taskInfo.getTaskId();
             try {
                 long endTimeInMillis = taskInfo.getStats().getEndTimeInMillis();

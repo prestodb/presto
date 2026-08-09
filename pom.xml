@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.299-SNAPSHOT</version>
+    <version>0.300-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -49,14 +49,14 @@
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
         <dep.aws-sdk.version>1.12.782</dep.aws-sdk.version>
-        <dep.okhttp.version>4.12.0</dep.okhttp.version>
+        <dep.okhttp.version>5.3.2</dep.okhttp.version>
         <dep.jdbi3.version>3.49.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>${dep.airlift.version}</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.14.0</dep.joda.version>
-        <dep.tempto.version>1.55</dep.tempto.version>
+        <dep.tempto.version>1.58</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>9.12.3</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
@@ -76,25 +76,25 @@
         <dep.docker-java.version>3.4.1</dep.docker-java.version>
         <dep.jayway.version>2.9.0</dep.jayway.version>
         <dep.ratis.version>3.2.2</dep.ratis.version>
-        <dep.errorprone.version>2.37.0</dep.errorprone.version>
+        <dep.errorprone.version>2.50.0</dep.errorprone.version>
         <dep.guava.version>32.1.0-jre</dep.guava.version>
-        <dep.jackson.version>2.18.6</dep.jackson.version>
+        <dep.jackson.version>2.18.9</dep.jackson.version>
         <dep.j2objc.version>3.0.0</dep.j2objc.version>
         <dep.avro.version>1.12.1</dep.avro.version>
         <dep.commons.compress.version>1.27.1</dep.commons.compress.version>
         <dep.protobuf-java.version>4.34.1</dep.protobuf-java.version>
         <dep.jetty.version>12.0.34</dep.jetty.version>
-        <dep.netty.version>4.2.13.Final</dep.netty.version>
-        <dep.reactor-netty.version>1.3.3</dep.reactor-netty.version>
+        <dep.netty.version>4.2.16.Final</dep.netty.version>
+        <dep.reactor-netty.version>1.3.6</dep.reactor-netty.version>
         <dep.snakeyaml.version>2.5</dep.snakeyaml.version>
         <dep.gson.version>2.14.0</dep.gson.version>
         <dep.commons.lang3.version>3.18.0</dep.commons.lang3.version>
         <dep.guice.version>6.0.0</dep.guice.version>
         <dep.arrow.version>18.3.0</dep.arrow.version>
         <dep.mariadb.version>3.5.4</dep.mariadb.version>
-        <dep.spark.version>2.0.2-6</dep.spark.version>
+        <dep.spark.version>2.4.4-1</dep.spark.version>
         <dep.hadoop.version>3.4.1-1</dep.hadoop.version>
-        <scala.version>2.13.17</scala.version>
+        <scala.version>2.13.18</scala.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -114,9 +114,11 @@
         <dep.jts.version>1.20.0</dep.jts.version>
 
         <dep.fastutil.version>8.5.2</dep.fastutil.version>
-        <dep.datasketches-memory.version>2.2.0</dep.datasketches-memory.version>
-        <dep.datasketches-java.version>5.0.1</dep.datasketches-java.version>
+        <dep.datasketches-memory.version>3.0.2</dep.datasketches-memory.version>
+        <dep.datasketches-java.version>6.2.0</dep.datasketches-java.version>
         <dep.io.opentelemetry.version>1.62.0</dep.io.opentelemetry.version>
+
+        <dep.cassandra-java-driver.version>4.19.3</dep.cassandra-java-driver.version>
 
         <release.autoPublish>true</release.autoPublish>
     </properties>
@@ -271,7 +273,7 @@
             <dependency>
                 <groupId>com.squareup.okio</groupId>
                 <artifactId>okio-jvm</artifactId>
-                <version>3.9.1</version>
+                <version>3.16.4</version>
             </dependency>
 
             <!-- pull up to the version used in okio-jvm to avoid conlict with okhttp-* -->
@@ -479,6 +481,12 @@
                 <groupId>javax.inject</groupId>
                 <artifactId>javax.inject</artifactId>
                 <version>1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>javax.annotation-api</artifactId>
+                <version>1.3.2</version>
             </dependency>
 
             <dependency>
@@ -1109,33 +1117,13 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.0.0-12</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.hive</groupId>
-                <artifactId>hive-llap-common</artifactId>
-                <version>2.3.4</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.hive</groupId>
-                        <artifactId>hive-common</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.hive</groupId>
-                        <artifactId>hive-serde</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                </exclusions>
+                <version>4.0.1-1</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>13</version>
+                <version>15</version>
             </dependency>
 
             <dependency>
@@ -1233,7 +1221,7 @@
             <dependency>
                 <groupId>com.facebook.hive</groupId>
                 <artifactId>hive-dwrf</artifactId>
-                <version>0.8.7</version>
+                <version>0.8.8</version>
             </dependency>
 
             <dependency>
@@ -1499,15 +1487,21 @@
             </dependency>
 
             <dependency>
-                <groupId>org.sonatype.aether</groupId>
-                <artifactId>aether-api</artifactId>
-                <version>1.13.1</version>
+                <groupId>org.apache.maven.resolver</groupId>
+                <artifactId>maven-resolver-api</artifactId>
+                <version>1.9.6</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift.resolver</groupId>
+                <groupId>com.facebook.airlift.resolver</groupId>
                 <artifactId>resolver</artifactId>
-                <version>1.4</version>
+                <version>1.8</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1627,7 +1621,7 @@
 
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
-                <artifactId>okhttp</artifactId>
+                <artifactId>okhttp-jvm</artifactId>
                 <version>${dep.okhttp.version}</version>
             </dependency>
 
@@ -1639,7 +1633,7 @@
 
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
-                <artifactId>mockwebserver</artifactId>
+                <artifactId>mockwebserver3</artifactId>
                 <version>${dep.okhttp.version}</version>
             </dependency>
 
@@ -1918,22 +1912,6 @@
 
             <dependency>
                 <groupId>com.amazonaws</groupId>
-                <artifactId>aws-java-sdk-glue</artifactId>
-                <version>${dep.aws-sdk.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>joda-time</groupId>
-                        <artifactId>joda-time</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.amazonaws</groupId>
                 <artifactId>aws-java-sdk-s3</artifactId>
                 <version>${dep.aws-sdk.version}</version>
                 <exclusions>
@@ -2068,7 +2046,7 @@
             <dependency>
                 <groupId>at.yawk.lz4</groupId>
                 <artifactId>lz4-java</artifactId>
-                <version>1.10.2</version>
+                <version>1.11.1</version>
             </dependency>
 
             <dependency>
@@ -2697,9 +2675,15 @@
             </dependency>
 
             <dependency>
-                <groupId>com.datastax.cassandra</groupId>
-                <artifactId>cassandra-driver-core</artifactId>
-                <version>3.11.5</version>
+                <groupId>org.apache.cassandra</groupId>
+                <artifactId>java-driver-core</artifactId>
+                <version>${dep.cassandra-java-driver.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.cassandra</groupId>
+                <artifactId>java-driver-query-builder</artifactId>
+                <version>${dep.cassandra-java-driver.version}</version>
             </dependency>
 
             <dependency>
@@ -2766,6 +2750,25 @@
                 <groupId>org.scala-lang</groupId>
                 <artifactId>scala-library</artifactId>
                 <version>${scala.version}</version>
+            </dependency>
+
+            <!-- Lance -->
+            <dependency>
+                <groupId>org.lance</groupId>
+                <artifactId>lance-core</artifactId>
+                <version>2.0.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.lance</groupId>
+                <artifactId>lance-namespace-core</artifactId>
+                <version>0.6.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.lance</groupId>
+                <artifactId>lance-namespace-apache-client</artifactId>
+                <version>0.6.1</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -2847,8 +2850,6 @@
                         <rules>
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
-                                    <!-- TODO: fix this in Airlift resolver -->
-                                    <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                     <exclude>com.google.guava:guava</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
@@ -2932,7 +2933,7 @@
                     <dependency>
                         <groupId>org.apache.maven.surefire</groupId>
                         <artifactId>surefire-testng</artifactId>
-                        <version>3.5.1</version>
+                        <version>3.5.6</version>
                     </dependency>
                 </dependencies>
                 <configuration combine.children="append">
@@ -2981,6 +2982,17 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>12.1.3</version>
+                <configuration>
+                    <suppressionFiles>
+                        <suppressionFile>${air.main.basedir}/src/dependency-check-suppressions.xml</suppressionFile>
+                    </suppressionFiles>
+                </configuration>
             </plugin>
         </plugins>
     </build>

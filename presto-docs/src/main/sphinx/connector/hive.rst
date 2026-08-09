@@ -17,7 +17,7 @@ data warehouse. Hive is a combination of three components:
   Hadoop Distributed File System (HDFS) or in Amazon S3.
 * Metadata about how the data files are mapped to schemas and tables.
   This metadata is stored in a database such as MySQL and is accessed
-  via the Hive metastore service.
+  by using the Hive metastore service.
 * A query language called HiveQL. This query language is executed
   on a distributed computing framework such as MapReduce or Tez.
 
@@ -121,7 +121,7 @@ When not using Kerberos with HDFS, Presto will access HDFS using the
 OS user of the Presto process. For example, if Presto is running as
 ``nobody``, it will access HDFS as ``nobody``. You can override this
 username by setting the ``HADOOP_USER_NAME`` system property in the
-Presto :ref:`presto_jvm_config`, replacing ``hdfs_user`` with the
+Presto :ref:`installation/deployment:JVM Config`, replacing ``hdfs_user`` with the
 appropriate username:
 
 .. code-block:: none
@@ -262,8 +262,8 @@ Avro Configuration Properties
 
 When querying or creating Avro-formatted tables with the Hive connector, you may need to supply or override the Avro schema. In addition, Hive Metastore, especially Hive 3.x, must be configured to read storage schemas for Avro tables.
 
-Table Properties
-^^^^^^^^^^^^^^^^
+Avro Table Properties
+^^^^^^^^^^^^^^^^^^^^^
 
 These properties can be used when creating or querying Avro tables in Presto:
 
@@ -303,8 +303,8 @@ You must restart the metastore service for this configuration to take effect. Th
 Textfile Configuration Properties
 ---------------------------------
 
-Table Properties
-^^^^^^^^^^^^^^^^
+Textfile Table Properties
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 These properties can be used when creating TEXTFILE tables in Presto:
 
@@ -396,6 +396,78 @@ Property Name                                                         Descriptio
   * ``ROLES``: Caches the list of available Hive roles.
   * ``ROLE_GRANTS``: Caches role grant mappings for principals.
 
+Metastore Cache Metrics
+-----------------------
+
+The Hive connector uses in-memory caching to reduce load on the Hive metastore and improve query performance. 
+The connector maintains 14 distinct caches, each optimized for specific types of metadata. All caches expose 
+JMX metrics that provide visibility into cache performance, helping you monitor efficiency, tune cache 
+configurations, and troubleshoot performance issues.
+
+Metric Types
+^^^^^^^^^^^^
+
+Each cache exposes four types of metrics:
+
+* **hit** - Number of successful cache lookups (metadata found in cache)
+* **miss** - Number of cache misses requiring metastore access
+* **eviction** - Number of entries evicted from cache due to size limits or TTL expiration
+* **size** - Current number of entries stored in the cache
+
+JMX Metric Naming Convention
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+All cache metrics can be queried from the following JMX table:
+
+.. code-block:: sql
+
+    SELECT <metricname> FROM jmx.current."com.facebook.presto.hive.metastore:name=<catalogname>,type=metastorecachestatscache"
+
+Where:
+
+* ``<catalogname>`` is the catalog name
+* ``<metricname>`` is the cache metric name
+
+
+Each of the 14 caches exposes 4 metrics (``hit``, ``miss``, ``eviction``, ``size``) following the pattern ``<cachename><metrictype>``:
+
+Available Metrics
+^^^^^^^^^^^^^^^^^
+
+The following table lists the available cache metrics.
+
+================================ ========================================
+Cache Name                       Example Metric
+================================ ========================================
+``databasecache``                ``databasecachehit``
+``databasenamescache``           ``databasenamescachehit``
+``tablecache``                   ``tablecachehit``
+``tablenamescache``              ``tablenamescachehit``
+``tablestatisticscache``         ``tablestatisticscachehit``
+``tableconstraintscache``        ``tableconstraintscachehit``
+``partitioncache``               ``partitioncachehit``
+``partitionfiltercache``         ``partitionfiltercachehit``
+``partitionnamescache``          ``partitionnamescachehit``
+``partitionstatisticscache``     ``partitionstatisticscachehit``
+``viewnamescache``               ``viewnamescachehit``
+``tableprivilegescache``         ``tableprivilegescachehit``
+``rolescache``                   ``rolescachehit``
+``rolegrantscache``              ``rolegrantscachehit``
+================================ ========================================
+
+**Example:**
+
+.. code-block:: sql
+
+    SELECT databasecachehit, tablecachehit, partitionfiltercachehit FROM jmx.current."com.facebook.presto.hive.metastore:name=<catalogname>,type=metastorecachestatscache"
+
+For cache invalidation procedures, see `Invalidate Metastore Cache`_.
+
+.. note::
+
+    All 14 caches are enabled by default when metastore caching is configured. Metrics are automatically 
+    exposed through JMX without additional configuration.
+
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
 
@@ -439,6 +511,12 @@ Property Name                                        Description
 
 ``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
                                                      Catalog.
+
+``hive.metastore.glue.column-statistics-enabled``    Enable use of column statistics on Glue Metastore
+
+``hive.metastore.glue.read-statistics-threads``      Number of threads for parallel statistics reads from Glue
+
+``hive.metastore.glue.write-statistics-threads``     Number of threads for parallel statistics writes to Glue
 ==================================================== ============================================================
 
 .. _s3selectpushdown:
@@ -474,7 +552,7 @@ Property Name                                Description
                                              connect to an S3-compatible storage system instead
                                              of AWS. When using v4 signatures, it is recommended to
                                              set this to the AWS region-specific endpoint
-                                             (e.g., ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
+                                             (for example, ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
 
 ``hive.s3.storage-class``                    The S3 storage class to use when writing the data. Currently only
                                              ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
@@ -562,7 +640,7 @@ interface and provide a two-argument constructor that takes a
 as arguments. A custom credentials provider can be used to provide
 temporary credentials from STS (using ``STSSessionCredentialsProvider``),
 IAM role-based credentials (using ``STSAssumeRoleSessionCredentialsProvider``),
-or credentials for a specific use case (e.g., bucket/user specific credentials).
+or credentials for a specific use case (such as bucket/user specific credentials).
 This Hadoop configuration property must be set in the Hadoop configuration
 files referenced by the ``hive.config.resources`` Hive connector property.
 
@@ -777,9 +855,9 @@ Understanding and Tuning the Maximum Connections
 ################################################
 
 Presto can use its native S3 file system or EMRFS. When using the native FS, the
-maximum connections is configured via the ``hive.s3.max-connections``
+maximum connections is configured with the ``hive.s3.max-connections``
 configuration property. When using EMRFS, the maximum connections is configured
-via the ``fs.s3.maxConnections`` Hadoop configuration property.
+with the ``fs.s3.maxConnections`` Hadoop configuration property.
 
 S3 Select Pushdown bypasses the file systems when accessing Amazon S3 for
 predicate operations. In this case, the value of
@@ -958,7 +1036,7 @@ Alluxio Client-Side Configuration
 To configure Alluxio client-side properties on Presto, append the Alluxio
 configuration directory (``${ALLUXIO_HOME}/conf``) to the Presto JVM classpath,
 so that the Alluxio properties file ``alluxio-site.properties`` can be loaded as a resource.
-Update the Presto :ref:`presto_jvm_config` file ``etc/jvm.config`` to include the following:
+Update the Presto :ref:`installation/deployment:JVM Config` file ``etc/jvm.config`` to include the following:
 
 .. code-block:: none
 
@@ -970,7 +1048,7 @@ the single ``alluxio-site.properties`` file. For details, see `Customize Alluxio
 
 Alternatively, add Alluxio configuration properties to the Hadoop configuration
 files (``core-site.xml``, ``hdfs-site.xml``) and configure the Hive connector
-to use the `Hadoop configuration files <#hdfs-configuration>`__ via the
+to use the `Hadoop configuration files <#hdfs-configuration>`__ with the
 ``hive.config.resources`` connector property.
 
 Deploy Alluxio with Presto
@@ -985,7 +1063,7 @@ for more details.
 Alluxio Catalog Service
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-An alternative way for Presto to interact with Alluxio is via the
+An alternative way for Presto to interact with Alluxio is through the
 `Alluxio Catalog Service. <https://docs.alluxio.io/os/user/stable/en/core-services/Catalog.html?utm_source=prestodb&utm_medium=prestodocs>`_.
 The primary benefits for using the Alluxio Catalog Service are simpler
 deployment of Alluxio with Presto, and enabling schema-aware optimizations
@@ -1059,8 +1137,8 @@ Collecting table and column statistics
 --------------------------------------
 
 The Hive connector supports collection of table and partition statistics
-via the :doc:`/sql/analyze` statement. When analyzing a partitioned table,
-the partitions to analyze can be specified via the optional ``partitions``
+by using the :doc:`/sql/analyze` statement. When analyzing a partitioned table,
+the partitions to analyze can be specified with the optional ``partitions``
 property, which is an array containing the values of the partition keys
 in the order they are declared in the table schema::
 
@@ -1187,9 +1265,9 @@ from a valid Avro schema file located locally or remotely in HDFS/Web server.
 
 To specify that Avro schema should be used for interpreting table's data one must use ``avro_schema_url`` table property.
 The schema can be placed remotely in
-HDFS (e.g. ``avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'``),
-S3 (e.g. ``avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'``),
-a web server (e.g. ``avro_schema_url = 'http://example.org/schema/avro_data.avsc'``)
+HDFS (for example, ``avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'``),
+S3 (for example, ``avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'``),
+a web server (for example, ``avro_schema_url = 'http://example.org/schema/avro_data.avsc'``)
 as well as local file system. This url where the schema is located, must be accessible from the
 Hive metastore and Presto coordinator/worker nodes.
 
@@ -1234,7 +1312,7 @@ Limitations
 The following operations are not supported when ``avro_schema_url`` is set:
 
 * ``CREATE TABLE AS`` is not supported.
-* Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
+* Bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
 
 Parquet Writer Version
@@ -1273,7 +1351,7 @@ Sync Partition Metadata
 
   The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
   with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
-  file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
+  file system paths to use lowercase (for example, ``col_x=SomeValue``). Partitions on the file system
   not conforming to this convention are ignored, unless the argument is set to ``false``.
 
 Invalidate Directory List Cache
@@ -1282,7 +1360,7 @@ Invalidate Directory List Cache
 Invalidating directory list cache is useful when the files are added or deleted in the cache directory path and you want to make the changes visible to Presto immediately.
 There are a couple of ways for invalidating this cache:
 
-* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.CachingDirectoryLister#flushCache``) to invalidate the directory list cache. You can call this procedure to invalidate the directory list cache by connecting via jconsole or jmxterm. This procedure flushes all the cache entries.
+* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.CachingDirectoryLister#flushCache``) to invalidate the directory list cache. You can call this procedure to invalidate the directory list cache by connecting with jconsole or jmxterm. This procedure flushes all the cache entries.
 
 * The Hive connector exposes ``system.invalidate_directory_list_cache`` procedure which gives the flexibility to invalidate the list cache completely or partially as per the requirement and can be invoked in various ways.
 
@@ -1330,7 +1408,7 @@ How to invalidate metastore cache?
 Invalidating metastore cache is useful when the Hive metastore is updated outside of Presto and you want to make the changes visible to Presto immediately.
 There are a couple of ways for invalidating this cache and are listed below -
 
-* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore#invalidateAll``) to invalidate the metastore cache. You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm. However, this procedure flushes the cache for all the tables in all the schemas.
+* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore#invalidateAll``) to invalidate the metastore cache. You can call this procedure to invalidate the metastore cache by connecting with jconsole or jmxterm. However, this procedure flushes the cache for all the tables in all the schemas.
 
 * The Hive connector exposes ``system.invalidate_metastore_cache`` procedure which enables users to invalidate the metastore cache completely or partially as per the requirement and can be invoked with various arguments. See `Invalidate Metastore Cache`_ for more information.
 

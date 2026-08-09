@@ -16,7 +16,7 @@ General Changes
 * Add :func:`!normal_cdf` function.
 * Add ``SET_DIGEST`` type and related functions.
 * Add query stat that tracks peak total memory.
-* Improve performance of queries that filter all data from a table up-front (e.g., due to partition pruning).
+* Improve performance of queries that filter all data from a table up-front (for example, due to partition pruning).
 * Turn on new local scheduling algorithm by default (see :doc:`release-0.181`).
 * Remove the ``information_schema.__internal_partitions__`` table.
 

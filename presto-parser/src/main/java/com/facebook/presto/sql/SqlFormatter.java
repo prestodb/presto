@@ -725,7 +725,7 @@ public final class SqlFormatter
         @Override
         protected Void visitMergeInsert(MergeInsert node, Integer indent)
         {
-            appendMergeCaseWhen(false);
+            appendMergeCaseWhen(false, node.getCondition());
             append(indent + 1, "INSERT ");
 
             if (!node.getColumns().isEmpty()) {
@@ -746,7 +746,7 @@ public final class SqlFormatter
         @Override
         protected Void visitMergeUpdate(MergeUpdate node, Integer indent)
         {
-            appendMergeCaseWhen(true);
+            appendMergeCaseWhen(true, node.getCondition());
             append(indent + 1, "UPDATE SET");
 
             boolean first = true;
@@ -765,14 +765,16 @@ public final class SqlFormatter
         @Override
         protected Void visitMergeDelete(MergeDelete node, Integer indent)
         {
-            appendMergeCaseWhen(true);
+            appendMergeCaseWhen(true, node.getCondition());
             append(indent + 1, "DELETE");
             return null;
         }
 
-        private void appendMergeCaseWhen(boolean matched)
+        private void appendMergeCaseWhen(boolean matched, Optional<Expression> condition)
         {
-            builder.append(matched ? "WHEN MATCHED" : "WHEN NOT MATCHED").append(" THEN\n");
+            builder.append(matched ? "WHEN MATCHED" : "WHEN NOT MATCHED");
+            condition.ifPresent(expression -> builder.append(" AND ").append(formatExpression(expression, parameters)));
+            builder.append(" THEN\n");
         }
 
         @Override

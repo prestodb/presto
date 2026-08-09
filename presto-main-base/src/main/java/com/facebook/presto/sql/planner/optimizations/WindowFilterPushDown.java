@@ -41,7 +41,6 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import java.util.Map;
 import java.util.Optional;
@@ -56,7 +55,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
@@ -129,7 +128,7 @@ public class WindowFilterPushDown
                         idAllocator.getNextId(),
                         rewrittenSource,
                         node.getPartitionBy(),
-                        getOnlyElement(node.getWindowFunctions().keySet()),
+                        node.getWindowFunctions().keySet().stream().collect(onlyElement()),
                         Optional.empty(),
                         false,
                         Optional.empty());
@@ -201,7 +200,7 @@ public class WindowFilterPushDown
             else if (source instanceof WindowNode) {
                 WindowNode windowNode = (WindowNode) source;
                 if (canReplaceWithTopNRowNumber(windowNode)) {
-                    VariableReferenceExpression rowNumberVariable = getOnlyElement(windowNode.getCreatedVariable());
+                    VariableReferenceExpression rowNumberVariable = windowNode.getCreatedVariable().stream().collect(onlyElement());
                     OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberVariable);
 
                     if (upperBound.isPresent()) {
@@ -292,7 +291,7 @@ public class WindowFilterPushDown
 
         private TopNRowNumberNode convertToTopNRowNumber(WindowNode windowNode, int limit)
         {
-            String windowFunction = Iterables.getOnlyElement(windowNode.getWindowFunctions().values()).getFunctionCall().getFunctionHandle().getName();
+            String windowFunction = windowNode.getWindowFunctions().values().stream().collect(onlyElement()).getFunctionCall().getFunctionHandle().getName();
             String[] parts = windowFunction.split("\\.");
             String windowFunctionName = parts[parts.length - 1];
             TopNRowNumberNode.RankingFunction rankingFunction;
@@ -316,7 +315,7 @@ public class WindowFilterPushDown
                     windowNode.getSource(),
                     windowNode.getSpecification(),
                     rankingFunction,
-                    getOnlyElement(windowNode.getCreatedVariable()),
+                    windowNode.getCreatedVariable().stream().collect(onlyElement()),
                     limit,
                     false,
                     Optional.empty());
@@ -332,7 +331,7 @@ public class WindowFilterPushDown
             if (node.getWindowFunctions().size() != 1) {
                 return false;
             }
-            return isRowNumberMetadata(functionAndTypeManager, functionAndTypeManager.getFunctionMetadata(getOnlyElement(node.getWindowFunctions().values()).getFunctionHandle()));
+            return isRowNumberMetadata(functionAndTypeManager, functionAndTypeManager.getFunctionMetadata(node.getWindowFunctions().values().stream().collect(onlyElement()).getFunctionHandle()));
         }
 
         private static boolean canOptimizeRankFunction(WindowNode node, FunctionAndTypeManager functionAndTypeManager)
@@ -346,7 +345,7 @@ public class WindowFilterPushDown
                 return false;
             }
 
-            return isRankMetadata(functionAndTypeManager, functionAndTypeManager.getFunctionMetadata(getOnlyElement(node.getWindowFunctions().values()).getFunctionHandle()));
+            return isRankMetadata(functionAndTypeManager, functionAndTypeManager.getFunctionMetadata(node.getWindowFunctions().values().stream().collect(onlyElement()).getFunctionHandle()));
         }
 
         private static boolean isRowNumberMetadata(FunctionAndTypeManager functionAndTypeManager, FunctionMetadata functionMetadata)

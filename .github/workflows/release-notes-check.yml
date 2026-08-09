@@ -5,7 +5,7 @@ on:
     types: [opened, edited, reopened]
 
 env:
-  RELEASE_TOOLS_VERSION: ${{ vars.RELEASE_TOOLS_VERSION || '0.14' }}
+  RELEASE_TOOLS_VERSION: ${{ vars.RELEASE_TOOLS_VERSION || '0.16' }}
 
 jobs:
   check_release_note:
@@ -17,11 +17,11 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
           persist-credentials: false
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 8
@@ -30,24 +30,17 @@ jobs:
         run: |
           curl -L -o /tmp/presto_release "https://github.com/${{ github.repository_owner }}/presto-release-tools/releases/download/${RELEASE_TOOLS_VERSION}/presto-release-tools-${RELEASE_TOOLS_VERSION}-executable.jar"
           chmod 755 /tmp/presto_release
-      - name: Get PR body from GraphQL API
+      - name: Get PR body from event
         id: graphql_query
         env:
           GH_TOKEN: ${{ github.token }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY_RAW: ${{ github.event.pull_request.body }}
         run: |
           echo "pr_bodytext<<EOF" >> $GITHUB_OUTPUT
-          gh api graphql -f query='
-              query($owner: String!, $name: String!, $number: Int!) {
-                repository(owner: $owner, name: $name) {
-                  pullRequest(number: $number) {
-                    bodyText
-                  }
-                }
-              }
-            ' -f owner="$REPO_OWNER" -f name="$REPO_NAME" -F number="$PR_NUMBER" --jq '.data.repository.pullRequest.bodyText' >> $GITHUB_OUTPUT
+          echo "$PR_BODY_RAW" >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
       - name: Echo PR Text
         env:

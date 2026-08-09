@@ -16,5 +16,6 @@ package com.facebook.presto.iceberg.rest;
 public enum AuthenticationType
 {
     NONE,
-    OAUTH2
+    OAUTH2,
+    BASIC
 }

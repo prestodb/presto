@@ -34,6 +34,8 @@ import jakarta.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +53,7 @@ public class ExpressionOptimizerManager
 {
     private static final Logger log = Logger.get(ExpressionOptimizerManager.class);
     public static final String DEFAULT_EXPRESSION_OPTIMIZER_NAME = "default";
-    private static final File EXPRESSION_MANAGER_CONFIGURATION_DIRECTORY = new File("etc/expression-manager/");
+    private static final Path EXPRESSION_MANAGER_CONFIGURATION_DIRECTORY = Paths.get("etc/expression-manager/");
     private static final String EXPRESSION_MANAGER_FACTORY_NAME = "expression-manager-factory.name";
 
     private final NodeManager nodeManager;
@@ -66,7 +68,7 @@ public class ExpressionOptimizerManager
     @Inject
     public ExpressionOptimizerManager(PluginNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager, RowExpressionSerde rowExpressionSerde)
     {
-        this(nodeManager, functionAndTypeManager, rowExpressionSerde, EXPRESSION_MANAGER_CONFIGURATION_DIRECTORY);
+        this(nodeManager, functionAndTypeManager, rowExpressionSerde, EXPRESSION_MANAGER_CONFIGURATION_DIRECTORY.toFile());
     }
 
     public ExpressionOptimizerManager(PluginNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager, RowExpressionSerde rowExpressionSerde, File configurationDirectory)

@@ -65,7 +65,7 @@ public class HistoryBasedPlanStatisticsManager
         // Increasing max nesting depth for Jackson 2.18.6
         newObjectMapper.getFactory().setStreamWriteConstraints(
                 StreamWriteConstraints.builder()
-                        .maxNestingDepth(2000)
+                        .maxNestingDepth(Integer.MAX_VALUE)
                         .build());
 
         // Added MixIn for Slice circular reference, it's an external library

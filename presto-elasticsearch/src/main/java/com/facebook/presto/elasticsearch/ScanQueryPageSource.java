@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import co.elastic.clients.elasticsearch._types.SortOptions;
+import co.elastic.clients.elasticsearch._types.query_dsl.FieldAndFormat;
+import co.elastic.clients.elasticsearch.core.ScrollResponse;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
+import co.elastic.clients.json.JsonData;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
@@ -42,12 +49,15 @@ import com.facebook.presto.elasticsearch.decoders.VarbinaryDecoder;
 import com.facebook.presto.elasticsearch.decoders.VarcharDecoder;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -69,6 +79,7 @@ import static com.facebook.presto.elasticsearch.BuiltinColumns.ID;
 import static com.facebook.presto.elasticsearch.BuiltinColumns.SCORE;
 import static com.facebook.presto.elasticsearch.BuiltinColumns.SOURCE;
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
@@ -78,6 +89,7 @@ public class ScanQueryPageSource
         implements ConnectorPageSource
 {
     private static final Logger LOG = Logger.get(ScanQueryPageSource.class);
+    private static final ObjectMapper mapper = new ObjectMapper();
 
     private final List<Decoder> decoders;
 
@@ -110,9 +122,9 @@ public class ScanQueryPageSource
         // Columns to fetch as doc_fields instead of pulling them out of the JSON source
         // This is convenient for types such as DATE, TIMESTAMP, etc, which have multiple possible
         // representations in JSON, but a single normalized representation as doc_field.
-        List<String> documentFields = flattenFields(columns).entrySet().stream()
+        List<FieldAndFormat> documentFields = flattenFields(columns).entrySet().stream()
                 .filter(entry -> entry.getValue().equals(TIMESTAMP))
-                .map(Map.Entry::getKey)
+                .map(entry -> FieldAndFormat.of(f -> f.field(entry.getKey())))
                 .collect(toImmutableList());
 
         columnBuilders = columns.stream()
@@ -126,22 +138,23 @@ public class ScanQueryPageSource
                 .collect(toList());
 
         // sorting by _doc (index order) get special treatment in Elasticsearch and is more efficient
-        Optional<String> sort = Optional.of("_doc");
+        Optional<SortOptions> sortOption = Optional.of(
+                SortOptions.of(s -> s.field(f -> f.field("_doc"))));
 
         if (table.getQuery().isPresent()) {
             // However, if we're using a custom Elasticsearch query, use default sorting.
             // Documents will be scored and returned based on relevance
-            sort = Optional.empty();
+            sortOption = Optional.empty();
         }
 
         long start = System.nanoTime();
-        SearchResponse searchResponse = client.beginSearch(
+        SearchResponse<JsonData> searchResponse = client.beginSearch(
                 split.getIndex(),
                 split.getShard(),
                 buildSearchQuery(session, split.getTupleDomain().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields,
-                sort);
+                sortOption);
         readTimeNanos += System.nanoTime() - start;
         this.iterator = new SearchHitIterator(client, () -> searchResponse);
     }
@@ -186,17 +199,31 @@ public class ScanQueryPageSource
     public Page getNextPage()
     {
         long size = 0;
+
         while (size < PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES && iterator.hasNext()) {
-            SearchHit hit = iterator.next();
-            Map<String, Object> document = hit.getSourceAsMap();
+            Hit hit = iterator.next();
+            Map<String, Object> document;
+            try {
+                JsonData source = (JsonData) hit.source();
+                document = mapper.readValue(source.toJson().toString(), new TypeReference<>() {});
+            }
+            catch (IOException e) {
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to parse document source");
+            }
 
             for (int i = 0; i < decoders.size(); i++) {
                 String field = columns.get(i).getName();
                 decoders.get(i).decode(hit, () -> getField(document, field), columnBuilders[i]);
             }
 
-            if (hit.getSourceRef() != null) {
-                totalBytes += hit.getSourceRef().length();
+            if (hit.source() != null) {
+                try {
+                    String json = mapper.writeValueAsString(hit.source());
+                    totalBytes += json.getBytes(StandardCharsets.UTF_8).length;
+                }
+                catch (JsonProcessingException e) {
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to serialize document source");
+                }
             }
 
             completedPositions += 1;
@@ -347,12 +374,12 @@ public class ScanQueryPageSource
     }
 
     private static class SearchHitIterator
-            extends AbstractIterator<SearchHit>
+            extends AbstractIterator<Hit>
     {
         private final ElasticsearchClient client;
         private final Supplier<SearchResponse> first;
 
-        private SearchHits searchHits;
+        private HitsMetadata searchHits;
         private String scrollId;
         private int currentPosition;
 
@@ -370,7 +397,7 @@ public class ScanQueryPageSource
         }
 
         @Override
-        protected SearchHit computeNext()
+        protected Hit computeNext()
         {
             if (scrollId == null) {
                 long start = System.nanoTime();
@@ -378,18 +405,18 @@ public class ScanQueryPageSource
                 readTimeNanos += System.nanoTime() - start;
                 reset(response);
             }
-            else if (currentPosition == searchHits.getHits().length) {
+            else if (currentPosition == searchHits.hits().size()) {
                 long start = System.nanoTime();
-                SearchResponse response = client.nextPage(scrollId);
+                ScrollResponse<JsonData> response = client.nextPage(scrollId);
                 readTimeNanos += System.nanoTime() - start;
                 reset(response);
             }
 
-            if (currentPosition == searchHits.getHits().length) {
+            if (currentPosition == searchHits.hits().size()) {
                 return endOfData();
             }
 
-            SearchHit hit = searchHits.getAt(currentPosition);
+            Hit hit = (Hit) searchHits.hits().get(currentPosition);
             currentPosition++;
 
             return hit;
@@ -397,8 +424,15 @@ public class ScanQueryPageSource
 
         private void reset(SearchResponse response)
         {
-            scrollId = response.getScrollId();
-            searchHits = response.getHits();
+            scrollId = response.scrollId();
+            searchHits = response.hits();
+            currentPosition = 0;
+        }
+
+        private void reset(ScrollResponse response)
+        {
+            scrollId = response.scrollId();
+            searchHits = response.hits();
             currentPosition = 0;
         }
 

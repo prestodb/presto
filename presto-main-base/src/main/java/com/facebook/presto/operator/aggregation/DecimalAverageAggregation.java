@@ -58,7 +58,7 @@ import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.P
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.math.BigDecimal.ROUND_HALF_UP;
 
 public class DecimalAverageAggregation
@@ -99,7 +99,7 @@ public class DecimalAverageAggregation
     @Override
     public BuiltInAggregationFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type type = getOnlyElement(applyBoundVariables(functionAndTypeManager, getSignature().getArgumentTypes(), boundVariables));
+        Type type = applyBoundVariables(functionAndTypeManager, getSignature().getArgumentTypes(), boundVariables).stream().collect(onlyElement());
         return generateAggregation(type);
     }
 

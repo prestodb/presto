@@ -73,11 +73,6 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitCallDistributedProcedure(CallDistributedProcedureNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitGroupId(GroupIdNode node, C context)
     {
         return visitPlan(node, context);

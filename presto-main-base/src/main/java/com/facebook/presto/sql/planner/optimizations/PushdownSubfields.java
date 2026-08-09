@@ -37,6 +37,7 @@ import com.facebook.presto.spi.function.LambdaArgumentDescriptor;
 import com.facebook.presto.spi.function.LambdaDescriptor;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -71,9 +72,10 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -506,6 +508,22 @@ public class PushdownSubfields
         public PlanNode visitUpdate(UpdateNode node, RewriteContext<Context> context)
         {
             context.get().variables.addAll(node.getSource().getOutputVariables());
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<Context> context)
+        {
+            context.get().variables.addAll(node.getMergeProcessorProjectedVariables());
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitMergeProcessor(MergeProcessorNode node, RewriteContext<Context> context)
+        {
+            context.get().variables.add(node.getTargetTableRowIdColumnVariable());
+            context.get().variables.add(node.getMergeRowVariable());
+            context.get().variables.addAll(node.getTargetColumnVariables());
             return context.defaultRewrite(node, context.get());
         }
 

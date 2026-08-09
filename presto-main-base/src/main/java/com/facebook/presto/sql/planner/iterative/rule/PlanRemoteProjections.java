@@ -57,7 +57,7 @@ import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -117,7 +117,7 @@ public class PlanRemoteProjections
                 ProjectionContext last = rewritten.get(rewritten.size() - 1);
                 ImmutableList.Builder<ProjectionContext> projectionContextBuilder = ImmutableList.builder();
                 projectionContextBuilder.addAll(rewritten.subList(0, rewritten.size() - 1));
-                projectionContextBuilder.add(new ProjectionContext(ImmutableMap.of(entry.getKey(), getOnlyElement(last.getProjections().values())), last.isRemote()));
+                projectionContextBuilder.add(new ProjectionContext(ImmutableMap.of(entry.getKey(), last.getProjections().values().stream().collect(onlyElement())), last.isRemote()));
                 assignmentProjections.add(projectionContextBuilder.build());
             }
         }
@@ -162,7 +162,7 @@ public class PlanRemoteProjections
                     else if (values.size() > 1) {
                         // Consolidate to one variable, prefer variables from original plan
                         List<VariableReferenceExpression> fromOriginal = originalVariable.stream().filter(values::contains).collect(toImmutableList());
-                        VariableReferenceExpression variable = fromOriginal.isEmpty() ? values.get(0) : getOnlyElement(fromOriginal);
+                        VariableReferenceExpression variable = fromOriginal.isEmpty() ? values.get(0) : fromOriginal.stream().collect(onlyElement());
                         for (int j = 0; j < values.size(); j++) {
                             if (!values.get(j).equals(variable)) {
                                 mapperBuilder.put(values.get(j), variable);
@@ -234,7 +234,7 @@ public class PlanRemoteProjections
     private static VariableReferenceExpression getAssignedArgument(List<ProjectionContext> projectionContexts)
     {
         checkState(projectionContexts.get(projectionContexts.size() - 1).getProjections().size() == 1, "Expect only 1 projection for argument");
-        return getOnlyElement(projectionContexts.get(projectionContexts.size() - 1).getProjections().keySet());
+        return projectionContexts.get(projectionContexts.size() - 1).getProjections().keySet().stream().collect(onlyElement());
     }
 
     private static class Visitor
@@ -446,12 +446,12 @@ public class PlanRemoteProjections
             List<ProjectionContext> priorProjections;
             if (!lastBodyProjection.isRemote()) {
                 // Fold the local expression into the lambda body to avoid consecutive local projections
-                newBody = getOnlyElement(lastBodyProjection.getProjections().values());
+                newBody = lastBodyProjection.getProjections().values().stream().collect(onlyElement());
                 priorProjections = bodyProjections.subList(0, bodyProjections.size() - 1);
             }
             else {
                 // Use the result variable as the lambda body
-                newBody = getOnlyElement(lastBodyProjection.getProjections().keySet());
+                newBody = lastBodyProjection.getProjections().keySet().stream().collect(onlyElement());
                 priorProjections = bodyProjections;
             }
 
