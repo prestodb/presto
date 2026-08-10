@@ -15,11 +15,100 @@
 #include "presto_cpp/main/connectors/DeltaPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
-#include <folly/String.h>
 #include "presto_cpp/presto_protocol/connector/delta/DeltaConnectorProtocol.h"
 #include "velox/connectors/hive/delta/HiveDeltaSplit.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::presto {
+
+namespace {
+
+/// Returns the name the data files use for a column. Delta column mapping
+/// stores a column under a physical name that differs from its logical (table)
+/// name, in which case the reader must be given the physical name. Mirrors
+/// DeltaColumnHandle.getSourceName() on the coordinator.
+const std::string& sourceName(
+    const std::shared_ptr<std::string>& physicalName,
+    const std::string& logicalName) {
+  return (physicalName && !physicalName->empty()) ? *physicalName : logicalName;
+}
+
+/// Builds the Hive column handle Delta reads a column through. Shared by the
+/// column handle and table handle conversions so both agree on the column
+/// name, the column type and the partition date format.
+std::unique_ptr<velox::connector::hive::HiveColumnHandle> makeHiveColumnHandle(
+    const std::string& name,
+    bool isPartitionKey,
+    const velox::TypePtr& type,
+    std::vector<velox::common::Subfield> requiredSubfields = {}) {
+  velox::connector::hive::HiveColumnHandle::ColumnParseParameters
+      columnParseParameters;
+  if (type->isDate()) {
+    // Delta Lake stores date partition values in ISO8601 format (YYYY-MM-DD).
+    columnParseParameters.partitionDateValueFormat = velox::connector::hive::
+        HiveColumnHandle::ColumnParseParameters::kISO8601;
+  }
+
+  return std::make_unique<velox::connector::hive::HiveColumnHandle>(
+      name,
+      isPartitionKey
+          ? velox::connector::hive::HiveColumnHandle::ColumnType::kPartitionKey
+          : velox::connector::hive::HiveColumnHandle::ColumnType::kRegular,
+      type,
+      type,
+      std::move(requiredSubfields),
+      columnParseParameters);
+}
+
+/// A domain can only become a reader filter when the value the reader decodes
+/// compares the way the coordinator's domain does. Timestamps are excluded:
+/// the reader adjusts them to the session timezone while decoding
+/// (legacy_timestamp) and TIMESTAMP WITH TIME ZONE is a packed value, so a
+/// raw-value range filter would not match Presto's semantics. Complex types
+/// carry no range domain to begin with.
+bool canFilterOnFileValues(const velox::TypePtr& type) {
+  return type->isPrimitiveType() && !type->isTimestamp() &&
+      !velox::isTimestampWithTimeZoneType(type);
+}
+
+/// Converts the layout's domain predicate into reader filters. The Delta
+/// predicate is keyed by column handle rather than by subfield (unlike Hive and
+/// Iceberg), so the filter key is the column's source name.
+///
+/// The coordinator enforces the partition part of the predicate when it
+/// generates splits and leaves the rest as an unenforced constraint, i.e. as a
+/// filter above the scan (see DeltaMetadata.getTableLayoutForConstraint), so
+/// this pushdown only lets the reader skip row groups and rows earlier. Entries
+/// that cannot be mapped to a file column are therefore safe to drop:
+///  - partition columns: already enforced by split generation;
+///  - pushed-down subfields: the path is expressed in logical names and column
+///    mapping renames every level, so there is no physical path to key on;
+///  - columns whose file values are not directly comparable, see
+///    canFilterOnFileValues().
+velox::common::SubfieldFilters toSubfieldFilters(
+    const protocol::TupleDomain<protocol::delta::DeltaColumnHandle>& predicate,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) {
+  velox::common::SubfieldFilters subfieldFilters;
+  if (predicate.domains == nullptr) {
+    return subfieldFilters;
+  }
+
+  for (const auto& [column, domain] : *predicate.domains) {
+    if (column.columnType != protocol::delta::ColumnType::REGULAR) {
+      continue;
+    }
+    if (!canFilterOnFileValues(stringToType(column.dataType, typeParser))) {
+      continue;
+    }
+    subfieldFilters[velox::common::Subfield(
+        sourceName(column.physicalName, column.name))] =
+        toFilter(domain, exprConverter, typeParser);
+  }
+  return subfieldFilters;
+}
+
+} // namespace
 
 std::unique_ptr<velox::connector::ConnectorSplit>
 DeltaPrestoToVeloxConnector::toVeloxSplit(
@@ -101,45 +190,16 @@ DeltaPrestoToVeloxConnector::toVeloxColumnHandle(
 
   auto type = stringToType(deltaColumn->dataType, typeParser);
 
-  velox::connector::hive::HiveColumnHandle::ColumnParseParameters
-      columnParseParameters;
-  if (type->isDate()) {
-    // Delta Lake stores date partition values in ISO8601 format (YYYY-MM-DD)
-    columnParseParameters.partitionDateValueFormat = velox::connector::hive::
-        HiveColumnHandle::ColumnParseParameters::kISO8601;
-  }
-
-  // Convert Delta column type to Hive column type
-  // Note: The actual enum values will be available after protocol generation
-  velox::connector::hive::HiveColumnHandle::ColumnType hiveColumnType =
-      velox::connector::hive::HiveColumnHandle::ColumnType::kRegular;
-
-  if (deltaColumn->columnType == protocol::delta::ColumnType::PARTITION) {
-    hiveColumnType =
-        velox::connector::hive::HiveColumnHandle::ColumnType::kPartitionKey;
-  }
-
-  // Convert subfield if present
   std::vector<velox::common::Subfield> requiredSubfields;
   if (deltaColumn->subfield) {
-    requiredSubfields.push_back(
-        velox::common::Subfield(*deltaColumn->subfield));
+    requiredSubfields.emplace_back(*deltaColumn->subfield);
   }
 
-  // Use physicalName if present (for column mapping), otherwise use logical name
-  std::string columnName = (deltaColumn->physicalName && !deltaColumn->physicalName->empty())
-      ? *deltaColumn->physicalName
-      : deltaColumn->name;
-
-  return std::unique_ptr<velox::connector::ColumnHandle>(
-      new velox::connector::hive::HiveColumnHandle(
-          columnName,
-          hiveColumnType,
-          type,
-          type,
-          std::move(requiredSubfields),
-          columnParseParameters,
-          {})); // empty postProcessor
+  return makeHiveColumnHandle(
+      sourceName(deltaColumn->physicalName, deltaColumn->name),
+      deltaColumn->columnType == protocol::delta::ColumnType::PARTITION,
+      type,
+      std::move(requiredSubfields));
 }
 
 std::unique_ptr<velox::connector::ConnectorTableHandle>
@@ -147,9 +207,6 @@ DeltaPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) const {
-  // Note: After protocol generation, cast to DeltaTableLayoutHandle
-  // For now, we'll work with the basic table handle structure
-
   auto deltaTableHandle =
       std::dynamic_pointer_cast<const protocol::delta::DeltaTableHandle>(
           tableHandle.connectorHandle);
@@ -167,33 +224,10 @@ DeltaPrestoToVeloxConnector::toVeloxTableHandle(
   // Build column handles from Delta table columns
   std::vector<velox::connector::hive::HiveColumnHandlePtr> columnHandles;
   for (const auto& deltaColumn : deltaTableHandle->deltaTable.columns) {
-    auto type = stringToType(deltaColumn.type, typeParser);
-
-    velox::connector::hive::HiveColumnHandle::ColumnParseParameters
-        columnParseParameters;
-    if (type->isDate()) {
-      columnParseParameters.partitionDateValueFormat = velox::connector::hive::
-          HiveColumnHandle::ColumnParseParameters::kISO8601;
-    }
-
-    velox::connector::hive::HiveColumnHandle::ColumnType hiveColumnType =
-        deltaColumn.partition
-        ? velox::connector::hive::HiveColumnHandle::ColumnType::kPartitionKey
-        : velox::connector::hive::HiveColumnHandle::ColumnType::kRegular;
-
-    // Use physicalName if present (for column mapping), otherwise use logical name
-    std::string columnName = (deltaColumn.physicalName && !deltaColumn.physicalName->empty())
-        ? *deltaColumn.physicalName
-        : deltaColumn.logicalName;
-
-    columnHandles.emplace_back(
-        std::make_shared<velox::connector::hive::HiveColumnHandle>(
-            columnName,
-            hiveColumnType,
-            type,
-            type,
-            std::vector<velox::common::Subfield>{},
-            columnParseParameters));
+    columnHandles.emplace_back(makeHiveColumnHandle(
+        sourceName(deltaColumn.physicalName, deltaColumn.logicalName),
+        deltaColumn.partition,
+        stringToType(deltaColumn.type, typeParser)));
   }
 
   // Build dataColumns from columnHandles, excluding partition columns.
@@ -234,14 +268,28 @@ DeltaPrestoToVeloxConnector::toVeloxTableHandle(
     }
   }
 
-  // Create basic table handle without predicates for now
-  // TODO: After protocol generation, extract predicates from
-  // DeltaTableLayoutHandle
+  // Push the layout's domain predicate into the reader so it can skip row
+  // groups and rows. The layout is absent for plans that do not go through
+  // getTableLayoutForConstraint, in which case there is nothing to push down.
+  velox::common::SubfieldFilters subfieldFilters;
+  if (tableHandle.connectorTableLayout != nullptr) {
+    auto deltaLayout = std::dynamic_pointer_cast<
+        const protocol::delta::DeltaTableLayoutHandle>(
+        tableHandle.connectorTableLayout);
+    VELOX_CHECK_NOT_NULL(
+        deltaLayout,
+        "Unexpected table layout type {}",
+        tableHandle.connectorTableLayout->_type);
+    subfieldFilters =
+        toSubfieldFilters(deltaLayout->predicate, exprConverter, typeParser);
+  }
+
   return std::make_unique<velox::connector::hive::HiveTableHandle>(
       tableHandle.connectorId,
       tableName,
-      velox::common::SubfieldFilters{}, // subfieldFilters
-      nullptr, // remainingFilter
+      std::move(subfieldFilters),
+      nullptr, // remainingFilter: Delta has no remaining predicate on the wire;
+               // it stays in the plan as a filter above the scan.
       dataColumns, // dataColumns
       std::unordered_map<std::string, std::string>{}, // tableParameters
       columnHandles); // filterColumnHandles
@@ -250,20 +298,6 @@ DeltaPrestoToVeloxConnector::toVeloxTableHandle(
 std::unique_ptr<protocol::ConnectorProtocol>
 DeltaPrestoToVeloxConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::delta::DeltaConnectorProtocol>();
-}
-
-std::vector<velox::connector::hive::HiveColumnHandlePtr>
-DeltaPrestoToVeloxConnector::toHiveColumns(
-    const protocol::List<protocol::delta::DeltaColumnHandle>& inputColumns,
-    const TypeParser& typeParser) const {
-  std::vector<velox::connector::hive::HiveColumnHandlePtr> hiveColumns;
-  hiveColumns.reserve(inputColumns.size());
-  for (const auto& columnHandle : inputColumns) {
-    hiveColumns.emplace_back(
-        std::dynamic_pointer_cast<velox::connector::hive::HiveColumnHandle>(
-            std::shared_ptr(toVeloxColumnHandle(&columnHandle, typeParser))));
-  }
-  return hiveColumns;
 }
 
 } // namespace facebook::presto
