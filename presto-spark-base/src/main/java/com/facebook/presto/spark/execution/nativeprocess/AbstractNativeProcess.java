@@ -42,6 +42,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.PrintStream;
 import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -87,6 +88,15 @@ public abstract class AbstractNativeProcess
     private static final String WORKER_NODE_CONFIG_FILE = "node.properties";
     private static final String WORKER_CONNECTOR_CONFIG_DIR = "catalog";
     private static final int SIGSYS = 31;
+    // The forked worker's stderr is teed to the JVM's own stderr, FileDescriptor.err (OS file descriptor 2),
+    // which is shared process-wide (System.err and every worker's pipe write to it). This stream MUST NOT be
+    // closed: closing it closes that shared descriptor for the whole executor JVM, so every subsequently
+    // launched worker's pipe then dies on its first write and never captures the "*** Aborted" banner. Pre-fix,
+    // a fresh FileOutputStream(FileDescriptor.err) was opened per worker and closed on worker death, so only the
+    // FIRST crash per executor was ever captured. Shared + never closed. It is a PrintStream (not a raw
+    // FileOutputStream) so writes are synchronized/atomic across the concurrent worker pipes (a dying worker's
+    // pipe can still be draining while the relaunched worker's pipe starts writing), preventing interleaved lines.
+    private static final PrintStream EXECUTOR_STDERR = new PrintStream(new FileOutputStream(FileDescriptor.err), false, UTF_8);
 
     private final String executablePath;
     private final String programArguments;
@@ -148,7 +158,7 @@ public abstract class AbstractNativeProcess
             processOutputPipe = new ProcessOutputPipe(
                     getPid(process),
                     process.getErrorStream(),
-                    new FileOutputStream(FileDescriptor.err));
+                    EXECUTOR_STDERR);
             processOutputPipe.start();
         }
         catch (IOException e) {
@@ -337,6 +347,8 @@ public abstract class AbstractNativeProcess
         if (pipe == null) {
             return "";
         }
+        // Called from processFailure() only after the process is dead, by which point the stderr pipe has
+        // read the crash banner into abortMessage.
         return pipe.getAbortMessage();
     }
 
@@ -455,7 +467,8 @@ public abstract class AbstractNativeProcess
         return configBasePath.resolve(WORKER_CONNECTOR_CONFIG_DIR);
     }
 
-    private static class ProcessOutputPipe
+    @VisibleForTesting
+    static class ProcessOutputPipe
             implements Runnable
     {
         private final long pid;
@@ -484,8 +497,12 @@ public abstract class AbstractNativeProcess
         @Override
         public void run()
         {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, UTF_8));
-                    BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, UTF_8))) {
+            // Only the per-worker reader (the forked process's stderr) is auto-closed. The writer wraps the
+            // shared executor stderr (EXECUTOR_STDERR / FileDescriptor.err) and is deliberately NOT closed —
+            // closing it would close the JVM's shared stderr descriptor. Every line is flushed, so nothing is
+            // buffered/lost by not closing it.
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, UTF_8));
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, UTF_8))) {
                 String line;
                 boolean aborted = false;
                 while ((line = reader.readLine()) != null) {
