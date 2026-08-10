@@ -336,6 +336,91 @@ std::optional<int32_t> tryParsePartitionSpecId(
   }
 }
 
+// Maps the Iceberg source-column field ID of every explicitly identity
+// partition field to that field's partition value for this split.
+//
+// 'partitionSpecAsJson' is Iceberg's PartitionSpecParser.toJson() output:
+//   {"spec-id": 0,
+//    "fields": [{"name": "ts_day", "transform": "day",
+//                "source-id": 3, "field-id": 1000}]}
+//
+// Only an identity partition value equals the source column's value, so only
+// identity fields may be substituted for a read of the source column. A
+// transformed field ("bucket[16]", "truncate[4]", "year"/"month"/"day"/"hour")
+// stores the transform result, not the source value. "void" is the dangerous
+// case that name matching cannot catch: it always stores null and, unlike the
+// other transforms, keeps the source column's name by default, so a
+// name-keyed lookup would happily substitute a null for live source data.
+//
+// The Java producer (IcebergUtil.getPartitionKeys) keys every partition field
+// by 'PartitionField.fieldId()' and additionally duplicates identity fields
+// under 'PartitionField.sourceId()'. Prefer the source-ID entry, and fall back
+// to the partition-field-ID entry only after the spec has proven the transform
+// is identity.
+//
+// Returns an empty map when the spec is absent or malformed so callers read
+// source columns from the data file instead of inferring identity by name.
+std::unordered_map<int32_t, std::optional<std::string>>
+parseIdentityPartitionKeys(
+    const std::string& partitionSpecAsJson,
+    const protocol::Map<protocol::Integer, protocol::hive::HivePartitionKey>&
+        partitionKeys) {
+  if (partitionSpecAsJson.empty() || partitionKeys.empty()) {
+    return {};
+  }
+
+  try {
+    const auto spec = folly::parseJson(partitionSpecAsJson);
+    if (!spec.isObject()) {
+      return {};
+    }
+    const auto* fields = spec.get_ptr("fields");
+    if (fields == nullptr || !fields->isArray()) {
+      return {};
+    }
+
+    std::unordered_map<int32_t, std::optional<std::string>> identityKeys;
+    for (const auto& field : *fields) {
+      if (!field.isObject()) {
+        return {};
+      }
+      const auto* transform = field.get_ptr("transform");
+      const auto* sourceId = field.get_ptr("source-id");
+      const auto* fieldId = field.get_ptr("field-id");
+      const auto* name = field.get_ptr("name");
+      // Reject the whole spec rather than silently skipping a field: a
+      // partially understood spec cannot prove which fields are identity.
+      if (transform == nullptr || !transform->isString() ||
+          sourceId == nullptr || !sourceId->isInt() || fieldId == nullptr ||
+          !fieldId->isInt() || name == nullptr || !name->isString()) {
+        return {};
+      }
+      if (transform->asString() != "identity") {
+        continue;
+      }
+
+      const auto sourceFieldId = static_cast<int32_t>(sourceId->asInt());
+      auto valueIt = partitionKeys.find(sourceFieldId);
+      if (valueIt == partitionKeys.end()) {
+        valueIt = partitionKeys.find(static_cast<int32_t>(fieldId->asInt()));
+      }
+      if (valueIt == partitionKeys.end()) {
+        continue;
+      }
+      identityKeys.emplace(
+          sourceFieldId,
+          valueIt->second.value == nullptr
+              ? std::nullopt
+              : std::optional<std::string>{*valueIt->second.value});
+    }
+    return identityKeys;
+  } catch (const folly::json::parse_error&) {
+    return {};
+  } catch (const folly::TypeError&) {
+    return {};
+  }
+}
+
 // Builds the Velox Iceberg V3 type-attribute tree (IcebergFieldMetadata) from
 // the protocol ColumnIdentity, walked in lockstep with toParquetField(). Each
 // protocol field is nullable; an absent typeAttributes (the common case) yields
@@ -480,7 +565,18 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       nullptr,
       splitContext->cacheable,
       deletes,
-      infoColumns);
+      infoColumns,
+      std::nullopt,
+      // Left at the "unassigned" default rather than
+      // 'icebergSplit->dataSequenceNumber'. Populating it would newly activate
+      // the V2 sequence-number filtering of equality deletes in
+      // IcebergSplitReader, which is a behavior change unrelated to identity
+      // partition resolution.
+      // TODO: Wire the real data sequence number through once that filtering
+      // change can be validated on its own.
+      /*dataSequenceNumber=*/0,
+      parseIdentityPartitionKeys(
+          icebergSplit->partitionSpecAsJson, icebergSplit->partitionKeys));
 }
 
 std::unique_ptr<velox::connector::ColumnHandle>

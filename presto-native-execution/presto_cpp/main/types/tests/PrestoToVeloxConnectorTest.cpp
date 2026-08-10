@@ -874,3 +874,176 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitTranslatesDeletionVectorDelete) {
   EXPECT_EQ(deleteFile.contentLength, 64);
   EXPECT_EQ(deleteFile.referencedDataFile, "/path/to/data/file.dwrf");
 }
+
+namespace {
+
+// Builds a PartitionSpecParser.toJson() payload. Iceberg uses hyphenated key
+// names ("spec-id", "source-id", "field-id"), which is what a real split
+// carries.
+std::string makePartitionSpecJson(const std::string& fieldsJson) {
+  return fmt::format(R"({{"spec-id":0,"fields":[{}]}})", fieldsJson);
+}
+
+protocol::hive::HivePartitionKey makePartitionKey(
+    const std::string& name,
+    const std::optional<std::string>& value) {
+  protocol::hive::HivePartitionKey key;
+  key.name = name;
+  if (value.has_value()) {
+    key.value = std::make_shared<protocol::String>(*value);
+  }
+  return key;
+}
+
+} // namespace
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitRetainsOnlyIdentityPartitions) {
+  // A spec mixing identity, bucket, and void. Both transformed fields are
+  // deliberately named after a real source column so that any name-based
+  // classification would misidentify them: 'void' keeps the source name by
+  // default, and a bucket field can be explicitly named anything.
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.partitionSpecAsJson = makePartitionSpecJson(
+      R"({"name":"id","transform":"identity","source-id":1,"field-id":1000},)"
+      R"({"name":"name","transform":"bucket[4]","source-id":2,"field-id":1001},)"
+      R"({"name":"ts","transform":"void","source-id":3,"field-id":1002})");
+  // Java keys every field by its partition-field ID and duplicates identity
+  // fields under the source ID.
+  split.partitionKeys = {
+      {1, makePartitionKey("id", "7")},
+      {1000, makePartitionKey("id", "7")},
+      {1001, makePartitionKey("name", "3")},
+      {1002, makePartitionKey("ts", std::nullopt)},
+  };
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+
+  // Only source field ID 1 is substitutable. The bucket ordinal and the void
+  // null must not be offered as source-column values.
+  const std::unordered_map<int32_t, std::optional<std::string>> expected = {
+      {1, std::optional<std::string>{"7"}}};
+  EXPECT_EQ(hiveIceberg->identityPartitionKeys, expected);
+
+  // The raw name-keyed map is unchanged and still carries every field.
+  EXPECT_EQ(hiveIceberg->partitionKeys.size(), 3);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitKeepsNullIdentityPartition) {
+  // A null identity value is still substitutable — the source column really
+  // is null for every row in this partition.
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.partitionSpecAsJson = makePartitionSpecJson(
+      R"({"name":"id","transform":"identity","source-id":1,"field-id":1000})");
+  split.partitionKeys = {
+      {1, makePartitionKey("id", std::nullopt)},
+      {1000, makePartitionKey("id", std::nullopt)},
+  };
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+
+  const std::unordered_map<int32_t, std::optional<std::string>> expected = {
+      {1, std::nullopt}};
+  EXPECT_EQ(hiveIceberg->identityPartitionKeys, expected);
+}
+
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    toVeloxSplitIdentityPartitionFallsBackToFieldId) {
+  // Defensive: if a producer emits only the partition-field-ID entry, the
+  // value is still recoverable because the spec already proved the transform
+  // is identity. The result stays keyed by the source ID.
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.partitionSpecAsJson = makePartitionSpecJson(
+      R"({"name":"id","transform":"identity","source-id":1,"field-id":1000})");
+  split.partitionKeys = {{1000, makePartitionKey("id", "7")}};
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+
+  const std::unordered_map<int32_t, std::optional<std::string>> expected = {
+      {1, std::optional<std::string>{"7"}}};
+  EXPECT_EQ(hiveIceberg->identityPartitionKeys, expected);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitSkipsIdentityWithNoValue) {
+  // An identity field whose value is absent under both its source ID and its
+  // partition-field ID is skipped rather than guessed at, so the reader falls
+  // back to reading the source column from the file.
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.partitionSpecAsJson = makePartitionSpecJson(
+      R"({"name":"id","transform":"identity","source-id":1,"field-id":1000})");
+  // Only an unrelated field's value is present.
+  split.partitionKeys = {{4242, makePartitionKey("other", "9")}};
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+
+  EXPECT_TRUE(hiveIceberg->identityPartitionKeys.empty());
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitRejectsUnusablePartitionSpec) {
+  // Absent, unparseable, and structurally incomplete specs must all yield an
+  // empty map so the reader falls back to reading source columns from the
+  // file rather than guessing identity from a name match.
+  const std::vector<std::string> unusableSpecs = {
+      "",
+      "not json at all",
+      // Valid JSON, but not an object.
+      "[1, 2, 3]",
+      R"({"spec-id":0})",
+      // "fields" present but its entries are not objects.
+      R"({"spec-id":0,"fields":[1,2]})",
+      // A field missing "source-id" cannot be classified, so the whole spec
+      // is rejected rather than partially trusted.
+      makePartitionSpecJson(
+          R"({"name":"id","transform":"identity","field-id":1000})"),
+  };
+
+  for (const auto& specJson : unusableSpecs) {
+    protocol::iceberg::IcebergSplit split;
+    split.path = "/path/to/data/file.dwrf";
+    split.fileFormat = protocol::iceberg::FileFormat::ORC;
+    split.partitionSpecAsJson = specJson;
+    split.partitionKeys = {
+        {1, makePartitionKey("id", "7")},
+        {1000, makePartitionKey("id", "7")},
+    };
+
+    protocol::SplitContext context;
+    IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+    auto veloxSplit =
+        icebergConnector.toVeloxSplit("iceberg", &split, &context);
+    auto* hiveIceberg =
+        dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+            veloxSplit.get());
+    ASSERT_NE(hiveIceberg, nullptr);
+    EXPECT_TRUE(hiveIceberg->identityPartitionKeys.empty())
+        << "spec should have been rejected: " << specJson;
+  }
+}
