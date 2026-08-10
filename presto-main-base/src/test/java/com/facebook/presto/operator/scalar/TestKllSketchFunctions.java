@@ -105,7 +105,7 @@ public class TestKllSketchFunctions
     // Re-run after a datasketches-java version bump and copy output to KllSketchTest.cpp.
     // -------------------------------------------------------------------------
 
-    @Test
+    @Test (enabled = false)
     public void printGoldenBigintBytes()
     {
         KllItemsSketch<Long> sketch = KllItemsSketch.newHeapInstance(200, Long::compareTo, new ArrayOfLongsSerDe());
@@ -113,7 +113,7 @@ public class TestKllSketchFunctions
         System.out.println("JAVA_BIGINT_GOLDEN_HEX: " + toHex(sketch.toByteArray()));
     }
 
-    @Test
+    @Test (enabled = false)
     public void printGoldenDoubleBytes()
     {
         KllItemsSketch<Double> sketch = KllItemsSketch.newHeapInstance(200, Double::compareTo, new ArrayOfDoublesSerDe());
@@ -123,7 +123,7 @@ public class TestKllSketchFunctions
         System.out.println("JAVA_DOUBLE_GOLDEN_HEX: " + toHex(sketch.toByteArray()));
     }
 
-    @Test
+    @Test (enabled = false)
     public void printGoldenVarcharBytes()
     {
         KllItemsSketch<String> sketch = KllItemsSketch.newHeapInstance(200, String::compareTo, new ArrayOfStringsSerDe());
@@ -131,7 +131,7 @@ public class TestKllSketchFunctions
         System.out.println("JAVA_VARCHAR_GOLDEN_HEX: " + toHex(sketch.toByteArray()));
     }
 
-    @Test
+    @Test (enabled = false)
     public void printGoldenBooleanBytes()
     {
         KllItemsSketch<Boolean> sketch = KllItemsSketch.newHeapInstance(200, Boolean::compareTo, new ArrayOfBooleansSerDe());
