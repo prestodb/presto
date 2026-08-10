@@ -13,6 +13,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "presto_cpp/main/connectors/DeltaPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
@@ -21,12 +22,20 @@
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/encode/Base64.h"
+#include "velox/common/file/File.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HiveConnectorUtil.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergColumnHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
+#include "velox/dwio/common/BufferedInput.h"
+#include "velox/dwio/common/ColumnSelector.h"
+#include "velox/dwio/common/FileSink.h"
+#include "velox/dwio/parquet/reader/ParquetReader.h"
+#include "velox/dwio/parquet/writer/Writer.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneRegistration.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/Filter.h"
 
@@ -36,13 +45,16 @@ using namespace facebook::velox;
 class PrestoToVeloxConnectorTest : public ::testing::Test {
  protected:
   void SetUp() override {
+    registerTimestampWithTimeZoneType();
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+    rootPool_ = memory::memoryManager()->addRootPool();
     pool_ = memory::memoryManager()->addLeafPool();
     typeParser_ = std::make_unique<TypeParser>();
     exprConverter_ =
         std::make_unique<VeloxExprConverter>(pool_.get(), typeParser_.get());
   }
 
+  std::shared_ptr<memory::MemoryPool> rootPool_;
   std::shared_ptr<memory::MemoryPool> pool_;
   std::unique_ptr<TypeParser> typeParser_;
   std::unique_ptr<VeloxExprConverter> exprConverter_;
@@ -841,4 +853,625 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitTranslatesDeletionVectorDelete) {
   EXPECT_EQ(deleteFile.contentOffset, 16);
   EXPECT_EQ(deleteFile.contentLength, 64);
   EXPECT_EQ(deleteFile.referencedDataFile, "/path/to/data/file.dwrf");
+}
+
+namespace {
+
+// Column mapping renames "id" to "col-1a" in the data files; "ds" and "ts" are
+// stored under their logical names.
+constexpr auto kDeltaPhysicalName = "col-1a";
+
+protocol::delta::DeltaColumnHandle createDeltaColumnHandle(
+    const std::string& name,
+    const std::string& dataType,
+    protocol::delta::ColumnType columnType,
+    const std::string& physicalName = "") {
+  protocol::delta::DeltaColumnHandle column;
+  column.name = name;
+  column.dataType = dataType;
+  column.columnType = columnType;
+  if (!physicalName.empty()) {
+    column.physicalName = std::make_shared<std::string>(physicalName);
+  }
+  return column;
+}
+
+protocol::delta::DeltaColumn createDeltaColumn(
+    const std::string& logicalName,
+    const std::string& type,
+    bool partition,
+    const std::string& physicalName = "") {
+  protocol::delta::DeltaColumn column;
+  column.logicalName = logicalName;
+  column.type = type;
+  column.partition = partition;
+  if (!physicalName.empty()) {
+    column.physicalName = std::make_shared<std::string>(physicalName);
+  }
+  return column;
+}
+
+std::shared_ptr<protocol::delta::DeltaTableHandle> createDeltaTableHandle() {
+  auto deltaHandle = std::make_shared<protocol::delta::DeltaTableHandle>();
+  deltaHandle->connectorId = "delta";
+  deltaHandle->deltaTable.schemaName = "test_schema";
+  deltaHandle->deltaTable.tableName = "test_table";
+  deltaHandle->deltaTable.columns = {
+      createDeltaColumn("id", "bigint", false, kDeltaPhysicalName),
+      createDeltaColumn("ts", "timestamp", false),
+      createDeltaColumn("ds", "date", true)};
+  return deltaHandle;
+}
+
+// Domain matching values greater than 'lowerBound'.
+protocol::Domain createBigintRangeDomain(
+    int64_t lowerBound,
+    memory::MemoryPool* pool) {
+  return createSingleRangeDomain(
+      "bigint",
+      serializeToBlock(
+          BaseVector::createConstant(BIGINT(), variant(lowerBound), 1, pool),
+          pool),
+      protocol::Bound::ABOVE,
+      nullptr,
+      protocol::Bound::BELOW,
+      false);
+}
+
+using DeltaDomains =
+    protocol::Map<protocol::delta::DeltaColumnHandle, protocol::Domain>;
+
+// Domain matching 'value' <= x, for any type whose values can be serialized
+// into a single-element block.
+protocol::Domain createAtLeastDomain(
+    const std::string& typeName,
+    const VectorPtr& value,
+    memory::MemoryPool* pool) {
+  return createSingleRangeDomain(
+      typeName,
+      serializeToBlock(value, pool),
+      protocol::Bound::EXACTLY,
+      nullptr,
+      protocol::Bound::BELOW,
+      false);
+}
+
+// Domain matching an IN list of bigints, i.e. several single-value ranges.
+protocol::Domain createBigintValuesDomain(
+    const std::vector<int64_t>& values,
+    memory::MemoryPool* pool) {
+  auto rangeSet = std::make_shared<protocol::SortedRangeSet>();
+  rangeSet->type = "bigint";
+  for (auto value : values) {
+    auto block = serializeToBlock(
+        BaseVector::createConstant(BIGINT(), variant(value), 1, pool), pool);
+
+    protocol::Marker low;
+    low.type = "bigint";
+    low.valueBlock = block;
+    low.bound = protocol::Bound::EXACTLY;
+
+    protocol::Marker high;
+    high.type = "bigint";
+    high.valueBlock = block;
+    high.bound = protocol::Bound::EXACTLY;
+
+    protocol::Range range;
+    range.low = low;
+    range.high = high;
+    rangeSet->ranges.push_back(range);
+  }
+
+  protocol::Domain domain;
+  domain.values = rangeSet;
+  domain.nullAllowed = false;
+  return domain;
+}
+
+// 'IS NULL' arrives as an empty range set with nulls allowed.
+protocol::Domain createIsNullDomain(const std::string& typeName) {
+  auto rangeSet = std::make_shared<protocol::SortedRangeSet>();
+  rangeSet->type = typeName;
+
+  protocol::Domain domain;
+  domain.values = rangeSet;
+  domain.nullAllowed = true;
+  return domain;
+}
+
+// 'IS NOT NULL' arrives as an unbounded range with nulls not allowed.
+protocol::Domain createIsNotNullDomain(const std::string& typeName) {
+  return createSingleRangeDomain(
+      typeName,
+      nullptr,
+      protocol::Bound::ABOVE,
+      nullptr,
+      protocol::Bound::BELOW,
+      false);
+}
+
+// Runs 'domains' through the Delta bridge as the layout predicate of
+// 'createDeltaTableHandle()' and returns the resulting Hive table handle.
+std::unique_ptr<connector::ConnectorTableHandle> convertDeltaTableHandle(
+    std::shared_ptr<DeltaDomains> domains,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) {
+  protocol::TableHandle tableHandle;
+  tableHandle.connectorId = "delta";
+  tableHandle.connectorHandle = createDeltaTableHandle();
+  if (domains != nullptr) {
+    auto layout = std::make_shared<protocol::delta::DeltaTableLayoutHandle>();
+    layout->predicate.domains = std::move(domains);
+    tableHandle.connectorTableLayout = layout;
+  }
+
+  DeltaPrestoToVeloxConnector deltaConnector("delta");
+  return deltaConnector.toVeloxTableHandle(
+      tableHandle, exprConverter, typeParser);
+}
+
+const connector::hive::HiveTableHandle& asHiveTableHandle(
+    const connector::ConnectorTableHandle& handle) {
+  return dynamic_cast<const connector::hive::HiveTableHandle&>(handle);
+}
+
+const common::Filter* findFilter(
+    const common::SubfieldFilters& filters,
+    const std::string& path) {
+  auto it = filters.find(common::Subfield(path));
+  return it == filters.end() ? nullptr : it->second.get();
+}
+
+} // namespace
+
+TEST_F(PrestoToVeloxConnectorTest, deltaTableHandleUsesPhysicalColumnNames) {
+  protocol::TableHandle tableHandle;
+  tableHandle.connectorId = "delta";
+  tableHandle.connectorHandle = createDeltaTableHandle();
+
+  DeltaPrestoToVeloxConnector deltaConnector("delta");
+  auto result = deltaConnector.toVeloxTableHandle(
+      tableHandle, *exprConverter_, *typeParser_);
+
+  auto* handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
+  ASSERT_NE(handle, nullptr);
+  EXPECT_EQ(handle->tableName(), "test_schema.test_table");
+
+  // Partition columns are not in the data files, so they are excluded from
+  // dataColumns; the remaining columns use the names the files use.
+  auto dataColumns = handle->dataColumns();
+  ASSERT_NE(dataColumns, nullptr);
+  ASSERT_EQ(dataColumns->size(), 2);
+  EXPECT_EQ(dataColumns->nameOf(0), kDeltaPhysicalName);
+  EXPECT_EQ(dataColumns->nameOf(1), "ts");
+
+  // Partition columns are still passed as column handles so the reader can
+  // supply them as constants.
+  const auto columnHandles = handle->filterColumnHandles();
+  ASSERT_EQ(columnHandles.size(), 3);
+  const auto& partitionColumn = columnHandles[2];
+  EXPECT_EQ(partitionColumn->name(), "ds");
+  EXPECT_EQ(
+      partitionColumn->columnType(),
+      connector::hive::HiveColumnHandle::ColumnType::kPartitionKey);
+
+  // Without a layout there is no predicate to push down.
+  EXPECT_TRUE(handle->subfieldFilters().empty());
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaTableHandlePushesDownDataPredicate) {
+  auto layout = std::make_shared<protocol::delta::DeltaTableLayoutHandle>();
+  layout->predicate.domains = std::make_shared<
+      protocol::Map<protocol::delta::DeltaColumnHandle, protocol::Domain>>();
+  // Pushed down keyed on the physical name.
+  layout->predicate.domains->emplace(
+      createDeltaColumnHandle(
+          "id",
+          "bigint",
+          protocol::delta::ColumnType::REGULAR,
+          kDeltaPhysicalName),
+      createBigintRangeDomain(5, pool_.get()));
+  // Enforced by split generation on the coordinator; not pushed down.
+  layout->predicate.domains->emplace(
+      createDeltaColumnHandle(
+          "ds", "date", protocol::delta::ColumnType::PARTITION),
+      createBigintRangeDomain(0, pool_.get()));
+  // Timestamps are adjusted to the session timezone while decoding, so their
+  // predicates stay in the filter above the scan.
+  layout->predicate.domains->emplace(
+      createDeltaColumnHandle(
+          "ts", "timestamp", protocol::delta::ColumnType::REGULAR),
+      createBigintRangeDomain(0, pool_.get()));
+  // Same for the packed TIMESTAMP WITH TIME ZONE representation.
+  layout->predicate.domains->emplace(
+      createDeltaColumnHandle(
+          "tstz",
+          "timestamp with time zone",
+          protocol::delta::ColumnType::REGULAR),
+      createBigintRangeDomain(0, pool_.get()));
+
+  protocol::TableHandle tableHandle;
+  tableHandle.connectorId = "delta";
+  tableHandle.connectorHandle = createDeltaTableHandle();
+  tableHandle.connectorTableLayout = layout;
+
+  DeltaPrestoToVeloxConnector deltaConnector("delta");
+  auto result = deltaConnector.toVeloxTableHandle(
+      tableHandle, *exprConverter_, *typeParser_);
+
+  auto* handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
+  ASSERT_NE(handle, nullptr);
+
+  const auto& filters = handle->subfieldFilters();
+  ASSERT_EQ(filters.size(), 1);
+  auto it = filters.find(common::Subfield(kDeltaPhysicalName));
+  ASSERT_NE(it, filters.end());
+  EXPECT_FALSE(it->second->testInt64(5));
+  EXPECT_TRUE(it->second->testInt64(6));
+  EXPECT_EQ(handle->remainingFilter(), nullptr);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaColumnHandleUsesPhysicalName) {
+  auto deltaColumn = createDeltaColumnHandle(
+      "id", "bigint", protocol::delta::ColumnType::REGULAR, kDeltaPhysicalName);
+
+  DeltaPrestoToVeloxConnector deltaConnector("delta");
+  auto handle = deltaConnector.toVeloxColumnHandle(&deltaColumn, *typeParser_);
+
+  auto* hiveColumn =
+      dynamic_cast<connector::hive::HiveColumnHandle*>(handle.get());
+  ASSERT_NE(hiveColumn, nullptr);
+  EXPECT_EQ(hiveColumn->name(), kDeltaPhysicalName);
+  EXPECT_EQ(
+      hiveColumn->columnType(),
+      connector::hive::HiveColumnHandle::ColumnType::kRegular);
+  EXPECT_EQ(hiveColumn->dataType(), BIGINT());
+  EXPECT_TRUE(hiveColumn->requiredSubfields().empty());
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaColumnHandleDatePartition) {
+  auto deltaColumn = createDeltaColumnHandle(
+      "ds", "date", protocol::delta::ColumnType::PARTITION);
+
+  DeltaPrestoToVeloxConnector deltaConnector("delta");
+  auto handle = deltaConnector.toVeloxColumnHandle(&deltaColumn, *typeParser_);
+
+  auto* hiveColumn =
+      dynamic_cast<connector::hive::HiveColumnHandle*>(handle.get());
+  ASSERT_NE(hiveColumn, nullptr);
+  EXPECT_EQ(hiveColumn->name(), "ds");
+  EXPECT_EQ(
+      hiveColumn->columnType(),
+      connector::hive::HiveColumnHandle::ColumnType::kPartitionKey);
+  // Delta writes date partition values as ISO8601 (YYYY-MM-DD), not as days
+  // since epoch.
+  EXPECT_FALSE(hiveColumn->isPartitionDateValueDaysSinceEpoch());
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaPushesDownNonIntegerPredicates) {
+  // toFilter() has a branch per type; cover the ones a Delta scan can reach
+  // besides bigint.
+  auto domains = std::make_shared<DeltaDomains>();
+  domains->emplace(
+      createDeltaColumnHandle(
+          "name", "varchar", protocol::delta::ColumnType::REGULAR),
+      createAtLeastDomain(
+          "varchar",
+          BaseVector::createConstant(
+              VARCHAR(),
+              variant::create<TypeKind::VARCHAR>(std::string("b")),
+              1,
+              pool_.get()),
+          pool_.get()));
+  domains->emplace(
+      createDeltaColumnHandle(
+          "day", "date", protocol::delta::ColumnType::REGULAR),
+      createAtLeastDomain(
+          "date",
+          BaseVector::createConstant(DATE(), variant(18'000), 1, pool_.get()),
+          pool_.get()));
+  domains->emplace(
+      createDeltaColumnHandle(
+          "flag", "boolean", protocol::delta::ColumnType::REGULAR),
+      createAtLeastDomain(
+          "boolean",
+          BaseVector::createConstant(BOOLEAN(), variant(true), 1, pool_.get()),
+          pool_.get()));
+  domains->emplace(
+      createDeltaColumnHandle(
+          "amount", "decimal(20,0)", protocol::delta::ColumnType::REGULAR),
+      createAtLeastDomain(
+          "decimal(20,0)",
+          BaseVector::createConstant(
+              DECIMAL(20, 0), variant((int128_t)100), 1, pool_.get()),
+          pool_.get()));
+
+  auto result = convertDeltaTableHandle(domains, *exprConverter_, *typeParser_);
+  const auto& filters = asHiveTableHandle(*result).subfieldFilters();
+  ASSERT_EQ(filters.size(), 4);
+
+  const auto* name = findFilter(filters, "name");
+  ASSERT_NE(name, nullptr);
+  EXPECT_FALSE(name->testBytes("a", 1));
+  EXPECT_TRUE(name->testBytes("b", 1));
+  EXPECT_TRUE(name->testBytes("c", 1));
+
+  // DATE is decoded as days since epoch, so the filter tests integers.
+  const auto* day = findFilter(filters, "day");
+  ASSERT_NE(day, nullptr);
+  EXPECT_FALSE(day->testInt64(17'999));
+  EXPECT_TRUE(day->testInt64(18'000));
+
+  const auto* flag = findFilter(filters, "flag");
+  ASSERT_NE(flag, nullptr);
+  EXPECT_FALSE(flag->testBool(false));
+  EXPECT_TRUE(flag->testBool(true));
+
+  // A long decimal is decoded as HUGEINT.
+  const auto* amount = findFilter(filters, "amount");
+  ASSERT_NE(amount, nullptr);
+  EXPECT_FALSE(amount->testInt128(99));
+  EXPECT_TRUE(amount->testInt128(100));
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaPushesDownInListPredicate) {
+  // 'id IN (7, 9)' arrives as several single-value ranges, which collapse into
+  // one values filter rather than a range.
+  auto domains = std::make_shared<DeltaDomains>();
+  domains->emplace(
+      createDeltaColumnHandle(
+          "id",
+          "bigint",
+          protocol::delta::ColumnType::REGULAR,
+          kDeltaPhysicalName),
+      createBigintValuesDomain({7, 9}, pool_.get()));
+
+  auto result = convertDeltaTableHandle(domains, *exprConverter_, *typeParser_);
+  const auto& filters = asHiveTableHandle(*result).subfieldFilters();
+  ASSERT_EQ(filters.size(), 1);
+
+  const auto* id = findFilter(filters, kDeltaPhysicalName);
+  ASSERT_NE(id, nullptr);
+  EXPECT_TRUE(id->testInt64(7));
+  EXPECT_FALSE(id->testInt64(8));
+  EXPECT_TRUE(id->testInt64(9));
+  EXPECT_FALSE(id->testNull());
+  // Row groups whose [min, max] misses both values are skipped.
+  EXPECT_FALSE(id->testInt64Range(0, 6, false));
+  EXPECT_TRUE(id->testInt64Range(0, 7, false));
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaPushesDownNullPredicates) {
+  auto domains = std::make_shared<DeltaDomains>();
+  domains->emplace(
+      createDeltaColumnHandle(
+          "name", "varchar", protocol::delta::ColumnType::REGULAR),
+      createIsNotNullDomain("varchar"));
+  domains->emplace(
+      createDeltaColumnHandle(
+          "id",
+          "bigint",
+          protocol::delta::ColumnType::REGULAR,
+          kDeltaPhysicalName),
+      createIsNullDomain("bigint"));
+
+  auto result = convertDeltaTableHandle(domains, *exprConverter_, *typeParser_);
+  const auto& filters = asHiveTableHandle(*result).subfieldFilters();
+  ASSERT_EQ(filters.size(), 2);
+
+  const auto* name = findFilter(filters, "name");
+  ASSERT_NE(name, nullptr);
+  EXPECT_EQ(name->kind(), common::FilterKind::kIsNotNull);
+  EXPECT_FALSE(name->testNull());
+  EXPECT_TRUE(name->testBytes("a", 1));
+
+  const auto* id = findFilter(filters, kDeltaPhysicalName);
+  ASSERT_NE(id, nullptr);
+  EXPECT_EQ(id->kind(), common::FilterKind::kIsNull);
+  EXPECT_TRUE(id->testNull());
+  EXPECT_FALSE(id->testInt64(1));
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaPushesDownLogicalNameWithoutMapping) {
+  // Without column mapping there is no physical name, so the file column is
+  // named after the logical column.
+  auto domains = std::make_shared<DeltaDomains>();
+  domains->emplace(
+      createDeltaColumnHandle(
+          "cnt", "bigint", protocol::delta::ColumnType::REGULAR),
+      createBigintRangeDomain(100, pool_.get()));
+
+  auto result = convertDeltaTableHandle(domains, *exprConverter_, *typeParser_);
+  const auto& filters = asHiveTableHandle(*result).subfieldFilters();
+  ASSERT_EQ(filters.size(), 1);
+  ASSERT_NE(findFilter(filters, "cnt"), nullptr);
+  EXPECT_TRUE(findFilter(filters, "cnt")->testInt64(101));
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaSubfieldPredicateIsNotPushedDown) {
+  // A pushed-down subfield path is expressed in logical names, which column
+  // mapping renames at every level, so it stays in the filter above the scan.
+  auto domains = std::make_shared<DeltaDomains>();
+  auto column = createDeltaColumnHandle(
+      "a", "integer", protocol::delta::ColumnType::SUBFIELD);
+  column.subfield = std::make_shared<protocol::Subfield>("a.ac.aca");
+  domains->emplace(column, createBigintRangeDomain(6, pool_.get()));
+
+  auto result = convertDeltaTableHandle(domains, *exprConverter_, *typeParser_);
+  EXPECT_TRUE(asHiveTableHandle(*result).subfieldFilters().empty());
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaNonePredicateIsNotPushedDown) {
+  // TupleDomain::none() has no domain map; the coordinator turns such a plan
+  // into an empty result, so there is nothing to push down.
+  auto layout = std::make_shared<protocol::delta::DeltaTableLayoutHandle>();
+  ASSERT_EQ(layout->predicate.domains, nullptr);
+
+  protocol::TableHandle tableHandle;
+  tableHandle.connectorId = "delta";
+  tableHandle.connectorHandle = createDeltaTableHandle();
+  tableHandle.connectorTableLayout = layout;
+
+  DeltaPrestoToVeloxConnector deltaConnector("delta");
+  auto result = deltaConnector.toVeloxTableHandle(
+      tableHandle, *exprConverter_, *typeParser_);
+  EXPECT_TRUE(asHiveTableHandle(*result).subfieldFilters().empty());
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaUnexpectedLayoutTypeThrows) {
+  protocol::TableHandle tableHandle;
+  tableHandle.connectorId = "delta";
+  tableHandle.connectorHandle = createDeltaTableHandle();
+  tableHandle.connectorTableLayout =
+      std::make_shared<protocol::hive::HiveTableLayoutHandle>();
+
+  DeltaPrestoToVeloxConnector deltaConnector("delta");
+  VELOX_ASSERT_THROW(
+      deltaConnector.toVeloxTableHandle(
+          tableHandle, *exprConverter_, *typeParser_),
+      "Unexpected table layout type");
+}
+
+namespace {
+
+// Builds the scan spec the way HiveDataSource does, so a test can check that a
+// pushed-down filter binds to the column the reader will actually read.
+std::shared_ptr<common::ScanSpec> makeDeltaScanSpec(
+    const common::SubfieldFilters& filters,
+    const RowTypePtr& rowType,
+    memory::MemoryPool* pool) {
+  return connector::hive::makeScanSpec(
+      rowType,
+      /*outputSubfields=*/{},
+      filters,
+      /*dataColumns=*/rowType,
+      /*partitionKeys=*/{},
+      /*infoColumns=*/{},
+      /*specialColumns=*/{},
+      /*disableStatsBasedFilterReorder=*/false,
+      pool);
+}
+
+VectorPtr makeBigintRowVector(
+    const RowTypePtr& rowType,
+    int64_t first,
+    vector_size_t size,
+    memory::MemoryPool* pool) {
+  auto values = BaseVector::create<FlatVector<int64_t>>(BIGINT(), size, pool);
+  for (auto i = 0; i < size; ++i) {
+    values->set(i, first + i);
+  }
+  return std::make_shared<RowVector>(
+      pool, rowType, nullptr, size, std::vector<VectorPtr>{values});
+}
+
+} // namespace
+
+TEST_F(PrestoToVeloxConnectorTest, deltaFilterBindsToScanSpecColumn) {
+  auto domains = std::make_shared<DeltaDomains>();
+  domains->emplace(
+      createDeltaColumnHandle(
+          "id",
+          "bigint",
+          protocol::delta::ColumnType::REGULAR,
+          kDeltaPhysicalName),
+      createBigintRangeDomain(50, pool_.get()));
+
+  auto result = convertDeltaTableHandle(domains, *exprConverter_, *typeParser_);
+  auto rowType = ROW({kDeltaPhysicalName}, {BIGINT()});
+  auto scanSpec = makeDeltaScanSpec(
+      asHiveTableHandle(*result).subfieldFilters(), rowType, pool_.get());
+
+  // The filter has to land on the scan spec node for the physical column;
+  // keying it on the logical name would silently disable pushdown.
+  auto* child = scanSpec->childByName(kDeltaPhysicalName);
+  ASSERT_NE(child, nullptr);
+  ASSERT_NE(child->filter(), nullptr);
+  EXPECT_FALSE(child->filter()->testInt64(50));
+  EXPECT_TRUE(child->filter()->testInt64(51));
+  EXPECT_EQ(scanSpec->childByName("id"), nullptr);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaPredicateSkipsParquetRowGroups) {
+  // End of the pushdown chain: the filter produced by the bridge is handed to
+  // the Parquet reader, which drops the row group whose statistics cannot
+  // match. Without pushdown both row groups would be read.
+  auto rowType = ROW({kDeltaPhysicalName}, {BIGINT()});
+
+  dwio::common::WriterOptions writerOptions;
+  writerOptions.memoryPool = rootPool_.get();
+  writerOptions.compressionKind = common::CompressionKind_NONE;
+  // Start a new row group every 10 rows.
+  writerOptions.flushPolicyFactory = []() {
+    return std::make_unique<parquet::LambdaFlushPolicy>(
+        /*rowsInRowGroup=*/10, /*bytesInRowGroup=*/1 << 20, []() {
+          return false;
+        });
+  };
+
+  auto sink = std::make_unique<dwio::common::MemorySink>(
+      1 << 20, dwio::common::FileSink::Options{.pool = pool_.get()});
+  auto* sinkPtr = sink.get();
+  auto writer = std::make_unique<parquet::Writer>(
+      std::move(sink), writerOptions, rowType);
+  // Row group 1 holds 0..9, row group 2 holds 100..109.
+  writer->write(makeBigintRowVector(rowType, 0, 10, pool_.get()));
+  writer->write(makeBigintRowVector(rowType, 100, 10, pool_.get()));
+  writer->close();
+
+  const std::string fileContent(sinkPtr->data(), sinkPtr->size());
+
+  auto readAll = [&](const common::SubfieldFilters& filters,
+                     dwio::common::RuntimeStatistics& stats) {
+    dwio::common::ReaderOptions readerOptions(pool_.get());
+    auto reader = std::make_unique<parquet::ParquetReader>(
+        std::make_unique<dwio::common::BufferedInput>(
+            std::make_shared<InMemoryReadFile>(fileContent),
+            readerOptions.memoryPool()),
+        readerOptions);
+    EXPECT_EQ(reader->fileMetaData().numRowGroups(), 2);
+
+    dwio::common::RowReaderOptions rowReaderOptions;
+    rowReaderOptions.select(
+        std::make_shared<dwio::common::ColumnSelector>(
+            rowType, rowType->names()));
+    rowReaderOptions.setScanSpec(
+        makeDeltaScanSpec(filters, rowType, pool_.get()));
+    auto rowReader = reader->createRowReader(rowReaderOptions);
+
+    VectorPtr result = BaseVector::create(rowType, 0, pool_.get());
+    uint64_t rows = 0;
+    while (rowReader->next(1'000, result)) {
+      rows += result->size();
+    }
+    rowReader->updateRuntimeStats(stats);
+    return rows;
+  };
+
+  // Control: no predicate, so both row groups are read.
+  dwio::common::RuntimeStatistics withoutPushdown;
+  EXPECT_EQ(readAll({}, withoutPushdown), 20);
+  EXPECT_EQ(withoutPushdown.skippedStrides, 0);
+  EXPECT_EQ(withoutPushdown.processedStrides, 2);
+
+  // 'id > 50', pushed down as a filter keyed on the physical column name.
+  auto domains = std::make_shared<DeltaDomains>();
+  domains->emplace(
+      createDeltaColumnHandle(
+          "id",
+          "bigint",
+          protocol::delta::ColumnType::REGULAR,
+          kDeltaPhysicalName),
+      createBigintRangeDomain(50, pool_.get()));
+  auto tableHandle =
+      convertDeltaTableHandle(domains, *exprConverter_, *typeParser_);
+
+  dwio::common::RuntimeStatistics withPushdown;
+  // Only the second row group's rows survive the filter, and the first row
+  // group is never read: its statistics say max(id) == 9.
+  EXPECT_EQ(
+      readAll(asHiveTableHandle(*tableHandle).subfieldFilters(), withPushdown),
+      10);
+  EXPECT_EQ(withPushdown.skippedStrides, 1);
+  EXPECT_EQ(withPushdown.processedStrides, 1);
 }
