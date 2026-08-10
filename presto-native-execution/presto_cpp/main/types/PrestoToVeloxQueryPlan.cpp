@@ -2434,17 +2434,15 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   // Parse the result type from the protocol output variable.
   auto resultType = typeParser_.parse(node->outputVariable.type);
 
-  // Extract argument types and constant values from the protocol argument
-  // expressions. The Java planner sends both `arguments` (original
-  // expressions for type/constant extraction) and `argumentColumns`
-  // (column names for runtime reads by RPCOperator).
-  std::vector<TypePtr> argumentTypes;
+  // Extract constant values from the protocol argument expressions. The Java
+  // planner sends both `arguments` (original expressions, used here to detect
+  // constant literals) and `argumentColumns` (column names for runtime reads by
+  // RPCOperator). Column-argument types come from the source schema below, not
+  // from the argument expression's declared type.
   std::vector<VectorPtr> constantInputs;
-  argumentTypes.reserve(node->arguments.size());
   constantInputs.reserve(node->arguments.size());
   for (const auto& arg : node->arguments) {
     auto veloxExpr = exprConverter_.toVeloxExpr(arg);
-    argumentTypes.push_back(veloxExpr->type());
 
     // Extract constant value. Unwrap CastTypedExpr if present — the Java
     // planner wraps string literals in CAST(x AS VARCHAR) which hides the
@@ -2501,6 +2499,9 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   // Build CallTypedExpr inputs: FieldAccess for columns, Constant for literals
   // (Velox #18267 folds RPCNode args into CallTypedExpr: field refs vs
   // constants)
+  // argumentColumns and constantInputs are parallel per-argument arrays; the
+  // loop indexes both, so they must stay aligned.
+  VELOX_CHECK_EQ(argumentColumns.size(), constantInputs.size());
   std::vector<core::TypedExprPtr> callInputs;
   callInputs.reserve(argumentColumns.size());
   for (size_t i = 0; i < argumentColumns.size(); ++i) {
@@ -2508,9 +2509,18 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       callInputs.push_back(
           std::make_shared<core::ConstantTypedExpr>(constantInputs[i]));
     } else {
+      // A column argument's FieldAccess must carry the SOURCE column's actual
+      // type, not the argument expression's declared type: RPCOperator reads
+      // this column by name at runtime, so a CAST-wrapped argument would
+      // otherwise misdeclare the vector that is actually read.
+      const auto childIdx = sourceType->getChildIdxIfExists(argumentColumns[i]);
+      VELOX_CHECK(
+          childIdx.has_value(),
+          "RPCNode argument column '{}' not found in source schema",
+          argumentColumns[i]);
       callInputs.push_back(
           std::make_shared<core::FieldAccessTypedExpr>(
-              argumentTypes[i], argumentColumns[i]));
+              sourceType->childAt(*childIdx), argumentColumns[i]));
     }
   }
   auto call = std::make_shared<core::CallTypedExpr>(
