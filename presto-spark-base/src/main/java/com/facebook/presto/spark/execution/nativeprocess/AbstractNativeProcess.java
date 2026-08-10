@@ -51,6 +51,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
@@ -350,6 +351,20 @@ public abstract class AbstractNativeProcess
         // Called from processFailure() only after the process is dead, by which point the stderr pipe has
         // read the crash banner into abortMessage.
         return pipe.getAbortMessage();
+    }
+
+    /**
+     * Returns the native process exit code if the process has terminated, otherwise empty. Useful for
+     * classifying deaths that leave no crash banner (e.g. 137 = SIGKILL/OOM-kill, 139 = SIGSEGV,
+     * 134 = SIGABRT).
+     */
+    public OptionalInt getExitCode()
+    {
+        Process running = process;
+        if (running == null || running.isAlive()) {
+            return OptionalInt.empty();
+        }
+        return OptionalInt.of(running.exitValue());
     }
 
     public int getPort()
