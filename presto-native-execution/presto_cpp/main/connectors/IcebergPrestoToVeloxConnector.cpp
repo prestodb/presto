@@ -39,6 +39,38 @@ const std::unordered_set<std::string> kRowLineageColumnNames = {
         kLastUpdatedSequenceNumberColumnName,
 };
 
+std::unordered_map<std::string, int32_t> parseTopLevelFieldIds(
+    const std::shared_ptr<protocol::String>& tableSchemaJson) {
+  if (tableSchemaJson == nullptr || tableSchemaJson->empty()) {
+    return {};
+  }
+
+  try {
+    const auto schema = folly::parseJson(*tableSchemaJson);
+    const auto* fields = schema.get_ptr("fields");
+    if (fields == nullptr || !fields->isArray()) {
+      return {};
+    }
+
+    std::unordered_map<std::string, int32_t> fieldIds;
+    fieldIds.reserve(fields->size());
+    for (const auto& field : *fields) {
+      const auto* id = field.get_ptr("id");
+      const auto* name = field.get_ptr("name");
+      if (id == nullptr || !id->isInt() || name == nullptr ||
+          !name->isString()) {
+        return {};
+      }
+      fieldIds.emplace(name->asString(), static_cast<int32_t>(id->asInt()));
+    }
+    return fieldIds;
+  } catch (const folly::json::parse_error&) {
+    return {};
+  } catch (const folly::TypeError&) {
+    return {};
+  }
+}
+
 velox::connector::hive::iceberg::FileContent toVeloxFileContent(
     const presto::protocol::iceberg::FileContent content) {
   if (content == protocol::iceberg::FileContent::DATA) {
@@ -118,6 +150,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     const protocol::TableHandle& tableHandle,
     const std::vector<velox::connector::hive::HiveColumnHandlePtr>&
         columnHandles,
+    const std::unordered_map<std::string, int32_t>& fieldIdsByName,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) {
   velox::common::SubfieldFilters subfieldFilters;
@@ -140,6 +173,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
   }
 
   velox::RowTypePtr finalDataColumns;
+  std::vector<int32_t> dataColumnFieldIds;
   if (!dataColumns.empty()) {
     std::vector<std::string> names;
     std::vector<velox::TypePtr> types;
@@ -173,6 +207,32 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
       }
     }
 
+    dataColumnFieldIds.reserve(names.size());
+    for (const auto& name : names) {
+      const auto fieldIdIt = fieldIdsByName.find(name);
+      if (fieldIdIt != fieldIdsByName.end()) {
+        dataColumnFieldIds.push_back(fieldIdIt->second);
+        continue;
+      }
+
+      const auto handleIt = kRowLineageColumnNames.count(name)
+          ? std::find_if(
+                columnHandles.begin(),
+                columnHandles.end(),
+                [&name](const auto& handle) { return handle->name() == name; })
+          : columnHandles.end();
+      const auto* icebergHandle = handleIt != columnHandles.end()
+          ? dynamic_cast<
+                const velox::connector::hive::iceberg::IcebergColumnHandle*>(
+                handleIt->get())
+          : nullptr;
+      if (icebergHandle == nullptr) {
+        dataColumnFieldIds.clear();
+        break;
+      }
+      dataColumnFieldIds.push_back(icebergHandle->field().fieldId);
+    }
+
     finalDataColumns = ROW(std::move(names), std::move(types));
   }
 
@@ -182,8 +242,12 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
       std::move(subfieldFilters),
       remainingFilter,
       finalDataColumns,
-      std::unordered_map<std::string, std::string>{},
-      columnHandles);
+      /*indexColumns=*/std::vector<std::string>{},
+      /*tableParameters=*/std::unordered_map<std::string, std::string>{},
+      columnHandles,
+      /*sampleRate=*/1.0,
+      /*dbName=*/"",
+      std::move(dataColumnFieldIds));
 }
 
 velox::connector::hive::iceberg::IcebergPartitionSpec::Field
@@ -504,6 +568,7 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       icebergLayout->dataColumns,
       tableHandle,
       columnHandles,
+      parseTopLevelFieldIds(icebergTableHandle->tableSchemaJson),
       exprConverter,
       typeParser);
 }

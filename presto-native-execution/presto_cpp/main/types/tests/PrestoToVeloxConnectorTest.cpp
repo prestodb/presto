@@ -161,6 +161,38 @@ TEST_F(PrestoToVeloxConnectorTest, icebergPreservesColumnNameCase) {
   EXPECT_EQ(dataColumnsType->nameOf(1), kColumnName2);
 }
 
+TEST_F(PrestoToVeloxConnectorTest, icebergTableSchemaFieldIds) {
+  auto dataColumns = createTestDataColumns();
+  auto layout = std::make_shared<protocol::iceberg::IcebergTableLayoutHandle>();
+  setCommonLayoutProperties(layout, dataColumns, createTrueConstant());
+
+  auto icebergHandle =
+      std::make_shared<protocol::iceberg::IcebergTableHandle>();
+  icebergHandle->schemaName = "test_schema";
+  icebergHandle->icebergTableName.tableName = "test_table";
+  icebergHandle->tableSchemaJson = std::make_shared<std::string>(
+      R"({"schema-id":7,"fields":[{"id":11,"name":"MixedCaseCol1","required":false,"type":"int"},{"id":29,"name":"UPPERCASECOL2","required":false,"type":"string"}]})");
+
+  protocol::TableHandle tableHandle;
+  tableHandle.connectorId = "iceberg";
+  tableHandle.connectorHandle = icebergHandle;
+  tableHandle.connectorTableLayout = layout;
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto result = icebergConnector.toVeloxTableHandle(
+      tableHandle, *exprConverter_, *typeParser_);
+  auto* handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
+  ASSERT_NE(handle, nullptr);
+  EXPECT_EQ(handle->dataColumnFieldIds(), (std::vector<int32_t>{11, 29}));
+
+  icebergHandle->tableSchemaJson.reset();
+  result = icebergConnector.toVeloxTableHandle(
+      tableHandle, *exprConverter_, *typeParser_);
+  handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
+  ASSERT_NE(handle, nullptr);
+  EXPECT_TRUE(handle->dataColumnFieldIds().empty());
+}
+
 TEST_F(PrestoToVeloxConnectorTest, hiveLowercasesColumnNames) {
   auto dataColumns = createTestDataColumns();
   auto trueConstant = createTrueConstant();
