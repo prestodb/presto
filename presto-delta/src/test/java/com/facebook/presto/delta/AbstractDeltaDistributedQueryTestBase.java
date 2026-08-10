@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -175,16 +176,24 @@ public abstract class AbstractDeltaDistributedQueryTestBase
             int separatorIndex = jarUriString.indexOf("!/");
             URI jarUri = URI.create(jarUriString.substring(0, separatorIndex));
 
-            FileSystem fs;
+            FileSystem openFileSystem = null;
             try {
-                fs = FileSystems.getFileSystem(jarUri);
+                openFileSystem = FileSystems.getFileSystem(jarUri);
             }
-            catch (Exception e) {
-                fs = FileSystems.newFileSystem(jarUri, Collections.emptyMap());
+            catch (FileSystemNotFoundException e) {
+                // No file system is open for this JAR yet; one is created below.
             }
 
-            Path sourcePath = fs.getPath("/" + tableName);
-            copyRecursively(sourcePath, targetPath);
+            if (openFileSystem != null) {
+                // The file system belongs to whoever opened it, so don't close it here.
+                copyRecursively(openFileSystem.getPath("/" + tableName), targetPath);
+            }
+            else {
+                // This file system is ours, close it once the table is extracted.
+                try (FileSystem fileSystem = FileSystems.newFileSystem(jarUri, Collections.emptyMap())) {
+                    copyRecursively(fileSystem.getPath("/" + tableName), targetPath);
+                }
+            }
 
             return targetPath.toUri().toString();
         }

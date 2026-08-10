@@ -1,4 +1,21 @@
-using namespace facebook::presto::protocol;
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// DeltaColumn is special since only a subset of the Java fields is used and
+// the optional ones are carried as pointers.
+
+namespace facebook::presto::protocol::delta {
 
 void to_json(json& j, const DeltaColumn& p) {
   j = json::object();
@@ -15,7 +32,12 @@ void to_json(json& j, const DeltaColumn& p) {
         "physicalName");
   }
   to_json_key(
-      j, "logicalName", p.logicalName, "DeltaColumn", "std::string", "logicalName");
+      j,
+      "logicalName",
+      p.logicalName,
+      "DeltaColumn",
+      "std::string",
+      "logicalName");
   to_json_key(j, "type", p.type, "DeltaColumn", "std::string", "type");
   to_json_key(j, "nullable", p.nullable, "DeltaColumn", "bool", "nullable");
   to_json_key(j, "partition", p.partition, "DeltaColumn", "bool", "partition");
@@ -39,9 +61,16 @@ void from_json(const json& j, DeltaColumn& p) {
   }
   // Required fields
   from_json_key(
-      j, "logicalName", p.logicalName, "DeltaColumn", "std::string", "logicalName");
+      j,
+      "logicalName",
+      p.logicalName,
+      "DeltaColumn",
+      "std::string",
+      "logicalName");
   from_json_key(j, "type", p.type, "DeltaColumn", "std::string", "type");
   from_json_key(j, "nullable", p.nullable, "DeltaColumn", "bool", "nullable");
   from_json_key(
       j, "partition", p.partition, "DeltaColumn", "bool", "partition");
 }
+
+} // namespace facebook::presto::protocol::delta

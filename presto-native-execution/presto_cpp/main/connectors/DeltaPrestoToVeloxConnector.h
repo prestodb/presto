@@ -59,16 +59,6 @@ class DeltaPrestoToVeloxConnector final : public PrestoToVeloxConnector {
   /// @return Delta connector protocol for serialization/deserialization
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;
-
- private:
-  /// Convert list of Delta column handles to Hive column handles
-  /// Delta uses Hive's column handle infrastructure for execution
-  /// @param inputColumns List of Delta column handles
-  /// @param typeParser Type parser for converting type strings
-  /// @return Vector of Hive column handles
-  std::vector<velox::connector::hive::HiveColumnHandlePtr> toHiveColumns(
-      const protocol::List<protocol::delta::DeltaColumnHandle>& inputColumns,
-      const TypeParser& typeParser) const;
 };
 
 } // namespace facebook::presto
