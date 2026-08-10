@@ -1153,3 +1153,441 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitKeepsUnassignedSequenceNumber) {
 
   EXPECT_EQ(hiveIceberg->dataSequenceNumber, 0);
 }
+
+namespace {
+
+// One REGULAR integer column named "id", used as both an input column and the
+// source of the partition field below.
+protocol::iceberg::IcebergColumnHandle makeIcebergIdColumn() {
+  protocol::iceberg::IcebergColumnHandle column;
+  column.columnIdentity.name = "id";
+  column.columnIdentity.id = 1;
+  column.columnIdentity.typeCategory =
+      protocol::iceberg::TypeCategory::PRIMITIVE;
+  column.type = "integer";
+  column.columnType = protocol::hive::ColumnType::REGULAR;
+  return column;
+}
+
+// A one-field identity partition spec over "id".
+//
+// toVeloxIcebergPartitionField resolves each field's Velox type by matching
+// the *partition field* name against the schema's column names, so the schema
+// must carry a column of the same name or the conversion throws.
+protocol::iceberg::PrestoIcebergPartitionSpec makeIdentityPartitionSpec() {
+  protocol::iceberg::PrestoIcebergNestedField schemaColumn;
+  schemaColumn.id = 1;
+  schemaColumn.name = "id";
+  schemaColumn.prestoType = "integer";
+  schemaColumn.optional = true;
+
+  protocol::iceberg::PrestoIcebergSchema schema;
+  schema.schemaId = 0;
+  schema.columns = {schemaColumn};
+
+  protocol::iceberg::IcebergPartitionField field;
+  field.sourceId = 1;
+  field.fieldId = 1000;
+  field.name = "id";
+  field.transform = protocol::iceberg::PartitionTransformType::IDENTITY;
+
+  protocol::iceberg::PrestoIcebergPartitionSpec spec;
+  spec.specId = 3;
+  spec.schema = schema;
+  spec.fields = {field};
+  return spec;
+}
+
+// Asserts the parts every write handle shares: a partitioned Iceberg insert
+// handle whose location points at "<outputPath>/data".
+void verifyIcebergWriteHandle(
+    const std::unique_ptr<connector::ConnectorInsertTableHandle>& result,
+    connector::hive::LocationHandle::TableType expectedTableType,
+    connector::hive::iceberg::IcebergInsertTableHandle::WriteKind
+        expectedWriteKind) {
+  ASSERT_NE(result, nullptr);
+  auto* icebergInsert =
+      dynamic_cast<connector::hive::iceberg::IcebergInsertTableHandle*>(
+          result.get());
+  ASSERT_NE(icebergInsert, nullptr);
+
+  EXPECT_EQ(icebergInsert->writeKind(), expectedWriteKind);
+  EXPECT_EQ(
+      icebergInsert->locationHandle()->targetPath(), "/path/to/table/data");
+  EXPECT_EQ(icebergInsert->locationHandle()->tableType(), expectedTableType);
+
+  ASSERT_EQ(icebergInsert->inputColumns().size(), 1);
+  EXPECT_EQ(icebergInsert->inputColumns()[0]->name(), "id");
+
+  // The partition spec round-trips, including the identity transform and the
+  // field's Velox type resolved from the schema.
+  const auto& partitionSpec = icebergInsert->partitionSpec();
+  ASSERT_NE(partitionSpec, nullptr);
+  EXPECT_EQ(partitionSpec->specId, 3);
+  ASSERT_EQ(partitionSpec->fields.size(), 1);
+  EXPECT_EQ(partitionSpec->fields[0].name, "id");
+  EXPECT_EQ(
+      partitionSpec->fields[0].transformType,
+      connector::hive::iceberg::TransformType::kIdentity);
+}
+
+} // namespace
+
+TEST_F(PrestoToVeloxConnectorTest, icebergCreateTableHandle) {
+  // CREATE TABLE AS: the target does not exist yet, so the location handle
+  // must be in "new" mode.
+  auto protoHandle =
+      std::make_shared<protocol::iceberg::IcebergOutputTableHandle>();
+  protoHandle->_type = "hive-iceberg";
+  protoHandle->schemaName = "test_schema";
+  protoHandle->tableName.tableName = "test_table";
+  protoHandle->outputPath = "/path/to/table";
+  protoHandle->fileFormat = protocol::iceberg::FileFormat::PARQUET;
+  protoHandle->compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
+  protoHandle->inputColumns = {makeIcebergIdColumn()};
+  protoHandle->partitionSpec = makeIdentityPartitionSpec();
+
+  protocol::CreateHandle createHandle;
+  createHandle.handle.connectorHandle = protoHandle;
+  createHandle.handle.connectorId = "iceberg";
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto result =
+      icebergConnector.toVeloxInsertTableHandle(&createHandle, *typeParser_);
+
+  verifyIcebergWriteHandle(
+      result,
+      connector::hive::LocationHandle::TableType::kNew,
+      connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::kData);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, icebergInsertTableHandle) {
+  auto protoHandle =
+      std::make_shared<protocol::iceberg::IcebergInsertTableHandle>();
+  protoHandle->_type = "hive-iceberg";
+  protoHandle->schemaName = "test_schema";
+  protoHandle->tableName.tableName = "test_table";
+  protoHandle->outputPath = "/path/to/table";
+  protoHandle->fileFormat = protocol::iceberg::FileFormat::PARQUET;
+  protoHandle->compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
+  protoHandle->inputColumns = {makeIcebergIdColumn()};
+  protoHandle->partitionSpec = makeIdentityPartitionSpec();
+
+  protocol::InsertHandle insertHandle;
+  insertHandle.handle.connectorHandle = protoHandle;
+  insertHandle.handle.connectorId = "iceberg";
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto result =
+      icebergConnector.toVeloxInsertTableHandle(&insertHandle, *typeParser_);
+
+  verifyIcebergWriteHandle(
+      result,
+      connector::hive::LocationHandle::TableType::kExisting,
+      connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::kData);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, icebergMergeTableHandle) {
+  // MERGE unwraps the nested insert handle and tags the result kMerge, which
+  // is what routes the write to IcebergMergeSink rather than IcebergDataSink.
+  auto protoHandle =
+      std::make_shared<protocol::iceberg::IcebergMergeTableHandle>();
+  protoHandle->_type = "hive-iceberg";
+  protoHandle->insertTableHandle.schemaName = "test_schema";
+  protoHandle->insertTableHandle.tableName.tableName = "test_table";
+  protoHandle->insertTableHandle.outputPath = "/path/to/table";
+  protoHandle->insertTableHandle.fileFormat =
+      protocol::iceberg::FileFormat::PARQUET;
+  protoHandle->insertTableHandle.compressionCodec =
+      protocol::hive::HiveCompressionCodec::NONE;
+  protoHandle->insertTableHandle.inputColumns = {makeIcebergIdColumn()};
+  protoHandle->insertTableHandle.partitionSpec = makeIdentityPartitionSpec();
+
+  protocol::MergeHandle mergeHandle;
+  mergeHandle.connectorMergeTableHandle = protoHandle;
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto result =
+      icebergConnector.toVeloxInsertTableHandle(&mergeHandle, *typeParser_);
+
+  verifyIcebergWriteHandle(
+      result,
+      connector::hive::LocationHandle::TableType::kExisting,
+      connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::kMerge);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, icebergDistributedProcedureHandle) {
+  auto protoHandle = std::make_shared<
+      protocol::iceberg::IcebergDistributedProcedureHandle>();
+  protoHandle->_type = "hive-iceberg";
+  protoHandle->schemaName = "test_schema";
+  protoHandle->tableName.tableName = "test_table";
+  protoHandle->outputPath = "/path/to/table";
+  protoHandle->fileFormat = protocol::iceberg::FileFormat::PARQUET;
+  protoHandle->compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
+  protoHandle->inputColumns = {makeIcebergIdColumn()};
+  protoHandle->partitionSpec = makeIdentityPartitionSpec();
+
+  protocol::ExecuteProcedureHandle procedureHandle;
+  procedureHandle.handle.connectorHandle = protoHandle;
+  procedureHandle.handle.connectorId = "iceberg";
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto result = icebergConnector.toVeloxInsertTableHandle(
+      &procedureHandle, *typeParser_);
+
+  verifyIcebergWriteHandle(
+      result,
+      connector::hive::LocationHandle::TableType::kExisting,
+      connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::kData);
+}
+
+namespace {
+
+protocol::iceberg::DeleteFile makeProtocolDeleteFile(
+    protocol::iceberg::FileContent content,
+    protocol::iceberg::FileFormat format,
+    const std::string& path) {
+  protocol::iceberg::DeleteFile deleteFile;
+  deleteFile.content = content;
+  deleteFile.format = format;
+  deleteFile.path = path;
+  deleteFile.recordCount = 3;
+  deleteFile.fileSizeInBytes = 128;
+  deleteFile.dataSequenceNumber = 4;
+  return deleteFile;
+}
+
+} // namespace
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitMapsEveryDeleteFileContent) {
+  // Each Iceberg delete-file content type routes to a different reader, so a
+  // mis-mapping here silently applies the wrong delete semantics.
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.deletes = {
+      makeProtocolDeleteFile(
+          protocol::iceberg::FileContent::DATA,
+          protocol::iceberg::FileFormat::PARQUET,
+          "/deletes/data.parquet"),
+      makeProtocolDeleteFile(
+          protocol::iceberg::FileContent::POSITION_DELETES,
+          protocol::iceberg::FileFormat::PARQUET,
+          "/deletes/pos.parquet"),
+      makeProtocolDeleteFile(
+          protocol::iceberg::FileContent::EQUALITY_DELETES,
+          protocol::iceberg::FileFormat::PARQUET,
+          "/deletes/eq.parquet"),
+      makeProtocolDeleteFile(
+          protocol::iceberg::FileContent::DELETION_VECTOR,
+          protocol::iceberg::FileFormat::PARQUET,
+          "/deletes/dv.parquet"),
+  };
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+
+  using FC = connector::hive::iceberg::FileContent;
+  ASSERT_EQ(hiveIceberg->deleteFiles.size(), 4);
+  EXPECT_EQ(hiveIceberg->deleteFiles[0].content, FC::kData);
+  EXPECT_EQ(hiveIceberg->deleteFiles[1].content, FC::kPositionalDeletes);
+  EXPECT_EQ(hiveIceberg->deleteFiles[2].content, FC::kEqualityDeletes);
+  EXPECT_EQ(hiveIceberg->deleteFiles[3].content, FC::kDeletionVector);
+
+  // The delete file's own sequence number drives V2 delete applicability and
+  // must survive the conversion independently of the split's.
+  EXPECT_EQ(hiveIceberg->deleteFiles[0].dataSequenceNumber, 4);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitTreatsPuffinDeleteAsDeletionVector) {
+  // Older iceberg-api releases report deletion vectors as POSITION_DELETES in
+  // Puffin format. Routing on content alone would send them to the positional
+  // reader, which has no Puffin reader factory registered.
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.deletes = {makeProtocolDeleteFile(
+      protocol::iceberg::FileContent::POSITION_DELETES,
+      protocol::iceberg::FileFormat::PUFFIN,
+      "/deletes/legacy-dv.puffin")};
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+
+  ASSERT_EQ(hiveIceberg->deleteFiles.size(), 1);
+  EXPECT_EQ(
+      hiveIceberg->deleteFiles[0].content,
+      connector::hive::iceberg::FileContent::kDeletionVector);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitCarriesFirstRowId) {
+  // V3 row lineage: firstRowId defaults to -1 and is only surfaced when the
+  // planner assigned one.
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.firstRowId = 900;
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+
+  const auto it = hiveIceberg->infoColumns.find(
+      connector::hive::iceberg::IcebergMetadataColumn::kFirstRowIdInfoColumn);
+  ASSERT_NE(it, hiveIceberg->infoColumns.end());
+  EXPECT_EQ(it->second, "900");
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitOmitsUnassignedFirstRowId) {
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  // Left at the -1 default.
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+
+  EXPECT_EQ(
+      hiveIceberg->infoColumns.count(
+          connector::hive::iceberg::IcebergMetadataColumn::
+              kFirstRowIdInfoColumn),
+      0);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitMapsWriteOrientedFileFormats) {
+  // DWRF and NIMBLE reach the bridge directly once the protocol enum carries
+  // them; before that regen they were silently coerced to ORC.
+  struct TestCase {
+    protocol::iceberg::FileFormat protocolFormat;
+    dwio::common::FileFormat expected;
+  };
+  const std::vector<TestCase> cases = {
+      {protocol::iceberg::FileFormat::DWRF,
+       dwio::common::FileFormat::DWRF},
+      {protocol::iceberg::FileFormat::NIMBLE,
+       dwio::common::FileFormat::NIMBLE},
+      {protocol::iceberg::FileFormat::PARQUET,
+       dwio::common::FileFormat::PARQUET},
+  };
+
+  for (const auto& testCase : cases) {
+    protocol::iceberg::IcebergSplit split;
+    split.path = "/path/to/data/file";
+    split.fileFormat = testCase.protocolFormat;
+
+    protocol::SplitContext context;
+    IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+    auto veloxSplit =
+        icebergConnector.toVeloxSplit("iceberg", &split, &context);
+    auto* hiveIceberg =
+        dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+            veloxSplit.get());
+    ASSERT_NE(hiveIceberg, nullptr);
+    EXPECT_EQ(hiveIceberg->fileFormat, testCase.expected)
+        << "protocol format ordinal "
+        << fmt::underlying(testCase.protocolFormat);
+  }
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxColumnHandleCarriesDefaultValue) {
+  // Iceberg V3 column defaults: a column added after the file was written has
+  // no physical data, so the reader materializes this constant instead.
+  protocol::iceberg::IcebergColumnHandle column;
+  column.columnIdentity.name = "added_col";
+  column.columnIdentity.id = 7;
+  column.columnIdentity.typeCategory =
+      protocol::iceberg::TypeCategory::PRIMITIVE;
+  column.type = "integer";
+  column.columnType = protocol::hive::ColumnType::REGULAR;
+  column.defaultValue = std::make_shared<protocol::String>("42");
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto handle = icebergConnector.toVeloxColumnHandle(&column, *typeParser_);
+  ASSERT_NE(handle, nullptr);
+
+  auto* icebergHandle =
+      dynamic_cast<connector::hive::iceberg::IcebergColumnHandle*>(
+          handle.get());
+  ASSERT_NE(icebergHandle, nullptr);
+  ASSERT_TRUE(icebergHandle->initialDefaultValue().has_value());
+  EXPECT_EQ(*icebergHandle->initialDefaultValue(), "42");
+}
+
+TEST_F(PrestoToVeloxConnectorTest, icebergWriteHandleMapsOrcToDwrf) {
+  // On the write path Iceberg "ORC" means Meta's DWRF, since Velox only
+  // registers a DWRF writer. The read path deliberately maps ORC -> ORC
+  // instead, so this branch is only reachable through a write handle.
+  auto protoHandle =
+      std::make_shared<protocol::iceberg::IcebergInsertTableHandle>();
+  protoHandle->_type = "hive-iceberg";
+  protoHandle->outputPath = "/path/to/table";
+  protoHandle->fileFormat = protocol::iceberg::FileFormat::ORC;
+  protoHandle->compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
+  protoHandle->inputColumns = {makeIcebergIdColumn()};
+
+  protocol::InsertHandle insertHandle;
+  insertHandle.handle.connectorHandle = protoHandle;
+  insertHandle.handle.connectorId = "iceberg";
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto result =
+      icebergConnector.toVeloxInsertTableHandle(&insertHandle, *typeParser_);
+  ASSERT_NE(result, nullptr);
+
+  auto* icebergInsert =
+      dynamic_cast<connector::hive::iceberg::IcebergInsertTableHandle*>(
+          result.get());
+  ASSERT_NE(icebergInsert, nullptr);
+  EXPECT_EQ(icebergInsert->storageFormat(), dwio::common::FileFormat::DWRF);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxColumnHandleCarriesTypeAttributes) {
+  // Iceberg V3 type attributes ride alongside the field id and drive how the
+  // reader interprets physical values (long vs int width, timestamp unit,
+  // struct-vs-map encoding).
+  protocol::iceberg::IcebergColumnHandle column;
+  column.columnIdentity.name = "ts";
+  column.columnIdentity.id = 5;
+  column.columnIdentity.typeCategory =
+      protocol::iceberg::TypeCategory::PRIMITIVE;
+  column.type = "bigint";
+  column.columnType = protocol::hive::ColumnType::REGULAR;
+
+  auto attributes = std::make_shared<protocol::iceberg::IcebergTypeAttributes>();
+  attributes->required = std::make_shared<bool>(true);
+  attributes->longType = std::make_shared<protocol::String>("TIMESTAMP");
+  attributes->timestampUnit = std::make_shared<protocol::String>("MICROSECONDS");
+  attributes->structType = std::make_shared<protocol::String>("STRUCT");
+  column.columnIdentity.typeAttributes = attributes;
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto handle = icebergConnector.toVeloxColumnHandle(&column, *typeParser_);
+  ASSERT_NE(handle, nullptr);
+
+  auto* icebergHandle =
+      dynamic_cast<connector::hive::iceberg::IcebergColumnHandle*>(
+          handle.get());
+  ASSERT_NE(icebergHandle, nullptr);
+
+  const auto& metadata = icebergHandle->icebergMetadata();
+  EXPECT_EQ(metadata.longType, "TIMESTAMP");
+  EXPECT_EQ(metadata.timestampUnit, "MICROSECONDS");
+  EXPECT_EQ(metadata.structType, "STRUCT");
+  EXPECT_TRUE(metadata.required);
+}
