@@ -31,6 +31,11 @@ void to_json(json& j, const DeltaTransactionHandle& p);
 
 void from_json(const json& j, DeltaTransactionHandle& p);
 } // namespace facebook::presto::protocol::delta
+// DeltaColumn is special since only a subset of the Java fields is used and
+// the optional ones are carried as pointers.
+
+namespace facebook::presto::protocol::delta {
+
 struct DeltaColumn {
   std::shared_ptr<int64_t> id = {};
   std::shared_ptr<std::string> physicalName = {};
@@ -39,6 +44,8 @@ struct DeltaColumn {
   bool nullable = {};
   bool partition = {};
 };
+
+} // namespace facebook::presto::protocol::delta
 namespace facebook::presto::protocol::delta {
 enum class ColumnType { REGULAR, PARTITION, SUBFIELD };
 extern void to_json(json& j, const ColumnType& e);

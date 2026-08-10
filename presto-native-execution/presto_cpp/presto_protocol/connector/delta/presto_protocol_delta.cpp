@@ -33,7 +33,10 @@ void from_json(const json& j, DeltaTransactionHandle& p) {
   j[1].get_to(p.instance);
 }
 } // namespace facebook::presto::protocol::delta
-using namespace facebook::presto::protocol;
+// DeltaColumn is special since only a subset of the Java fields is used and
+// the optional ones are carried as pointers.
+
+namespace facebook::presto::protocol::delta {
 
 void to_json(json& j, const DeltaColumn& p) {
   j = json::object();
@@ -90,6 +93,8 @@ void from_json(const json& j, DeltaColumn& p) {
   from_json_key(
       j, "partition", p.partition, "DeltaColumn", "bool", "partition");
 }
+
+} // namespace facebook::presto::protocol::delta
 namespace facebook::presto::protocol::delta {
 // Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
