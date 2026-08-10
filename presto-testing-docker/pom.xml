@@ -20,12 +20,12 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>testing</artifactId>
         </dependency>
 

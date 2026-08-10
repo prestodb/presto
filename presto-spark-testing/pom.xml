@@ -17,7 +17,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
@@ -27,7 +27,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>test</scope>
         </dependency>
@@ -51,13 +51,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>json</artifactId>
             <scope>test</scope>
         </dependency>

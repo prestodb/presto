@@ -25,7 +25,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
@@ -64,7 +64,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -76,7 +76,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
         </dependency>

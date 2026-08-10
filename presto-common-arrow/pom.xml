@@ -76,7 +76,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>log</artifactId>
             <scope>test</scope>
         </dependency>

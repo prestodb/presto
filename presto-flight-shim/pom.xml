@@ -97,32 +97,32 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>node</artifactId>
         </dependency>
 
@@ -138,7 +138,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
 
@@ -198,7 +198,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
@@ -259,7 +259,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -485,12 +485,12 @@
                 <configuration>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.fasterxml.jackson.core:jackson-databind</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:log-manager</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.ShahimSharafudeen.airlift:log-manager</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>javax.inject:javax.inject</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-base-jdbc</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.google.errorprone:error_prone_annotations</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>org.jetbrains:annotations</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:units</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.ShahimSharafudeen.airlift:units</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>

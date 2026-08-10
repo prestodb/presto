@@ -58,17 +58,17 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>security</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>json</artifactId>
             <exclusions>
                 <exclusion>
@@ -118,25 +118,25 @@
 
         <!-- for testing -->
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>concurrent</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>configuration</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>http-server</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>jaxrs</artifactId>
             <scope>test</scope>
         </dependency>
@@ -226,13 +226,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>test</scope>
         </dependency>
@@ -291,7 +291,7 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
                     <ignoredNonTestScopedDependencies>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:security</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.ShahimSharafudeen.airlift:security</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>

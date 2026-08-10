@@ -29,7 +29,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
@@ -44,7 +44,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
 
@@ -67,7 +67,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -79,7 +79,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -91,7 +91,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
@@ -134,7 +134,7 @@
 
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.ShahimSharafudeen.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>test</scope>
         </dependency>
@@ -153,8 +153,8 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
                     <ignoredNonTestScopedDependencies>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:json</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:log</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.ShahimSharafudeen.airlift:json</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.ShahimSharafudeen.airlift:log</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
