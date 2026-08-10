@@ -66,7 +66,7 @@ Members:
 |---|---|
 | Abstract | `protected abstract File getCatalogDirectory()` |
 | Constants | `TEST_SCHEMA`, `TEST_TABLE_SCHEMA` |
-| Catalog | `loadCatalog()`, `createTestTable(catalog, tableId, formatVersion)` |
+| Catalog | `loadCatalog()`, `createTestTable(catalog, tableId, formatVersion)`, `dropTableQuietly(catalog, tableId)` |
 | Writers | `writeFile(table, writeSchema, records…) → DataFile`, `writeRecords(table, records…)`, `writeRecordsWithSchema(table, writeSchema, records…)`, `appendOneRow(table, id, value)` |
 | Iceberg metadata | `buildExpectedPairs(table, firstRowIdMessage)` |
 | Pure verifiers | `assertRowLineagePairs(result, expectedPairs)`, `rowIdAndSeqById(result)`, `idsOf(result)` |
@@ -123,8 +123,12 @@ protected void assertMatchesReferenceEngine(String sql) {}
 ```
 
 `TestIcebergV3RowLineage` overrides it as `assertQueryOrdered(sql)`; `TestIcebergRowLineage`
-inherits the no-op. The base's `assertPrestoRowLineageMatchesExpected` and `assertIdsForPredicate`
-both call it before comparing against expected values.
+inherits the no-op. Three base helpers call it before comparing against expected values:
+`assertPrestoRowLineageMatchesExpected`, `assertIdsForPredicate`, and `readIdAndSequenceNumber`.
+
+`readIdAndSequenceNumber` is included because `testPredicatePushdownPostCompaction` uses it to
+*assert* the lineage values surviving a rewrite — the exact native-reader path this branch fixes —
+rather than only to derive sequence numbers for later predicates.
 
 This keeps every shared helper usable from both subclasses, and means each query runs at most
 twice (once on each engine) rather than three times — which a wrapper that called
@@ -189,6 +193,11 @@ inherited name.
 The ad-hoc `assertQuery(...)` calls the native tests make on one-off SQL strings (distinct counts,
 null counts, per-id sequence numbers) stay as explicit `assertQuery` calls in the test bodies.
 
+The two predicate-vs-projection tests both write the same overridden-lineage row (id 2, `_row_id`
+42, sequence number 99), so that setup moves into one private `writeOverriddenLineageRow(table)`
+helper. It stays local to this class rather than going in the base, since the specific override
+values are what those two assertions check.
+
 The 5 pushdown tests are moved in, with cross-engine assertions added:
 
 - **Result-set assertions** are covered by the seam. The base's `assertIdsForPredicate` calls
@@ -235,10 +244,14 @@ data directories) and the methods within a class do not collide.
 
 ## Testing
 
-- `mvn -pl presto-iceberg test -Dtest=TestIcebergRowLineage` — the Java smoke test passes and the
-  module compiles with the renamed base class.
-- `mvn -pl presto-native-tests test -Dtest=TestIcebergV3RowLineage` — all 10 tests (5 existing +
-  5 moved) pass against a native build.
+- `mvn -pl presto-iceberg test -Ptest-iceberg-others -Dtest=TestIcebergRowLineage` — the Java smoke
+  test passes and the module compiles with the renamed base class. The `test-iceberg-others`
+  profile is required: presto-iceberg's default profile restricts surefire to
+  `TestIcebergSmoke*` / `Distributed*` / `HadoopCatalog*` / `HiveCatalog*` / `Nessie*` /
+  `RestCatalog*`, and `TestIcebergRowLineage` runs under the complementary profile.
+- `mvn -pl presto-native-tests -am test -Dtest=TestIcebergV3RowLineage -DPRESTO_SERVER=<binary>
+  -DDATA_DIR=<dir>` — all 10 tests (5 existing + 5 moved) pass against a native build. `-am` is
+  required because several sibling modules resolve only from the reactor.
 - Confirm no remaining references to `TestIcebergRowLineageBase`.
 - Confirm no scenario present today is dropped. Accounting:
 
