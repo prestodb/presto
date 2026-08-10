@@ -87,7 +87,7 @@ class MaterializedExchange : public velox::exec::Exchange {
       velox::exec::DriverCtx* ctx,
       const std::shared_ptr<const MaterializedExchangeNode>&
           materializedExchangeNode,
-      std::shared_ptr<velox::exec::ExchangeClient> exchangeClient);
+      std::shared_ptr<velox::exec::InMemoryExchangeClient> exchangeClient);
 
   velox::RowVectorPtr getOutput() override;
 
@@ -135,7 +135,8 @@ class MaterializedExchangeTranslator
       velox::exec::DriverCtx* ctx,
       int32_t id,
       const velox::core::PlanNodePtr& node,
-      std::shared_ptr<velox::exec::ExchangeClient> exchangeClient) override;
+      std::shared_ptr<velox::exec::InMemoryExchangeClient> exchangeClient)
+      override;
 };
 
 } // namespace facebook::presto::operators
