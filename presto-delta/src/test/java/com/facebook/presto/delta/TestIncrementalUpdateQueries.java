@@ -29,9 +29,9 @@ import static org.testng.Assert.assertTrue;
 public class TestIncrementalUpdateQueries
         extends AbstractDeltaDistributedQueryTestBase
 {
-    private final String version = "delta_v3";
-    private final String controlTableName = "deltatbl-partition-prune";
-    private final String targetTableName = controlTableName + "-incremental";
+    protected static final String version = "delta_v3";
+    protected static final String controlTableName = "deltatbl-partition-prune";
+    protected static final String targetTableName = controlTableName + "-incremental";
 
     @Override
     protected QueryRunner createQueryRunner()

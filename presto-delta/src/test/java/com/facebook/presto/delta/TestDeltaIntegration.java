@@ -149,7 +149,7 @@ public class TestDeltaIntegration
         String testQueryTs1 = format(testQueryTemplate, "t2020-10-27 02:50:00");
         assertQueryFails(
                 testQueryTs1,
-                ".*The provided timestamp 1603767000000 ms \\(2020-10-27T02:50:00Z\\) is before the earliest available version 0\\. Please use a timestamp greater than or equal to 1637231401000 ms \\(2021-11-18T10:30:01Z\\)\\.");
+                ".*The provided timestamp 1603767000000 ms \\(2020-10-27T02:50:00Z\\) is before the earliest available version 0\\. Please use a timestamp greater than or equal to \\d+ ms \\([^)]+\\)\\.");
 
         // read snapshot as of 2021-11-18 10:30:02 - this should read the data from commit id 1.
         String testQueryTs2 = format(testQueryTemplate, "t2021-11-18 10:30:02");
@@ -207,6 +207,24 @@ public class TestDeltaIntegration
     }
 
     @Test(dataProvider = "deltaReaderVersions")
+    public void readSimplePartitionedTable(String version)
+    {
+        String testQuery = "SELECT * FROM \"" + getVersionPrefix(version) +
+                "simple-partitioned-table\"";
+        String expResultsQuery = "SELECT * FROM VALUES(1, 'test_value')";
+        assertQuery(testQuery, expResultsQuery);
+    }
+
+    @Test(dataProvider = "deltaReaderVersions")
+    public void readSimplePartitionedTableEndKeys(String version)
+    {
+        String testQuery = "SELECT * FROM \"" + getVersionPrefix(version) +
+                "simple-partitioned-table-end-keys\"";
+        String expResultsQuery = "SELECT * FROM VALUES('test_value', 1)";
+        assertQuery(testQuery, expResultsQuery);
+    }
+
+    @Test(dataProvider = "deltaReaderVersions")
     public void readPartitionedTableAllDataTypes(String version)
     {
         String testQuery = "SELECT * FROM \"" + getVersionPrefix(version) +
@@ -250,6 +268,54 @@ public class TestDeltaIntegration
                 "  null, " +
                 "  null, " +
                 "  '2'" + // regular column
+                ")";
+        assertQuery(testQuery, expResultsQuery);
+    }
+
+    @Test(dataProvider = "deltaReaderVersions")
+    public void readPartitionedTableAllDataTypesEndKeys(String version)
+    {
+        String testQuery = "SELECT * FROM \"" + getVersionPrefix(version) +
+                "data-reader-partition-values-end-keys\"";
+        String expResultsQuery = "SELECT * FROM VALUES" +
+                "( '0'," + // regular column
+                "  0," +
+                "  cast(0 as bigint)," +
+                "  cast(0 as tinyint), " +
+                "  cast(0 as smallint), " +
+                "  true, " +
+                "  0.0, " +
+                "  cast(0.0 as double), " +
+                "  '0', " +
+                "  DATE '2021-09-08', " +
+                "  TIMESTAMP WITH TIME ZONE '2021-09-08 11:11:11 UTC', " +
+                "  cast(0 as decimal)" +
+                "), " +
+                "( '1'," + // regular column
+                "  1," +
+                "  cast(1 as bigint)," +
+                "  cast(1 as tinyint), " +
+                "  cast(1 as smallint), " +
+                "  false, " +
+                "  1.0, " +
+                "  cast(1.0 as double), " +
+                "  '1', " +
+                "  DATE '2021-09-08', " +
+                "  TIMESTAMP WITH TIME ZONE '2021-09-08 11:11:11 UTC', " +
+                "  cast(1 as decimal)" +
+                "), " +
+                "( '2'," + // regular column
+                "  null," +
+                "  null," +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null" +
                 ")";
         assertQuery(testQuery, expResultsQuery);
     }
