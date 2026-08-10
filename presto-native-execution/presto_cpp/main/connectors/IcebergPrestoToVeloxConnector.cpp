@@ -309,11 +309,12 @@ velox::parquet::ParquetFieldId toParquetField(
 }
 
 // Extracts the Iceberg partition spec ID from the JSON-encoded spec carried on
-// each split (IcebergSplit.partitionSpecAsJson on the Java side). The JSON
-// always has a top-level "specId" integer per Iceberg's PartitionSpecParser.
-// Returns std::nullopt only when parsing fails so callers can decide whether
-// to omit the resulting info column (synthesis paths that depend on a real
-// spec_id should treat absence as a hard error).
+// each split (IcebergSplit.partitionSpecAsJson on the Java side). The producer
+// is Iceberg's PartitionSpecParser.toJson, which emits the hyphenated
+// "spec-id" key (matching "source-id" / "field-id" on each field) -- not a
+// camelCase "specId". Returns std::nullopt only when parsing fails so callers
+// can decide whether to omit the resulting info column (synthesis paths that
+// depend on a real spec_id should treat absence as a hard error).
 std::optional<int32_t> tryParsePartitionSpecId(
     const std::string& partitionSpecAsJson) {
   if (partitionSpecAsJson.empty()) {
@@ -324,7 +325,7 @@ std::optional<int32_t> tryParsePartitionSpecId(
     if (!parsed.isObject()) {
       return std::nullopt;
     }
-    const auto* specIdField = parsed.get_ptr("specId");
+    const auto* specIdField = parsed.get_ptr("spec-id");
     if (specIdField == nullptr || !specIdField->isInt()) {
       return std::nullopt;
     }
@@ -567,14 +568,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       deletes,
       infoColumns,
       std::nullopt,
-      // Left at the "unassigned" default rather than
-      // 'icebergSplit->dataSequenceNumber'. Populating it would newly activate
-      // the V2 sequence-number filtering of equality deletes in
-      // IcebergSplitReader, which is a behavior change unrelated to identity
-      // partition resolution.
-      // TODO: Wire the real data sequence number through once that filtering
-      // change can be validated on its own.
-      /*dataSequenceNumber=*/0,
+      icebergSplit->dataSequenceNumber,
       parseIdentityPartitionKeys(
           icebergSplit->partitionSpecAsJson, icebergSplit->partitionKeys));
 }

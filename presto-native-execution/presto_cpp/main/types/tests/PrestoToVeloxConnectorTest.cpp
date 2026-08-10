@@ -26,6 +26,7 @@
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergColumnHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
+#include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/Filter.h"
@@ -880,8 +881,10 @@ namespace {
 // Builds a PartitionSpecParser.toJson() payload. Iceberg uses hyphenated key
 // names ("spec-id", "source-id", "field-id"), which is what a real split
 // carries.
-std::string makePartitionSpecJson(const std::string& fieldsJson) {
-  return fmt::format(R"({{"spec-id":0,"fields":[{}]}})", fieldsJson);
+std::string makePartitionSpecJson(
+    const std::string& fieldsJson,
+    int32_t specId = 0) {
+  return fmt::format(R"({{"spec-id":{},"fields":[{}]}})", specId, fieldsJson);
 }
 
 protocol::hive::HivePartitionKey makePartitionKey(
@@ -1046,4 +1049,107 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitRejectsUnusablePartitionSpec) {
     EXPECT_TRUE(hiveIceberg->identityPartitionKeys.empty())
         << "spec should have been rejected: " << specJson;
   }
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitPopulatesSpecIdInfoColumn) {
+  // The split's partitionSpecAsJson is produced by Iceberg's
+  // PartitionSpecParser.toJson, which emits a hyphenated "spec-id" key. The
+  // spec_id feeds the synthesized $target_table_row_id used by MERGE INTO, and
+  // IcebergSplitReader defaults it to 0 when the info column is missing — so
+  // failing to parse it silently reports spec 0 for every partition-evolved
+  // table rather than erroring.
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.partitionSpecAsJson = makePartitionSpecJson(
+      R"({"name":"id","transform":"identity","source-id":1,"field-id":1000})",
+      /*specId=*/7);
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+
+  const auto it = hiveIceberg->infoColumns.find(
+      connector::hive::iceberg::IcebergMetadataColumn::kSpecIdInfoColumn);
+  ASSERT_NE(it, hiveIceberg->infoColumns.end())
+      << "spec_id info column should be populated from the partition spec";
+  EXPECT_EQ(it->second, "7");
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitOmitsSpecIdWhenUnparseable) {
+  // Absent or malformed spec JSON leaves the info column out entirely rather
+  // than inventing a spec id.
+  const std::vector<std::string> unusableSpecs = {
+      "", "not json at all", "[1,2,3]", R"({"fields":[]})"};
+
+  for (const auto& specJson : unusableSpecs) {
+    protocol::iceberg::IcebergSplit split;
+    split.path = "/path/to/data/file.dwrf";
+    split.fileFormat = protocol::iceberg::FileFormat::ORC;
+    split.partitionSpecAsJson = specJson;
+
+    protocol::SplitContext context;
+    IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+    auto veloxSplit =
+        icebergConnector.toVeloxSplit("iceberg", &split, &context);
+    auto* hiveIceberg =
+        dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+            veloxSplit.get());
+    ASSERT_NE(hiveIceberg, nullptr);
+    EXPECT_EQ(
+        hiveIceberg->infoColumns.count(
+            connector::hive::iceberg::IcebergMetadataColumn::kSpecIdInfoColumn),
+        0)
+        << "spec_id should be omitted for spec: " << specJson;
+  }
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitCarriesDataSequenceNumber) {
+  // The data file's sequence number gates which delete files apply to it.
+  // IcebergSplitReader::shouldSkipBySequenceNumber treats a value <= 0 as
+  // "unassigned" and disables filtering entirely, so leaving this at 0 lets an
+  // equality delete apply to data written after it.
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.dataSequenceNumber = 5;
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+
+  EXPECT_EQ(hiveIceberg->dataSequenceNumber, 5);
+
+  // The same value is also surfaced as an info column for row lineage; the two
+  // must not drift apart.
+  const auto it = hiveIceberg->infoColumns.find(
+      connector::hive::iceberg::IcebergMetadataColumn::
+          kDataSequenceNumberInfoColumn);
+  ASSERT_NE(it, hiveIceberg->infoColumns.end());
+  EXPECT_EQ(it->second, "5");
+}
+
+TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitKeepsUnassignedSequenceNumber) {
+  // V1 tables have no sequence numbers. Passing 0 through unchanged keeps
+  // filtering disabled for them, which is the documented "unassigned"
+  // behavior rather than an accidental skip.
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.dataSequenceNumber = 0;
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+
+  EXPECT_EQ(hiveIceberg->dataSequenceNumber, 0);
 }
