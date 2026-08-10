@@ -345,6 +345,8 @@ std::optional<int32_t> tryParsePartitionSpecId(
 //    "fields": [{"name": "ts_day", "transform": "day",
 //                "source-id": 3, "field-id": 1000}]}
 //
+// "field-id" is optional; V1 specs omit it.
+//
 // Only an identity partition value equals the source column's value, so only
 // identity fields may be substituted for a read of the source column. A
 // transformed field ("bucket[16]", "truncate[4]", "year"/"month"/"day"/"hour")
@@ -387,13 +389,21 @@ parseIdentityPartitionKeys(
       }
       const auto* transform = field.get_ptr("transform");
       const auto* sourceId = field.get_ptr("source-id");
-      const auto* fieldId = field.get_ptr("field-id");
       const auto* name = field.get_ptr("name");
       // Reject the whole spec rather than silently skipping a field: a
       // partially understood spec cannot prove which fields are identity.
       if (transform == nullptr || !transform->isString() ||
-          sourceId == nullptr || !sourceId->isInt() || fieldId == nullptr ||
-          !fieldId->isInt() || name == nullptr || !name->isString()) {
+          sourceId == nullptr || !sourceId->isInt() || name == nullptr ||
+          !name->isString()) {
+        return {};
+      }
+      // Iceberg's own parser treats "field-id" as optional -- V1 specs omit it
+      // and the partition field IDs are assigned from PARTITION_DATA_ID_START
+      // on read. Only "source-id" is needed to classify and look up an
+      // identity field, so absence must not disqualify the spec. Present but
+      // non-integer is still a reason to distrust it.
+      const auto* fieldId = field.get_ptr("field-id");
+      if (fieldId != nullptr && !fieldId->isInt()) {
         return {};
       }
       if (transform->asString() != "identity") {
@@ -402,7 +412,7 @@ parseIdentityPartitionKeys(
 
       const auto sourceFieldId = static_cast<int32_t>(sourceId->asInt());
       auto valueIt = partitionKeys.find(sourceFieldId);
-      if (valueIt == partitionKeys.end()) {
+      if (valueIt == partitionKeys.end() && fieldId != nullptr) {
         valueIt = partitionKeys.find(static_cast<int32_t>(fieldId->asInt()));
       }
       if (valueIt == partitionKeys.end()) {

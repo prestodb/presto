@@ -938,6 +938,63 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitRetainsOnlyIdentityPartitions) {
   EXPECT_EQ(hiveIceberg->partitionKeys.size(), 3);
 }
 
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    toVeloxSplitExcludesEveryNonIdentityTransform) {
+  // Iceberg's full transform set, each paired with a partition field that
+  // takes the source column's name -- the default for every transform except
+  // bucket and truncate, and what makes a name-keyed lookup unsafe. Only an
+  // identity field stores the source value, so every one of these must be
+  // excluded no matter how the field is named.
+  const std::vector<std::string> nonIdentityTransforms = {
+      "bucket[16]",
+      "truncate[4]",
+      "year",
+      "month",
+      "day",
+      "hour",
+      "void",
+      // Not an Iceberg transform string -- Transforms parses only bucket,
+      // truncate, identity, void and the four time transforms. Included so an
+      // unrecognized transform is proven to be skipped rather than assumed
+      // identity.
+      "unknownFutureTransform",
+  };
+
+  for (const auto& transform : nonIdentityTransforms) {
+    protocol::iceberg::IcebergSplit split;
+    split.path = "/path/to/data/file.dwrf";
+    split.fileFormat = protocol::iceberg::FileFormat::ORC;
+    // An identity field alongside the transformed one, so a regression that
+    // simply returns an empty map cannot pass this test.
+    split.partitionSpecAsJson = makePartitionSpecJson(
+        fmt::format(
+            R"({{"name":"id","transform":"identity","source-id":1,"field-id":1000}},)"
+            R"({{"name":"ts","transform":"{}","source-id":2,"field-id":1001}})",
+            transform));
+    split.partitionKeys = {
+        {1, makePartitionKey("id", "7")},
+        {1000, makePartitionKey("id", "7")},
+        {2, makePartitionKey("ts", "transformed")},
+        {1001, makePartitionKey("ts", "transformed")},
+    };
+
+    protocol::SplitContext context;
+    IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+    auto veloxSplit =
+        icebergConnector.toVeloxSplit("iceberg", &split, &context);
+    auto* hiveIceberg =
+        dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+            veloxSplit.get());
+    ASSERT_NE(hiveIceberg, nullptr);
+
+    const std::unordered_map<int32_t, std::optional<std::string>> expected = {
+        {1, std::optional<std::string>{"7"}}};
+    EXPECT_EQ(hiveIceberg->identityPartitionKeys, expected)
+        << "transform should not be substitutable: " << transform;
+  }
+}
+
 TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitKeepsNullIdentityPartition) {
   // A null identity value is still substitutable — the source column really
   // is null for every row in this partition.
@@ -1008,6 +1065,39 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitSkipsIdentityWithNoValue) {
   ASSERT_NE(hiveIceberg, nullptr);
 
   EXPECT_TRUE(hiveIceberg->identityPartitionKeys.empty());
+}
+
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    toVeloxSplitAcceptsPartitionSpecWithoutFieldIds) {
+  // Iceberg's PartitionSpecParser treats "field-id" as optional: only "name",
+  // "transform" and "source-id" are required, and a spec that omits field IDs
+  // on every field gets them assigned from PARTITION_DATA_ID_START. V1 specs
+  // are written this way. Rejecting such a spec would silently disable
+  // identity substitution for those tables, so classify on "source-id" alone.
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.partitionSpecAsJson = makePartitionSpecJson(
+      R"({"name":"id","transform":"identity","source-id":1},)"
+      R"({"name":"name","transform":"bucket[4]","source-id":2})");
+  split.partitionKeys = {
+      {1, makePartitionKey("id", "7")},
+      {2, makePartitionKey("name", "3")},
+  };
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+
+  // Only the identity field is substitutable; the bucket field stores the
+  // transform result, not the source value.
+  const std::unordered_map<int32_t, std::optional<std::string>> expected = {
+      {1, std::optional<std::string>{"7"}}};
+  EXPECT_EQ(hiveIceberg->identityPartitionKeys, expected);
 }
 
 TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitRejectsUnusablePartitionSpec) {
@@ -1317,8 +1407,8 @@ TEST_F(PrestoToVeloxConnectorTest, icebergMergeTableHandle) {
 }
 
 TEST_F(PrestoToVeloxConnectorTest, icebergDistributedProcedureHandle) {
-  auto protoHandle = std::make_shared<
-      protocol::iceberg::IcebergDistributedProcedureHandle>();
+  auto protoHandle =
+      std::make_shared<protocol::iceberg::IcebergDistributedProcedureHandle>();
   protoHandle->_type = "hive-iceberg";
   protoHandle->schemaName = "test_schema";
   protoHandle->tableName.tableName = "test_table";
@@ -1333,8 +1423,8 @@ TEST_F(PrestoToVeloxConnectorTest, icebergDistributedProcedureHandle) {
   procedureHandle.handle.connectorId = "iceberg";
 
   IcebergPrestoToVeloxConnector icebergConnector("iceberg");
-  auto result = icebergConnector.toVeloxInsertTableHandle(
-      &procedureHandle, *typeParser_);
+  auto result =
+      icebergConnector.toVeloxInsertTableHandle(&procedureHandle, *typeParser_);
 
   verifyIcebergWriteHandle(
       result,
@@ -1404,7 +1494,9 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitMapsEveryDeleteFileContent) {
   EXPECT_EQ(hiveIceberg->deleteFiles[0].dataSequenceNumber, 4);
 }
 
-TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitTreatsPuffinDeleteAsDeletionVector) {
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    toVeloxSplitTreatsPuffinDeleteAsDeletionVector) {
   // Older iceberg-api releases report deletion vectors as POSITION_DELETES in
   // Puffin format. Routing on content alone would send them to the positional
   // reader, which has no Puffin reader factory registered.
@@ -1478,10 +1570,8 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitMapsWriteOrientedFileFormats) {
     dwio::common::FileFormat expected;
   };
   const std::vector<TestCase> cases = {
-      {protocol::iceberg::FileFormat::DWRF,
-       dwio::common::FileFormat::DWRF},
-      {protocol::iceberg::FileFormat::NIMBLE,
-       dwio::common::FileFormat::NIMBLE},
+      {protocol::iceberg::FileFormat::DWRF, dwio::common::FileFormat::DWRF},
+      {protocol::iceberg::FileFormat::NIMBLE, dwio::common::FileFormat::NIMBLE},
       {protocol::iceberg::FileFormat::PARQUET,
        dwio::common::FileFormat::PARQUET},
   };
@@ -1569,10 +1659,12 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxColumnHandleCarriesTypeAttributes) {
   column.type = "bigint";
   column.columnType = protocol::hive::ColumnType::REGULAR;
 
-  auto attributes = std::make_shared<protocol::iceberg::IcebergTypeAttributes>();
+  auto attributes =
+      std::make_shared<protocol::iceberg::IcebergTypeAttributes>();
   attributes->required = std::make_shared<bool>(true);
   attributes->longType = std::make_shared<protocol::String>("TIMESTAMP");
-  attributes->timestampUnit = std::make_shared<protocol::String>("MICROSECONDS");
+  attributes->timestampUnit =
+      std::make_shared<protocol::String>("MICROSECONDS");
   attributes->structType = std::make_shared<protocol::String>("STRUCT");
   column.columnIdentity.typeAttributes = attributes;
 
