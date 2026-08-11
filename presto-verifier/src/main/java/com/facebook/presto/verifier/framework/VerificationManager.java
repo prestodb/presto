@@ -80,6 +80,7 @@ import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QU
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.SkippedReason.SYNTAX_ERROR;
 import static com.facebook.presto.verifier.framework.SkippedReason.UNSUPPORTED_QUERY_TYPE;
+import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_INTERNAL_ERROR;
 import static com.facebook.presto.verifier.framework.VerifierConfig.QUERY_BANK_MODE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -282,6 +283,19 @@ public class VerificationManager
             catch (ParsingException e) {
                 log.warn("Failed to parse query: %s", sourceQuery.getName());
                 postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, SYNTAX_ERROR, skipControl));
+            }
+            catch (StackOverflowError e) {
+                // Deeply nested ASTs, e.g. a WHERE clause with thousands of OR-ed predicates, overflow the
+                // recursive AST visitors. StackOverflowError is an Error, not an Exception, so it has to be
+                // caught explicitly or it escapes start() and aborts the entire run instead of one query.
+                log.warn(
+                        "Failed to analyze query, AST too deeply nested: %s, suite: %s, controlQueryId: %s, controlQueryLength: %s, testQueryLength: %s",
+                        sourceQuery.getName(),
+                        sourceQuery.getSuite(),
+                        sourceQuery.getQueryId(CONTROL).orElse("unknown"),
+                        sourceQuery.getQuery(CONTROL).length(),
+                        sourceQuery.getQuery(TEST).length());
+                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, VERIFIER_INTERNAL_ERROR, skipControl));
             }
         }
         List<SourceQuery> selectQueries = selected.build();
