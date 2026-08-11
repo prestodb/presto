@@ -680,6 +680,11 @@ public final class IcebergUtil
                 .build();
     }
 
+    public static boolean isPrestoView(View view)
+    {
+        return "true".equalsIgnoreCase(view.properties().get(PRESTO_VIEW_FLAG));
+    }
+
     public static Optional<Map<String, String>> tryGetProperties(Table table)
     {
         try {
