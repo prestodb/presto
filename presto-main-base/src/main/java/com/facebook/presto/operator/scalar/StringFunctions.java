@@ -512,7 +512,7 @@ public final class StringFunctions
     @Description("removes whitespace from the beginning of a string")
     @ScalarFunction("ltrim")
     @LiteralParameters("x")
-    @SqlType("varchar(x)")
+    @SqlType("char(x)")
     public static Slice charLeftTrim(@SqlType("char(x)") Slice slice)
     {
         return SliceUtf8.leftTrim(slice);
@@ -530,7 +530,7 @@ public final class StringFunctions
     @Description("removes whitespace from the end of a string")
     @ScalarFunction("rtrim")
     @LiteralParameters("x")
-    @SqlType("varchar(x)")
+    @SqlType("char(x)")
     public static Slice charRightTrim(@SqlType("char(x)") Slice slice)
     {
         return rightTrim(slice);
@@ -548,7 +548,7 @@ public final class StringFunctions
     @Description("removes whitespace from the beginning and end of a string")
     @ScalarFunction("trim")
     @LiteralParameters("x")
-    @SqlType("varchar(x)")
+    @SqlType("char(x)")
     public static Slice charTrim(@SqlType("char(x)") Slice slice)
     {
         return trim(slice);
@@ -566,7 +566,7 @@ public final class StringFunctions
     @Description("remove the longest string containing only given characters from the beginning of a string")
     @ScalarFunction("ltrim")
     @LiteralParameters("x")
-    @SqlType("varchar(x)")
+    @SqlType("char(x)")
     public static Slice charLeftTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
         return leftTrim(slice, codePointsToTrim);
@@ -584,7 +584,7 @@ public final class StringFunctions
     @Description("remove the longest string containing only given characters from the end of a string")
     @ScalarFunction("rtrim")
     @LiteralParameters("x")
-    @SqlType("varchar(x)")
+    @SqlType("char(x)")
     public static Slice charRightTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
         return trimTrailingSpaces(rightTrim(slice, codePointsToTrim));
@@ -602,7 +602,7 @@ public final class StringFunctions
     @Description("remove the longest string containing only given characters from the beginning and end of a string")
     @ScalarFunction("trim")
     @LiteralParameters("x")
-    @SqlType("varchar(x)")
+    @SqlType("char(x)")
     public static Slice charTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
         return trimTrailingSpaces(trim(slice, codePointsToTrim));
