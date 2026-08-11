@@ -108,9 +108,9 @@ public class PrefilterForLimitingAggregation
     }
 
     @Override
-    public boolean isEnabled(Session session, boolean collectInformation)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        return collectInformation || SystemSessionProperties.isPrefilterForGroupbyLimit(session);
+        return forceEnableOptimizer || SystemSessionProperties.isPrefilterForGroupbyLimit(session);
     }
 
     @Override
@@ -121,9 +121,9 @@ public class PrefilterForLimitingAggregation
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector,
-            boolean collectInformation)
+            boolean forceEnableOptimizer)
     {
-        if (isEnabled(session, collectInformation)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new Rewriter(session, metadata, types, statsCalculator, idAllocator, variableAllocator);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan);
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());

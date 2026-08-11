@@ -139,10 +139,10 @@ public class PayloadJoinOptimizer
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
-                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-        if (isEnabled(session, collectInformation)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             PlanNode flattenedPlan = flattenJoinChains(plan, idAllocator);
             Rewriter rewriter = new PayloadJoinOptimizer.Rewriter(session, this.metadata, types, functionAndTypeManager, idAllocator, variableAllocator);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, flattenedPlan, new JoinContext());
@@ -158,9 +158,9 @@ public class PayloadJoinOptimizer
     }
 
     @Override
-    public boolean isEnabled(Session session, boolean collectInformation)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        return collectInformation || isOptimizePayloadJoins(session);
+        return forceEnableOptimizer || isOptimizePayloadJoins(session);
     }
 
     private static class Rewriter

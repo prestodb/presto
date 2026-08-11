@@ -28,9 +28,9 @@ public interface PlanOptimizer
                                  VariableAllocator variableAllocator,
                                  PlanNodeIdAllocator idAllocator,
                                  WarningCollector warningCollector,
-                                 boolean collectInformation);
+                                 boolean forceEnableOptimizer);
 
-    default boolean isEnabled(Session session, boolean collectInformation)
+    default boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
         return true;
     }
@@ -44,22 +44,5 @@ public interface PlanOptimizer
     {
         // source of statistics used for this optimizer: reimplement accordingly for each cost-based optimizer
         return null;
-    }
-
-    default boolean isApplicable(PlanNode plan,
-            Session session,
-            TypeProvider types,
-            VariableAllocator variableAllocator,
-            PlanNodeIdAllocator idAllocator)
-    {
-        boolean isApplicable = false;
-        try {
-            // wrap in try/catch block in case optimization throws an error
-            PlanOptimizerResult optimizerResult = optimize(plan, session, types, variableAllocator, idAllocator, WarningCollector.NOOP, true);
-            isApplicable = optimizerResult.isOptimizerTriggered();
-        }
-        finally {
-            return isApplicable;
-        }
     }
 }

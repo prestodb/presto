@@ -157,9 +157,9 @@ public class RandomizeNullKeyInOuterJoin
     }
 
     @Override
-    public boolean isEnabled(Session session, boolean collectInformation)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        return collectInformation || getJoinDistributionType(session).canPartition() && !getRandomizeOuterJoinNullKeyStrategy(session).equals(DISABLED);
+        return forceEnableOptimizer || getJoinDistributionType(session).canPartition() && !getRandomizeOuterJoinNullKeyStrategy(session).equals(DISABLED);
     }
 
     @Override
@@ -170,9 +170,9 @@ public class RandomizeNullKeyInOuterJoin
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
-                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
-        if (isEnabled(session, collectInformation)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
             Rewriter rewriter = new Rewriter(session, functionAndTypeManager, idAllocator, variableAllocator, statsProvider);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new HashSet<>());

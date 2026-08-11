@@ -90,16 +90,16 @@ public class ShardJoins
     }
 
     @Override
-    public boolean isEnabled(Session session, boolean collectInformation)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        return collectInformation || !getShardedJoinStrategy(session).equals(DISABLED);
+        return forceEnableOptimizer || !getShardedJoinStrategy(session).equals(DISABLED);
     }
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
-                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
-        if (isEnabled(session, collectInformation)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new Rewriter(session, metadata, functionAndTypeManager, idAllocator, variableAllocator);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new HashSet<>());
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
