@@ -120,7 +120,7 @@ public class ReplaceConstantVariableReferencesWithConstants
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
-                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
         if (isRewriteExpressionWithConstantEnabled(session)) {
             Rewriter rewriter = new Rewriter(idAllocator, functionAndTypeManager);

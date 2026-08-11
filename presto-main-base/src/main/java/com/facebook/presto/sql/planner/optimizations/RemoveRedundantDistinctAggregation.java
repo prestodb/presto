@@ -55,16 +55,16 @@ public class RemoveRedundantDistinctAggregation
         implements PlanOptimizer
 {
     @Override
-    public boolean isEnabled(Session session, boolean collectInformation)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        return collectInformation || isRemoveRedundantDistinctAggregationEnabled(session);
+        return forceEnableOptimizer || isRemoveRedundantDistinctAggregationEnabled(session);
     }
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
-                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
-        if (isEnabled(session, collectInformation)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new RemoveRedundantDistinctAggregation.Rewriter();
             PlanWithProperties result = rewriter.accept(plan);
             return PlanOptimizerResult.optimizerResult(result.getNode(), rewriter.isPlanChanged());

@@ -61,9 +61,9 @@ public class SortedExchangeRule
     }
 
     @Override
-    public boolean isEnabled(Session session, boolean collectInformation)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        return (isSortedExchangeEnabled(session) && isPrestoSparkExecution) || collectInformation;
+        return (isSortedExchangeEnabled(session) && isPrestoSparkExecution) || forceEnableOptimizer;
     }
 
     @Override
@@ -74,7 +74,7 @@ public class SortedExchangeRule
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector,
-            boolean collectInformation)
+            boolean forceEnableOptimizer)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -83,7 +83,7 @@ public class SortedExchangeRule
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(warningCollector, "warningCollector is null");
 
-        if (isEnabled(session, collectInformation)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new Rewriter(idAllocator);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
