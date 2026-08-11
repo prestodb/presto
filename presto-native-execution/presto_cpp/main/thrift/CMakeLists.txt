@@ -66,6 +66,8 @@ thrift_library(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}/presto_cpp/main/thrift
   ".."
+  THRIFT_INCLUDE_DIRECTORIES
+  ${THRIFT_INCLUDES}
 )
 target_link_libraries(presto_native-cpp2 ${presto_thrift_library_dependencies})
 set(presto_native_INCLUDES ${CMAKE_CURRENT_BINARY_DIR})
