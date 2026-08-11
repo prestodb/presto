@@ -29,6 +29,8 @@ struct IcebergDeleteTableHandle : public ConnectorDeleteTableHandle {
   List<SortField> sortOrder = {};
   std::shared_ptr<SchemaTableName> materializedViewName = {};
   FileContent fileContent = {};
+  // Nullable so from_json tolerates absence (V2 tables / older coordinators).
+  std::shared_ptr<Map<String, DeleteFile>> existingDeletionVectors = {};
 
   IcebergDeleteTableHandle() noexcept;
 };

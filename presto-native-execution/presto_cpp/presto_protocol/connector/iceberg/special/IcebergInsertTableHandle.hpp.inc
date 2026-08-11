@@ -28,8 +28,12 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   Map<String, String> storageProperties = {};
   List<SortField> sortOrder = {};
   std::shared_ptr<SchemaTableName> materializedViewName = {};
-  bool fullRefreshRequired = {};
+  // Nullable so from_json tolerates absence: the FB-fork coordinator's
+  // IcebergInsertTableHandle omits this field entirely.
+  std::shared_ptr<bool> fullRefreshRequired = {};
   List<String> insertedColumns = {};
+  // Nullable so from_json tolerates absence (V2 tables / older coordinators).
+  std::shared_ptr<Map<String, DeleteFile>> existingDeletionVectors = {};
 
   IcebergInsertTableHandle() noexcept;
 };

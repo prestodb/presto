@@ -150,8 +150,10 @@ public class TestIcebergV3
                     + " VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0)", 3);
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
                     "VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0)");
+            // V3 row-level deletes are committed as Puffin deletion vectors, which only the
+            // native (Prestissimo) worker can write; the Java-only query runner cannot.
             assertThatThrownBy(() -> getQueryRunner().execute("DELETE FROM " + tableName + " WHERE id = 1"))
-                    .hasMessageContaining("Iceberg table updates for format version 3 are not supported yet");
+                    .hasMessageContaining("require the native (Prestissimo) worker");
         }
         finally {
             dropTable(tableName);
@@ -221,9 +223,11 @@ public class TestIcebergV3
                     3);
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
                     "VALUES (1, 'Alice', 'active', 85.5), (2, 'Bob', 'active', 92.0), (3, 'Charlie', 'inactive', 78.3)");
+            // V3 UPDATE lands as a Puffin deletion vector + new rows; the DV write requires the
+            // native (Prestissimo) worker, so the Java-only query runner rejects it.
             assertThatThrownBy(() -> getQueryRunner()
                     .execute("UPDATE " + tableName + " SET status = 'updated', score = 95.0 WHERE id = 1"))
-                    .hasMessageContaining("Iceberg table updates for format version 3 are not supported yet");
+                    .hasMessageContaining("require the native (Prestissimo) worker");
         }
         finally {
             dropTable(tableName);
@@ -249,7 +253,7 @@ public class TestIcebergV3
                     "MERGE INTO " + tableName + " t USING " + sourceTable + " s ON t.id = s.id " +
                             "WHEN MATCHED THEN UPDATE SET name = s.name, value = s.value " +
                             "WHEN NOT MATCHED THEN INSERT (id, name, value) VALUES (s.id, s.name, s.value)"))
-                    .hasMessageContaining("Iceberg table updates for format version 3 are not supported yet");
+                    .hasMessageContaining("require the native (Prestissimo) worker");
         }
         finally {
             dropTable(tableName);
