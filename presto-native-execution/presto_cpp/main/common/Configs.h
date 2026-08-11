@@ -171,6 +171,10 @@ class SystemConfig : public ConfigBase {
   /// startup.
   static constexpr std::string_view kHttpServerReusePort{
       "http-server.reuse-port"};
+  /// If true, write the bound HTTP port to
+  /// `<etc_dir>/http-server.port` after bind.
+  static constexpr std::string_view kHttpServerReportBoundPortToFile{
+      "http-server.report-bound-port-to-file"};
   /// By default the server binds to 0.0.0.0
   /// With this option enabled the server will bind strictly to the
   /// address set in node.internal-address property
@@ -985,6 +989,8 @@ class SystemConfig : public ConfigBase {
   int httpServerHttpPort() const;
 
   bool httpServerReusePort() const;
+
+  bool httpServerReportBoundPortToFile() const;
 
   bool httpServerBindToNodeInternalAddressOnlyEnabled() const;
 

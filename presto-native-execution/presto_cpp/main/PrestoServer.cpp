@@ -18,6 +18,10 @@
 #include <folly/system/HardwareConcurrency.h>
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
@@ -267,6 +271,37 @@ json::array_t getOptimizedExpressions(
     result.push_back(optimized);
   }
   return result;
+}
+
+// Atomically writes 'boundPort' to '<configDirectoryPath>/http-server.port'
+// via a tmp+rename so readers only ever see a fully-written, current value.
+// Logs and returns on any failure; never throws.
+void writeBoundHttpPortFile(
+    const std::string& configDirectoryPath,
+    uint16_t boundPort) {
+  const std::string portFilePath = configDirectoryPath + "/http-server.port";
+  const std::string tmpPortFilePath = portFilePath + ".tmp";
+  try {
+    {
+      std::ofstream out(tmpPortFilePath);
+      out.exceptions(std::ios::failbit | std::ios::badbit);
+      out << boundPort << std::endl;
+      out.flush();
+    }
+    if (std::rename(tmpPortFilePath.c_str(), portFilePath.c_str()) != 0) {
+      PRESTO_STARTUP_LOG(ERROR)
+          << "Failed to rename port file " << tmpPortFilePath << " -> "
+          << portFilePath << ": " << std::strerror(errno);
+      std::remove(tmpPortFilePath.c_str());
+      return;
+    }
+  } catch (const std::exception& e) {
+    PRESTO_STARTUP_LOG(ERROR)
+        << "Failed to write port file " << portFilePath << ": " << e.what();
+    std::remove(tmpPortFilePath.c_str());
+    return;
+  }
+  PRESTO_STARTUP_LOG(INFO) << "HTTP server bound to port " << boundPort;
 }
 
 } // namespace
@@ -766,6 +801,10 @@ void PrestoServer::startServer(const std::vector<std::string>& catalogNames) {
                 kTaskUriFormat, kHttp, address_, address.address.getPort());
           }
           taskManager_->setBaseUri(taskUri);
+          if (systemConfig->httpServerReportBoundPortToFile()) {
+            writeBoundHttpPortFile(
+                configDirectoryPath_, address.address.getPort());
+          }
           break;
         }
 
