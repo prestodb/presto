@@ -37,7 +37,7 @@ public class CheckSubqueryNodesAreRewritten
 {
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
-                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
         searchFrom(plan).where(ApplyNode.class::isInstance)
                 .findFirst()

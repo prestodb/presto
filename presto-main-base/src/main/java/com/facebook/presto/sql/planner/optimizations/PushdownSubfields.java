@@ -133,20 +133,20 @@ public class PushdownSubfields
     }
 
     @Override
-    public boolean isEnabled(Session session, boolean collectInformation)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        return collectInformation || isPushdownSubfieldsEnabled(session);
+        return forceEnableOptimizer || isPushdownSubfieldsEnabled(session);
     }
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
-                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
 
-        if (!isEnabled(session, collectInformation)) {
+        if (!isEnabled(session, forceEnableOptimizer)) {
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
 

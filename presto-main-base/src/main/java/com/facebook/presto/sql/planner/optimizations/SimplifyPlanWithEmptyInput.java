@@ -114,16 +114,16 @@ public class SimplifyPlanWithEmptyInput
         implements PlanOptimizer
 {
     @Override
-    public boolean isEnabled(Session session, boolean collectInformation)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        return collectInformation || isSimplifyPlanWithEmptyInputEnabled(session);
+        return forceEnableOptimizer || isSimplifyPlanWithEmptyInputEnabled(session);
     }
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
-                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
-        if (isEnabled(session, collectInformation)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new Rewriter(idAllocator, session);
             PlanNode rewrittenNode = SimplePlanRewriter.rewriteWith(rewriter, plan);
             return PlanOptimizerResult.optimizerResult(rewrittenNode, rewriter.isPlanChanged());

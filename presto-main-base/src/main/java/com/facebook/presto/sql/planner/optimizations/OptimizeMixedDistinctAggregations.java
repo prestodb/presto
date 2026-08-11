@@ -90,16 +90,16 @@ public class OptimizeMixedDistinctAggregations
     }
 
     @Override
-    public boolean isEnabled(Session session, boolean collectInformation)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        return collectInformation || isOptimizeDistinctAggregationEnabled(session);
+        return forceEnableOptimizer || isOptimizeDistinctAggregationEnabled(session);
     }
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
-                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
-        if (isEnabled(session, collectInformation)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Optimizer optimizer = new Optimizer(idAllocator, variableAllocator, metadata, functionResolution);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(optimizer, plan, Optional.empty());
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, optimizer.isPlanChanged());

@@ -94,9 +94,9 @@ public class RewriteIfOverAggregation
     }
 
     @Override
-    public boolean isEnabled(Session session, boolean collectInformation)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        return collectInformation || isOptimizeConditionalAggregationEnabled(session);
+        return forceEnableOptimizer || isOptimizeConditionalAggregationEnabled(session);
     }
 
     @Override
@@ -106,9 +106,9 @@ public class RewriteIfOverAggregation
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector,
-            boolean collectInformation)
+            boolean forceEnableOptimizer)
     {
-        if (isEnabled(session, collectInformation)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new Rewriter(variableAllocator, idAllocator, new RowExpressionDeterminismEvaluator(functionAndTypeManager));
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, ImmutableMap.of());
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());

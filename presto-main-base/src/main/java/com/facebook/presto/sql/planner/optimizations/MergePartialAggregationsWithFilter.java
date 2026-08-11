@@ -99,16 +99,16 @@ public class MergePartialAggregationsWithFilter
     }
 
     @Override
-    public boolean isEnabled(Session session, boolean collectInformation)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        return collectInformation || isMergeAggregationsWithAndWithoutFilter(session);
+        return forceEnableOptimizer || isMergeAggregationsWithAndWithoutFilter(session);
     }
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
-                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean collectInformation)
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
-        if (isEnabled(session, collectInformation)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new Rewriter(session, variableAllocator, idAllocator, functionAndTypeManager);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new Context());
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());

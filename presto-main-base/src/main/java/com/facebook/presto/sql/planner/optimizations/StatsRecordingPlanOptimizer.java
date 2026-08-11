@@ -50,13 +50,13 @@ public final class StatsRecordingPlanOptimizer
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector,
-            boolean collectInformation)
+            boolean forceEnableOptimizer)
     {
         PlanOptimizerResult result;
         long duration;
         try {
             long start = System.nanoTime();
-            result = delegate.optimize(plan, session, types, variableAllocator, idAllocator, warningCollector, collectInformation);
+            result = delegate.optimize(plan, session, types, variableAllocator, idAllocator, warningCollector, forceEnableOptimizer);
             duration = System.nanoTime() - start;
         }
         catch (RuntimeException e) {
