@@ -680,6 +680,19 @@ public final class IcebergUtil
                 .build();
     }
 
+    /**
+     * Returns {@code true} if the given Iceberg view carries the "presto_view" property that
+     * Presto sets on views it creates itself (see {@link #createIcebergViewProperties}). This
+     * distinguishes genuine Presto views from views authored by other engines (e.g. Netezza,
+     * Spark, Trino) sharing the same catalog, which could otherwise merely label their SQL
+     * representation's dialect as "presto" without the SQL actually being a serialized Presto
+     * ViewDefinition.
+     */
+    public static boolean isPrestoView(View view)
+    {
+        return "true".equalsIgnoreCase(view.properties().get(PRESTO_VIEW_FLAG));
+    }
+
     public static Optional<Map<String, String>> tryGetProperties(Table table)
     {
         try {
