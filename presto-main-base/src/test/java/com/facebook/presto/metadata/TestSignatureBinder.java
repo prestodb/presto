@@ -504,6 +504,43 @@ public class TestSignatureBinder
     }
 
     @Test
+    public void testBindLiteralOutOfRangeForFormalTypeIsUnsolvable()
+    {
+        // The return type binds x to Integer.MAX_VALUE, which is out of range for char. The char(x)
+        // argument is then unbindable, but that must only make this candidate not match, rather than
+        // fail the query. See ltrim/rtrim(char(x)):varchar(x), which are examined as candidates while
+        // looking up the implementation of ltrim/rtrim over an unbounded varchar.
+        Signature charArgument = functionSignature()
+                .returnType(parseTypeSignature("varchar(x)", ImmutableSet.of("x")))
+                .argumentTypes(parseTypeSignature("char(x)", ImmutableSet.of("x")))
+                .build();
+
+        assertThat(charArgument)
+                .boundTo(ImmutableList.of("varchar"), "varchar")
+                .fails();
+
+        assertThat(charArgument)
+                .boundTo(ImmutableList.of("varchar"), "varchar")
+                .withCoercion()
+                .fails();
+
+        // decimal reports an out-of-range literal the same way char does
+        Signature decimalArgument = functionSignature()
+                .returnType(parseTypeSignature("varchar(x)", ImmutableSet.of("x")))
+                .argumentTypes(parseTypeSignature("decimal(x,2)", ImmutableSet.of("x")))
+                .build();
+
+        assertThat(decimalArgument)
+                .boundTo(ImmutableList.of("varchar"), "varchar")
+                .fails();
+
+        assertThat(decimalArgument)
+                .boundTo(ImmutableList.of("varchar"), "varchar")
+                .withCoercion()
+                .fails();
+    }
+
+    @Test
     public void testBasic()
     {
         Signature function = functionSignature()

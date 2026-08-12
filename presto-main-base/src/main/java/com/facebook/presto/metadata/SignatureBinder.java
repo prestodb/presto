@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
@@ -40,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -570,15 +572,35 @@ public class SignatureBinder
         return builder.build();
     }
 
+    /**
+     * Whether the failure means the type signature cannot be instantiated at all, which makes the candidate
+     * unbindable rather than the query invalid. A literal parameter bound by one position of a signature can be
+     * out of range for the base of another position, e.g. char(x) once x has been bound to Integer.MAX_VALUE by
+     * an unbounded varchar. Different bases report that differently: char and decimal throw PrestoException with
+     * INVALID_FUNCTION_ARGUMENT, varchar throws IllegalArgumentException.
+     */
+    private static boolean isUninstantiableType(RuntimeException e)
+    {
+        if (e instanceof UnknownTypeException || e instanceof IllegalArgumentException) {
+            return true;
+        }
+        return e instanceof PrestoException && INVALID_FUNCTION_ARGUMENT.toErrorCode().equals(((PrestoException) e).getErrorCode());
+    }
+
     private boolean satisfiesCoercion(boolean allowCoercion, Type fromType, TypeSignature toTypeSignature)
     {
         if (allowCoercion) {
+            Type toType;
             try {
-                return functionAndTypeManager.canCoerce(fromType, functionAndTypeManager.getType(toTypeSignature));
+                toType = functionAndTypeManager.getType(toTypeSignature);
             }
-            catch (UnknownTypeException e) {
-                return false;
+            catch (RuntimeException e) {
+                if (isUninstantiableType(e)) {
+                    return false;
+                }
+                throw e;
             }
+            return functionAndTypeManager.canCoerce(fromType, toType);
         }
         else if (fromType.getTypeSignature().equals(toTypeSignature)) {
             return true;
@@ -732,9 +754,18 @@ public class SignatureBinder
                     originalTypeTypeParametersBuilder.add(typeSignatureParameter);
                 }
             }
+            Type originalType;
+            try {
+                originalType = functionAndTypeManager.getType(new TypeSignature(formalTypeSignature.getBase(), originalTypeTypeParametersBuilder.build()));
+            }
+            catch (RuntimeException e) {
+                if (isUninstantiableType(e)) {
+                    return SolverReturnStatus.UNSOLVABLE;
+                }
+                throw e;
+            }
             Optional<Type> commonSuperType;
             try {
-                Type originalType = functionAndTypeManager.getType(new TypeSignature(formalTypeSignature.getBase(), originalTypeTypeParametersBuilder.build()));
                 commonSuperType = functionAndTypeManager.getCommonSuperType(originalType, actualType);
                 if (!commonSuperType.isPresent()) {
                     return SolverReturnStatus.UNSOLVABLE;
