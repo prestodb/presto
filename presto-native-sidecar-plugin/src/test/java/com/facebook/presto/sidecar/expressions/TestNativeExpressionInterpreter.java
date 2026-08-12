@@ -411,7 +411,7 @@ public class TestNativeExpressionInterpreter
         return results.get(0);
     }
 
-    private NativeSidecarExpressionInterpreter getRowExpressionInterpreter(FunctionAndTypeManager functionAndTypeManager, NodeManager nodeManager)
+    public static NativeSidecarExpressionInterpreter getRowExpressionInterpreter(FunctionAndTypeManager functionAndTypeManager, NodeManager nodeManager)
     {
         Module module = binder -> {
             binder.bind(NodeManager.class).toInstance(nodeManager);

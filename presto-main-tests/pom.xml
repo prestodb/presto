@@ -82,9 +82,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>units</artifactId>
-            <scope>test</scope>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
         </dependency>
     </dependencies>
 </project>

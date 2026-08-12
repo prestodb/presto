@@ -16,34 +16,36 @@ package com.facebook.presto.nativetests.operator.scalar;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.tests.operator.scalar.AbstractTestArrayExcept;
 import com.google.common.collect.ImmutableList;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public class TestArrayExceptFunction
         extends AbstractTestNativeFunctions
         implements AbstractTestArrayExcept
 {
-    @Language("RegExp") private static final String unknownTypeError = ".*not a known type kind: UNKNOWN.*";
-
     @Test
     public void testEmpty()
     {
-        assertNotSupported("array_except(ARRAY[], ARRAY[])", unknownTypeError);
+        assertInvalidFunction("array_except(ARRAY[], ARRAY[])", GENERIC_INTERNAL_ERROR, "not a known type kind: UNKNOWN");
         assertFunction("array_except(ARRAY[], ARRAY[1, 3])", new ArrayType(INTEGER), ImmutableList.of());
         assertFunction("array_except(ARRAY[CAST('abc' as VARCHAR)], ARRAY[])", new ArrayType(VARCHAR), ImmutableList.of("abc"));
     }
 
+    // Velox's type dispatch macros (VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH) do not
+    // handle TypeKind::UNKNOWN. Expressions with UNKNOWN-typed arrays produce a
+    // GENERIC_INTERNAL_ERROR from the sidecar instead of being evaluated.
     @Test
     public void testNull()
     {
-        assertNotSupported("array_except(ARRAY[NULL], NULL)", unknownTypeError);
-        assertNotSupported("array_except(NULL, NULL)", unknownTypeError);
-        assertNotSupported("array_except(NULL, ARRAY[NULL])", unknownTypeError);
-        assertNotSupported("array_except(ARRAY[NULL], ARRAY[NULL])", unknownTypeError);
-        assertNotSupported("array_except(ARRAY[], ARRAY[NULL])", unknownTypeError);
-        assertNotSupported("array_except(ARRAY[NULL], ARRAY[])", unknownTypeError);
+        assertInvalidFunction("array_except(ARRAY[], ARRAY[])", GENERIC_INTERNAL_ERROR, "not a known type kind: UNKNOWN");
+        assertInvalidFunction("array_except(ARRAY[NULL], NULL)", GENERIC_INTERNAL_ERROR, "not a known type kind: UNKNOWN");
+        assertInvalidFunction("array_except(NULL, NULL)", GENERIC_INTERNAL_ERROR, "not a known type kind: UNKNOWN");
+        assertInvalidFunction("array_except(NULL, ARRAY[NULL])", GENERIC_INTERNAL_ERROR, "not a known type kind: UNKNOWN");
+        assertInvalidFunction("array_except(ARRAY[NULL], ARRAY[NULL])", GENERIC_INTERNAL_ERROR, "not a known type kind: UNKNOWN");
+        assertInvalidFunction("array_except(ARRAY[], ARRAY[NULL])", GENERIC_INTERNAL_ERROR, "not a known type kind: UNKNOWN");
+        assertInvalidFunction("array_except(ARRAY[NULL], ARRAY[])", GENERIC_INTERNAL_ERROR, "not a known type kind: UNKNOWN");
     }
 }
