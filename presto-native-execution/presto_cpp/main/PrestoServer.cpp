@@ -1628,17 +1628,6 @@ void PrestoServer::registerFunctions() {
   functions::registerAllKllSketchFunctions(prestoBuiltinFunctionPrefix_);
 #endif
 
-  // Register RPC function stubs so the sidecar's /v1/functions endpoint
-  // exposes them to the coordinator for function discovery.
-  LOG(INFO) << "[RPC] Registering RPC function stubs "
-            << "with namespace prefix '" << prestoBuiltinFunctionPrefix_ << "'";
-  velox::exec::rpc::AsyncRPCFunctionRegistry::registerStubs(
-      prestoBuiltinFunctionPrefix_);
-  LOG(INFO) << "[RPC] Registered stubs for "
-            << velox::exec::rpc::AsyncRPCFunctionRegistry::registeredFunctions()
-                   .size()
-            << " RPC function(s).";
-
   tvf::registerAllTableFunctions(prestoBuiltinFunctionPrefix_);
 }
 

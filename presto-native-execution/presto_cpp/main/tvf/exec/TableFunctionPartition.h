@@ -94,8 +94,12 @@ class TableFunctionPartition {
   /// the function, and not the pass-through index columns.
   /// The pass-through index columns are used to extract the pass-through
   /// columns from the input partition and append to the function output.
+  /// 'numRowsSentToFunction' is the number of partition rows the function has
+  /// been given so far. The pass-through indexes returned by the function are
+  /// validated against this portion of the partition.
   velox::RowVectorPtr appendPassThroughColumns(
-      const velox::RowVectorPtr& functionOutput) const;
+      const velox::RowVectorPtr& functionOutput,
+      velox::vector_size_t numRowsSentToFunction) const;
 
  private:
   void extractPartitionColumn(
@@ -106,6 +110,7 @@ class TableFunctionPartition {
       int32_t columnIndex,
       int32_t passThroughIndex,
       const velox::RowVectorPtr& functionOutput,
+      velox::vector_size_t numRowsSentToFunction,
       const velox::VectorPtr& result) const;
 
   size_t getNumProperColumns(const velox::RowVectorPtr& functionOutput) const;

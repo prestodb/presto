@@ -79,14 +79,9 @@ correct even when the base branch has advanced or was created from a release tag
 
 **Advancing Velox:**
 It is preferred that PRs updating the Velox git submodule are restricted to updating the submodule only.
-<<<<<<< HEAD
 They should only include code and test changes in presto-native* modules needed for building and passing tests for the updated Velox code.
 Features that require subsequent presto-native* module changes should be implemented in a separate PR after the Velox update is merged.
 Conversely, PRs that implement new features in presto-native* modules should not include Velox submodule updates.
-=======
-They should only include code and test changes in presto-native* modules needed for the underlying Velox changes.
-Features that require subsequent presto-native* module changes should be implemented in a separate PR after the Velox update is merged.
->>>>>>> b86c7ab9b0 (feat(build): Update review-presto-pr skill for native code changes)
 
 ### 3. Code Style Checklist
 
@@ -181,7 +176,6 @@ SPI changes require extra scrutiny:
 - If the code is implementing a SQL function or operator change which is available in Presto Java then ensure the logic of the native code is consistent with it.
   Focus on logic errors, off-by-one, null/empty handling, boundary conditions, integer overflow, floating point edge cases (NaN, Inf, negative zero).
   Ensure the PR has e2e tests using Native and HiveQueryRunners that verify the C++ implementation against the Java implementation for a variety of inputs, including edge cases.
-
 - Ensure that presto_protocol changes included in the PR are not manually written. Any edit to a generated *.h/*.cpp in presto-native-execution/presto_cpp/presto_protocol directory (they have a // DO NOT EDIT header) should come with a matching change to a .yml, special/, or mustache source or a java class serialization annotation.
 - Check usage of smart pointers and RAII for resource management. Ensure that raw pointers are not used unless absolutely necessary and are properly managed. If raw pointers are needed then check memory safety: Use-after-free, double-free, leaks, dangling pointers/references and ownership issues.
 - Check for buffer overflows in any memory copies or array accesses. Ensure that all buffer sizes are properly checked.

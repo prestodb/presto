@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "velox/common/future/VeloxPromise.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::presto::tvf {
@@ -44,7 +45,10 @@ class TableFunctionResult {
   };
 
   TableFunctionResult(TableFunctionState state)
-      : state_(state), usedInput_(true), result_(nullptr), future_(nullptr) {
+      : state_(state),
+        usedInput_(true),
+        result_(nullptr),
+        future_(velox::ContinueFuture::makeEmpty()) {
     VELOX_CHECK_EQ(state, TableFunctionState::kFinished);
   }
 
@@ -52,13 +56,22 @@ class TableFunctionResult {
       : state_(TableFunctionState::kProcessed),
         usedInput_(usedInput),
         result_(std::move(result)),
-        future_(nullptr) {}
+        future_(velox::ContinueFuture::makeEmpty()) {}
 
-  TableFunctionResult(velox::ContinueFuture* future)
+  /// Creates a kBlocked result. The function uses this to signal that it is
+  /// waiting on an asynchronous dependency. The operator hands 'future' to the
+  /// Driver, which parks the driver thread until the future is realized, and
+  /// then calls apply() again.
+  /// The result owns the future, so the function must not retain a reference to
+  /// it after returning.
+  explicit TableFunctionResult(velox::ContinueFuture future)
       : state_(TableFunctionState::kBlocked),
         usedInput_(false),
         result_(nullptr),
-        future_(future) {}
+        future_(std::move(future)) {
+    VELOX_CHECK(
+        future_.valid(), "A kBlocked TableFunctionResult needs a valid future");
+  }
 
   TableFunctionResult::TableFunctionState state() const {
     return state_;
@@ -72,8 +85,12 @@ class TableFunctionResult {
     return result_;
   }
 
-  [[nodiscard]] velox::ContinueFuture* future() const {
-    return future_;
+  /// Moves the future out of the result. Can be called only once and only on a
+  /// kBlocked result.
+  [[nodiscard]] velox::ContinueFuture takeFuture() {
+    VELOX_CHECK(state_ == TableFunctionState::kBlocked);
+    VELOX_CHECK(future_.valid(), "The future has already been taken");
+    return std::move(future_);
   }
 
  private:
@@ -82,7 +99,7 @@ class TableFunctionResult {
   bool usedInput_;
   velox::RowVectorPtr result_;
 
-  velox::ContinueFuture* future_;
+  velox::ContinueFuture future_;
 };
 
 } // namespace facebook::presto::tvf
