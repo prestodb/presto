@@ -45,6 +45,7 @@ public class PrestoSparkSessionProperties
     public static final String MAX_SPARK_INPUT_PARTITION_COUNT_FOR_AUTO_TUNE = "max_spark_input_partition_count_for_auto_tune";
     public static final String SPARK_INITIAL_PARTITION_COUNT = "spark_initial_partition_count";
     public static final String MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION = "max_splits_data_size_per_spark_partition";
+    public static final String MAX_SPLITS_COUNT_PER_SPARK_PARTITION = "max_splits_count_per_spark_partition";
     public static final String SHUFFLE_OUTPUT_TARGET_AVERAGE_ROW_SIZE = "shuffle_output_target_average_row_size";
     public static final String STORAGE_BASED_BROADCAST_JOIN_ENABLED = "storage_based_broadcast_join_enabled";
     public static final String STORAGE_BASED_BROADCAST_JOIN_WRITE_BUFFER_SIZE = "storage_based_broadcast_join_write_buffer_size";
@@ -116,6 +117,11 @@ public class PrestoSparkSessionProperties
                         MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION,
                         "Maximal size in bytes for splits assigned to one partition",
                         prestoSparkConfig.getMaxSplitsDataSizePerSparkPartition(),
+                        false),
+                integerProperty(
+                        MAX_SPLITS_COUNT_PER_SPARK_PARTITION,
+                        "Maximal number of splits assigned to one partition",
+                        prestoSparkConfig.getMaxSplitsCountPerSparkPartition(),
                         false),
                 dataSizeProperty(
                         SHUFFLE_OUTPUT_TARGET_AVERAGE_ROW_SIZE,
@@ -332,6 +338,11 @@ public class PrestoSparkSessionProperties
     public static DataSize getMaxSplitsDataSizePerSparkPartition(Session session)
     {
         return session.getSystemProperty(MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION, DataSize.class);
+    }
+
+    public static int getMaxSplitsCountPerSparkPartition(Session session)
+    {
+        return session.getSystemProperty(MAX_SPLITS_COUNT_PER_SPARK_PARTITION, Integer.class);
     }
 
     public static DataSize getShuffleOutputTargetAverageRowSize(Session session)

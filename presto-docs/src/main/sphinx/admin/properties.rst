@@ -1898,6 +1898,36 @@ configs.
 
 To enable SSL/TLS, see :doc:`/security/internal-communication`.
 
+Presto on Spark Properties
+--------------------------
+
+These properties control how :doc:`Presto on Spark </admin/spark>` assigns table scan
+splits to Spark input partitions.
+
+``spark.max-splits-count-per-partition``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``2147483647``
+
+Maximum number of splits assigned to one Spark input partition. The default is
+effectively unbounded, so partition contents are bounded by data size alone.
+
+The splits of one partition are serialized into a single task update request. A
+partition holding a very large number of splits can produce a request that exceeds
+the 2 GB limit of the underlying JSON serializer, which fails the query late in
+execution. Splits that are individually small do not approach the data size budget,
+so a count bound is the only way to keep such partitions in check. Set this property
+when a source table produces very many small splits.
+
+When this limit is reached on every partition and the partition count is already at
+``spark.max-spark-input-partition-count-for-auto-tune``, an additional partition is
+created rather than overfilling an existing one, so this limit takes precedence over
+the partition count ceiling.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`max_splits_count_per_spark_partition\`\``.
+
 Driver-side Metadata Sidecar Properties
 ---------------------------------------
 
