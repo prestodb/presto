@@ -1203,6 +1203,24 @@ scan-throughput-bound queries. It is disabled by default.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`grouped-execution-when-capable-enabled\`\``.
 
+Presto on Spark Properties
+--------------------------
+
+``max_splits_count_per_spark_partition``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``2147483647``
+
+Maximum number of splits assigned to one Spark input partition. The default is
+effectively unbounded, so partition contents are bounded by data size alone. Set this
+property when a source table produces very many small splits, which can otherwise pack
+enough splits into one partition for its serialized task update request to exceed the
+2 GB limit of the underlying JSON serializer.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`spark.max-splits-count-per-partition\`\``.
+
 Geometry Properties
 -------------------
 
