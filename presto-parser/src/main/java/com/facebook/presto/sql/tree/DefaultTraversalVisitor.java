@@ -17,15 +17,6 @@ public abstract class DefaultTraversalVisitor<R, C>
         extends AstVisitor<R, C>
 {
     @Override
-    protected R visitTrim(Trim node, C context)
-    {
-        process(node.getTrimSource(), context);
-        node.getTrimCharacter().ifPresent(trimChar -> process(trimChar, context));
-
-        return null;
-    }
-
-    @Override
     protected R visitExtract(Extract node, C context)
     {
         return process(node.getExpression(), context);
