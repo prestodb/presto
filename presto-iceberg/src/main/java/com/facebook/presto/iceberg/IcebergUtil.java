@@ -103,6 +103,11 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -930,10 +935,41 @@ public final class IcebergUtil
                 return parseDouble(valueString);
             }
             if (type.equals(TIMESTAMP) || type.equals(TIME)) {
-                return MICROSECONDS.toMillis(parseLong(valueString));
+                // Default values are serialised as ISO datetime strings
+                // (e.g. "2023-01-01 11:00:00.000000"); partition values arrive
+                // as microseconds-since-epoch numeric strings.  Accept both.
+                try {
+                    return MICROSECONDS.toMillis(parseLong(valueString));
+                }
+                catch (NumberFormatException ignored) {
+                    // ISO string: parse to epoch-millis via LocalDateTime
+                    try {
+                        LocalDateTime ldt = LocalDateTime.parse(
+                                valueString,
+                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSSSSS][.SSS]"));
+                        return ldt.toInstant(ZoneOffset.UTC).toEpochMilli();
+                    }
+                    catch (DateTimeParseException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                }
             }
             if (type.equals(DATE) || type.equals(TIMESTAMP_MICROSECONDS)) {
-                return parseLong(valueString);
+                // Default values are serialised as ISO date strings
+                // (e.g. "2023-01-01"); partition values arrive as integer
+                // days-since-epoch numeric strings.  Accept both.
+                try {
+                    return parseLong(valueString);
+                }
+                catch (NumberFormatException ignored) {
+                    // ISO date string
+                    try {
+                        return LocalDate.parse(valueString).toEpochDay();
+                    }
+                    catch (DateTimeParseException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                }
             }
             if (type instanceof VarcharType) {
                 return utf8Slice(valueString);
