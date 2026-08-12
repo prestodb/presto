@@ -63,45 +63,7 @@ void from_json(const json& j, ChangelogOperation& e) {
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
-// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
-// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
-static const std::pair<TypeCategory, json> TypeCategory_enum_table[] =
-    { // NOLINT: cert-err58-cpp
-        {TypeCategory::PRIMITIVE, "PRIMITIVE"},
-        {TypeCategory::STRUCT, "STRUCT"},
-        {TypeCategory::ARRAY, "ARRAY"},
-        {TypeCategory::MAP, "MAP"}};
-void to_json(json& j, const TypeCategory& e) {
-  static_assert(
-      std::is_enum<TypeCategory>::value, "TypeCategory must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(TypeCategory_enum_table),
-      std::end(TypeCategory_enum_table),
-      [e](const std::pair<TypeCategory, json>& ej_pair) -> bool {
-        return ej_pair.first == e;
-      });
-  j = ((it != std::end(TypeCategory_enum_table))
-           ? it
-           : std::begin(TypeCategory_enum_table))
-          ->second;
-}
-void from_json(const json& j, TypeCategory& e) {
-  static_assert(
-      std::is_enum<TypeCategory>::value, "TypeCategory must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(TypeCategory_enum_table),
-      std::end(TypeCategory_enum_table),
-      [&j](const std::pair<TypeCategory, json>& ej_pair) -> bool {
-        return ej_pair.second == j;
-      });
-  e = ((it != std::end(TypeCategory_enum_table))
-           ? it
-           : std::begin(TypeCategory_enum_table))
-          ->first;
-}
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
 void to_json(json& j, const IcebergTypeAttributes& p) {
   j = json::object();
   to_json_key(
@@ -161,6 +123,45 @@ void from_json(const json& j, IcebergTypeAttributes& p) {
       "structType");
   from_json_key(
       j, "length", p.length, "IcebergTypeAttributes", "Integer", "length");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<TypeCategory, json> TypeCategory_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {TypeCategory::PRIMITIVE, "PRIMITIVE"},
+        {TypeCategory::STRUCT, "STRUCT"},
+        {TypeCategory::ARRAY, "ARRAY"},
+        {TypeCategory::MAP, "MAP"}};
+void to_json(json& j, const TypeCategory& e) {
+  static_assert(
+      std::is_enum<TypeCategory>::value, "TypeCategory must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(TypeCategory_enum_table),
+      std::end(TypeCategory_enum_table),
+      [e](const std::pair<TypeCategory, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(TypeCategory_enum_table))
+           ? it
+           : std::begin(TypeCategory_enum_table))
+          ->second;
+}
+void from_json(const json& j, TypeCategory& e) {
+  static_assert(
+      std::is_enum<TypeCategory>::value, "TypeCategory must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(TypeCategory_enum_table),
+      std::end(TypeCategory_enum_table),
+      [&j](const std::pair<TypeCategory, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(TypeCategory_enum_table))
+           ? it
+           : std::begin(TypeCategory_enum_table))
+          ->first;
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -947,6 +948,7 @@ void from_json(const json& j, SortField& p) {
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
+
 IcebergDeleteTableHandle::IcebergDeleteTableHandle() noexcept {
   _type = "hive-iceberg";
 }
@@ -1038,6 +1040,13 @@ void to_json(json& j, const IcebergDeleteTableHandle& p) {
       "IcebergDeleteTableHandle",
       "FileContent",
       "fileContent");
+  to_json_key(
+      j,
+      "existingDeletionVectors",
+      p.existingDeletionVectors,
+      "IcebergDeleteTableHandle",
+      "Map<String, DeleteFile>",
+      "existingDeletionVectors");
 }
 
 void from_json(const json& j, IcebergDeleteTableHandle& p) {
@@ -1126,7 +1135,15 @@ void from_json(const json& j, IcebergDeleteTableHandle& p) {
       "IcebergDeleteTableHandle",
       "FileContent",
       "fileContent");
+  from_json_key(
+      j,
+      "existingDeletionVectors",
+      p.existingDeletionVectors,
+      "IcebergDeleteTableHandle",
+      "Map<String, DeleteFile>",
+      "existingDeletionVectors");
 }
+
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
 void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
@@ -1743,7 +1760,7 @@ void to_json(json& j, const IcebergInsertTableHandle& p) {
       "fullRefreshRequired",
       p.fullRefreshRequired,
       "IcebergInsertTableHandle",
-      "bool",
+      "std::shared_ptr<bool>",
       "fullRefreshRequired");
   to_json_key(
       j,
@@ -1752,6 +1769,13 @@ void to_json(json& j, const IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "List<String>",
       "insertedColumns");
+  to_json_key(
+      j,
+      "existingDeletionVectors",
+      p.existingDeletionVectors,
+      "IcebergInsertTableHandle",
+      "Map<String, DeleteFile>",
+      "existingDeletionVectors");
 }
 
 void from_json(const json& j, IcebergInsertTableHandle& p) {
@@ -1838,7 +1862,7 @@ void from_json(const json& j, IcebergInsertTableHandle& p) {
       "fullRefreshRequired",
       p.fullRefreshRequired,
       "IcebergInsertTableHandle",
-      "bool",
+      "std::shared_ptr<bool>",
       "fullRefreshRequired");
   from_json_key(
       j,
@@ -1847,6 +1871,13 @@ void from_json(const json& j, IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "List<String>",
       "insertedColumns");
+  from_json_key(
+      j,
+      "existingDeletionVectors",
+      p.existingDeletionVectors,
+      "IcebergInsertTableHandle",
+      "Map<String, DeleteFile>",
+      "existingDeletionVectors");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -2209,6 +2240,8 @@ void from_json(const json& j, IcebergSplit& p) {
       "IcebergSplit",
       "ChangelogSplitInfo",
       "changelogSplitInfo");
+  // V3 fields: optional for backward compatibility with coordinators that
+  // do not yet send them. Default values from the struct definition apply.
   if (j.count("dataSequenceNumber")) {
     from_json_key(
         j,

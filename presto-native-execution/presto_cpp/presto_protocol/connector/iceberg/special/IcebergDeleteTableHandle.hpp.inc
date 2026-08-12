@@ -29,6 +29,7 @@ struct IcebergDeleteTableHandle : public ConnectorDeleteTableHandle {
   List<SortField> sortOrder = {};
   std::shared_ptr<SchemaTableName> materializedViewName = {};
   FileContent fileContent = {};
+  std::shared_ptr<Map<String, DeleteFile>> existingDeletionVectors = {};
 
   IcebergDeleteTableHandle() noexcept;
 };
