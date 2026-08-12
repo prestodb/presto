@@ -511,6 +511,24 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Move the specified column to the specified position within the table's column order.
+     * <p>
+     * The position is a {@link ColumnPosition.First} or a {@link ColumnPosition.After}, since a column is
+     * moved to the end by naming the column that is currently last. Unlike
+     * {@link #addColumn(ConnectorSession, ConnectorTableHandle, ColumnMetadata, ColumnPosition)}, there is no
+     * position a connector can honor by leaving the table alone, so there is nothing to delegate and no
+     * default beyond reporting that the connector cannot move columns.
+     * <p>
+     * The engine validates both the moved column and a {@link ColumnPosition.After} target against
+     * {@link #getColumnHandles(ConnectorSession, ConnectorTableHandle)}, rejects a hidden column for either,
+     * and rejects a column moved after itself, so the two names are distinct visible columns of the table.
+     */
+    default void setColumnPosition(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, ColumnPosition position)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support moving columns");
+    }
+
+    /**
      * Describes statistics that must be collected during a write.
      */
     default TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)

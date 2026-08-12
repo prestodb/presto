@@ -258,6 +258,135 @@ public abstract class AbstractTestSchemaEvolution
         }
     }
 
+    // ALTER COLUMN … FIRST moves an existing column to ordinal 0. Existing files
+    // still resolve the moved column by field id, not by position, so no data is
+    // misread after the reorder.
+    @Test
+    public void testAlterColumnFirst()
+    {
+        String table = "schema_evolution_alter_first";
+        try {
+            assertUpdate(format("CREATE TABLE %s (a INTEGER, b INTEGER, c VARCHAR) WITH (format = '%s')", table, storageFormat()));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 10, 'x'), (2, 20, 'y')", table), 2);
+
+            // Move b to the front: schema becomes (b, a, c).
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN b FIRST", table));
+
+            // Existing rows must be readable with the new column order.
+            assertQuery(format("SELECT b, a, c FROM %s ORDER BY a", table),
+                    "VALUES (10, 1, 'x'), (20, 2, 'y')");
+
+            // New rows written after the reorder follow the new schema.
+            assertUpdate(format("INSERT INTO %s VALUES (30, 3, 'z')", table), 1);
+            assertQuery(format("SELECT b, a, c FROM %s ORDER BY a", table),
+                    "VALUES (10, 1, 'x'), (20, 2, 'y'), (30, 3, 'z')");
+            assertQuery(format("SELECT a, c, b FROM %s ORDER BY a", table),
+                    "VALUES (1, 'x', 10), (2, 'y', 20), (3, 'z', 30)");
+            // SELECT * must return columns in new schema order: b, a, c.
+            assertQuery(format("SELECT * FROM %s ORDER BY a", table),
+                    "VALUES (10, 1, 'x'), (20, 2, 'y'), (30, 3, 'z')");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s", table));
+        }
+    }
+
+    // ALTER COLUMN … AFTER <col> moves an existing column to follow a named column.
+    // Existing files still bind all columns by field id, so no values shift.
+    @Test
+    public void testAlterColumnAfter()
+    {
+        String table = "schema_evolution_alter_after";
+        try {
+            assertUpdate(format("CREATE TABLE %s (a INTEGER, b INTEGER, c VARCHAR) WITH (format = '%s')", table, storageFormat()));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 10, 'x'), (2, 20, 'y')", table), 2);
+
+            // Move a after c: schema becomes (b, c, a).
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN a AFTER c", table));
+
+            // Existing rows must be readable with the new column order.
+            assertQuery(format("SELECT b, c, a FROM %s ORDER BY a", table),
+                    "VALUES (10, 'x', 1), (20, 'y', 2)");
+
+            // New rows written after the reorder follow the new schema.
+            assertUpdate(format("INSERT INTO %s VALUES (30, 'z', 3)", table), 1);
+            assertQuery(format("SELECT b, c, a FROM %s ORDER BY a", table),
+                    "VALUES (10, 'x', 1), (20, 'y', 2), (30, 'z', 3)");
+            assertQuery(format("SELECT a, b, c FROM %s ORDER BY a", table),
+                    "VALUES (1, 10, 'x'), (2, 20, 'y'), (3, 30, 'z')");
+            // SELECT * must return columns in new schema order: b, c, a.
+            assertQuery(format("SELECT * FROM %s ORDER BY a", table),
+                    "VALUES (10, 'x', 1), (20, 'y', 2), (30, 'z', 3)");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s", table));
+        }
+    }
+
+    // ADD a column at a specific position, write rows, then ALTER that same column to a
+    // different position. Three file generations exist: rows written before the add
+    // (null for the new column), rows written after the add but before the move, and
+    // rows written after the move. All three must read back correctly by field id.
+    @Test
+    public void testAddThenAlterColumnPosition()
+    {
+        String table = "schema_evolution_add_then_alter";
+        try {
+            // Gen-1: schema (a, b, c)
+            assertUpdate(format("CREATE TABLE %s (a INTEGER, b INTEGER, c VARCHAR) WITH (format = '%s')", table, storageFormat()));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 10, 'x')", table), 1);
+            assertQuery(format("SELECT a, b, c FROM %s", table), "VALUES (1, 10, 'x')");
+            assertQuery(format("SELECT c, a, b FROM %s", table), "VALUES ('x', 1, 10)");
+            assertQuery(format("SELECT * FROM %s", table), "VALUES (1, 10, 'x')");
+
+            // ADD COLUMN d AFTER b → schema (a, b, d, c)
+            assertUpdate(format("ALTER TABLE %s ADD COLUMN d INTEGER AFTER b", table));
+
+            // Gen-1 rows must null-fill d; schema order is now a, b, d, c.
+            assertQuery(format("SELECT a, b, d, c FROM %s ORDER BY a", table),
+                    "VALUES (1, 10, NULL, 'x')");
+            assertQuery(format("SELECT c, d, a, b FROM %s ORDER BY a", table),
+                    "VALUES ('x', NULL, 1, 10)");
+            assertQuery(format("SELECT * FROM %s ORDER BY a", table),
+                    "VALUES (1, 10, NULL, 'x')");
+
+            // Gen-2: d has a value; gen-1 row still reads d=NULL.
+            assertUpdate(format("INSERT INTO %s VALUES (2, 20, 99, 'y')", table), 1);
+            assertQuery(format("SELECT a, b, d, c FROM %s ORDER BY a", table),
+                    "VALUES (1, 10, NULL, 'x'), (2, 20, 99, 'y')");
+            assertQuery(format("SELECT d, c, b, a FROM %s ORDER BY a", table),
+                    "VALUES (NULL, 'x', 10, 1), (99, 'y', 20, 2)");
+            assertQuery(format("SELECT * FROM %s ORDER BY a", table),
+                    "VALUES (1, 10, NULL, 'x'), (2, 20, 99, 'y')");
+
+            // ALTER COLUMN d FIRST → schema (d, a, b, c)
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN d FIRST", table));
+
+            // Both prior generations must re-read correctly under the new order.
+            assertQuery(format("SELECT d, a, b, c FROM %s ORDER BY a", table),
+                    "VALUES (NULL, 1, 10, 'x'), (99, 2, 20, 'y')");
+            assertQuery(format("SELECT b, c, d, a FROM %s ORDER BY a", table),
+                    "VALUES (10, 'x', NULL, 1), (20, 'y', 99, 2)");
+            assertQuery(format("SELECT * FROM %s ORDER BY a", table),
+                    "VALUES (NULL, 1, 10, 'x'), (99, 2, 20, 'y')");
+
+            // Gen-3: follows new schema (d, a, b, c)
+            assertUpdate(format("INSERT INTO %s VALUES (77, 3, 30, 'z')", table), 1);
+
+            // All three generations resolve correctly by field id.
+            assertQuery(format("SELECT d, a, b, c FROM %s ORDER BY a", table),
+                    "VALUES (NULL, 1, 10, 'x'), (99, 2, 20, 'y'), (77, 3, 30, 'z')");
+            assertQuery(format("SELECT a, b, c, d FROM %s ORDER BY a", table),
+                    "VALUES (1, 10, 'x', NULL), (2, 20, 'y', 99), (3, 30, 'z', 77)");
+            // SELECT * must return columns in current schema order: d, a, b, c.
+            assertQuery(format("SELECT * FROM %s ORDER BY a", table),
+                    "VALUES (NULL, 1, 10, 'x'), (99, 2, 20, 'y'), (77, 3, 30, 'z')");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s", table));
+        }
+    }
+
     // Widening INTEGER to BIGINT must preserve existing values read from the file.
     @Test
     public void testTypePromotionIntegerToBigint()

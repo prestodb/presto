@@ -1814,6 +1814,10 @@ SQL Operation                            Presto Java   Presto C++   Comments
 
 ``ALTER TABLE ADD COLUMN DEFAULT``           Yes           Yes
 
+``ALTER TABLE ADD COLUMN FIRST|AFTER``   Yes           Yes
+
+``ALTER TABLE ALTER COLUMN FIRST|AFTER`` Yes           Yes
+
 ``ALTER TABLE ALTER COLUMN SET DEFAULT``     Yes           Yes
 
 ``ALTER VIEW``                               Yes           Yes
@@ -2034,6 +2038,10 @@ Alter table operations are supported in the Iceberg connector::
      ALTER TABLE iceberg.web.page_views ADD COLUMN region VARCHAR FIRST;
 
      ALTER TABLE iceberg.web.page_views ADD COLUMN city VARCHAR AFTER country;
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN zipcode FIRST;
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN zipcode AFTER city;
 
      ALTER TABLE iceberg.web.page_views RENAME COLUMN zipcode TO location;
 
