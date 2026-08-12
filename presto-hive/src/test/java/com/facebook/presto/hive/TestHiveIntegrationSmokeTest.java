@@ -3327,7 +3327,13 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN b bigint COMMENT 'test comment BBB'");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN a varchar", ".* Column 'a' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bad_type", ".* Unknown type 'bad_type' for column 'c'");
-        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA', 19, NULL, NULL), ('b', 'bigint', '', 'test comment BBB', 19, NULL, NULL)");
+        // Hive does not implement the position-aware addColumn, so a position clause must be rejected outright
+        // rather than silently appending the column somewhere the user did not ask for
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bigint FIRST", ".*This connector does not support adding columns with FIRST clause");
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bigint AFTER a", ".*This connector does not support adding columns with AFTER clause");
+        // Omitting the clause appends, which is the connector's existing behavior
+        assertUpdate("ALTER TABLE test_add_column ADD COLUMN c bigint COMMENT 'test comment CCC'");
+        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA', 19, NULL, NULL), ('b', 'bigint', '', 'test comment BBB', 19, NULL, NULL), ('c', 'bigint', '', 'test comment CCC', 19, NULL, NULL)");
         assertUpdate("DROP TABLE test_add_column");
     }
 
