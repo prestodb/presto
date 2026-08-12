@@ -80,6 +80,7 @@ import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.resol
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
@@ -769,6 +770,79 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuery("SELECT * FROM test_commuted_not_null_table", "VALUES (NULL, 2)");
         assertQueryFails("INSERT INTO test_commuted_not_null_table (b, a) VALUES (NULL, 3),(4, NULL),(NULL, NULL)", "NULL value not allowed for NOT NULL column: b");
         assertUpdate("DROP TABLE IF EXISTS test_commuted_not_null_table");
+    }
+
+    @Test
+    public void testAddColumnWithPosition()
+    {
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_add_column_position (second INTEGER, fourth INTEGER)");
+        assertEquals(columnNames("test_add_column_position"), ImmutableList.of("second", "fourth"));
+
+        assertUpdate(session, "ALTER TABLE test_add_column_position ADD COLUMN first INTEGER FIRST");
+        assertEquals(columnNames("test_add_column_position"), ImmutableList.of("first", "second", "fourth"));
+
+        assertUpdate(session, "ALTER TABLE test_add_column_position ADD COLUMN third INTEGER AFTER second");
+        assertEquals(columnNames("test_add_column_position"), ImmutableList.of("first", "second", "third", "fourth"));
+
+        // AFTER the last column is equivalent to appending
+        assertUpdate(session, "ALTER TABLE test_add_column_position ADD COLUMN fifth INTEGER AFTER fourth");
+        assertEquals(columnNames("test_add_column_position"), ImmutableList.of("first", "second", "third", "fourth", "fifth"));
+
+        // An omitted clause appends the column
+        assertUpdate(session, "ALTER TABLE test_add_column_position ADD COLUMN sixth INTEGER");
+        assertUpdate(session, "ALTER TABLE test_add_column_position ADD COLUMN seventh INTEGER");
+        assertEquals(columnNames("test_add_column_position"), ImmutableList.of("first", "second", "third", "fourth", "fifth", "sixth", "seventh"));
+
+        // Every column gets a distinct value, so a positional mix-up between two columns cannot pass. The
+        // by-name projection is what pins the order: SELECT * expands in whatever order the columns are in
+        // and therefore matches the positional INSERT either way, while the projection below is compared
+        // against the same tuple and fails unless each name holds the value written at its position
+        assertUpdate(session, "INSERT INTO test_add_column_position VALUES (1, 2, 3, 4, 5, 6, 7)", 1);
+        assertQuery(session, "SELECT * FROM test_add_column_position", "VALUES (1, 2, 3, 4, 5, 6, 7)");
+        assertQuery(session, "SELECT first, second, third, fourth, fifth, sixth, seventh FROM test_add_column_position", "VALUES (1, 2, 3, 4, 5, 6, 7)");
+
+        dropTable(session, "test_add_column_position");
+    }
+
+    @Test
+    public void testAddColumnPositionErrors()
+    {
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_add_column_position_errors (a INTEGER, b INTEGER)");
+        assertUpdate(session, "INSERT INTO test_add_column_position_errors VALUES (1, 2)", 1);
+
+        assertQueryFails(
+                "ALTER TABLE test_add_column_position_errors ADD COLUMN c INTEGER AFTER does_not_exist",
+                ".*Column 'does_not_exist' does not exist");
+        // The failed statement must not have added the column
+        assertEquals(columnNames("test_add_column_position_errors"), ImmutableList.of("a", "b"));
+
+        // A column may not be positioned after itself either, because it does not exist yet
+        assertQueryFails(
+                "ALTER TABLE test_add_column_position_errors ADD COLUMN c INTEGER AFTER c",
+                ".*Column 'c' does not exist");
+        assertEquals(columnNames("test_add_column_position_errors"), ImmutableList.of("a", "b"));
+
+        // An existing column is an error with a position clause just as it is without one, and must not move
+        assertQueryFails(
+                "ALTER TABLE test_add_column_position_errors ADD COLUMN b INTEGER FIRST",
+                ".*Column 'b' already exists");
+        assertEquals(columnNames("test_add_column_position_errors"), ImmutableList.of("a", "b"));
+
+        // A synthesized column is exposed by getColumnHandles but is hidden and is not a field of the Iceberg
+        // schema, so it is not a usable target; the engine rejects it before the connector is reached
+        assertQueryFails(
+                "ALTER TABLE test_add_column_position_errors ADD COLUMN c INTEGER AFTER \"$path\"",
+                ".*Cannot add a column after hidden column '\\$path'");
+        assertEquals(columnNames("test_add_column_position_errors"), ImmutableList.of("a", "b"));
+
+        // IF NOT EXISTS makes the same statement a no-op, which must not reorder the existing column either
+        assertUpdate(session, "ALTER TABLE test_add_column_position_errors ADD COLUMN IF NOT EXISTS b INTEGER FIRST");
+        assertEquals(columnNames("test_add_column_position_errors"), ImmutableList.of("a", "b"));
+        assertQuery(session, "SELECT * FROM test_add_column_position_errors", "VALUES (1, 2)");
+
+        dropTable(session, "test_add_column_position_errors");
     }
 
     @Test
@@ -2980,5 +3054,17 @@ public abstract class IcebergDistributedSmokeTestBase
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
         }
+    }
+
+    /**
+     * Returns the table's column names in table order, resolved against the default session's schema.
+     * {@code assertQuery} compares results as an unordered multiset, so asserting order requires
+     * comparing the materialized rows directly.
+     */
+    protected List<String> columnNames(String tableName)
+    {
+        return computeActual("SHOW COLUMNS FROM " + tableName).getMaterializedRows().stream()
+                .map(row -> (String) row.getField(0))
+                .collect(toImmutableList());
     }
 }
