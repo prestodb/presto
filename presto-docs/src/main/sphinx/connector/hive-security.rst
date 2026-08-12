@@ -5,7 +5,7 @@ Hive Security Configuration
 .. contents::
     :local:
     :backlinks: none
-    :depth: 1
+    :depth: 2
 
 Authentication
 ==============
@@ -37,7 +37,7 @@ Lists)` to provide additional security for data.
   for information on setting up Kerberos authentication.
 
 Kerberos Support
-================
+----------------
 
 In order to use the Hive connector with a Hadoop cluster that uses ``kerberos``
 authentication, you will need to configure the connector to work with two
@@ -57,8 +57,8 @@ file that contains the general Hive connector configuration.
 
     Example: ``-Djava.security.krb5.conf=/example/path/krb5.conf``.
 
-Hive Metastore Thrift Service Authentication
---------------------------------------------
+Hive Metastore Authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In a Kerberized Hadoop cluster, Presto connects to the Hive metastore Thrift
 service using :abbr:`SASL (Simple Authentication and Security Layer)` and
@@ -80,7 +80,7 @@ Property Name                                      Description
 ================================================== ============================================================
 
 ``hive.metastore.authentication.type``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 One of ``NONE`` or ``KERBEROS``. When using the default value of ``NONE``,
 Kerberos authentication is disabled and no other properties need to be
@@ -92,7 +92,7 @@ Thrift service using SASL and authenticate using Kerberos.
 This property is optional; the default is ``NONE``.
 
 ``hive.metastore.service.principal``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The Kerberos principal of the Hive metastore service. The Presto coordinator
 will use this to authenticate the Hive metastore.
@@ -107,7 +107,7 @@ Example: ``hive/hive-server-host@EXAMPLE.COM`` or ``hive/_HOST@EXAMPLE.COM``.
 This property is optional; no default value.
 
 ``hive.metastore.client.principal``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The Kerberos principal that Presto will use when connecting to the Hive
 metastore.
@@ -135,7 +135,7 @@ This property is optional; no default value.
     impersonated. Errors deleting data are silently ignored.
 
 ``hive.metastore.client.keytab``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The path to the keytab file that contains a key for the principal specified by
 ``hive.metastore.client.principal``. This file must be readable by the
@@ -143,10 +143,10 @@ operating system user running Presto.
 
 This property is optional; no default value.
 
-Example configuration with ``NONE`` authentication
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Metastore ``NONE`` authentication
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: none
+.. code-block:: properties
 
     hive.metastore.authentication.type=NONE
 
@@ -154,10 +154,10 @@ The default authentication type for the Hive metastore is ``NONE``. When the
 authentication type is ``NONE``, Presto connects to an unsecured Hive
 metastore. Kerberos is not used.
 
-Example configuration with ``KERBEROS`` authentication
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Metastore ``KERBEROS`` authentication
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: none
+.. code-block:: properties
 
     hive.metastore.authentication.type=KERBEROS
     hive.metastore.service.principal=hive/hive-metastore-host.example.com@EXAMPLE.COM
@@ -176,7 +176,7 @@ Keytab files must be distributed to every node in the cluster that runs Presto.
 :ref:`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
 HDFS Authentication
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 In a Kerberized Hadoop cluster, Presto authenticates to HDFS using Kerberos.
 Kerberos authentication for HDFS is configured in the connector's properties
@@ -197,7 +197,7 @@ Property Name                                      Description
 ================================================== ============================================================
 
 ``hive.hdfs.authentication.type``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 One of ``NONE`` or ``KERBEROS``. When using the default value of ``NONE``,
 Kerberos authentication is disabled and no other properties need to be
@@ -209,7 +209,7 @@ Kerberos.
 This property is optional; the default is ``NONE``.
 
 ``hive.hdfs.impersonation.enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Enable end-user HDFS impersonation.
 
@@ -219,7 +219,7 @@ in-depth explanation of HDFS impersonation.
 This property is optional; the default is ``false``.
 
 ``hive.hdfs.presto.principal``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The Kerberos principal that Presto will use when connecting to HDFS.
 
@@ -234,7 +234,7 @@ Example: ``presto-hdfs-superuser/presto-server-node@EXAMPLE.COM`` or
 This property is optional; no default value.
 
 ``hive.hdfs.presto.keytab``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The path to the keytab file that contains a key for the principal specified by
 ``hive.hdfs.presto.principal``. This file must be readable by the operating
@@ -244,10 +244,10 @@ This property is optional; no default value.
 
 .. _hive-security-simple:
 
-Example configuration with ``NONE`` authentication
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+HDFS ``NONE`` authentication
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: none
+.. code-block:: properties
 
     hive.hdfs.authentication.type=NONE
 
@@ -257,10 +257,10 @@ mechanism. Kerberos is not used.
 
 .. _hive-security-kerberos:
 
-Example configuration with ``KERBEROS`` authentication
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+HDFS ``KERBEROS`` authentication
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: none
+.. code-block:: properties
 
     hive.hdfs.authentication.type=KERBEROS
     hive.hdfs.presto.principal=hdfs@EXAMPLE.COM
@@ -275,8 +275,8 @@ Keytab files must be distributed to every node in the cluster that runs Presto.
 
 :ref:`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
-HDFS wire encryption
---------------------
+HDFS Wire Encryption
+^^^^^^^^^^^^^^^^^^^^
 
 In a Kerberized Hadoop cluster with enabled HDFS wire encryption you can enable
 Presto to access HDFS by using the ``hive.hdfs.wire-encryption.enabled`` property.
@@ -293,13 +293,37 @@ Property Name                         Description
     Depending on Presto installation configuration, using wire encryption may
     impact query execution performance.
 
+.. _hive-security-additional-keytab:
+
+Additional Information About Keytab Files
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Keytab files contain encryption keys that are used to authenticate principals
+to the Kerberos :abbr:`KDC (Key Distribution Center)`. These encryption keys
+must be stored securely; you should take the same precautions to protect them
+that you would to protect ssh private keys.
+
+In particular, access to keytab files should be limited to the accounts that
+actually need to use them to authenticate. In practice, this is the user that
+the Presto process runs as. The ownership and permissions on keytab files
+should be set to prevent other users from reading or modifying the files.
+
+Keytab files need to be distributed to every node running Presto. Under common
+deployment situations, the Hive connector configuration will be the same on all
+nodes. This means that the keytab needs to be in the same location on every
+node.
+
+You should ensure that the keytab files have the correct permissions on every
+node after distributing them.
+
+
 .. _hive-security-impersonation:
 
 End User Impersonation
-======================
+----------------------
 
 Impersonation Accessing HDFS
-----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Presto can impersonate the end user who is running a query. In the case of a
 user running a query from the command line interface, the end user is the
@@ -313,9 +337,9 @@ HDFS Permissions and ACLs are explained in the `HDFS Permissions Guide
 .. _hive-security-simple-impersonation:
 
 ``NONE`` authentication with HDFS impersonation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: none
+.. code-block:: properties
 
     hive.hdfs.authentication.type=NONE
     hive.hdfs.impersonation.enabled=true
@@ -327,10 +351,10 @@ section :ref:`configuring-hadoop-impersonation`. Kerberos is not used.
 
 .. _hive-security-kerberos-impersonation:
 
-``KERBEROS`` Authentication With HDFS Impersonation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``KERBEROS`` authentication with HDFS impersonation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: none
+.. code-block:: properties
 
     hive.hdfs.authentication.type=KERBEROS
     hive.hdfs.impersonation.enabled=true
@@ -352,7 +376,7 @@ Keytab files must be distributed to every node in the cluster that runs Presto.
 .. _configuring-hadoop-impersonation:
 
 Impersonation in Hadoop
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 In order to use :ref:`hive-security-simple-impersonation` or
 :ref:`hive-security-kerberos-impersonation`, the Hadoop cluster must be
@@ -361,29 +385,6 @@ impersonate the users who log in to Presto. Impersonation in Hadoop is
 configured in the file :file:`core-site.xml`. A complete description of the
 configuration options can be found in the `Hadoop documentation
 <https://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-common/Superusers.html#Configurations>`_.
-
-.. _hive-security-additional-keytab:
-
-Additional Information About Keytab Files
-=========================================
-
-Keytab files contain encryption keys that are used to authenticate principals
-to the Kerberos :abbr:`KDC (Key Distribution Center)`. These encryption keys
-must be stored securely; you should take the same precautions to protect them
-that you would to protect ssh private keys.
-
-In particular, access to keytab files should be limited to the accounts that
-actually need to use them to authenticate. In practice, this is the user that
-the Presto process runs as. The ownership and permissions on keytab files
-should be set to prevent other users from reading or modifying the files.
-
-Keytab files need to be distributed to every node running Presto. Under common
-deployment situations, the Hive connector configuration will be the same on all
-nodes. This means that the keytab needs to be in the same location on every
-node.
-
-You should ensure that the keytab files have the correct permissions on every
-node after distributing them.
 
 Authorization
 =============
@@ -425,8 +426,8 @@ Property Value                                     Description
 
 .. _hive-sql-standard-based-authorization:
 
-SQL Standard Based Authorization
---------------------------------
+SQL Standard Authorization
+--------------------------
 
 When ``sql-standard`` security is enabled, Presto enforces the same SQL
 standard based authorization as Hive does.
@@ -444,8 +445,8 @@ limitations and differences:
 * ``SET ROLE ALL`` enables all of a user's roles except ``admin``.
 * The ``admin`` role must be enabled explicitly by executing ``SET ROLE admin``.
 
-Configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^
+SQL Standard Properties
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ================================================== ================================================================ ============
 Property Name                                      Description                                                      Default
@@ -458,7 +459,7 @@ Property Name                                      Description                  
 
 .. _hive-file-based-authorization:
 
-File Based Authorization
+File-Based Authorization
 ------------------------
 
 The configuration file is specified using JSON and is composed of four sections,
@@ -614,7 +615,7 @@ See below for an example.
 
 .. _hive-ranger-based-authorization:
 
-Ranger Based Authorization
+Ranger-Based Authorization
 --------------------------
 
 Apache Ranger is a widely used framework for providing centralized security
@@ -656,14 +657,14 @@ A policy is a combination of set of resources and the associated privileges.
 Ranger provides a user interface, or optionally a REST API, to create
 and manage these access control policies.
 
-Users, groups, and roles
+Users, Groups, and Roles
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 Apache Ranger has UserGroups sync mechanism by which Users, groups, and
 roles are sourced from your configured authentication system with Apache
 Ranger.
 
-Supported authorizations
+Supported Authorizations
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 Ranger Hive service allows to configure privileges at schema, table, column
@@ -673,8 +674,8 @@ needs to configure with explict deny conditions.
 Access for listing schema, show tables metadata & configuring session
 properties are enabled by default.
 
-Configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^
+Ranger Properties
+^^^^^^^^^^^^^^^^^
 
 ================================================== ================================================================ ============
 Property Name                                      Description                                                      Default
