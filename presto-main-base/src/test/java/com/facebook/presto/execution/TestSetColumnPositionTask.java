@@ -16,14 +16,10 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.metadata.AbstractMockMetadata;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.ColumnPropertyManager;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -35,12 +31,11 @@ import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.tree.AddColumn;
-import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.ColumnPosition.After;
 import com.facebook.presto.sql.tree.ColumnPosition.First;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SetColumnPosition;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.testing.TestingWarningCollector;
@@ -56,7 +51,6 @@ import java.util.Optional;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -64,12 +58,14 @@ import static com.facebook.presto.transaction.InMemoryTransactionManager.createT
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 @Test(singleThreaded = true)
-public class TestAddColumnTask
+public class TestSetColumnPositionTask
 {
     private static final String CATALOG_NAME = "catalog";
     private static final String TABLE_NAME = "test_table";
+    private static final String HIDDEN_COLUMN_NAME = "$path";
 
     private TransactionManager transactionManager;
     private Session testSession;
@@ -83,121 +79,144 @@ public class TestAddColumnTask
         transactionManager = createTestTransactionManager(catalogManager);
         Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
         catalogManager.registerCatalog(testCatalog);
-        ColumnPropertyManager columnPropertyManager = new ColumnPropertyManager();
-        columnPropertyManager.addProperties(testCatalog.getConnectorId(), emptyList());
         testSession = testSessionBuilder()
                 .setCatalog(CATALOG_NAME)
                 .setSchema("schema")
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        metadata = new MockMetadata(createTestFunctionAndTypeManager(), columnPropertyManager, testCatalog.getConnectorId());
+        metadata = new MockMetadata(testCatalog.getConnectorId(), true);
     }
 
     @Test
-    public void testAddColumnWithoutPositionAppends()
+    public void testMoveColumnFirst()
     {
-        execute(addColumn());
-        assertEquals(metadata.getReceivedPosition(), new ColumnPosition.Last());
-    }
-
-    @Test
-    public void testAddColumnFirst()
-    {
-        execute(addColumn(new First()));
+        execute(setColumnPosition("a", new First()));
         assertEquals(metadata.getReceivedPosition(), new ColumnPosition.First());
+        assertEquals(metadata.getReceivedColumnName(), "a");
     }
 
     @Test
-    public void testAddColumnAfter()
+    public void testMoveColumnAfter()
     {
-        execute(addColumn(new After(identifier("x"))));
-        assertEquals(metadata.getReceivedPosition(), new ColumnPosition.After("x"));
+        execute(setColumnPosition("a", new After(identifier("b"))));
+        assertEquals(metadata.getReceivedPosition(), new ColumnPosition.After("b"));
+        assertEquals(metadata.getReceivedColumnName(), "a");
     }
 
     @Test
-    public void testAddColumnAfterIsNormalized()
+    public void testNamesAreNormalized()
     {
-        // The connector receives the normalized name, so it can look the target up in its own column map
-        execute(addColumn(new After(new Identifier("X", true))));
-        assertEquals(metadata.getReceivedPosition(), new ColumnPosition.After("x"));
+        // The connector receives normalized names, so it can look both columns up in its own column map
+        execute(setColumnPosition(new Identifier("A", true), new After(new Identifier("B", true))));
+        assertEquals(metadata.getReceivedPosition(), new ColumnPosition.After("b"));
+        assertEquals(metadata.getReceivedColumnName(), "a");
+    }
 
-        // An unquoted identifier is normalized the same way
-        execute(addColumn(new After(new Identifier("X", false))));
-        assertEquals(metadata.getReceivedPosition(), new ColumnPosition.After("x"));
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*Cannot position a column after hidden column '\\$path'")
+    public void testMoveColumnAfterHiddenColumn()
+    {
+        // A hidden column is not part of the column order, so nothing can be moved after it, exactly as for
+        // ADD COLUMN; both statements share the check
+        execute(setColumnPosition("a", new After(new Identifier(HIDDEN_COLUMN_NAME, true))));
     }
 
     @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*Column 'missing' does not exist")
-    public void testAddColumnAfterMissingColumn()
+    public void testMoveMissingColumn()
     {
-        execute(addColumn(new After(identifier("missing"))));
+        execute(setColumnPosition("missing", new First()));
     }
 
-    /**
-     * A hidden column is in getColumnHandles but is not part of the table's column order, so it is rejected
-     * here rather than being pushed down for every connector to reject on its own. The error says the column
-     * is hidden rather than that it does not exist, matching how DROP COLUMN and RENAME COLUMN report it.
-     */
-    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*Cannot position a column after hidden column 'hidden'")
-    public void testAddColumnAfterHiddenColumn()
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*Column 'missing' does not exist")
+    public void testMoveColumnAfterMissingColumn()
     {
-        execute(addColumn(new After(identifier("hidden"))));
+        execute(setColumnPosition("a", new After(identifier("missing"))));
     }
 
-    private static AddColumn addColumn()
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*Column 'a' cannot be moved after itself")
+    public void testMoveColumnAfterItself()
     {
-        return new AddColumn(
-                QualifiedName.of(TABLE_NAME),
-                columnDefinition(),
-                false,
-                false);
+        execute(setColumnPosition("a", new After(identifier("a"))));
     }
 
-    private static AddColumn addColumn(com.facebook.presto.sql.tree.ColumnPosition position)
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*Column 'a' cannot be moved after itself")
+    public void testMoveColumnAfterItselfDifferingByCase()
     {
-        return new AddColumn(
-                QualifiedName.of(TABLE_NAME),
-                columnDefinition(),
-                Optional.of(position),
-                false,
-                false);
+        // Both names are normalized, so a target that differs from the column only by case is the column itself
+        execute(setColumnPosition("a", new After(identifier("A"))));
     }
 
-    private static ColumnDefinition columnDefinition()
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*Cannot move hidden column")
+    public void testMoveHiddenColumn()
     {
-        return new ColumnDefinition(identifier("c"), "BIGINT", true, emptyList(), Optional.empty());
+        execute(setColumnPosition(new Identifier(HIDDEN_COLUMN_NAME, true), new First()));
     }
 
-    private void execute(AddColumn statement)
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*Table 'catalog.schema.test_table' does not exist")
+    public void testMissingTable()
     {
-        getFutureValue(new AddColumnTask().execute(statement, transactionManager, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector, ""));
+        metadata = new MockMetadata(metadata.getCatalogHandle(), false);
+        execute(setColumnPosition("a", new First()));
+    }
+
+    @Test
+    public void testMissingTableWithIfExists()
+    {
+        metadata = new MockMetadata(metadata.getCatalogHandle(), false);
+        execute(new SetColumnPosition(QualifiedName.of(TABLE_NAME), identifier("a"), new First(), true));
+        assertNull(metadata.getReceivedPosition());
+    }
+
+    private static SetColumnPosition setColumnPosition(String column, com.facebook.presto.sql.tree.ColumnPosition position)
+    {
+        return setColumnPosition(identifier(column), position);
+    }
+
+    private static SetColumnPosition setColumnPosition(Identifier column, com.facebook.presto.sql.tree.ColumnPosition position)
+    {
+        return new SetColumnPosition(QualifiedName.of(TABLE_NAME), column, position, false);
+    }
+
+    private void execute(SetColumnPosition statement)
+    {
+        getFutureValue(new SetColumnPositionTask().execute(statement, transactionManager, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector, ""));
     }
 
     private static class MockMetadata
             extends AbstractMockMetadata
     {
-        private final FunctionAndTypeManager functionAndTypeManager;
-        private final ColumnPropertyManager columnPropertyManager;
         private final ConnectorId catalogHandle;
-        private final TableHandle tableHandle;
+        private final Optional<TableHandle> tableHandle;
         private ColumnPosition receivedPosition;
+        private String receivedColumnName;
 
-        public MockMetadata(FunctionAndTypeManager functionAndTypeManager, ColumnPropertyManager columnPropertyManager, ConnectorId catalogHandle)
+        public MockMetadata(ConnectorId catalogHandle, boolean tableExists)
         {
-            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
-            this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-            this.tableHandle = new TableHandle(catalogHandle, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty());
+            this.tableHandle = tableExists ?
+                    Optional.of(new TableHandle(catalogHandle, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty())) :
+                    Optional.empty();
         }
 
         @Override
-        public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
+        public void setColumnPosition(Session session, TableHandle tableHandle, ColumnHandle column, ColumnPosition position)
         {
             this.receivedPosition = position;
+            this.receivedColumnName = ((TestingColumnHandle) column).getName();
+        }
+
+        public ConnectorId getCatalogHandle()
+        {
+            return catalogHandle;
         }
 
         public ColumnPosition getReceivedPosition()
         {
             return receivedPosition;
+        }
+
+        public String getReceivedColumnName()
+        {
+            return receivedColumnName;
         }
 
         @Override
@@ -220,7 +239,7 @@ public class TestAddColumnTask
                 @Override
                 public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
                 {
-                    return Optional.of(tableHandle);
+                    return tableHandle;
                 }
 
                 @Override
@@ -252,34 +271,22 @@ public class TestAddColumnTask
         @Override
         public Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle)
         {
-            // "x" is the only real column, so AFTER x resolves and AFTER missing does not. "hidden" stands for a
-            // synthesized column, which a connector exposes here even though it is not part of the column order
+            // As in a real connector, the hidden column is part of the map, so the task has to filter it out itself
             return ImmutableMap.of(
-                    "x", new TestingColumnHandle("x"),
-                    "hidden", new TestingColumnHandle("hidden"));
+                    "a", new TestingColumnHandle("a"),
+                    "b", new TestingColumnHandle("b"),
+                    HIDDEN_COLUMN_NAME, new TestingColumnHandle(HIDDEN_COLUMN_NAME));
         }
 
         @Override
         public ColumnMetadata getColumnMetadata(Session session, TableHandle tableHandle, ColumnHandle columnHandle)
         {
-            String columnName = ((TestingColumnHandle) columnHandle).getName();
+            String name = ((TestingColumnHandle) columnHandle).getName();
             return ColumnMetadata.builder()
-                    .setName(columnName)
+                    .setName(name)
                     .setType(BIGINT)
-                    .setHidden(columnName.equals("hidden"))
+                    .setHidden(name.startsWith("$"))
                     .build();
-        }
-
-        @Override
-        public ColumnPropertyManager getColumnPropertyManager()
-        {
-            return columnPropertyManager;
-        }
-
-        @Override
-        public Type getType(TypeSignature signature)
-        {
-            return functionAndTypeManager.getType(signature);
         }
 
         @Override

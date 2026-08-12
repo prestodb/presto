@@ -159,6 +159,7 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetColumnDefault;
+import com.facebook.presto.sql.tree.SetColumnPosition;
 import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
@@ -870,6 +871,29 @@ class AstBuilder
                 (Identifier) visit(context.column),
                 (Expression) visit(context.expression()),
                 context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitSetColumnPosition(SqlBaseParser.SetColumnPositionContext context)
+    {
+        return new SetColumnPosition(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                getColumnPosition(context),
+                context.EXISTS() != null);
+    }
+
+    /**
+     * The position clause is shared with {@code ADD COLUMN}, but ANTLR generates an unrelated context class
+     * per statement alternative, so the two cannot read it through one method.
+     */
+    private ColumnPosition getColumnPosition(SqlBaseParser.SetColumnPositionContext context)
+    {
+        if (context.FIRST() != null) {
+            return new ColumnPosition.First();
+        }
+        return new ColumnPosition.After((Identifier) visit(context.after));
     }
 
     @Override

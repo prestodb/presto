@@ -3338,6 +3338,22 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testSetColumnPosition()
+    {
+        assertUpdate("CREATE TABLE test_set_column_position (a bigint, b bigint)");
+        // Hive cannot reorder the columns of an existing table, so every position has to be rejected. Unlike
+        // ADD COLUMN, there is no position the connector can honor for free by leaving the table alone
+        assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN b FIRST", ".*This connector does not support moving columns");
+        assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN a AFTER b", ".*This connector does not support moving columns");
+        // The engine rejects a column that does not exist before reaching the connector
+        assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN missing FIRST", ".*Column 'missing' does not exist");
+        assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN a AFTER missing", ".*Column 'missing' does not exist");
+        assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN a AFTER a", ".*Column 'a' cannot be moved after itself");
+        assertQuery("SHOW COLUMNS FROM test_set_column_position", "VALUES ('a', 'bigint', '', '', 19, NULL, NULL), ('b', 'bigint', '', '', 19, NULL, NULL)");
+        assertUpdate("DROP TABLE test_set_column_position");
+    }
+
+    @Test
     public void testRenameColumn()
     {
         @Language("SQL") String createTable = "" +

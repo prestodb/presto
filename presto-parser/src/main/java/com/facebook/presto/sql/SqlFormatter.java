@@ -105,6 +105,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetColumnDefault;
+import com.facebook.presto.sql.tree.SetColumnPosition;
 import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
@@ -1550,20 +1551,27 @@ public final class SqlFormatter
                 builder.append("IF NOT EXISTS ");
             }
             builder.append(formatColumnDefinition(node.getColumn()));
-            node.getPosition().ifPresent(position -> {
-                if (position instanceof ColumnPosition.First) {
-                    builder.append(" FIRST");
-                }
-                else if (position instanceof ColumnPosition.After) {
-                    builder.append(" AFTER ")
-                            .append(formatName(((ColumnPosition.After) position).getColumn()));
-                }
-                else {
-                    throw new UnsupportedOperationException("Unsupported column position: " + position);
-                }
-            });
+            node.getPosition().ifPresent(this::appendColumnPosition);
 
             return null;
+        }
+
+        /**
+         * Appends the {@code FIRST | AFTER <column>} clause, which {@code ADD COLUMN} and
+         * {@code ALTER COLUMN} share, including the leading space that separates it from what precedes it.
+         */
+        private void appendColumnPosition(ColumnPosition position)
+        {
+            if (position instanceof ColumnPosition.First) {
+                builder.append(" FIRST");
+            }
+            else if (position instanceof ColumnPosition.After) {
+                builder.append(" AFTER ")
+                        .append(formatName(((ColumnPosition.After) position).getColumn()));
+            }
+            else {
+                throw new UnsupportedOperationException("Unsupported column position: " + position);
+            }
         }
 
         @Override
@@ -2081,6 +2089,20 @@ public final class SqlFormatter
             builder.append(formatName(node.getColumn()));
             builder.append(" SET DEFAULT ");
             process(node.getDefaultExpression(), indent);
+            return null;
+        }
+
+        @Override
+        protected Void visitSetColumnPosition(SetColumnPosition node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTable()));
+            builder.append(" ALTER COLUMN ");
+            builder.append(formatName(node.getColumn()));
+            appendColumnPosition(node.getPosition());
             return null;
         }
 

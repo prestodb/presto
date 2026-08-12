@@ -63,6 +63,7 @@ import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.SetColumnDefault;
+import com.facebook.presto.sql.tree.SetColumnPosition;
 import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
@@ -149,6 +150,7 @@ public final class StatementUtils
         builder.put(AddConstraint.class, QueryType.DATA_DEFINITION);
         builder.put(AlterColumnNotNull.class, QueryType.DATA_DEFINITION);
         builder.put(SetColumnDefault.class, QueryType.DATA_DEFINITION);
+        builder.put(SetColumnPosition.class, QueryType.DATA_DEFINITION);
         builder.put(CreateView.class, QueryType.DATA_DEFINITION);
         builder.put(RenameView.class, QueryType.DATA_DEFINITION);
         builder.put(TruncateTable.class, QueryType.DATA_DEFINITION);

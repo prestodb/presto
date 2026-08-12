@@ -1172,6 +1172,18 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void setColumnPosition(Session session, TableHandle tableHandle, ColumnHandle column, ColumnPosition position)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.setColumnPosition(session, tableHandle, column, position);
+        }
+        finally {
+            stats.recordSetColumnPositionCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
     {
         long startTime = System.nanoTime();

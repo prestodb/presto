@@ -2032,6 +2032,10 @@ Alter table operations are supported in the Iceberg connector::
 
      ALTER TABLE iceberg.web.page_views ADD COLUMN city VARCHAR AFTER country;
 
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN zipcode FIRST;
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN zipcode AFTER city;
+
      ALTER TABLE iceberg.web.page_views RENAME COLUMN zipcode TO location;
 
      ALTER TABLE iceberg.web.page_views DROP COLUMN location;

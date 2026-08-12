@@ -280,6 +280,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void setColumnPosition(Session session, TableHandle tableHandle, ColumnHandle column, ColumnPosition position)
+    {
+        delegate.setColumnPosition(session, tableHandle, column, position);
+    }
+
+    @Override
     public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
     {
         delegate.dropColumn(session, tableHandle, column);
