@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <folly/Synchronized.h>
+
 #include "presto_cpp/main/tvf/spi/DescriptorArgument.h"
 #include "presto_cpp/main/tvf/spi/ReturnTypeSpecification.h"
 #include "presto_cpp/main/tvf/spi/ScalarArgument.h"
@@ -48,7 +50,7 @@ class TableFunctionDataProcessor {
     return stringAllocator_;
   }
 
-  const std::string name() const {
+  const std::string& name() const {
     return name_;
   }
 
@@ -92,7 +94,7 @@ class TableFunctionSplitProcessor {
       const std::string& name,
       velox::memory::MemoryPool* pool,
       velox::HashStringAllocator* stringAllocator)
-      : pool_(pool), stringAllocator_(stringAllocator) {}
+      : name_(name), pool_(pool), stringAllocator_(stringAllocator) {}
 
   virtual ~TableFunctionSplitProcessor() = default;
 
@@ -104,7 +106,7 @@ class TableFunctionSplitProcessor {
     return stringAllocator_;
   }
 
-  const std::string name() const {
+  const std::string& name() const {
     return name_;
   }
 
@@ -243,6 +245,8 @@ struct TableFunctionEntry {
 };
 using TableFunctionMap = std::unordered_map<std::string, TableFunctionEntry>;
 
-/// Returns a map of all Table function names to their registrations.
-TableFunctionMap& tableFunctions();
+/// Returns the map of all Table function names to their registrations.
+/// The map is synchronized as functions can be registered by dynamically
+/// loaded libraries while the map is being read.
+folly::Synchronized<TableFunctionMap>& tableFunctions();
 } // namespace facebook::presto::tvf

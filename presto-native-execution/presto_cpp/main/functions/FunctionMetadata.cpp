@@ -522,7 +522,7 @@ json getFunctionsMetadata(
 json getTableValuedFunctionsMetadata() {
   json j;
   // Get metadata for all registered table valued functions in velox.
-  const auto signatures = tableFunctions();
+  const auto signatures = tableFunctions().copy();
   for (const auto& entry : signatures) {
     const auto parts = util::getFunctionNameParts(entry.first);
     const auto functionName = parts[2];

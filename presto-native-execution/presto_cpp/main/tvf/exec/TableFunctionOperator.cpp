@@ -64,8 +64,7 @@ TableFunctionOperator::TableFunctionOperator(
       inputType_(tableFunctionProcessorNode->sources()[0]->outputType()),
       requiredColumnTypes_(requiredColumnTypes(tableFunctionProcessorNode)),
       tableFunctionPartition_(nullptr),
-      functionInput_({}),
-      future_(nullptr) {
+      functionInput_({}) {
   tablePartitionBuild_ = std::make_unique<TablePartitionBuild>(
       tableFunctionProcessorNode,
       requiredColumnTypes_,
@@ -127,26 +126,34 @@ RowVectorPtr TableFunctionOperator::getOutputFromFunction() {
   }
 
   if (result->state() == TableFunctionResult::TableFunctionState::kBlocked) {
-    future_ = std::move(result->future());
+    // The function is waiting on an asynchronous dependency. The future is
+    // returned to the Driver from isBlocked(). The partition and its input are
+    // retained so that processing resumes once the future is realized.
+    future_ = result->takeFuture();
     return nullptr;
   }
 
   VELOX_CHECK_EQ(
       result->state(), TableFunctionResult::TableFunctionState::kProcessed);
-  if (result->usedInput()) {
-    auto numFunctionInputRows = [&]() -> vector_size_t {
-      // Note: This logic will return 0 for the single input row with nullptr
-      // children that is sent to signal end of stream for functions with
-      // multiple inputs.
-      velox::vector_size_t maxInputRows = 0;
-      for (const auto& input : functionInput_) {
-        if (input) {
-          maxInputRows = std::max(maxInputRows, input->size());
-        }
+  auto numFunctionInputRows = [&]() -> vector_size_t {
+    // Note: This logic will return 0 for the single input row with nullptr
+    // children that is sent to signal end of stream for functions with
+    // multiple inputs.
+    velox::vector_size_t maxInputRows = 0;
+    for (const auto& input : functionInput_) {
+      if (input) {
+        maxInputRows = std::max(maxInputRows, input->size());
       }
-      return maxInputRows;
-    };
+    }
+    return maxInputRows;
+  };
 
+  // The function can pass-through any partition row it has been given so far,
+  // even if it has not consumed the last input batch yet.
+  const auto numRowsSentToFunction =
+      numPartitionProcessedRows_ + numFunctionInputRows();
+
+  if (result->usedInput()) {
     // The input rows were consumed, so we need to re-assemble input at the
     // next call.
     auto numInputRows = numFunctionInputRows();
@@ -161,8 +168,8 @@ RowVectorPtr TableFunctionOperator::getOutputFromFunction() {
   }
 
   // Append passthrough columns if any.
-  auto finalResult =
-      tableFunctionPartition_->appendPassThroughColumns(resultRows);
+  auto finalResult = tableFunctionPartition_->appendPassThroughColumns(
+      resultRows, numRowsSentToFunction);
   // Operator::getOutput() must return nullptr if the finalResult is empty
   // which could happen for an empty partition.
   return (finalResult && finalResult->size() > 0) ? std::move(finalResult)

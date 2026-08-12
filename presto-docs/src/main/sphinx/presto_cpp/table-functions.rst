@@ -1,13 +1,18 @@
-======================================================
+=============================================
 Table-Valued Functions (TVF) — C++ API Design
-======================================================
+=============================================
+
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 1
 
 Overview
 ========
 
 Table-Valued Functions (TVFs) are SQL functions that return tables rather than scalar values.
 They appear in the ``FROM`` clause and can accept other tables, descriptors, and scalar constants as arguments.
-This document covers the **C++ native worker Table Function SPI** and provides worked examples for it.
+This document covers the **C++ Native Worker Table Function SPI** and provides worked examples for it.
 
 Reference: `RFC-0020-tvf <https://github.com/prestodb/rfcs/blob/main/RFC-0020-tvf.md>`_
 
@@ -32,9 +37,9 @@ Argument Types
 +------------+--------------------------------------------------+------------------------------------------------------+
 | Kind       | SQL Form                                         | Description                                          |
 +============+==================================================+======================================================+
-| Table      | ``TABLE(query) alias PARTITION BY … ORDER BY …``| A full relation; rows arrive partitioned and ordered|
+| Table      | ``TABLE(query) alias PARTITION BY … ORDER BY …`` | A full relation; rows arrive partitioned and ordered |
 +------------+--------------------------------------------------+------------------------------------------------------+
-| Descriptor | ``DESCRIPTOR(col1 type1, col2)``                 | A list of column names with optional types          |
+| Descriptor | ``DESCRIPTOR(col1 type1, col2)``                 | A list of column names with optional types           |
 +------------+--------------------------------------------------+------------------------------------------------------+
 | Scalar     | A typed constant, e.g., ``BIGINT '42'``          | A single constant value                              |
 +------------+--------------------------------------------------+------------------------------------------------------+
@@ -49,19 +54,19 @@ Table Argument Modifiers
 +-------------------------------+---------------------------------------------------------------+
 | ``ORDER BY cols``             | Sort rows within each partition                               |
 +-------------------------------+---------------------------------------------------------------+
-| ``COPARTITION (t1, t2)``      | Co-locate two table arguments on matching partition columns  |
+| ``COPARTITION (t1, t2)``      | Co-locate two table arguments on matching partition columns   |
 +-------------------------------+---------------------------------------------------------------+
 | ``PRUNE WHEN EMPTY`` (default)| Short-circuit to empty output when input is empty             |
 +-------------------------------+---------------------------------------------------------------+
-| ``KEEP WHEN EMPTY``           | Invoke the processor even when the input is empty            |
+| ``KEEP WHEN EMPTY``           | Invoke the processor even when the input is empty             |
 +-------------------------------+---------------------------------------------------------------+
-| ``PASSTHROUGH COLUMNS``       | Input columns forwarded unchanged to the output              |
+| ``PASSTHROUGH COLUMNS``       | Input columns forwarded unchanged to the output               |
 +-------------------------------+---------------------------------------------------------------+
 
 --------
 
 Polymorphism for Table Functions
-=================================
+================================
 
 Table-valued functions are inherently polymorphic because their input and output schemas are not fixed at declaration
 time. They vary depending on which arguments the user supplies in the SQL.
@@ -71,16 +76,16 @@ TVFs require a dynamic analysis phase during query planning to determine the out
 This design enables maximum flexibility while keeping the C++ SPI clean and intuitive.
 
 Query Processing Flow for a SQL with a Table Function
-======================================================
+=====================================================
 
 Parsing
 -------
 
-The SQL parser recognises the TABLE(…) wrapper in the FROM clause and builds an
+The SQL parser recognises the ``TABLE(…)`` wrapper in the ``FROM`` clause and builds an
 AstNode for the table function invocation. Each argument is categorised by its
-syntactic form — TABLE(subquery) becomes a table argument, DESCRIPTOR(…) becomes a
-descriptor argument, and typed constants become scalar arguments. PARTITION BY,
-ORDER BY, and COPARTITION clauses attached to table arguments are also captured at
+syntactic form — ``TABLE(subquery)`` becomes a table argument, ``DESCRIPTOR(…)`` becomes a
+descriptor argument, and typed constants become scalar arguments. ``PARTITION BY``,
+``ORDER BY``, and ``COPARTITION`` clauses attached to table arguments are also captured at
 this stage.
 
 Statement Analysis
@@ -92,7 +97,7 @@ function's registered analyze() method passing the resolved argument values:
 
 * **ScalarArgument** — Comprises the constant value and its Velox type.
 * **TableArgument** — Consists of the row type of the input relation, plus any partition/sort keys the caller specified.
-* **DescriptorArgument** — has the field names (and optional types) from the DESCRIPTOR(…) in the table function invocation.
+* **DescriptorArgument** — has the field names (and optional types) from the ``DESCRIPTOR(…)`` in the table function invocation.
 
 The TableFunction::analyze() method is responsible for:
 
@@ -114,24 +119,24 @@ TableFunctionHandle from analysis.
 
 The planner then rewrites TableFunctionNode into a PlanNode subtree based on the input shape:
 
-+------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
-| Input shape                              | Physical plan                                                                                                                     |
-+==========================================+===================================================================================================================================+
-| No table inputs (leaf)                   | Planned like a TableScan driven by splits produced by the function getSplits() method                                            |
-+------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
-| Single table, row semantics              | Inlined as a Project/Filter node                                                                                                  |
-+------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
-| Single table, set semantics + PARTITION BY| Planned like a window function — data is repartitioned and sorted by the partition/order keys before reaching the operator       |
-+------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
-| Multiple table inputs                    | A full-outer-join tree with row-number window functions per input; join conditions align partition boundaries and handle         |
-|                                          | PRUNE/KEEP WHEN EMPTY semantics. This is the input to the TableFunction node                                                     |
-+------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
++-------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
+| Input shape                               | Physical plan                                                                                                                     |
++===========================================+===================================================================================================================================+
+| No table inputs (leaf)                    | Planned like a TableScan driven by splits produced by the function getSplits() method                                             |
++-------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
+| Single table, row semantics               | Inlined as a Project/Filter node                                                                                                  |
++-------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
+| Single table, set semantics + PARTITION BY| Planned like a window function — data is repartitioned and sorted by the partition/order keys before reaching the operator        |
++-------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
+| Multiple table inputs                     | A full-outer-join tree with row-number window functions per input; join conditions align partition boundaries and handle          |
+|                                           | PRUNE/KEEP WHEN EMPTY semantics. This is the input to the TableFunction node                                                      |
++-------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
 
 At this point the TableFunctionNode is materialized as a TableFunctionProcessorNode. This node is the Velox PlanNode
 responsible for Table function execution. More in the design section.
 
 Split Generation (leaf functions only)
----------------------------------------
+--------------------------------------
 
 Like TableScans, Leaf TableFunctions require splits to process. This is done using the TableFunctionSplitGenerator.
 This produces a list of TableSplitHandle objects — each representing an independent unit of
@@ -139,7 +144,7 @@ work (e.g., a sub-range for sequence). These splits are scheduled across workers
 exactly like ordinary connector splits.
 
 Serialization and dispatch
----------------------------
+--------------------------
 
 The TableFunctionHandle and each TableSplitHandle are serialized (via
 velox::ISerializable / Jackson on the Java side) and included in the task descriptors
@@ -155,7 +160,7 @@ TableFunctionProcessorNode could execute as:
 * **TableFunctionOperator**: if the function has input tables
 
 LeafTableFunctionOperator
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This operator is used when the function has no input tables, so it operates as a
 TableScan by getting splits from the TableFunctionSplitGenerator.
@@ -182,12 +187,17 @@ C++ SPI
 =======
 
 Defining and registering a Table Function
-------------------------------------------
+-----------------------------------------
 
 To define and register a Table Function, the user can perform the following steps:
 
 * Identify the Table function arguments. These are represented with ArgumentSpecification classes when registering the function, but are resolved to Argument classes when instantiated in a SQL query.
-* Identify the Table function return type. The Table function returns a table though its columns could be generic (decided at analysis time), described (known at specification time) or PassThrough (no new columns, the input table is passthrough)
+* Identify the Table function return type. The Table function returns a table though its columns could be
+
+  * GENERIC (decided at analysis time)
+  * DESCRIBED (known at specification time)
+  * PASSTHROUGH (no new columns, the input table is passthrough)
+
 * Decide the TableFunctionAnalyzer logic. The TableFunctionAnalyzer is invoked by the Presto planner during StatementAnalysis of the received query. The analysis validates input arguments to their specs, determines the required input columns, determines the ReturnType and also builds a TableFunctionHandle which could contain any metadata that the function would want to pass to the TableFunctionOperator instances during execution.
 * Decide if the processing will be done by a TableFunctionDataProcessor or a TableFunctionSplitProcessor (if there are no input table arguments).
 * If using a TableFunctionSplitProcessor, then also write a TableFunctionSplitGenerator function which will be invoked by the coordinator for scheduling splits.
@@ -208,7 +218,7 @@ To define and register a Table Function, the user can perform the following step
 Each section below goes over the SPI for each of these parts.
 
 Argument and ArgumentSpecification Classes
--------------------------------------------
+------------------------------------------
 
 1a. ArgumentSpecification
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -232,7 +242,7 @@ Arguments can be Scalar, Table or Descriptor arguments each of which is describe
    };
 
 1b. ScalarArgumentSpecification / ScalarArgument
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: cpp
 
@@ -257,7 +267,7 @@ Arguments can be Scalar, Table or Descriptor arguments each of which is describe
    };
 
 1c. TableArgumentSpecification / TableArgument
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: cpp
 
@@ -283,7 +293,7 @@ Arguments can be Scalar, Table or Descriptor arguments each of which is describe
    };
 
 1d. DescriptorArgumentSpecification / DescriptorArgument
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: cpp
 
@@ -321,11 +331,13 @@ Arguments can be Scalar, Table or Descriptor arguments each of which is describe
 --------
 
 Return Type Specification
---------------------------
+-------------------------
 
-Specifies the Table Function Return type. This could be GENERIC (so determined at Analysis time), DESCRIBED (so fixed
-and known at Table function specification time) and PASSTHROUGH (no new columns added, and outputs are passthrough
-from input tables)
+Specifies the Table Function Return type. This could be
+
+* GENERIC (so determined at Analysis time)
+* DESCRIBED (so fixed and known at Table function specification time)
+* PASSTHROUGH (no new columns added, and outputs are passthrough from input tables)
 
 .. code-block:: cpp
 
@@ -394,10 +406,10 @@ determines the output schema, the required input columns, and packages runtime c
 Execution Processors
 --------------------
 
-Table Functions are processed as TableFunctionDataProcessor(s) or TableFunctionSplitProcessor(s)
+Table Functions are processed as TableFunctionDataProcessor(s) or TableFunctionSplitProcessor(s).
 
 TableFunctionDataProcessor
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Used when the function consumes one or more table arguments (set semantics).
 One processor instance is created per partition.
@@ -455,22 +467,23 @@ Both processor types return ``TableFunctionResult`` from every ``apply()`` call.
    // presto_cpp/main/tvf/spi/TableFunctionResult.h
 
    /// This class represents the result of processing input by
-   /// {@link TableFunctionDataProcessor} or {@link TableFunctionSplitProcessor}.
+   /// TableFunctionDataProcessor or TableFunctionSplitProcessor.
    /// It can optionally include a portion of output data in the form of a
    /// RowVectorPtr.
    /// The returned RowVectorPtr should consist of:
    /// -- proper columns produced by the table function
    /// -- one column of type {@code BIGINT} for each table function's input table
-   /// having the pass-through property (see {@link
+   /// having the pass-through property (see {
    /// TableArgumentSpecification#isPassThroughColumns}), in order of the
-   /// corresponding argument specifications. Entries in these columns are the
-   /// indexes of input rows (from partition start) to be attached to output, or
-   /// null to indicate that a row of nulls should be attached instead of an input
-   /// row. The indexes are validated to be within the portion of the partition
-   /// provided to the function so far. Note: when the input is empty, the only
-   /// valid index value is null, because there are no input rows that could be
-   /// attached to output. In such case, for performance reasons, the validation of
-   /// indexes is skipped, and all pass-through columns are filled with nulls.
+   /// corresponding argument specifications.
+   /// Entries in these columns are the indexes of input rows (from partition start)
+   /// to be attached to output, or null to indicate that a row of nulls should be
+   /// attached instead of an input row. The indexes are validated to be within
+   /// the portion of the partition provided to the function so far. Note: when
+   /// the input is empty, the only valid index value is null, because there are
+   /// no input rows that could be attached to output. In such case, for performance
+   /// reasons, the validation of indexes is skipped, and all pass-through columns
+   /// are filled with nulls.
    class TableFunctionResult {
     public:
      enum class TableFunctionState {

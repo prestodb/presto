@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -37,13 +38,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SESSION_CATALOG_NOT_SET;
 import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -112,7 +111,11 @@ public class TableFunctionRegistry
     /**
      * Resolve table function with given qualified name.
      * Table functions are resolved case-insensitive for consistency with existing scalar function resolution.
+     *
+     * @return the resolved table function, or {@code null} if no table function is registered under
+     * any of the candidate names for the given session.
      */
+    @Nullable
     public TableFunctionMetadata resolve(Session session, QualifiedName qualifiedName)
     {
         for (CatalogSchemaFunctionName name : toPath(session, qualifiedName)) {
@@ -129,21 +132,6 @@ public class TableFunctionRegistry
         }
 
         return null;
-    }
-
-    public TableFunctionMetadata resolve(ConnectorId connectorId, CatalogSchemaFunctionName name)
-    {
-        Map<SchemaFunctionName, TableFunctionMetadata> catalogFunctions = tableFunctions.get(connectorId);
-        if (catalogFunctions != null) {
-            String lowercasedSchemaName = name.getSchemaFunctionName().getSchemaName().toLowerCase(ENGLISH);
-            String lowercasedFunctionName = name.getSchemaFunctionName().getFunctionName().toLowerCase(ENGLISH);
-            TableFunctionMetadata function = catalogFunctions.get(new SchemaFunctionName(lowercasedSchemaName, lowercasedFunctionName));
-            if (function != null) {
-                return function;
-            }
-        }
-
-        throw new PrestoException(GENERIC_USER_ERROR, format("Table functions for catalog %s could not be resolved.", connectorId.getCatalogName()));
     }
 
     private static void validateTableFunction(ConnectorTableFunction tableFunction)

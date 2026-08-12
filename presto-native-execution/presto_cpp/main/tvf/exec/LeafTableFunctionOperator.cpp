@@ -36,8 +36,7 @@ LeafTableFunctionOperator::LeafTableFunctionOperator(
       driverCtx_(driverCtx),
       pool_(pool()),
       stringAllocator_(pool_),
-      tableFunctionProcessorNode_(tableFunctionProcessorNode),
-      future_(nullptr) {
+      tableFunctionProcessorNode_(tableFunctionProcessorNode) {
   VELOX_CHECK(tableFunctionProcessorNode->sources().empty());
   VELOX_CHECK(tableFunctionProcessorNode->partitionKeys().empty());
   VELOX_CHECK(tableFunctionProcessorNode->sortingKeys().empty());
@@ -109,7 +108,10 @@ RowVectorPtr LeafTableFunctionOperator::getOutput() {
   }
 
   if (result->state() == TableFunctionResult::TableFunctionState::kBlocked) {
-    future_ = std::move(result->future());
+    // The function is waiting on an asynchronous dependency. The future is
+    // returned to the Driver from isBlocked(), and the split is retained so
+    // that its processing resumes once the future is realized.
+    future_ = result->takeFuture();
     return nullptr;
   }
 
