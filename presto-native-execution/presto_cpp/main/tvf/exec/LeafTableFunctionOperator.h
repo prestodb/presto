@@ -38,10 +38,16 @@ class LeafTableFunctionOperator : public velox::exec::SourceOperator {
 
   velox::exec::BlockingReason isBlocked(
       velox::ContinueFuture* future) override {
-    if (future_) {
-      *future = std::move(*future_);
-      future_ = nullptr;
-      return velox::exec::BlockingReason::kWaitForConsumer;
+    // Blocked waiting for the next split. getOutput() records the future and
+    // the reason returned by Task::getSplitOrFuture().
+    if (blockingFuture_.valid()) {
+      *future = std::move(blockingFuture_);
+      return blockingReason_;
+    }
+    // Blocked on an asynchronous dependency of the table function.
+    if (future_.valid()) {
+      *future = std::move(future_);
+      return velox::exec::BlockingReason::kWaitForConnector;
     }
     return velox::exec::BlockingReason::kNotBlocked;
   }
@@ -50,6 +56,11 @@ class LeafTableFunctionOperator : public velox::exec::SourceOperator {
     return noMoreSplits_;
   }
 
+  /// TODO: Implement reclaim for this operator. This needs a way to spill the
+  /// state held by the TableFunctionSplitProcessor of the split being
+  /// processed, which the table function SPI does not expose yet.
+  /// Until then TableFunctionProcessorNode::canSpill() returns false, so
+  /// canReclaim() is false and the memory arbitrator does not invoke reclaim().
   void reclaim(
       uint64_t targetBytes,
       velox::memory::MemoryReclaimer::Stats& stats) override;
@@ -79,11 +90,14 @@ class LeafTableFunctionOperator : public velox::exec::SourceOperator {
   bool noMoreSplits_ = false;
   std::shared_ptr<TableFunctionSplit> currentSplit_;
 
+  // Set when the operator is blocked waiting for the next split.
   velox::ContinueFuture blockingFuture_{velox::ContinueFuture::makeEmpty()};
   velox::exec::BlockingReason blockingReason_{
       velox::exec::BlockingReason::kNotBlocked};
 
-  velox::ContinueFuture* future_;
+  // Set when the table function returns kBlocked to wait on an asynchronous
+  // dependency.
+  velox::ContinueFuture future_{velox::ContinueFuture::makeEmpty()};
 };
 
 } // namespace facebook::presto::tvf

@@ -47,10 +47,10 @@ class TableFunctionOperator : public velox::exec::Operator {
 
   velox::exec::BlockingReason isBlocked(
       velox::ContinueFuture* future) override {
-    if (future_) {
-      *future = std::move(*future_);
-      future_ = nullptr;
-      return velox::exec::BlockingReason::kWaitForConsumer;
+    // Blocked on an asynchronous dependency of the table function.
+    if (future_.valid()) {
+      *future = std::move(future_);
+      return velox::exec::BlockingReason::kWaitForConnector;
     }
     return velox::exec::BlockingReason::kNotBlocked;
   }
@@ -74,6 +74,12 @@ class TableFunctionOperator : public velox::exec::Operator {
     return true;
   }
 
+  /// TODO: Implement reclaim for this operator. The input rows buffered in
+  /// TablePartitionBuild can be spilled, but this also needs a way to spill the
+  /// state held by the TableFunctionDataProcessor of the partition being
+  /// processed, which the table function SPI does not expose yet.
+  /// Until then TableFunctionProcessorNode::canSpill() returns false, so
+  /// canReclaim() is false and the memory arbitrator does not invoke reclaim().
   void reclaim(
       uint64_t targetBytes,
       velox::memory::MemoryReclaimer::Stats& stats) override;
@@ -139,8 +145,9 @@ class TableFunctionOperator : public velox::exec::Operator {
   // Number of rows that be fit into an output block.
   velox::vector_size_t numRowsPerOutput_;
 
-  // Returned if the function wants to block.
-  velox::ContinueFuture* future_;
+  // Set when the table function returns kBlocked to wait on an asynchronous
+  // dependency. Returned to the Driver from isBlocked().
+  velox::ContinueFuture future_{velox::ContinueFuture::makeEmpty()};
 };
 
 } // namespace facebook::presto::tvf

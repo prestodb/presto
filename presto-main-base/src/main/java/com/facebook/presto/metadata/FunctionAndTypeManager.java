@@ -85,6 +85,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -554,6 +555,10 @@ public class FunctionAndTypeManager
         }
     }
 
+    /**
+     * @return the resolved table function, or {@code null} if the function is not registered.
+     */
+    @Nullable
     public TableFunctionMetadata resolveTableFunction(Session session, QualifiedName qualifiedName)
     {
         return tableFunctionRegistry.resolve(session, qualifiedName);

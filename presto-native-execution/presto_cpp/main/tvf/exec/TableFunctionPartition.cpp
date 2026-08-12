@@ -147,6 +147,7 @@ void TableFunctionPartition::extractPassThroughIndexColumn(
     int32_t columnIndex,
     int32_t passThroughIndex,
     const velox::RowVectorPtr& functionOutput,
+    vector_size_t numRowsSentToFunction,
     const velox::VectorPtr& result) const {
   auto numRows = functionOutput->size();
   std::vector<vector_size_t> rowNumbers;
@@ -159,6 +160,16 @@ void TableFunctionPartition::extractPassThroughIndexColumn(
       passThroughIndexVector,
       "Pass-through index column at position {} must be INTEGER type",
       passThroughIndex);
+
+  // The pass-through index is controlled by the table function, so it must be
+  // validated before it is used as an offset into the partition rows. A valid
+  // index refers to a partition row that was already sent to the function, and
+  // that is before the end-of-data position of the pass-through column.
+  const auto actualColumn = inputMapping_[columnIndex];
+  VELOX_CHECK_LT(actualColumn, nullPositions_.size());
+  const vector_size_t lastValidIndex =
+      std::min(nullPositions_[actualColumn], numRowsSentToFunction) - 1;
+
   bool hasNonNullIndices = false;
   for (vector_size_t i = 0; i < numRows; ++i) {
     if (passThroughIndexVector->isNullAt(i)) {
@@ -167,8 +178,19 @@ void TableFunctionPartition::extractPassThroughIndexColumn(
       rowNumbers.push_back(0);
       result->setNull(i, true);
     } else {
-      rowNumbers.push_back(
-          static_cast<vector_size_t>(passThroughIndexVector->valueAt(i)));
+      const auto index =
+          static_cast<vector_size_t>(passThroughIndexVector->valueAt(i));
+      VELOX_USER_CHECK_GE(
+          lastValidIndex,
+          0,
+          "Index of a pass-through row must be null when no input data from the partition was processed. Actual: {}",
+          index);
+      VELOX_USER_CHECK(
+          index >= 0 && index <= lastValidIndex,
+          "Index of a pass-through row: {} out of processed portion of partition [0, {}]",
+          index,
+          lastValidIndex);
+      rowNumbers.push_back(index);
       hasNonNullIndices = true;
     }
   }
@@ -353,7 +375,8 @@ size_t TableFunctionPartition::getNumProperColumns(
 }
 
 RowVectorPtr TableFunctionPartition::appendPassThroughColumns(
-    const velox::RowVectorPtr& functionOutput) const {
+    const velox::RowVectorPtr& functionOutput,
+    vector_size_t numRowsSentToFunction) const {
   VELOX_CHECK_NOT_NULL(functionOutput);
   if (passThroughSpecifications_.empty()) {
     return functionOutput;
@@ -394,7 +417,15 @@ RowVectorPtr TableFunctionPartition::appendPassThroughColumns(
         outputType_->childAt(spec.outputChannel()), numOutputRows, pool_);
     if (numOutputRows > 0) {
       if (spec.isPartitioningColumn()) {
-        extractPartitionColumn(spec.inputChannel(), passThroughColumn);
+        // An empty partition (which can be processed when !pruneWhenEmpty) has
+        // no input row to pass through, so all the values are null.
+        if (numRows() == 0) {
+          for (vector_size_t i = 0; i < numOutputRows; ++i) {
+            passThroughColumn->setNull(i, true);
+          }
+        } else {
+          extractPartitionColumn(spec.inputChannel(), passThroughColumn);
+        }
       } else {
         // Only extract using index column if the function output has children.
         // When all columns are pruned, functionOutput may have 0 children.
@@ -403,6 +434,7 @@ RowVectorPtr TableFunctionPartition::appendPassThroughColumns(
               spec.inputChannel(),
               spec.indexChannel(),
               functionOutput,
+              numRowsSentToFunction,
               passThroughColumn);
         }
       }
