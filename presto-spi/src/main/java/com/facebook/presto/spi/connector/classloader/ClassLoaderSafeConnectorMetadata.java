@@ -1018,4 +1018,12 @@ public class ClassLoaderSafeConnectorMetadata
             delegate.setColumnType(session, tableHandle, columnHandle, type);
         }
     }
+
+    @Override
+    public void setColumnPosition(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, ColumnPosition position)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setColumnPosition(session, tableHandle, columnHandle, position);
+        }
+    }
 }
