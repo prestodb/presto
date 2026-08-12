@@ -1057,7 +1057,7 @@ TEST_F(MaterializedExchangeTest, backpressureParksAndWakesProducer) {
 
   // The flusher gate prevents this producer from draining, so it parks.
   velox::ContinueFuture future = velox::ContinueFuture::makeEmpty();
-  auto reason = buffer->backpressure(&future);
+  auto reason = buffer->isBlocked(&future);
   EXPECT_EQ(reason, velox::exec::BlockingReason::kWaitForConsumer);
   ASSERT_TRUE(future.valid());
   EXPECT_FALSE(future.isReady());

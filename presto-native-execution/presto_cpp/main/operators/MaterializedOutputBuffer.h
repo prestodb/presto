@@ -79,6 +79,17 @@ class MaterializedOutputBuffer {
       "materializedOutputBuffer.reclaimCount";
   static constexpr std::string_view kReclaimedBytes =
       "materializedOutputBuffer.reclaimedBytes";
+  // Lock-free append / backpressure effectiveness counters.
+  static constexpr std::string_view kConcurrentAppendCount =
+      "materializedOutputBuffer.concurrentAppendCount";
+  static constexpr std::string_view kFlushAcquireCount =
+      "materializedOutputBuffer.flushAcquireCount";
+  static constexpr std::string_view kBackpressureBlockCount =
+      "materializedOutputBuffer.backpressureBlockCount";
+  static constexpr std::string_view kBackpressureWakeCount =
+      "materializedOutputBuffer.backpressureWakeCount";
+  static constexpr std::string_view kBackpressureDrainedBytes =
+      "materializedOutputBuffer.backpressureDrainedBytes";
 
   /// Reclaims partition buffers, then waits for writer network drain. The
   /// nested lifetime keeps the raw back-pointer valid. Priority -1 runs before
@@ -183,7 +194,7 @@ class MaterializedOutputBuffer {
   folly::F14FastMap<std::string, velox::RuntimeMetric> stats() const;
 
   /// Drains at the high watermark, then parks until below the low watermark.
-  velox::exec::BlockingReason backpressure(velox::ContinueFuture* future);
+  velox::exec::BlockingReason isBlocked(velox::ContinueFuture* future);
 
   /// Best-effort reservation for coalesce and compression during one drain.
   void ensureDrainMemoryHeadroom();
@@ -218,39 +229,39 @@ class MaterializedOutputBuffer {
           writer_(writer),
           buffer_(buffer) {}
 
-    // Lock-free append; if over 'drainThreshold_', tries to become flusher and
-    // drain. Returns bytes drained (0 if not the flusher).
+    /// Lock-free append; if over 'drainThreshold_', tries to become flusher and
+    /// drain. Returns bytes drained (0 if not the flusher).
     int64_t enqueue(int32_t partition, std::unique_ptr<folly::IOBuf> rowGroup);
 
    private:
     friend class MaterializedOutputBuffer;
 
-    // A successful sole-flusher CAS must be paired with releaseFlushing().
+    /// A successful sole-flusher CAS must be paired with releaseFlushing().
     bool tryAcquireFlushing() {
       bool expected = false;
       return flushing_.compare_exchange_strong(expected, true);
     }
 
-    // Release the flusher flag (seq_cst store). Only the current flusher calls
-    // this.
+    /// Release the flusher flag (seq_cst store). Only the current flusher calls
+    /// this.
     void releaseFlushing() {
       flushing_ = false;
     }
 
-    // Pop all currently-available RowGroups into 'out' (caller must hold
-    // 'flushing_'). Returns total bytes popped.
+    /// Pop all currently-available RowGroups into 'out' (caller must hold
+    /// 'flushing_'). Returns total bytes popped.
     int64_t drainAvailable(std::deque<std::unique_ptr<folly::IOBuf>>& out);
 
-    // Flushes bounded chunks; an oversized RowGroup is sent alone. Caller
-    // holds 'flushing_'. Returns total bytes flushed.
+    /// Flushes bounded chunks; an oversized RowGroup is sent alone. Caller
+    /// holds 'flushing_'. Returns total bytes flushed.
     int64_t drainAndFlush();
 
-    // Release, recheck, and reacquire until below target so a concurrent append
-    // cannot leave an over-threshold partition without a flusher.
+    /// Release, recheck, and reacquire until below target so a concurrent
+    /// append cannot leave an over-threshold partition without a flusher.
     int64_t tryDrainPartition(int64_t targetBytes);
 
-    // Closes once and flushes all remaining data. Teardown is quiescent, but
-    // still uses the flusher gate to preserve writer ordering.
+    /// Closes once and flushes all remaining data. Teardown is quiescent, but
+    /// still uses the flusher gate to preserve writer ordering.
     int64_t noMoreData();
 
     folly::UMPMCQueue<std::unique_ptr<folly::IOBuf>, /*MayBlock=*/false>
@@ -301,17 +312,17 @@ class MaterializedOutputBuffer {
   /// Update drain stats and subtract from buffered bytes counter.
   void updateDrainStats(int64_t drainedBytes);
 
-  // Coalesce data into a contiguous buffer and send to the ShuffleWriter.
+  /// Coalesce data into a contiguous buffer and send to the ShuffleWriter.
   void flushToWriter(int32_t partition, std::unique_ptr<folly::IOBuf> data);
 
-  // Wake parked producers after crossing the low watermark.
+  /// Wake parked producers after crossing the low watermark.
   void maybeWakeBlockedDrivers();
 
-  // Merge a deque of RowGroup IOBufs into a single contiguous IOBuf.
+  /// Merge a deque of RowGroup IOBufs into a single contiguous IOBuf.
   std::unique_ptr<folly::IOBuf> coalesceRowGroups(
       std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups);
 
-  // Free callback for pool-tracked IOBufs.
+  /// Free callback for pool-tracked IOBufs.
   static void freeTrackedIOBuf(void* buf, void* userData);
 
   // Immutable config.
@@ -345,6 +356,13 @@ class MaterializedOutputBuffer {
   std::atomic_int64_t peakBufferedBytes_{0};
   std::atomic_int64_t reclaimCount_{0};
   std::atomic_int64_t reclaimedBytes_{0};
+
+  // Effectiveness counters.
+  std::atomic_int64_t concurrentAppendCount_{0};
+  std::atomic_int64_t flushAcquireCount_{0};
+  std::atomic_int64_t backpressureBlockCount_{0};
+  std::atomic_int64_t backpressureWakeCount_{0};
+  std::atomic_int64_t backpressureDrainedBytes_{0};
 
   std::atomic_int64_t lastLoggedDrainedGB_{0};
   std::vector<std::atomic<int64_t>> collectCountPerPartition_;
