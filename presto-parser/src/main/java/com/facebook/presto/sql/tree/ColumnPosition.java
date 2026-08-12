@@ -18,9 +18,10 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Position of a new column within a table, from the optional
- * {@code FIRST | AFTER <column>} clause of {@code ALTER TABLE ... ADD COLUMN}. An absent
- * clause appends the column, so there is no variant for it here.
+ * Position of a column within a table's column order, used both in
+ * {@code ALTER TABLE ... ADD COLUMN ... FIRST | AFTER <column>} to place a new column and in
+ * {@code ALTER TABLE ... ALTER COLUMN ... FIRST | AFTER <column>} to move an existing one.
+ * An absent clause in {@code ADD COLUMN} appends the column, so there is no variant for that here.
  * <p>
  * The only implementations are the nested {@link First} and {@link After} classes. This
  * would be a sealed interface, but the checkstyle version in use cannot parse the

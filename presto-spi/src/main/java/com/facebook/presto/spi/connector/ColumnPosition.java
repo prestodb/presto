@@ -18,7 +18,9 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Position at which a new column should be added to a table.
+ * Position of a column within a table's column order, used both when adding a new column
+ * ({@code ALTER TABLE ... ADD COLUMN}) and when moving an existing column
+ * ({@code ALTER TABLE ... ALTER COLUMN ... FIRST | AFTER}).
  * <p>
  * The only implementations are the nested {@link First}, {@link Last} and {@link After}
  * classes. This would be a sealed interface, but the checkstyle version in use cannot
