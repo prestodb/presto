@@ -57,7 +57,8 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
+        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition
+        (FIRST | AFTER after=identifier)?                              #addColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ADD constraintSpecification                                    #addConstraint
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
@@ -707,7 +708,7 @@ constraintEnforced
 
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
-    : ADD | ADMIN | ALL | ANALYZE | ANY | ARRAY | ASC | AT
+    : ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT
     | BEFORE | BERNOULLI | BRANCH
     | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | COPARTITION | CURRENT | CURRENT_ROLE
     | DATA | DATE | DAY | DEFAULT | DEFINER | DESC | DESCRIPTOR | DETERMINISTIC | DISABLED | DISTRIBUTED | DAYS
@@ -736,6 +737,7 @@ nonReserved
 
 ADD: 'ADD';
 ADMIN: 'ADMIN';
+AFTER: 'AFTER';
 ALL: 'ALL';
 ALTER: 'ALTER';
 ANALYZE: 'ANALYZE';

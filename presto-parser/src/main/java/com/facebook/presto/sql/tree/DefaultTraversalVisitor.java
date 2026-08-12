@@ -593,6 +593,9 @@ public abstract class DefaultTraversalVisitor<R, C>
     protected R visitAddColumn(AddColumn node, C context)
     {
         process(node.getColumn(), context);
+        node.getPosition()
+                .filter(position -> position instanceof ColumnPosition.After)
+                .ifPresent(position -> process(((ColumnPosition.After) position).getColumn(), context));
 
         return null;
     }

@@ -36,6 +36,7 @@ import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
@@ -1147,11 +1148,11 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
-    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         long startTime = System.nanoTime();
         try {
-            delegate.addColumn(session, tableHandle, column);
+            delegate.addColumn(session, tableHandle, column, position);
         }
         finally {
             stats.recordAddColumnCall(System.nanoTime() - startTime);
