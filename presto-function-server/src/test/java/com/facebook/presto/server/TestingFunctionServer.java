@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.http.server.HttpServerInfo;
 import com.facebook.airlift.http.server.HttpServerModule;
 import com.facebook.airlift.jaxrs.JaxrsModule;
@@ -24,16 +25,25 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 
 public class TestingFunctionServer
+        implements Closeable
 {
     private final FunctionPluginManager functionPluginManager;
+    private final LifeCycleManager lifeCycleManager;
+    private final HttpServerInfo serverInfo;
 
-    public TestingFunctionServer(int port)
+    /**
+     * Create a function server with the given configuration properties.
+     */
+    public TestingFunctionServer(Map<String, String> properties)
     {
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
@@ -47,16 +57,46 @@ public class TestingFunctionServer
 
         Bootstrap app = new Bootstrap(modules);
         Injector injector = app
-                .setRequiredConfigurationProperties(ImmutableMap.of("http-server.http.port", Integer.toString(port)))
+                .setRequiredConfigurationProperties(ImmutableMap.copyOf(properties))
                 .initialize();
 
         functionPluginManager = injector.getInstance(FunctionPluginManager.class);
-        HttpServerInfo serverInfo = injector.getInstance(HttpServerInfo.class);
-        log.info("======== REMOTE FUNCTION SERVER STARTED at: " + serverInfo.getHttpUri() + " =========");
+        lifeCycleManager = injector.getInstance(LifeCycleManager.class);
+        serverInfo = injector.getInstance(HttpServerInfo.class);
+        log.info("======== REMOTE FUNCTION SERVER STARTED at: " + FunctionServer.getServerUri(serverInfo) + " =========");
+    }
+
+    public TestingFunctionServer(int port)
+    {
+        this(ImmutableMap.of("http-server.http.port", Integer.toString(port)));
     }
 
     public void installPlugin(Plugin plugin)
     {
         functionPluginManager.installPlugin(plugin);
+    }
+
+    public String getServerUri()
+    {
+        return FunctionServer.getServerUri(serverInfo).toString();
+    }
+
+    /**
+     * Stops the HTTP server and all Airlift-managed lifecycle components.
+     * Must be called when the server is no longer needed to release port and thread resources.
+     */
+    @Override
+    public void close()
+            throws IOException
+    {
+        try {
+            lifeCycleManager.stop();
+        }
+        catch (Exception e) {
+            if (e instanceof RuntimeException) {
+                throw e;
+            }
+            throw new IOException("Failed to stop TestingFunctionServer", e);
+        }
     }
 }

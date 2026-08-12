@@ -329,7 +329,8 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
       uint32_t http2SessionWindow,
       folly::EventBase* eventBase,
       const folly::SocketAddress& address,
-      folly::SSLContextPtr sslContext)
+      folly::SSLContextPtr sslContext,
+      std::string serverName)
       : responseHandler_(responseHandler),
         sessionPool_(sessionPool),
         transactionTimer_(std::move(transactionTimeout)),
@@ -341,7 +342,8 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
         http2SessionWindow_(http2SessionWindow),
         eventBase_(eventBase),
         address_(address),
-        sslContext_(std::move(sslContext)) {}
+        sslContext_(std::move(sslContext)),
+        serverName_(std::move(serverName)) {}
 
   bool useHttps() const {
     return sslContext_ != nullptr;
@@ -350,11 +352,23 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   void connect() {
     connector_ =
         std::make_unique<proxygen::HTTPConnector>(this, transactionTimer_);
-    if (useHttps()) {
-      connector_->connectSSL(
-          eventBase_, address_, sslContext_, nullptr, connectTimeout_);
-    } else {
-      connector_->connect(eventBase_, address_, connectTimeout_);
+    try {
+      if (useHttps()) {
+        connector_->connectSSL(
+            eventBase_,
+            address_,
+            sslContext_,
+            nullptr,
+            connectTimeout_,
+            folly::emptySocketOptionMap,
+            folly::AsyncSocket::anyAddress(),
+            serverName_);
+      } else {
+        connector_->connect(eventBase_, address_, connectTimeout_);
+      }
+    } catch (...) {
+      delete this;
+      throw;
     }
   }
 
@@ -392,6 +406,7 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   folly::EventBase* const eventBase_;
   const folly::SocketAddress address_;
   const folly::SSLContextPtr sslContext_;
+  const std::string serverName_;
   std::unique_ptr<proxygen::HTTPConnector> connector_;
 };
 
@@ -564,7 +579,8 @@ void HttpClient::sendRequest(std::shared_ptr<ResponseHandler> responseHandler) {
         options_.http2SessionWindow,
         eventBase_,
         address_,
-        sslContext_);
+        sslContext_,
+        sslContext_ != nullptr ? endpoint_.getHostname() : std::string{});
     connectionHandler->connect();
   };
   if (txnFuture.isReady()) {
@@ -579,6 +595,18 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
     const std::string& body,
     int64_t delayMs) {
   request.setDstAddress(this->address_);
+  // For HTTPS connections, pre-fill the Host header with the endpoint hostname
+  // so it matches the SNI value sent during the TLS handshake. Jetty (used by
+  // the Java function server) compares the SNI hostname against the Host header
+  // and returns HTTP 400 if they differ. ensureHostHeader() falls back to the
+  // resolved IP address, which would not match the SNI hostname.
+  // Only set when the caller has not already provided a Host header, and only
+  // when the endpoint carries a DNS hostname (not a raw IP).
+  if (sslContext_ != nullptr && !endpoint_.getHostname().empty() &&
+      !request.getHeaders().exists(proxygen::HTTP_HEADER_HOST)) {
+    request.getHeaders().set(
+        proxygen::HTTP_HEADER_HOST, endpoint_.getHostname());
+  }
   request.ensureHostHeader();
   auto responseHandler = std::make_shared<ResponseHandler>(
       request,
