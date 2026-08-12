@@ -132,8 +132,10 @@ int64_t MaterializedOutputBuffer::PartitionBuffer::tryDrainPartition(
     int64_t targetBytes) {
   if (!tryAcquireFlushing()) {
     // Another driver is already draining and it will pick up our data.
+    buffer_->concurrentAppendCount_ += 1;
     return 0;
   }
+  buffer_->flushAcquireCount_ += 1;
 
   int64_t totalDrainedBytes = 0;
   do {
@@ -337,6 +339,7 @@ void MaterializedOutputBuffer::addBlockedPromise(
     velox::ContinueFuture* future) {
   velox::ContinuePromise promise{"MaterializedOutputBuffer::addBlockedPromise"};
   *future = promise.getSemiFuture();
+  backpressureBlockCount_ += 1;
   blockedPromises_.withWLock(
       [&](auto& promises) { promises.push_back(std::move(promise)); });
   // Avoid missing a concurrent low-watermark crossing during registration.
@@ -347,6 +350,7 @@ void MaterializedOutputBuffer::tryDrainPartitions() {
   while (bufferedBytes_ >= lowWatermarkBytes_) {
     // Flush the fullest partitions this thread can acquire.
     const uint64_t drainedBytes = tryDrainPartitionsInternal();
+    backpressureDrainedBytes_ += static_cast<int64_t>(drainedBytes);
     if (drainedBytes == 0) {
       // Nothing left this thread can drain (others are flushing the rest).
       break;
@@ -354,7 +358,7 @@ void MaterializedOutputBuffer::tryDrainPartitions() {
   }
 }
 
-velox::exec::BlockingReason MaterializedOutputBuffer::backpressure(
+velox::exec::BlockingReason MaterializedOutputBuffer::isBlocked(
     velox::ContinueFuture* future) {
   if (!isBufferFull()) {
     return velox::exec::BlockingReason::kNotBlocked;
@@ -395,6 +399,9 @@ void MaterializedOutputBuffer::maybeWakeBlockedDrivers() {
   }
   std::vector<velox::ContinuePromise> toFulfill;
   blockedPromises_.withWLock([&](auto& promises) { toFulfill.swap(promises); });
+  if (!toFulfill.empty()) {
+    backpressureWakeCount_ += static_cast<int64_t>(toFulfill.size());
+  }
   for (auto& promise : toFulfill) {
     promise.setValue();
   }
@@ -579,6 +586,16 @@ MaterializedOutputBuffer::stats() const {
   result[std::string(kReclaimCount)] = velox::RuntimeMetric(reclaimCount_);
   result[std::string(kReclaimedBytes)] =
       velox::RuntimeMetric(reclaimedBytes_, Unit::kBytes);
+  result[std::string(kConcurrentAppendCount)] =
+      velox::RuntimeMetric(concurrentAppendCount_);
+  result[std::string(kFlushAcquireCount)] =
+      velox::RuntimeMetric(flushAcquireCount_);
+  result[std::string(kBackpressureBlockCount)] =
+      velox::RuntimeMetric(backpressureBlockCount_);
+  result[std::string(kBackpressureWakeCount)] =
+      velox::RuntimeMetric(backpressureWakeCount_);
+  result[std::string(kBackpressureDrainedBytes)] =
+      velox::RuntimeMetric(backpressureDrainedBytes_, Unit::kBytes);
   return result;
 }
 
