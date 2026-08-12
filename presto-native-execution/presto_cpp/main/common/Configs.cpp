@@ -139,6 +139,7 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kPrestoVersion),
           NONE_PROP(kHttpServerHttpPort),
           BOOL_PROP(kHttpServerReusePort, false),
+          BOOL_PROP(kHttpServerReportBoundPortToFile, false),
           BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, false),
           NONE_PROP(kDiscoveryUri),
           NUM_PROP(kMaxDriversPerTask, hardwareConcurrency()),
@@ -328,6 +329,10 @@ int SystemConfig::httpServerHttpPort() const {
 
 bool SystemConfig::httpServerReusePort() const {
   return optionalProperty<bool>(kHttpServerReusePort).value();
+}
+
+bool SystemConfig::httpServerReportBoundPortToFile() const {
+  return optionalProperty<bool>(kHttpServerReportBoundPortToFile).value();
 }
 
 bool SystemConfig::httpServerBindToNodeInternalAddressOnlyEnabled() const {
