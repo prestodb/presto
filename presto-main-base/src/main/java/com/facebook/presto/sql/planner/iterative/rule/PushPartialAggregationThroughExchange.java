@@ -21,6 +21,8 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -35,6 +37,8 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.optimizations.ActualProperties;
+import com.facebook.presto.sql.planner.optimizations.LocalProperties;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.google.common.collect.ImmutableList;
@@ -45,10 +49,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationByteReductionThreshold;
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationStrategy;
+import static com.facebook.presto.SystemSessionProperties.isSegmentedAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isStreamingForPartialAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.usePartialAggregationHistory;
 import static com.facebook.presto.cost.PartialAggregationStatsEstimate.isUnknown;
@@ -61,6 +67,8 @@ import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel;
 import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.NEVER;
+import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
+import static com.facebook.presto.sql.planner.optimizations.PropertyDerivations.derivePropertiesRecursively;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -69,17 +77,20 @@ import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class PushPartialAggregationThroughExchange
         implements Rule<AggregationNode>
 {
+    private final Metadata metadata;
     private final FunctionAndTypeManager functionAndTypeManager;
     private final boolean nativeExecution;
     private String statsSource;
 
-    public PushPartialAggregationThroughExchange(FunctionAndTypeManager functionAndTypeManager, boolean nativeExecution)
+    public PushPartialAggregationThroughExchange(Metadata metadata, FunctionAndTypeManager functionAndTypeManager, boolean nativeExecution)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.nativeExecution = nativeExecution;
     }
@@ -200,6 +211,97 @@ public class PushPartialAggregationThroughExchange
         }
     }
 
+    /**
+     * Marks a partial aggregation as segmented when its input is already grouped on a prefix of the
+     * grouping keys, so that the operator can flush a group as soon as the prefix changes instead of
+     * holding every group until the memory cap is hit. Controlled by {@code segmented_aggregation_enabled},
+     * the same session property that enables segmented aggregation elsewhere.
+     * <p>
+     * {@link com.facebook.presto.sql.planner.optimizations.AddLocalExchanges} already applies that
+     * property, but only to a SINGLE aggregation, and it runs before this rule. Whenever the grouping keys
+     * require a repartition, that aggregation sits above the exchange and its source is a remote source
+     * with no local properties, so the prefix it computes is always empty. The partial aggregation is the
+     * only one that ends up on the ordered input: this rule matches exchanges with no ordering scheme, so
+     * nothing above the exchange can be grouped on the input's order. It is also the aggregation that
+     * benefits, because it is the one holding every group until it reaches its memory limit.
+     * <p>
+     * A stale prefix would only cost an extra flush, never a wrong answer: a partial aggregation is
+     * allowed to emit a group at any point and the final aggregation merges the pieces. The pre-grouped
+     * variables are still dropped on the final aggregation, where the guarantee would be load bearing.
+     */
+    private AggregationNode withSegmentedPreGroupedVariables(AggregationNode partial, PlanNode source, Context context)
+    {
+        // Only ever a partial: looking through a local exchange, and tolerating a prefix that turns out not
+        // to hold, are both only safe because a partial aggregation may flush a group early. On a final
+        // aggregation the same prefix would produce a wrong answer, and a final does normally sit directly
+        // above a local exchange.
+        checkState(partial.getStep() == PARTIAL, "expected a partial aggregation, found %s", partial.getStep());
+        if (!isSegmentedAggregationEnabled(context.getSession()) || partial.getGroupingKeys().isEmpty()) {
+            return partial;
+        }
+        if (!partial.getPreGroupedVariables().isEmpty()) {
+            // Something already decided how this aggregation is grouped, currently only
+            // streaming_for_partial_aggregation_enabled, which marks every grouping key. Deriving a prefix
+            // here would narrow that decision rather than add to it, so leave it alone.
+            return partial;
+        }
+
+        List<VariableReferenceExpression> groupingKeys = partial.getGroupingKeys();
+        // PropertyDerivations does not understand a GroupReference, so the memo subtree is materialized first.
+        ActualProperties properties = derivePropertiesRecursively(resolveGroupReferences(source, context.getLookup()), metadata, context.getSession());
+        List<LocalProperty<VariableReferenceExpression>> inputOrder = properties.getLocalProperties();
+        if (inputOrder.isEmpty()) {
+            return partial;
+        }
+        // match() returns the grouping keys that are NOT covered by the input's local properties;
+        // an empty result means every key is pre-grouped. See AddLocalExchanges#visitAggregation.
+        // match() returns one element per desired property, and a single GroupingProperty was requested.
+        List<Optional<LocalProperty<VariableReferenceExpression>>> match = LocalProperties.match(inputOrder, LocalProperties.grouped(groupingKeys));
+        checkState(match.size() == 1, "expected a single match result, found %s", match.size());
+        List<VariableReferenceExpression> preGroupedVariables;
+        if (!match.get(0).isPresent()) {
+            // An empty match means the input is already grouped on every grouping key, so the aggregation
+            // can stream. Note this is only claimed because the input actually reports the property, unlike
+            // streaming_for_partial_aggregation_enabled, which marks every key regardless of the input.
+            preGroupedVariables = groupingKeys;
+        }
+        else if (match.get(0).get().getColumns().size() < groupingKeys.size()) {
+            // Some, but not all, of the grouping keys are pre-grouped: the match holds the ones that are not.
+            // Only the leading one is claimed. The operator flushes whenever any pre-grouped variable
+            // changes, so the shortest prefix flushes the least, at the cost of holding the remaining keys
+            // in the hash table for longer, and a shorter prefix is always weaker than what the input
+            // reports. Leading is taken in the order of the input's properties, not of the grouping keys,
+            // so it is the column the input changes on least often.
+            Set<VariableReferenceExpression> preGrouped = groupingKeys.stream()
+                    .filter(groupingKey -> !match.get(0).get().getColumns().contains(groupingKey))
+                    .collect(toImmutableSet());
+            preGroupedVariables = inputOrder.stream()
+                    .flatMap(property -> property.getColumns().stream())
+                    .filter(preGrouped::contains)
+                    .findFirst()
+                    .map(ImmutableList::of)
+                    .orElse(ImmutableList.of());
+            if (preGroupedVariables.isEmpty()) {
+                return partial;
+            }
+        }
+        else {
+            // Nothing is pre-grouped.
+            return partial;
+        }
+        return new AggregationNode(
+                partial.getSourceLocation(),
+                partial.getId(),
+                partial.getSource(),
+                partial.getAggregations(),
+                partial.getGroupingSets(),
+                preGroupedVariables,
+                partial.getStep(),
+                partial.getHashVariable(),
+                partial.getGroupIdVariable(),
+                partial.getAggregationId());
+    }
+
     private PlanNode pushPartial(AggregationNode aggregation, ExchangeNode exchange, Context context)
     {
         List<PlanNode> partials = new ArrayList<>();
@@ -216,7 +318,7 @@ public class PushPartialAggregationThroughExchange
             }
 
             SymbolMapper symbolMapper = mappingsBuilder.build();
-            AggregationNode mappedPartial = symbolMapper.map(aggregation, source, context.getIdAllocator());
+            AggregationNode mappedPartial = withSegmentedPreGroupedVariables(symbolMapper.map(aggregation, source, context.getIdAllocator()), source, context);
 
             Assignments.Builder assignments = Assignments.builder();
 

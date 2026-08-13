@@ -38,6 +38,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 
 public class TestValidateStreamingAggregations
@@ -86,6 +87,27 @@ public class TestValidateStreamingAggregations
                                                         nationTableHandle,
                                                         ImmutableList.of(p.variable("nationkey", BIGINT)),
                                                         ImmutableMap.of(p.variable("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)))))));
+    }
+
+    /**
+     * The same plan that fails for a SINGLE aggregation is accepted for a partial one. A partial
+     * aggregation may emit a group at any point and the final aggregation merges the pieces, so its
+     * pre-grouped variables say where the input is expected to change rather than guaranteeing how it is
+     * grouped.
+     */
+    @Test
+    public void testPartialAggregationIsNotValidated()
+    {
+        validatePlan(
+                p -> p.aggregation(
+                        a -> a.step(PARTIAL)
+                                .singleGroupingSet(p.variable("nationkey"))
+                                .preGroupedVariables(p.variable("nationkey"))
+                                .source(
+                                        p.tableScan(
+                                                nationTableHandle,
+                                                ImmutableList.of(p.variable("nationkey", BIGINT)),
+                                                ImmutableMap.of(p.variable("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))));
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Streaming aggregation with input not grouped on the grouping keys")

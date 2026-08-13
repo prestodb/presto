@@ -32,6 +32,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
 import static com.facebook.presto.util.Failures.checkArgument;
 
@@ -79,6 +81,14 @@ public class ValidateStreamingAggregations
         public Void visitAggregation(AggregationNode node, Void context)
         {
             if (node.getPreGroupedVariables().isEmpty()) {
+                return null;
+            }
+
+            // A partial or intermediate aggregation may emit a group at any point, and the final
+            // aggregation merges whatever it emits, so its pre-grouped variables are a hint about where
+            // the input is likely to change rather than a guarantee about how it is grouped. Requiring the
+            // input to actually be grouped only makes sense where flushing early would change the result.
+            if (node.getStep() != FINAL && node.getStep() != SINGLE) {
                 return null;
             }
 

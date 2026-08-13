@@ -1174,7 +1174,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.of(
                                 new PushPartialAggregationThroughJoin(),
-                                new PushPartialAggregationThroughExchange(metadata.getFunctionAndTypeManager(), featuresConfig.isNativeExecutionEnabled()))),
+                                new PushPartialAggregationThroughExchange(metadata, metadata.getFunctionAndTypeManager(), featuresConfig.isNativeExecutionEnabled()))),
                 // MergePartialAggregationsWithFilter should immediately follow PushPartialAggregationThroughExchange
                 new MergePartialAggregationsWithFilter(metadata.getFunctionAndTypeManager()),
                 new IterativeOptimizer(
