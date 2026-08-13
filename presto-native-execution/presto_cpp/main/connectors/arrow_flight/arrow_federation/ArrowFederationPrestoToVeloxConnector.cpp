@@ -49,6 +49,7 @@ ArrowFederationPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& /*exprConverter*/,
     const TypeParser& /*typeParser*/) const {
+  VELOX_CHECK_NOT_NULL(tableHandle.connectorHandle, "Missing table handle");
   auto arrowTable = std::dynamic_pointer_cast<
       const protocol::arrow_federation::ArrowFederationTableHandle>(
       tableHandle.connectorHandle);
@@ -57,6 +58,8 @@ ArrowFederationPrestoToVeloxConnector::toVeloxTableHandle(
       "Unexpected table handle type {}",
       tableHandle.connectorHandle->_type);
 
+  VELOX_CHECK_NOT_NULL(
+      tableHandle.connectorTableLayout, "Missing table layout");
   auto arrowLayout = std::dynamic_pointer_cast<
       const protocol::arrow_federation::ArrowFederationTableLayoutHandle>(
       tableHandle.connectorTableLayout);
@@ -65,6 +68,7 @@ ArrowFederationPrestoToVeloxConnector::toVeloxTableHandle(
       "Unexpected layout handle type {}",
       tableHandle.connectorTableLayout->_type);
 
+  VELOX_CHECK_NOT_NULL(tableHandle.transaction, "Missing transaction handle");
   auto arrowTransaction = std::dynamic_pointer_cast<
       const protocol::arrow_federation::ArrowFederationTransactionHandle>(
       tableHandle.transaction);
