@@ -7554,26 +7554,33 @@ void from_json(const json& j, MemoryInfo& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+// Route ConnectorMergeTableHandle through the registered connector protocol
+// (mirrors ConnectorDeleteTableHandle). Without this the default codegen
+// hard-throws "no abstract type ConnectorMergeTableHandle", which breaks
+// UPDATE/MERGE deserialization on the worker (MergeHandle.from_json ->
+// from_json_key(connectorMergeTableHandle) reaches here). Unlike the Delete/
+// Insert handles there is no deserialize(ConnectorMergeTableHandle) overload
+// on ConnectorProtocol, so the customSerializedValue branch is omitted.
 void to_json(json& j, const std::shared_ptr<ConnectorMergeTableHandle>& p) {
   if (p == nullptr) {
     return;
   }
   String type = p->_type;
-
-  throw TypeError(type + " no abstract type ConnectorMergeTableHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorMergeTableHandle>& p) {
   String type;
   try {
-    type = p->getSubclassKey(j);
+    JsonEncodedSubclass keyReader;
+    type = keyReader.getSubclassKey(j);
   } catch (json::parse_error& e) {
     throw ParseError(
         std::string(e.what()) +
         " ConnectorMergeTableHandle  ConnectorMergeTableHandle");
   }
 
-  throw TypeError(type + " no abstract type ConnectorMergeTableHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -7601,7 +7608,16 @@ void to_json(json& j, const MergeHandle& p) {
 }
 
 void from_json(const json& j, MergeHandle& p) {
-  p._type = j["@type"];
+  // The concrete com.facebook.presto.spi.MergeHandle (held by MergeTarget) is a
+  // non-polymorphic data class serialized without an "@type" key, whereas the
+  // polymorphic ExecutionWriterTarget.MergeHandle carries one. Protocol codegen
+  // conflates both into this single struct, so tolerate a missing "@type": the
+  // constructor already defaults _type to "MergeHandle". Without this, an
+  // UPDATE/MERGE fails on the worker with json type_error.302 (the missing-key
+  // read surfaces as "type must be string, but is number").
+  if (j.contains("@type")) {
+    p._type = j["@type"];
+  }
   from_json_key(
       j,
       "tableHandle",
