@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.iceberg.rest;
 
+import com.facebook.presto.hive.HdfsContext;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.azure.AzureConfigurationInitializer;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
@@ -20,6 +22,7 @@ import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.iceberg.IcebergCatalogName;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
+import com.facebook.presto.iceberg.PrestoRESTFileIO;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.security.ConnectorIdentity;
@@ -29,12 +32,14 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.jsonwebtoken.Jwts;
 import jakarta.inject.Inject;
 import org.apache.iceberg.CatalogProperties;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
 import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTCatalog;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -52,6 +57,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
 import static org.apache.iceberg.CatalogProperties.URI;
 import static org.apache.iceberg.CatalogUtil.configureHadoopConf;
 import static org.apache.iceberg.rest.auth.AuthProperties.AUTH_TYPE;
@@ -82,6 +88,7 @@ public class IcebergRestCatalogFactory
     private final NodeVersion nodeVersion;
     private final String catalogName;
     private final boolean nestedNamespaceEnabled;
+    private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
     public IcebergRestCatalogFactory(
@@ -91,13 +98,15 @@ public class IcebergRestCatalogFactory
             S3ConfigurationUpdater s3ConfigurationUpdater,
             GcsConfigurationInitializer gcsConfigurationInitialize,
             AzureConfigurationInitializer azureConfigurationInitialize,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            HdfsEnvironment hdfsEnvironment)
     {
         super(config, catalogName, s3ConfigurationUpdater, gcsConfigurationInitialize, azureConfigurationInitialize);
         this.catalogConfig = requireNonNull(catalogConfig, "catalogConfig is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null").getCatalogName();
         this.nestedNamespaceEnabled = catalogConfig.isNestedNamespaceEnabled();
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -119,6 +128,22 @@ public class IcebergRestCatalogFactory
             throwIfUnchecked(e);
             throw new UncheckedExecutionException(e);
         }
+    }
+
+    @Override
+    public void configureTableFileIO(ConnectorSession session, Table table)
+    {
+        if (table.io() instanceof PrestoRESTFileIO) {
+            ((PrestoRESTFileIO) table.io()).setHdfsEnvironmentAndContext(hdfsEnvironment, new HdfsContext(session));
+        }
+    }
+
+    @Override
+    protected Map<String, String> getProperties(ConnectorSession session)
+    {
+        Map<String, String> properties = new HashMap<>(super.getProperties(session));
+        properties.put(FILE_IO_IMPL, PrestoRESTFileIO.class.getName());
+        return properties;
     }
 
     @Override

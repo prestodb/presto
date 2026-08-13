@@ -455,6 +455,7 @@ public class IcebergNativeMetadata
         }
 
         Table icebergTable = getIcebergTable(session, schemaTableName);
+        catalogFactory.configureTableFileIO(session, icebergTable);
         ReplaceSortOrder replaceSortOrder = icebergTable.replaceSortOrder();
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
         List<SortField> sortFields = getSupportedSortFields(icebergTable.schema(), sortOrder);

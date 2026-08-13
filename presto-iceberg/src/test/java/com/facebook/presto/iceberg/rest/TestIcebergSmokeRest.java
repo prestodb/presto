@@ -129,7 +129,8 @@ public class TestIcebergSmokeRest
                 new PrestoS3ConfigurationUpdater(new HiveS3Config()),
                 new HiveGcsConfigurationInitializer(new HiveGcsConfig()),
                 new HiveAzureConfigurationInitializer(new HiveAzureConfig()),
-                new NodeVersion("test_version"));
+                new NodeVersion("test_version"),
+                getHdfsEnvironment());
     }
 
     @Override
