@@ -106,6 +106,7 @@ import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
+import com.facebook.presto.sql.tree.AddField;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterColumnNotNull;
@@ -1223,6 +1224,13 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitAddColumn(AddColumn node, Optional<Scope> scope)
+        {
+            analysis.setUpdateInfo(node.getUpdateInfo());
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitAddField(AddField node, Optional<Scope> scope)
         {
             analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);

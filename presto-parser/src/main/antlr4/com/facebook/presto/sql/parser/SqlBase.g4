@@ -59,6 +59,9 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ADD COLUMN (IF NOT EXISTS)? columnPath=qualifiedName type
+        (NOT NULL)? (COMMENT string)?                                  #addField
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ADD constraintSpecification                                    #addConstraint
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP CONSTRAINT (IF EXISTS)? name=identifier                   #dropConstraint

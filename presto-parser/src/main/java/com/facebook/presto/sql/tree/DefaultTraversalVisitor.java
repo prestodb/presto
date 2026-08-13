@@ -607,6 +607,12 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitAddField(AddField node, C context)
+    {
+        return null;
+    }
+
+    @Override
     protected R visitCreateTable(CreateTable node, C context)
     {
         node.getElements().forEach(tableElement -> process(tableElement, context));

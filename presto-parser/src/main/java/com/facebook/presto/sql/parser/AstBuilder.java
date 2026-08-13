@@ -16,6 +16,7 @@ package com.facebook.presto.sql.parser;
 import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
+import com.facebook.presto.sql.tree.AddField;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterColumnNotNull;
@@ -640,6 +641,33 @@ class AstBuilder
         return new AddColumn(getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (ColumnDefinition) visit(context.columnDefinition()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
+    }
+
+    @Override
+    public Node visitAddField(SqlBaseParser.AddFieldContext context)
+    {
+        // columnPath is a qualifiedName like "col.new_field" or "outer.inner.new_field".
+        // Split off the last identifier as fieldName; everything before is the parent path.
+        // Use getOriginalParts() so quoted (isDelimited) identifiers are preserved exactly.
+        QualifiedName fullPath = getQualifiedName(context.columnPath);
+        List<Identifier> originalParts = fullPath.getOriginalParts();
+        if (originalParts.size() < 2) {
+            throw new ParsingException("Column path for ADD COLUMN nested field must contain at least one dot (e.g. struct_col.new_field)",
+                    getLocation(context));
+        }
+        QualifiedName parentPath = QualifiedName.of(originalParts.subList(0, originalParts.size() - 1));
+        Identifier fieldName = originalParts.get(originalParts.size() - 1);
+
+        return new AddField(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                parentPath,
+                fieldName,
+                getType(context.type()),
+                context.NULL() == null,
+                Optional.ofNullable(context.string() != null ? ((StringLiteral) visit(context.string())).getValue() : null),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }

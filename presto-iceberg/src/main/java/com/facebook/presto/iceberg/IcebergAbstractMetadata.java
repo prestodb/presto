@@ -1286,6 +1286,44 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
+    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, com.facebook.presto.common.type.Type type, boolean ignoreExisting)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have fields added");
+        validateNoBranchSpecified(handle, "ADD COLUMN");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        // Resolve parent using case-insensitive lookup, then recover its canonical name —
+        // Iceberg's addColumn() is case-sensitive when locating the parent.
+        String parentName = String.join(".", parentPath);
+        Types.NestedField parentField = icebergTable.schema().caseInsensitiveFindField(parentName);
+        if (parentField == null) {
+            throw new PrestoException(COLUMN_NOT_FOUND,
+                    format("Cannot find parent field '%s' in table '%s'", parentName, handle.getSchemaTableName()));
+        }
+        String canonicalParentName = icebergTable.schema().findColumnName(parentField.fieldId());
+
+        // Check existence now; Iceberg's commit() gives a poor error if we skip this.
+        Types.NestedField existingField = icebergTable.schema().caseInsensitiveFindField(canonicalParentName + "." + fieldName);
+        if (existingField != null) {
+            if (ignoreExisting) {
+                return;
+            }
+            throw new PrestoException(ALREADY_EXISTS, format("Field '%s' already exists in '%s'", fieldName, canonicalParentName));
+        }
+
+        org.apache.iceberg.types.Type icebergType = toIcebergType(type);
+        try {
+            icebergTable.updateSchema()
+                    .addColumn(canonicalParentName, fieldName, icebergType)
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to add field: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    @Override
     public void setColumnDefault(ConnectorSession session, ConnectorTableHandle tableHandle, String columnName, Object defaultValue)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;

@@ -642,6 +642,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitAddField(AddField node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitDropBranch(DropBranch node, C context)
     {
         return visitStatement(node, context);

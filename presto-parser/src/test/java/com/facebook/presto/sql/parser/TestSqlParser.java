@@ -15,6 +15,7 @@ package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
+import com.facebook.presto.sql.tree.AddField;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterColumnNotNull;
@@ -2116,6 +2117,108 @@ public class TestSqlParser
         assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN country varchar DEFAULT 'UK'",
                 new AddColumn(QualifiedName.of("foo", "t"),
                         new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("UK"))), true, false));
+    }
+
+    @Test
+    public void testAddField()
+    {
+        // Single-level struct: ADD COLUMN parent.new_field type
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "VARCHAR",
+                        true,
+                        Optional.empty(),
+                        false,
+                        false));
+
+        // IF EXISTS on table
+        assertStatement(
+                "ALTER TABLE IF EXISTS foo.t ADD COLUMN col.new_field BIGINT",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "BIGINT",
+                        true,
+                        Optional.empty(),
+                        true,
+                        false));
+
+        // IF NOT EXISTS on field
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS col.new_field INTEGER",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "INTEGER",
+                        true,
+                        Optional.empty(),
+                        false,
+                        true));
+
+        // NOT NULL
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR NOT NULL",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "VARCHAR",
+                        false,
+                        Optional.empty(),
+                        false,
+                        false));
+
+        // COMMENT
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR COMMENT 'a comment'",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "VARCHAR",
+                        true,
+                        Optional.of("a comment"),
+                        false,
+                        false));
+
+        // Multi-level nesting: parent path has two parts
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN outer_col.inner_col.new_field DOUBLE",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("outer_col", "inner_col"),
+                        identifier("new_field"),
+                        "DOUBLE",
+                        true,
+                        Optional.empty(),
+                        false,
+                        false));
+
+        // Quoted field name: isDelimited must be preserved through the round-trip
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.\"new field\" VARCHAR",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        quotedIdentifier("new field"),
+                        "VARCHAR",
+                        true,
+                        Optional.empty(),
+                        false,
+                        false));
     }
 
     @Test

@@ -1159,6 +1159,12 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    {
+        delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+    }
+
+    @Override
     public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
     {
         long startTime = System.nanoTime();
