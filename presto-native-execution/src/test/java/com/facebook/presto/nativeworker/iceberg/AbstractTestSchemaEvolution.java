@@ -13,14 +13,45 @@
  */
 package com.facebook.presto.nativeworker.iceberg;
 
+import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.s3.HiveS3Config;
+import com.facebook.presto.iceberg.IcebergCatalogName;
+import com.facebook.presto.iceberg.IcebergConfig;
+import com.facebook.presto.iceberg.IcebergDistributedTestBase;
+import com.facebook.presto.iceberg.IcebergHiveTableOperationsConfig;
+import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.ManifestFileCache;
+import com.facebook.presto.iceberg.hive.IcebergFileHiveMetastore;
+import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.cache.CacheBuilder;
+import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.expressions.Expressions;
+import org.apache.iceberg.io.CloseableIterable;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+
+import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
+import static com.facebook.presto.iceberg.CatalogType.HIVE;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder;
 import static java.lang.String.format;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertTrue;
 
 /**
  * End-to-end schema-evolution tests for Iceberg tables read on native (Prestissimo)
@@ -41,6 +72,8 @@ import static java.lang.String.format;
 public abstract class AbstractTestSchemaEvolution
         extends AbstractTestQueryFramework
 {
+    private static final String TEST_SCHEMA = "tpch";
+
     protected abstract String storageFormat();
 
     @Override
@@ -229,5 +262,129 @@ public abstract class AbstractTestSchemaEvolution
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", table));
         }
+    }
+
+    // A predicate on a column that only became a partition column later must
+    // still be evaluated row-by-row against files written under the old spec.
+    //
+    // The native split (IcebergSplit) does not carry Iceberg's per-file
+    // FileScanTask.residual(), so the concern is that a predicate Iceberg
+    // simplified away for new-spec files could be lost for old-spec files.
+    // Correctness instead rests on the table-level domain/remaining predicate,
+    // which the native worker always receives and evaluates: the old-spec file
+    // holds both rec_source values, so if the row-level predicate were dropped
+    // for it, the 'B' row would leak into a rec_source = 'A' result.
+    @Test
+    public void testPartitionEvolutionKeepsRowLevelPredicate()
+            throws Exception
+    {
+        String table = "schema_evolution_partition_evolution";
+        try {
+            assertUpdate(format(
+                    "CREATE TABLE %s (id INTEGER, rec_source VARCHAR, int_load_ts TIMESTAMP) " +
+                            "WITH (format = '%s', partitioning = ARRAY['day(int_load_ts)'])",
+                    table, storageFormat()));
+
+            // Old spec: a single file holding both rec_source values on the same
+            // day, so rec_source is not constant within the file and cannot be
+            // answered from partition metadata alone.
+            assertUpdate(format("INSERT INTO %s VALUES " +
+                    "(1, 'A', TIMESTAMP '2024-01-01 00:00:00'), " +
+                    "(2, 'B', TIMESTAMP '2024-01-01 01:00:00')", table), 2);
+
+            int oldSpecId = loadIcebergTable(table).spec().specId();
+
+            // Promote rec_source to an identity partition field. There is no
+            // Presto SQL DDL for adding an existing column to a partition spec
+            // (setTableProperties only accepts updatable table properties), so
+            // evolve through the Iceberg API.
+            loadIcebergTable(table).updateSpec().addField("rec_source").commit();
+            assertNotEquals(loadIcebergTable(table).spec().specId(), oldSpecId);
+
+            // New spec: rec_source is a partition column, so these rows land in
+            // per-value files where the predicate IS enforceable by pruning.
+            assertUpdate(format("INSERT INTO %s VALUES " +
+                    "(3, 'A', TIMESTAMP '2024-01-02 00:00:00'), " +
+                    "(4, 'B', TIMESTAMP '2024-01-02 01:00:00')", table), 2);
+
+            assertOldSpecFileHasNonTrivialResidual(table, oldSpecId);
+
+            // id = 2 is the 'B' row inside the old-spec file. Its presence here
+            // would mean the row-level predicate was lost during evolution.
+            assertQuery(format("SELECT id FROM %s WHERE rec_source = 'A' ORDER BY id", table),
+                    "VALUES 1, 3");
+            assertQuery(format("SELECT id FROM %s WHERE rec_source = 'B' ORDER BY id", table),
+                    "VALUES 2, 4");
+            assertQuery(format("SELECT count(*) FROM %s", table), "VALUES 4");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s", table));
+        }
+    }
+
+    // Makes the premise of testPartitionEvolutionKeepsRowLevelPredicate
+    // explicit: Iceberg itself cannot fully answer rec_source = 'A' for the
+    // old-spec file, so it leaves a non-trivial residual that something
+    // downstream must still evaluate.
+    private void assertOldSpecFileHasNonTrivialResidual(String table, int oldSpecId)
+            throws IOException
+    {
+        boolean sawOldSpecFile = false;
+        try (CloseableIterable<FileScanTask> tasks = loadIcebergTable(table).newScan()
+                .filter(Expressions.equal("rec_source", "A"))
+                .planFiles()) {
+            for (FileScanTask task : tasks) {
+                if (task.spec().specId() == oldSpecId) {
+                    assertNotEquals(
+                            task.residual().toString(),
+                            Expressions.alwaysTrue().toString(),
+                            "old-spec file should retain a residual for rec_source = 'A'");
+                    sawOldSpecFile = true;
+                }
+            }
+        }
+        assertTrue(sawOldSpecFile, "scan did not plan any old-spec file");
+    }
+
+    // Loads the live Iceberg table behind the query runner. The fixture uses the
+    // HIVE catalog backed by a file metastore, so go through
+    // IcebergUtil.getHiveIcebergTable rather than constructing a HadoopCatalog.
+    private Table loadIcebergTable(String tableName)
+    {
+        CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+        ConnectorSession connectorSession = getSession().toConnectorSession(connectorId);
+
+        HdfsEnvironment hdfsEnvironment = IcebergDistributedTestBase.getHdfsEnvironment(
+                new HiveClientConfig(),
+                new MetastoreClientConfig(),
+                new HiveS3Config());
+        ExtendedHiveMetastore metastore = memoizeMetastore(
+                new IcebergFileHiveMetastore(hdfsEnvironment, getCatalogDirectory().toString(), "test"),
+                false,
+                1000,
+                0);
+
+        return IcebergUtil.getHiveIcebergTable(
+                metastore,
+                hdfsEnvironment,
+                new IcebergHiveTableOperationsConfig(),
+                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
+                connectorSession,
+                new IcebergCatalogName(ICEBERG_CATALOG),
+                SchemaTableName.valueOf(TEST_SCHEMA + "." + tableName));
+    }
+
+    private File getCatalogDirectory()
+    {
+        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        // Mirrors the query-runner fixture above, which sets
+        // addStorageFormatToPath(false).
+        return getIcebergDataDirectoryPath(
+                dataDirectory,
+                HIVE.name(),
+                new IcebergConfig().getFileFormat(),
+                false)
+                .toFile();
     }
 }
