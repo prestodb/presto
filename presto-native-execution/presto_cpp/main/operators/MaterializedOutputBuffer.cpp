@@ -26,6 +26,7 @@
 #include <thread>
 
 #include "presto_cpp/main/common/Configs.h"
+#include "velox/common/Casts.h"
 #include "velox/common/base/Exceptions.h"
 
 #define MATERIALIZED_BUFFER_LOG(logEvent, pool, fmt_str, ...)           \
@@ -83,6 +84,14 @@ struct TrackedBufInfo {
   size_t size;
 };
 
+namespace {
+bool exchangeMaterializationUseZeroCopyCollect() {
+  SystemConfig* config = SystemConfig::instance();
+  VELOX_CHECK_NOT_NULL(config);
+  return config->exchangeMaterializationUseZeroCopyCollect();
+}
+} // namespace
+
 int64_t MaterializedOutputBuffer::PartitionBuffer::drainAvailable(
     std::deque<std::unique_ptr<folly::IOBuf>>& out) {
   int64_t drainedBytes = 0;
@@ -97,16 +106,16 @@ int64_t MaterializedOutputBuffer::PartitionBuffer::drainAvailable(
 int64_t MaterializedOutputBuffer::PartitionBuffer::drainAndFlush() {
   // Drain all available RowGroups in bounded chunks to the writer.
   int64_t totalDrainedBytes = 0;
-  std::deque<std::unique_ptr<folly::IOBuf>> chunk;
+  std::deque<std::unique_ptr<folly::IOBuf>> chunks;
   int64_t chunkBytes = 0;
   const int64_t chunkThresholdBytes = buffer_->drainChunkThresholdBytes_;
 
   // Flush the current chunk and update its buffered-byte accounting.
   auto flushChunk = [&]() {
-    buffer_->flushToWriter(partition_, buffer_->coalesceRowGroups(chunk));
+    buffer_->flushToWriter(partition_, chunks);
     bufferedBytes_ -= chunkBytes;
     totalDrainedBytes += chunkBytes;
-    chunk.clear();
+    chunks.clear();
     chunkBytes = 0;
   };
 
@@ -119,10 +128,10 @@ int64_t MaterializedOutputBuffer::PartitionBuffer::drainAndFlush() {
     if (chunkBytes > 0 && chunkBytes + itemBytes > chunkThresholdBytes) {
       flushChunk();
     }
-    chunk.push_back(std::move(item));
+    chunks.push_back(std::move(item));
     chunkBytes += itemBytes;
   }
-  if (!chunk.empty()) {
+  if (!chunks.empty()) {
     flushChunk();
   }
   return totalDrainedBytes;
@@ -240,6 +249,7 @@ MaterializedOutputBuffer::MaterializedOutputBuffer(
               partitionDrainThreshold_ *
               SystemConfig::instance()
                   ->exchangeMaterializationReclaimDrainThresholdRatio())),
+      useZeroCopyCollect_(exchangeMaterializationUseZeroCopyCollect()),
       drainChunkThresholdBytes_(
           static_cast<int64_t>(
               partitionDrainThreshold_ *
@@ -407,15 +417,44 @@ void MaterializedOutputBuffer::maybeWakeBlockedDrivers() {
   }
 }
 
+namespace {
+// Link a deque of RowGroup IOBufs into a single chain without copying.
+std::unique_ptr<folly::IOBuf> chainRowGroups(
+    std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups) noexcept {
+  std::unique_ptr<folly::IOBuf> head;
+  for (auto& rowGroup : rowGroups) {
+    if (head == nullptr) {
+      head = std::move(rowGroup);
+    } else {
+      head->appendToChain(std::move(rowGroup));
+    }
+  }
+  return head;
+}
+} // namespace
+
 void MaterializedOutputBuffer::flushToWriter(
     int32_t partition,
-    std::unique_ptr<folly::IOBuf> data) {
-  auto dataSize = data->computeChainDataLength();
-  if (dataSize == 0) {
-    return;
+    std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups) {
+  auto* writer = velox::checkedNotNull(writer_.get());
+  if (useZeroCopyCollect_) {
+    std::unique_ptr<folly::IOBuf> chain = chainRowGroups(rowGroups);
+    VELOX_CHECK_NOT_NULL(chain);
+    writer->collect(partition, /*key=*/"", std::move(chain));
+    ++zeroCopyCollectCount_;
+  } else {
+    std::unique_ptr<folly::IOBuf> coalesced = coalesceRowGroups(rowGroups);
+    auto* coalescedBuffer = velox::checkedNotNull(coalesced.get());
+    const size_t dataSize = coalescedBuffer->computeChainDataLength();
+    if (dataSize == 0) {
+      return;
+    }
+    writer->collect(
+        partition,
+        /*key=*/"",
+        std::string_view(
+            reinterpret_cast<const char*>(coalescedBuffer->data()), dataSize));
   }
-  std::string_view view(reinterpret_cast<const char*>(data->data()), dataSize);
-  writer_->collect(partition, /*key=*/"", view);
   ++collectCountPerPartition_[partition];
 }
 
@@ -428,12 +467,12 @@ void MaterializedOutputBuffer::updateDrainStats(int64_t drainedBytes) {
 std::unique_ptr<folly::IOBuf> MaterializedOutputBuffer::coalesceRowGroups(
     std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups) {
   size_t totalBytes = 0;
-  for (const auto& rg : rowGroups) {
-    totalBytes += rg->computeChainDataLength();
+  for (const auto& rowGroup : rowGroups) {
+    totalBytes += rowGroup->computeChainDataLength();
   }
   auto coalesced = allocateTrackedIOBuf(totalBytes);
-  for (auto& rg : rowGroups) {
-    for (const auto& range : *rg) {
+  for (auto& rowGroup : rowGroups) {
+    for (const auto& range : *rowGroup) {
       std::memcpy(coalesced->writableTail(), range.data(), range.size());
       coalesced->append(range.size());
     }
@@ -586,6 +625,8 @@ MaterializedOutputBuffer::stats() const {
   result[std::string(kReclaimCount)] = velox::RuntimeMetric(reclaimCount_);
   result[std::string(kReclaimedBytes)] =
       velox::RuntimeMetric(reclaimedBytes_, Unit::kBytes);
+  result[std::string(kZeroCopyCollectCount)] =
+      velox::RuntimeMetric(zeroCopyCollectCount_);
   result[std::string(kConcurrentAppendCount)] =
       velox::RuntimeMetric(concurrentAppendCount_);
   result[std::string(kFlushAcquireCount)] =

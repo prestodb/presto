@@ -13,9 +13,14 @@
  */
 #pragma once
 
+#include <memory>
+#include <string_view>
+
 #include <fmt/format.h>
-#include "velox/exec/Exchange.h"
+#include <folly/io/IOBuf.h>
+
 #include "velox/exec/Operator.h"
+#include "velox/exec/SerializedPage.h"
 
 namespace facebook::velox {
 class ByteInputStream;
@@ -30,6 +35,15 @@ class ShuffleWriter {
   /// Write to the shuffle one row at a time.
   virtual void
   collect(int32_t partition, std::string_view key, std::string_view data) = 0;
+
+  /// Write to the shuffle one row at a time, taking ownership of a (possibly
+  /// multi-node) folly::IOBuf chain as the row value. The default coalesces the
+  /// chain and forwards to the existing contiguous collect path. 'data' must
+  /// be non-null.
+  virtual void collect(
+      int32_t partition,
+      std::string_view key,
+      std::unique_ptr<folly::IOBuf> data);
 
   /// Tell the shuffle system the writer is done.
   /// @param success set to false to indicate aborted client.

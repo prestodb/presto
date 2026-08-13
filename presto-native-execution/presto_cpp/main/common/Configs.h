@@ -735,6 +735,13 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeMaterializationReclaimHighPriority{
       "exchange.materialization.reclaim-high-priority"};
 
+  /// Skip coalescing MaterializedOutput RowGroups before handing them to the
+  /// ShuffleWriter's owned-buffer collect path. When disabled, the existing
+  /// contiguous collect path is unchanged. Applies to non-sort shuffle only.
+  /// Default: true.
+  static constexpr std::string_view kExchangeMaterializationUseZeroCopyCollect{
+      "exchange.materialization.use-zero-copy-collect"};
+
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatsFilter{
@@ -1215,6 +1222,8 @@ class SystemConfig : public ConfigBase {
   bool exchangeMaterializationReclaimWaitForWriterDrainEnabled() const;
 
   bool exchangeMaterializationReclaimHighPriority() const;
+
+  bool exchangeMaterializationUseZeroCopyCollect() const;
 
   bool enableSerializedPageChecksum() const;
 

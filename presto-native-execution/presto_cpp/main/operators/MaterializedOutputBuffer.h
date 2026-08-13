@@ -79,6 +79,9 @@ class MaterializedOutputBuffer {
       "materializedOutputBuffer.reclaimCount";
   static constexpr std::string_view kReclaimedBytes =
       "materializedOutputBuffer.reclaimedBytes";
+  // Counts drains sent through the zero-copy collect path.
+  static constexpr std::string_view kZeroCopyCollectCount =
+      "materializedOutputBuffer.zeroCopyCollectCount";
   // Lock-free append / backpressure effectiveness counters.
   static constexpr std::string_view kConcurrentAppendCount =
       "materializedOutputBuffer.concurrentAppendCount";
@@ -312,8 +315,12 @@ class MaterializedOutputBuffer {
   /// Update drain stats and subtract from buffered bytes counter.
   void updateDrainStats(int64_t drainedBytes);
 
-  /// Coalesce data into a contiguous buffer and send to the ShuffleWriter.
-  void flushToWriter(int32_t partition, std::unique_ptr<folly::IOBuf> data);
+  /// Send a partition's drained RowGroups to the ShuffleWriter. Coalesces into
+  /// a contiguous pool-tracked buffer by default. When useZeroCopyCollect_ is
+  /// set, links them into a chain and hands it to the owned-buffer collect.
+  void flushToWriter(
+      int32_t partition,
+      std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups);
 
   /// Wake parked producers after crossing the low watermark.
   void maybeWakeBlockedDrivers();
@@ -331,6 +338,8 @@ class MaterializedOutputBuffer {
   const int64_t maxBufferedBytes_;
   const int64_t partitionDrainThreshold_;
   const int64_t reclaimDrainThresholdBytes_;
+  // Selects the owned-buffer collect path before any coalescing.
+  const bool useZeroCopyCollect_;
   // Per-collect cap for lock-free drain overshoot.
   const int64_t drainChunkThresholdBytes_;
   // Global backpressure high/low watermarks: block producers at ~90% of the
@@ -366,6 +375,8 @@ class MaterializedOutputBuffer {
 
   std::atomic_int64_t lastLoggedDrainedGB_{0};
   std::vector<std::atomic<int64_t>> collectCountPerPartition_;
+  // Drains sent through the zero-copy collect path.
+  std::atomic_int64_t zeroCopyCollectCount_{0};
 
   // Producer promises parked by backpressure, fulfilled by
   // maybeWakeBlockedDrivers() once buffered drops below the low watermark.
