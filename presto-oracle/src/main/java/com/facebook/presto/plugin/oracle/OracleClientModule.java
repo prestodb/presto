@@ -70,8 +70,8 @@ public class OracleClientModule
         return new DriverConnectionFactory(
                 new OracleDriver(),
                 config.getConnectionUrl(),
-                Optional.empty(),
-                Optional.empty(),
+                Optional.ofNullable(config.getUserCredentialName()),
+                Optional.ofNullable(config.getPasswordCredentialName()),
                 connectionProperties);
     }
 }
