@@ -56,7 +56,7 @@ public class TestCredentialPassthrough
     @Test
     public void testCredentialPassthrough()
     {
-        oracleQueryRunner.execute(getSession(), "SELECT 1 FROM dual");
+        oracleQueryRunner.execute(getSession(), "CREATE TABLE test_create (a bigint)");
     }
 
     private static QueryRunner createQueryRunner(OracleServerTester oracleServer)
