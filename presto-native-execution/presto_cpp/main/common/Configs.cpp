@@ -249,6 +249,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(
               kExchangeMaterializationOutputBufferDrainChunkMultiplier, 2.0),
           NUM_PROP(kExchangeMaterializationReclaimDrainThresholdRatio, 0.67),
+          BOOL_PROP(kExchangeMaterializationUseZeroCopyCollect, true),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
           BOOL_PROP(kHttpEnableAccessLog, false),
@@ -849,6 +850,11 @@ bool SystemConfig::exchangeMaterializationReclaimWaitForWriterDrainEnabled()
 bool SystemConfig::exchangeMaterializationReclaimHighPriority() const {
   return optionalProperty<bool>(kExchangeMaterializationReclaimHighPriority)
       .value_or(false);
+}
+
+bool SystemConfig::exchangeMaterializationUseZeroCopyCollect() const {
+  return optionalProperty<bool>(kExchangeMaterializationUseZeroCopyCollect)
+      .value_or(true);
 }
 
 bool SystemConfig::enableSerializedPageChecksum() const {
