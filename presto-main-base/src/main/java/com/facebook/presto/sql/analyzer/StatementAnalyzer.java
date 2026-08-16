@@ -407,6 +407,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
@@ -626,7 +627,7 @@ class StatementAnalyzer
                     node = rows.get(0);
                     if (node instanceof Row) {
                         int columnIndex = Math.min(i, queryColumnTypes.size() - 1);
-                        node = ((Row) rows.get(0)).getItems().get(columnIndex);
+                        node = ((Row) rows.get(0)).getFields().get(columnIndex).getExpression();
                     }
                 }
                 if (i == expectedColumns.size()) {
@@ -4033,13 +4034,16 @@ class StatementAnalyzer
         {
             checkState(node.getRows().size() >= 1);
 
-            List<List<Type>> rowTypes = node.getRows().stream()
+            List<Type> analyzedRowTypes = node.getRows().stream()
                     .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
+                    .collect(toImmutableList());
+
+            List<List<Type>> rowTypes = analyzedRowTypes.stream()
                     .map(type -> {
                         if (type instanceof RowType) {
                             return type.getTypeParameters();
                         }
-                        return ImmutableList.of(type);
+                        return ImmutableList.<Type>of(type);
                     })
                     .collect(toImmutableList());
 
@@ -4071,13 +4075,33 @@ class StatementAnalyzer
                 }
             }
 
+            // A field name declared consistently by every row becomes the relation's column name.
+            // Merged separately from the types so that the type merge stays a per-field scalar
+            // operation: merging whole RowTypes instead would build a RowType, and with it a
+            // TypeSignature, for every row of the VALUES.
+            List<Optional<String>> fieldNames = new ArrayList<>(nCopies(fieldTypes.size(), Optional.empty()));
+            boolean firstRow = true;
+            for (Type type : analyzedRowTypes) {
+                List<RowType.Field> rowFields = type instanceof RowType ? ((RowType) type).getFields() : null;
+                for (int i = 0; i < fieldTypes.size(); i++) {
+                    Optional<String> name = rowFields == null ? Optional.empty() : rowFields.get(i).getName();
+                    if (firstRow) {
+                        fieldNames.set(i, name);
+                    }
+                    else if (!fieldNames.get(i).equals(name)) {
+                        fieldNames.set(i, Optional.empty());
+                    }
+                }
+                firstRow = false;
+            }
+
             // add coercions for the rows
             for (Expression row : node.getRows()) {
                 if (row instanceof Row) {
-                    List<Expression> items = ((Row) row).getItems();
-                    for (int i = 0; i < items.size(); i++) {
+                    List<Row.Field> rowFields = ((Row) row).getFields();
+                    for (int i = 0; i < rowFields.size(); i++) {
                         Type expectedType = fieldTypes.get(i);
-                        Expression item = items.get(i);
+                        Expression item = rowFields.get(i).getExpression();
                         Type actualType = analysis.getType(item);
                         if (!actualType.equals(expectedType)) {
                             analysis.addCoercion(item, expectedType, functionAndTypeResolver.isTypeOnlyCoercion(actualType, expectedType));
@@ -4093,9 +4117,11 @@ class StatementAnalyzer
                 }
             }
 
-            List<Field> fields = fieldTypes.stream()
-                    .map(valueType -> Field.newUnqualified(node.getLocation(), Optional.empty(), valueType))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
+            for (int i = 0; i < fieldTypes.size(); i++) {
+                fieldsBuilder.add(Field.newUnqualified(node.getLocation(), fieldNames.get(i), fieldTypes.get(i)));
+            }
+            List<Field> fields = fieldsBuilder.build();
 
             return createAndAssignScope(node, scope, fields);
         }

@@ -1105,8 +1105,8 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitRow(Row node, Context context)
         {
-            List<RowExpression> arguments = node.getItems().stream()
-                    .map(value -> process(value, context))
+            List<RowExpression> arguments = node.getFields().stream()
+                    .map(field -> process(field.getExpression(), context))
                     .collect(toImmutableList());
             Type returnType = getType(node);
             return specialForm(ROW_CONSTRUCTOR, returnType, arguments);

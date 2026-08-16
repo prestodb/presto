@@ -1655,14 +1655,22 @@ public final class SqlFormatter
         {
             builder.append("ROW(");
             boolean firstItem = true;
-            for (Expression item : node.getItems()) {
+            for (Row.Field field : node.getFields()) {
                 if (!firstItem) {
                     builder.append(", ");
                 }
-                process(item, indent);
+                process(field, indent);
                 firstItem = false;
             }
             builder.append(")");
+            return null;
+        }
+
+        @Override
+        protected Void visitRowField(Row.Field node, Integer indent)
+        {
+            builder.append(formatExpression(node.getExpression(), parameters));
+            node.getName().ifPresent(name -> builder.append(" AS ").append(formatExpression(name, parameters)));
             return null;
         }
 
