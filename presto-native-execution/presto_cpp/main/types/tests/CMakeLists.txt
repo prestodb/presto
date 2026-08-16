@@ -23,17 +23,9 @@ target_link_libraries(
   presto_connectors
   presto_operators
   presto_protocol
-  velox_dwio_common
-  velox_dwio_orc_reader
-  velox_hive_connector
-  velox_tpch_connector
-  velox_tpcds_connector
-  velox_exec
-  velox_dwio_common_exception
   presto_type_converter
   presto_types
-  velox_type_fbhive
-  velox_hive_partition_function
+  velox
 )
 
 add_executable(
@@ -64,14 +56,7 @@ target_link_libraries(
   presto_mutable_configs
   presto_type_test_utils
   presto_session_properties
-  velox_core
-  velox_exec
-  velox_exec_test_lib
-  velox_functions_prestosql
-  velox_presto_type_parser
-  velox_hive_connector
-  velox_tpch_connector
-  velox_type
+  velox
   Boost::filesystem
 )
 
@@ -92,15 +77,16 @@ target_link_libraries(
   presto_operators
   presto_type_converter
   presto_types
-  velox_dwio_common
-  velox_hive_connector
-  velox_tpch_connector
-  velox_tpcds_connector
+  velox
   GTest::gtest
   GTest::gtest_main
 )
 
-add_executable(presto_to_velox_query_plan_test PrestoToVeloxQueryPlanTest.cpp)
+add_executable(
+  presto_to_velox_query_plan_test
+  PrestoToVeloxQueryPlanTest.cpp
+  NativeFunctionHandleTest.cpp
+)
 
 add_test(
   NAME presto_to_velox_query_plan_test
@@ -115,10 +101,28 @@ target_link_libraries(
   presto_protocol
   presto_type_converter
   presto_types
-  velox_dwio_common
-  velox_exec_test_lib
-  velox_hive_connector
-  velox_tpch_connector
+  velox
+  GTest::gtest
+  GTest::gtest_main
+)
+
+add_executable(presto_rpc_plan_converter_test RPCPlanConverterTest.cpp)
+
+add_test(
+  NAME presto_rpc_plan_converter_test
+  COMMAND presto_rpc_plan_converter_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(
+  presto_rpc_plan_converter_test
+  presto_connectors
+  presto_operators
+  presto_protocol
+  presto_type_converter
+  presto_types
+  velox
+  velox_async_rpc_function_registry
   GTest::gtest
   GTest::gtest_main
 )

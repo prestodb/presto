@@ -23,7 +23,7 @@ Note: If a query that includes ``PREPARE`` returns an error similar to the follo
 
     Request Header Fields Too Large
 
-see :ref:`troubleshoot/query:\`\`Request Header Fields Too Large\`\``.
+see :ref:`troubleshoot/query:Request Header Fields Too Large`.
 
 Examples
 --------

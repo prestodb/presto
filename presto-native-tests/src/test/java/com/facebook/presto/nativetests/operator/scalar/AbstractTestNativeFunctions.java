@@ -80,6 +80,34 @@ public abstract class AbstractTestNativeFunctions
         }
     }
 
+    @Override
+    public void assertInvalidFunction(String projection, @Language("RegExp") String message)
+    {
+        String query = format("SELECT %s", projection);
+        @Language("SQL") String rewritten = rewrite(query);
+        try {
+            computeActual(rewritten);
+            fail("expected exception");
+        }
+        catch (RuntimeException ex) {
+            assertExceptionMessage(rewritten, ex, Pattern.quote(message), true, false);
+        }
+    }
+
+    @Override
+    public void assertInvalidCast(String projection, @Language("RegExp") String message)
+    {
+        String query = format("SELECT %s", projection);
+        @Language("SQL") String rewritten = rewrite(query);
+        try {
+            computeActual(rewritten);
+            fail("expected exception");
+        }
+        catch (RuntimeException ex) {
+            assertExceptionMessage(rewritten, ex, message, true, false);
+        }
+    }
+
     /**
      * Rewrite SQL of the form 'select cast(arg as type)' to 'select cast(a as type) from (values (arg)) t(a)', and
      * SQL of the form 'select function(arg1, arg2, ...)' to

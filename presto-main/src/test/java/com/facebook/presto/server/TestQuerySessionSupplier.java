@@ -32,7 +32,9 @@ import com.google.common.collect.ImmutableSet;
 import jakarta.servlet.http.HttpServletRequest;
 import org.testng.annotations.Test;
 
+import java.security.Principal;
 import java.util.Locale;
+import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
@@ -58,6 +60,7 @@ import static com.facebook.presto.server.security.ServletSecurityUtils.AUTHORIZE
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestQuerySessionSupplier
 {
@@ -130,6 +133,84 @@ public class TestQuerySessionSupplier
     }
 
     @Test
+    public void testCreateSessionForFailedQuery()
+    {
+        HttpRequestSessionContext context = new HttpRequestSessionContext(TEST_REQUEST, new SqlParserOptions());
+        QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                createTestingSessionPropertyManager(),
+                new SqlEnvironmentConfig(),
+                new SecurityConfig());
+        WarningCollectorFactory warningCollectorFactory = new WarningCollectorFactory()
+        {
+            @Override
+            public WarningCollector create(WarningHandlingLevel warningHandlingLevel)
+            {
+                return WarningCollector.NOOP;
+            }
+        };
+        Session session = sessionSupplier.createSessionForFailedQuery(new QueryId("test_query_id"), context, warningCollectorFactory);
+
+        // All session fields populated by createSessionBuilder must also be populated here so
+        // QueryCompletedEvent payloads carry the same fields when authorization fails early.
+        assertEquals(session.getQueryId(), new QueryId("test_query_id"));
+        assertEquals(session.getUser(), "testUser");
+        assertEquals(session.getSource().get(), "testSource");
+        assertEquals(session.getCatalog().get(), "testCatalog");
+        assertEquals(session.getSchema().get(), "testSchema");
+        assertEquals(session.getLocale(), Locale.TAIWAN);
+        assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
+        assertEquals(session.getRemoteUserAddress().get(), "testRemote");
+        assertEquals(session.getClientInfo().get(), "client-info");
+        assertEquals(session.getClientTags(), ImmutableSet.of("tag1", "tag2", "tag3"));
+        assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
+                .put(QUERY_MAX_MEMORY, "1GB")
+                .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                .put(HASH_PARTITION_COUNT, "43")
+                .build());
+        assertEquals(session.getPreparedStatements(), ImmutableMap.<String, String>builder()
+                .put("query1", "select * from foo")
+                .put("query2", "select * from bar")
+                .build());
+        assertEquals(session.getSessionFunctions(), ImmutableMap.of(SQL_FUNCTION_ID_ADD, SQL_FUNCTION_ADD));
+    }
+
+    @Test
+    public void testCreateSessionForFailedQueryToleratesInvalidTimeZone()
+    {
+        // Inverse of testInvalidTimeZone: the failure path must not throw on bad input,
+        // since it is the "must never fail" fallback used to register failed queries.
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .put(PRESTO_TIME_ZONE, "unknown_timezone")
+                        .put(PRESTO_CATALOG, "testCatalog")
+                        .build(),
+                "testRemote",
+                ImmutableMap.of());
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
+        QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                createTestingSessionPropertyManager(),
+                new SqlEnvironmentConfig(),
+                new SecurityConfig());
+        WarningCollectorFactory warningCollectorFactory = new WarningCollectorFactory()
+        {
+            @Override
+            public WarningCollector create(WarningHandlingLevel warningHandlingLevel)
+            {
+                return WarningCollector.NOOP;
+            }
+        };
+        Session session = sessionSupplier.createSessionForFailedQuery(new QueryId("test_query_id"), context, warningCollectorFactory);
+
+        assertEquals(session.getUser(), "testUser");
+        assertEquals(session.getCatalog().get(), "testCatalog");
+    }
+
+    @Test
     public void testEmptyClientTags()
     {
         HttpServletRequest request1 = new MockHttpServletRequest(
@@ -150,6 +231,72 @@ public class TestQuerySessionSupplier
                 ImmutableMap.of());
         HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2, new SqlParserOptions());
         assertEquals(context2.getClientTags(), ImmutableSet.of());
+    }
+
+    @Test
+    public void testSessionWithAuthorizedPrincipal()
+    {
+        Principal clientPrincipal = new javax.security.auth.x500.X500Principal("CN=user:testclient");
+        AuthorizedIdentity authorizedIdentity = new AuthorizedIdentity("userName", "reasonForSelect", false, clientPrincipal);
+
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .build(),
+                "testRemote",
+                ImmutableMap.of(AUTHORIZED_IDENTITY_ATTRIBUTE, authorizedIdentity));
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
+        QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                createTestingSessionPropertyManager(),
+                new SqlEnvironmentConfig(),
+                new SecurityConfig());
+        WarningCollectorFactory warningCollectorFactory = new WarningCollectorFactory()
+        {
+            @Override
+            public WarningCollector create(WarningHandlingLevel warningHandlingLevel)
+            {
+                return WarningCollector.NOOP;
+            }
+        };
+        Session session = sessionSupplier.createSessionBuilder(new QueryId("test_query_id"), context, warningCollectorFactory).build();
+
+        assertTrue(session.getIdentity().getPrincipal().isPresent());
+        assertEquals(session.getIdentity().getPrincipal().get(), clientPrincipal);
+        assertEquals(session.getIdentity().getSelectedUser().get(), "userName");
+    }
+
+    @Test
+    public void testSessionWithoutAuthorizedPrincipal()
+    {
+        AuthorizedIdentity authorizedIdentity = new AuthorizedIdentity("userName", "reasonForSelect", false);
+
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .build(),
+                "testRemote",
+                ImmutableMap.of(AUTHORIZED_IDENTITY_ATTRIBUTE, authorizedIdentity));
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
+        QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                createTestingSessionPropertyManager(),
+                new SqlEnvironmentConfig(),
+                new SecurityConfig());
+        WarningCollectorFactory warningCollectorFactory = new WarningCollectorFactory()
+        {
+            @Override
+            public WarningCollector create(WarningHandlingLevel warningHandlingLevel)
+            {
+                return WarningCollector.NOOP;
+            }
+        };
+        Session session = sessionSupplier.createSessionBuilder(new QueryId("test_query_id"), context, warningCollectorFactory).build();
+
+        assertEquals(session.getIdentity().getPrincipal(), Optional.empty());
+        assertEquals(session.getIdentity().getSelectedUser().get(), "userName");
     }
 
     @Test(expectedExceptions = TimeZoneNotSupportedException.class)

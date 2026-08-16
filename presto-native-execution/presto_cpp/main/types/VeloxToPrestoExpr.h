@@ -28,6 +28,8 @@ using LambdaDefinitionExpressionPtr =
     std::shared_ptr<facebook::presto::protocol::LambdaDefinitionExpression>;
 using SpecialFormExpressionPtr =
     std::shared_ptr<facebook::presto::protocol::SpecialFormExpression>;
+using FieldAccessTypedExprPtr =
+    std::shared_ptr<const facebook::velox::core::FieldAccessTypedExpr>;
 
 namespace facebook::presto::expression {
 
@@ -81,6 +83,24 @@ class VeloxToPrestoExprConverter {
   std::vector<RowExpressionPtr> getSwitchSpecialFormExpressionArgs(
       const velox::core::CallTypedExpr* switchExpr) const;
 
+  /// Helper function to convert values from a constant `IN` list in Velox
+  /// expression to equivalent Presto expressions.
+  void getArgsFromConstantInList(
+      const velox::core::ConstantTypedExpr* inList,
+      std::vector<RowExpressionPtr>& result) const;
+
+  /// Helper function to get the arguments for Presto `IN` expression from
+  /// Velox `IN` expression.
+  std::vector<RowExpressionPtr> getInSpecialFormExpressionArgs(
+      const velox::core::CallTypedExpr* inExpr) const;
+
+  /// Helper function to convert N-argument AND/OR expressions (N > 2) to nested
+  /// binary operations for Presto compatibility.
+  SpecialFormExpressionPtr getNestedConjunctExpression(
+      const std::vector<velox::core::TypedExprPtr>& inputs,
+      protocol::Form form,
+      const protocol::TypeSignature& returnType) const;
+
   /// Helper function to construct a Presto `protocol::SpecialFormExpression`
   /// from a Velox call expression. This function should be called only on call
   /// expressions that map to a Presto `SpecialFormExpression`. This can be
@@ -99,10 +119,20 @@ class VeloxToPrestoExprConverter {
   SpecialFormExpressionPtr getDereferenceExpression(
       const velox::core::DereferenceTypedExpr* dereferenceExpr) const;
 
-  /// Helper function to construct a Presto
-  /// `protocol::LambdaDefinitionExpression` from a Velox lambda expression.
-  LambdaDefinitionExpressionPtr getLambdaExpression(
+  /// Converts a Velox lambda expression to a Presto RowExpression. Lambdas
+  /// without captures become LambdaDefinitionExpression; lambdas with captures
+  /// become BIND SpecialFormExpression wrapping an expanded lambda.
+  RowExpressionPtr getLambdaExpression(
       const velox::core::LambdaTypedExpr* lambdaExpr) const;
+
+  /// Builds a Presto LambdaDefinitionExpression (prepending any captured
+  /// variable names/types) and, when freeFields is non-empty, wraps it in a
+  /// BIND SpecialFormExpression so the captured variables are explicit
+  /// planner-visible inputs. Returns a plain LambdaDefinitionExpression when
+  /// freeFields is empty.
+  RowExpressionPtr resolveLambdaExpression(
+      const velox::core::LambdaTypedExpr* lambdaExpr,
+      const std::vector<FieldAccessTypedExprPtr>& freeFields) const;
 
   /// Helper function to construct a Presto `protocol::CallExpression` from a
   /// Velox call expression.

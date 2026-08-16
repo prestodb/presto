@@ -14,6 +14,9 @@
 
 #pragma once
 
+#include <string>
+#include <unordered_map>
+
 #include "velox/type/Type.h"
 
 namespace facebook::presto {

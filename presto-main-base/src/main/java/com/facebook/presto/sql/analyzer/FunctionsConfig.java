@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
@@ -24,6 +25,7 @@ import jakarta.validation.constraints.Min;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 
+@DefunctConfig({"use-new-nan-definition", "warn-on-common-nan-patterns"})
 public class FunctionsConfig
 {
     private boolean legacyArrayAgg;
@@ -36,19 +38,19 @@ public class FunctionsConfig
     private RegexLibrary regexLibrary = JONI;
     private long kHyperLogLogAggregationGroupNumberLimit;
     private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
-    private boolean useNewNanDefinition = true;
     private HistogramGroupImplementation histogramGroupImplementation = HistogramGroupImplementation.NEW;
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean legacyRowFieldOrdinalAccess;
-    private boolean legacyTimestamp = true;
+    private boolean legacyTimestamp;
     private boolean parseDecimalLiteralsAsDouble;
-    private boolean fieldNamesInJsonCastEnabled;
-    private boolean warnOnPossibleNans;
+    private boolean fieldNamesInJsonCastEnabled = true;
     private boolean legacyCharToVarcharCoercion;
     private boolean legacyJsonCast = true;
     private boolean canonicalizedJsonExtract;
     private String defaultNamespacePrefix = JAVA_BUILTIN_NAMESPACE.toString();
+
+    private boolean legacyStEquals;
 
     @Config("deprecated.legacy-array-agg")
     public FunctionsConfig setLegacyArrayAgg(boolean legacyArrayAgg)
@@ -175,19 +177,6 @@ public class FunctionsConfig
         return limitNumberOfGroupsForKHyperLogLogAggregations;
     }
 
-    @Config("use-new-nan-definition")
-    @ConfigDescription("Enable functions to use the new consistent NaN definition where NaN=NaN and is sorted largest")
-    public FunctionsConfig setUseNewNanDefinition(boolean useNewNanDefinition)
-    {
-        this.useNewNanDefinition = useNewNanDefinition;
-        return this;
-    }
-
-    public boolean getUseNewNanDefinition()
-    {
-        return useNewNanDefinition;
-    }
-
     @Config("histogram.implementation")
     public FunctionsConfig setHistogramGroupImplementation(HistogramGroupImplementation groupByMode)
     {
@@ -272,19 +261,6 @@ public class FunctionsConfig
         return fieldNamesInJsonCastEnabled;
     }
 
-    @Config("warn-on-common-nan-patterns")
-    @ConfigDescription("Give warnings for operations on DOUBLE/REAL types where NaN issues are common")
-    public FunctionsConfig setWarnOnCommonNanPatterns(boolean warnOnPossibleNans)
-    {
-        this.warnOnPossibleNans = warnOnPossibleNans;
-        return this;
-    }
-
-    public boolean getWarnOnCommonNanPatterns()
-    {
-        return warnOnPossibleNans;
-    }
-
     @Config("deprecated.legacy-char-to-varchar-coercion")
     public FunctionsConfig setLegacyCharToVarcharCoercion(boolean value)
     {
@@ -333,5 +309,17 @@ public class FunctionsConfig
     public String getDefaultNamespacePrefix()
     {
         return defaultNamespacePrefix;
+    }
+
+    @Config("legacy-st-equals")
+    public FunctionsConfig setLegacyStEquals(boolean value)
+    {
+        this.legacyStEquals = value;
+        return this;
+    }
+
+    public boolean isLegacyStEquals()
+    {
+        return legacyStEquals;
     }
 }

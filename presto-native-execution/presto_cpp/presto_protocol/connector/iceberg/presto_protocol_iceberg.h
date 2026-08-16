@@ -29,6 +29,18 @@ extern void to_json(json& j, const ChangelogOperation& e);
 extern void from_json(const json& j, ChangelogOperation& e);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
+struct IcebergTypeAttributes {
+  std::shared_ptr<bool> required = {};
+  std::shared_ptr<String> longType = {};
+  std::shared_ptr<String> timestampUnit = {};
+  std::shared_ptr<String> binaryType = {};
+  std::shared_ptr<String> structType = {};
+  std::shared_ptr<Integer> length = {};
+};
+void to_json(json& j, const IcebergTypeAttributes& p);
+void from_json(const json& j, IcebergTypeAttributes& p);
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
 enum class TypeCategory { PRIMITIVE, STRUCT, ARRAY, MAP };
 extern void to_json(json& j, const TypeCategory& e);
 extern void from_json(const json& j, TypeCategory& e);
@@ -39,6 +51,7 @@ struct ColumnIdentity {
   String name = {};
   TypeCategory typeCategory = {};
   List<ColumnIdentity> children = {};
+  std::shared_ptr<IcebergTypeAttributes> typeAttributes = {};
 };
 void to_json(json& j, const ColumnIdentity& p);
 void from_json(const json& j, ColumnIdentity& p);
@@ -54,6 +67,8 @@ struct IcebergColumnHandle : public ColumnHandle {
   std::shared_ptr<String> comment = {};
   hive::ColumnType columnType = {};
   List<Subfield> requiredSubfields = {};
+  std::shared_ptr<String> defaultValue = {};
+  std::shared_ptr<String> writeDefaultValue = {};
 
   IcebergColumnHandle() noexcept;
 
@@ -78,12 +93,17 @@ void to_json(json& j, const ChangelogSplitInfo& p);
 void from_json(const json& j, ChangelogSplitInfo& p);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
-enum class FileContent { DATA, POSITION_DELETES, EQUALITY_DELETES };
+enum class FileContent {
+  DATA,
+  POSITION_DELETES,
+  EQUALITY_DELETES,
+  DELETION_VECTOR
+};
 extern void to_json(json& j, const FileContent& e);
 extern void from_json(const json& j, FileContent& e);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
-enum class FileFormat { ORC, PARQUET, AVRO, METADATA };
+enum class FileFormat { ORC, PARQUET, AVRO, METADATA, PUFFIN, DWRF, NIMBLE };
 extern void to_json(json& j, const FileFormat& e);
 extern void from_json(const json& j, FileFormat& e);
 } // namespace facebook::presto::protocol::iceberg
@@ -97,6 +117,10 @@ struct DeleteFile {
   List<Integer> equalityFieldIds = {};
   Map<Integer, String> lowerBounds = {};
   Map<Integer, String> upperBounds = {};
+  std::shared_ptr<Long> contentOffset = {};
+  std::shared_ptr<Long> contentSizeInBytes = {};
+  std::shared_ptr<String> referencedDataFile = {};
+  int64_t dataSequenceNumber = {};
 };
 void to_json(json& j, const DeleteFile& p);
 void from_json(const json& j, DeleteFile& p);
@@ -124,54 +148,11 @@ struct IcebergTableName {
   String tableName = {};
   IcebergTableType tableType = {};
   std::shared_ptr<Long> snapshotId = {};
+  std::shared_ptr<String> branchName = {};
   std::shared_ptr<Long> changelogEndSnapshot = {};
 };
 void to_json(json& j, const IcebergTableName& p);
 void from_json(const json& j, IcebergTableName& p);
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
-struct SortField {
-  int sourceColumnId = {};
-  SortOrder sortOrder = {};
-};
-void to_json(json& j, const SortField& p);
-void from_json(const json& j, SortField& p);
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
-struct IcebergTableHandle : public ConnectorTableHandle {
-  String schemaName = {};
-  IcebergTableName icebergTableName = {};
-  bool snapshotSpecified = {};
-  std::shared_ptr<String> outputPath = {};
-  std::shared_ptr<Map<String, String>> storageProperties = {};
-  std::shared_ptr<String> tableSchemaJson = {};
-  std::shared_ptr<List<Integer>> partitionFieldIds = {};
-  std::shared_ptr<List<Integer>> equalityFieldIds = {};
-  List<SortField> sortOrder = {};
-  List<IcebergColumnHandle> updatedColumns = {};
-  std::shared_ptr<SchemaTableName> materializedViewName = {};
-
-  IcebergTableHandle() noexcept;
-};
-void to_json(json& j, const IcebergTableHandle& p);
-void from_json(const json& j, IcebergTableHandle& p);
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
-struct IcebergTableLayoutHandle : public ConnectorTableLayoutHandle {
-  List<IcebergColumnHandle> partitionColumns = {};
-  List<Column> dataColumns = {};
-  TupleDomain<Subfield> domainPredicate = {};
-  std::shared_ptr<RowExpression> remainingPredicate = {};
-  Map<String, IcebergColumnHandle> predicateColumns = {};
-  std::shared_ptr<List<IcebergColumnHandle>> requestedColumns = {};
-  bool pushdownFilterEnabled = {};
-  TupleDomain<std::shared_ptr<ColumnHandle>> partitionColumnPredicate = {};
-  IcebergTableHandle table = {};
-
-  IcebergTableLayoutHandle() noexcept;
-};
-void to_json(json& j, const IcebergTableLayoutHandle& p);
-void from_json(const json& j, IcebergTableLayoutHandle& p);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
 enum class PartitionTransformType {
@@ -228,6 +209,74 @@ struct PrestoIcebergPartitionSpec {
 void to_json(json& j, const PrestoIcebergPartitionSpec& p);
 void from_json(const json& j, PrestoIcebergPartitionSpec& p);
 } // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+struct SortField {
+  int sourceColumnId = {};
+  SortOrder sortOrder = {};
+};
+void to_json(json& j, const SortField& p);
+void from_json(const json& j, SortField& p);
+} // namespace facebook::presto::protocol::iceberg
+// IcebergDeleteTableHandle is special since it needs an usage of
+// hive::.
+
+namespace facebook::presto::protocol::iceberg {
+struct IcebergDeleteTableHandle : public ConnectorDeleteTableHandle {
+  String schemaName = {};
+  IcebergTableName tableName = {};
+  PrestoIcebergSchema schema = {};
+  PrestoIcebergPartitionSpec partitionSpec = {};
+  List<IcebergColumnHandle> inputColumns = {};
+  String outputPath = {};
+  FileFormat fileFormat = {};
+  hive::HiveCompressionCodec compressionCodec = {};
+  Map<String, String> storageProperties = {};
+  List<SortField> sortOrder = {};
+  std::shared_ptr<SchemaTableName> materializedViewName = {};
+  FileContent fileContent = {};
+  std::shared_ptr<Map<String, DeleteFile>> existingDeletionVectors = {};
+
+  IcebergDeleteTableHandle() noexcept;
+};
+void to_json(json& j, const IcebergDeleteTableHandle& p);
+void from_json(const json& j, IcebergDeleteTableHandle& p);
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+struct IcebergTableHandle : public ConnectorTableHandle {
+  String schemaName = {};
+  IcebergTableName icebergTableName = {};
+  bool snapshotSpecified = {};
+  std::shared_ptr<String> outputPath = {};
+  std::shared_ptr<Map<String, String>> storageProperties = {};
+  std::shared_ptr<String> tableSchemaJson = {};
+  std::shared_ptr<List<Integer>> partitionFieldIds = {};
+  std::shared_ptr<List<Integer>> equalityFieldIds = {};
+  List<SortField> sortOrder = {};
+  List<IcebergColumnHandle> updatedColumns = {};
+  std::shared_ptr<SchemaTableName> materializedViewName = {};
+
+  IcebergTableHandle() noexcept;
+};
+void to_json(json& j, const IcebergTableHandle& p);
+void from_json(const json& j, IcebergTableHandle& p);
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+struct IcebergTableLayoutHandle : public ConnectorTableLayoutHandle {
+  List<IcebergColumnHandle> partitionColumns = {};
+  List<Column> dataColumns = {};
+  TupleDomain<Subfield> domainPredicate = {};
+  std::shared_ptr<RowExpression> remainingPredicate = {};
+  Map<String, IcebergColumnHandle> predicateColumns = {};
+  std::shared_ptr<List<IcebergColumnHandle>> requestedColumns = {};
+  bool pushdownFilterEnabled = {};
+  TupleDomain<std::shared_ptr<ColumnHandle>> partitionColumnPredicate = {};
+  IcebergTableHandle table = {};
+
+  IcebergTableLayoutHandle() noexcept;
+};
+void to_json(json& j, const IcebergTableLayoutHandle& p);
+void from_json(const json& j, IcebergTableLayoutHandle& p);
+} // namespace facebook::presto::protocol::iceberg
 // IcebergDistributedProcedureHandle is special since it needs an usage of
 // hive::.
 
@@ -244,6 +293,7 @@ struct IcebergDistributedProcedureHandle
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
   IcebergTableLayoutHandle tableLayoutHandle = {};
+  List<SortField> sortOrder = {};
   Map<String, String> relevantData = {};
 
   IcebergDistributedProcedureHandle() noexcept;
@@ -267,11 +317,25 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   Map<String, String> storageProperties = {};
   List<SortField> sortOrder = {};
   std::shared_ptr<SchemaTableName> materializedViewName = {};
+  std::shared_ptr<bool> fullRefreshRequired = {};
+  List<String> insertedColumns = {};
+  Map<String, DeleteFile> existingDeletionVectors = {};
 
   IcebergInsertTableHandle() noexcept;
 };
 void to_json(json& j, const IcebergInsertTableHandle& p);
 void from_json(const json& j, IcebergInsertTableHandle& p);
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+struct IcebergMergeTableHandle : public ConnectorMergeTableHandle {
+  IcebergTableHandle tableHandle = {};
+  IcebergInsertTableHandle insertTableHandle = {};
+  Map<Integer, PrestoIcebergPartitionSpec> partitionSpecs = {};
+
+  IcebergMergeTableHandle() noexcept;
+};
+void to_json(json& j, const IcebergMergeTableHandle& p);
+void from_json(const json& j, IcebergMergeTableHandle& p);
 } // namespace facebook::presto::protocol::iceberg
 // IcebergOutputTableHandle is special since it needs an usage of
 // hive::.
@@ -312,6 +376,7 @@ struct IcebergSplit : public ConnectorSplit {
   List<DeleteFile> deletes = {};
   std::shared_ptr<ChangelogSplitInfo> changelogSplitInfo = {};
   int64_t dataSequenceNumber = {};
+  int64_t firstRowId = -1;
   int64_t affinitySchedulingSectionSize = {};
 
   IcebergSplit() noexcept;

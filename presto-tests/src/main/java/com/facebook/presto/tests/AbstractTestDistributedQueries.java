@@ -61,6 +61,7 @@ import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ALTER_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_COLUMNS;
@@ -714,23 +715,24 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testInsert()
     {
+        Session session = sessionWithLegacyTimestamp();
         @Language("SQL") String query = "SELECT orderdate, orderkey, totalprice FROM orders";
 
-        assertUpdate("CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
-        assertQuery("SELECT count(*) FROM test_insert", "SELECT 0");
+        assertUpdate(session, "CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
+        assertQuery(session, "SELECT count(*) FROM test_insert", "SELECT 0");
 
-        assertUpdate("INSERT INTO test_insert " + query, "SELECT count(*) FROM orders");
+        assertUpdate(session, "INSERT INTO test_insert " + query, "SELECT count(*) FROM orders");
 
-        assertQuery("SELECT * FROM test_insert", query);
+        assertQuery(session, "SELECT * FROM test_insert", query);
 
-        assertUpdate("INSERT INTO test_insert (orderkey) VALUES (-1)", 1);
-        assertUpdate("INSERT INTO test_insert (orderkey) VALUES (null)", 1);
-        assertUpdate("INSERT INTO test_insert (orderdate) VALUES (DATE '2001-01-01')", 1);
-        assertUpdate("INSERT INTO test_insert (orderkey, orderdate) VALUES (-2, DATE '2001-01-02')", 1);
-        assertUpdate("INSERT INTO test_insert (orderdate, orderkey) VALUES (DATE '2001-01-03', -3)", 1);
-        assertUpdate("INSERT INTO test_insert (totalprice) VALUES (1234)", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderkey) VALUES (-1)", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderkey) VALUES (null)", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderdate) VALUES (DATE '2001-01-01')", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderkey, orderdate) VALUES (-2, DATE '2001-01-02')", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderdate, orderkey) VALUES (DATE '2001-01-03', -3)", 1);
+        assertUpdate(session, "INSERT INTO test_insert (totalprice) VALUES (1234)", 1);
 
-        assertQuery("SELECT * FROM test_insert", query
+        assertQuery(session, "SELECT * FROM test_insert", query
                 + " UNION ALL SELECT null, -1, null"
                 + " UNION ALL SELECT null, null, null"
                 + " UNION ALL SELECT DATE '2001-01-01', null, null"
@@ -740,24 +742,24 @@ public abstract class AbstractTestDistributedQueries
 
         // UNION query produces columns in the opposite order
         // of how they are declared in the table schema
-        assertUpdate(
+        assertUpdate(session,
                 "INSERT INTO test_insert (orderkey, orderdate, totalprice) " +
                         "SELECT orderkey, orderdate, totalprice FROM orders " +
                         "UNION ALL " +
                         "SELECT orderkey, orderdate, totalprice FROM orders",
                 "SELECT 2 * count(*) FROM orders");
 
-        assertUpdate("DROP TABLE test_insert");
+        assertUpdate(session, "DROP TABLE test_insert");
 
-        assertUpdate("CREATE TABLE test_insert (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
+        assertUpdate(session, "CREATE TABLE test_insert (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
 
-        assertUpdate("INSERT INTO test_insert (a) VALUES (ARRAY[null])", 1);
-        assertUpdate("INSERT INTO test_insert (a) VALUES (ARRAY[1234])", 1);
-        assertQuery("SELECT a[1] FROM test_insert", "VALUES (null), (1234)");
+        assertUpdate(session, "INSERT INTO test_insert (a) VALUES (ARRAY[null])", 1);
+        assertUpdate(session, "INSERT INTO test_insert (a) VALUES (ARRAY[1234])", 1);
+        assertQuery(session, "SELECT a[1] FROM test_insert", "VALUES (null), (1234)");
 
-        assertQueryFails("INSERT INTO test_insert (b) VALUES (ARRAY[1.23E1])", "line 1:37: Mismatch at column 1.*");
+        assertQueryFails(session, "INSERT INTO test_insert (b) VALUES (ARRAY[1.23E1])", "line 1:37: Mismatch at column 1.*");
 
-        assertUpdate("DROP TABLE test_insert");
+        assertUpdate(session, "DROP TABLE test_insert");
     }
 
     @Test
@@ -1110,7 +1112,7 @@ public abstract class AbstractTestDistributedQueries
             assertUpdate("CREATE TABLE test_query_logging_count AS SELECT 1 foo_1, 2 foo_2_4", 1);
             assertQuery("SELECT foo_1, foo_2_4 FROM test_query_logging_count", "SELECT 1, 2");
             assertUpdate("DROP TABLE test_query_logging_count");
-            assertQueryFails("SELECT * FROM test_query_logging_count", ".*Table .* does not exist");
+            assertQueryFails("SELECT * FROM test_query_logging_count", ".*(Table .* does not exist|unconfigured table).*");
 
             // TODO: Figure out a better way of synchronization
             assertUntilTimeout(
@@ -1209,6 +1211,7 @@ public abstract class AbstractTestDistributedQueries
         assertAccessDenied("ALTER TABLE orders ADD COLUMN foo bigint", "Cannot add a column to table .*.orders.*", privilege("orders", ADD_COLUMN));
         assertAccessDenied("ALTER TABLE orders DROP COLUMN foo", "Cannot drop a column from table .*.orders.*", privilege("orders", DROP_COLUMN));
         assertAccessDenied("ALTER TABLE orders RENAME COLUMN orderkey TO foo", "Cannot rename a column in table .*.orders.*", privilege("orders", RENAME_COLUMN));
+        assertAccessDenied("ALTER TABLE orders ALTER COLUMN orderkey SET DATA TYPE char(100)", "Cannot alter a column for table .*.orders.*", privilege("orders", ALTER_COLUMN));
         assertAccessDenied("CREATE VIEW foo as SELECT * FROM orders", "Cannot create view .*.foo.*", privilege("foo", CREATE_VIEW));
         // todo add DROP VIEW test... not all connectors have view support
 
@@ -1470,6 +1473,152 @@ public abstract class AbstractTestDistributedQueries
         }
     }
 
+    @Test
+    public void testPayloadJoinSkipsNullChecksForNonNullKeys()
+    {
+        Session sessionNoOpt = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "false")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        // Queries with WHERE key IS NOT NULL on the base table — the rejoin
+        // predicate should use direct equality instead of IS_NULL + COALESCE
+        String[] queries = {
+                // Both join keys are non-null
+                "SELECT l.* FROM (select * from lineitem where orderkey IS NOT NULL AND partkey IS NOT NULL) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                // Only one join key is non-null
+                "SELECT l.* FROM (select * from lineitem where orderkey IS NOT NULL) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                // IS NOT NULL combined with other filter predicates
+                "SELECT l.* FROM (select * from lineitem where orderkey IS NOT NULL AND partkey IS NOT NULL AND quantity > 1) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+        };
+
+        for (String query : queries) {
+            // Verify plan is optimized (structurally different from unoptimized)
+            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
+            MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
+            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
+            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
+            assertNotEquals(explainWithOpt, explainNoOpt, "Couldn't optimize query: " + query);
+
+            // Verify correctness
+            assertQueryWithSameQueryRunner(session, query, sessionNoOpt);
+        }
+    }
+
+    @Test
+    public void testPayloadJoinWithInterveningProjectionsAndCrossJoins()
+    {
+        Session sessionNoOpt = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "false")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        String[] queries = {
+                // Intervening identity projection from subquery wrapping inner LOJs
+                "SELECT sub.*, s.name as s_name FROM (SELECT l.orderkey, l.partkey, l.suppkey, o.orderstatus " +
+                        "FROM lineitem l LEFT JOIN orders o ON l.orderkey = o.orderkey) sub " +
+                        "LEFT JOIN supplier s ON sub.suppkey = s.suppkey",
+                // Cross join between LOJs: t LOJ r1 CROSS JOIN c LOJ r2
+                "SELECT l.orderkey, l.partkey, o.orderstatus, n.name as nation_name, p.brand " +
+                        "FROM lineitem l " +
+                        "LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "CROSS JOIN (SELECT name FROM nation WHERE name = 'JAPAN') n " +
+                        "LEFT JOIN part p ON l.partkey = p.partkey",
+                // Both: subquery with identity projection AND cross join
+                "SELECT sub.*, p.brand FROM (" +
+                        "SELECT l.orderkey, l.partkey, o.orderstatus, n.name as nation_name " +
+                        "FROM lineitem l LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "CROSS JOIN (SELECT name FROM nation WHERE name = 'JAPAN') n) sub " +
+                        "LEFT JOIN part p ON sub.partkey = p.partkey",
+                // Intervening projection computes a field used as a later join key
+                "SELECT sub.*, s.name as s_name FROM (SELECT l.orderkey, l.partkey, l.suppkey + 0 as sk, o.orderstatus " +
+                        "FROM lineitem l LEFT JOIN orders o ON l.orderkey = o.orderkey) sub " +
+                        "LEFT JOIN supplier s ON sub.sk = s.suppkey",
+        };
+
+        for (String query : queries) {
+            // Verify plan is optimized
+            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
+            MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
+            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
+            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
+            assertNotEquals(explainWithOpt, explainNoOpt, "Couldn't optimize query: " + query);
+
+            // Verify correctness
+            assertQueryWithSameQueryRunner(session, query, sessionNoOpt);
+        }
+
+        // Queries where cross join columns are used as subsequent LOJ keys.
+        // The optimizer cannot handle these (keys not from the base table),
+        // but we verify correctness is preserved.
+        String[] crossJoinKeyQueries = {
+                // Cross join column used as a join key in a later LOJ
+                "SELECT l.orderkey, o.orderstatus, n.nationkey, s.name as s_name " +
+                        "FROM lineitem l " +
+                        "LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "CROSS JOIN (SELECT nationkey FROM nation WHERE name = 'JAPAN') n " +
+                        "LEFT JOIN supplier s ON n.nationkey = s.nationkey",
+                // Cross join column used as join key combined with identity projection
+                "SELECT sub.*, s.name as s_name FROM (" +
+                        "SELECT l.orderkey, l.partkey, o.orderstatus, n.nationkey " +
+                        "FROM lineitem l LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "CROSS JOIN (SELECT nationkey FROM nation WHERE name = 'JAPAN') n) sub " +
+                        "LEFT JOIN supplier s ON sub.nationkey = s.nationkey",
+        };
+
+        for (String query : crossJoinKeyQueries) {
+            assertQueryWithSameQueryRunner(session, query, sessionNoOpt);
+        }
+    }
+
+    @Test
+    public void testPayloadJoinInnerRejoinWithNonNullKeys()
+    {
+        Session sessionNoOpt = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "false")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        // When all join keys are guaranteed non-null, the optimizer uses INNER join
+        // for the payload rejoin instead of LEFT join
+        String[] queries = {
+                // Both keys non-null — should use INNER rejoin
+                "SELECT l.* FROM (SELECT * FROM lineitem WHERE orderkey IS NOT NULL AND partkey IS NOT NULL) l " +
+                        "LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "LEFT JOIN part p ON l.partkey = p.partkey",
+                // All three keys non-null
+                "SELECT l.orderkey, l.partkey, l.suppkey, o.orderstatus, p.brand, s.name " +
+                        "FROM (SELECT * FROM lineitem WHERE orderkey IS NOT NULL AND partkey IS NOT NULL AND suppkey IS NOT NULL) l " +
+                        "LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "LEFT JOIN part p ON l.partkey = p.partkey " +
+                        "LEFT JOIN supplier s ON l.suppkey = s.suppkey",
+                // Non-null with additional filter predicates
+                "SELECT l.* FROM (SELECT * FROM lineitem WHERE orderkey IS NOT NULL AND partkey IS NOT NULL AND quantity > 1) l " +
+                        "LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "LEFT JOIN part p ON l.partkey = p.partkey",
+        };
+
+        for (String query : queries) {
+            // Verify correctness: results should match between optimized and non-optimized
+            assertQueryWithSameQueryRunner(session, query, sessionNoOpt);
+        }
+    }
+
     private static List<String> getPayloadQueries(String tableName)
     {
         String[] queries = {
@@ -1610,7 +1759,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testShardedJoinOptimization()
     {
-        Session defaultSession = getSession();
+        Session defaultSession = sessionWithLegacyTimestamp();
 
         Session session = Session.builder(defaultSession)
                 .setSystemProperty(SHARDED_JOINS_STRATEGY, "ALWAYS")

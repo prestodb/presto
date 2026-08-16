@@ -87,6 +87,7 @@ import static com.facebook.presto.SystemSessionProperties.isEagerPlanValidationE
 import static com.facebook.presto.SystemSessionProperties.isLogInvokedFunctionNamesEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.ANALYZE_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.CHECK_ACCESS_PERMISSIONS_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.CREATE_SCHEDULER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_CANONICAL_INFO_TIME_NANOS;
@@ -221,9 +222,15 @@ public class SqlQueryExecution
 
             stateMachine.setUpdateInfo(queryAnalysis.getUpdateInfo());
             stateMachine.setExpandedQuery(queryAnalysis.getExpandedQuery());
+            stateMachine.setMaterializedViewRewrittenQuery(queryAnalysis.getMaterializedViewRewrittenQuery());
 
             stateMachine.beginColumnAccessPermissionChecking();
-            checkAccessPermissions(queryAnalysis.getAccessControlReferences(), query, getSession().getPreparedStatements());
+            getSession().getRuntimeStats().recordWallAndCpuTime(
+                    CHECK_ACCESS_PERMISSIONS_TIME_NANOS,
+                    () -> {
+                        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), queryAnalysis.getViewDefinitionReferences(), query, getSession().getPreparedStatements(), getSession().getIdentity(), accessControl, getSession().getAccessControlContext());
+                        return null;
+                    });
             stateMachine.endColumnAccessPermissionChecking();
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
@@ -679,7 +686,7 @@ public class SqlQueryExecution
                     .withNoMoreBufferIds();
         }
 
-        SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector());
+        SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector(), metadata);
         // build the stage execution objects (this doesn't schedule execution)
         SqlQuerySchedulerInterface scheduler = SqlQueryScheduler.createSqlQueryScheduler(
                 locationFactory,
@@ -816,8 +823,14 @@ public class SqlQueryExecution
                         plan.getTypes(),
                         pruneHistogramsFromStatsAndCosts(plan.getStatsAndCosts())))
                 .orElse(null));
-        // drop the reference to the scheduler since execution is finished
-        queryScheduler.set(null);
+        // Atomically get and clear the scheduler reference, then abort it.
+        // This ensures tasks are always aborted even if the state change
+        // listener that normally calls abort() hasn't run yet due to
+        // asynchronous listener dispatch ordering.
+        SqlQuerySchedulerInterface scheduler = queryScheduler.getAndSet(null);
+        if (scheduler != null) {
+            scheduler.abort();
+        }
         stateMachine.pruneQueryInfoFinished();
     }
 

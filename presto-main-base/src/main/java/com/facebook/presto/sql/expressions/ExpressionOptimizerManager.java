@@ -16,6 +16,7 @@ package com.facebook.presto.sql.expressions;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.ConnectorSession;
@@ -33,6 +34,8 @@ import jakarta.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +53,7 @@ public class ExpressionOptimizerManager
 {
     private static final Logger log = Logger.get(ExpressionOptimizerManager.class);
     public static final String DEFAULT_EXPRESSION_OPTIMIZER_NAME = "default";
-    private static final File EXPRESSION_MANAGER_CONFIGURATION_DIRECTORY = new File("etc/expression-manager/");
+    private static final Path EXPRESSION_MANAGER_CONFIGURATION_DIRECTORY = Paths.get("etc/expression-manager/");
     private static final String EXPRESSION_MANAGER_FACTORY_NAME = "expression-manager-factory.name";
 
     private final NodeManager nodeManager;
@@ -65,7 +68,7 @@ public class ExpressionOptimizerManager
     @Inject
     public ExpressionOptimizerManager(PluginNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager, RowExpressionSerde rowExpressionSerde)
     {
-        this(nodeManager, functionAndTypeManager, rowExpressionSerde, EXPRESSION_MANAGER_CONFIGURATION_DIRECTORY);
+        this(nodeManager, functionAndTypeManager, rowExpressionSerde, EXPRESSION_MANAGER_CONFIGURATION_DIRECTORY.toFile());
     }
 
     public ExpressionOptimizerManager(PluginNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager, RowExpressionSerde rowExpressionSerde, File configurationDirectory)
@@ -79,12 +82,12 @@ public class ExpressionOptimizerManager
         expressionOptimizers.put(DEFAULT_EXPRESSION_OPTIMIZER_NAME, new RowExpressionOptimizer(functionAndTypeManager));
     }
 
-    public void loadExpressionOptimizerFactories()
+    public void loadExpressionOptimizerFactories(AuthClientConfigs authClientConfigs)
     {
         try {
             for (File file : listFiles(configurationDirectory)) {
                 if (file.isFile() && file.getName().endsWith(".properties")) {
-                    loadExpressionOptimizerFactory(file);
+                    loadExpressionOptimizerFactory(file, authClientConfigs);
                 }
             }
         }
@@ -93,7 +96,7 @@ public class ExpressionOptimizerManager
         }
     }
 
-    public void loadExpressionOptimizerFactory(File configurationFile)
+    public void loadExpressionOptimizerFactory(File configurationFile, AuthClientConfigs authClientConfigs)
             throws IOException
     {
         String optimizerName = getNameWithoutExtension(configurationFile.getName());
@@ -104,10 +107,10 @@ public class ExpressionOptimizerManager
         String factoryName = properties.remove(EXPRESSION_MANAGER_FACTORY_NAME);
         checkArgument(!isNullOrEmpty(factoryName), "%s does not contain %s", configurationFile, EXPRESSION_MANAGER_FACTORY_NAME);
 
-        loadExpressionOptimizerFactory(factoryName, optimizerName, properties);
+        loadExpressionOptimizerFactory(factoryName, optimizerName, properties, authClientConfigs);
     }
 
-    public void loadExpressionOptimizerFactory(String factoryName, String optimizerName, Map<String, String> properties)
+    public void loadExpressionOptimizerFactory(String factoryName, String optimizerName, Map<String, String> properties, AuthClientConfigs authClientConfigs)
     {
         requireNonNull(factoryName, "factoryName is null");
         checkArgument(expressionOptimizerFactories.containsKey(factoryName),
@@ -116,7 +119,7 @@ public class ExpressionOptimizerManager
         log.info("-- Loading expression optimizer [%s] --", optimizerName);
         ExpressionOptimizer optimizer = expressionOptimizerFactories.get(factoryName).createOptimizer(
                 properties,
-                new ExpressionOptimizerContext(nodeManager, rowExpressionSerde, functionAndTypeManager, functionResolution));
+                new ExpressionOptimizerContext(nodeManager, rowExpressionSerde, functionAndTypeManager, functionResolution, authClientConfigs, functionAndTypeManager));
         expressionOptimizers.put(optimizerName, optimizer);
         log.info("-- Added expression optimizer [%s] --", optimizerName);
     }

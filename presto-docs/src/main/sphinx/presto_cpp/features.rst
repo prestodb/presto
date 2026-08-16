@@ -51,7 +51,7 @@ Other HTTP endpoints include:
 
 * GET: v1/status: Returns memory pool information.
 
-The request/response flow of Presto C++ is identical to Java workers. The tasks or new splits are registered via `TaskUpdateRequest`. Resource utilization and query progress are sent to the coordinator via task endpoints.
+The request/response flow of Presto C++ is identical to Java workers. The tasks or new splits are registered through `TaskUpdateRequest`. Resource utilization and query progress are sent to the coordinator through task endpoints.
 
 * GET: /v1/operation/server/clearCache?type=memory: It clears the memory cache on worker node. Here is an example:
 
@@ -395,3 +395,5 @@ Users can enable collection of worker level metrics by setting the property:
 
   When enabled and Presto C++ workers interact with the S3 filesystem, additional runtime metrics are collected.
   For a detailed list of these metrics, see `S3 FileSystem <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_.
+
+  For comprehensive documentation of all available runtime metrics, see :doc:`metrics`.

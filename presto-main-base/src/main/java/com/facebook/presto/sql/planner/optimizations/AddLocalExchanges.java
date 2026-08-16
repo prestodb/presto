@@ -14,6 +14,11 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
@@ -22,6 +27,7 @@ import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -45,25 +51,25 @@ import com.facebook.presto.spi.plan.StatisticAggregations;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -74,6 +80,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.getLocalExchangeParentPreferenceStrategy;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
@@ -90,6 +97,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.isDecomposable;
 import static com.facebook.presto.sql.TemporaryTableUtil.splitIntoPartialAndIntermediate;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.LocalExchangeParentPreferenceStrategy;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -114,7 +122,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -123,18 +131,26 @@ public class AddLocalExchanges
         implements PlanOptimizer
 {
     private final Metadata metadata;
+    private final StatsCalculator statsCalculator;
     private final boolean nativeExecution;
 
-    public AddLocalExchanges(Metadata metadata, boolean nativeExecution)
+    public AddLocalExchanges(Metadata metadata, StatsCalculator statsCalculator, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.nativeExecution = nativeExecution;
     }
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanWithProperties result = new Rewriter(variableAllocator, idAllocator, session, nativeExecution).accept(plan, any());
+        LocalExchangeParentPreferenceStrategy strategy = getLocalExchangeParentPreferenceStrategy(session);
+        Optional<StatsProvider> statsProvider = Optional.empty();
+        if (strategy == LocalExchangeParentPreferenceStrategy.AUTOMATIC) {
+            statsProvider = Optional.of(new CachingStatsProvider(statsCalculator, session, types));
+        }
+
+        PlanWithProperties result = new Rewriter(variableAllocator, idAllocator, session, strategy, statsProvider, nativeExecution).accept(plan, any());
         boolean optimizerTriggered = PlanNodeSearcher.searchFrom(result.getNode()).where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isLocal()).findFirst().isPresent();
         return PlanOptimizerResult.optimizerResult(result.getNode(), optimizerTriggered);
     }
@@ -146,14 +162,18 @@ public class AddLocalExchanges
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
         private final TypeProvider types;
+        private final LocalExchangeParentPreferenceStrategy parentPreferenceStrategy;
+        private final Optional<StatsProvider> statsProvider;
         private final boolean nativeExecution;
 
-        public Rewriter(VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Session session, boolean nativeExecution)
+        public Rewriter(VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Session session, LocalExchangeParentPreferenceStrategy parentPreferenceStrategy, Optional<StatsProvider> statsProvider, boolean nativeExecution)
         {
             this.variableAllocator = variableAllocator;
             this.types = TypeProvider.viewOf(variableAllocator.getVariables());
             this.idAllocator = idAllocator;
             this.session = session;
+            this.parentPreferenceStrategy = parentPreferenceStrategy;
+            this.statsProvider = statsProvider;
             this.nativeExecution = nativeExecution;
         }
 
@@ -255,7 +275,7 @@ public class AddLocalExchanges
                                     new SortNode(
                                             sortNode.getSourceLocation(),
                                             sortNode.getId(),
-                                            getOnlyElement(sortNode.getSources()),
+                                            sortNode.getSources().stream().collect(onlyElement()),
                                             sortNode.getOrderingScheme(),
                                             true,
                                             sortNode.getPartitionBy()),
@@ -386,7 +406,36 @@ public class AddLocalExchanges
                 return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
             }
 
-            StreamPreferredProperties childRequirements = parentPreferences
+            boolean useParentPreferences;
+            switch (parentPreferenceStrategy) {
+                case NEVER:
+                    useParentPreferences = false;
+                    break;
+                case AUTOMATIC:
+                    double parentPartitionCardinality = 0;
+                    if (parentPreferences.getPartitioningColumns().isPresent() && statsProvider.isPresent()) {
+                        parentPartitionCardinality = 1;
+                        PlanNodeStatsEstimate stats = statsProvider.get().getStats(node.getSource());
+                        for (VariableReferenceExpression partitionColumn : parentPreferences.getPartitioningColumns().get()) {
+                            VariableStatsEstimate varStats = stats.getVariableStatistics(partitionColumn);
+                            double distinctCount = varStats.getDistinctValuesCount();
+                            if (!Double.isNaN(distinctCount)) {
+                                parentPartitionCardinality *= distinctCount;
+                            }
+                            else {
+                                parentPartitionCardinality = 0;
+                                break;
+                            }
+                        }
+                    }
+                    useParentPreferences = parentPartitionCardinality >= getTaskConcurrency(session);
+                    break;
+                case ALWAYS:
+                default:
+                    useParentPreferences = true;
+                    break;
+            }
+            StreamPreferredProperties childRequirements = (useParentPreferences ? parentPreferences : StreamPreferredProperties.any())
                     .constrainTo(node.getSource().getOutputVariables())
                     .withDefaultParallelism(session)
                     .withPartitioning(groupingKeys);
@@ -836,6 +885,26 @@ public class AddLocalExchanges
         public PlanWithProperties visitMergeWriter(MergeWriterNode node, StreamPreferredProperties parentPreferences)
         {
             return visitPartitionedWriter(node);
+        }
+
+        @Override
+        public PlanWithProperties visitRPC(RPCNode node, StreamPreferredProperties parentPreferences)
+        {
+            // BATCH accumulates rows into one large request sized to the backend's
+            // batch limits. Fanning the input round-robin across N drivers would
+            // produce N under-filled batches (and, for the synthetic single-row
+            // constant-args case, leave drivers empty), so require a single
+            // stream: a local GATHER runs the RPC stage single-driver while
+            // upstream scan/filter still run in parallel. The gather is a pipeline breaker, so single-driver no
+            // longer collapses the whole fused pipeline. Concurrency in BATCH
+            // comes from multiple in-flight async batches (congestion window +
+            // per-tier rate limiter), not from driver count.
+            if (node.getStreamingMode() == RPCNode.StreamingMode.BATCH) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+            }
+            // PER_ROW dispatches one RPC per row and benefits from multiple
+            // drivers for concurrent dispatch.
+            return planAndEnforceChildren(node, parentPreferences.withDefaultParallelism(session), parentPreferences.withDefaultParallelism(session));
         }
 
         @Override

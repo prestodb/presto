@@ -73,22 +73,12 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitCallDistributedProcedure(CallDistributedProcedureNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitGroupId(GroupIdNode node, C context)
     {
         return visitPlan(node, context);
     }
 
     public R visitRowNumber(RowNumberNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitTopNRowNumber(TopNRowNumberNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -149,6 +139,11 @@ public abstract class InternalPlanVisitor<R, C>
     }
 
     public R visitTableFunctionProcessor(TableFunctionProcessorNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitRPC(RPCNode node, C context)
     {
         return visitPlan(node, context);
     }

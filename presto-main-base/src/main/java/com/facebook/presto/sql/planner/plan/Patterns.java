@@ -20,17 +20,20 @@ import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.DeleteNode;
+import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.MVRewriteCandidatesNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.RefreshMaterializedViewNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.SpatialJoinNode;
@@ -140,6 +143,11 @@ public class Patterns
         return typeOf(MaterializedViewScanNode.class);
     }
 
+    public static Pattern<MVRewriteCandidatesNode> mvRewriteCandidates()
+    {
+        return typeOf(MVRewriteCandidatesNode.class);
+    }
+
     public static Pattern<OutputNode> output()
     {
         return typeOf(OutputNode.class);
@@ -205,6 +213,11 @@ public class Patterns
         return typeOf(TableWriterNode.class);
     }
 
+    public static Pattern<RefreshMaterializedViewNode> refreshMaterializedViewNode()
+    {
+        return typeOf(RefreshMaterializedViewNode.class);
+    }
+
     public static Pattern<TableWriterMergeNode> tableWriterMergeNode()
     {
         return typeOf(TableWriterMergeNode.class);
@@ -228,6 +241,11 @@ public class Patterns
     public static Pattern<IntersectNode> intersect()
     {
         return typeOf(IntersectNode.class);
+    }
+
+    public static Pattern<ExceptNode> except()
+    {
+        return typeOf(ExceptNode.class);
     }
 
     public static Pattern<ValuesNode> values()

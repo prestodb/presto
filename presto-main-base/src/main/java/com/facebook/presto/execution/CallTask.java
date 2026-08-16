@@ -32,8 +32,10 @@ import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -48,6 +50,7 @@ import java.util.Map.Entry;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.MetadataUtil.catalogError;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
@@ -181,7 +184,7 @@ public class CallTask
             int index = positions.get(entry.getKey());
             BaseArgument argument = procedure.getArguments().get(index);
 
-            Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameterLookup), callArgument.getValue());
+            Expression expression = rewriteWithDefaultNamespace(callArgument.getValue(), parameterLookup);
             Type type = metadata.getType(argument.getType());
             checkCondition(type != null, INVALID_PROCEDURE_DEFINITION, "Unknown procedure argument type: %s", argument.getType());
 
@@ -208,5 +211,38 @@ public class CallTask
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         writeNativeValue(type, blockBuilder, value);
         return type.getObjectValue(session.getSqlFunctionProperties(), blockBuilder, 0);
+    }
+
+    /**
+     * Rewrites a procedure argument expression so that unqualified function calls are explicitly
+     * bound to the {@code presto.default} namespace. Parameters are substituted first via
+     * {@link ParameterRewriter}. This ensures built-in Java functions are resolved correctly
+     * even when sidecar is enabled in a native cluster and a different default function namespace is configured
+     * for the cluster — procedure argument expressions must always evaluate against the built-in implementations.
+     */
+    private static Expression rewriteWithDefaultNamespace(Expression expression, Map<NodeRef<Parameter>, Expression> parameterLookup)
+    {
+        return ExpressionTreeRewriter.rewriteWith(
+                new ParameterRewriter(parameterLookup)
+                {
+                    @Override
+                    public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                    {
+                        FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
+                        QualifiedName name = rewritten.getName();
+                        if (!name.getPrefix().isPresent()) {
+                            return new FunctionCall(
+                                    QualifiedName.of(JAVA_BUILTIN_NAMESPACE.getCatalogName(), JAVA_BUILTIN_NAMESPACE.getSchemaName(), name.getSuffix()),
+                                    rewritten.getWindow(),
+                                    rewritten.getFilter(),
+                                    rewritten.getOrderBy(),
+                                    rewritten.isDistinct(),
+                                    rewritten.isIgnoreNulls(),
+                                    rewritten.getArguments());
+                        }
+                        return rewritten;
+                    }
+                },
+                expression);
     }
 }

@@ -17,6 +17,7 @@
 #include <folly/Uri.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/functions/remote/utils/ContentTypes.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/memory/Memory.h"
@@ -39,6 +40,8 @@ RestRemoteClient::RestRemoteClient(const std::string& url) : url_(url) {
   folly::SocketAddress addr(uri.host().c_str(), uri.port(), true);
 
   evbThread_ = std::make_unique<folly::ScopedEventBaseThread>("rest-client");
+  auto systemConfig = SystemConfig::instance();
+  auto httpClientOptions = systemConfig->httpClientOptions();
   httpClient_ = std::make_shared<http::HttpClient>(
       evbThread_->getEventBase(),
       nullptr,
@@ -47,7 +50,8 @@ RestRemoteClient::RestRemoteClient(const std::string& url) : url_(url) {
       requestTimeoutMs,
       connectTimeoutMs,
       memPool_,
-      nullptr);
+      nullptr,
+      std::move(httpClientOptions));
 }
 
 RestRemoteClient::~RestRemoteClient() {

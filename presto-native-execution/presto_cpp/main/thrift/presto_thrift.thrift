@@ -12,6 +12,9 @@
  * limitations under the License.
  */
 
+include "thrift/annotation/cpp.thrift"
+include "thrift/annotation/thrift.thrift"
+
 namespace cpp2 facebook.presto.thrift
 
 enum TaskState {
@@ -448,6 +451,7 @@ struct TaskStats {
   47: i32 queuedNewDrivers;
   48: i32 runningNewDrivers;
   49: i32 completedNewDrivers;
+  50: i64 scanRawInputDataSizeInBytes;
 }
 struct PipelineStats {
   1: i32 pipelineId;
@@ -524,6 +528,8 @@ struct SessionRepresentation {
   21: map<string, SelectedRole> roles;
   22: map<string, string> preparedStatements;
   23: map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
+  24: optional string selectedUser;
+  25: optional string reasonForSelect;
 }
 struct SelectedRole {
   1: Type type;
@@ -579,10 +585,9 @@ struct UpdateHandle {
 struct ExecutionFailureInfo {
   1: string type;
   2: string message;
-  3: optional ExecutionFailureInfo cause (
-    cpp.ref_type = "shared",
-    drift.recursive_reference = true,
-  );
+  @cpp.Ref{type = cpp.RefType.SharedMutable}
+  @thrift.DeprecatedUnvalidatedAnnotations{items = {"drift.recursive_reference": "true"}}
+  3: optional ExecutionFailureInfo cause;
   4: list<ExecutionFailureInfo> suppressed;
   5: list<string> stack;
   6: ErrorLocation errorLocation;

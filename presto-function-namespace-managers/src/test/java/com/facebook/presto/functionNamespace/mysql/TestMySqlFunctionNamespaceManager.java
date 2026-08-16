@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
+import io.netty.buffer.PooledByteBufAllocator;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterClass;
@@ -99,7 +100,7 @@ public class TestMySqlFunctionNamespaceManager
         Bootstrap app = new Bootstrap(
                 new MySqlFunctionNamespaceManagerModule(TEST_CATALOG),
                 new SimpleAddressSqlFunctionExecutorsModule(),
-                new DriftNettyClientModule(),
+                new DriftNettyClientModule(PooledByteBufAllocator.DEFAULT),
                 new MySqlConnectionModule());
 
         try {

@@ -44,6 +44,12 @@ cause an error if used.
 The optional ``WITH`` clause specifies connector-specific properties. Connector properties vary by
 connector implementation. Consult connector documentation for supported properties.
 
+.. note::
+
+    The defining query cannot contain non-deterministic functions (such as ``random`` or ``uuid``)
+    or session-time functions (such as ``current_timestamp`` or ``now``). Their values cannot be
+    reproduced across refreshes, so the engine rejects such queries at creation time.
+
 Examples
 --------
 
@@ -78,6 +84,38 @@ Create a materialized view with INVOKER security mode::
     FROM orders
     GROUP BY date_trunc('day', order_date)
 
+Create a materialized view with staleness configuration::
+
+    CREATE MATERIALIZED VIEW daily_sales
+    WITH (stale_read_behavior = 'FAIL',
+    staleness_window = '1h')
+    AS
+    SELECT date_trunc('day', order_date) AS day,
+           region,
+           SUM(amount) AS total_sales
+    FROM orders
+    GROUP BY date_trunc('day', order_date), region
+
+The optional ``staleness_window`` parameter defines how long stale data is acceptable and allows duration values in hours, minutes, or seconds (for example: ``1h``, ``30m``).
+
+Create a materialized view with timestamp-based staleness detection::
+
+    CREATE MATERIALIZED VIEW daily_sales_timestamp
+    WITH (
+        use_timestamp_based_staleness = true,
+        staleness_window = '2h'
+    )
+    AS
+    SELECT date_trunc('day', order_date) AS day,
+           region,
+           SUM(amount) AS total_sales
+    FROM orders
+    GROUP BY date_trunc('day', order_date), region
+
+.. note::
+
+    The ``use_timestamp_based_staleness`` property enables timestamp-based staleness detection for connectors where snapshot comparison is not feasible such as in non-Iceberg tables. This approach tracks only the time since last refresh, not individual base table modifications. This is a connector-specific property - consult your connector documentation for availability.
+
 Create a materialized view with connector properties::
 
     CREATE MATERIALIZED VIEW partitioned_sales
@@ -91,8 +129,37 @@ Create a materialized view with connector properties::
     FROM orders
     GROUP BY year(order_date), month(order_date)
 
+Cross-Catalog Materialized Views
+---------------------------------
+
+Cross-catalog materialized views allow you to create materialized views that reference base tables from different catalogs. This feature is controlled by the ``cross_catalog_materialized_views_enabled`` property.
+
+By default, cross-catalog materialized views are disabled. To enable them, you must explicitly set ``cross_catalog_materialized_views_enabled = true`` in the ``WITH`` clause when creating the materialized view.
+
+.. note::
+
+    When ``cross_catalog_materialized_views_enabled`` is set to ``true``, timestamp-based staleness detection (``use_timestamp_based_staleness``) is automatically enabled, as snapshot-based staleness tracking cannot work across different catalogs.
+
+Create a cross-catalog materialized view (engine-level property)::
+
+    CREATE MATERIALIZED VIEW iceberg.analytics.cross_catalog_sales
+    WITH (
+        cross_catalog_materialized_views_enabled = true,
+        staleness_window = '1h'
+    )
+    AS
+    SELECT date_trunc('day', order_date) AS day,
+           SUM(amount) AS total_sales
+    FROM mysql.sales.orders
+    GROUP BY date_trunc('day', order_date)
+
+.. note::
+
+    The ``cross_catalog_materialized_views_enabled`` property is enforced at the engine level. If you attempt to create a cross-catalog materialized view without setting this property to ``true``, the engine will reject the request with an error message: "Cross-catalog materialized views require cross_catalog_materialized_views_enabled=true property".
+
 See Also
 --------
 
-:doc:`drop-materialized-view`, :doc:`refresh-materialized-view`,
-:doc:`show-create-materialized-view`, :doc:`/admin/materialized-views`
+:doc:`alter-materialized-view`, :doc:`drop-materialized-view`,
+:doc:`refresh-materialized-view`, :doc:`show-create-materialized-view`,
+:doc:`/admin/materialized-views`

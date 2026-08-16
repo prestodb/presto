@@ -54,8 +54,8 @@ public class OAuth2Authenticator
     public OAuth2Authenticator(OAuth2Client client, OAuth2Config config, TokenRefresher tokenRefresher, TokenPairSerializer tokenPairSerializer)
     {
         this.client = requireNonNull(client, "service is null");
-        this.principalField = config.getPrincipalField();
         requireNonNull(config, "oauth2Config is null");
+        this.principalField = config.getPrincipalField();
         this.tokenRefresher = requireNonNull(tokenRefresher, "tokenRefresher is null");
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
     }
@@ -75,10 +75,17 @@ public class OAuth2Authenticator
         if (tokenPair.getExpiration().before(Date.from(Instant.now()))) {
             throw needAuthentication(request, Optional.of(token), "Invalid Credentials");
         }
-        Optional<Map<String, Object>> claims = client.getClaims(tokenPair.getAccessToken());
 
+        // Try to get claims from TokenPair first (from ID token or UserInfo)
+        // This is the correct source per OIDC specification
+        Optional<Map<String, Object>> claims = tokenPair.getClaims();
+
+        // Fallback to access token claims for backward compatibility
         if (!claims.isPresent()) {
-            throw needAuthentication(request, Optional.ofNullable(token), "Invalid Credentials");
+            claims = client.getClaims(tokenPair.getAccessToken());
+            if (!claims.isPresent()) {
+                throw needAuthentication(request, Optional.ofNullable(token), "Invalid Credentials");
+            }
         }
         String principal = (String) claims.get().get(principalField);
         if (StringUtils.isEmpty(principal)) {

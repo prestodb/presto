@@ -23,6 +23,10 @@
 
 namespace facebook::presto::util {
 
+std::string boolToLowerCaseString(bool value) {
+  return value ? "true" : "false";
+}
+
 DateTime toISOTimestamp(uint64_t timeMilli) {
   char buf[80];
   time_t timeSecond = timeMilli / 1000;
@@ -137,7 +141,7 @@ std::string decompressMessageBody(
   }
 }
 
-const std::vector<std::string> getFunctionNameParts(
+std::vector<std::string> getFunctionNameParts(
     const std::string& registeredFunction) {
   std::vector<std::string> parts;
   folly::split('.', registeredFunction, parts, true);

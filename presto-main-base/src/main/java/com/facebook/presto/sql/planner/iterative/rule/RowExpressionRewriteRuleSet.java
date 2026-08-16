@@ -173,8 +173,16 @@ public class RowExpressionRewriteRuleSet
             Assignments.Builder builder = Assignments.builder();
             boolean anyRewritten = false;
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : projectNode.getAssignments().getMap().entrySet()) {
-                RowExpression rewritten = rewriter.rewrite(entry.getValue(), context);
-                if (!rewritten.equals(entry.getValue())) {
+                RowExpression expression = entry.getValue();
+                // Skip variable references: no rewriter transforms a bare variable.
+                // We do NOT skip ConstantExpression because pluggable ExpressionOptimizers
+                // (used by RewriteRowExpressions) could theoretically transform constants.
+                if (expression instanceof VariableReferenceExpression) {
+                    builder.put(entry.getKey(), expression);
+                    continue;
+                }
+                RowExpression rewritten = rewriter.rewrite(expression, context);
+                if (!rewritten.equals(expression)) {
                     anyRewritten = true;
                 }
                 builder.put(entry.getKey(), rewritten);

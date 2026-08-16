@@ -17,6 +17,7 @@
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include <folly/io/IOBuf.h>
 #include <velox/type/TypeUtil.h>
 #include <velox/type/Filter.h>
 #include "velox/core/QueryCtx.h"
@@ -28,15 +29,21 @@
 #include "velox/core/Expressions.h"
 // clang-format on
 
-#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
+#include "presto_cpp/main/operators/IcebergMergeProcessorOperator.h"
+#include "presto_cpp/main/operators/MaterializedExchange.h"
+#include "presto_cpp/main/operators/MaterializedOutput.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "velox/exec/TraceUtil.h"
+// RPC plan nodes for single-operator async RPC execution
+#include <folly/json.h>
+#include "presto_cpp/presto_protocol/Base64Util.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -63,6 +70,21 @@ bool useCachedHashTable(const protocol::PlanNode& node) {
         protocol::DistributionType::REPLICATED;
   }
   return false;
+}
+
+const protocol::Signature* getSignatureFromFunctionHandle(
+    const std::shared_ptr<protocol::FunctionHandle>& functionHandle) {
+  if (const auto builtin =
+          std::dynamic_pointer_cast<protocol::BuiltInFunctionHandle>(
+              functionHandle)) {
+    return &builtin->signature;
+  } else if (
+      const auto native =
+          std::dynamic_pointer_cast<protocol::NativeFunctionHandle>(
+              functionHandle)) {
+    return &native->signature;
+  }
+  return nullptr;
 }
 
 std::vector<std::string> getNames(const protocol::Assignments& assignments) {
@@ -110,6 +132,18 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
   const auto& connector =
       getPrestoToVeloxConnector(tableHandle.connectorHandle->_type);
   return connector.toVeloxTableHandle(tableHandle, exprConverter, typeParser);
+}
+
+std::shared_ptr<connector::ConnectorTableHandle>
+toConnectorTableHandleForIndexSource(
+    const protocol::TableHandle& tableHandle,
+    const protocol::IndexHandle& indexHandle,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) {
+  const auto& connector =
+      getPrestoToVeloxConnector(tableHandle.connectorHandle->_type);
+  return connector.toVeloxTableHandle(
+      tableHandle, indexHandle, exprConverter, typeParser);
 }
 
 std::vector<core::TypedExprPtr> getProjections(
@@ -345,12 +379,12 @@ core::LocalPartitionNode::Type toLocalExchangeType(
   }
 }
 
-VectorSerde::Kind toVeloxSerdeKind(protocol::ExchangeEncoding encoding) {
+std::string toVeloxSerdeKind(protocol::ExchangeEncoding encoding) {
   switch (encoding) {
     case protocol::ExchangeEncoding::COLUMNAR:
-      return VectorSerde::Kind::kPresto;
+      return "Presto";
     case protocol::ExchangeEncoding::ROW_WISE:
-      return VectorSerde::Kind::kCompactRow;
+      return "CompactRow";
   }
   VELOX_UNSUPPORTED("Unsupported encoding: {}.", fmt::underlying(encoding));
 }
@@ -870,6 +904,7 @@ VeloxQueryPlanConverterBase::toColumnStatsSpec(
       aggregateNames,
       aggregates,
       /*ignoreNullKeys=*/false,
+      /*noGroupsSpanBatches=*/false,
       sourceVeloxPlan);
 
   // Sanity checks on aggregation node.
@@ -902,7 +937,8 @@ VeloxQueryPlanConverterBase::generateOutputVariables(
   if (statisticsAggregation == nullptr) {
     return outputVariables;
   }
-  const auto statisticsOutputVariables = statisticsAggregation->outputVariables;
+  const auto& statisticsOutputVariables =
+      statisticsAggregation->outputVariables;
   auto statisticsGroupingVariables = statisticsAggregation->groupingVariables;
   outputVariables.insert(
       outputVariables.end(),
@@ -932,12 +968,10 @@ void VeloxQueryPlanConverterBase::toAggregations(
     aggregate.call = std::dynamic_pointer_cast<const core::CallTypedExpr>(
         exprConverter_.toVeloxExpr(prestoAggregation.call));
 
-    if (const auto builtin =
-            std::dynamic_pointer_cast<protocol::BuiltInFunctionHandle>(
-                prestoAggregation.functionHandle)) {
-      const auto& signature = builtin->signature;
-      aggregate.rawInputTypes.reserve(signature.argumentTypes.size());
-      for (const auto& argumentType : signature.argumentTypes) {
+    if (const auto signature =
+            getSignatureFromFunctionHandle(prestoAggregation.functionHandle)) {
+      aggregate.rawInputTypes.reserve(signature->argumentTypes.size());
+      for (const auto& argumentType : signature->argumentTypes) {
         aggregate.rawInputTypes.push_back(
             stringToType(argumentType, typeParser_));
       }
@@ -1051,9 +1085,21 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   std::vector<std::string> aggregateNames;
   std::vector<core::AggregationNode::Aggregate> aggregates;
 
+  // Use aggregationOutputs (Java's LinkedHashMap insertion order) when sent by
+  // the coordinator. Iterating node->aggregations directly is unsafe because
+  // protocol::Map = std::map<VRE, ...> sorts by variable name, which can
+  // diverge from Java's order and shift channel positions at exchange
+  // operators (see prestodb/presto#27902). Fall back to map iteration only
+  // for backward compatibility with older coordinators that don't send the
+  // field (aggregationOutputs is Optional<> in the protocol).
   std::vector<protocol::VariableReferenceExpression> outputVariables;
-  for (const auto& [variable, _] : node->aggregations) {
-    outputVariables.push_back(variable);
+  if (node->aggregationOutputs != nullptr &&
+      !node->aggregationOutputs->empty()) {
+    outputVariables = *node->aggregationOutputs;
+  } else {
+    for (const auto& [variable, _] : node->aggregations) {
+      outputVariables.push_back(variable);
+    }
   }
   toAggregations(
       outputVariables, node->aggregations, aggregates, aggregateNames);
@@ -1104,6 +1150,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       globalGroupingSets,
       groupIdField,
       /*ignoreNullKeys=*/false,
+      /*noGroupsSpanBatches=*/false,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -1184,6 +1231,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           /*aggregateNames=*/std::vector<std::string>{},
           /*aggregates=*/std::vector<core::AggregationNode::Aggregate>{},
           /*ignoreNullKeys=*/false,
+          /*noGroupsSpanBatches=*/false,
           toVeloxQueryPlan(node->source, tableWriteInfo, taskId)));
 }
 
@@ -1347,8 +1395,21 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   const auto left = toVeloxQueryPlan(node->probeSource, tableWriteInfo, taskId);
-  const auto right =
-      toVeloxQueryPlan(node->indexSource, tableWriteInfo, taskId);
+  auto right = toVeloxQueryPlan(node->indexSource, tableWriteInfo, taskId);
+
+  // The index source is normally an IndexSourceNode which converts to a
+  // TableScanNode. However, IndexJoinOptimizer may insert a FilterNode between
+  // IndexJoinNode and IndexSourceNode when there are non-domain-expressible
+  // predicates on the index side (e.g., LIKE, complex expressions). Connectors
+  // may absorb this FilterNode via ConnectorPlanOptimizer before it reaches
+  // native plan conversion. If not absorbed, we unwrap it here and merge the
+  // filter into the join's remaining filter.
+  core::TypedExprPtr indexSourceFilter;
+  if (auto filterNode =
+          std::dynamic_pointer_cast<const core::FilterNode>(right)) {
+    indexSourceFilter = filterNode->filter();
+    right = filterNode->sources()[0];
+  }
 
   std::vector<core::IndexLookupConditionPtr> joinConditionPtrs{};
   std::vector<core::TypedExprPtr> unsupportedConditions{};
@@ -1360,6 +1421,12 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         /*acceptConstant=*/false,
         joinConditionPtrs,
         unsupportedConditions);
+  }
+
+  // If a FilterNode was unwrapped from the index source, add it to
+  // unsupported conditions so it becomes part of the join's remaining filter.
+  if (indexSourceFilter) {
+    unsupportedConditions.push_back(indexSourceFilter);
   }
 
   // Combine unsupported conditions into a single filter using AND
@@ -1391,14 +1458,17 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::IndexSourceNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
+  VELOX_CHECK_NOT_NULL(node);
   auto rowType = toRowType(node->outputVariables, typeParser_);
   connector::ColumnHandleMap assignments;
   for (const auto& [variable, columnHandle] : node->assignments) {
     assignments.emplace(
         variable.name, toColumnHandle(columnHandle.get(), typeParser_));
   }
-  auto connectorTableHandle =
-      toConnectorTableHandle(node->tableHandle, exprConverter_, typeParser_);
+
+  auto connectorTableHandle = toConnectorTableHandleForIndexSource(
+      node->tableHandle, node->indexHandle, exprConverter_, typeParser_);
+
   return std::make_shared<core::TableScanNode>(
       node->id, rowType, connectorTableHandle, assignments);
 }
@@ -1563,6 +1633,61 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
 std::shared_ptr<const core::TableWriteNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::CallDistributedProcedureNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  const auto executeProcedureHandle =
+      std::dynamic_pointer_cast<protocol::ExecuteProcedureHandle>(
+          tableWriteInfo->writerTarget);
+
+  if (!executeProcedureHandle) {
+    VELOX_UNSUPPORTED(
+        "Unsupported execute procedure handle: {}",
+        toJsonString(tableWriteInfo->writerTarget));
+  }
+
+  std::string connectorId = executeProcedureHandle->handle.connectorId;
+  auto& connector = getPrestoToVeloxConnector(
+      executeProcedureHandle->handle.connectorHandle->_type);
+  auto veloxHandle = connector.toVeloxInsertTableHandle(
+      executeProcedureHandle.get(), typeParser_);
+  auto connectorInsertHandle = std::shared_ptr(std::move(veloxHandle));
+
+  if (!connectorInsertHandle) {
+    VELOX_UNSUPPORTED(
+        "Connector '{}' does not support execute procedure handle of type '{}' for writer target: {}",
+        connectorId,
+        executeProcedureHandle->handle.connectorHandle->_type,
+        toJsonString(tableWriteInfo->writerTarget));
+  }
+
+  auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
+      connectorId, connectorInsertHandle);
+
+  const auto outputType = toRowType(
+      generateOutputVariables(
+          {node->rowCountVariable,
+           node->fragmentVariable,
+           node->tableCommitContextVariable},
+          nullptr),
+      typeParser_);
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
+
+  return std::make_shared<core::TableWriteNode>(
+      node->id,
+      toRowType(node->columns, typeParser_),
+      node->columnNames,
+      std::nullopt,
+      std::move(insertTableHandle),
+      node->partitioningScheme != nullptr,
+      outputType,
+      getCommitStrategy(),
+      sourceVeloxPlan);
+}
+
+std::shared_ptr<const core::TableWriteNode>
+VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::DeleteNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
@@ -1588,24 +1713,41 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
       connectorId, connectorInsertHandle);
 
+  // [ICEBERG-FIX bug 1B]: Build outputType from node->outputVariables
+  // — the Java QueryPlanner.plan(Delete) now declares 3 vars
+  // (partialrows BIGINT, fragment VARBINARY, commitcontext VARBINARY)
+  // mirroring TableWriterNode's named-slot contract. The
+  // generator-style construction matches the TableWriter translator
+  // at line 1656-1662, so the Velox TableWriteNode's outputType arity
+  // is always exactly what the Java planner shipped on the wire via
+  // PartitioningScheme.outputLayout. No ProjectNode wrap is needed.
   const auto outputType = toRowType(
       generateOutputVariables(node->outputVariables, nullptr), typeParser_);
 
   const auto sourceVeloxPlan =
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
 
-  // get columns and partition keys from InputDistribution
-  const auto inputDistribution =
-      std::dynamic_pointer_cast<protocol::BaseInputDistribution>(
-          node->inputDistribution);
-
-  if (!inputDistribution) {
-    VELOX_UNSUPPORTED(
-        "Unsupported input distribution type: {}",
-        toJsonString(node->inputDistribution));
+  // get columns and partition keys from InputDistribution. The Java
+  // DeleteNode.inputDistribution field is populated only by partition-aware
+  // optimizers and is left as Optional.empty() by the baseline
+  // QueryPlanner.plan(Delete). When the field is absent on the wire, fall
+  // back to the source plan's output schema so the C++ converter does not
+  // throw. Only fail when inputDistribution is present but of an unknown
+  // subtype.
+  RowTypePtr inputColumns;
+  if (node->inputDistribution) {
+    const auto inputDistribution =
+        std::dynamic_pointer_cast<protocol::BaseInputDistribution>(
+            node->inputDistribution);
+    if (!inputDistribution) {
+      VELOX_UNSUPPORTED(
+          "Unsupported input distribution type: {}",
+          toJsonString(node->inputDistribution));
+    }
+    inputColumns = toRowType(inputDistribution->inputVariables, typeParser_);
+  } else {
+    inputColumns = sourceVeloxPlan->outputType();
   }
-
-  auto inputColumns = toRowType(inputDistribution->inputVariables, typeParser_);
 
   return std::make_shared<core::TableWriteNode>(
       node->id,
@@ -1643,6 +1785,331 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   return std::make_shared<core::TableWriteMergeNode>(
       node->id, outputType, columnStatsSpec, sourceVeloxPlan);
+}
+
+// Layer 3b: Translate the MergeProcessorNode (per-row INSERT/DELETE fan-out
+// stage of an UPDATE/MERGE plan) into the custom Velox plan node that wraps
+// `velox::connector::hive::iceberg::IcebergMergeProcessor` (Layer 1) via the
+// IcebergMergeProcessorOperator + Translator (Layer 3c).
+//
+// Input channel layout (set by the upstream projection produced by the
+// coordinator, mirroring the OSS Java
+// `DeleteAndInsertMergeProcessor.transformPage` contract):
+//   0. unique_id        BIGINT       — not consumed
+//   1. target_row_id    ROW          — Iceberg row id (passed through)
+//   2. merge_row        ROW          — target columns ++ operation ++ case#
+//   3. case_number      INTEGER      — not consumed
+//   4. is_distinct      BOOLEAN      — not consumed
+//
+// We derive targetColumnTypes from `targetColumnVariables` (the names alone
+// are enough since the variable list is in target-column order) and the
+// rowIdType from `targetTableRowIdColumnVariable`. The channel indices for
+// rowId and mergeRow are located via name lookup in the source RowType so
+// the operator stays independent of the upstream channel layout.
+velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::MergeProcessorNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
+  const auto& sourceType = sourceVeloxPlan->outputType();
+
+  // Resolve target column types from the symbol list (positional order is
+  // semantic — Java MergeProcessor reads columns in declaration order).
+  std::vector<velox::TypePtr> targetColumnTypes;
+  targetColumnTypes.reserve(node->targetColumnVariables.size());
+  for (const auto& var : node->targetColumnVariables) {
+    targetColumnTypes.push_back(stringToType(var.type, typeParser_));
+  }
+
+  // Collect the full output column name list from `node->outputs` so the
+  // IcebergMergeProcessor emits column names that exactly match the
+  // planner-declared output layout, including the trailing operation /
+  // rowId / insertFromUpdate columns. Downstream nodes (TableWriter::
+  // setTypeMappings) bind by name to these planner-declared identifiers
+  // (e.g. "$target_table_row_id") rather than synthetic placeholders.
+  // node->outputs is expected to have arity = targetColumnTypes.size() + 3
+  // in the order [target cols..., operation, row_id, insert_from_update].
+  VELOX_USER_CHECK_EQ(
+      node->outputs.size(),
+      node->targetColumnVariables.size() + 3,
+      "MergeProcessorNode outputs arity ({}) must equal "
+      "targetColumnVariables.size() + 3 ({})",
+      node->outputs.size(),
+      node->targetColumnVariables.size() + 3);
+  std::vector<std::string> outputColumnNames;
+  outputColumnNames.reserve(node->outputs.size());
+  for (const auto& var : node->outputs) {
+    outputColumnNames.push_back(var.name);
+  }
+
+  // RowId type from the dedicated row-id variable.
+  velox::TypePtr rowIdType =
+      stringToType(node->targetTableRowIdColumnVariable.type, typeParser_);
+
+  // Resolve channel indices by variable name in the source output. If the
+  // upstream projection didn't expose these names, the IcebergMergeProcessor
+  // can't run — fail loudly here rather than producing a corrupt result.
+  const auto targetRowIdChannel =
+      sourceType->getChildIdx(node->targetTableRowIdColumnVariable.name);
+  const auto mergeRowChannel =
+      sourceType->getChildIdx(node->mergeRowVariable.name);
+
+  return std::make_shared<presto::operators::IcebergMergeProcessorNode>(
+      node->id,
+      std::move(targetColumnTypes),
+      std::move(outputColumnNames),
+      std::move(rowIdType),
+      targetRowIdChannel,
+      mergeRowChannel,
+      sourceVeloxPlan);
+}
+
+// Layer 3b stub: commit-side `MergeWriterNode`.
+//
+// Scope of remaining work to make UPDATE/MERGE flow end-to-end, in
+// dependency order:
+//
+//   (A) Protocol struct generation for IcebergMergeTableHandle. The OSS
+//       Java source (presto-iceberg/.../IcebergMergeTableHandle.java)
+//       has the 3-field shape:
+//           IcebergTableHandle      tableHandle
+//           IcebergInsertTableHandle insertTableHandle
+//           Map<Integer, PrestoIcebergPartitionSpec> partitionSpecs
+//       Today the iceberg presto_protocol .h/.cpp do NOT define this
+//       struct — Layer 3b's regen of iceberg files was reverted because
+//       it surfaced a pre-existing missing-file bug
+//       (IcebergDeleteTableHandle.java doesn't exist on disk; the
+//       struct fields live in special/IcebergDeleteTableHandle.hpp.inc
+//       instead). Until that's resolved (either by stubbing the .java,
+//       making regen tolerate missing files, or hand-injecting the
+//       IcebergMergeTableHandle struct via a new .hpp.inc + manual edit
+//       of the generated .cpp), the IcebergMergeTableHandle C++ type
+//       does not exist.
+//
+//   (B) Protocol dispatch for ConnectorMergeTableHandle. Today the core
+//       presto_protocol_core.cpp `from_json` for ConnectorMergeTableHandle
+//       hard-throws "no abstract type ConnectorMergeTableHandle" because
+//       no connector has registered a MergeTableHandle. Wiring this
+//       requires:
+//         - Adding a `ConnectorMergeTableHandleType` slot to the
+//           `ConnectorProtocolTemplate` in core/ConnectorProtocol.h
+//           (template parameter expansion).
+//         - Filling that slot in the `IcebergConnectorProtocol` template
+//           instantiation in connector/iceberg/IcebergConnectorProtocol.h
+//           with IcebergMergeTableHandle from (A).
+//         - Replacing the throw in core/presto_protocol_core.cpp with a
+//           getConnectorProtocol(type).from_json(...) routing.
+//       This is the largest surface — it touches OSS infra used by ALL
+//       connectors, not just iceberg.
+//
+//   (C) New PrestoToVeloxConnector::toVeloxInsertTableHandle overload
+//       taking `const protocol::MergeHandle*`:
+//         - Add as virtual returning `{}` in base
+//           main/connectors/PrestoToVeloxConnector.h (alongside the
+//           existing CreateHandle / InsertHandle / DeleteHandle /
+//           ExecuteProcedureHandle overloads).
+//         - Override in IcebergPrestoToVeloxConnector to build an
+//           IcebergInsertTableHandle with WriteKind::kMerge from the
+//           insertTableHandle field of the IcebergMergeTableHandle that
+//           (A)+(B) materialized.
+//
+//   (D) Replace this stub with the actual translator:
+//         1. Look up connectorId from
+//            `node->target.mergeHandle->tableHandle.connectorId`.
+//         2. Call the new (C) overload with `node->target.mergeHandle.get()`
+//            to get the ConnectorInsertTableHandle.
+//         3. Wrap in `core::InsertTableHandle`.
+//         4. Build a `core::TableWriteNode` similar to the existing
+//            TableWriterNode translator (rowCount/fragment/commitContext
+//            output columns, partitioned=true, commit strategy).
+//
+//   (E) Flip `native_update_merge_enabled` default from false → true in
+//       SystemSessionProperties.java once (A)-(D) are landed and tested
+//       against a coordinator.
+//
+// Why this stub instead of attempting the wiring now: (A)+(B) touch core
+// OSS protocol infrastructure that affects every connector. Without a
+// coordinator → worker test loop to catch a misrouted ConnectorXxxHandle
+// dispatch, a single mistake takes the cluster offline. Fail-fast here
+// is the friendlier surface than a worker crash with "Unknown plan node
+// type .MergeWriterNode".
+velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::MergeWriterNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  // 1. Unwrap MergeHandle from the node's target and dispatch to the
+  //    connector for the per-connector InsertTableHandle build (which
+  //    yields IcebergInsertTableHandle with WriteKind::kMerge for iceberg).
+  VELOX_USER_CHECK_NOT_NULL(
+      node->target.mergeHandle,
+      "MergeWriterNode target is missing mergeHandle");
+  const std::string connectorId =
+      node->target.mergeHandle->tableHandle.connectorId;
+  auto& connector = getPrestoToVeloxConnector(
+      node->target.mergeHandle->connectorMergeTableHandle->_type);
+  auto veloxHandle = connector.toVeloxInsertTableHandle(
+      node->target.mergeHandle.get(), typeParser_);
+  if (!veloxHandle) {
+    VELOX_UNSUPPORTED(
+        "Connector {} did not produce an InsertTableHandle for "
+        "MergeWriterNode (the toVeloxInsertTableHandle(MergeHandle*) "
+        "override may be missing).",
+        connectorId);
+  }
+  auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
+      connectorId, std::shared_ptr(std::move(veloxHandle)));
+
+  // 2. Translate source plan. The source is the IcebergMergeProcessorNode
+  //    (Layer 3c) when the upstream pipeline went through the
+  //    DeleteAndInsertMergeProcessor port; the rows on the wire already
+  //    have the [target cols..., operation, row_id, insert_from_update]
+  //    layout that IcebergMergeSink expects.
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
+
+  // 2b. Rename the source's positional output names
+  //     (c0..cN-1, operation, row_id, insert_from_update — emitted by
+  //     IcebergMergeProcessor::buildOutputType and mirrored by
+  //     IcebergMergeProcessorNode) to the planner-declared names from
+  //     mergeProcessorProjectedVariables. Velox's TableWriteNode ctor
+  //     resolves inputColumns->names() against the source's outputType
+  //     names; without this rename the writer reports
+  //     "Field not found: <planner_name>. Available fields are:
+  //     c0, c1, operation, row_id, insert_from_update."
+  //     This is symmetric with the output-side rename ProjectNode below
+  //     (step 5).
+  const auto& srcType = sourceVeloxPlan->outputType();
+  if (srcType->size() != node->mergeProcessorProjectedVariables.size()) {
+    VELOX_UNSUPPORTED(
+        "MergeWriterNode source arity ({}) does not match "
+        "mergeProcessorProjectedVariables ({}). Source: {}. "
+        "ProjectedVariables: {}.",
+        srcType->size(),
+        node->mergeProcessorProjectedVariables.size(),
+        srcType->toString(),
+        toRowType(node->mergeProcessorProjectedVariables, typeParser_)
+            ->toString());
+  }
+  std::vector<std::string> renameNames;
+  std::vector<velox::core::TypedExprPtr> renameExprs;
+  renameNames.reserve(srcType->size());
+  renameExprs.reserve(srcType->size());
+  for (size_t i = 0; i < srcType->size(); ++i) {
+    renameNames.push_back(node->mergeProcessorProjectedVariables[i].name);
+    renameExprs.push_back(
+        std::make_shared<velox::core::FieldAccessTypedExpr>(
+            srcType->childAt(i), srcType->nameOf(i)));
+  }
+  const auto renamedSource = std::make_shared<velox::core::ProjectNode>(
+      fmt::format("{}.rename", node->id),
+      std::move(renameNames),
+      std::move(renameExprs),
+      sourceVeloxPlan);
+
+  // 3. Input column descriptors. Use the
+  //    mergeProcessorProjectedVariables — the canonical "what the writer
+  //    is responsible for persisting" list as resolved by the planner.
+  const auto inputColumns =
+      toRowType(node->mergeProcessorProjectedVariables, typeParser_);
+
+  // 4. Output schema. Velox's `core::TableWriteNode` ctor validates the
+  //    output type against an internal expectation hard-coded as
+  //    ROW<rows BIGINT, fragments VARBINARY, commitcontext VARBINARY>.
+  //    MergeWriterNode.outputs from the coordinator carries upstream
+  //    partial-stats names ("partialrows", "fragment") with only 2 cols
+  //    — passing those triggers an outputType mismatch in Velox. Construct
+  //    the standard 3-col commit-stats RowType directly to satisfy
+  //    Velox's invariant. The coordinator-side TableFinishNode that wraps
+  //    MergeWriterNode reads these by position, so the column NAMES don't
+  //    affect correctness (only types + arity).
+  const auto outputType = velox::ROW(
+      {"rows", "fragments", "commitcontext"},
+      {velox::BIGINT(), velox::VARBINARY(), velox::VARBINARY()});
+
+  auto writeNode = std::make_shared<core::TableWriteNode>(
+      node->id,
+      inputColumns,
+      inputColumns->names(),
+      /*columnStatsSpec=*/std::nullopt,
+      std::move(insertTableHandle),
+      /*hasPartitioningScheme=*/true,
+      outputType,
+      getCommitStrategy(),
+      renamedSource);
+
+  // 5. Alias TableWriteNode's Velox-mandated output names
+  //    (rows/fragments/commitcontext) to whatever MergeWriterNode.outputs
+  //    declares on the coordinator side (typically partialrows/fragment).
+  //    Downstream nodes (e.g. TableFinishNode in the coordinator plan, or
+  //    intermediate aggregation in the worker plan) look these up by NAME,
+  //    so we wrap the writer in a ProjectNode that renames the first N
+  //    columns to match the planner-declared variables.
+  //    [ICEBERG-FIX bug 7]: ALWAYS preserve the 3rd (commitcontext)
+  //    column even when MergeWriterNode.outputs declares only 2 — the
+  //    coordinator-side TableFinishOperator reads channel index 2
+  //    unconditionally to deserialize the commit-context JSON, and
+  //    dropping it triggers ArrayIndexOutOfBoundsException there.
+  if (node->outputs.empty()) {
+    return writeNode;
+  }
+  std::vector<std::string> projNames;
+  std::vector<velox::core::TypedExprPtr> projExprs;
+  const auto& twNames = outputType->names();
+  const auto projArity = std::max<size_t>(node->outputs.size(), 3);
+  projNames.reserve(projArity);
+  projExprs.reserve(projArity);
+  for (size_t i = 0; i < node->outputs.size(); ++i) {
+    const auto& outVar = node->outputs[i];
+    if (i >= twNames.size()) {
+      VELOX_UNSUPPORTED(
+          "MergeWriterNode declares more output variables ({}) than "
+          "TableWriteNode produces ({}).",
+          node->outputs.size(),
+          twNames.size());
+    }
+    projNames.push_back(outVar.name);
+    projExprs.push_back(
+        std::make_shared<velox::core::FieldAccessTypedExpr>(
+            outputType->childAt(i), twNames[i]));
+  }
+  // Append remaining commit-stats columns (typically the trailing
+  // `commitcontext`) under their Velox names so downstream
+  // channel-by-index reads still work.
+  for (size_t i = node->outputs.size(); i < twNames.size(); ++i) {
+    projNames.push_back(twNames[i]);
+    projExprs.push_back(
+        std::make_shared<velox::core::FieldAccessTypedExpr>(
+            outputType->childAt(i), twNames[i]));
+  }
+  return std::make_shared<velox::core::ProjectNode>(
+      fmt::format("{}.proj", node->id),
+      std::move(projNames),
+      std::move(projExprs),
+      writeNode);
+}
+
+// Layer 3b stub: legacy `UpdateNode` path (older than MERGE in OSS prestodb).
+// We don't translate it directly — the modern path is for the coordinator to
+// rewrite UPDATE into MergeWriterNode + MergeProcessorNode. If we hit this
+// node on the worker, it means the coordinator didn't perform that rewrite.
+velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::UpdateNode>& /*node*/,
+    const std::shared_ptr<protocol::TableWriteInfo>& /*tableWriteInfo*/,
+    const protocol::TaskId& /*taskId*/) {
+  // [ICEBERG-FIX]: With native_update_merge_enabled=true on the
+  // coordinator, QueryPlanner.plan(Update) now emits a MergeWriterNode +
+  // MergeProcessorNode pair instead of an UpdateNode. Reaching this stub
+  // means either (a) native_update_merge_enabled is false, or (b) the
+  // coordinator-side rewrite failed silently and shipped a raw UpdateNode.
+  // Both are bugs at this point; surface a clearer message.
+  VELOX_UNSUPPORTED(
+      "UpdateNode translator is a stub on native workers. The coordinator "
+      "is expected to rewrite UPDATE into MergeWriterNode + "
+      "MergeProcessorNode via QueryPlanner.plan(Update) when "
+      "native_update_merge_enabled=true. If you are seeing this error, "
+      "either that session property is off (set it to true) or the "
+      "coordinator-side rewrite produced an UpdateNode in error.");
 }
 
 std::shared_ptr<const core::UnnestNode>
@@ -1685,21 +2152,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::AssignUniqueId>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
-  const auto prestoTaskId = PrestoTaskId(taskId);
-  // `taskUniqueId` is an integer to uniquely identify the generated id
-  // across all the nodes executing the same query stage in a distributed
-  // query execution.
-  //
-  // 10 bit for stageId && 14-bit for taskId should be sufficient
-  // given the max stage per query is 100 by default.
-
-  // taskUniqueId = last 10 bit of stageId | last 14 bits of taskId
-  int32_t taskUniqueId = (prestoTaskId.stageId() & ((1 << 10) - 1)) << 14 |
-      (prestoTaskId.id() & ((1 << 14) - 1));
   return std::make_shared<core::AssignUniqueIdNode>(
       node->id,
       node->idVariable.name,
-      taskUniqueId,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -1736,7 +2191,7 @@ toSortFieldsAndOrders(
   std::vector<core::FieldAccessTypedExprPtr> sortFields;
   std::vector<core::SortOrder> sortOrders;
   if (orderingScheme != nullptr) {
-    auto nodeSpecOrdering = orderingScheme->orderBy;
+    const auto& nodeSpecOrdering = orderingScheme->orderBy;
     sortFields.reserve(nodeSpecOrdering.size());
     sortOrders.reserve(nodeSpecOrdering.size());
     for (const auto& [variable, sortOrder] : nodeSpecOrdering) {
@@ -1820,6 +2275,22 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
+namespace {
+core::TopNRowNumberNode::RankFunction prestoToVeloxRankFunction(
+    protocol::RankingFunction rankingFunction) {
+  switch (rankingFunction) {
+    case protocol::RankingFunction::ROW_NUMBER:
+      return core::TopNRowNumberNode::RankFunction::kRowNumber;
+    case protocol::RankingFunction::RANK:
+      return core::TopNRowNumberNode::RankFunction::kRank;
+    case protocol::RankingFunction::DENSE_RANK:
+      return core::TopNRowNumberNode::RankFunction::kDenseRank;
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+}; // namespace
+
 std::shared_ptr<const core::PlanNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::TopNRowNumberNode>& node,
@@ -1855,13 +2326,214 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   return std::make_shared<core::TopNRowNumberNode>(
       node->id,
-      core::TopNRowNumberNode::RankFunction::kRowNumber,
+      prestoToVeloxRankFunction(node->rankingType),
       partitionFields,
       sortFields,
       sortOrders,
       rowNumberColumnName,
       node->maxRowCountPerPartition,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+}
+
+// RPC plan node - convert from protocol to Velox plan node.
+// Generated by the Java RpcFunctionOptimizer when it detects
+// RPC function calls (e.g., llm_inference) in the query plan.
+
+namespace {
+
+// Parses streaming mode and dispatch batch size from the options JSON
+// argument (arg[3]) of an RPC function call. The valueBlock.data is a
+// Base64-encoded Presto serialized block; we use protocol::readBlock()
+// to deserialize it into a Velox vector before extracting the string.
+void parseRpcOptionsFromConstant(
+    const std::shared_ptr<const protocol::ConstantExpression>& constantExpr,
+    velox::memory::MemoryPool* pool,
+    rpc::RPCStreamingMode& streamingMode,
+    int32_t& dispatchBatchSize) {
+  try {
+    auto valueVector = protocol::readBlock(
+        velox::VARCHAR(), constantExpr->valueBlock.data, pool);
+    if (valueVector->isNullAt(0)) {
+      return;
+    }
+    auto* simpleVec = valueVector->as<velox::SimpleVector<velox::StringView>>();
+    if (!simpleVec) {
+      return;
+    }
+    auto optionsStr = simpleVec->valueAt(0).str();
+    auto parsed = folly::parseJson(optionsStr);
+    if (!parsed.isObject()) {
+      return;
+    }
+    if (parsed.count("streaming_mode")) {
+      auto mode = parsed["streaming_mode"].asString();
+      std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
+      if (mode == "batch") {
+        streamingMode = rpc::RPCStreamingMode::kBatch;
+      }
+    }
+    if (parsed.count("dispatch_batch_size")) {
+      dispatchBatchSize =
+          static_cast<int32_t>(parsed["dispatch_batch_size"].asInt());
+    }
+  } catch (const std::exception&) {
+  }
+}
+
+// Parses RPC options from the 4th argument expression, handling both
+// direct ConstantExpression and CallExpression (e.g., CAST) wrappers.
+void parseRpcOptions(
+    const std::vector<std::shared_ptr<protocol::RowExpression>>& arguments,
+    velox::memory::MemoryPool* pool,
+    rpc::RPCStreamingMode& streamingMode,
+    int32_t& dispatchBatchSize) {
+  if (arguments.size() < 4) {
+    return;
+  }
+  auto optionsExpr = arguments[3];
+
+  // Case 1: Direct ConstantExpression.
+  if (auto constantExpr =
+          std::dynamic_pointer_cast<const protocol::ConstantExpression>(
+              optionsExpr)) {
+    parseRpcOptionsFromConstant(
+        constantExpr, pool, streamingMode, dispatchBatchSize);
+    return;
+  }
+  // Case 2: CallExpression (e.g., CAST) — look for constant in arguments.
+  if (auto callExpr = std::dynamic_pointer_cast<const protocol::CallExpression>(
+          optionsExpr)) {
+    for (const auto& arg : callExpr->arguments) {
+      if (auto innerConstant =
+              std::dynamic_pointer_cast<const protocol::ConstantExpression>(
+                  arg)) {
+        parseRpcOptionsFromConstant(
+            innerConstant, pool, streamingMode, dispatchBatchSize);
+        return;
+      }
+    }
+  }
+}
+
+} // namespace
+
+core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::RPCNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  // Convert the single source.
+  auto sourceNode = toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
+
+  // NOTE: RPC function validation is deferred to RPCOperator::initialize(),
+  // which calls AsyncRPCFunctionRegistry::create() and fails clearly if the
+  // function is not registered. Early validation here would require depending
+  // on velox/expression/rpc/AsyncRPCFunctionRegistry.h, which is not yet
+  // available in the OSS Presto Velox submodule. A follow-up diff will add
+  // the early check once the submodule is bumped.
+
+  // Parse the result type from the protocol output variable.
+  auto resultType = typeParser_.parse(node->outputVariable.type);
+
+  // Extract constant values from the protocol argument expressions. The Java
+  // planner sends both `arguments` (original expressions, used here to detect
+  // constant literals) and `argumentColumns` (column names for runtime reads by
+  // RPCOperator). Column-argument types come from the source schema below, not
+  // from the argument expression's declared type.
+  std::vector<VectorPtr> constantInputs;
+  constantInputs.reserve(node->arguments.size());
+  for (const auto& arg : node->arguments) {
+    auto veloxExpr = exprConverter_.toVeloxExpr(arg);
+
+    // Extract constant value. Unwrap CastTypedExpr if present — the Java
+    // planner wraps string literals in CAST(x AS VARCHAR) which hides the
+    // inner ConstantTypedExpr from a direct dynamic_cast.
+    const core::ITypedExpr* innerExpr = veloxExpr.get();
+    if (auto* castExpr = dynamic_cast<const core::CastTypedExpr*>(innerExpr)) {
+      if (!castExpr->inputs().empty()) {
+        innerExpr = castExpr->inputs()[0].get();
+      }
+    }
+    if (auto* constExpr =
+            dynamic_cast<const core::ConstantTypedExpr*>(innerExpr)) {
+      constantInputs.push_back(constExpr->toConstantVector(pool_));
+    } else {
+      constantInputs.push_back(nullptr);
+    }
+  }
+
+  // Read argument column names from the protocol node.
+  std::vector<std::string> argumentColumns;
+  argumentColumns.reserve(node->argumentColumns.size());
+  for (const auto& col : node->argumentColumns) {
+    argumentColumns.push_back(col);
+  }
+
+  // Determine streaming mode.
+  rpc::RPCStreamingMode veloxStreamingMode = rpc::RPCStreamingMode::kPerRow;
+  int32_t dispatchBatchSize = node->dispatchBatchSize;
+
+  if (node->streamingMode == protocol::RPCNodeStreamingMode::BATCH) {
+    veloxStreamingMode = rpc::RPCStreamingMode::kBatch;
+  }
+
+  // Also parse streaming_mode and dispatch_batch_size from options JSON
+  // (arg[3]) for robustness, in case the Java protocol path has issues.
+  // The Java->protocol path for streamingMode can fail when the options
+  // argument is wrapped in CAST, so we parse the options here as a fallback.
+  parseRpcOptions(
+      node->arguments, pool_, veloxStreamingMode, dispatchBatchSize);
+
+  // Build explicit output type: source columns + RPC result column.
+  // Specified explicitly to support column pruning optimizations.
+  std::vector<std::string> outputNames;
+  std::vector<TypePtr> outputTypes;
+  auto sourceType = sourceNode->outputType();
+  for (auto i = 0; i < sourceType->size(); ++i) {
+    outputNames.push_back(sourceType->nameOf(i));
+    outputTypes.push_back(sourceType->childAt(i));
+  }
+  outputNames.push_back(node->outputVariable.name);
+  outputTypes.push_back(resultType);
+  auto outputType = ROW(std::move(outputNames), std::move(outputTypes));
+
+  // Build CallTypedExpr inputs: FieldAccess for columns, Constant for literals
+  // (Velox #18267 folds RPCNode args into CallTypedExpr: field refs vs
+  // constants)
+  // argumentColumns and constantInputs are parallel per-argument arrays; the
+  // loop indexes both, so they must stay aligned.
+  VELOX_CHECK_EQ(argumentColumns.size(), constantInputs.size());
+  std::vector<core::TypedExprPtr> callInputs;
+  callInputs.reserve(argumentColumns.size());
+  for (size_t i = 0; i < argumentColumns.size(); ++i) {
+    if (constantInputs[i] != nullptr) {
+      callInputs.push_back(
+          std::make_shared<core::ConstantTypedExpr>(constantInputs[i]));
+    } else {
+      // A column argument's FieldAccess must carry the SOURCE column's actual
+      // type, not the argument expression's declared type: RPCOperator reads
+      // this column by name at runtime, so a CAST-wrapped argument would
+      // otherwise misdeclare the vector that is actually read.
+      const auto childIdx = sourceType->getChildIdxIfExists(argumentColumns[i]);
+      VELOX_CHECK(
+          childIdx.has_value(),
+          "RPCNode argument column '{}' not found in source schema",
+          argumentColumns[i]);
+      callInputs.push_back(
+          std::make_shared<core::FieldAccessTypedExpr>(
+              sourceType->childAt(*childIdx), argumentColumns[i]));
+    }
+  }
+  auto call = std::make_shared<core::CallTypedExpr>(
+      resultType, std::move(callInputs), node->functionName);
+
+  return std::make_shared<core::RPCNode>(
+      node->id,
+      sourceNode,
+      std::move(call),
+      node->outputVariable.name,
+      std::move(outputType),
+      veloxStreamingMode,
+      dispatchBatchSize);
 }
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
@@ -1949,6 +2621,10 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           std::dynamic_pointer_cast<const protocol::TableWriterNode>(node)) {
     return toVeloxQueryPlan(tableWriter, tableWriteInfo, taskId);
   }
+  if (auto callDistributedProcedure = std::dynamic_pointer_cast<
+          const protocol::CallDistributedProcedureNode>(node)) {
+    return toVeloxQueryPlan(callDistributedProcedure, tableWriteInfo, taskId);
+  }
   if (auto deleteNode =
           std::dynamic_pointer_cast<const protocol::DeleteNode>(node)) {
     return toVeloxQueryPlan(deleteNode, tableWriteInfo, taskId);
@@ -1957,6 +2633,18 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           std::dynamic_pointer_cast<const protocol::TableWriterMergeNode>(
               node)) {
     return toVeloxQueryPlan(tableWriteMerger, tableWriteInfo, taskId);
+  }
+  if (auto mergeProcessor =
+          std::dynamic_pointer_cast<const protocol::MergeProcessorNode>(node)) {
+    return toVeloxQueryPlan(mergeProcessor, tableWriteInfo, taskId);
+  }
+  if (auto mergeWriter =
+          std::dynamic_pointer_cast<const protocol::MergeWriterNode>(node)) {
+    return toVeloxQueryPlan(mergeWriter, tableWriteInfo, taskId);
+  }
+  if (auto updateNode =
+          std::dynamic_pointer_cast<const protocol::UpdateNode>(node)) {
+    return toVeloxQueryPlan(updateNode, tableWriteInfo, taskId);
   }
   if (auto assignUniqueId =
           std::dynamic_pointer_cast<const protocol::AssignUniqueId>(node)) {
@@ -1988,6 +2676,10 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     // BERNOULLI sampling is implemented as a filter on the TableScan
     // directly, and does not have the intermediate SampleNode.
     return toVeloxQueryPlan(sampleNode->source, tableWriteInfo, taskId);
+  }
+  // RPC plan nodes (rewritten by Java RpcFunctionOptimizer)
+  if (auto rpcNode = std::dynamic_pointer_cast<const protocol::RPCNode>(node)) {
+    return toVeloxQueryPlan(rpcNode, tableWriteInfo, taskId);
   }
   VELOX_UNSUPPORTED("Unknown plan node type {}", node->_type);
 }
@@ -2228,7 +2920,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   return core::PartitionedOutputNode::single(
       node->id,
       toRowType(node->outputVariables, typeParser_),
-      VectorSerde::Kind::kPresto,
+      "Presto",
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -2298,7 +2990,7 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
         partitionedOutputNode->id(),
         1,
         broadcastWriteNode->outputType(),
-        VectorSerde::Kind::kPresto,
+        "Presto",
         {broadcastWriteNode});
     return planFragment;
   }
@@ -2316,6 +3008,33 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   // metadata to coordinator.
   if (serializedShuffleWriteInfo_ == nullptr) {
     VELOX_USER_CHECK_EQ(1, partitionedOutputNode->numPartitions());
+    return planFragment;
+  }
+
+  // MaterializedOutput path: flat-buffer operator with shared
+  // MaterializedOutputBuffer. Replaces the PartitionAndSerialize +
+  // LocalPartition + ShuffleWrite pipeline when enabled.
+  const bool exchangeMaterializationEnabled =
+      SystemConfig::instance()->exchangeMaterializationEnabled();
+  if (exchangeMaterializationEnabled && !fragment.outputOrderingScheme) {
+    VELOX_CHECK(
+        !shuffleName_.empty(),
+        "Shuffle name not provided from 'shuffle.name' property in "
+        "config.properties");
+
+    auto materializedOutputNode =
+        std::make_shared<operators::MaterializedOutputNode>(
+            partitionedOutputNode->id(),
+            partitionedOutputNode->keys(),
+            partitionedOutputNode->numPartitions(),
+            partitionedOutputNode->outputType(),
+            partitionedOutputNode->partitionFunctionSpecPtr(),
+            partitionedOutputNode->isReplicateNullsAndAny(),
+            operators::ShuffleWriterMetadata{
+                *serializedShuffleWriteInfo_, shuffleName_},
+            partitionedOutputNode->sources()[0]);
+
+    planFragment.planNode = std::move(materializedOutputNode);
     return planFragment;
   }
 
@@ -2369,10 +3088,18 @@ core::PlanNodePtr VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   auto rowType = toRowType(node->outputVariables, typeParser_);
   // Broadcast exchange source.
   if (node->exchangeType == protocol::ExchangeNodeType::REPLICATE) {
-    return std::make_shared<core::ExchangeNode>(
-        node->id, rowType, VectorSerde::Kind::kPresto);
+    return std::make_shared<core::ExchangeNode>(node->id, rowType, "Presto");
   }
   // Partitioned shuffle exchange source.
+  // Use MaterializedExchangeNode when batch exchange I/O is enabled, unless the
+  // exchange is sorted (sorted shuffle falls back to ShuffleWrite on the
+  // write side, so the read side must also use ShuffleReadNode).
+  const bool exchangeMaterializationEnabled =
+      SystemConfig::instance()->exchangeMaterializationEnabled();
+  if (exchangeMaterializationEnabled && !node->orderingScheme) {
+    return std::make_shared<operators::MaterializedExchangeNode>(
+        node->id, rowType);
+  }
   return std::make_shared<operators::ShuffleReadNode>(node->id, rowType);
 }
 
@@ -2393,6 +3120,12 @@ void registerPrestoPlanNodeSerDe() {
       "ShuffleWriteNode", presto::operators::ShuffleWriteNode::create);
   registry.Register(
       "BroadcastWriteNode", presto::operators::BroadcastWriteNode::create);
+  registry.Register(
+      "MaterializedOutputNode",
+      presto::operators::MaterializedOutputNode::create);
+  registry.Register(
+      "MaterializedExchangeNode",
+      presto::operators::MaterializedExchangeNode::create);
 }
 
 void parseSqlFunctionHandle(

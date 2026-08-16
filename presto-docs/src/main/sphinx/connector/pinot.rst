@@ -69,8 +69,8 @@ Property Name                                               Description
 ``pinot.grpc-port``                                         Pinot gRPC port.
 ``pinot.secure-connection``                                 Use https for all connections is false.
 ``pinot.override-distinct-count-function``                  Override 'distinctCount' function name, default is "distinctCount".
-``pinot.extra-http-headers``                                Extra headers when sending HTTP based pinot requests to Pinot controller/broker. E.g. k1:v1,k2:v2.
-``pinot.extra-grpc-metadata``                               Extra metadata when sending gRPC based pinot requests to Pinot broker/server/proxy. E.g. k1:v1,k2:v2.
+``pinot.extra-http-headers``                                Extra headers when sending HTTP based pinot requests to Pinot controller/broker. For example, k1:v1,k2:v2.
+``pinot.extra-grpc-metadata``                               Extra metadata when sending gRPC based pinot requests to Pinot broker/server/proxy. For example, k1:v1,k2:v2.
 ``pinot.grpc-tls-key-store-path``                           TLS keystore file location for gRPC connection, default is empty (not needed)
 ``pinot.grpc-tls-key-store-type``                           TLS keystore type for gRPC connection, default is empty (not needed)
 ``pinot.grpc-tls-key-store-password``                       TLS keystore password, default is empty (not needed)
@@ -83,7 +83,7 @@ Property Name                                               Description
 ``pinot.broker-authentication-type``                        Pinot authentication method for broker requests. Allowed values are ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no authentication.
 ``pinot.broker-authentication-user``                        Broker username for basic authentication method.
 ``pinot.broker-authentication-password``                    Broker password for basic authentication method.
-``pinot.query-options``                                     Pinot query-related case-sensitive options. E.g. skipUpsert:true,enableNullHandling:true
+``pinot.query-options``                                     Pinot query-related case-sensitive options. For example, skipUpsert:true,enableNullHandling:true
 ``case-sensitive-name-matching``                            Enable case-sensitive identifier support for schema, table, and column names for the connector. When disabled,
                                                             names are matched case-insensitively using lowercase normalization. Default is ``false``.
 ==========================================================  =============================================================================================================
@@ -117,7 +117,7 @@ Property Name                                             Description
 ``pinot.controller_authentication_password``              Controller password for basic authentication method.
 ``pinot.broker_authentication_user``                      Broker username for basic authentication method.
 ``pinot.broker_authentication_password``                  Broker password for basic authentication method.
-``pinot.query_options``                                   Pinot query-related case-sensitive options. E.g. skipUpsert:true,enableNullHandling:true
+``pinot.query_options``                                   Pinot query-related case-sensitive options. For example, skipUpsert:true,enableNullHandling:true
 ========================================================  ==================================================================
 
 Map Pinot Schema to Presto Schema
@@ -274,8 +274,8 @@ How the Apache Pinot connector works
 ------------------------------------
 
 The connector tries to push the maximal sub-query inferred from the
-presto query into pinot. It can push down everything Pinot supports
-including aggregations, group by, all UDFs etc. It generates the
+presto query into pinot. It can push down everything Pinot supports,
+including aggregations, group by, and all UDFs. It generates the
 correct Pinot query keeping Pinot's quirks in mind.
 
 By default, it sends aggregation and limit queries to the Pinot broker
@@ -293,7 +293,7 @@ There are a few configurations that control this behavior:
   aggregation and limit queries.
 * ``pinot.forbid-segment-queries``: This config is false by default.
   Setting it to true will forbid parallel querying and force all
-  querying to happen via the broker.
+  querying to happen through the broker.
 * ``pinot.non-aggregate-limit-for-broker-queries``: To prevent
   overwhelming the broker, the connector only allows querying the
   pinot broker for ``short`` queries. We define a ``short`` query to

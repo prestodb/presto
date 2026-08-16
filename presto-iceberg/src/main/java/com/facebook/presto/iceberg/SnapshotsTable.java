@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedPageSource;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -46,8 +47,10 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.SqlTimestamp.MICROSECONDS_PER_MILLISECOND;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergUtil.buildTableScan;
 import static com.facebook.presto.iceberg.IcebergUtil.columnNameToPositionInSchema;
+import static com.facebook.presto.iceberg.IcebergUtil.isAvroException;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataTableType.SNAPSHOTS;
 
@@ -113,6 +116,14 @@ public class SnapshotsTable
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+        catch (RuntimeException e) {
+            // Catch Avro-specific exceptions that may occur during manifest deserialization
+            if (isAvroException(e)) {
+                throw new PrestoException(ICEBERG_INVALID_METADATA,
+                        "Cannot read manifest files. Manifests may be written by a newer Iceberg version.", e);
+            }
+            throw e;
         }
 
         return pagesBuilder.build();

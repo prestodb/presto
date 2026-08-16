@@ -23,6 +23,8 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/operators/MaterializedOutput.h"
+#include "presto_cpp/main/operators/MaterializedOutputBuffer.h"
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/file/FileSystems.h"
@@ -145,7 +147,7 @@ void getData(
     long destination,
     long token,
     protocol::DataSize maxSize,
-    exec::OutputBufferManager& bufferManager) {
+    exec::DefaultOutputBufferManager& bufferManager) {
   if (promiseHolder == nullptr) {
     // promise/future is expired.
     return;
@@ -363,7 +365,7 @@ TaskManager::TaskManager(
           std::make_unique<QueryContextManager>(
               driverExecutor,
               spillerExecutor)),
-      bufferManager_(velox::exec::OutputBufferManager::getInstanceRef()),
+      bufferManager_(velox::exec::DefaultOutputBufferManager::getInstanceRef()),
       httpSrvCpuExecutor_(httpSrvCpuExecutor),
       lastNotOverloadedTimeInSecs_(velox::getCurrentTimeSec()) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
@@ -571,6 +573,14 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       auto spillDiskOpts =
           getTaskSpillOptions(taskId, planFragment, queryCtx, baseSpillDir);
 
+      // taskUniqueId namespaces the ids AssignUniqueId generates across the
+      // tasks of a stage; Velox reads it from PlanFragment. Last 10 bits of
+      // stageId | last 14 bits of taskId fits PlanFragment's 24-bit budget.
+      auto taskPlanFragment = planFragment;
+      taskPlanFragment.taskUniqueId =
+          (prestoTask->id.stageId() & ((1 << 10) - 1)) << 14 |
+          (prestoTask->id.id() & ((1 << 14) - 1));
+
       // Uses a temp variable to store the created velox task to destroy it
       // under presto task lock if spill directory setup fails. Otherwise, the
       // concurrent task creation retry from the coordinator might see the
@@ -579,13 +589,35 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       // root memory pool.
       auto newExecTask = exec::Task::create(
           taskId,
-          planFragment,
+          taskPlanFragment,
           prestoTask->id.id(),
           std::move(queryCtx),
           exec::Task::ExecutionMode::kParallel,
           static_cast<exec::Consumer>(nullptr),
           prestoTask->id.stageId(),
           spillDiskOpts);
+
+      // Create MaterializedOutputBuffer under task mutex if the plan
+      // uses exchange materialization.
+      if (auto* materializedOutputNode =
+              dynamic_cast<const operators::MaterializedOutputNode*>(
+                  planFragment.planNode.get())) {
+        const auto& shuffleWriterMetadata =
+            materializedOutputNode->shuffleWriterMetadata();
+        auto* shuffleFactory = operators::ShuffleInterfaceFactory::factory(
+            shuffleWriterMetadata.writerFactoryName);
+        VELOX_CHECK_NOT_NULL(
+            shuffleFactory,
+            "ShuffleInterface factory '{}' not registered",
+            shuffleWriterMetadata.writerFactoryName);
+        auto buffer = std::make_shared<operators::MaterializedOutputBuffer>(
+            materializedOutputNode->numPartitions(),
+            shuffleWriterMetadata.writerInfo,
+            shuffleFactory,
+            taskId,
+            newExecTask->queryCtx()->pool());
+        operators::MaterializedOutputBuffer::registerBuffer(taskId, buffer);
+      }
 
       prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;
@@ -812,16 +844,19 @@ void TaskManager::maybeStartNextQueuedTask() {
       auto queuedTasks = std::move(lockedTaskQueue->front());
       lockedTaskQueue->pop_front();
 
-      // Get all the still valid tasks from the entry.
-      bool queryTasksAreGoodToStart{true};
+      // Get all the still valid tasks from the entry. Skip any tasks that
+      // have been aborted or are no longer valid, but still start the
+      // remaining valid tasks. This avoids a bug where aborting one task
+      // (e.g. from a completed fragment) would silently discard other
+      // still-valid tasks from the same query that were grouped in the
+      // same queue entry.
       for (auto& queuedTask : queuedTasks) {
         auto taskToStart = queuedTask.lock();
 
         // Task is already gone or no Velox task (the latter will never happen).
         if (taskToStart == nullptr || taskToStart->task == nullptr) {
           LOG(WARNING) << "TASK QUEUE: Skipping null task in the queue.";
-          queryTasksAreGoodToStart = false;
-          break;
+          continue;
         }
 
         // Sanity check.
@@ -831,22 +866,20 @@ void TaskManager::maybeStartNextQueuedTask() {
             "The queued task must not be started, but it is already started");
 
         const auto taskState = taskToStart->taskState();
-        // If the status is not 'planned' then the tasks were likely aborted.
+        // If the status is not 'planned' then the task was likely aborted.
         if (taskState != PrestoTaskState::kPlanned) {
           LOG(INFO) << "TASK QUEUE: Discarding (not starting) queued task "
                     << taskToStart->info.taskId << " because state is "
                     << prestoTaskStateString(taskState);
-          queryTasksAreGoodToStart = false;
-          break;
+          continue;
         }
 
         tasksToStart.emplace_back(taskToStart);
       }
 
-      if (queryTasksAreGoodToStart) {
+      if (!tasksToStart.empty()) {
         break;
       }
-      tasksToStart.clear();
     }
   }
 

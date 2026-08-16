@@ -25,6 +25,7 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.builtin.tools.WorkerFunctionRegistryTool;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.common.block.Block;
@@ -200,6 +201,8 @@ import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.optimizations.DefaultRpcExecutionPolicy;
+import com.facebook.presto.sql.planner.optimizations.RpcExecutionPolicy;
 import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
@@ -218,11 +221,16 @@ import com.facebook.presto.ttl.nodettlfetchermanagers.ThrowingNodeTtlFetcherMana
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.util.PrestoDataDefBindingHelper;
 import com.facebook.presto.version.EmbedVersion;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
+import com.google.inject.Binding;
+import com.google.inject.Injector;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
+import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
@@ -230,9 +238,11 @@ import org.weakref.jmx.testing.TestingMBeanServer;
 import javax.management.MBeanServer;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
@@ -477,6 +487,7 @@ public class PrestoSparkModule
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, RpcExecutionPolicy.class).setDefault().to(DefaultRpcExecutionPolicy.class).in(Scopes.SINGLETON);
         binder.bind(AdaptivePlanOptimizers.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPlanOptimizerManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
@@ -592,6 +603,35 @@ public class PrestoSparkModule
             ExecutorService executor)
     {
         return InMemoryTransactionManager.create(config, scheduledExecutor, catalogManager, executor);
+    }
+
+    /**
+     * Mirrors {@code ServerMainModule.provideRpcFunctionNames} for the Presto-on-Spark driver.
+     *
+     * <p>{@link WorkerFunctionRegistryTool} is bound by {@code DriverSidecarModule}, which is an
+     * optional deployment-supplied module, so it is looked up reflectively rather than injected —
+     * an OSS Presto-on-Spark build with no sidecar simply gets an empty set, matching the previous
+     * behaviour.
+     *
+     * <p>The lookup is deferred into the returned {@link Supplier} so that the metadata sidecar is
+     * never started on executors: {@code RpcFunctionOptimizer} only calls it during planning, which
+     * happens on the driver.
+     */
+    @Provides
+    @Singleton
+    @Named("rpcFunctionNames")
+    public static Supplier<Set<String>> provideRpcFunctionNames(FeaturesConfig featuresConfig, Injector injector)
+    {
+        if (!featuresConfig.isBuiltInSidecarFunctionsEnabled()) {
+            return ImmutableSet::of;
+        }
+        return () -> {
+            Binding<WorkerFunctionRegistryTool> binding = injector.getExistingBinding(Key.get(WorkerFunctionRegistryTool.class));
+            if (binding == null) {
+                return ImmutableSet.of();
+            }
+            return binding.getProvider().get().getRpcFunctionNames();
+        };
     }
 
     @Provides

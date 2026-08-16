@@ -35,7 +35,7 @@ ShuffleRead::ShuffleRead(
           std::make_shared<core::ExchangeNode>(
               shuffleReadNode->id(),
               shuffleReadNode->outputType(),
-              VectorSerde::Kind::kCompactRow),
+              "CompactRow"),
           exchangeClient,
           "ShuffleRead") {
   initStats();
@@ -84,9 +84,10 @@ RowVectorPtr ShuffleRead::getOutput() {
       numRows += pageRows;
     }
     rows_.reserve(numRows);
+    const int32_t driverId = operatorCtx()->driverCtx()->driverId;
     for (const auto& page : currentPages_) {
       auto* batch = checkedPointerCast<ShuffleSerializedPage>(page.get());
-      const auto& rows = batch->rows();
+      const auto& rows = batch->rows(driverId);
       for (const auto& row : rows) {
         rows_.emplace_back(row);
       }

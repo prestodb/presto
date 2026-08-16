@@ -28,6 +28,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -36,7 +37,6 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -310,6 +310,7 @@ public class PlanNodeDecorrelator
                                 new DataOrganizationSpecification(
                                         ImmutableList.copyOf(childDecorrelationResult.variablesToPropagate),
                                         Optional.of(orderingScheme)),
+                                TopNRowNumberNode.RankingFunction.ROW_NUMBER,
                                 variableAllocator.newVariable("row_number", BIGINT),
                                 toIntExact(node.getCount()),
                                 false,

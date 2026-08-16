@@ -82,6 +82,37 @@ public class JsonBasedUdfFunctionMetadata
      * Optional execution endpoint for routing function execution to a different server
      */
     private final Optional<URI> executionEndpoint;
+    /**
+     * Whether this function is an RPC function (dispatched via the async RPC framework).
+     * Set by the sidecar based on AsyncRPCFunctionRegistry.
+     */
+    private final boolean isRpcFunction;
+    /**
+     * Optional function body. For SQL-language functions this is the routine body that is inlined and
+     * executed locally; empty for remote/CPP functions whose implementation lives elsewhere.
+     */
+    private final Optional<String> body;
+
+    // Backwards-compatible constructor (no body) used by non-JSON construction sites.
+    public JsonBasedUdfFunctionMetadata(
+            String docString,
+            FunctionKind functionKind,
+            TypeSignature outputType,
+            List<TypeSignature> paramTypes,
+            String schema,
+            boolean variableArity,
+            RoutineCharacteristics routineCharacteristics,
+            Optional<AggregationFunctionMetadata> aggregateMetadata,
+            Optional<SqlFunctionId> functionId,
+            Optional<String> version,
+            Optional<List<TypeVariableConstraint>> typeVariableConstraints,
+            Optional<List<LongVariableConstraint>> longVariableConstraints,
+            Optional<URI> executionEndpoint,
+            boolean isRpcFunction)
+    {
+        this(docString, functionKind, outputType, paramTypes, schema, variableArity, routineCharacteristics, aggregateMetadata, functionId, version,
+                typeVariableConstraints, longVariableConstraints, executionEndpoint, isRpcFunction, Optional.empty());
+    }
 
     @JsonCreator
     public JsonBasedUdfFunctionMetadata(
@@ -97,7 +128,9 @@ public class JsonBasedUdfFunctionMetadata
             @JsonProperty("version") Optional<String> version,
             @JsonProperty("typeVariableConstraints") Optional<List<TypeVariableConstraint>> typeVariableConstraints,
             @JsonProperty("longVariableConstraints") Optional<List<LongVariableConstraint>> longVariableConstraints,
-            @JsonProperty("executionEndpoint") Optional<URI> executionEndpoint)
+            @JsonProperty("executionEndpoint") Optional<URI> executionEndpoint,
+            @JsonProperty("isRpcFunction") boolean isRpcFunction,
+            @JsonProperty("body") Optional<String> body)
     {
         this.docString = requireNonNull(docString, "docString is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
@@ -121,6 +154,8 @@ public class JsonBasedUdfFunctionMetadata
                 throw new IllegalArgumentException("Execution endpoint must use HTTP or HTTPS protocol: " + uri);
             }
         });
+        this.isRpcFunction = isRpcFunction;
+        this.body = requireNonNull(body, "body is null");
     }
 
     @JsonProperty
@@ -205,5 +240,17 @@ public class JsonBasedUdfFunctionMetadata
     public Optional<URI> getExecutionEndpoint()
     {
         return executionEndpoint;
+    }
+
+    @JsonProperty
+    public boolean getIsRpcFunction()
+    {
+        return isRpcFunction;
+    }
+
+    @JsonProperty
+    public Optional<String> getBody()
+    {
+        return body;
     }
 }

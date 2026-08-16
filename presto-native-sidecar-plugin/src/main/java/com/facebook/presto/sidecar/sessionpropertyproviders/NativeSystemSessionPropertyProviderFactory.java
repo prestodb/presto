@@ -39,11 +39,10 @@ public class NativeSystemSessionPropertyProviderFactory
         Bootstrap app = new Bootstrap(
                 new NativeSystemSessionPropertyProviderModule(
                         context.getNodeManager(), context.getTypeManager()),
-                new NativeSidecarCommunicationModule());
+                new NativeSidecarCommunicationModule(context.getAuthClientConfigs()));
 
         Injector injector = app
                 .doNotInitializeLogging()
-                .noStrictConfig()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
         return injector.getInstance(NativeSystemSessionPropertyProvider.class);

@@ -12,6 +12,9 @@
  * limitations under the License.
  */
 
+include "thrift/annotation/cpp.thrift"
+include "thrift/annotation/thrift.thrift"
+
 namespace cpp2 facebook.presto.thrift
 
 enum TaskState {
@@ -579,10 +582,9 @@ struct UpdateHandle {
 struct ExecutionFailureInfo {
   1: string type;
   2: string message;
-  3: optional ExecutionFailureInfo cause (
-    cpp.ref_type = "shared",
-    drift.recursive_reference = true,
-  );
+  @cpp.Ref{type = cpp.RefType.SharedMutable}
+  @thrift.DeprecatedUnvalidatedAnnotations{items = {"drift.recursive_reference": "true"}}
+  3: optional ExecutionFailureInfo cause;
   4: list<ExecutionFailureInfo> suppressed;
   5: list<string> stack;
   6: ErrorLocation errorLocation;

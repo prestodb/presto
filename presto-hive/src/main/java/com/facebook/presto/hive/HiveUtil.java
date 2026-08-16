@@ -27,7 +27,6 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
-import com.facebook.presto.hive.avro.PrestoAvroSerDe;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
@@ -67,6 +66,7 @@ import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
+import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
@@ -116,7 +116,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -124,7 +123,6 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.Chars.trimTrailingSpaces;
 import static com.facebook.presto.common.type.DateType.DATE;
-import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.Decimals.isLongDecimal;
 import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -471,9 +469,11 @@ public final class HiveUtil
         return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
-    public static long parseHiveTimestamp(String value, DateTimeZone timeZone)
+    public static long parseHiveTimestamp(boolean isLegacyTimestamp, String value, DateTimeZone timeZone)
     {
-        return HIVE_TIMESTAMP_PARSER.withZone(timeZone).parseMillis(value);
+        return isLegacyTimestamp ?
+                HIVE_TIMESTAMP_PARSER.withZone(timeZone).parseMillis(value) :
+                HIVE_TIMESTAMP_PARSER.parseMillis(value);
     }
 
     public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, String path)
@@ -533,11 +533,6 @@ public final class HiveUtil
         }
     }
 
-    public static boolean isDeserializerClass(Properties schema, Class<?> deserializerClass)
-    {
-        return getDeserializerClassName(schema).equals(deserializerClass.getName());
-    }
-
     public static String getDeserializerClassName(Properties schema)
     {
         String name = schema.getProperty(SERIALIZATION_LIB);
@@ -570,7 +565,7 @@ public final class HiveUtil
         }
 
         if ("org.apache.hadoop.hive.serde2.avro.AvroSerDe".equals(name)) {
-            return PrestoAvroSerDe.class;
+            return AvroSerDe.class;
         }
 
         try {
@@ -598,18 +593,10 @@ public final class HiveUtil
     {
         try {
             configuration = copy(configuration); // Some SerDes (e.g. Avro) modify passed configuration
-            deserializer.initialize(configuration, schema);
-            validate(deserializer);
+            ((AbstractSerDe) deserializer).initialize(configuration, schema, null);
         }
         catch (SerDeException | RuntimeException e) {
             throw new RuntimeException("error initializing deserializer: " + deserializer.getClass().getName(), e);
-        }
-    }
-
-    private static void validate(Deserializer deserializer)
-    {
-        if (deserializer instanceof AbstractSerDe && !((AbstractSerDe) deserializer).getConfigurationErrors().isEmpty()) {
-            throw new RuntimeException("There are configuration errors: " + ((AbstractSerDe) deserializer).getConfigurationErrors());
         }
     }
 
@@ -643,15 +630,15 @@ public final class HiveUtil
                 isDistinctType(type);
     }
 
-    public static NullableValue parsePartitionValue(HivePartitionKey key, Type type, DateTimeZone timeZone)
+    public static NullableValue parsePartitionValue(ConnectorSession session, HivePartitionKey key, Type type, DateTimeZone timeZone)
     {
-        return parsePartitionValue(key.getName(), key.getValue().orElse(HIVE_DEFAULT_DYNAMIC_PARTITION), type, timeZone);
+        return parsePartitionValue(Optional.of(session), key.getName(), key.getValue().orElse(HIVE_DEFAULT_DYNAMIC_PARTITION), type, timeZone);
     }
 
-    public static NullableValue parsePartitionValue(String partitionName, String value, Type type, ZoneId hiveStorageTimeZoneId)
+    public static NullableValue parsePartitionValue(ConnectorSession session, String partitionName, String value, Type type, ZoneId hiveStorageTimeZoneId)
     {
         requireNonNull(hiveStorageTimeZoneId, "hiveStorageTimeZoneId is null");
-        return parsePartitionValue(partitionName, value, type, getDateTimeZone(hiveStorageTimeZoneId));
+        return parsePartitionValue(Optional.of(session), partitionName, value, type, getDateTimeZone(hiveStorageTimeZoneId));
     }
 
     private static DateTimeZone getDateTimeZone(ZoneId hiveStorageTimeZoneId)
@@ -659,7 +646,7 @@ public final class HiveUtil
         return DateTimeZone.forID(hiveStorageTimeZoneId.getId());
     }
 
-    public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
+    public static NullableValue parsePartitionValue(Optional<ConnectorSession> session, String partitionName, String value, Type type, DateTimeZone timeZone)
     {
         verifyPartitionTypeSupported(partitionName, type);
         boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
@@ -744,7 +731,7 @@ public final class HiveUtil
             if (isNull) {
                 return NullableValue.asNull(TIMESTAMP);
             }
-            return NullableValue.of(TIMESTAMP, timestampPartitionKey(value, timeZone, partitionName));
+            return NullableValue.of(TIMESTAMP, timestampPartitionKey(session.map(s -> s.getSqlFunctionProperties().isLegacyTimestamp()).orElse(false), value, timeZone, partitionName));
         }
 
         if (REAL.equals(type)) {
@@ -816,24 +803,6 @@ public final class HiveUtil
         data = data.substring(prefix.length());
         data = data.substring(0, data.length() - suffix.length());
         return new String(Base64.getDecoder().decode(data), UTF_8);
-    }
-
-    public static Optional<DecimalType> getDecimalType(HiveType hiveType)
-    {
-        return getDecimalType(hiveType.getHiveTypeName().toString());
-    }
-
-    public static Optional<DecimalType> getDecimalType(String hiveTypeName)
-    {
-        Matcher matcher = SUPPORTED_DECIMAL_TYPE.matcher(hiveTypeName);
-        if (matcher.matches()) {
-            int precision = parseInt(matcher.group(DECIMAL_PRECISION_GROUP));
-            int scale = parseInt(matcher.group(DECIMAL_SCALE_GROUP));
-            return Optional.of(createDecimalType(precision, scale));
-        }
-        else {
-            return Optional.empty();
-        }
     }
 
     public static boolean isStructuralType(Type type)
@@ -928,10 +897,10 @@ public final class HiveUtil
         }
     }
 
-    public static long timestampPartitionKey(String value, DateTimeZone zone, String name)
+    public static long timestampPartitionKey(boolean isLegacyTimestamp, String value, DateTimeZone zone, String name)
     {
         try {
-            return parseHiveTimestamp(value, zone);
+            return parseHiveTimestamp(isLegacyTimestamp, value, zone);
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for TIMESTAMP partition key: %s", value, name));
@@ -1124,7 +1093,7 @@ public final class HiveUtil
         }
     }
 
-    public static Object typedPartitionKey(String value, Type type, String name, DateTimeZone hiveStorageTimeZone)
+    public static Object typedPartitionKey(ConnectorSession session, String value, Type type, String name, DateTimeZone hiveStorageTimeZone)
     {
         byte[] bytes = value.getBytes(UTF_8);
 
@@ -1162,7 +1131,7 @@ public final class HiveUtil
             return datePartitionKey(value, name);
         }
         else if (type.equals(TIMESTAMP)) {
-            return timestampPartitionKey(value, hiveStorageTimeZone, name);
+            return timestampPartitionKey(session.getSqlFunctionProperties().isLegacyTimestamp(), value, hiveStorageTimeZone, name);
         }
         else if (isShortDecimal(type)) {
             return shortDecimalPartitionKey(value, (DecimalType) type, name);

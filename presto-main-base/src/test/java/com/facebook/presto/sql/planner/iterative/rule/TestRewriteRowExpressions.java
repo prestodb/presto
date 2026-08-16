@@ -211,7 +211,7 @@ public class TestRewriteRowExpressions
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BIGINT);
                     return p.project(
-                            assignment(a, p.rowExpression("1 + 2")),
+                            assignment(a, p.rowExpression("bigint '1' + 2")),
                             p.values());
                 })
                 .matches(

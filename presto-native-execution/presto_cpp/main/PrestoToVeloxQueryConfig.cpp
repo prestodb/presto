@@ -13,10 +13,12 @@
  */
 
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
-#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/LegacyHiveConfigKeys.h"
+#include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "velox/common/compression/Compression.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/functions/prestosql/PrestoQueryConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::presto {
@@ -29,7 +31,7 @@ void updateVeloxConfigsWithSpecialCases(
   // session_timezone.
   auto it = configStrings.find("legacy_timestamp");
   // `legacy_timestamp` default value is true in the coordinator.
-  if ((it == configStrings.end()) || (folly::to<bool>(it->second))) {
+  if ((it != configStrings.end()) && folly::to<bool>(it->second)) {
     configStrings.emplace(
         velox::core::QueryConfig::kAdjustTimestampToTimezone, "true");
   }
@@ -44,12 +46,12 @@ void updateVeloxConfigsWithSpecialCases(
 }
 
 void updateFromSessionConfigs(
-    const protocol::SessionRepresentation& session,
+    const std::map<std::string, std::string>& systemProperties,
     std::unordered_map<std::string, std::string>& queryConfigs) {
   auto* sessionProperties = SessionProperties::instance();
   std::optional<std::string> traceFragmentId;
   std::optional<std::string> traceShardId;
-  for (const auto& it : session.systemProperties) {
+  for (const auto& it : systemProperties) {
     if (it.first == SessionProperties::kQueryTraceFragmentId) {
       traceFragmentId = it.second;
     } else if (it.first == SessionProperties::kQueryTraceShardId) {
@@ -72,6 +74,20 @@ void updateFromSessionConfigs(
     }
   }
 
+  // Construct query tracing regex and pass to Velox config.
+  // It replaces the given native_query_trace_task_reg_exp if also set.
+  if (traceFragmentId.has_value() || traceShardId.has_value()) {
+    queryConfigs[velox::core::QueryConfig::kQueryTraceTaskRegExp] = ".*\\." +
+        traceFragmentId.value_or(".*") + "\\..*\\." +
+        traceShardId.value_or(".*") + "\\..*";
+  }
+}
+
+void updateFromSessionConfigs(
+    const protocol::SessionRepresentation& session,
+    std::unordered_map<std::string, std::string>& queryConfigs) {
+  updateFromSessionConfigs(session.systemProperties, queryConfigs);
+
   if (session.startTime) {
     queryConfigs[velox::core::QueryConfig::kSessionStartTime] =
         std::to_string(session.startTime);
@@ -85,22 +101,10 @@ void updateFromSessionConfigs(
         folly::join(',', session.clientTags);
   }
 
-  // If there's a timeZoneKey, convert to timezone name and add to the
-  // configs. Throws if timeZoneKey can't be resolved.
-  if (session.timeZoneKey != 0) {
-    queryConfigs.emplace(
-        velox::core::QueryConfig::kSessionTimezone,
-        velox::tz::getTimeZoneName(session.timeZoneKey));
-  }
-
-  // Construct query tracing regex and pass to Velox config.
-  // It replaces the given native_query_trace_task_reg_exp if also set.
-  if (traceFragmentId.has_value() || traceShardId.has_value()) {
-    queryConfigs.emplace(
-        velox::core::QueryConfig::kQueryTraceTaskRegExp,
-        ".*\\." + traceFragmentId.value_or(".*") + "\\..*\\." +
-            traceShardId.value_or(".*") + "\\..*");
-  }
+  // If there's a timeZoneKey, convert to timezone name and add to the configs.
+  queryConfigs.emplace(
+      velox::core::QueryConfig::kSessionTimezone,
+      velox::tz::getTimeZoneName(session.timeZoneKey));
 }
 
 void updateFromSystemConfigs(
@@ -124,6 +128,20 @@ void updateFromSystemConfigs(
           .veloxConfig = velox::core::QueryConfig::kSpillFileCreateConfig,
       },
 
+      {
+          .prestoSystemConfig =
+              std::string(SystemConfig::kSpillerAggregationFileCreateConfig),
+          .veloxConfig =
+              velox::core::QueryConfig::kAggregationSpillFileCreateConfig,
+      },
+
+      {
+          .prestoSystemConfig =
+              std::string(SystemConfig::kSpillerHashJoinFileCreateConfig),
+          .veloxConfig =
+              velox::core::QueryConfig::kHashJoinSpillFileCreateConfig,
+      },
+
       {.prestoSystemConfig = std::string(SystemConfig::kSpillEnabled),
        .veloxConfig = velox::core::QueryConfig::kSpillEnabled},
 
@@ -136,6 +154,9 @@ void updateFromSystemConfigs(
       {.prestoSystemConfig =
            std::string(SystemConfig::kAggregationSpillEnabled),
        .veloxConfig = velox::core::QueryConfig::kAggregationSpillEnabled},
+
+      {.prestoSystemConfig = std::string(SystemConfig::kMaxSpillBytes),
+       .veloxConfig = velox::core::QueryConfig::kMaxSpillBytes},
 
       {.prestoSystemConfig =
            std::string(SystemConfig::kRequestDataSizesMaxWaitSec),
@@ -164,7 +185,9 @@ void updateFromSystemConfigs(
            velox::core::QueryConfig::kHashProbeBloomFilterPushdownMaxSize},
 
       {.prestoSystemConfig = std::string(SystemConfig::kUseLegacyArrayAgg),
-       .veloxConfig = velox::core::QueryConfig::kPrestoArrayAggIgnoreNulls},
+       .veloxConfig = velox::functions::prestosql::PrestoQueryConfig::qualify(
+           velox::functions::prestosql::PrestoQueryConfig::
+               kArrayAggIgnoreNulls)},
 
       {.prestoSystemConfig = std::string{SystemConfig::kTaskWriterCount},
        .veloxConfig = velox::core::QueryConfig::kTaskWriterCount},
@@ -224,6 +247,14 @@ void updateFromSystemConfigs(
 }
 } // namespace
 
+std::unordered_map<std::string, std::string>
+toVeloxConfigsFromSessionProperties(
+    const std::map<std::string, std::string>& sessionProperties) {
+  std::unordered_map<std::string, std::string> configs;
+  updateFromSessionConfigs(sessionProperties, configs);
+  return configs;
+}
+
 std::unordered_map<std::string, std::string> toVeloxConfigs(
     const protocol::SessionRepresentation& session) {
   std::unordered_map<std::string, std::string> configs;
@@ -266,6 +297,7 @@ toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
           : sessionProperty.first;
       connectorConfig.emplace(veloxConfig, sessionProperty.second);
     }
+    util::migrateLegacyHiveParquetSessionKeys(connectorConfig);
     connectorConfig.insert(
         taskUpdateRequest.extraCredentials.begin(),
         taskUpdateRequest.extraCredentials.end());

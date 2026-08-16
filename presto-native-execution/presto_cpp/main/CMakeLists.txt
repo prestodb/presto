@@ -17,10 +17,7 @@ add_subdirectory(thrift)
 add_subdirectory(connectors)
 add_subdirectory(functions)
 add_subdirectory(tool)
-
-add_library(presto_session_properties SessionProperties.cpp)
-
-target_link_libraries(presto_session_properties ${FOLLY_WITH_DEPENDENCIES})
+add_subdirectory(properties)
 
 add_library(
   presto_server_lib
@@ -69,40 +66,8 @@ target_link_libraries(
   presto_session_properties
   presto_velox_plan_conversion
   presto_hive_functions
-  velox_abfs
-  velox_aggregates
-  velox_caching
-  velox_common_base
-  velox_core
-  velox_dwio_common_exception
-  velox_dwio_dwrf_reader
-  velox_dwio_dwrf_writer
-  velox_dwio_orc_reader
-  velox_dwio_parquet_reader
-  velox_dwio_parquet_writer
-  velox_dwio_text_reader_register
-  velox_dwio_text_writer_register
-  velox_dynamic_library_loader
-  velox_encode
-  velox_exec
-  velox_file
-  velox_functions_lib
-  velox_functions_prestosql
-  velox_gcs
-  velox_hdfs
-  velox_hive_connector
-  velox_hive_iceberg_splitreader
-  velox_hive_partition_function
-  velox_presto_serializer
-  velox_presto_type_parser
-  velox_s3fs
-  velox_serialization
-  velox_time
-  velox_type
-  velox_type_fbhive
-  velox_type_tz
-  velox_vector
-  velox_window
+  presto_theta_sketch_functions
+  velox
   ${RE2}
   ${FOLLY_WITH_DEPENDENCIES}
   ${GLOG}
@@ -111,26 +76,19 @@ target_link_libraries(
 )
 
 if(PRESTO_ENABLE_CUDF)
+  # The symbols from velox_cudf_exec are not included in the Velox mono library
+  # and need to be linked separately.
   target_link_libraries(presto_server_lib velox_cudf_exec)
 endif()
-
-# Enabling Parquet causes build errors with missing symbols on MacOS. This is
-# likely due to a conflict between Arrow Thrift from velox_hive_connector and
-# FBThrift libraries. The build issue is fixed by linking velox_hive_connector
-# dependencies first followed by FBThrift.
-target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra ${THRIFT_LIBRARY})
 
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_library(presto_server_remote_function JsonSignatureParser.cpp RemoteFunctionRegisterer.cpp)
 
-  target_link_libraries(
-    presto_server_remote_function
-    velox_expression
-    velox_functions_remote
-    ${FOLLY_WITH_DEPENDENCIES}
-  )
+  target_link_libraries(presto_server_remote_function velox ${FOLLY_WITH_DEPENDENCIES})
   target_link_libraries(presto_server_lib presto_server_remote_function)
 endif()
+
+target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra ${THRIFT_LIBRARY})
 
 set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
@@ -144,12 +102,7 @@ else()
   target_link_options(presto_server BEFORE PUBLIC "-Wl,-export-dynamic")
 endif()
 
-# velox_tpch_connector is an OBJECT target in Velox and so needs to be linked to
-# the executable or use TARGET_OBJECT linkage for the presto_server_lib target.
-# However, we also would need to add its dependencies (tpch_gen etc). TODO
-# change the target in Velox to a library target then we can move this to the
-# presto_server_lib.
-target_link_libraries(presto_server presto_server_lib velox_tpch_connector velox_tpcds_connector)
+target_link_libraries(presto_server presto_server_lib)
 
 # Clang requires explicit linking with libatomic.
 if(

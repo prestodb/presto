@@ -15,6 +15,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.plan.IndexJoinNode;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -86,6 +87,13 @@ public class SchedulingOrderVisitor
 
         @Override
         public Void visitTableScan(TableScanNode node, Consumer<PlanNodeId> schedulingOrder)
+        {
+            schedulingOrder.accept(node.getId());
+            return null;
+        }
+
+        @Override
+        public Void visitIndexSource(IndexSourceNode node, Consumer<PlanNodeId> schedulingOrder)
         {
             schedulingOrder.accept(node.getId());
             return null;

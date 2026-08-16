@@ -33,10 +33,13 @@ import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.common.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -204,7 +207,10 @@ public class AggregatedParquetPageSource
                 break;
             }
             case INT96: {
-                blockBuilder.writeLong(getTimestampMillis(((Binary) value).getBytes(), 0));
+                AtomicLong utcMillis = new AtomicLong(getTimestampMillis(((Binary) value).getBytes(), 0));
+                Optional<DateTimeZone> timezone = Optional.ofNullable(parquetMetadata.getFileMetaData().getKeyValueMetaData().get("writer.time.zone")).map(DateTimeZone::forID);
+                timezone.ifPresent(tz -> utcMillis.set(tz.convertUTCToLocal(utcMillis.get())));
+                blockBuilder.writeLong(utcMillis.get());
                 break;
             }
             case FLOAT: {

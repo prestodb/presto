@@ -17,6 +17,8 @@
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "presto_cpp/presto_protocol/connector/iceberg/presto_protocol_iceberg.h"
 
+#include "velox/connectors/hive/iceberg/IcebergColumnHandle.h"
+
 namespace facebook::presto {
 
 class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
@@ -43,6 +45,11 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
 
   std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(
+      const protocol::ExecuteProcedureHandle* executeProcedureHandle,
+      const TypeParser& typeParser) const final;
+
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
       const protocol::CreateHandle* createHandle,
       const TypeParser& typeParser) const final;
 
@@ -51,8 +58,22 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::InsertHandle* insertHandle,
       const TypeParser& typeParser) const final;
 
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::DeleteHandle* deleteHandle,
+      const TypeParser& typeParser) const final;
+
+  // Layer 3b: build an IcebergInsertTableHandle from the MergeHandle
+  // (unwrapped from MergeTarget) so IcebergConnector::createDataSink can
+  // route to IcebergMergeSink via WriteKind::kMerge.
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::MergeHandle* mergeHandle,
+      const TypeParser& typeParser) const final;
+
  private:
-  std::vector<velox::connector::hive::HiveColumnHandlePtr> toHiveColumns(
+  std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
+  toIcebergColumns(
       const protocol::List<protocol::iceberg::IcebergColumnHandle>&
           inputColumns,
       const TypeParser& typeParser) const;

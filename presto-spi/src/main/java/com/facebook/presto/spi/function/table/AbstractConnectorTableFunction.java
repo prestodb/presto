@@ -15,6 +15,8 @@ package com.facebook.presto.spi.function.table;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,7 +46,12 @@ public abstract class AbstractConnectorTableFunction
     private final List<ArgumentSpecification> arguments;
     private final ReturnTypeSpecification returnTypeSpecification;
 
-    public AbstractConnectorTableFunction(String schema, String name, List<ArgumentSpecification> arguments, ReturnTypeSpecification returnTypeSpecification)
+    @JsonCreator
+    public AbstractConnectorTableFunction(
+            @JsonProperty("schema") String schema,
+            @JsonProperty("name") String name,
+            @JsonProperty("arguments") List<ArgumentSpecification> arguments,
+            @JsonProperty("returnTypeSpecification") ReturnTypeSpecification returnTypeSpecification)
     {
         this.schema = requireNonNull(schema, "schema is null");
         this.name = requireNonNull(name, "name is null");
@@ -52,24 +59,28 @@ public abstract class AbstractConnectorTableFunction
         this.returnTypeSpecification = requireNonNull(returnTypeSpecification, "returnTypeSpecification is null");
     }
 
+    @JsonProperty
     @Override
     public String getSchema()
     {
         return schema;
     }
 
+    @JsonProperty
     @Override
     public String getName()
     {
         return name;
     }
 
+    @JsonProperty
     @Override
     public List<ArgumentSpecification> getArguments()
     {
         return arguments;
     }
 
+    @JsonProperty
     @Override
     public ReturnTypeSpecification getReturnTypeSpecification()
     {

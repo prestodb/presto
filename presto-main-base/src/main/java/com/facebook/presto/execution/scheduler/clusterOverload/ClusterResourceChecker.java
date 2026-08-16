@@ -18,6 +18,7 @@ import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.execution.ClusterOverloadConfig;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Singleton;
 import jakarta.annotation.PostConstruct;
@@ -26,6 +27,7 @@ import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -48,9 +50,11 @@ public class ClusterResourceChecker
 
     private final ClusterOverloadPolicy clusterOverloadPolicy;
     private final ClusterOverloadConfig config;
+    private final Set<ResourceGroupId> bypassResourceGroupIds;
     private final AtomicBoolean cachedOverloadState = new AtomicBoolean(false);
     private final AtomicLong lastCheckTimeMillis = new AtomicLong(0);
     private final CounterStat overloadDetectionCount = new CounterStat();
+    private final CounterStat throttlingBypassCount = new CounterStat();
     private final TimeStat timeSinceLastCheck = new TimeStat();
     private final AtomicLong overloadStartTimeMillis = new AtomicLong(0);
     private final CopyOnWriteArrayList<ClusterOverloadStateListener> listeners = new CopyOnWriteArrayList<>();
@@ -63,6 +67,7 @@ public class ClusterResourceChecker
     {
         this.clusterOverloadPolicy = requireNonNull(clusterOverloadPolicy, "clusterOverloadPolicy is null");
         this.config = requireNonNull(config, "config is null");
+        this.bypassResourceGroupIds = config.getThrottlingBypassResourceGroups();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.overloadCheckerExecutor = newSingleThreadScheduledExecutor(threadsNamed("cluster-overload-checker-%s"));
     }
@@ -155,16 +160,57 @@ public class ClusterResourceChecker
     }
 
     /**
-     * Returns the current overload state of the cluster.
-     * @return true if cluster is overloaded, false otherwise
+     * Returns the current overload state of the cluster, with the option for the caller's
+     * resource group to bypass throttling when configured via
+     * {@code cluster-overload.bypass-resource-groups}.
+     *
+     * <p>A resource group bypasses cluster-overload throttling when it lies on the same
+     * root-to-leaf path as any configured bypass group — that is, when it is equal to a
+     * configured group, an ancestor of one, or a descendant of one. The path-based predicate
+     * is required because {@code canRunMore()} is invoked at every ancestor in the resource
+     * group hierarchy during query admission, so a single non-bypassed ancestor would
+     * otherwise veto admission for a configured leaf group.
+     *
+     * <p>Per-group concurrency, memory, and CPU limits still apply — only the global
+     * cluster-overload signal is skipped.
+     *
+     * @param resourceGroupId the resource group requesting admission (non-null)
+     * @return true if the cluster is overloaded and the resource group is not on a bypass path,
+     *     false otherwise
      */
-    public boolean isClusterCurrentlyOverloaded()
+    public boolean isClusterCurrentlyOverloaded(ResourceGroupId resourceGroupId)
     {
+        requireNonNull(resourceGroupId, "resourceGroupId is null");
+
         if (!config.isClusterOverloadThrottlingEnabled()) {
             return false;
         }
 
-        return cachedOverloadState.get();
+        if (!cachedOverloadState.get()) {
+            return false;
+        }
+
+        if (isOnBypassPath(resourceGroupId)) {
+            throttlingBypassCount.update(1);
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean isOnBypassPath(ResourceGroupId resourceGroupId)
+    {
+        if (bypassResourceGroupIds.isEmpty()) {
+            return false;
+        }
+        for (ResourceGroupId bypassed : bypassResourceGroupIds) {
+            if (resourceGroupId.equals(bypassed)
+                    || resourceGroupId.isAncestorOf(bypassed)
+                    || bypassed.isAncestorOf(resourceGroupId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -211,6 +257,19 @@ public class ClusterResourceChecker
     public CounterStat getOverloadDetectionCount()
     {
         return overloadDetectionCount;
+    }
+
+    /**
+     * Returns the number of times throttling has been bypassed because the requesting resource
+     * group is on the {@code cluster-overload.bypass-resource-groups} list.
+     *
+     * @return counter of throttling bypasses
+     */
+    @Managed
+    @Nested
+    public CounterStat getThrottlingBypassCount()
+    {
+        return throttlingBypassCount;
     }
 
     /**

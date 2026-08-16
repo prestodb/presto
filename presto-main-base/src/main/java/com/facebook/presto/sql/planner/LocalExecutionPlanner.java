@@ -154,6 +154,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -182,6 +183,7 @@ import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -201,7 +203,6 @@ import com.facebook.presto.spiller.StandaloneSpillerFactory;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
-import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -210,7 +211,6 @@ import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -218,6 +218,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -225,13 +226,16 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.VariableToChannelTranslator;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.core.StreamWriteConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ContiguousSet;
@@ -242,7 +246,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
@@ -367,7 +370,7 @@ import static com.google.common.collect.DiscreteDomain.integers;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -405,8 +408,6 @@ public class LocalExecutionPlanner
     private final ObjectMapper sortedMapObjectMapper;
     private final boolean tableFinishOperatorMemoryTrackingEnabled;
     private final StandaloneSpillerFactory standaloneSpillerFactory;
-    private final boolean useNewNanDefinition;
-
     private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
     @Inject
@@ -424,7 +425,6 @@ public class LocalExecutionPlanner
             IndexJoinLookupStats indexJoinLookupStats,
             TaskManagerConfig taskManagerConfig,
             MemoryManagerConfig memoryManagerConfig,
-            FunctionsConfig functionsConfig,
             SpillerFactory spillerFactory,
             SingleStreamSpillerFactory singleStreamSpillerFactory,
             PartitioningSpillerFactory partitioningSpillerFactory,
@@ -470,10 +470,24 @@ public class LocalExecutionPlanner
         this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
         this.sortedMapObjectMapper = requireNonNull(objectMapper, "objectMapper is null")
                 .copy()
-                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true)
+                .registerModule(new Jdk8Module())
+                .configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false)
+                .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+
+        // Increasing max nesting depth
+        this.sortedMapObjectMapper.getFactory().setStreamWriteConstraints(
+                StreamWriteConstraints.builder()
+                        .maxNestingDepth(Integer.MAX_VALUE)
+                        .build());
+        try {
+            Class<?> sliceClass = Class.forName("io.airlift.slice.Slice");
+            this.sortedMapObjectMapper.addMixIn(sliceClass, SliceMixIn.class);
+        }
+        catch (ClassNotFoundException e) {
+        }
         this.tableFinishOperatorMemoryTrackingEnabled = requireNonNull(memoryManagerConfig, "memoryManagerConfig is null").isTableFinishOperatorMemoryTrackingEnabled();
         this.standaloneSpillerFactory = requireNonNull(standaloneSpillerFactory, "standaloneSpillerFactory is null");
-        this.useNewNanDefinition = requireNonNull(functionsConfig, "functionsConfig is null").getUseNewNanDefinition();
     }
 
     public LocalExecutionPlan plan(
@@ -613,7 +627,7 @@ public class LocalExecutionPlanner
         // partitioningColumns expected to have one column in the normal case, and zero columns when partitioning on a constant
         checkArgument(!partitioningScheme.isReplicateNullsAndAny() || partitioningColumns.size() <= 1);
         if (partitioningScheme.isReplicateNullsAndAny() && partitioningColumns.size() == 1) {
-            nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(partitioningColumns)));
+            nullChannel = OptionalInt.of(outputLayout.indexOf(partitioningColumns.stream().collect(onlyElement())));
         }
 
         return Optional.of(new OutputPartitioning(partitionFunction, partitionChannels, partitionConstants, partitioningScheme.isReplicateNullsAndAny(), nullChannel));
@@ -836,6 +850,15 @@ public class LocalExecutionPlanner
             }
             this.driverInstanceCount = OptionalInt.of(driverInstanceCount);
         }
+    }
+    /**
+     * MixIn to ignore Slice.getOutput() method which causes circular references with BasicSliceOutput.
+     * The circular reference chain: Slice -> BasicSliceOutput.underlyingSlice -> Slice -> ...
+     */
+    private abstract static class SliceMixIn
+    {
+        @JsonIgnore
+        abstract Object getOutput();
     }
 
     private static class IndexSourceContext
@@ -1833,7 +1856,7 @@ public class LocalExecutionPlanner
                 if (potentialProbeInputs.size() > 1) {
                     overlappingFieldSetsBuilder.add(potentialProbeInputs.stream().collect(toImmutableSet()));
                 }
-                remappedProbeKeyChannelsBuilder.add(Iterables.getFirst(potentialProbeInputs, null));
+                remappedProbeKeyChannelsBuilder.add(potentialProbeInputs.stream().findFirst().orElse(null));
             }
             List<Set<Integer>> overlappingFieldSets = overlappingFieldSetsBuilder.build();
             List<Integer> remappedProbeKeyChannels = remappedProbeKeyChannelsBuilder.build();
@@ -2576,8 +2599,7 @@ public class LocalExecutionPlanner
                     filterBuildChannels,
                     getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
                     getDynamicFilteringMaxPerDriverSize(context.getSession()),
-                    getDynamicFilteringRangeRowLimitPerDriver(context.getSession()),
-                    useNewNanDefinition);
+                    getDynamicFilteringRangeRowLimitPerDriver(context.getSession()));
         }
 
         private Optional<LocalDynamicFilter> createDynamicFilter(PhysicalOperation buildSource, AbstractJoinNode node, LocalExecutionPlanContext context, int partitionCount)
@@ -3107,10 +3129,18 @@ public class LocalExecutionPlanner
             }
             OperatorFactory operatorFactory = new DeleteOperatorFactory(context.getNextOperatorId(), node.getId(), source.getLayout().get(node.getRowId().get()), tableCommitContextCodec);
 
-            Map<VariableReferenceExpression, Integer> layout = ImmutableMap.<VariableReferenceExpression, Integer>builder()
-                    .put(node.getOutputVariables().get(0), 0)
-                    .put(node.getOutputVariables().get(1), 1)
-                    .build();
+            // [ICEBERG-FIX bug 1B]: On native execution DeleteNode declares 3
+            // output variables matching the runtime DeleteOperator page layout
+            // (rows, fragments, commitcontext); map all of them. Non-native
+            // (Java) execution uses the original 2-column layout, so map only
+            // the channels that actually exist (see plan(Delete)) instead of
+            // assuming a fixed 3rd commitcontext channel.
+            ImmutableMap.Builder<VariableReferenceExpression, Integer> layoutBuilder = ImmutableMap.builder();
+            List<VariableReferenceExpression> deleteOutputs = node.getOutputVariables();
+            for (int channel = 0; channel < deleteOutputs.size(); channel++) {
+                layoutBuilder.put(deleteOutputs.get(channel), channel);
+            }
+            Map<VariableReferenceExpression, Integer> layout = layoutBuilder.build();
 
             return new PhysicalOperation(operatorFactory, layout, context, source);
         }
@@ -3239,7 +3269,7 @@ public class LocalExecutionPlanner
             // local merge source must have a single driver
             context.setDriverInstanceCount(1);
 
-            PlanNode sourceNode = getOnlyElement(node.getSources());
+            PlanNode sourceNode = node.getSources().stream().collect(onlyElement());
             LocalExecutionPlanContext subContext = context.createSubContext();
             PhysicalOperation source = sourceNode.accept(this, subContext);
 
@@ -3373,6 +3403,12 @@ public class LocalExecutionPlanner
                     "driver instance count must match the number of exchange partitions");
 
             return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchangeFactory), makeLayout(node), context, exchangeSourcePipelineExecutionStrategy);
+        }
+
+        @Override
+        public PhysicalOperation visitRPC(RPCNode node, LocalExecutionPlanContext context)
+        {
+            throw new UnsupportedOperationException("RPCNode is handled by Velox native execution");
         }
 
         @Override
@@ -3648,7 +3684,7 @@ public class LocalExecutionPlanner
             AggregationNode.Step step,
             Session session)
     {
-        if (maxPartialAggregationMemorySize.isPresent() && step.isOutputPartial() && isAdaptivePartialAggregationEnabled(session)) {
+        if (maxPartialAggregationMemorySize.isPresent() && step.isInputRaw() && step.isOutputPartial() && isAdaptivePartialAggregationEnabled(session)) {
             return Optional.of(new PartialAggregationController(maxPartialAggregationMemorySize.get(), getAdaptivePartialAggregationRowsReductionRatioThreshold(session)));
         }
         return Optional.empty();

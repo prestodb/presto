@@ -15,7 +15,9 @@ package com.facebook.presto.tpcds;
 
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
+@Test(singleThreaded = true)
 public class TestTpcdsWithThrift
         extends AbstractTestTpcds
 {

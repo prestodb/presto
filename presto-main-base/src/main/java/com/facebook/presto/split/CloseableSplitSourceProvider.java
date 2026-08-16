@@ -24,6 +24,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -50,6 +51,15 @@ public class CloseableSplitSourceProvider
     {
         checkState(!closed, "split source provider is closed");
         SplitSource splitSource = delegate.getSplits(session, tableHandle, splitSchedulingStrategy, warningCollector);
+        splitSources.add(splitSource);
+        return splitSource;
+    }
+
+    @Override
+    public synchronized SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector, Map<String, String> partitionColumnMapping)
+    {
+        checkState(!closed, "split source provider is closed");
+        SplitSource splitSource = delegate.getSplits(session, tableHandle, splitSchedulingStrategy, warningCollector, partitionColumnMapping);
         splitSources.add(splitSource);
         return splitSource;
     }

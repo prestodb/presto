@@ -103,7 +103,7 @@ void InternalAuthenticationFilter::onError(
   delete this;
 }
 
-void InternalAuthenticationFilter::sendGenericErrorResponse(void) {
+void InternalAuthenticationFilter::sendGenericErrorResponse() {
   /// Indicate to upstream an error occurred and make sure
   /// no further forwarding occurs.
   upstream_->onError(proxygen::kErrorUnsupportedExpectation);
@@ -154,11 +154,11 @@ void InternalAuthenticationFilter::processAndVerifyJwt(
     }
     // Passed the verification, move the message along.
     Filter::onRequest(std::move(msg));
-  } catch (const jwt::error::token_verification_exception& e) {
+  } catch (const jwt::error::token_verification_exception&) {
     sendUnauthorizedResponse();
-  } catch (const jwt::error::signature_verification_exception& e) {
+  } catch (const jwt::error::signature_verification_exception&) {
     sendUnauthorizedResponse();
-  } catch (const std::system_error& e) {
+  } catch (const std::system_error&) {
     sendGenericErrorResponse();
   }
 #endif // PRESTO_ENABLE_JWT

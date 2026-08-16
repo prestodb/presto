@@ -144,7 +144,7 @@ class PartitionAndSerializeReplayerTest : public HiveConnectorTestBase {
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
     executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
-        folly::hardware_concurrency());
+        folly::available_concurrency());
   }
 
   void TearDown() override {

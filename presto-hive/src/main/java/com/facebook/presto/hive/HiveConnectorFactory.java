@@ -21,7 +21,9 @@ import com.facebook.airlift.json.smile.SmileModule;
 import com.facebook.presto.cache.CachingModule;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.util.RebindSafeMBeanServer;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
+import com.facebook.presto.hive.azure.HiveAzureModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreModule;
@@ -114,6 +116,7 @@ public class HiveConnectorFactory
                     new HiveClientModule(catalogName),
                     new HiveS3Module(catalogName),
                     new HiveGcsModule(),
+                    new HiveAzureModule(),
                     new HiveMetastoreModule(catalogName, metastore),
                     new HiveSecurityModule(),
                     new HiveAuthenticationModule(),

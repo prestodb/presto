@@ -19,17 +19,19 @@ import com.facebook.airlift.event.client.EventModule;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.cache.CachingModule;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.util.RebindSafeMBeanServer;
 import com.facebook.presto.hive.HiveCommonModule;
 import com.facebook.presto.hive.HiveCommonSessionProperties;
 import com.facebook.presto.hive.NodeVersion;
-import com.facebook.presto.hive.RebindSafeMBeanServer;
 import com.facebook.presto.hive.SchemaProperties;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
+import com.facebook.presto.hive.azure.HiveAzureModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.s3.HiveS3Module;
 import com.facebook.presto.hive.security.SystemTableAwareAccessControl;
 import com.facebook.presto.iceberg.security.IcebergSecurityModule;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
@@ -89,6 +91,7 @@ public final class InternalIcebergConnectorFactory
                     new IcebergCatalogModule(catalogName, metastore),
                     new HiveS3Module(catalogName),
                     new HiveGcsModule(),
+                    new HiveAzureModule(),
                     new HiveAuthenticationModule(),
                     new IcebergSecurityModule(),
                     new CachingModule(),

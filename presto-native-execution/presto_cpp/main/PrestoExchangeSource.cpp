@@ -14,12 +14,14 @@
 #include "presto_cpp/main/PrestoExchangeSource.h"
 
 #include <fmt/core.h>
+#include <folly/Conv.h>
 #include <folly/SocketAddress.h>
+#include <proxygen/lib/http/HTTPException.h>
 #include <re2/re2.h>
 #include <sstream>
 
-#include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/testutil/TestValue.h"
 
@@ -37,8 +39,7 @@ std::string extractTaskId(const std::string& path) {
 
   VLOG(1) << "Failed to extract task ID from remote split: " << path;
 
-  throw std::invalid_argument(
-      fmt::format("Cannot extract task ID from remote split URL: {}", path));
+  VELOX_FAIL("Cannot extract task ID from remote split URL: {}", path);
 }
 
 void onFinalFailure(
@@ -65,6 +66,21 @@ std::string bodyAsString(
     }
   }
   return oss.str();
+}
+
+std::string formatExchangeError(const folly::exception_wrapper& error) {
+  if (auto* httpException = error.get_exception<proxygen::HTTPException>()) {
+    return httpException->describe();
+  }
+  return error.what().toStdString();
+}
+
+std::string formatExchangeError(const std::exception& error) {
+  if (auto* httpException =
+          dynamic_cast<const proxygen::HTTPException*>(&error)) {
+    return httpException->describe();
+  }
+  return error.what();
 }
 } // namespace
 
@@ -103,6 +119,8 @@ PrestoExchangeSource::PrestoExchangeSource(
   VELOX_CHECK_NOT_NULL(driverExecutor_);
   VELOX_CHECK_NOT_NULL(ioEventBase);
   VELOX_CHECK_NOT_NULL(pool_);
+  auto systemConfig = SystemConfig::instance();
+  auto httpClientOptions = systemConfig->httpClientOptions();
   httpClient_ = std::make_shared<http::HttpClient>(
       ioEventBase,
       connPool,
@@ -111,7 +129,9 @@ PrestoExchangeSource::PrestoExchangeSource(
       requestTimeoutMs,
       connectTimeoutMs,
       immediateBufferTransfer_ ? pool_ : nullptr,
-      sslContext_);
+      sslContext_,
+      std::move(httpClientOptions));
+  jwtOptions_ = systemConfig->jwtOptions();
 }
 
 void PrestoExchangeSource::close() {
@@ -185,7 +205,8 @@ void PrestoExchangeSource::doRequest(
   } else {
     method = proxygen::HTTPMethod::GET;
   }
-  auto requestBuilder = http::RequestBuilder().method(method).url(path);
+  auto requestBuilder =
+      http::RequestBuilder().jwtOptions(jwtOptions_).method(method).url(path);
 
   velox::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::doRequest", this);
@@ -221,7 +242,7 @@ void PrestoExchangeSource::handleDataResponse(
         httpRequestPath,
         maxBytes,
         maxWait,
-        responseTry.exception().what().toStdString());
+        formatExchangeError(responseTry.exception()));
   } else {
     try {
       auto& response = responseTry.value();
@@ -250,7 +271,8 @@ void PrestoExchangeSource::handleDataResponse(
         processDataResponse(std::move(response), isGetDataSizeRequest);
       }
     } catch (const std::exception& e) {
-      processDataError(httpRequestPath, maxBytes, maxWait, e.what());
+      processDataError(
+          httpRequestPath, maxBytes, maxWait, formatExchangeError(e));
     }
   }
 }
@@ -292,10 +314,10 @@ void PrestoExchangeSource::processDataResponse(
         !headers->getIsChunked(),
         "Chunked http transferring encoding is not supported.");
   }
+  const auto contentLengthStr = headers->getHeaders().getSingleOrEmpty(
+      proxygen::HTTP_HEADER_CONTENT_LENGTH);
   const uint64_t contentLength =
-      atol(headers->getHeaders()
-               .getSingleOrEmpty(proxygen::HTTP_HEADER_CONTENT_LENGTH)
-               .c_str());
+      contentLengthStr.empty() ? 0 : folly::to<uint64_t>(contentLengthStr);
   VLOG(1) << "Fetched data for " << basePath_ << "/" << sequence_ << ": "
           << contentLength << " bytes";
 
@@ -326,7 +348,7 @@ void PrestoExchangeSource::processDataResponse(
     // token so we shouldn't update 'sequence_' if it is empty. Otherwise,
     // 'sequence_' gets reset and we can't fetch any data from the source with
     // the rolled back 'sequence_'.
-    ackSequenceOpt = atol(nextTokenStr.c_str());
+    ackSequenceOpt = folly::to<int64_t>(nextTokenStr);
   } else {
     VELOX_CHECK_EQ(
         contentLength, 0, "next token is not set in non-empty data response");
@@ -468,6 +490,7 @@ void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
   auto ackPath = fmt::format("{}/{}/acknowledge", basePath_, ackSequence);
   VLOG(1) << "Sending ack " << ackPath;
   http::RequestBuilder()
+      .jwtOptions(jwtOptions_)
       .method(proxygen::HTTPMethod::GET)
       .url(ackPath)
       .send(httpClient_.get())
@@ -512,6 +535,7 @@ void PrestoExchangeSource::abortResults() {
 
 void PrestoExchangeSource::doAbortResults(int64_t delayMs) {
   http::RequestBuilder()
+      .jwtOptions(jwtOptions_)
       .method(proxygen::HTTPMethod::DELETE)
       .url(basePath_)
       .send(httpClient_.get(), "", delayMs)
@@ -526,7 +550,7 @@ void PrestoExchangeSource::handleAbortResponse(
     folly::Try<std::unique_ptr<http::HttpResponse>> responseTry) {
   std::optional<std::string> error;
   if (responseTry.hasException()) {
-    error = responseTry.exception().what();
+    error = formatExchangeError(responseTry.exception());
   } else {
     auto statusCode = responseTry.value()->headers()->getStatusCode();
     if (statusCode != http::kHttpOk && statusCode != http::kHttpNoContent) {

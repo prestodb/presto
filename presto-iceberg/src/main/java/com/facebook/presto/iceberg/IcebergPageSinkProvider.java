@@ -18,6 +18,8 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMergeSink;
+import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
@@ -26,18 +28,23 @@ import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.LocationProvider;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaxPartitionsPerWriter;
 import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTable;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toIcebergPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toIcebergSchema;
+import static com.google.common.collect.Maps.transformValues;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergPageSinkProvider
@@ -47,7 +54,6 @@ public class IcebergPageSinkProvider
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final PageIndexerFactory pageIndexerFactory;
-    private final int maxOpenPartitions;
     private final SortParameters sortParameters;
 
     @Inject
@@ -56,15 +62,12 @@ public class IcebergPageSinkProvider
             JsonCodec<CommitTaskData> jsonCodec,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
-            IcebergConfig icebergConfig,
             SortParameters sortParameters)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
-        requireNonNull(icebergConfig, "icebergConfig is null");
-        this.maxOpenPartitions = icebergConfig.getMaxPartitionsPerWriter();
         this.sortParameters = sortParameters;
     }
 
@@ -77,7 +80,7 @@ public class IcebergPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
     {
-        return createPageSink(session, (IcebergWritableTableHandle) insertTableHandle);
+        return createPageSink(session, (IcebergInsertTableHandle) insertTableHandle);
     }
 
     @Override
@@ -87,6 +90,16 @@ public class IcebergPageSinkProvider
     }
 
     private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle)
+    {
+        return createPageSink(session, tableHandle, ImmutableList.of());
+    }
+
+    private ConnectorPageSink createPageSink(ConnectorSession session, IcebergInsertTableHandle tableHandle)
+    {
+        return createPageSink(session, tableHandle, tableHandle.getInsertedColumns());
+    }
+
+    private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle, List<String> insertedColumns)
     {
         HdfsContext hdfsContext = new HdfsContext(session, tableHandle.getSchemaName(), tableHandle.getTableName().getTableName());
         Schema schema = toIcebergSchema(tableHandle.getSchema());
@@ -102,11 +115,39 @@ public class IcebergPageSinkProvider
                 hdfsEnvironment,
                 hdfsContext,
                 tableHandle.getInputColumns(),
+                insertedColumns,
                 jsonCodec,
                 session,
                 tableHandle.getFileFormat(),
-                maxOpenPartitions,
+                getMaxPartitionsPerWriter(session),
                 tableHandle.getSortOrder(),
-                sortParameters);
+                sortParameters,
+                IcebergSessionProperties.getTargetMaxFileSize(session).toBytes());
+    }
+
+    @Override
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
+    {
+        IcebergMergeTableHandle merge = (IcebergMergeTableHandle) mergeHandle;
+        IcebergWritableTableHandle tableHandle = merge.getInsertTableHandle();
+        SchemaTableName schemaTableName = new SchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName().getTableName());
+        LocationProvider locationProvider = getLocationProvider(schemaTableName, tableHandle.getOutputPath(), tableHandle.getStorageProperties());
+
+        Schema schema = toIcebergSchema(tableHandle.getSchema());
+        Map<Integer, PartitionSpec> partitionSpecs = transformValues(merge.getPartitionSpecs(),
+                prestoIcebergPartitionSpec -> toIcebergPartitionSpec(prestoIcebergPartitionSpec).toUnbound().bind(schema));
+
+        ConnectorPageSink pageSink = createPageSink(session, tableHandle);
+
+        return new IcebergMergeSink(
+                locationProvider,
+                fileWriterFactory,
+                hdfsEnvironment,
+                jsonCodec,
+                session,
+                tableHandle.getFileFormat(),
+                partitionSpecs,
+                pageSink,
+                tableHandle.getInputColumns().size());
     }
 }

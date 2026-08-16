@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionRewriter;
@@ -21,26 +23,37 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.expressions.JsonCodecRowExpressionSerde;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.tree.Expression;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -52,16 +65,77 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.fail;
 
 public class TestSimplifyRowExpressions
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final MetadataManager METADATA = createTestMetadataManager();
+    private RuleTester ruleTester;
     private static final Map<String, Type> TYPES = Streams.concat(
             Stream.of("A", "B", "C", "D", "E", "F", "I", "V", "X", "Y", "Z"),
             IntStream.range(1, 61).boxed().map(i -> format("A%s", i)))
             .collect(toMap(Function.identity(), string -> BOOLEAN));
+
+    @BeforeClass
+    public void setUp()
+    {
+        ruleTester = new RuleTester();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        closeAllRuntimeException(ruleTester);
+        ruleTester = null;
+    }
+
+    @Test
+    public void testProjectRuleDoesNotFireForVariableReferenceAssignments()
+    {
+        // ProjectRowExpressionRewrite should not fire when all assignments are
+        // VariableReferenceExpression (passthrough variables) since no rewriter
+        // transforms a bare variable reference
+        SimplifyRowExpressions simplifyRowExpressions = new SimplifyRowExpressions(
+                ruleTester.getMetadata(),
+                ruleTester.getExpressionManager());
+        ruleTester.assertThat(simplifyRowExpressions.projectRowExpressionRewriteRule())
+                .on(p -> {
+                    VariableReferenceExpression x = p.variable("x", BIGINT);
+                    VariableReferenceExpression y = p.variable("y", BIGINT);
+                    VariableReferenceExpression passthrough1 = p.variable("passthrough1", BIGINT);
+                    VariableReferenceExpression passthrough2 = p.variable("passthrough2", BIGINT);
+                    return p.project(
+                            Assignments.builder()
+                                    .put(passthrough1, x)
+                                    .put(passthrough2, y)
+                                    .build(),
+                            p.values(x, y));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testLeafExpressionsShortCircuit()
+    {
+        // SimplifyRowExpressions.rewrite() should return the exact same object
+        // for leaf expressions (VariableReferenceExpression and ConstantExpression)
+        // without going through the 3-pass pipeline
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        ExpressionOptimizerManager expressionOptimizerManager = new ExpressionOptimizerManager(
+                new PluginNodeManager(nodeManager),
+                METADATA.getFunctionAndTypeManager(),
+                new JsonCodecRowExpressionSerde(jsonCodec(RowExpression.class)));
+
+        VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), "x", BIGINT);
+        RowExpression simplifiedVariable = SimplifyRowExpressions.rewrite(variable, METADATA, TEST_SESSION, expressionOptimizerManager);
+        assertSame(simplifiedVariable, variable, "VariableReferenceExpression should be returned as-is");
+
+        ConstantExpression constant = new ConstantExpression(42L, BIGINT);
+        RowExpression simplifiedConstant = SimplifyRowExpressions.rewrite(constant, METADATA, TEST_SESSION, expressionOptimizerManager);
+        assertSame(simplifiedConstant, constant, "ConstantExpression should be returned as-is");
+    }
 
     @Test
     public void testPushesDownNegations()
@@ -144,6 +218,45 @@ public class TestSimplifyRowExpressions
     }
 
     @Test
+    public void testSimplifyNestedIf()
+    {
+        // Basic: IF(X, IF(Y, V, null), null) → IF(X AND Y, V, null)
+        assertSimplifies(
+                "IF(X, IF(Y, V, CAST(null AS boolean)), CAST(null AS boolean))",
+                "IF(X AND Y, V)");
+
+        // Omitted ELSE (defaults to null): IF(X, IF(Y, V))
+        assertSimplifies(
+                "IF(X, IF(Y, V))",
+                "IF(X AND Y, V)");
+
+        // Triple nesting flattened in a single pass (bottom-up)
+        assertSimplifies(
+                "IF(X, IF(Y, IF(Z, V, CAST(null AS boolean)), CAST(null AS boolean)), CAST(null AS boolean))",
+                "IF((X AND Y) AND Z, V)");
+
+        // Matching non-null else branches: IF(X, IF(Y, V, Z), Z) → IF(X AND Y, V, Z)
+        assertSimplifies(
+                "IF(X, IF(Y, V, Z), Z)",
+                "IF(X AND Y, V, Z)");
+
+        // No simplification: else branches differ
+        assertSimplifies(
+                "IF(X, IF(Y, V, Z), A)",
+                "IF(X, IF(Y, V, Z), A)");
+
+        // No simplification: true branch is not an IF
+        assertSimplifies(
+                "IF(X, V, CAST(null AS boolean))",
+                "IF(X, V)");
+
+        // No simplification: inner condition is non-deterministic
+        assertSimplifies(
+                "IF(X, IF(random() > 0.5e0, V, Z), Z)",
+                "IF(X, IF(random() > 0.5e0, V, Z), Z)");
+    }
+
+    @Test
     public void testCastBigintToBoundedVarchar()
     {
         // the varchar type length is enough to contain the number's representation
@@ -182,7 +295,40 @@ public class TestSimplifyRowExpressions
         }
     }
 
+    @Test
+    public void testMapFromEntriesRewrite()
+    {
+        // Single entry
+        assertMapFromEntries(
+                "map_from_entries(ARRAY[ROW(K1, V1)])",
+                "MAP(ARRAY[K1], ARRAY[V1])");
+
+        // Multiple entries
+        assertMapFromEntries(
+                "map_from_entries(ARRAY[ROW(K1, V1), ROW(K2, V2)])",
+                "MAP(ARRAY[K1, K2], ARRAY[V1, V2])");
+    }
+
+    @Test
+    public void testMapFromEntriesNoRewrite()
+    {
+        // Non-array-constructor argument (variable) — should not rewrite
+        Map<String, Type> types = ImmutableMap.of("M", new ArrayType(RowType.anonymous(ImmutableList.of(BIGINT, BIGINT))));
+        assertSimplifies("map_from_entries(M)", "map_from_entries(M)", types);
+    }
+
+    private static void assertMapFromEntries(String expression, String expected)
+    {
+        Map<String, Type> types = ImmutableMap.of("K1", BIGINT, "K2", BIGINT, "V1", BIGINT, "V2", BIGINT);
+        assertSimplifies(expression, expected, types);
+    }
+
     private static void assertSimplifies(String expression, String rowExpressionExpected)
+    {
+        assertSimplifies(expression, rowExpressionExpected, TYPES);
+    }
+
+    private static void assertSimplifies(String expression, String rowExpressionExpected, Map<String, Type> types)
     {
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
 
@@ -190,10 +336,10 @@ public class TestSimplifyRowExpressions
         ExpressionOptimizerManager expressionOptimizerManager = new ExpressionOptimizerManager(new PluginNodeManager(nodeManager), METADATA.getFunctionAndTypeManager(), new JsonCodecRowExpressionSerde(jsonCodec(RowExpression.class)));
 
         TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(METADATA);
-        RowExpression actualRowExpression = translator.translate(actualExpression, TypeProvider.viewOf(TYPES));
+        RowExpression actualRowExpression = translator.translate(actualExpression, TypeProvider.viewOf(types));
         RowExpression simplifiedRowExpression = SimplifyRowExpressions.rewrite(actualRowExpression, METADATA, TEST_SESSION, expressionOptimizerManager);
         Expression expectedByRowExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(rowExpressionExpected));
-        RowExpression simplifiedByExpression = translator.translate(expectedByRowExpression, TypeProvider.viewOf(TYPES));
+        RowExpression simplifiedByExpression = translator.translate(expectedByRowExpression, TypeProvider.viewOf(types));
         assertEquals(normalize(simplifiedRowExpression), normalize(simplifiedByExpression));
     }
 

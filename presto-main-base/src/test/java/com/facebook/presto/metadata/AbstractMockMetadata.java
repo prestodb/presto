@@ -43,6 +43,7 @@ import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -314,6 +315,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
     {
         throw new UnsupportedOperationException();
@@ -333,6 +340,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
     {
         throw new UnsupportedOperationException();
     }
@@ -392,7 +405,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<String> insertColumnNames)
     {
         throw new UnsupportedOperationException();
     }
@@ -580,7 +593,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Object> properties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, Optional<RowExpression> refreshScopePredicate)
     {
         throw new UnsupportedOperationException();
     }
@@ -749,6 +768,18 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createBranch(Session session, TableHandle tableHandle, String branchName, boolean replace, boolean ifNotExists, Optional<ConnectorTableVersion> tableVersion, Optional<Long> retainDays, Optional<Integer> minSnapshotsToKeep, Optional<Long> maxSnapshotAgeDays)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createTag(Session session, TableHandle tableHandle, String branchName, boolean replace, boolean ifNotExists, Optional<ConnectorTableVersion> tableVersion, Optional<Long> retainDays)
     {
         throw new UnsupportedOperationException();
     }

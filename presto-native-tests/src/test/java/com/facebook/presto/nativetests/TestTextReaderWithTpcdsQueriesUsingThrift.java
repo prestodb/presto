@@ -17,6 +17,7 @@ import com.facebook.presto.nativeworker.AbstractTestNativeTpcdsQueries;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
 
 public class TestTextReaderWithTpcdsQueriesUsingThrift
         extends AbstractTestNativeTpcdsQueries
@@ -31,6 +32,7 @@ public class TestTextReaderWithTpcdsQueriesUsingThrift
                 .setStorageFormat(TEXTFILE)
                 .setAddStorageFormatToPath(true)
                 .setUseThrift(true)
+                .setExtraCoordinatorProperties(ImmutableMap.of("optimizer.optimize-top-n-rank", "true"))
                 .build();
     }
 

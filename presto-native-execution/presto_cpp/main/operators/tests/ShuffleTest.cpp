@@ -30,6 +30,7 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/ExchangeClient.h"
+#include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -1162,6 +1163,49 @@ TEST_F(ShuffleTest, partitionAndSerializeOperatorWhenSinglePartition) {
                   .planNode();
 
   testPartitionAndSerialize(plan, data);
+}
+
+TEST_F(ShuffleTest, partitionAndSerializeRoundRobin) {
+  const int32_t numPartitions = 4;
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
+  });
+
+  auto plan =
+      exec::test::PlanBuilder()
+          .values({data, data, data}, false)
+          .addNode(
+              [numPartitions](
+                  core::PlanNodeId nodeId,
+                  core::PlanNodePtr source) -> core::PlanNodePtr {
+                return std::make_shared<PartitionAndSerializeNode>(
+                    nodeId,
+                    std::vector<core::TypedExprPtr>{},
+                    numPartitions,
+                    source->outputType(),
+                    std::move(source),
+                    false,
+                    std::make_shared<exec::RoundRobinPartitionFunctionSpec>());
+              })
+          .planNode();
+
+  auto results = exec::test::AssertQueryBuilder(plan).copyResults(pool());
+  ASSERT_EQ(results->size(), 3 * 1'000);
+
+  auto partitions = results->childAt(0)->as<SimpleVector<int32_t>>();
+  std::set<int32_t> uniquePartitions;
+  for (auto i = 0; i < results->size(); ++i) {
+    auto p = partitions->valueAt(i);
+    ASSERT_GE(p, 0);
+    ASSERT_LT(p, numPartitions);
+    uniquePartitions.insert(p);
+  }
+
+  // With 3 input batches and 4 partitions, round-robin must assign to more
+  // than one partition. Before the fix, all rows went to partition 0.
+  ASSERT_GT(uniquePartitions.size(), 1)
+      << "Round-robin should distribute across multiple partitions";
 }
 
 TEST_F(ShuffleTest, partitionAndSerializeEndToEnd) {

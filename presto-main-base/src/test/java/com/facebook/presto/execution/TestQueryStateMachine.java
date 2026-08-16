@@ -396,8 +396,8 @@ public class TestQueryStateMachine
         assertEquals(queryStats.getTotalPlanningTime().toMillis(), 200);
         // there is no way to induce finishing time without a transaction and connector
         assertEquals(queryStats.getFinishingTime().toMillis(), 0);
-        // query execution time is starts when query transitions to planning
-        assertEquals(queryStats.getExecutionTime().toMillis(), 900);
+        // query execution time starts when query transitions to running
+        assertEquals(queryStats.getExecutionTime().toMillis(), 400);
     }
 
     @Test
@@ -575,7 +575,7 @@ public class TestQueryStateMachine
         assertNotNull(queryStats.getFinishingTime());
 
         assertTrue(queryStats.getCreateTimeInMillis() > 0);
-        if (queryInfo.getState() == WAITING_FOR_PREREQUISITES || queryInfo.getState() == QUEUED || queryInfo.getState() == WAITING_FOR_RESOURCES || queryInfo.getState() == DISPATCHING) {
+        if (queryInfo.getState() == WAITING_FOR_PREREQUISITES || queryInfo.getState() == QUEUED || queryInfo.getState() == WAITING_FOR_RESOURCES || queryInfo.getState() == DISPATCHING || queryInfo.getState() == PLANNING || queryInfo.getState() == STARTING) {
             assertEquals(queryStats.getExecutionStartTimeInMillis(), 0L);
         }
         else {

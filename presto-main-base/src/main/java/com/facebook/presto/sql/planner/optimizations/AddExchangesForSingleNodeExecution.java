@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -101,6 +102,22 @@ public class AddExchangesForSingleNodeExecution
                 plan = gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
             }
             return plan;
+        }
+
+        @Override
+        public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
+        {
+            if (node.getSource() instanceof TableScanNode && metadata.isLegacyGetLayoutSupported(session, ((TableScanNode) node.getSource()).getTable())) {
+                TableScanNode tableScanNode = (TableScanNode) node.getSource();
+                PlanNode plan = pushPredicateIntoTableScan(tableScanNode, node.getPredicate(), true, session, idAllocator, metadata);
+                if (containsSystemTableScan(plan)) {
+                    plan = gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
+                }
+                planChanged = true;
+                return plan;
+            }
+
+            return context.defaultRewrite(node);
         }
 
         @Override

@@ -247,6 +247,11 @@ public abstract class AstVisitor<R, C>
         return visitQueryBody(node, context);
     }
 
+    protected R visitQueryWithMVRewriteCandidates(QueryWithMVRewriteCandidates node, C context)
+    {
+        return visitQueryBody(node, context);
+    }
+
     protected R visitSetOperation(SetOperation node, C context)
     {
         return visitQueryBody(node, context);
@@ -547,6 +552,11 @@ public abstract class AstVisitor<R, C>
         return visitMergeCase(node, context);
     }
 
+    protected R visitMergeDelete(MergeDelete node, C context)
+    {
+        return visitMergeCase(node, context);
+    }
+
     protected R visitTableElement(TableElement node, C context)
     {
         return visitNode(node, context);
@@ -578,6 +588,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitCreateTable(CreateTable node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitCreateVectorIndex(CreateVectorIndex node, C context)
     {
         return visitStatement(node, context);
     }
@@ -627,6 +642,16 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitCreateBranch(CreateBranch node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitCreateTag(CreateTag node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitDropTag(DropTag node, C context)
     {
         return visitStatement(node, context);
@@ -648,6 +673,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitAlterColumnNotNull(AlterColumnNotNull node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSetColumnDefault(SetColumnDefault node, C context)
     {
         return visitStatement(node, context);
     }
@@ -802,6 +832,10 @@ public abstract class AstVisitor<R, C>
         return visitTransactionMode(node, context);
     }
 
+    protected R visitSetColumnType(SetColumnType node, C context)
+    {
+        return visitStatement(node, context);
+    }
     protected R visitTransactionAccessMode(TransactionAccessMode node, C context)
     {
         return visitTransactionMode(node, context);

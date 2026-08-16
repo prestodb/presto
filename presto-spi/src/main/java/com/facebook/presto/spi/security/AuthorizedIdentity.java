@@ -14,8 +14,10 @@
 package com.facebook.presto.spi.security;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.security.Principal;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -26,6 +28,7 @@ public class AuthorizedIdentity
     private final String userName;
     private final Optional<String> reasonForSelect;
     private final Optional<Boolean> delegationCheckResult;
+    private final Optional<Principal> authorizedPrincipal;
 
     @JsonCreator
     public AuthorizedIdentity(
@@ -33,9 +36,19 @@ public class AuthorizedIdentity
             @JsonProperty("reasonForSelect") String reasonForSelect,
             @JsonProperty("delegationCheckResult") Boolean delegationCheckResult)
     {
+        this(userName, reasonForSelect, delegationCheckResult, (Principal) null);
+    }
+
+    public AuthorizedIdentity(
+            String userName,
+            String reasonForSelect,
+            Boolean delegationCheckResult,
+            Principal authorizedPrincipal)
+    {
         this.userName = requireNonNull(userName, "userName is null");
         this.reasonForSelect = Optional.ofNullable(reasonForSelect);
         this.delegationCheckResult = Optional.ofNullable(delegationCheckResult);
+        this.authorizedPrincipal = Optional.ofNullable(authorizedPrincipal);
     }
 
     @JsonProperty("userName")
@@ -64,6 +77,12 @@ public class AuthorizedIdentity
     public Boolean getDelegationCheckResultValue()
     {
         return delegationCheckResult.orElse(null);
+    }
+
+    @JsonIgnore
+    public Optional<Principal> getAuthorizedPrincipal()
+    {
+        return authorizedPrincipal;
     }
 
     @Override

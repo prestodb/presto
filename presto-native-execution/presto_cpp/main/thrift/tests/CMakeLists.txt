@@ -24,12 +24,6 @@ target_link_libraries(
   presto_thrift_extra
   presto_thrift-cpp2
   presto_native-cpp2
-  ${THRIFTCPP2}
-  ${THRIFT_PROTOCOL}
-  ${THRIFT_METADATA}
-  ${THRIFT_CORE}
-  ${THRIFT_TRANSPORT}
-  ${FOLLY_WITH_DEPENDENCIES}
   ${RE2}
   GTest::gmock
   GTest::gtest

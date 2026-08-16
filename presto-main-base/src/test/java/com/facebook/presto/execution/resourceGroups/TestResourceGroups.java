@@ -72,7 +72,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testQueueFull()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(1);
         root.setHardConcurrencyLimit(1);
@@ -94,7 +94,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testFairEligibility()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(1);
@@ -154,7 +154,7 @@ public class TestResourceGroups
     @Test
     public void testSetSchedulingPolicy()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(1);
@@ -200,7 +200,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testFairQueuing()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(1);
@@ -246,7 +246,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testMemoryLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(3);
@@ -274,7 +274,7 @@ public class TestResourceGroups
     @Test
     public void testSubgroupMemoryLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(10, BYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(3);
@@ -307,7 +307,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testSoftCpuLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
         root.setSoftCpuLimit(new Duration(1, SECONDS));
         root.setHardCpuLimit(new Duration(2, SECONDS));
@@ -344,7 +344,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testPerWorkerQueryLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setWorkersPerQueryLimit(5);
         root.setMaxQueuedQueries(2);
         root.setHardConcurrencyLimit(2);
@@ -377,7 +377,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testPerWorkerQueryLimitMultipleGroups()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setWorkersPerQueryLimit(5);
         root.setMaxQueuedQueries(5);
         root.setHardConcurrencyLimit(2);
@@ -420,7 +420,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testHardCpuLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
         root.setHardCpuLimit(new Duration(1, SECONDS));
         root.setCpuQuotaGenerationMillisPerSecond(2000);
@@ -447,7 +447,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testPriorityScheduling()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(100);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -497,7 +497,7 @@ public class TestResourceGroups
     @Test(timeOut = 20_000)
     public void testWeightedScheduling()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -546,7 +546,7 @@ public class TestResourceGroups
     @Test(timeOut = 30_000)
     public void testWeightedFairScheduling()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(50);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -589,7 +589,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedFairSchedulingEqualWeights()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(50);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -648,7 +648,7 @@ public class TestResourceGroups
     @Test(timeOut = 20_000)
     public void testWeightedFairSchedulingNoStarvation()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(50);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -689,7 +689,7 @@ public class TestResourceGroups
     @Test
     public void testGetInfo()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(40);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -779,7 +779,7 @@ public class TestResourceGroups
     @Test
     public void testGetResourceGroupStateInfo()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, GIGABYTE));
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(10);
@@ -847,7 +847,7 @@ public class TestResourceGroups
     @Test
     public void testGetStaticResourceGroupInfo()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, GIGABYTE));
         root.setMaxQueuedQueries(100);
         root.setHardConcurrencyLimit(10);
@@ -924,7 +924,7 @@ public class TestResourceGroups
     @Test
     public void testGetBlockedQueuedQueries()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(40);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -1097,5 +1097,216 @@ public class TestResourceGroups
                 .setClusterOverloadThrottlingEnabled(false);
 
         return new ClusterResourceChecker(mockPolicy, config, createNodeManager());
+    }
+
+    // Tests that when task limit is exceeded, new queries are queued instead of starting immediately
+    @Test(timeOut = 10_000)
+    public void testTaskLimitExceededQueuesQuery()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup(
+                "root",
+                (group, export) -> {},
+                directExecutor(),
+                ignored -> Optional.empty(),
+                rg -> false,
+                createNodeManager(),
+                createClusterResourceChecker(),
+                QueryPacingContext.NOOP);
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(10);
+
+        // Set task limit exceeded
+        root.setTaskLimitExceeded(true);
+
+        // Submit a query - it should be queued because task limit is exceeded
+        MockManagedQueryExecution query1 = new MockManagedQueryExecution(0);
+        query1.startWaitingForPrerequisites();
+        root.run(query1);
+
+        // Query should be queued, not running
+        assertEquals(query1.getState(), QUEUED);
+        assertEquals(root.getQueuedQueries(), 1);
+        assertEquals(root.getRunningQueries(), 0);
+    }
+
+    // Tests that queued queries start when task limit is no longer exceeded
+    @Test(timeOut = 10_000)
+    public void testQueryStartsWhenTaskLimitClears()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup(
+                "root",
+                (group, export) -> {},
+                directExecutor(),
+                ignored -> Optional.empty(),
+                rg -> false,
+                createNodeManager(),
+                createClusterResourceChecker(),
+                QueryPacingContext.NOOP);
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(10);
+
+        // Set task limit exceeded
+        root.setTaskLimitExceeded(true);
+
+        // Submit queries - they should be queued
+        MockManagedQueryExecution query1 = new MockManagedQueryExecution(0);
+        query1.startWaitingForPrerequisites();
+        root.run(query1);
+        MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        query2.startWaitingForPrerequisites();
+        root.run(query2);
+
+        assertEquals(query1.getState(), QUEUED);
+        assertEquals(query2.getState(), QUEUED);
+        assertEquals(root.getQueuedQueries(), 2);
+        assertEquals(root.getRunningQueries(), 0);
+
+        // Clear task limit
+        root.setTaskLimitExceeded(false);
+
+        // Process queued queries - they should now start
+        root.processQueuedQueries();
+
+        assertEquals(query1.getState(), RUNNING);
+        assertEquals(query2.getState(), RUNNING);
+        assertEquals(root.getQueuedQueries(), 0);
+        assertEquals(root.getRunningQueries(), 2);
+    }
+
+    // Tests that queries in a subgroup hierarchy are properly queued and started when task limit changes
+    @Test(timeOut = 10_000)
+    public void testTaskLimitExceededWithSubgroups()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup(
+                "root",
+                (group, export) -> {},
+                directExecutor(),
+                ignored -> Optional.empty(),
+                rg -> false,
+                createNodeManager(),
+                createClusterResourceChecker(),
+                QueryPacingContext.NOOP);
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(10);
+
+        InternalResourceGroup groupA = root.getOrCreateSubGroup("A", true);
+        groupA.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        groupA.setMaxQueuedQueries(10);
+        groupA.setHardConcurrencyLimit(10);
+
+        InternalResourceGroup groupG = groupA.getOrCreateSubGroup("G", true);
+        groupG.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        groupG.setMaxQueuedQueries(10);
+        groupG.setHardConcurrencyLimit(10);
+
+        // Set task limit exceeded
+        root.setTaskLimitExceeded(true);
+
+        // Submit a query to leaf group G - it should be queued
+        MockManagedQueryExecution query1 = new MockManagedQueryExecution(0);
+        query1.startWaitingForPrerequisites();
+        groupG.run(query1);
+
+        assertEquals(query1.getState(), QUEUED);
+        assertEquals(groupG.getQueuedQueries(), 1);
+        assertEquals(groupG.getRunningQueries(), 0);
+
+        // Clear task limit and process queued queries
+        root.setTaskLimitExceeded(false);
+        root.processQueuedQueries();
+
+        // Query should now be running
+        assertEquals(query1.getState(), RUNNING);
+        assertEquals(groupG.getQueuedQueries(), 0);
+        assertEquals(groupG.getRunningQueries(), 1);
+    }
+
+    // Tests that when task limit is exceeded, queries already running continue, but new ones are queued
+    @Test(timeOut = 10_000)
+    public void testTaskLimitExceededDoesNotAffectRunningQueries()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup(
+                "root",
+                (group, export) -> {},
+                directExecutor(),
+                ignored -> Optional.empty(),
+                rg -> false,
+                createNodeManager(),
+                createClusterResourceChecker(),
+                QueryPacingContext.NOOP);
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(10);
+
+        // Submit a query before task limit is exceeded - it should run
+        MockManagedQueryExecution query1 = new MockManagedQueryExecution(0);
+        query1.startWaitingForPrerequisites();
+        root.run(query1);
+        assertEquals(query1.getState(), RUNNING);
+
+        // Now set task limit exceeded
+        root.setTaskLimitExceeded(true);
+
+        // Submit another query - it should be queued
+        MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        query2.startWaitingForPrerequisites();
+        root.run(query2);
+        assertEquals(query2.getState(), QUEUED);
+
+        // The first query should still be running
+        assertEquals(query1.getState(), RUNNING);
+        assertEquals(root.getRunningQueries(), 1);
+        assertEquals(root.getQueuedQueries(), 1);
+    }
+
+    // Tests that task limit transitions work correctly with multiple cycles
+    @Test(timeOut = 10_000)
+    public void testTaskLimitExceededMultipleCycles()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup(
+                "root",
+                (group, export) -> {},
+                directExecutor(),
+                ignored -> Optional.empty(),
+                rg -> false,
+                createNodeManager(),
+                createClusterResourceChecker(),
+                QueryPacingContext.NOOP);
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(10);
+
+        // Cycle 1: Task limit exceeded, query queued
+        root.setTaskLimitExceeded(true);
+        MockManagedQueryExecution query1 = new MockManagedQueryExecution(0);
+        query1.startWaitingForPrerequisites();
+        root.run(query1);
+        assertEquals(query1.getState(), QUEUED);
+
+        // Clear task limit, query starts
+        root.setTaskLimitExceeded(false);
+        root.processQueuedQueries();
+        assertEquals(query1.getState(), RUNNING);
+
+        // Cycle 2: Task limit exceeded again, new query queued
+        root.setTaskLimitExceeded(true);
+        MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        query2.startWaitingForPrerequisites();
+        root.run(query2);
+        assertEquals(query2.getState(), QUEUED);
+        assertEquals(query1.getState(), RUNNING);  // query1 still running
+
+        // Complete query1, processQueuedQueries should not start query2 (task limit still exceeded)
+        query1.complete();
+        root.processQueuedQueries();
+        assertEquals(query2.getState(), QUEUED);  // Still queued because task limit exceeded
+
+        // Clear task limit, query2 starts
+        root.setTaskLimitExceeded(false);
+        root.processQueuedQueries();
+        assertEquals(query2.getState(), RUNNING);
     }
 }

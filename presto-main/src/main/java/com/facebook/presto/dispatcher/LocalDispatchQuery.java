@@ -71,6 +71,13 @@ public class LocalDispatchQuery
     private final SettableFuture<?> submitted = SettableFuture.create();
     private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
 
+    // Tracks whether the query has been successfully submitted to SqlQueryManager
+    // for execution. Once true, SqlQueryManager's finalQueryInfoListener will fire
+    // queryCompletedEvent with real statistics, so LocalDispatchQuery must NOT fire
+    // queryImmediateFailureEvent (which emits zeroed stats and would produce a
+    // duplicate event that can overwrite the real data).
+    private volatile boolean sentForExecution;
+
     private final boolean retry;
 
     private final QueryPrerequisites queryPrerequisites;
@@ -208,6 +215,10 @@ public class LocalDispatchQuery
                 try {
                     resourceGroupQueryLimits.get().ifPresent(queryExecution::setResourceGroupQueryLimits);
                     querySubmitter.accept(queryExecution);
+                    // Mark only after successful submission. If querySubmitter throws,
+                    // SqlQueryManager won't have the query, so we still need
+                    // queryImmediateFailureEvent from fail() below.
+                    sentForExecution = true;
                 }
                 catch (Throwable t) {
                     // this should never happen but be safe
@@ -344,7 +355,14 @@ public class LocalDispatchQuery
     public void fail(Throwable throwable)
     {
         if (stateMachine.transitionToFailed(throwable)) {
-            queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
+            // Only emit the immediate failure event if the query was never sent to
+            // SqlQueryManager. Post-submission, SqlQueryManager's finalQueryInfoListener
+            // will emit queryCompletedEvent with real execution statistics. Emitting
+            // queryImmediateFailureEvent here as well would produce a duplicate event
+            // with all-zero stats that can overwrite the real data.
+            if (!sentForExecution) {
+                queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
+            }
         }
     }
 
@@ -352,10 +370,14 @@ public class LocalDispatchQuery
     public void cancel()
     {
         if (stateMachine.transitionToCanceled()) {
-            BasicQueryInfo queryInfo = stateMachine.getBasicQueryInfo(Optional.empty());
-            ExecutionFailureInfo failureInfo = queryInfo.getFailureInfo();
-            failureInfo = failureInfo != null ? failureInfo : toFailure(new PrestoException(USER_CANCELED, "Query was canceled"));
-            queryMonitor.queryImmediateFailureEvent(queryInfo, failureInfo);
+            // Same guard as fail(): avoid emitting zeroed-stats event when
+            // SqlQueryManager will handle the completion event with real stats.
+            if (!sentForExecution) {
+                BasicQueryInfo queryInfo = stateMachine.getBasicQueryInfo(Optional.empty());
+                ExecutionFailureInfo failureInfo = queryInfo.getFailureInfo();
+                failureInfo = failureInfo != null ? failureInfo : toFailure(new PrestoException(USER_CANCELED, "Query was canceled"));
+                queryMonitor.queryImmediateFailureEvent(queryInfo, failureInfo);
+            }
         }
     }
 

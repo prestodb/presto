@@ -14,14 +14,20 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
+import com.facebook.presto.metadata.TableLayoutResult;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.Partitioning;
@@ -37,9 +43,16 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -47,6 +60,8 @@ import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializa
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionWhenCapableEnabled;
+import static com.facebook.presto.SystemSessionProperties.isPartitionAwareGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
@@ -55,7 +70,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DI
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.graph.Traverser.forTree;
 import static java.lang.String.format;
@@ -154,7 +169,33 @@ public class PlanFragmenterUtils
     {
         PlanFragment fragment = subPlan.getFragment();
         GroupedExecutionTagger.GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager, isGroupedExecutionEnabled(session), isPrestoOnSpark), null);
-        if (properties.isSubTreeUseful()) {
+        // Normally a fragment is scheduled with grouped execution only when some operator makes grouping
+        // individually beneficial (subTreeUseful). When grouped_execution_when_capable is enabled, run
+        // grouped execution for ANY grouped-execution-capable (bucketed) fragment: currentNodeCapable is
+        // true only when every operator between the bucketed scan(s) and the fragment root is per-bucket
+        // safe, so grouping is always correct -- this just extends it to capable-but-not-"useful" fragments
+        // (e.g. a bucketed scan feeding a shuffle, or a bucketed table write), avoiding a redundant local
+        // re-partition of already-bucketed data.
+        boolean groupWhenCapable = isGroupedExecutionEnabled(session)
+                && isGroupedExecutionWhenCapableEnabled(session)
+                && properties.isCurrentNodeCapable();
+        if (properties.isSubTreeUseful() || groupWhenCapable) {
+            int totalLifespans = properties.getTotalLifespans();
+
+            // Partition-aware grouped execution: use the tagger's equivalence groups
+            // to compute distinct partition value combinations with canonical column names
+            List<Map<String, String>> partitionValues = ImmutableList.of();
+            Map<PlanNodeId, Map<String, String>> partitionColumnMappings = ImmutableMap.of();
+            if (isPartitionAwareGroupedExecutionEnabled(session)
+                    && !properties.getUsablePartitionColumns().isEmpty()) {
+                Map<PlanNodeId, Map<String, String>> perScanMappings = new LinkedHashMap<>();
+                partitionValues = computePartitionValues(fragment, metadata, session, properties, perScanMappings, nodePartitioningManager, fragment.getPartitioning());
+                if (!partitionValues.isEmpty()) {
+                    totalLifespans = properties.getTotalLifespans() * partitionValues.size();
+                    partitionColumnMappings = ImmutableMap.copyOf(perScanMappings);
+                }
+            }
+
             boolean preferDynamic = fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)
                     && new HashSet<>(properties.getCapableTableScanNodes()).containsAll(fragment.getTableScanSchedulingOrder());
             BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, fragment.getPartitioning(), preferDynamic);
@@ -174,14 +215,14 @@ public class PlanFragmenterUtils
                         (fragment.getRoot() instanceof TableWriterMergeNode || fragment.getRoot() instanceof TableWriterNode) &&
                         properties.isRecoveryEligible();
                 if (recoverable) {
-                    fragment = fragment.withRecoverableGroupedExecution(properties.getCapableTableScanNodes(), properties.getTotalLifespans());
+                    fragment = fragment.withRecoverableGroupedExecution(properties.getCapableTableScanNodes(), totalLifespans, partitionValues, partitionColumnMappings);
                 }
                 else {
-                    fragment = fragment.withDynamicLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes(), properties.getTotalLifespans());
+                    fragment = fragment.withDynamicLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes(), totalLifespans, partitionValues, partitionColumnMappings);
                 }
             }
             else {
-                fragment = fragment.withFixedLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes(), properties.getTotalLifespans());
+                fragment = fragment.withFixedLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes(), totalLifespans, partitionValues, partitionColumnMappings);
             }
         }
         ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
@@ -192,10 +233,264 @@ public class PlanFragmenterUtils
         return new SubPlan(fragment, result.build());
     }
 
+    /**
+     * Compute the distinct partition value combinations for partition-aware grouped execution,
+     * driven by the tagger's output (usablePartitionColumns, partitionColumns, partitionColumnUnionFind).
+     *
+     * <p>This method also populates {@code perScanMappings} with per-scan column name mappings
+     * (actual partition column name -> canonical name) used by connectors to route splits
+     * to the correct queue when tables use different column names for the same partition concept
+     * (e.g., t1.ds = t2.ts -> canonical "ds" for both).
+     */
+    private static List<Map<String, String>> computePartitionValues(
+            PlanFragment fragment,
+            Metadata metadata,
+            Session session,
+            GroupedExecutionTagger.GroupedExecutionProperties properties,
+            Map<PlanNodeId, Map<String, String>> perScanMappings,
+            NodePartitioningManager nodePartitioningManager,
+            PartitioningHandle partitioningHandle)
+    {
+        Optional<Map<ColumnHandle, String>> handleToNameOpt = buildHandleToNameMap(fragment, metadata, session);
+        if (!handleToNameOpt.isPresent()) {
+            return ImmutableList.of();
+        }
+        Map<ColumnHandle, String> handleToName = handleToNameOpt.get();
+
+        Map<String, String> canonicalNameMap = buildCanonicalNameMap(properties, handleToName);
+        if (canonicalNameMap.isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        buildPerScanMappings(fragment, metadata, session, handleToName, canonicalNameMap, perScanMappings);
+
+        return extractPartitionValues(fragment, metadata, session, handleToName, canonicalNameMap, nodePartitioningManager, partitioningHandle);
+    }
+
+    /**
+     * Builds a global ColumnHandle -> column name map for all table scans in the fragment.
+     * Returns empty if any scan node is not found (signals abort).
+     */
+    private static Optional<Map<ColumnHandle, String>> buildHandleToNameMap(
+            PlanFragment fragment,
+            Metadata metadata,
+            Session session)
+    {
+        // Column handles from different tables may have equal ColumnHandle instances (e.g., self-join
+        // on the same table), so we use buildKeepingLast() to deduplicate safely. When handles are
+        // equal, the column names are also equal, so last-wins produces the same result.
+        ImmutableMap.Builder<ColumnHandle, String> builder = ImmutableMap.builder();
+        for (PlanNodeId scanNodeId : fragment.getTableScanSchedulingOrder()) {
+            Optional<TableHandle> tableHandleOpt = findSourceNodeTableHandle(fragment.getRoot(), scanNodeId, metadata, session);
+            if (!tableHandleOpt.isPresent()) {
+                return Optional.empty();
+            }
+            Map<String, ColumnHandle> nameToHandle = metadata.getColumnHandles(session, tableHandleOpt.get());
+            for (Map.Entry<String, ColumnHandle> entry : nameToHandle.entrySet()) {
+                builder.put(entry.getValue(), entry.getKey());
+            }
+        }
+        return Optional.of(builder.buildKeepingLast());
+    }
+
+    /**
+     * Builds a map from each column name to its canonical name, using the union-find equivalence
+     * classes from the tagger. Only groups containing at least one active (surviving) TableScanColumn
+     * are included. The canonical name is the alphabetically first name in each group.
+     */
+    private static Map<String, String> buildCanonicalNameMap(
+            GroupedExecutionTagger.GroupedExecutionProperties properties,
+            Map<ColumnHandle, String> handleToName)
+    {
+        Map<String, String> canonicalNameMap = new LinkedHashMap<>();
+        Set<GroupedExecutionTagger.TableScanColumn> activeColumns = new HashSet<>(properties.getPartitionColumns().values());
+        Map<GroupedExecutionTagger.TableScanColumn, Set<GroupedExecutionTagger.TableScanColumn>> equivalenceClasses =
+                properties.getPartitionColumnUnionFind().getEquivalenceClasses();
+
+        for (Set<GroupedExecutionTagger.TableScanColumn> group : equivalenceClasses.values()) {
+            boolean hasActive = false;
+            for (GroupedExecutionTagger.TableScanColumn tsc : group) {
+                if (activeColumns.contains(tsc)) {
+                    hasActive = true;
+                    break;
+                }
+            }
+            if (!hasActive) {
+                continue;
+            }
+            List<String> names = new ArrayList<>();
+            for (GroupedExecutionTagger.TableScanColumn tsc : group) {
+                String colName = handleToName.get(tsc.getColumnHandle());
+                if (colName != null) {
+                    names.add(colName);
+                }
+            }
+            if (names.isEmpty()) {
+                continue;
+            }
+            names.sort(String::compareTo);
+            String canonical = names.get(0);
+            for (String name : names) {
+                canonicalNameMap.put(name, canonical);
+            }
+        }
+        return canonicalNameMap;
+    }
+
+    /**
+     * Populates per-scan column name mappings (actual name -> canonical name) for all scan nodes
+     * in the fragment, using DiscretePredicates columns and the canonical name map.
+     */
+    private static void buildPerScanMappings(
+            PlanFragment fragment,
+            Metadata metadata,
+            Session session,
+            Map<ColumnHandle, String> handleToName,
+            Map<String, String> canonicalNameMap,
+            Map<PlanNodeId, Map<String, String>> perScanMappings)
+    {
+        for (PlanNodeId scanNodeId : fragment.getTableScanSchedulingOrder()) {
+            Optional<TableHandle> tableHandleOpt = findSourceNodeTableHandle(fragment.getRoot(), scanNodeId, metadata, session);
+            if (!tableHandleOpt.isPresent()) {
+                continue;
+            }
+            TableLayout scanLayout = metadata.getLayout(session, tableHandleOpt.get());
+            if (!scanLayout.getDiscretePredicates().isPresent()) {
+                continue;
+            }
+            for (ColumnHandle col : scanLayout.getDiscretePredicates().get().getColumns()) {
+                String colName = handleToName.get(col);
+                if (colName != null && canonicalNameMap.containsKey(colName)) {
+                    perScanMappings.computeIfAbsent(scanNodeId, k -> new LinkedHashMap<>()).put(colName, canonicalNameMap.get(colName));
+                }
+            }
+        }
+    }
+
+    /**
+     * Extracts distinct partition value combinations from DiscretePredicates for all scan nodes,
+     * using canonical column names. Values from all scans are combined using union.
+     */
+    private static List<Map<String, String>> extractPartitionValues(
+            PlanFragment fragment,
+            Metadata metadata,
+            Session session,
+            Map<ColumnHandle, String> handleToName,
+            Map<String, String> canonicalNameMap,
+            NodePartitioningManager nodePartitioningManager,
+            PartitioningHandle partitioningHandle)
+    {
+        Set<Map<String, String>> combinedDistinctValues = null;
+        for (PlanNodeId scanNodeId : fragment.getTableScanSchedulingOrder()) {
+            Optional<TableHandle> tableHandleOpt = findSourceNodeTableHandle(fragment.getRoot(), scanNodeId, metadata, session);
+            if (!tableHandleOpt.isPresent()) {
+                return ImmutableList.of();
+            }
+            TableLayout layout = metadata.getLayout(session, tableHandleOpt.get());
+            if (!layout.getDiscretePredicates().isPresent()) {
+                return ImmutableList.of();
+            }
+
+            Map<String, String> scanColToCanonical = new LinkedHashMap<>();
+            for (ColumnHandle col : layout.getDiscretePredicates().get().getColumns()) {
+                String name = handleToName.get(col);
+                if (name != null && canonicalNameMap.containsKey(name)) {
+                    scanColToCanonical.put(name, canonicalNameMap.get(name));
+                }
+            }
+            if (scanColToCanonical.isEmpty()) {
+                continue;
+            }
+
+            Set<Map<String, String>> scanDistinctValues = new LinkedHashSet<>();
+            for (TupleDomain<ColumnHandle> predicate : layout.getDiscretePredicates().get().getPredicates()) {
+                if (!predicate.getDomains().isPresent()) {
+                    continue;
+                }
+                ImmutableMap.Builder<String, String> valuesBuilder = ImmutableMap.builder();
+                for (Map.Entry<ColumnHandle, Domain> entry : predicate.getDomains().get().entrySet()) {
+                    String colName = handleToName.get(entry.getKey());
+                    if (colName != null && scanColToCanonical.containsKey(colName) && entry.getValue().isSingleValue()) {
+                        Object singleValue = entry.getValue().getSingleValue();
+                        String valueStr = singleValue instanceof Slice ? ((Slice) singleValue).toStringUtf8() : String.valueOf(singleValue);
+                        valuesBuilder.put(scanColToCanonical.get(colName), valueStr);
+                    }
+                }
+                Map<String, String> values = valuesBuilder.build();
+                if (!values.isEmpty()) {
+                    scanDistinctValues.add(values);
+                }
+            }
+            if (scanDistinctValues.isEmpty()) {
+                return ImmutableList.of();
+            }
+
+            if (combinedDistinctValues == null) {
+                combinedDistinctValues = new LinkedHashSet<>(scanDistinctValues);
+            }
+            else {
+                combinedDistinctValues.addAll(scanDistinctValues);
+            }
+        }
+
+        if (combinedDistinctValues == null || combinedDistinctValues.isEmpty()) {
+            return ImmutableList.of();
+        }
+        return ImmutableList.copyOf(combinedDistinctValues);
+    }
+
+    private static Optional<TableHandle> findSourceNodeTableHandle(PlanNode root, PlanNodeId targetId, Metadata metadata, Session session)
+    {
+        for (PlanNode node : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
+            if (node.getId().equals(targetId)) {
+                if (node instanceof TableScanNode) {
+                    return Optional.of(((TableScanNode) node).getTable());
+                }
+                if (node instanceof IndexSourceNode) {
+                    return Optional.of(resolveIndexSourceTableHandle((IndexSourceNode) node, metadata, session));
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Resolves an {@link IndexSourceNode}'s table handle to one carrying a partition-pruned layout.
+     *
+     * <p>An {@code IndexSourceNode} frequently carries a bare table handle with no resolved layout:
+     * {@code IndexJoinOptimizer} passes the original {@code TableScanNode} handle through unchanged,
+     * and the connector plan optimizer only resolves/prunes layouts for {@code TableScanNode}s. With
+     * no layout, {@code metadata.getLayout} falls back to enumerating ALL partitions, so the
+     * partition-aware grouped execution analysis above over-counts lifespans (bucketCount x ALL
+     * index partitions instead of bucketCount x the partitions the query actually selects).
+     *
+     * <p>Resolve a pruned layout from the node's {@code currentConstraint} so the layout's discrete
+     * predicates reflect only the selected partitions. This mirrors the equivalent workaround in
+     * {@code SplitSourceFactory.visitIndexSource}, which prunes the same handle at split-enumeration
+     * time.
+     *
+     * <p>TODO: Resolve the pruned layout once when {@code IndexJoinOptimizer} constructs the
+     * {@code IndexSourceNode} so the handle carries a layout everywhere downstream, allowing both
+     * this workaround and the one in {@code SplitSourceFactory.visitIndexSource} to be removed.
+     */
+    private static TableHandle resolveIndexSourceTableHandle(IndexSourceNode node, Metadata metadata, Session session)
+    {
+        TableHandle tableHandle = node.getTableHandle();
+        if (!tableHandle.getLayout().isPresent() && !node.getCurrentConstraint().isAll()) {
+            TableLayoutResult layoutResult = metadata.getLayout(
+                    session,
+                    tableHandle,
+                    new Constraint<>(node.getCurrentConstraint()),
+                    Optional.empty());
+            return layoutResult.getLayout().getNewTableHandle();
+        }
+        return tableHandle;
+    }
+
     private static boolean containsTableFinishNode(PlanFragment planFragment)
     {
         PlanNode root = planFragment.getRoot();
-        return root instanceof OutputNode && getOnlyElement(root.getSources()) instanceof TableFinishNode;
+        return root instanceof OutputNode && root.getSources().stream().collect(onlyElement()) instanceof TableFinishNode;
     }
 
     private static SubPlan reassignPartitioningHandleIfNecessary(Metadata metadata, Session session, SubPlan subPlan, PartitioningHandle partitioningHandle)
@@ -236,6 +531,7 @@ public class PlanFragmenterUtils
                 fragment.getOutputOrderingScheme(),
                 fragment.getStageExecutionDescriptor(),
                 fragment.isOutputTableWriterFragment(),
+                fragment.getOutputTransportType(),
                 fragment.getStatsAndCosts(),
                 fragment.getJsonRepresentation());
 

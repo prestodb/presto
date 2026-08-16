@@ -19,6 +19,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/expression/ExprUtils.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
@@ -40,8 +41,10 @@ std::string toJsonString(const T& value) {
 
 std::string mapScalarFunction(const std::string& name) {
   std::string lowerCaseName = boost::to_lower_copy(name);
-  if (prestoOperatorMap().find(lowerCaseName) != prestoOperatorMap().end()) {
-    return prestoOperatorMap().at(lowerCaseName);
+  const auto& opMap = prestoOperatorMap();
+  auto mapIter = opMap.find(lowerCaseName);
+  if (mapIter != opMap.end()) {
+    return mapIter->second;
   }
 
   return lowerCaseName;
@@ -128,16 +131,15 @@ velox::variant VeloxExprConverter::getConstantValue(
           std::string(valueVector->as<velox::SimpleVector<velox::StringView>>()
                           ->valueAt(0)));
     default:
-      throw std::invalid_argument(
-          fmt::format("Unexpected Block type: {}", typeKind));
+      VELOX_UNSUPPORTED("Unexpected Block type: {}", typeKind);
   }
 }
 
 std::vector<TypedExprPtr> VeloxExprConverter::toVeloxExpr(
-    std::vector<std::shared_ptr<protocol::RowExpression>> pexpr) const {
+    const std::vector<std::shared_ptr<protocol::RowExpression>>& pexpr) const {
   std::vector<TypedExprPtr> reply;
   reply.reserve(pexpr.size());
-  for (auto arg : pexpr) {
+  for (const auto& arg : pexpr) {
     reply.emplace_back(toVeloxExpr(arg));
   }
 
@@ -182,7 +184,8 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
       std::vector<TypedExprPtr>{
           arg,
           std::make_shared<ConstantTypedExpr>(velox::BIGINT(), 1LL),
-          std::make_shared<ConstantTypedExpr>(velox::BIGINT(), (int64_t)length),
+          std::make_shared<ConstantTypedExpr>(
+              velox::BIGINT(), static_cast<int64_t>(length)),
       },
       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "substr"));
 }
@@ -221,14 +224,13 @@ std::optional<TypedExprPtr> tryConvertCast(
   }
 
   bool nullOnFailure;
-  if (signature.name.compare(kCast) == 0) {
+  if (signature.name == kCast) {
     nullOnFailure = false;
-  } else if (signature.name.compare(kTryCast) == 0) {
+  } else if (signature.name == kTryCast) {
     nullOnFailure = true;
   } else if (
-      signature.name.compare(kJsonToArrayCast) == 0 ||
-      signature.name.compare(kJsonToMapCast) == 0 ||
-      signature.name.compare(kJsonToRowCast) == 0) {
+      signature.name == kJsonToArrayCast || signature.name == kJsonToMapCast ||
+      signature.name == kJsonToRowCast) {
     auto type = typeParser->parse(returnType);
     return std::make_shared<CastTypedExpr>(
         type,
@@ -277,7 +279,7 @@ std::optional<TypedExprPtr> tryConvertTry(
     return std::nullopt;
   }
 
-  if (signature.name.compare(kTry) != 0) {
+  if (signature.name != kTry) {
     return std::nullopt;
   }
 
@@ -341,7 +343,7 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
 }
 } // namespace
 
-const std::unordered_map<std::string, std::string> prestoOperatorMap() {
+std::unordered_map<std::string, std::string> prestoOperatorMap() {
   static const std::string prestoDefaultNamespacePrefix =
       SystemConfig::instance()->prestoDefaultNamespacePrefix();
   static const std::unordered_map<std::string, std::string> kPrestoOperatorMap =
@@ -458,7 +460,29 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
   auto likePatternExpr =
       std::dynamic_pointer_cast<const protocol::CallExpression>(
           pexpr.arguments[1]);
-  VELOX_CHECK_NOT_NULL(likePatternExpr);
+  if (likePatternExpr == nullptr) {
+    // The pattern is not an inline cast('<pattern>' as LikePattern) /
+    // like_pattern(...) call — it was materialized into a column/variable
+    // upstream. This happens when an RPC function result feeds a LIKE: the
+    // optimizer hoists the constant pattern into a projection below the
+    // RPCNode, so the pattern arrives here as a (constant-valued) column
+    // reference rather than an inline cast. Convert it directly and pass it as
+    // the pattern argument. Velox's like() supports a non-literal pattern via
+    // its per-row path, so this is correct (it only forgoes the
+    // compiled-constant-pattern fast path).
+    //
+    // Scope: this covers a materialized cast(... as LikePattern) (plain LIKE).
+    // A materialized `LIKE ... ESCAPE` pattern is a like_pattern(pattern,
+    // escape) column; Velox has no like_pattern function, so that projection
+    // fails to compile upstream (a hard, non-silent failure) — the escape
+    // cannot be recovered from the column reference here. Materialized LIKE ...
+    // ESCAPE is therefore unsupported; plain materialized LIKE is the supported
+    // path.
+    args.emplace_back(toVeloxExpr(pexpr.arguments[1]));
+    auto returnType = typeParser_->parse(pexpr.returnType);
+    return std::make_shared<CallTypedExpr>(
+        returnType, args, getFunctionName(signature));
+  }
   auto likePatternBuiltin =
       std::static_pointer_cast<protocol::BuiltInFunctionHandle>(
           likePatternExpr->functionHandle);
@@ -520,24 +544,32 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     auto returnType = typeParser_->parse(pexpr.returnType);
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(signature));
+  }
 
-  } else if (
-      auto sqlFunctionHandle =
+  // Parse args and returnType once for all remaining branches
+  auto args = toVeloxExpr(pexpr.arguments);
+  auto returnType = typeParser_->parse(pexpr.returnType);
+
+  if (auto sqlFunctionHandle =
           std::dynamic_pointer_cast<protocol::SqlFunctionHandle>(
               pexpr.functionHandle)) {
-    auto args = toVeloxExpr(pexpr.arguments);
-    auto returnType = typeParser_->parse(pexpr.returnType);
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(sqlFunctionHandle->functionId));
+  }
+
+  else if (
+      auto nativeFunctionHandle =
+          std::dynamic_pointer_cast<protocol::NativeFunctionHandle>(
+              pexpr.functionHandle)) {
+    auto signature = nativeFunctionHandle->signature;
+    return std::make_shared<CallTypedExpr>(
+        returnType, args, getFunctionName(signature));
   }
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
   else if (
       auto restFunctionHandle =
           std::dynamic_pointer_cast<protocol::RestFunctionHandle>(
               pexpr.functionHandle)) {
-    auto args = toVeloxExpr(pexpr.arguments);
-    auto returnType = typeParser_->parse(pexpr.returnType);
-
     functions::remote::rest::PrestoRestFunctionRegistration::getInstance()
         .registerFunction(*restFunctionHandle);
     return std::make_shared<CallTypedExpr>(
@@ -602,34 +634,51 @@ std::shared_ptr<const CastTypedExpr> makeCastExpr(
 std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
     const velox::TypePtr& returnType,
     std::vector<TypedExprPtr> args) {
-  auto valueExpr = args.front();
-  args.erase(args.begin());
+  VELOX_CHECK(!args.empty(), "SWITCH arguments cannot be empty");
+
+  // SWITCH / CASE expression in Presto can be of two forms, searched and
+  // simple: https://prestodb.io/docs/current/functions/conditional.html#case.
+  // Velox only supports the searched form of SWITCH.
+  //
+  // In simple form, the first argument is a value expression that is
+  // compared using equality against each WHEN condition. In searched form,
+  // all arguments are WHEN clauses.
+  //
+  // When the native expression optimizer iteratively re-submits expressions,
+  // previously-converted searched-form expressions no longer have a leading
+  // value expression. We must detect this and avoid erasing valid WHEN clauses.
+  static constexpr const char* kWhen = "when";
+  bool isWhenClause = velox::expression::utils::isCall(*args.begin(), kWhen);
+  TypedExprPtr simpleFormValue = nullptr;
+  bool isSimpleForm = !isWhenClause;
+  if (isSimpleForm) {
+    simpleFormValue = args.front();
+    args.erase(args.begin());
+    isSimpleForm = !isTrueConstant(simpleFormValue);
+  }
 
   std::vector<TypedExprPtr> inputs;
   inputs.reserve((args.size() - 1) * 2);
 
-  const bool valueIsTrue = isTrueConstant(valueExpr);
-
   for (const auto& arg : args) {
-    if (auto call = std::dynamic_pointer_cast<const CallTypedExpr>(arg)) {
-      if (call->name() == "when") {
-        auto& condition = call->inputs()[0];
-        if (valueIsTrue) {
-          inputs.emplace_back(condition);
+    if (velox::expression::utils::isCall(arg, kWhen)) {
+      auto call = std::dynamic_pointer_cast<const CallTypedExpr>(arg);
+      auto& condition = call->inputs()[0];
+      if (!isSimpleForm) {
+        inputs.emplace_back(condition);
+      } else {
+        if (condition->type()->kindEquals(simpleFormValue->type())) {
+          inputs.emplace_back(makeEqualsExpr(condition, simpleFormValue));
         } else {
-          if (condition->type()->kindEquals(valueExpr->type())) {
-            inputs.emplace_back(makeEqualsExpr(condition, valueExpr));
-          } else {
-            inputs.emplace_back(makeEqualsExpr(
-                makeCastExpr(condition, valueExpr->type()), valueExpr));
-          }
+          inputs.emplace_back(makeEqualsExpr(
+              makeCastExpr(condition, simpleFormValue->type()),
+              simpleFormValue));
         }
-        inputs.emplace_back(call->inputs()[1]);
-        continue;
       }
+      inputs.emplace_back(call->inputs()[1]);
+    } else {
+      inputs.emplace_back(arg);
     }
-
-    inputs.emplace_back(arg);
   }
 
   return std::make_shared<CallTypedExpr>(
@@ -894,8 +943,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     return toVeloxExpr(lambda);
   }
 
-  throw std::invalid_argument(
-      "Unsupported RowExpression type: " + pexpr->_type);
+  VELOX_UNSUPPORTED("Unsupported RowExpression type: {}", pexpr->_type);
 }
 
 } // namespace facebook::presto

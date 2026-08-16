@@ -19,8 +19,8 @@ query fragment and track execution status.
 * A ``POST`` to ``/v1/task/{taskId}`` starts execution of the query fragment
   specified in the ``POST`` body. The request optionally includes a set of
   initial splits to process. The request also specifies how to partition results,
-  e.g. hash partition using specified output columns into specified number of
-  output buffers or combine all results into a single output buffer or broadcast
+  either hash partitioning using specified output columns into a specified number of output buffers 
+  or combine all results into a single output buffer or broadcast
   combined results into multiple output buffers.
 * A subsequent ``POST`` to ``/v1/task/{taskId}`` may provide additional splits
   for processing and eventually specify that no more splits will be coming.
@@ -45,7 +45,7 @@ time even if the task state stays the same.
 The design ensures that coordinator receives task state changes in a timely
 manner without polling the worker in a tight loop.
 
-The same design applies to requests for extended task information via a ``GET``
+The same design applies to requests for extended task information with a ``GET``
 on ``/v1/task/{taskId}``.
 
 Data Plane
@@ -134,7 +134,7 @@ upstream workers using buffer number 2.
 Failure Handling
 ~~~~~~~~~~~~~~~~
 
-Task failures are reported to the coordinator via ``TaskStatus`` and ``TaskInfo``
+Task failures are reported to the coordinator through ``TaskStatus`` and ``TaskInfo``
 updates.
 
 When a task failure is discovered, the coordinator aborts all remaining tasks and

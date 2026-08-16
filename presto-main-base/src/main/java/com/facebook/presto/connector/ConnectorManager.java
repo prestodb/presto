@@ -338,7 +338,7 @@ public class ConnectorManager
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(connectorId, accessControl));
 
         metadataManager.getTablePropertyManager().addProperties(connectorId, connector.getTableProperties());
-        metadataManager.getMaterializedViewPropertyManager().addProperties(connectorId, connector.getMaterializedViewProperties());
+        metadataManager.getMaterializedViewPropertyManager().addPropertiesWithEngineDefaults(connectorId, connector.getMaterializedViewProperties());
         metadataManager.getColumnPropertyManager().addProperties(connectorId, connector.getColumnProperties());
         metadataManager.getSchemaPropertyManager().addProperties(connectorId, connector.getSchemaProperties());
         metadataManager.getAnalyzePropertyManager().addProperties(connectorId, connector.getAnalyzeProperties());
@@ -356,13 +356,13 @@ public class ConnectorManager
             removeConnectorInternal(connectorId);
             removeConnectorInternal(createInformationSchemaConnectorId(connectorId));
             removeConnectorInternal(createSystemTablesConnectorId(connectorId));
-            metadataManager.getFunctionAndTypeManager().getTableFunctionRegistry().removeTableFunctions(connectorId);
-            metadataManager.getFunctionAndTypeManager().removeTableFunctionProcessorProvider(connectorId);
         });
     }
 
     private synchronized void removeConnectorInternal(ConnectorId connectorId)
     {
+        metadataManager.getFunctionAndTypeManager().getTableFunctionRegistry().removeTableFunctions(connectorId);
+        metadataManager.getFunctionAndTypeManager().removeTableFunctionProcessorProvider(connectorId);
         splitManager.removeConnectorSplitManager(connectorId);
         pageSourceManager.removeConnectorPageSourceProvider(connectorId);
         pageSinkManager.removeConnectorPageSinkProvider(connectorId);

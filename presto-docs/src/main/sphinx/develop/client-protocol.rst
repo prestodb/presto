@@ -62,11 +62,11 @@ Attribute                              Description
 ``nextUri``                            If present, the URL that should be used in subsequent ``GET`` or ``DELETE`` requests.  If not present, the query is
                                        complete or ended in error.
 ``columns``                            A list of the names and types of the columns returned by the query.
-``data``                               The ``data`` attribute contains a list of the rows returned by the query request.  Each row is itself a
+``data``                               The ``data`` attribute contains a list of the rows returned by the query request. Each row is itself a
                                        list that holds values of the columns in the row, in the order specified by the ``columns`` attribute.
-``updateType``                         A human-readable string representing the operation.  For a ``CREATE TABLE`` request, the ``updateType`` will be,
-                                       "CREATE TABLE"; for ``SET SESSION`` it will be "SET SESSION"; etc.
-``error``                              If query failed, the ``error`` attribute will contain JSON for a ``QueryError`` object.  That object contains
+``updateType``                         A human-readable string representing the operation. For example, for a ``CREATE TABLE`` request the ``updateType`` 
+                                       will be "CREATE TABLE"; or for ``SET SESSION`` it will be "SET SESSION".
+``error``                              If query failed, the ``error`` attribute will contain JSON for a ``QueryError`` object. That object contains
                                        a ``message``, an ``errorCode`` and other information about the error.  See the ``QueryError`` class for more details.
 ====================================== ===========================================================================================================================
 
@@ -91,7 +91,7 @@ Request Header Name                    Description
                                        the Presto engine.
 ``X-Presto-Language``                  The language to be used when running the query and formatting results.  The language
                                        of the session can be set on a per-query basis using the ``X-Presto-Language``
-                                       HTTP header, or via the ``PrestoConnection.setLocale(Locale)`` method in the
+                                       HTTP header, or with the ``PrestoConnection.setLocale(Locale)`` method in the
                                        JDBC driver.
 ``X-Presto-Trace-Token``               Supplies a trace token to the Presto engine to help identify log lines that originate
                                        with this query request.
@@ -114,11 +114,11 @@ Request Header Name                    Description
 ``X-Presto-Resource-Estimate``         A comma-separated list of ``resource=value`` type assignments.  The possible choices
                                        of ``resource`` are "EXECUTION_TIME", "CPU_TIME",  "PEAK_MEMORY" and "PEAK_TASK_MEMORY".
                                        "EXECUTION_TIME" and "CPU_TIME" have values specified as airlift ``Duration`` strings,
-                                       whose format is a double precision number followed by a ``TimeUnit`` string, e.g.,
-                                       of ``s`` for seconds, ``m`` for minutes, ``h`` for hours, etc.  "PEAK_MEMORY" and
+                                       whose format is a double precision number followed by a ``TimeUnit`` string
+                                       of ``s`` for seconds, ``m`` for minutes, ``h`` for hours.  "PEAK_MEMORY" and
                                        "PEAK_TASK_MEMORY" are specified as as airlift ``DataSize`` strings, whose format
                                        is an integer followed by ``B`` for bytes; ``kB`` for kilobytes; ``mB`` for megabytes,
-                                       ``gB`` for gigabytes, etc.
+                                       ``gB`` for gigabytes.
 ``X-Presto-Extra-Credential``          Provides extra credentials to the connector.  The header is a name=value string that
                                        is saved in the session ``Identity`` object.  The name and value are only
                                        meaningful to the connector.
@@ -247,7 +247,7 @@ Cross-cluster retry has the following limitations:
   works well for:
   
   - ``CREATE TABLE AS SELECT`` statements
-  - DDL operations (``CREATE``, ``ALTER``, ``DROP``, etc.)
+  - DDL operations (such as ``CREATE``, ``ALTER``, ``DROP``)
   - ``INSERT`` statements
   - ``SELECT`` queries that fail before any results are produced
   

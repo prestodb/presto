@@ -37,7 +37,6 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -61,6 +60,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -161,7 +161,7 @@ public class OptimizeMixedDistinctAggregations
 
             AggregateInfo aggregateInfo = new AggregateInfo(
                     node.getGroupingKeys(),
-                    Iterables.getOnlyElement(uniqueMasks),
+                    uniqueMasks.stream().collect(onlyElement()),
                     node.getAggregations());
 
             if (!checkAllEquatableTypes(aggregateInfo)) {
@@ -277,7 +277,7 @@ public class OptimizeMixedDistinctAggregations
             Set<VariableReferenceExpression> allVariables = new HashSet<>();
             List<VariableReferenceExpression> groupByVariables = aggregateInfo.get().getGroupByVariables(); // a
             List<VariableReferenceExpression> nonDistinctAggregateVariables = aggregateInfo.get().getOriginalNonDistinctAggregateArgs(); //b
-            VariableReferenceExpression distinctVariable = Iterables.getOnlyElement(aggregateInfo.get().getOriginalDistinctAggregateArgs()); // c
+            VariableReferenceExpression distinctVariable = aggregateInfo.get().getOriginalDistinctAggregateArgs().stream().collect(onlyElement()); // c
 
             // If same symbol present in aggregations on distinct and non-distinct values, e.g. select sum(a), count(distinct a),
             // then we need to create a duplicate stream for this symbol

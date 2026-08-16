@@ -94,6 +94,15 @@ public class NativeFunctionHandle
     public static class Resolver
             implements FunctionHandleResolver
     {
+        private static final NativeFunctionHandle.Resolver INSTANCE = new Resolver();
+
+        private Resolver() {}
+
+        public static NativeFunctionHandle.Resolver getInstance()
+        {
+            return INSTANCE;
+        }
+
         @Override
         public Class<? extends FunctionHandle> getFunctionHandleClass()
         {

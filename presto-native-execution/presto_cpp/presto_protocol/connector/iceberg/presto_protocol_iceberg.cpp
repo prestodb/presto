@@ -63,6 +63,69 @@ void from_json(const json& j, ChangelogOperation& e) {
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
+
+void to_json(json& j, const IcebergTypeAttributes& p) {
+  j = json::object();
+  to_json_key(
+      j, "required", p.required, "IcebergTypeAttributes", "bool", "required");
+  to_json_key(
+      j, "longType", p.longType, "IcebergTypeAttributes", "String", "longType");
+  to_json_key(
+      j,
+      "timestampUnit",
+      p.timestampUnit,
+      "IcebergTypeAttributes",
+      "String",
+      "timestampUnit");
+  to_json_key(
+      j,
+      "binaryType",
+      p.binaryType,
+      "IcebergTypeAttributes",
+      "String",
+      "binaryType");
+  to_json_key(
+      j,
+      "structType",
+      p.structType,
+      "IcebergTypeAttributes",
+      "String",
+      "structType");
+  to_json_key(
+      j, "length", p.length, "IcebergTypeAttributes", "Integer", "length");
+}
+
+void from_json(const json& j, IcebergTypeAttributes& p) {
+  from_json_key(
+      j, "required", p.required, "IcebergTypeAttributes", "bool", "required");
+  from_json_key(
+      j, "longType", p.longType, "IcebergTypeAttributes", "String", "longType");
+  from_json_key(
+      j,
+      "timestampUnit",
+      p.timestampUnit,
+      "IcebergTypeAttributes",
+      "String",
+      "timestampUnit");
+  from_json_key(
+      j,
+      "binaryType",
+      p.binaryType,
+      "IcebergTypeAttributes",
+      "String",
+      "binaryType");
+  from_json_key(
+      j,
+      "structType",
+      p.structType,
+      "IcebergTypeAttributes",
+      "String",
+      "structType");
+  from_json_key(
+      j, "length", p.length, "IcebergTypeAttributes", "Integer", "length");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
 // Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
@@ -121,6 +184,13 @@ void to_json(json& j, const ColumnIdentity& p) {
       "ColumnIdentity",
       "List<ColumnIdentity>",
       "children");
+  to_json_key(
+      j,
+      "typeAttributes",
+      p.typeAttributes,
+      "ColumnIdentity",
+      "IcebergTypeAttributes",
+      "typeAttributes");
 }
 
 void from_json(const json& j, ColumnIdentity& p) {
@@ -140,6 +210,13 @@ void from_json(const json& j, ColumnIdentity& p) {
       "ColumnIdentity",
       "List<ColumnIdentity>",
       "children");
+  from_json_key(
+      j,
+      "typeAttributes",
+      p.typeAttributes,
+      "ColumnIdentity",
+      "IcebergTypeAttributes",
+      "typeAttributes");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -174,6 +251,20 @@ void to_json(json& j, const IcebergColumnHandle& p) {
       "IcebergColumnHandle",
       "List<Subfield>",
       "requiredSubfields");
+  to_json_key(
+      j,
+      "defaultValue",
+      p.defaultValue,
+      "IcebergColumnHandle",
+      "String",
+      "defaultValue");
+  to_json_key(
+      j,
+      "writeDefaultValue",
+      p.writeDefaultValue,
+      "IcebergColumnHandle",
+      "String",
+      "writeDefaultValue");
 }
 
 void from_json(const json& j, IcebergColumnHandle& p) {
@@ -202,6 +293,20 @@ void from_json(const json& j, IcebergColumnHandle& p) {
       "IcebergColumnHandle",
       "List<Subfield>",
       "requiredSubfields");
+  from_json_key(
+      j,
+      "defaultValue",
+      p.defaultValue,
+      "IcebergColumnHandle",
+      "String",
+      "defaultValue");
+  from_json_key(
+      j,
+      "writeDefaultValue",
+      p.writeDefaultValue,
+      "IcebergColumnHandle",
+      "String",
+      "writeDefaultValue");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -267,7 +372,8 @@ static const std::pair<FileContent, json> FileContent_enum_table[] =
     { // NOLINT: cert-err58-cpp
         {FileContent::DATA, "DATA"},
         {FileContent::POSITION_DELETES, "POSITION_DELETES"},
-        {FileContent::EQUALITY_DELETES, "EQUALITY_DELETES"}};
+        {FileContent::EQUALITY_DELETES, "EQUALITY_DELETES"},
+        {FileContent::DELETION_VECTOR, "DELETION_VECTOR"}};
 void to_json(json& j, const FileContent& e) {
   static_assert(
       std::is_enum<FileContent>::value, "FileContent must be an enum!");
@@ -306,7 +412,10 @@ static const std::pair<FileFormat, json> FileFormat_enum_table[] =
         {FileFormat::ORC, "ORC"},
         {FileFormat::PARQUET, "PARQUET"},
         {FileFormat::AVRO, "AVRO"},
-        {FileFormat::METADATA, "METADATA"}};
+        {FileFormat::METADATA, "METADATA"},
+        {FileFormat::PUFFIN, "PUFFIN"},
+        {FileFormat::DWRF, "DWRF"},
+        {FileFormat::NIMBLE, "NIMBLE"}};
 void to_json(json& j, const FileFormat& e) {
   static_assert(std::is_enum<FileFormat>::value, "FileFormat must be an enum!");
   const auto* it = std::find_if(
@@ -371,6 +480,34 @@ void to_json(json& j, const DeleteFile& p) {
       "DeleteFile",
       "Map<Integer, String>",
       "upperBounds");
+  to_json_key(
+      j,
+      "contentOffset",
+      p.contentOffset,
+      "DeleteFile",
+      "Long",
+      "contentOffset");
+  to_json_key(
+      j,
+      "contentSizeInBytes",
+      p.contentSizeInBytes,
+      "DeleteFile",
+      "Long",
+      "contentSizeInBytes");
+  to_json_key(
+      j,
+      "referencedDataFile",
+      p.referencedDataFile,
+      "DeleteFile",
+      "String",
+      "referencedDataFile");
+  to_json_key(
+      j,
+      "dataSequenceNumber",
+      p.dataSequenceNumber,
+      "DeleteFile",
+      "int64_t",
+      "dataSequenceNumber");
 }
 
 void from_json(const json& j, DeleteFile& p) {
@@ -408,40 +545,34 @@ void from_json(const json& j, DeleteFile& p) {
       "DeleteFile",
       "Map<Integer, String>",
       "upperBounds");
-}
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
-void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
-  if (p == nullptr) {
-    return;
-  }
-  String type = p->_type;
-
-  if (type == "hive-iceberg") {
-    j = *std::static_pointer_cast<IcebergColumnHandle>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ColumnHandle ");
-}
-
-void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
-  String type;
-  try {
-    type = p->getSubclassKey(j);
-  } catch (json::parse_error& e) {
-    throw ParseError(std::string(e.what()) + " ColumnHandle  ColumnHandle");
-  }
-
-  if (type == "hive-iceberg") {
-    std::shared_ptr<IcebergColumnHandle> k =
-        std::make_shared<IcebergColumnHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ColumnHandle>(k);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ColumnHandle ");
+  from_json_key(
+      j,
+      "contentOffset",
+      p.contentOffset,
+      "DeleteFile",
+      "Long",
+      "contentOffset");
+  from_json_key(
+      j,
+      "contentSizeInBytes",
+      p.contentSizeInBytes,
+      "DeleteFile",
+      "Long",
+      "contentSizeInBytes");
+  from_json_key(
+      j,
+      "referencedDataFile",
+      p.referencedDataFile,
+      "DeleteFile",
+      "String",
+      "referencedDataFile");
+  from_json_key(
+      j,
+      "dataSequenceNumber",
+      p.dataSequenceNumber,
+      "DeleteFile",
+      "int64_t",
+      "dataSequenceNumber");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -511,6 +642,13 @@ void to_json(json& j, const IcebergTableName& p) {
       j, "snapshotId", p.snapshotId, "IcebergTableName", "Long", "snapshotId");
   to_json_key(
       j,
+      "branchName",
+      p.branchName,
+      "IcebergTableName",
+      "String",
+      "branchName");
+  to_json_key(
+      j,
       "changelogEndSnapshot",
       p.changelogEndSnapshot,
       "IcebergTableName",
@@ -532,11 +670,254 @@ void from_json(const json& j, IcebergTableName& p) {
       j, "snapshotId", p.snapshotId, "IcebergTableName", "Long", "snapshotId");
   from_json_key(
       j,
+      "branchName",
+      p.branchName,
+      "IcebergTableName",
+      "String",
+      "branchName");
+  from_json_key(
+      j,
       "changelogEndSnapshot",
       p.changelogEndSnapshot,
       "IcebergTableName",
       "Long",
       "changelogEndSnapshot");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<PartitionTransformType, json>
+    PartitionTransformType_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {PartitionTransformType::IDENTITY, "IDENTITY"},
+            {PartitionTransformType::HOUR, "HOUR"},
+            {PartitionTransformType::DAY, "DAY"},
+            {PartitionTransformType::MONTH, "MONTH"},
+            {PartitionTransformType::YEAR, "YEAR"},
+            {PartitionTransformType::BUCKET, "BUCKET"},
+            {PartitionTransformType::TRUNCATE, "TRUNCATE"}};
+void to_json(json& j, const PartitionTransformType& e) {
+  static_assert(
+      std::is_enum<PartitionTransformType>::value,
+      "PartitionTransformType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(PartitionTransformType_enum_table),
+      std::end(PartitionTransformType_enum_table),
+      [e](const std::pair<PartitionTransformType, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(PartitionTransformType_enum_table))
+           ? it
+           : std::begin(PartitionTransformType_enum_table))
+          ->second;
+}
+void from_json(const json& j, PartitionTransformType& e) {
+  static_assert(
+      std::is_enum<PartitionTransformType>::value,
+      "PartitionTransformType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(PartitionTransformType_enum_table),
+      std::end(PartitionTransformType_enum_table),
+      [&j](const std::pair<PartitionTransformType, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(PartitionTransformType_enum_table))
+           ? it
+           : std::begin(PartitionTransformType_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+
+void to_json(json& j, const IcebergPartitionField& p) {
+  j = json::object();
+  to_json_key(
+      j, "sourceId", p.sourceId, "IcebergPartitionField", "int", "sourceId");
+  to_json_key(
+      j, "fieldId", p.fieldId, "IcebergPartitionField", "int", "fieldId");
+  to_json_key(
+      j, "parameter", p.parameter, "IcebergPartitionField", "int", "parameter");
+  to_json_key(
+      j,
+      "transform",
+      p.transform,
+      "IcebergPartitionField",
+      "PartitionTransformType",
+      "transform");
+  to_json_key(j, "name", p.name, "IcebergPartitionField", "String", "name");
+}
+
+void from_json(const json& j, IcebergPartitionField& p) {
+  from_json_key(
+      j, "sourceId", p.sourceId, "IcebergPartitionField", "int", "sourceId");
+  from_json_key(
+      j, "fieldId", p.fieldId, "IcebergPartitionField", "int", "fieldId");
+  from_json_key(
+      j, "parameter", p.parameter, "IcebergPartitionField", "int", "parameter");
+  from_json_key(
+      j,
+      "transform",
+      p.transform,
+      "IcebergPartitionField",
+      "PartitionTransformType",
+      "transform");
+  from_json_key(j, "name", p.name, "IcebergPartitionField", "String", "name");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+
+void to_json(json& j, const PrestoIcebergNestedField& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "optional",
+      p.optional,
+      "PrestoIcebergNestedField",
+      "bool",
+      "optional");
+  to_json_key(j, "id", p.id, "PrestoIcebergNestedField", "int", "id");
+  to_json_key(j, "name", p.name, "PrestoIcebergNestedField", "String", "name");
+  to_json_key(
+      j,
+      "prestoType",
+      p.prestoType,
+      "PrestoIcebergNestedField",
+      "Type",
+      "prestoType");
+  to_json_key(j, "doc", p.doc, "PrestoIcebergNestedField", "String", "doc");
+}
+
+void from_json(const json& j, PrestoIcebergNestedField& p) {
+  from_json_key(
+      j,
+      "optional",
+      p.optional,
+      "PrestoIcebergNestedField",
+      "bool",
+      "optional");
+  from_json_key(j, "id", p.id, "PrestoIcebergNestedField", "int", "id");
+  from_json_key(
+      j, "name", p.name, "PrestoIcebergNestedField", "String", "name");
+  from_json_key(
+      j,
+      "prestoType",
+      p.prestoType,
+      "PrestoIcebergNestedField",
+      "Type",
+      "prestoType");
+  from_json_key(j, "doc", p.doc, "PrestoIcebergNestedField", "String", "doc");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+
+void to_json(json& j, const PrestoIcebergSchema& p) {
+  j = json::object();
+  to_json_key(
+      j, "schemaId", p.schemaId, "PrestoIcebergSchema", "int", "schemaId");
+  to_json_key(
+      j,
+      "columns",
+      p.columns,
+      "PrestoIcebergSchema",
+      "List<PrestoIcebergNestedField>",
+      "columns");
+  to_json_key(
+      j,
+      "columnNameToIdMapping",
+      p.columnNameToIdMapping,
+      "PrestoIcebergSchema",
+      "Map<String, Integer>",
+      "columnNameToIdMapping");
+  to_json_key(
+      j,
+      "aliases",
+      p.aliases,
+      "PrestoIcebergSchema",
+      "Map<String, Integer>",
+      "aliases");
+  to_json_key(
+      j,
+      "identifierFieldIds",
+      p.identifierFieldIds,
+      "PrestoIcebergSchema",
+      "List<Integer>",
+      "identifierFieldIds");
+}
+
+void from_json(const json& j, PrestoIcebergSchema& p) {
+  from_json_key(
+      j, "schemaId", p.schemaId, "PrestoIcebergSchema", "int", "schemaId");
+  from_json_key(
+      j,
+      "columns",
+      p.columns,
+      "PrestoIcebergSchema",
+      "List<PrestoIcebergNestedField>",
+      "columns");
+  from_json_key(
+      j,
+      "columnNameToIdMapping",
+      p.columnNameToIdMapping,
+      "PrestoIcebergSchema",
+      "Map<String, Integer>",
+      "columnNameToIdMapping");
+  from_json_key(
+      j,
+      "aliases",
+      p.aliases,
+      "PrestoIcebergSchema",
+      "Map<String, Integer>",
+      "aliases");
+  from_json_key(
+      j,
+      "identifierFieldIds",
+      p.identifierFieldIds,
+      "PrestoIcebergSchema",
+      "List<Integer>",
+      "identifierFieldIds");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+
+void to_json(json& j, const PrestoIcebergPartitionSpec& p) {
+  j = json::object();
+  to_json_key(
+      j, "specId", p.specId, "PrestoIcebergPartitionSpec", "int", "specId");
+  to_json_key(
+      j,
+      "schema",
+      p.schema,
+      "PrestoIcebergPartitionSpec",
+      "PrestoIcebergSchema",
+      "schema");
+  to_json_key(
+      j,
+      "fields",
+      p.fields,
+      "PrestoIcebergPartitionSpec",
+      "List<IcebergPartitionField>",
+      "fields");
+}
+
+void from_json(const json& j, PrestoIcebergPartitionSpec& p) {
+  from_json_key(
+      j, "specId", p.specId, "PrestoIcebergPartitionSpec", "int", "specId");
+  from_json_key(
+      j,
+      "schema",
+      p.schema,
+      "PrestoIcebergPartitionSpec",
+      "PrestoIcebergSchema",
+      "schema");
+  from_json_key(
+      j,
+      "fields",
+      p.fields,
+      "PrestoIcebergPartitionSpec",
+      "List<IcebergPartitionField>",
+      "fields");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -564,6 +945,238 @@ void from_json(const json& j, SortField& p) {
       "sourceColumnId");
   from_json_key(
       j, "sortOrder", p.sortOrder, "SortField", "SortOrder", "sortOrder");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+
+IcebergDeleteTableHandle::IcebergDeleteTableHandle() noexcept {
+  _type = "hive-iceberg";
+}
+
+void to_json(json& j, const IcebergDeleteTableHandle& p) {
+  j = json::object();
+  j["@type"] = "hive-iceberg";
+  to_json_key(
+      j,
+      "schemaName",
+      p.schemaName,
+      "IcebergDeleteTableHandle",
+      "String",
+      "schemaName");
+  to_json_key(
+      j,
+      "tableName",
+      p.tableName,
+      "IcebergDeleteTableHandle",
+      "IcebergTableName",
+      "tableName");
+  to_json_key(
+      j,
+      "schema",
+      p.schema,
+      "IcebergDeleteTableHandle",
+      "PrestoIcebergSchema",
+      "schema");
+  to_json_key(
+      j,
+      "partitionSpec",
+      p.partitionSpec,
+      "IcebergDeleteTableHandle",
+      "PrestoIcebergPartitionSpec",
+      "partitionSpec");
+  to_json_key(
+      j,
+      "inputColumns",
+      p.inputColumns,
+      "IcebergDeleteTableHandle",
+      "List<IcebergColumnHandle>",
+      "inputColumns");
+  to_json_key(
+      j,
+      "outputPath",
+      p.outputPath,
+      "IcebergDeleteTableHandle",
+      "String",
+      "outputPath");
+  to_json_key(
+      j,
+      "fileFormat",
+      p.fileFormat,
+      "IcebergDeleteTableHandle",
+      "FileFormat",
+      "fileFormat");
+  to_json_key(
+      j,
+      "compressionCodec",
+      p.compressionCodec,
+      "IcebergDeleteTableHandle",
+      "HiveCompressionCodec",
+      "compressionCodec");
+  to_json_key(
+      j,
+      "storageProperties",
+      p.storageProperties,
+      "IcebergDeleteTableHandle",
+      "Map<String, String>",
+      "storageProperties");
+  to_json_key(
+      j,
+      "sortOrder",
+      p.sortOrder,
+      "IcebergDeleteTableHandle",
+      "List<SortField>",
+      "sortOrder");
+  to_json_key(
+      j,
+      "materializedViewName",
+      p.materializedViewName,
+      "IcebergDeleteTableHandle",
+      "SchemaTableName",
+      "materializedViewName");
+  to_json_key(
+      j,
+      "fileContent",
+      p.fileContent,
+      "IcebergDeleteTableHandle",
+      "FileContent",
+      "fileContent");
+  to_json_key(
+      j,
+      "existingDeletionVectors",
+      p.existingDeletionVectors,
+      "IcebergDeleteTableHandle",
+      "Map<String, DeleteFile>",
+      "existingDeletionVectors");
+}
+
+void from_json(const json& j, IcebergDeleteTableHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "schemaName",
+      p.schemaName,
+      "IcebergDeleteTableHandle",
+      "String",
+      "schemaName");
+  from_json_key(
+      j,
+      "tableName",
+      p.tableName,
+      "IcebergDeleteTableHandle",
+      "IcebergTableName",
+      "tableName");
+  from_json_key(
+      j,
+      "schema",
+      p.schema,
+      "IcebergDeleteTableHandle",
+      "PrestoIcebergSchema",
+      "schema");
+  from_json_key(
+      j,
+      "partitionSpec",
+      p.partitionSpec,
+      "IcebergDeleteTableHandle",
+      "PrestoIcebergPartitionSpec",
+      "partitionSpec");
+  from_json_key(
+      j,
+      "inputColumns",
+      p.inputColumns,
+      "IcebergDeleteTableHandle",
+      "List<IcebergColumnHandle>",
+      "inputColumns");
+  from_json_key(
+      j,
+      "outputPath",
+      p.outputPath,
+      "IcebergDeleteTableHandle",
+      "String",
+      "outputPath");
+  from_json_key(
+      j,
+      "fileFormat",
+      p.fileFormat,
+      "IcebergDeleteTableHandle",
+      "FileFormat",
+      "fileFormat");
+  from_json_key(
+      j,
+      "compressionCodec",
+      p.compressionCodec,
+      "IcebergDeleteTableHandle",
+      "HiveCompressionCodec",
+      "compressionCodec");
+  from_json_key(
+      j,
+      "storageProperties",
+      p.storageProperties,
+      "IcebergDeleteTableHandle",
+      "Map<String, String>",
+      "storageProperties");
+  from_json_key(
+      j,
+      "sortOrder",
+      p.sortOrder,
+      "IcebergDeleteTableHandle",
+      "List<SortField>",
+      "sortOrder");
+  from_json_key(
+      j,
+      "materializedViewName",
+      p.materializedViewName,
+      "IcebergDeleteTableHandle",
+      "SchemaTableName",
+      "materializedViewName");
+  from_json_key(
+      j,
+      "fileContent",
+      p.fileContent,
+      "IcebergDeleteTableHandle",
+      "FileContent",
+      "fileContent");
+  from_json_key(
+      j,
+      "existingDeletionVectors",
+      p.existingDeletionVectors,
+      "IcebergDeleteTableHandle",
+      "Map<String, DeleteFile>",
+      "existingDeletionVectors");
+}
+
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+
+  if (type == "hive-iceberg") {
+    j = *std::static_pointer_cast<IcebergColumnHandle>(p);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type ColumnHandle ");
+}
+
+void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(std::string(e.what()) + " ColumnHandle  ColumnHandle");
+  }
+
+  if (type == "hive-iceberg") {
+    std::shared_ptr<IcebergColumnHandle> k =
+        std::make_shared<IcebergColumnHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<ColumnHandle>(k);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type ColumnHandle ");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -875,242 +1488,6 @@ void from_json(const json& j, IcebergTableLayoutHandle& p) {
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
-// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
-
-// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
-static const std::pair<PartitionTransformType, json>
-    PartitionTransformType_enum_table[] =
-        { // NOLINT: cert-err58-cpp
-            {PartitionTransformType::IDENTITY, "IDENTITY"},
-            {PartitionTransformType::HOUR, "HOUR"},
-            {PartitionTransformType::DAY, "DAY"},
-            {PartitionTransformType::MONTH, "MONTH"},
-            {PartitionTransformType::YEAR, "YEAR"},
-            {PartitionTransformType::BUCKET, "BUCKET"},
-            {PartitionTransformType::TRUNCATE, "TRUNCATE"}};
-void to_json(json& j, const PartitionTransformType& e) {
-  static_assert(
-      std::is_enum<PartitionTransformType>::value,
-      "PartitionTransformType must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(PartitionTransformType_enum_table),
-      std::end(PartitionTransformType_enum_table),
-      [e](const std::pair<PartitionTransformType, json>& ej_pair) -> bool {
-        return ej_pair.first == e;
-      });
-  j = ((it != std::end(PartitionTransformType_enum_table))
-           ? it
-           : std::begin(PartitionTransformType_enum_table))
-          ->second;
-}
-void from_json(const json& j, PartitionTransformType& e) {
-  static_assert(
-      std::is_enum<PartitionTransformType>::value,
-      "PartitionTransformType must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(PartitionTransformType_enum_table),
-      std::end(PartitionTransformType_enum_table),
-      [&j](const std::pair<PartitionTransformType, json>& ej_pair) -> bool {
-        return ej_pair.second == j;
-      });
-  e = ((it != std::end(PartitionTransformType_enum_table))
-           ? it
-           : std::begin(PartitionTransformType_enum_table))
-          ->first;
-}
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
-
-void to_json(json& j, const IcebergPartitionField& p) {
-  j = json::object();
-  to_json_key(
-      j, "sourceId", p.sourceId, "IcebergPartitionField", "int", "sourceId");
-  to_json_key(
-      j, "fieldId", p.fieldId, "IcebergPartitionField", "int", "fieldId");
-  to_json_key(
-      j, "parameter", p.parameter, "IcebergPartitionField", "int", "parameter");
-  to_json_key(
-      j,
-      "transform",
-      p.transform,
-      "IcebergPartitionField",
-      "PartitionTransformType",
-      "transform");
-  to_json_key(j, "name", p.name, "IcebergPartitionField", "String", "name");
-}
-
-void from_json(const json& j, IcebergPartitionField& p) {
-  from_json_key(
-      j, "sourceId", p.sourceId, "IcebergPartitionField", "int", "sourceId");
-  from_json_key(
-      j, "fieldId", p.fieldId, "IcebergPartitionField", "int", "fieldId");
-  from_json_key(
-      j, "parameter", p.parameter, "IcebergPartitionField", "int", "parameter");
-  from_json_key(
-      j,
-      "transform",
-      p.transform,
-      "IcebergPartitionField",
-      "PartitionTransformType",
-      "transform");
-  from_json_key(j, "name", p.name, "IcebergPartitionField", "String", "name");
-}
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
-
-void to_json(json& j, const PrestoIcebergNestedField& p) {
-  j = json::object();
-  to_json_key(
-      j,
-      "optional",
-      p.optional,
-      "PrestoIcebergNestedField",
-      "bool",
-      "optional");
-  to_json_key(j, "id", p.id, "PrestoIcebergNestedField", "int", "id");
-  to_json_key(j, "name", p.name, "PrestoIcebergNestedField", "String", "name");
-  to_json_key(
-      j,
-      "prestoType",
-      p.prestoType,
-      "PrestoIcebergNestedField",
-      "Type",
-      "prestoType");
-  to_json_key(j, "doc", p.doc, "PrestoIcebergNestedField", "String", "doc");
-}
-
-void from_json(const json& j, PrestoIcebergNestedField& p) {
-  from_json_key(
-      j,
-      "optional",
-      p.optional,
-      "PrestoIcebergNestedField",
-      "bool",
-      "optional");
-  from_json_key(j, "id", p.id, "PrestoIcebergNestedField", "int", "id");
-  from_json_key(
-      j, "name", p.name, "PrestoIcebergNestedField", "String", "name");
-  from_json_key(
-      j,
-      "prestoType",
-      p.prestoType,
-      "PrestoIcebergNestedField",
-      "Type",
-      "prestoType");
-  from_json_key(j, "doc", p.doc, "PrestoIcebergNestedField", "String", "doc");
-}
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
-
-void to_json(json& j, const PrestoIcebergSchema& p) {
-  j = json::object();
-  to_json_key(
-      j, "schemaId", p.schemaId, "PrestoIcebergSchema", "int", "schemaId");
-  to_json_key(
-      j,
-      "columns",
-      p.columns,
-      "PrestoIcebergSchema",
-      "List<PrestoIcebergNestedField>",
-      "columns");
-  to_json_key(
-      j,
-      "columnNameToIdMapping",
-      p.columnNameToIdMapping,
-      "PrestoIcebergSchema",
-      "Map<String, Integer>",
-      "columnNameToIdMapping");
-  to_json_key(
-      j,
-      "aliases",
-      p.aliases,
-      "PrestoIcebergSchema",
-      "Map<String, Integer>",
-      "aliases");
-  to_json_key(
-      j,
-      "identifierFieldIds",
-      p.identifierFieldIds,
-      "PrestoIcebergSchema",
-      "List<Integer>",
-      "identifierFieldIds");
-}
-
-void from_json(const json& j, PrestoIcebergSchema& p) {
-  from_json_key(
-      j, "schemaId", p.schemaId, "PrestoIcebergSchema", "int", "schemaId");
-  from_json_key(
-      j,
-      "columns",
-      p.columns,
-      "PrestoIcebergSchema",
-      "List<PrestoIcebergNestedField>",
-      "columns");
-  from_json_key(
-      j,
-      "columnNameToIdMapping",
-      p.columnNameToIdMapping,
-      "PrestoIcebergSchema",
-      "Map<String, Integer>",
-      "columnNameToIdMapping");
-  from_json_key(
-      j,
-      "aliases",
-      p.aliases,
-      "PrestoIcebergSchema",
-      "Map<String, Integer>",
-      "aliases");
-  from_json_key(
-      j,
-      "identifierFieldIds",
-      p.identifierFieldIds,
-      "PrestoIcebergSchema",
-      "List<Integer>",
-      "identifierFieldIds");
-}
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
-
-void to_json(json& j, const PrestoIcebergPartitionSpec& p) {
-  j = json::object();
-  to_json_key(
-      j, "specId", p.specId, "PrestoIcebergPartitionSpec", "int", "specId");
-  to_json_key(
-      j,
-      "schema",
-      p.schema,
-      "PrestoIcebergPartitionSpec",
-      "PrestoIcebergSchema",
-      "schema");
-  to_json_key(
-      j,
-      "fields",
-      p.fields,
-      "PrestoIcebergPartitionSpec",
-      "List<IcebergPartitionField>",
-      "fields");
-}
-
-void from_json(const json& j, PrestoIcebergPartitionSpec& p) {
-  from_json_key(
-      j, "specId", p.specId, "PrestoIcebergPartitionSpec", "int", "specId");
-  from_json_key(
-      j,
-      "schema",
-      p.schema,
-      "PrestoIcebergPartitionSpec",
-      "PrestoIcebergSchema",
-      "schema");
-  from_json_key(
-      j,
-      "fields",
-      p.fields,
-      "PrestoIcebergPartitionSpec",
-      "List<IcebergPartitionField>",
-      "fields");
-}
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
 IcebergDistributedProcedureHandle::
     IcebergDistributedProcedureHandle() noexcept {
   _type = "hive-iceberg";
@@ -1189,6 +1566,13 @@ void to_json(json& j, const IcebergDistributedProcedureHandle& p) {
       "IcebergDistributedProcedureHandle",
       "IcebergTableLayoutHandle",
       "tableLayoutHandle");
+  to_json_key(
+      j,
+      "sortOrder",
+      p.sortOrder,
+      "IcebergDistributedProcedureHandle",
+      "List<SortField>",
+      "sortOrder");
   to_json_key(
       j,
       "relevantData",
@@ -1270,6 +1654,13 @@ void from_json(const json& j, IcebergDistributedProcedureHandle& p) {
       "IcebergDistributedProcedureHandle",
       "IcebergTableLayoutHandle",
       "tableLayoutHandle");
+  from_json_key(
+      j,
+      "sortOrder",
+      p.sortOrder,
+      "IcebergDistributedProcedureHandle",
+      "List<SortField>",
+      "sortOrder");
   from_json_key(
       j,
       "relevantData",
@@ -1364,6 +1755,27 @@ void to_json(json& j, const IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "SchemaTableName",
       "materializedViewName");
+  to_json_key(
+      j,
+      "fullRefreshRequired",
+      p.fullRefreshRequired,
+      "IcebergInsertTableHandle",
+      "std::shared_ptr<bool>",
+      "fullRefreshRequired");
+  to_json_key(
+      j,
+      "insertedColumns",
+      p.insertedColumns,
+      "IcebergInsertTableHandle",
+      "List<String>",
+      "insertedColumns");
+  to_json_key(
+      j,
+      "existingDeletionVectors",
+      p.existingDeletionVectors,
+      "IcebergInsertTableHandle",
+      "Map<String, DeleteFile>",
+      "existingDeletionVectors");
 }
 
 void from_json(const json& j, IcebergInsertTableHandle& p) {
@@ -1445,6 +1857,83 @@ void from_json(const json& j, IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "SchemaTableName",
       "materializedViewName");
+  from_json_key(
+      j,
+      "fullRefreshRequired",
+      p.fullRefreshRequired,
+      "IcebergInsertTableHandle",
+      "std::shared_ptr<bool>",
+      "fullRefreshRequired");
+  from_json_key(
+      j,
+      "insertedColumns",
+      p.insertedColumns,
+      "IcebergInsertTableHandle",
+      "List<String>",
+      "insertedColumns");
+  from_json_key(
+      j,
+      "existingDeletionVectors",
+      p.existingDeletionVectors,
+      "IcebergInsertTableHandle",
+      "Map<String, DeleteFile>",
+      "existingDeletionVectors");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+IcebergMergeTableHandle::IcebergMergeTableHandle() noexcept {
+  _type = "hive-iceberg";
+}
+
+void to_json(json& j, const IcebergMergeTableHandle& p) {
+  j = json::object();
+  j["@type"] = "hive-iceberg";
+  to_json_key(
+      j,
+      "tableHandle",
+      p.tableHandle,
+      "IcebergMergeTableHandle",
+      "IcebergTableHandle",
+      "tableHandle");
+  to_json_key(
+      j,
+      "insertTableHandle",
+      p.insertTableHandle,
+      "IcebergMergeTableHandle",
+      "IcebergInsertTableHandle",
+      "insertTableHandle");
+  to_json_key(
+      j,
+      "partitionSpecs",
+      p.partitionSpecs,
+      "IcebergMergeTableHandle",
+      "Map<Integer, PrestoIcebergPartitionSpec>",
+      "partitionSpecs");
+}
+
+void from_json(const json& j, IcebergMergeTableHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "tableHandle",
+      p.tableHandle,
+      "IcebergMergeTableHandle",
+      "IcebergTableHandle",
+      "tableHandle");
+  from_json_key(
+      j,
+      "insertTableHandle",
+      p.insertTableHandle,
+      "IcebergMergeTableHandle",
+      "IcebergInsertTableHandle",
+      "insertTableHandle");
+  from_json_key(
+      j,
+      "partitionSpecs",
+      p.partitionSpecs,
+      "IcebergMergeTableHandle",
+      "Map<Integer, PrestoIcebergPartitionSpec>",
+      "partitionSpecs");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -1678,6 +2167,8 @@ void to_json(json& j, const IcebergSplit& p) {
       "int64_t",
       "dataSequenceNumber");
   to_json_key(
+      j, "firstRowId", p.firstRowId, "IcebergSplit", "int64_t", "firstRowId");
+  to_json_key(
       j,
       "affinitySchedulingSectionSize",
       p.affinitySchedulingSectionSize,
@@ -1749,19 +2240,29 @@ void from_json(const json& j, IcebergSplit& p) {
       "IcebergSplit",
       "ChangelogSplitInfo",
       "changelogSplitInfo");
-  from_json_key(
-      j,
-      "dataSequenceNumber",
-      p.dataSequenceNumber,
-      "IcebergSplit",
-      "int64_t",
-      "dataSequenceNumber");
-  from_json_key(
-      j,
-      "affinitySchedulingSectionSize",
-      p.affinitySchedulingSectionSize,
-      "IcebergSplit",
-      "int64_t",
-      "affinitySchedulingSectionSize");
+  // V3 fields: optional for backward compatibility with coordinators that
+  // do not yet send them. Default values from the struct definition apply.
+  if (j.count("dataSequenceNumber")) {
+    from_json_key(
+        j,
+        "dataSequenceNumber",
+        p.dataSequenceNumber,
+        "IcebergSplit",
+        "int64_t",
+        "dataSequenceNumber");
+  }
+  if (j.count("firstRowId")) {
+    from_json_key(
+        j, "firstRowId", p.firstRowId, "IcebergSplit", "int64_t", "firstRowId");
+  }
+  if (j.count("affinitySchedulingSectionSize")) {
+    from_json_key(
+        j,
+        "affinitySchedulingSectionSize",
+        p.affinitySchedulingSectionSize,
+        "IcebergSplit",
+        "int64_t",
+        "affinitySchedulingSectionSize");
+  }
 }
 } // namespace facebook::presto::protocol::iceberg

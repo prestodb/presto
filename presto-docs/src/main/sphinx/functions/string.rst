@@ -10,6 +10,8 @@ The ``||`` operator performs concatenation.
 String Functions
 ----------------
 
+For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:string functions`.
+
 .. note::
 
     These functions assume that the input strings contain valid UTF-8 encoded
@@ -53,7 +55,7 @@ String Functions
 .. function:: hamming_distance(string1, string2) -> bigint
 
     Returns the Hamming distance of ``string1`` and ``string2``,
-    i.e. the number of positions at which the corresponding characters are different.
+    that is, the number of positions at which the corresponding characters are different.
     Note that the two strings must have the same length.
 
 .. function:: jarowinkler_similarity(string1, string2) -> double
@@ -67,7 +69,7 @@ String Functions
 .. function:: levenshtein_distance(string1, string2) -> bigint
 
     Returns the Levenshtein edit distance of ``string1`` and ``string2``,
-    i.e. the minimum number of single-character edits (insertions,
+    that is, the minimum number of single-character edits (insertions,
     deletions or substitutions) needed to change ``string1`` into ``string2``.
 
 .. function:: longest_common_prefix(string1, string2) -> varchar
@@ -109,11 +111,6 @@ String Functions
     If ``search`` is an empty string, inserts ``replace`` in front of every
     character and at the end of the ``string``.
 
-.. function:: replace_first(string, search, replace) -> varchar
-    Replaces the first instances of ``search`` with ``replace`` in ``string``.
-
-    If ``search`` is an empty string, it inserts ``replace`` at the beginning of the ``string``.
-
 .. function:: reverse(string) -> varchar
 
     Returns ``string`` with the characters in reverse order.
@@ -138,11 +135,11 @@ String Functions
         SELECT rtrim('test', 't'); -- tes
         SELECT rtrim('test...', '.'); -- test
 
-.. function:: split(string, delimiter) -> array(varchar)
+.. function:: split(string, delimiter) -> array[varchar]
 
     Splits ``string`` on ``delimiter`` and returns an array.
 
-.. function:: split(string, delimiter, limit) -> array(varchar)
+.. function:: split(string, delimiter, limit) -> array[varchar]
 
     Splits ``string`` on ``delimiter`` and returns an array of size at most
     ``limit``. The last element in the array always contain everything
@@ -159,27 +156,27 @@ String Functions
     Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map.
     ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
     each pair into key and value. Note that ``entryDelimiter`` and ``keyValueDelimiter`` are
-    interpreted literally, i.e., as full string matches.
+    interpreted literally, as full string matches.
 
 .. function:: split_to_map(string, entryDelimiter, keyValueDelimiter, function(K,V1,V2,R)) -> map<varchar, varchar>
 
     Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map.
     ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
     each pair into key and value. Note that ``entryDelimiter`` and ``keyValueDelimiter`` are
-    interpreted literally, i.e., as full string matches. ``function(K,V1,V2,R)``
+    interpreted literally, as full string matches. ``function(K,V1,V2,R)``
     is invoked in cases of duplicate keys to resolve the value that should be in the map. ::
 
         SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> v1)); -- {"a": "1", "b": "2"}
         SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> CONCAT(v1, v2))); -- {"a": "13", "b": "2"}
 
-.. function:: split_to_multimap(string, entryDelimiter, keyValueDelimiter) -> map(varchar, array(varchar))
+.. function:: split_to_multimap(string, entryDelimiter, keyValueDelimiter) -> map(varchar, array[varchar])
 
     Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map
     containing an array of values for each unique key. ``entryDelimiter`` splits ``string``
     into key-value pairs. ``keyValueDelimiter`` splits each pair into key and value. The
     values for each key will be in the same order as they appeared in ``string``.
     Note that ``entryDelimiter`` and ``keyValueDelimiter`` are interpreted literally,
-    i.e., as full string matches.
+    as full string matches.
 
 .. function:: strpos(string, substring) -> bigint
 
@@ -223,10 +220,6 @@ String Functions
     Returns a substring from ``string`` of length ``length`` from the starting
     position ``start``. Positions start with ``1``. A negative starting
     position is interpreted as being relative to the end of the string.
-
-.. function:: trail(string, N) -> varchar
-
-    Returns the last N characters of the input string.
 
 .. function:: trim(string) -> varchar
 
@@ -317,7 +310,3 @@ Unicode Functions
     be a single character or empty (in which case invalid characters are
     removed).
 
-.. function:: key_sampling_percent(varchar) -> double
-
-    Generates a double value between 0.0 and 1.0 based on the hash of the given ``varchar``.
-    This function is useful for deterministic sampling of data.

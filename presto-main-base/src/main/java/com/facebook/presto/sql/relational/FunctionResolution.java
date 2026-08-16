@@ -59,17 +59,31 @@ public final class FunctionResolution
         implements StandardFunctionResolution
 {
     private final FunctionAndTypeResolver functionAndTypeResolver;
-    private final List<QualifiedObjectName> windowValueFunctions;
+    private volatile ImmutableList<QualifiedObjectName> windowValueFunctions;
 
     public FunctionResolution(FunctionAndTypeResolver functionAndTypeResolver)
     {
         this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionManager is null");
-        this.windowValueFunctions = ImmutableList.of(
-                functionAndTypeResolver.qualifyObjectName(QualifiedName.of("lead")),
-                functionAndTypeResolver.qualifyObjectName(QualifiedName.of("lag")),
-                functionAndTypeResolver.qualifyObjectName(QualifiedName.of("first_value")),
-                functionAndTypeResolver.qualifyObjectName(QualifiedName.of("last_value")),
-                functionAndTypeResolver.qualifyObjectName(QualifiedName.of("nth_value")));
+    }
+
+    private List<QualifiedObjectName> getWindowValueFunctions()
+    {
+        ImmutableList<QualifiedObjectName> result = windowValueFunctions;
+        if (result == null) {
+            synchronized (this) {
+                result = windowValueFunctions;
+                if (result == null) {
+                    result = ImmutableList.of(
+                            functionAndTypeResolver.qualifyObjectName(QualifiedName.of("lead")),
+                            functionAndTypeResolver.qualifyObjectName(QualifiedName.of("lag")),
+                            functionAndTypeResolver.qualifyObjectName(QualifiedName.of("first_value")),
+                            functionAndTypeResolver.qualifyObjectName(QualifiedName.of("last_value")),
+                            functionAndTypeResolver.qualifyObjectName(QualifiedName.of("nth_value")));
+                    windowValueFunctions = result;
+                }
+            }
+        }
+        return result;
     }
 
     @Override
@@ -159,6 +173,7 @@ public final class FunctionResolution
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "TRY_CAST"));
     }
 
+    @Override
     public boolean isArrayConstructor(FunctionHandle functionHandle)
     {
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of(ARRAY_CONSTRUCTOR)));
@@ -301,9 +316,16 @@ public final class FunctionResolution
         return functionAndTypeResolver.lookupFunction("$internal$try", fromTypes(returnType));
     }
 
+    @Override
     public boolean isTryFunction(FunctionHandle functionHandle)
     {
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().getObjectName().equals("$internal$try");
+    }
+
+    @Override
+    public boolean isFailFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().getObjectName().equalsIgnoreCase("fail");
     }
 
     public boolean isJavaBuiltInFailFunction(FunctionHandle functionHandle)
@@ -426,7 +448,7 @@ public final class FunctionResolution
 
     public boolean isWindowValueFunction(FunctionHandle functionHandle)
     {
-        return windowValueFunctions.contains(functionAndTypeResolver.getFunctionMetadata(functionHandle).getName());
+        return getWindowValueFunctions().contains(functionAndTypeResolver.getFunctionMetadata(functionHandle).getName());
     }
 
     public boolean isMapSubSetFunction(FunctionHandle functionHandle)
@@ -437,6 +459,11 @@ public final class FunctionResolution
     public boolean isMapFilterFunction(FunctionHandle functionHandle)
     {
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("map_filter")));
+    }
+
+    public boolean isCardinalityFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("cardinality")));
     }
 
     @Override

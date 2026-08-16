@@ -15,10 +15,10 @@ package com.facebook.presto.iceberg.procedure;
 
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.iceberg.IcebergMetadataFactory;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
@@ -76,10 +76,11 @@ public class RollbackToTimestampProcedure
     private void doRollbackToTimestamp(ConnectorSession clientSession, String schema, String tableName, SqlTimestamp timestamp)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, tableName);
-        ConnectorMetadata metadata = metadataFactory.create();
+        IcebergTransactionMetadata metadata = metadataFactory.create();
         getIcebergTable(metadata, clientSession, schemaTableName)
                 .manageSnapshots()
                 .rollbackToTime(timestamp.isLegacyTimestamp() ? timestamp.getMillisUtc() : timestamp.getMillis())
                 .commit();
+        metadata.commit();
     }
 }

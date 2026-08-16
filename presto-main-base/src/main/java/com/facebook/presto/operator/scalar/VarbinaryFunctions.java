@@ -26,6 +26,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.SpookyHashV2;
 import io.airlift.slice.XxHash64;
+import net.openhft.hashing.LongTupleHashFunction;
 
 import java.util.Base64;
 import java.util.zip.CRC32;
@@ -365,6 +366,38 @@ public final class VarbinaryFunctions
         Slice hash = Slices.allocate(Long.BYTES);
         hash.setLong(0, Long.reverseBytes(XxHash64.hash(seed, slice)));
         return hash;
+    }
+
+    @Description("compute XXH3 128-bit hash, returned as the 16-byte big-endian canonical representation (high 64 bits first)")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice xxhash128(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return xxhash128(slice, 0L);
+    }
+
+    @Description("compute XXH3 128-bit hash with a seed, returned as the 16-byte big-endian canonical representation (high 64 bits first)")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice xxhash128(
+            @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @SqlType(StandardTypes.BIGINT) long seed)
+    {
+        // XXH3 128-bit digest, emitted as the 16-byte big-endian canonical form (high 64 bits first).
+        // The seed spans the full 64-bit range: XXH3 consumes it as an unsigned value, so a negative
+        // BIGINT is used as-is via its two's-complement bit pattern (mirrors xxhash64's seeded overload).
+        LongTupleHashFunction hasher = LongTupleHashFunction.xx128(seed);
+        // Hash the backing array in place when available to avoid a per-row copy on the hot path;
+        // fall back to getBytes() only for off-heap slices (mirrors toHex/toBase32 in this file).
+        long[] hash = slice.hasByteArray()
+                ? hasher.hashBytes(slice.byteArray(), slice.byteArrayOffset(), slice.length())
+                : hasher.hashBytes(slice.getBytes());
+        // zero-allocation-hashing returns the digest as [low64, high64] (hash[0]=low, hash[1]=high),
+        // whereas the canonical XXH3-128 form is high 64 bits first; emit high then low, each big-endian.
+        Slice result = Slices.allocate(2 * Long.BYTES);
+        result.setLong(0, Long.reverseBytes(hash[1]));
+        result.setLong(Long.BYTES, Long.reverseBytes(hash[0]));
+        return result;
     }
 
     @Description("compute SpookyHashV2 32-bit hash")

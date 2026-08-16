@@ -403,8 +403,8 @@ public abstract class AbstractTestNativeGeneralQueries
                 .build();
 
         try {
-            computeExpected(String.format("CREATE TABLE %s (c0 DATE) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of());
-            computeExpected(String.format("INSERT INTO %s VALUES (DATE '1996-01-02'), (DATE '1996-12-01')", tmpTableName), ImmutableList.of());
+            computeExpected(String.format("CREATE TABLE %s (c0 DATE) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of(BIGINT));
+            computeExpected(String.format("INSERT INTO %s VALUES (DATE '1996-01-02'), (DATE '1996-12-01')", tmpTableName), ImmutableList.of(BIGINT));
 
             assertQueryResultCount(session, String.format("SELECT * from %s where c0 in (select c0 from %s) ", tmpTableName, tmpTableName), 2);
         }
@@ -420,60 +420,10 @@ public abstract class AbstractTestNativeGeneralQueries
 
         String tmpTableName = generateRandomTableName();
         try {
-            getExpectedQueryRunner().execute(getSession(), format(
-                    "CREATE TABLE %s (" +
-                            "id BIGINT," +
-                            "name VARCHAR," +
-                            "is_active BOOLEAN," +
-                            "score DOUBLE," +
-                            "created_at TIMESTAMP," +
-                            "tags ARRAY<VARCHAR>," +
-                            "metrics ARRAY<DOUBLE>," +
-                            "properties MAP<VARCHAR, VARCHAR>," +
-                            "flags MAP<TINYINT, BOOLEAN>," +
-                            "nested_struct ROW(sub_id INTEGER, sub_name VARCHAR, sub_scores ARRAY<REAL>, sub_map MAP<SMALLINT, VARCHAR>)," +
-                            "price DECIMAL(15,2)," +
-                            "amount DECIMAL(21,6)," +
-                            "event_date DATE," +
-                            "ds VARCHAR" +
-                            ") WITH (format = 'TEXTFILE', partitioned_by = ARRAY['ds'])", tmpTableName), ImmutableList.of());
-            getExpectedQueryRunner().execute(getSession(), format(
-                    "INSERT INTO %s (" +
-                            "id," +
-                            "name," +
-                            "is_active," +
-                            "score," +
-                            "created_at," +
-                            "tags," +
-                            "metrics," +
-                            "properties," +
-                            "flags," +
-                            "nested_struct," +
-                            "price," +
-                            "amount," +
-                            "event_date," +
-                            "ds" +
-                            ") VALUES (" +
-                            "1001," +
-                            "'Jane Doe'," +
-                            "TRUE," +
-                            "88.5," +
-                            "TIMESTAMP '2025-07-23 10:00:00'," +
-                            "ARRAY['alpha', 'beta', 'gamma']," +
-                            "ARRAY[3.14, 2.71, 1.41]," +
-                            "MAP(ARRAY['color', 'size'], ARRAY['blue', 'large'])," +
-                            "MAP(ARRAY[TINYINT '1', TINYINT '2'], ARRAY[TRUE, FALSE])," +
-                            "ROW(" +
-                            "42," +
-                            "'sub_jane'," +
-                            "ARRAY[REAL '1.1', REAL '2.2', REAL '3.3']," +
-                            "MAP(ARRAY[SMALLINT '10', SMALLINT '20'], ARRAY['foo', 'bar'])" +
-                            ")," +
-                            "DECIMAL '12.34'," +
-                            "CAST('-123456789012345.123456' as DECIMAL(21,6))," +
-                            "DATE '2024-02-29'," +
-                            "'2025-07-01'" +
-                            ")", tmpTableName), ImmutableList.of());
+            getExpectedQueryRunner().execute(getSession(),
+                    createTextFileTableSql(tmpTableName, ImmutableList.of()),
+                    ImmutableList.of(BIGINT));
+            getExpectedQueryRunner().execute(getSession(), insertTextFileTableSql(tmpTableName), ImmutableList.of(BIGINT));
             // created_at is skipped because of the inconsistency in TIMESTAMP columns between Presto and Velox.
             // https://github.com/facebookincubator/velox/issues/8127
             assertQuery(format("SELECT id, name, is_active, score, tags, metrics, properties, flags, nested_struct, price, amount, event_date, ds FROM %s", tmpTableName));
@@ -481,6 +431,94 @@ public abstract class AbstractTestNativeGeneralQueries
         finally {
             dropTableIfExists(tmpTableName);
         }
+    }
+
+    @Test(groups = {"textfile"})
+    public void testReadTableWithCustomSerdeTextfile()
+    {
+        String tmpTableName = generateRandomTableName();
+        List<String> serdeParams = ImmutableList.of(
+                "textfile_field_delim='|'",
+                "textfile_escape_delim='\u0001'",
+                "textfile_collection_delim=';'",
+                "textfile_mapkey_delim=':'");
+        try {
+            getExpectedQueryRunner().execute(getSession(),
+                    createTextFileTableSql(tmpTableName, serdeParams),
+                    ImmutableList.of(BIGINT));
+            getExpectedQueryRunner().execute(getSession(), insertTextFileTableSql(tmpTableName), ImmutableList.of(BIGINT));
+            // created_at is skipped because of the inconsistency in TIMESTAMP columns between Presto and Velox.
+            // https://github.com/facebookincubator/velox/issues/8127
+            assertQuery(format("SELECT id, name, is_active, score, tags, metrics, properties, flags, nested_struct, price, amount, event_date, ds FROM %s", tmpTableName));
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    private String createTextFileTableSql(String tableName, List<String> serdeParams)
+    {
+        String serde = serdeParams.isEmpty() ? "" : ", " + String.join(", ", serdeParams);
+        return format(
+                "CREATE TABLE %s (" +
+                        "id BIGINT," +
+                        "name VARCHAR," +
+                        "is_active BOOLEAN," +
+                        "score DOUBLE," +
+                        "created_at TIMESTAMP," +
+                        "tags ARRAY<VARCHAR>," +
+                        "metrics ARRAY<DOUBLE>," +
+                        "properties MAP<VARCHAR, VARCHAR>," +
+                        "flags MAP<TINYINT, BOOLEAN>," +
+                        "nested_struct ROW(sub_id INTEGER, sub_name VARCHAR, sub_scores ARRAY<REAL>, sub_map MAP<SMALLINT, VARCHAR>)," +
+                        "price DECIMAL(15,2)," +
+                        "amount DECIMAL(21,6)," +
+                        "event_date DATE," +
+                        "ds VARCHAR" +
+                        ") WITH (format = 'TEXTFILE'%s, partitioned_by = ARRAY['ds'])",
+                tableName,
+                serde);
+    }
+
+    private String insertTextFileTableSql(String tableName)
+    {
+        return format(
+                "INSERT INTO %s (" +
+                        "id," +
+                        "name," +
+                        "is_active," +
+                        "score," +
+                        "created_at," +
+                        "tags," +
+                        "metrics," +
+                        "properties," +
+                        "flags," +
+                        "nested_struct," +
+                        "price," +
+                        "amount," +
+                        "event_date," +
+                        "ds" +
+                        ") VALUES (" +
+                        "1001," +
+                        "'Jane Doe'," +
+                        "TRUE," +
+                        "88.5," +
+                        "TIMESTAMP '2025-07-23 10:00:00'," +
+                        "ARRAY['alpha', 'beta', 'gamma']," +
+                        "ARRAY[3.14, 2.71, 1.41]," +
+                        "MAP(ARRAY['color', 'size'], ARRAY['blue', 'large'])," +
+                        "MAP(ARRAY[TINYINT '1', TINYINT '2'], ARRAY[TRUE, FALSE])," +
+                        "ROW(" +
+                        "42," +
+                        "'sub_jane'," +
+                        "ARRAY[REAL '1.1', REAL '2.2', REAL '3.3']," +
+                        "MAP(ARRAY[SMALLINT '10', SMALLINT '20'], ARRAY['foo', 'bar'])" +
+                        ")," +
+                        "DECIMAL '12.34'," +
+                        "CAST('-123456789012345.123456' as DECIMAL(21,6))," +
+                        "DATE '2024-02-29'," +
+                        "'2025-07-01'" +
+                        ")", tableName);
     }
 
     @Test
@@ -971,7 +1009,7 @@ public abstract class AbstractTestNativeGeneralQueries
         // Reverse
         assertQuery("SELECT comment, reverse(comment) FROM orders");
 
-        // Normalize
+        // Normalize, key_sampling_percent.
         String tmpTableName = generateRandomTableName();
         try {
             getQueryRunner().execute(String.format("CREATE TABLE %s (c0 VARCHAR)", tmpTableName));
@@ -985,10 +1023,43 @@ public abstract class AbstractTestNativeGeneralQueries
             assertQuery("SELECT normalize(comment, NFD) FROM nation");
             assertQuery(String.format("SELECT normalize(c0) from %s", tmpTableName));
             assertQuery(String.format("SELECT normalize(c0, NFKD) from %s", tmpTableName));
+            getQueryRunner().execute(String.format("INSERT INTO %s VALUES " +
+                    "(NULL), " +
+                    "('abc'), " +
+                    "('abcdefghskwkjadhwd'), " +
+                    "('001yxzuj'), " +
+                    "('56wfythjhdhvgewuikwemn'), " +
+                    "('special_#@,$|%%/^~?{}+-'), " +
+                    "('     '), " +
+                    "(''), " +
+                    "('Hello World from Velox!')", tmpTableName));
+            assertQuery(String.format("SELECT key_sampling_percent(c0) FROM %s", tmpTableName));
         }
         finally {
             dropTableIfExists(tmpTableName);
         }
+
+        // bit_length
+        assertQuery("SELECT bit_length(comment) FROM orders");
+        assertQuery("SELECT bit_length(name) FROM nation");
+        assertQuery("SELECT bit_length(shipmode) FROM lineitem");
+        assertQuery("SELECT bit_length(c0) FROM (VALUES ('abc'), (CAST(NULL AS VARCHAR)), ('')) as t (c0)");
+        assertQuery("SELECT bit_length(IF(nationkey % 2 = 0, name, NULL)) FROM nation");
+
+        // longest_common_prefix
+        assertQuery("SELECT longest_common_prefix(name, 'UNITED') FROM nation WHERE name LIKE 'UNITED%' ORDER BY name");
+        assertQuery("SELECT longest_common_prefix(comment, comment) FROM orders ORDER BY orderkey LIMIT 10");
+        assertQuery("SELECT longest_common_prefix('', ''), longest_common_prefix('hello', 'hello world') FROM (VALUES 1)", "SELECT '', 'hello'");
+        assertQuery("SELECT longest_common_prefix(IF(nationkey % 2 = 0, name, NULL), 'UNITED') FROM nation");
+        assertQuery("SELECT longest_common_prefix(c0, c1) FROM (VALUES ('hello', 'help'), (CAST(NULL AS VARCHAR), 'x'), ('x', CAST(NULL AS VARCHAR))) as t (c0, c1)");
+
+        // replace_first
+        assertQuery("SELECT replace_first(comment, 'the', 'THE') FROM orders ORDER BY orderkey LIMIT 10");
+        assertQuery("SELECT replace_first(name, 'A', 'X') FROM nation ORDER BY nationkey LIMIT 10");
+        assertQuery("SELECT replace_first('aaa', 'a', 'b') FROM (VALUES 1)", "SELECT 'baa'");
+        assertQuery("SELECT replace_first(comment, ' ', '') FROM orders ORDER BY orderkey LIMIT 10");
+        assertQuery("SELECT replace_first(c0, c1, c2) FROM (VALUES ('aaa', 'a', 'b'), (CAST(NULL AS VARCHAR), 'a', 'b'), ('aaa', CAST(NULL AS VARCHAR), 'b'), ('aaa', 'a', CAST(NULL AS VARCHAR))) as t (c0, c1, c2)");
+        assertQuery("SELECT replace_first(IF(nationkey % 2 = 0, name, NULL), 'A', 'X') FROM nation");
     }
 
     @Test
@@ -996,6 +1067,9 @@ public abstract class AbstractTestNativeGeneralQueries
     {
         // crc32.
         assertQuery("SELECT crc32(cast(comment as varbinary)) FROM orders");
+
+        // length.
+        assertQuery("SELECT length(cast(comment as varbinary)) FROM orders ORDER BY orderkey LIMIT 10");
 
         // from_base64, to_base64.
         assertQuery("SELECT from_base64(to_base64(cast(comment as varbinary))) FROM orders");
@@ -1042,7 +1116,8 @@ public abstract class AbstractTestNativeGeneralQueries
         // from_hex, to_hex.
         assertQuery("SELECT from_hex(to_hex(cast(comment as varbinary))) FROM orders");
 
-        // hmac_sha1, hmac_sha256, hmac_sha512.
+        // hmac_md5, hmac_sha1, hmac_sha256, hmac_sha512.
+        assertQuery("SELECT hmac_md5(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders ORDER BY orderkey LIMIT 10");
         assertQuery("SELECT hmac_sha1(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders");
         assertQuery("SELECT hmac_sha256(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders");
         assertQuery("SELECT hmac_sha512(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders");
@@ -1061,6 +1136,14 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // xxhash64.
         assertQuery("SELECT xxhash64(cast(comment as varbinary)) FROM orders");
+        assertQuery("SELECT xxhash64(cast(comment as varbinary), orderkey) FROM orders ORDER BY orderkey LIMIT 10");
+
+        // lpad, rpad.
+        assertQuery("SELECT lpad(cast(comment as varbinary), 50, cast('x' as varbinary)) FROM orders ORDER BY orderkey LIMIT 10");
+        assertQuery("SELECT rpad(cast(comment as varbinary), 50, cast('x' as varbinary)) FROM orders ORDER BY orderkey LIMIT 10");
+
+        // murmur3_x64_128.
+        assertQuery("SELECT murmur3_x64_128(cast(comment as varbinary)) FROM orders ORDER BY orderkey LIMIT 10");
 
         // from_base64url, to_base64url
         assertQuery("SELECT from_base64url(to_base64url(cast(comment as varbinary))) FROM orders");
@@ -1484,8 +1567,8 @@ public abstract class AbstractTestNativeGeneralQueries
 
         try {
             // Create a Parquet table with decimal types and test data.
-            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of());
-            getExpectedQueryRunner().execute(expectedSession, String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), (DECIMAL '1000000.12', DECIMAL '28239823232323.57'), (DECIMAL '-542392.89', DECIMAL '-6723982392109.29')", tmpTableName), ImmutableList.of());
+            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of(BIGINT));
+            getExpectedQueryRunner().execute(expectedSession, String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), (DECIMAL '1000000.12', DECIMAL '28239823232323.57'), (DECIMAL '-542392.89', DECIMAL '-6723982392109.29')", tmpTableName), ImmutableList.of(BIGINT));
 
             String[] queries = {
                     String.format("SELECT * FROM %s WHERE c0 > DECIMAL '1.1' and c1 < DECIMAL '5.2'", tmpTableName),
@@ -1538,11 +1621,11 @@ public abstract class AbstractTestNativeGeneralQueries
         String tmpTableName = generateRandomTableName();
         try {
             // Create a Parquet table with decimal types and test data.
-            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of());
+            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of(BIGINT));
             getExpectedQueryRunner().execute(expectedSession, String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), "
                     + "(DECIMAL '1000000.12', DECIMAL '28239823232323.57'), "
                     + "(DECIMAL '-542392.89', DECIMAL '-6723982392109.29'), (NULL, NULL), "
-                    + "(NULL, DECIMAL'-6723982392109.29'),(DECIMAL'1.2', NULL)", tmpTableName), ImmutableList.of());
+                    + "(NULL, DECIMAL'-6723982392109.29'),(DECIMAL'1.2', NULL)", tmpTableName), ImmutableList.of(BIGINT));
             String[] queries = {
                     String.format("Select approx_distinct(c0) from %s", tmpTableName),
                     String.format("Select approx_distinct(c1) from %s", tmpTableName),

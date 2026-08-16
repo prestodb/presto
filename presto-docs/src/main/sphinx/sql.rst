@@ -8,6 +8,7 @@ This chapter describes the SQL syntax used in Presto.
     :maxdepth: 1
 
     sql/alter-function
+    sql/alter-materialized-view
     sql/alter-schema
     sql/alter-table
     sql/alter-view
@@ -19,6 +20,7 @@ This chapter describes the SQL syntax used in Presto.
     sql/create-schema
     sql/create-table
     sql/create-table-as
+    sql/create-vector-index
     sql/create-view
     sql/create-materialized-view
     sql/deallocate-prepare

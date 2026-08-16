@@ -17,6 +17,7 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/WindowFunction.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
+#include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
 #include "velox/functions/FunctionRegistry.h"
 
 using namespace facebook::velox;
@@ -142,6 +143,7 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
     const std::string& schema,
     const protocol::FunctionKind& kind,
     const FunctionSignature& signature,
+    bool isRpcFunction = false,
     const AggregateFunctionSignaturePtr& aggregateSignature = nullptr) {
   protocol::JsonBasedUdfFunctionMetadata metadata;
   metadata.docString = name;
@@ -172,6 +174,10 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
       std::make_shared<std::vector<protocol::LongVariableConstraint>>(
           getLongVariableConstraints(signature));
 
+  if (isRpcFunction) {
+    metadata.isRpcFunction = true;
+  }
+
   if (aggregateSignature) {
     metadata.aggregateMetadata =
         std::make_shared<protocol::AggregationFunctionMetadata>(
@@ -183,12 +189,17 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
 json buildScalarMetadata(
     const std::string& name,
     const std::string& schema,
-    const std::vector<const FunctionSignature*>& signatures) {
+    const std::vector<const FunctionSignature*>& signatures,
+    bool isRpcFunction = false) {
   json j = json::array();
   json tj;
   for (const auto& signature : signatures) {
     if (auto functionMetadata = buildFunctionMetadata(
-            name, schema, protocol::FunctionKind::SCALAR, *signature)) {
+            name,
+            schema,
+            protocol::FunctionKind::SCALAR,
+            *signature,
+            isRpcFunction)) {
       protocol::to_json(tj, functionMetadata.value());
       j.push_back(tj);
     }
@@ -226,7 +237,12 @@ json buildAggregateMetadata(
   for (const auto& kind : kinds) {
     for (const auto& signature : signatures) {
       if (auto functionMetadata = buildFunctionMetadata(
-              name, schema, kind, *signature, signature)) {
+              name,
+              schema,
+              kind,
+              *signature,
+              /*isRpcFunction=*/false,
+              signature)) {
         protocol::to_json(tj, functionMetadata.value());
         j.push_back(tj);
       }
@@ -283,7 +299,9 @@ json getFunctionsMetadata(const std::optional<std::string>& catalog) {
     }
     const auto schema = parts[1];
     const auto function = parts[2];
-    j[function] = buildScalarMetadata(name, schema, entry.second);
+    const bool isRpc =
+        velox::exec::rpc::AsyncRPCFunctionRegistry::isRegistered(function);
+    j[function] = buildScalarMetadata(name, schema, entry.second, isRpc);
   }
 
   // Get metadata for all registered aggregate functions in velox.

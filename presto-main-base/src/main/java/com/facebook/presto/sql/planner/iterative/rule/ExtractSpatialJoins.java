@@ -63,7 +63,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -100,6 +99,7 @@ import static com.facebook.presto.util.SpatialJoinUtils.getFlippedFunctionHandle
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -593,7 +593,7 @@ public class ExtractSpatialJoins
                 .collect(toImmutableList());
         checkSpatialPartitioningTable(visibleColumnHandles.size() == 1, "Expected single column for table %s, but found %s columns", name, columnHandles.size());
 
-        ColumnHandle kdbTreeColumn = Iterables.getOnlyElement(visibleColumnHandles);
+        ColumnHandle kdbTreeColumn = visibleColumnHandles.stream().collect(onlyElement());
 
         TableLayoutResult layout = metadata.getLayout(session, tableHandle, Constraint.alwaysTrue(), Optional.of(ImmutableSet.of(kdbTreeColumn)));
         TableHandle newTableHandle = layout.getLayout().getNewTableHandle();

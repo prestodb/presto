@@ -57,6 +57,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.execution.scheduler.AdaptivePhasedExecutionPolicy;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
@@ -90,7 +91,9 @@ import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.ReactorNettyHttpClient;
 import com.facebook.presto.server.remotetask.ReactorNettyHttpClientConfig;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
+import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
@@ -148,6 +151,13 @@ public class CoordinatorModule
             "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
                     "font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; img-src 'self' data:; form-action 'self'";
 
+    private final boolean isWebUIEnabled;
+
+    public CoordinatorModule(boolean webUIEnabled)
+    {
+        this.isWebUIEnabled = webUIEnabled;
+    }
+
     public static HttpResourceBinding webUIBinder(Binder binder, String path, String classPathResourceBase)
     {
         return httpServerBinder(binder).bindResource(path, classPathResourceBase)
@@ -158,9 +168,14 @@ public class CoordinatorModule
     @Override
     protected void setup(Binder binder)
     {
-        webUIBinder(binder, "/ui/dev", "webapp/dev").withWelcomeFile("index.html");
-        webUIBinder(binder, "/ui", "webapp").withWelcomeFile("index.html");
-        webUIBinder(binder, "/tableau", "webapp/tableau");
+        if (isWebUIEnabled) {
+            webUIBinder(binder, "/ui/dev", "webapp/dev").withWelcomeFile("index.html");
+            webUIBinder(binder, "/ui", "webapp").withWelcomeFile("index.html");
+            webUIBinder(binder, "/tableau", "webapp/tableau");
+        }
+        else {
+            webUIBinder(binder, "/ui", "nowebapp").withWelcomeFile("index.html");
+        }
 
         // discovery server
         install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
@@ -173,6 +188,10 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         jsonCodecBinder(binder).bindJsonCodec(SelectedRole.class);
+        jsonCodecBinder(binder).bindJsonCodec(NodeStatus.class);
+        jsonCodecBinder(binder).bindJsonCodec(BasicQueryInfo.class);
+        jsonCodecBinder(binder).bindListJsonCodec(ResourceGroupRuntimeInfo.class);
+        jsonCodecBinder(binder).bindMapJsonCodec(MemoryPoolId.class, ClusterMemoryPoolInfo.class);
         jaxrsBinder(binder).bind(QueuedStatementResource.class);
         jaxrsBinder(binder).bind(ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
@@ -330,11 +349,11 @@ public class CoordinatorModule
         binder.bind(NodeResourceStatusProvider.class).to(NodeResourceStatus.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, ResourceManagerProxy.class);
+        httpClientBinder(binder).bindHttpClient("resourceManager", ForResourceManager.class);
         install(installModuleIf(
                 ServerConfig.class,
                 ServerConfig::isResourceManagerEnabled,
                 rmBinder -> {
-                    httpClientBinder(rmBinder).bindHttpClient("resourceManager", ForResourceManager.class);
                     rmBinder.bind(ResourceManagerProxy.class).in(Scopes.SINGLETON);
                 }));
 

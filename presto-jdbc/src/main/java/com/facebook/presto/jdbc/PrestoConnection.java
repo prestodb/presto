@@ -70,6 +70,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class PrestoConnection
         implements Connection
 {
+    private static final String VALIDATION_QUERY = "/* Presto JDBC driver connection validation */ SELECT 1";
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
     private final AtomicInteger isolationLevel = new AtomicInteger(TRANSACTION_READ_UNCOMMITTED);
@@ -125,6 +126,26 @@ public class PrestoConnection
 
         this.queryInterceptorInstances = ImmutableList.copyOf(uri.getQueryInterceptors());
         initializeQueryInterceptors();
+
+        // Validate connection if requested
+        if (uri.shouldValidateConnection()) {
+            validateConnection();
+        }
+    }
+
+    private void validateConnection()
+            throws SQLException
+    {
+        try (Statement statement = createStatement();
+                ResultSet rs = statement.executeQuery(VALIDATION_QUERY)) {
+            if (!rs.next()) {
+                throw new SQLException("Connection validation failed: query returned no results");
+            }
+        }
+        catch (SQLException e) {
+            String message = "Connection validation failed: " + e.getMessage();
+            throw new SQLException(message, e.getSQLState(), e.getErrorCode(), e);
+        }
     }
 
     public static PrestoConnection newConnectionWithSessionProperties(PrestoConnection connectionWithSessionProperties, Properties connectionProperties)

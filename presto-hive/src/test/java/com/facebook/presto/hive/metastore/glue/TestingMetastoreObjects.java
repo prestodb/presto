@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
-import com.amazonaws.services.glue.model.Column;
-import com.amazonaws.services.glue.model.Database;
-import com.amazonaws.services.glue.model.Partition;
-import com.amazonaws.services.glue.model.SerDeInfo;
-import com.amazonaws.services.glue.model.StorageDescriptor;
-import com.amazonaws.services.glue.model.Table;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import software.amazon.awssdk.services.glue.model.Column;
+import software.amazon.awssdk.services.glue.model.Database;
+import software.amazon.awssdk.services.glue.model.Partition;
+import software.amazon.awssdk.services.glue.model.SerDeInfo;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
+import software.amazon.awssdk.services.glue.model.Table;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,58 +41,64 @@ public final class TestingMetastoreObjects
 
     public static Database getGlueTestDatabase()
     {
-        return new Database()
-                .withName("test-db" + generateRandom())
-                .withDescription("database desc")
-                .withLocationUri("/db")
-                .withParameters(ImmutableMap.of());
+        return Database.builder()
+                .name("test-db" + generateRandom())
+                .description("database desc")
+                .locationUri("/db")
+                .parameters(ImmutableMap.of())
+                .build();
     }
 
     public static Table getGlueTestTable(String dbName)
     {
-        return new Table()
-                .withDatabaseName(dbName)
-                .withName("test-tbl" + generateRandom())
-                .withOwner("owner")
-                .withParameters(ImmutableMap.of())
-                .withPartitionKeys(ImmutableList.of(getGlueTestColumn()))
-                .withStorageDescriptor(getGlueTestStorageDescriptor())
-                .withTableType(EXTERNAL_TABLE.name())
-                .withViewOriginalText("originalText")
-                .withViewExpandedText("expandedText");
+        return Table.builder()
+                .databaseName(dbName)
+                .name("test-tbl" + generateRandom())
+                .owner("owner")
+                .parameters(ImmutableMap.of())
+                .partitionKeys(ImmutableList.of(getGlueTestColumn()))
+                .storageDescriptor(getGlueTestStorageDescriptor())
+                .tableType(EXTERNAL_TABLE.name())
+                .viewOriginalText("originalText")
+                .viewExpandedText("expandedText")
+                .build();
     }
 
     public static Column getGlueTestColumn()
     {
-        return new Column()
-                .withName("test-col" + generateRandom())
-                .withType("string")
-                .withComment("column comment");
+        return Column.builder()
+                .name("test-col" + generateRandom())
+                .type("string")
+                .comment("column comment")
+                .build();
     }
 
     public static StorageDescriptor getGlueTestStorageDescriptor()
     {
-        return new StorageDescriptor()
-                .withBucketColumns(ImmutableList.of("test-bucket-col"))
-                .withColumns(ImmutableList.of(getGlueTestColumn()))
-                .withParameters(ImmutableMap.of())
-                .withSerdeInfo(new SerDeInfo()
-                        .withSerializationLibrary("SerdeLib")
-                        .withParameters(ImmutableMap.of()))
-                .withInputFormat("InputFormat")
-                .withOutputFormat("OutputFormat")
-                .withLocation("/test-tbl")
-                .withNumberOfBuckets(1);
+        return StorageDescriptor.builder()
+                .bucketColumns(ImmutableList.of("test-bucket-col"))
+                .columns(ImmutableList.of(getGlueTestColumn()))
+                .parameters(ImmutableMap.of())
+                .serdeInfo(SerDeInfo.builder()
+                        .serializationLibrary("SerdeLib")
+                        .parameters(ImmutableMap.of())
+                        .build())
+                .inputFormat("InputFormat")
+                .outputFormat("OutputFormat")
+                .location("/test-tbl")
+                .numberOfBuckets(1)
+                .build();
     }
 
     public static Partition getGlueTestPartition(String dbName, String tblName, List<String> values)
     {
-        return new Partition()
-                .withDatabaseName(dbName)
-                .withTableName(tblName)
-                .withValues(values)
-                .withParameters(ImmutableMap.of())
-                .withStorageDescriptor(getGlueTestStorageDescriptor());
+        return Partition.builder()
+                .databaseName(dbName)
+                .tableName(tblName)
+                .values(values)
+                .parameters(ImmutableMap.of())
+                .storageDescriptor(getGlueTestStorageDescriptor())
+                .build();
     }
 
     // --------------- Presto Objects ---------------

@@ -50,7 +50,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`join-dist
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
-* **Default value:** ``true``
+* **Default value:** ``false``
 
 This property enables redistribution of data before writing. This can
 eliminate the performance impact of data skew when writing by hashing it
@@ -58,28 +58,26 @@ across nodes in the cluster. It can be disabled when it is known that the
 output data set is not skewed in order to avoid the overhead of hashing and
 redistributing all the data across the network.
 
+When both ``scale_writers`` and ``redistribute_writes`` are set to ``true``,
+``scale_writers`` takes precedence.
+
 The corresponding configuration property is :ref:`admin/properties:\`\`redistribute-writes\`\``.
 
-``task_writer_count``
-^^^^^^^^^^^^^^^^^^^^^
+``scale_writers``
+^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
-* **Default value:** ``1``
+* **Type:** ``boolean``
+* **Default value:** ``true``
 
-Default number of local parallel table writer threads per worker. It is required
-to be a power of two for a Java query engine.
+This property enables dynamic scaling of writer tasks based on throughput. When enabled,
+Presto automatically adjusts the number of writer tasks to use the minimum necessary
+for optimal performance. This can improve resource utilization by scaling out writers
+only when needed based on data throughput.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`task.writer-count\`\``.
+When both ``scale_writers`` and ``redistribute_writes`` are set to ``true``,
+``scale_writers`` takes precedence.
 
-``task_partitioned_writer_count``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** ``integer``
-* **Default value:** ``task_writer_count``
-
-Number of local parallel table writer threads per worker for partitioned writes. If not
-set, the number set by ``task_writer_count`` will be used. It is required to be a power
-of two for a Java query engine.
+The corresponding configuration property is :ref:`admin/properties:\`\`scale-writers\`\``.
 
 ``single_node_execution_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -125,6 +123,17 @@ To avoid these problems:
 
 The corresponding configuration property is :ref:`admin/properties:\`\`check-access-control-on-utilized-columns-only\`\``.
 
+``always_analyze_create_table_query_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, ``CREATE TABLE AS SELECT IF NOT EXISTS`` statements that target an existing table will still
+analyze the inner ``SELECT`` query.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`always-analyze-create-table-query-enabled\`\``.
+
 ``max_serializable_object_size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -148,6 +157,90 @@ If it’s below the limit, the generated prefixes are used.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`max-prefixes-count\`\``.
 
+``try_function_catchable_errors``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``""`` (empty string)
+
+A comma-separated list of error code names that the ``TRY()`` function should catch
+and return ``NULL`` for, in addition to the default catchable errors (such as
+``DIVISION_BY_ZERO``, ``INVALID_CAST_ARGUMENT``, ``INVALID_FUNCTION_ARGUMENT``,
+and ``NUMERIC_VALUE_OUT_OF_RANGE``).
+
+This allows users to specify exactly which additional errors ``TRY()`` should suppress.
+Error codes are matched by their name (such as ``GENERIC_INTERNAL_ERROR``, ``INVALID_ARGUMENTS``).
+
+Example usage::
+
+    SET SESSION try_function_catchable_errors = 'GENERIC_INTERNAL_ERROR,INVALID_ARGUMENTS';
+    SELECT TRY(my_function(x)) FROM table;
+
+The corresponding configuration property is :ref:`admin/properties:\`\`try-function-catchable-errors\`\``.
+
+``field_names_in_json_cast_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+When enabled, JSON objects are cast to ROW types by matching fields by name instead of position, preventing incorrect results when JSON field order differs.
+
+For more information and examples, see :ref:`functions/json:cast to json`.
+
+Remote Function (RPC) Properties
+--------------------------------
+
+These properties control execution of remote (RPC) functions, which dispatch each
+invocation to an external service.
+
+``rpc_function_optimizer_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Enables the RPC function optimizer, which rewrites RPC function calls to use
+asynchronous ``RPCNode`` execution.
+
+``rpc_streaming_mode``
+^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``PER_ROW``, ``BATCH``, ``AUTOMATIC``
+* **Default value:** ``PER_ROW``
+
+Controls how RPC function calls are dispatched. ``PER_ROW`` dispatches each row
+individually. ``BATCH`` accumulates rows and dispatches them in batches (see
+``rpc_dispatch_batch_size``). ``AUTOMATIC`` is resolved to ``PER_ROW`` or ``BATCH``
+at query planning time from the estimated input row count (see
+``rpc_batch_min_rows``); if the planner has no row-count estimate, it falls back to
+``PER_ROW``. The default deployment resolves ``AUTOMATIC`` to ``PER_ROW``; a
+deployment may install a custom ``RpcExecutionPolicy`` to enable stats-driven
+resolution.
+
+``rpc_batch_min_rows``
+^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Restrictions:** must be greater than ``0``
+* **Default value:** ``2000``
+
+When ``rpc_streaming_mode`` is ``AUTOMATIC``, the estimated input row count at or
+above which ``BATCH`` is chosen; below it, ``PER_ROW`` is chosen. Has no effect
+unless a deployment installs a stats-driven RPC execution policy: the default
+policy ignores this value and always resolves ``AUTOMATIC`` to ``PER_ROW``.
+
+``rpc_dispatch_batch_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``128``
+
+Batch size for RPC function dispatch in ``BATCH`` streaming mode. ``0`` collects all
+rows and dispatches once at the end; values greater than ``0`` flush every N rows
+during input processing.
+
 Spilling Properties
 -------------------
 
@@ -160,9 +253,8 @@ Spilling Properties
 Try spilling memory to disk to avoid exceeding memory limits for the query.
 
 Spilling works by offloading memory to disk. This process can allow a query with a large memory
-footprint to pass at the cost of slower execution times. Currently, spilling is supported only for
-aggregations and joins (inner and outer), so this property will not reduce memory usage required for
-window functions, sorting and other join types.
+footprint to pass at the cost of slower execution times. See :ref:`spill-operations`
+for a list of operations that support spilling.
 
 Be aware that this is an experimental feature and should be used with care.
 
@@ -279,6 +371,16 @@ to become overloaded due to excessive resource utilization.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`task.writer-count\`\``.
 
+``task_partitioned_writer_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``task_writer_count``
+
+Number of local parallel table writer threads per worker for partitioned writes. If not
+set, the number set by ``task_writer_count`` will be used. It is required to be a power
+of two for a Java query engine.
+
 Optimizer Properties
 --------------------
 
@@ -291,6 +393,22 @@ Optimizer Properties
 Enables optimization for aggregations on dictionaries.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.dictionary-aggregation\`\``.
+
+``optimize_cascading_filters_and_projections``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Coalesce cascading projections by fully inlining deterministic child expressions into the parent
+projection (the opposite tradeoff from ``InlineProjections``), and merge an adjacent filter and
+projection by inlining the projection's expressions into the filter predicate. This co-locates
+shared subexpressions within a single operator so the native (Velox) engine's
+common-subexpression elimination can deduplicate them, which matches Velox's preferred
+filter-then-project shape. Non-deterministic expressions that are referenced more than once and
+inputs to ``TRY(...)`` are never inlined, preserving semantics.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-cascading-filters-and-projections\`\``.
 
 ``optimize_hash_generation``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -308,6 +426,70 @@ It is often helpful to disable this property when using :doc:`/sql/explain` in o
 to make the query plan easier to read.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-hash-generation\`\``.
+
+``optimize_join_fan_out``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Collapse a fan-out equi-join whose preserved side is itself an aggregation grouped by, or an
+inner join keyed on, a strict superset of the join keys. The preserved side's non-key columns
+are packed with ``array_agg(row(...))`` so the join becomes ``N``-to-``1`` (unique on the join
+key), and a local ``UNNEST`` above the join re-expands them, reproducing the original rows.
+This moves the row multiplication out of the distributed join (smaller build, less shuffle of
+duplicated rows) into a streaming local ``UNNEST``.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-join-fan-out\`\``.
+
+``pre_aggregate_before_grouping_sets``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, inserts a partial aggregation below the ``GroupId`` node in grouping sets
+queries to reduce the number of rows that ``GroupId`` multiplies across grouping sets.
+The partial aggregation groups by the union of all grouping set columns (the finest
+granularity needed), which can drastically reduce the input to ``GroupId``. This is
+most effective when the data has high cardinality on the grouping columns, as the
+pre-aggregation can significantly reduce the row count before multiplication.
+
+Only applies to decomposable aggregation functions such as ``SUM``, ``COUNT``, ``MIN``,
+or ``MAX`` that support partial/intermediate/final splitting.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.pre-aggregate-before-grouping-sets\`\``.
+
+``parallelize_chained_aggregation``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, optimizes chained aggregations where the outer grouping keys are a subset of
+the inner grouping keys by inserting a local round-robin exchange between the outer PARTIAL
+aggregation and the chain leading to the inner FINAL aggregation. This parallelizes the
+outer PARTIAL across the local node's drivers when the inner aggregation's parallelism is
+below what the node can support — common when the inner grouping keys have low cardinality
+and the outer aggregation is CPU-heavy (for example ``approx_percentile``).
+
+For example, in a query like::
+
+    SELECT approx_percentile(s, 0.5)
+    FROM (SELECT sum(x) AS s FROM t GROUP BY k1, k2)
+    GROUP BY k2
+
+The inner aggregation groups by ``(k1, k2)`` and the outer aggregation groups by ``(k2)``.
+Since ``{k2}`` is a subset of ``{k1, k2}``, a local round-robin exchange can be inserted
+above the inner aggregation so that the outer PARTIAL fans out across all local drivers
+instead of inheriting the inner aggregation's parallelism.
+
+Requirements:
+
+* Outer grouping keys must be a strict subset of inner grouping keys
+* Only ``ProjectNode`` and ``ExchangeNode`` may sit between the outer PARTIAL and the inner FINAL
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.parallelize-chained-aggregation\`\``.
 
 ``push_aggregation_through_join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -331,6 +513,47 @@ queries that have very selective joins.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-aggregation-through-join\`\``.
 
+``push_partial_aggregation_through_join``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When a partial aggregation is above an inner join and all aggregation inputs come from
+only one side of the join, the partial aggregation is pushed below the join to that side.
+This reduces the amount of data flowing into the join operator, which can improve
+performance by allowing the aggregation to pre-reduce data before the join is performed.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-partial-aggregation-through-join\`\``.
+
+``push_semi_join_through_union``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, pushes semi-joins through ``UNION`` sources so that each union
+branch performs the semi-join independently. This can improve performance for
+``IN`` and ``EXISTS`` queries where the semi-join probe side is a ``UNION``.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-semi-join-through-union\`\``.
+
+``push_projection_through_cross_join``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, pushes projection expressions through cross join nodes so that each
+expression is evaluated only on the side of the cross join that provides its input
+variables. This reduces the number of columns flowing through the cross join and
+avoids recomputing expressions on the multiplied output rows.
+
+Only deterministic expressions are pushed. Expressions that reference variables from
+both sides of the cross join, or constant expressions, remain above the join.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-projection-through-cross-join\`\``.
+
 ``push_table_write_through_union``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -344,6 +567,28 @@ additional synchronization when collecting results. Enabling this optimization c
 in an already heavily loaded system.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-table-write-through-union\`\``.
+
+``push_aggregation_through_disjoint_union``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, pushes a ``GROUP BY`` aggregation completely below a ``UNION ALL`` whenever at
+least one grouping key has a constant value within each branch and those constant values are
+distinct across branches. Because every group is then fully contained in a single branch, the
+top-level aggregation can be eliminated entirely; each branch computes its own ``SINGLE``-step
+aggregation and the results are simply re-unioned.
+
+For example, ``SELECT count(*), x FROM (SELECT 1 x UNION ALL SELECT 2 x) GROUP BY x`` is
+rewritten so that the ``count`` is computed independently inside each branch and the two
+already-aggregated rows are unioned, with no final aggregation on top.
+
+Only fires for single-grouping-set aggregations with deterministic arguments and at least two
+union branches. ``GROUPING SETS``, ``ROLLUP``, ``CUBE``, and global (no-``GROUP BY``)
+aggregations are not pushed.
+
+The corresponding configuration property is ``optimizer.push-aggregation-through-disjoint-union``.
 
 ``join_reordering_strategy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -413,6 +658,44 @@ The corresponding configuration property is :ref:`admin/properties:\`\`optimizer
 Enable push down inner join inequality predicates to database. For this configuration to be enabled, :ref:`admin/properties-session:\`\`optimizer_inner_join_pushdown_enabled\`\`` should be set to ``true``.
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.inequality-join-pushdown-enabled\`\``.
 
+``rewrite_bucketed_semi_join_to_join``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When both sides of a semi-join are backed by tables bucketed on the semi-join key,
+rewrite the ``SemiJoinNode`` to a colocated ``LEFT JOIN`` with a ``DISTINCT`` on the
+right side. This avoids data shuffle since both sides are already co-partitioned by
+the join key.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.rewrite-bucketed-semi-join-to-join\`\``.
+
+``simplify_aggregations_over_constant``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, replaces supported aggregation functions over constant arguments
+with constant expressions. This can improve performance for queries that apply
+aggregations such as ``MIN``, ``MAX``, ``ARBITRARY``, or ``APPROX_DISTINCT`` to
+constant inputs.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.simplify-aggregations-over-constant\`\``.
+
+``simplify_coalesce_over_join_keys``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, simplifies redundant ``COALESCE`` expressions over equi-join keys
+based on join type. This can produce simpler plans and enable additional join
+optimizations, including bucketed join optimizations.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.simplify-coalesce-over-join-keys\`\``.
+
 ``verbose_optimizer_info_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -447,6 +730,17 @@ Use this to optimize the ``map_filter()`` and ``map_subset()`` function.
 
 It controls if subfields access is executed at the data source or not.
 
+``pushdown_subfields_for_cardinality``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable subfield pruning for the ``cardinality()`` function to skip reading keys and values.
+
+When enabled, the query optimizer can push down subfield pruning for cardinality operations,
+allowing the data source to skip reading the actual keys and values when only the cardinality
+(count of elements) is needed.
+
 ``schedule_splits_based_on_task_load``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * **Type:** ``boolean``
@@ -459,6 +753,151 @@ The corresponding configuration property is :ref:`admin/properties:\`\`node-sche
 Set to ``true`` to use as shown in this example:
 
 ``SET SESSION schedule_splits_based_on_task_load=true;``
+
+``table_scan_shuffle_parallelism_threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``double``
+* **Default value:** ``0.1``
+
+Parallelism threshold for adding a shuffle above table scan. When the table's parallelism factor
+is below this threshold (0.0-1.0) and ``table_scan_shuffle_strategy`` is ``COST_BASED``,
+a round-robin shuffle exchange is added above the table scan to redistribute data.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.table-scan-shuffle-parallelism-threshold\`\``.
+
+``table_scan_shuffle_strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``DISABLED``, ``ALWAYS_ENABLED``, ``COST_BASED``
+* **Default value:** ``DISABLED``
+
+Strategy for adding shuffle above table scan to redistribute data. When set to ``DISABLED``,
+no shuffle is added. When set to ``ALWAYS_ENABLED``, a round-robin shuffle exchange is always
+added above table scans. When set to ``COST_BASED``, a shuffle is added only when the table's
+parallelism factor is below the ``table_scan_shuffle_parallelism_threshold``.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.table-scan-shuffle-strategy\`\``.
+
+``remote_function_names_for_fixed_parallelism``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``""`` (empty string, disabled)
+
+A regular expression pattern to match fully qualified remote function names, such as ``catalog.schema.function_name``,
+that should use fixed parallelism. When a remote function matches this pattern, the optimizer inserts
+round-robin shuffle exchanges before and after the projection containing the remote function call.
+This ensures that the remote function executes with a fixed degree of parallelism, which can be useful
+for controlling resource usage when calling external services.
+
+This property only applies to external/remote functions (functions where ``isExternalExecution()`` returns ``true``,
+such as functions using THRIFT, GRPC, or REST implementation types).
+
+Example patterns:
+
+* ``myschema.myfunction`` - matches an exact function name
+* ``catalog.schema.remote_.*`` - matches all functions starting with ``remote_`` in the specified catalog and schema
+* ``.*remote.*`` - matches any function containing ``remote`` in its fully qualified name
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.remote-function-names-for-fixed-parallelism\`\``.
+
+``remote_function_fixed_parallelism_task_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``null`` (uses the default hash partition count)
+
+The number of tasks to use for remote functions matching the ``remote_function_names_for_fixed_parallelism`` pattern.
+When set, this value determines the degree of parallelism for the round-robin shuffle exchanges inserted
+around matching remote function projections. If not set, the default hash partition count will be used.
+
+This property is only effective when ``remote_function_names_for_fixed_parallelism`` is set to a non-empty pattern.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.remote-function-fixed-parallelism-task-count\`\``.
+
+``skip_pushdown_through_exchange_for_remote_projection``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, skips pushing remote projections through exchange nodes. This can
+preserve exchanges around projections that call external functions, where fixed
+parallelism or exchange placement is needed to control execution.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.skip-pushdown-through-exchange-for-remote-projection\`\``.
+
+``local_exchange_parent_preference_strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``ALWAYS``, ``NEVER``, ``AUTOMATIC``
+* **Default value:** ``ALWAYS``
+
+Strategy to consider parent preferences when adding local exchange partitioning for aggregations.
+When set to ``ALWAYS``, the optimizer always uses parent preferences for local exchange partitioning.
+When set to ``NEVER``, it never uses parent preferences and instead uses the aggregation's own
+grouping keys. When set to ``AUTOMATIC``, the optimizer makes a cost-based decision, using parent
+preferences only when the estimated partition cardinality is greater than or equal to the task
+concurrency.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.local-exchange-parent-preference-strategy\`\``.
+
+``join_prefilter_build_side_with_complex_probe_side``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Extends the ``join_prefilter_build_side`` optimization to clone more complex probe-side
+patterns (``UNION ALL``, cross join, ``UNNEST``, aggregation) when building the prefilter,
+and to push the prefilter ``SemiJoin`` below right-side aggregations so the build side is
+filtered before grouping. Only takes effect when ``join_prefilter_build_side`` is also
+enabled. Disabled by default because cloning additional probe-side work adds planning
+and runtime overhead, which only pays off when the build side is large enough to dominate
+the join cost.
+
+The corresponding configuration property is ``optimizer.join-prefilter-build-side-with-complex-probe-side``.
+
+``push_filter_through_selecting_aggregation``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Pushes HAVING-style filters on the output of single-value-selecting aggregates (``MAX``,
+``MIN``) below the aggregation when the predicate direction matches the aggregate's
+selection semantics. For example, ``HAVING max(x) >= 1.0`` becomes ``WHERE x >= 1.0``.
+Only fires when the aggregation has a single aggregate (so filtering rows below the
+aggregation does not change the row set seen by other aggregates), the aggregate
+argument is a direct column reference (no expressions, ``DISTINCT``, ``FILTER``,
+``MASK``, or ``ORDER BY``), and the non-aggregate side of the comparison is evaluable
+below the aggregation (literals, grouping keys, raw source columns).
+
+Strict-direction predicates are pushed in REPLACE form: ``MAX`` with ``>`` / ``>=`` and
+``MIN`` with ``<`` / ``<=``.
+
+Equality on ``MAX`` / ``MIN`` is pushed in ADD-pre-filter + KEEP-HAVING form:
+``HAVING max(x) = c`` becomes ``WHERE x >= c`` below the aggregation while keeping
+``HAVING max(x) = c`` above; symmetric for ``MIN`` (``WHERE x <= c``). The relaxed
+pre-filter is implied by the original predicate, and the kept HAVING still rejects
+groups that would have failed it originally.
+
+``optimize_row_in_predicate``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Rewrites ``ROW(c1, c2, ...) IN (ROW(v1_1, v1_2, ...), ROW(v2_1, v2_2, ...), ...)`` to add per-column
+``IN`` predicates (``c1 IN (v1_1, v2_1, ...) AND c2 IN (v1_2, v2_2, ...) AND ...``) alongside the original
+disjunctive OR of AND clauses expansion. ``ROW NOT IN`` is rewritten symmetrically with per-column ``NOT IN``
+disjuncts plus the original ``ROW NOT IN`` as a safety net. The added simple predicates help the domain
+translator extract per-column constraints for optimization. Only fires when the filter sits on a table scan
+(optionally through projections), and runs once before table layout selection. This optimization is
+flag-controlled and adds a small overhead from the extra predicates.
 
 
 JDBC Properties
@@ -508,6 +947,36 @@ Setting a duration controls how long to cache data.
 * **Default value:** ``1``
 
 The value represents the max background fetch threads for refreshing metadata.
+
+``validateConnection``
+^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, the JDBC driver executes a validation query (``SELECT 1``) immediately 
+after establishing a connection to ensure it is working properly before returning it 
+to the application. This is useful for applications using connection pooling or 
+experiencing intermittent connectivity issues, as it allows early detection of failed 
+connections rather than discovering connection problems during the first query execution.
+
+To enable connection validation, add ``validateConnection=true`` to the JDBC connection URL::
+
+    jdbc:presto://localhost:8080?validateConnection=true
+
+Or set it by using connection properties::
+
+    Properties properties = new Properties();
+    properties.setProperty("user", "test");
+    properties.setProperty("validateConnection", "true");
+    Connection connection = DriverManager.getConnection(url, properties);
+
+.. note::
+
+    Enabling connection validation adds a small overhead during connection establishment 
+    due to the execution of the validation query. This is typically negligible but should 
+    be considered in high-frequency connection scenarios.
+
 
 Query Manager Properties
 ------------------------
@@ -578,6 +1047,20 @@ in the server configuration.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`experimental.legacy-materialized-views\`\``.
 
+``materialized_view_query_rewrite_cost_based_selection_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable cost-based selection when multiple materialized views are available for query
+rewriting. When enabled, the optimizer evaluates all compatible materialized view rewrites
+and selects the plan with the lowest estimated cost, instead of using the first compatible
+view.
+
+The corresponding configuration property is
+:ref:`admin/properties:\`\`materialized-view-query-rewrite-cost-based-selection-enabled\`\``.
+
 ``materialized_view_stale_read_behavior``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -588,6 +1071,18 @@ Controls behavior when a materialized view is stale and no per-view staleness co
 Valid values are ``FAIL`` (throw an error) or ``USE_VIEW_QUERY`` (query base tables instead).
 
 The corresponding configuration property is :ref:`admin/properties:\`\`materialized-view-stale-read-behavior\`\``.
+
+``materialized_view_default_refresh_type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``FULL``
+
+Controls the default refresh strategy for materialized views when not specified on the view itself.
+Valid values are ``FULL`` (recompute entire view) or ``INCREMENTAL`` (only refresh stale partitions).
+
+Incremental refresh requires a partition-aligned materialized view with identity-transformed
+partition columns. See :ref:`iceberg-incremental-refresh` for connector-specific requirements.
 
 .. warning::
 
@@ -601,3 +1096,141 @@ The corresponding configuration property is :ref:`admin/properties:\`\`materiali
 
 Enable optimization to combine multiple :func:`!approx_distinct` function calls on expressions
 of the same type into a single aggregation using ``set_agg`` with array operations (``array_constructor``, ``array_transpose``).
+
+``optimizer.merge_max_by_and_min_by_aggregations``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable optimization to merge multiple ``max_by`` or ``min_by`` aggregations that share the same
+comparison key into a single aggregation with a ``ROW`` argument. This reduces computational
+overhead by performing only one comparison operation per row instead of N comparisons, and
+improves memory efficiency by maintaining a single aggregation state instead of N separate states.
+
+For example, when enabled, the following query::
+
+    SELECT max_by(v1, k), max_by(v2, k), max_by(v3, k) FROM table
+
+is internally optimized to use a single ``max_by(ROW(v1, v2, v3), k)`` call with field extraction,
+reducing both CPU and memory usage.
+
+``pull_constant_projection_above_exchange``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Pull constant assignments in projections above remote exchanges so that constant values are not
+serialized and shuffled across the network. When enabled, constants produced by a ``ProjectNode``
+directly below a remote ``ExchangeNode`` are moved to a new ``ProjectNode`` above the exchange,
+narrowing the exchange output layout. Constants used in partitioning, hashing, or ordering are not
+pulled up, and for multi-source (``UNION``) exchanges only constants that are identical across all
+sources are pulled up. This is the session-level counterpart of the configuration property
+:ref:`admin/properties:\`\`optimizer.pull-constant-projection-above-exchange\`\``.
+
+``pull_row_local_chain_above_exchange_strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Allowed values:** ``DISABLED``, ``ALWAYS_ENABLED``, ``COST_BASED``
+* **Default value:** ``DISABLED``
+
+Strategy for pulling a chain of row-local operators (``UNNEST`` and deterministic projections) above a
+repartitioning remote ``ExchangeNode`` so the exchange shuffles the smaller pre-expansion input rather
+than the post-expansion (fanned-out and widened) rows. With ``ALWAYS_ENABLED`` the rewrite is applied
+whenever it is legal (every partitioning, hashing, or ordering variable is produced unchanged below the
+chain), independent of cost or statistics. ``COST_BASED`` currently behaves like ``ALWAYS_ENABLED``;
+cost-based selection is a separate layer to be added later. This is the session-level counterpart of the
+configuration property
+:ref:`admin/properties:\`\`optimizer.pull-row-local-chain-above-exchange-strategy\`\``.
+
+``grouped_execution``
+^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Use grouped execution when possible. Grouped execution schedules bucketed table operations
+in lifespans (one per bucket), reducing memory usage by processing a subset of data at a time.
+This is required for queries on bucketed tables that use join, aggregation, or window functions
+with compatible bucket layouts.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`grouped-execution-enabled\`\``.
+
+``partition_aware_grouped_execution``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``grouped_execution``, schedules each (bucket, partition-values) pair as
+a separate lifespan instead of processing all partitions per bucket in a single lifespan. This
+reduces per-lifespan hash table size for joins and aggregations on bucketed + partitioned tables.
+
+For example, with 8 buckets and 3 ``ds`` partitions, standard grouped execution creates 8 lifespans
+(one per bucket, each processing all 3 partitions). Partition-aware grouped execution creates 24
+lifespans (8 buckets x 3 partitions), each processing one bucket for one partition value.
+
+The feature activates when:
+
+* The table is both bucketed and partitioned
+* Partition columns appear as equi-join keys (for example, ``t1.ds = t2.ds``) or GROUP BY keys
+* At least 2 distinct partition values exist (single partition provides no benefit)
+
+When partition-aware execution is not applicable (for example: non-partitioned tables, no partition
+columns in join conditions), the query falls back to standard grouped execution automatically.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`partition-aware-grouped-execution-enabled\`\``.
+
+``grouped_execution_when_capable``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``grouped_execution``, runs grouped execution for any grouped-execution-capable
+(bucketed) fragment even when no downstream operator makes grouping individually beneficial. Normally
+grouped execution engages only when an operator such as a colocated join or a final aggregation on the
+bucket key makes it worthwhile; with this property a bucketed scan that merely feeds a shuffle (for
+example a join or aggregation on a non-bucket key), or a bucketed-to-bucketed table write, also runs one
+bucket per lifespan -- avoiding a re-partition of already-bucketed data and bounding per-lifespan memory
+to a single bucket.
+
+Grouping a capable fragment is always correct, but reading fewer buckets at a time can reduce scan
+parallelism, so it is most beneficial for memory- or aggregation-bound workloads and may regress
+scan-throughput-bound queries. It is disabled by default.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`grouped-execution-when-capable-enabled\`\``.
+
+Presto on Spark Properties
+--------------------------
+
+``max_splits_count_per_spark_partition``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``2147483647``
+
+Maximum number of splits assigned to one Spark input partition. The default is
+effectively unbounded, so partition contents are bounded by data size alone. Set this
+property when a source table produces very many small splits, which can otherwise pack
+enough splits into one partition for its serialized task update request to exceed the
+2 GB limit of the underlying JSON serializer.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`spark.max-splits-count-per-partition\`\``.
+
+Geometry Properties
+-------------------
+
+``legacy_st_equals``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable legacy behavior for the ``ST_Equals`` geospatial function.
+See ``ST_Equals`` in :ref:`functions/geospatial:Relationship Tests` for details on the behavior differences.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`legacy-st-equals\`\``.

@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.expressions.CanonicalRowExpressionRewriter.canonicalizeRowExpression;
-import static com.facebook.presto.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static com.facebook.presto.hive.MetadataUtils.createPredicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -61,7 +60,6 @@ public class HiveTableLayoutHandle
     private final Optional<Set<HiveColumnHandle>> requestedColumns;
     private final boolean partialAggregationsPushedDown;
     private final boolean appendRowNumberEnabled;
-    private final boolean appendRowId;
     private final boolean footerStatsUnreliable;
 
     // coordinator-only properties
@@ -154,15 +152,6 @@ public class HiveTableLayoutHandle
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
-        if (requestedColumns.isPresent() && requestedColumns.get().stream().anyMatch(column -> isRowIdColumnHandle(column))) {
-            this.appendRowId = true;
-        }
-        else if (predicateColumns.values().stream().anyMatch(column -> isRowIdColumnHandle(column))) {
-            this.appendRowId = true;
-        }
-        else {
-            this.appendRowId = false;
-        }
         this.appendRowNumberEnabled = appendRowNumberEnabled;
         this.footerStatsUnreliable = footerStatsUnreliable;
         this.hiveTableHandle = requireNonNull(hiveTableHandle, "hiveTableHandle is null");
@@ -365,12 +354,6 @@ public class HiveTableLayoutHandle
                 .setFooterStatsUnreliable(isFooterStatsUnreliable())
                 .setHiveTableHandle(getHiveTableHandle());
     }
-
-    boolean isAppendRowId()
-    {
-        return this.appendRowId;
-    }
-
     public static class Builder
     {
         private SchemaTableName schemaTableName;

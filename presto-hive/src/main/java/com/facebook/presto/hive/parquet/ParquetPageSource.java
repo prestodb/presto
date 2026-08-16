@@ -27,18 +27,17 @@ import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetPageSource
@@ -51,10 +50,10 @@ public class ParquetPageSource
     private final List<Optional<Field>> fields;
 
     /**
-     * Indicates whether the column at each index should be populated with the
-     * indices of its rows
+     * Specifies the index of the row position column. If presents,
+     * the column at the specified index should be populated with the indices of its rows
      */
-    private final List<Boolean> rowIndexLocations;
+    private final OptionalInt rowPositionColumnIndex;
 
     private int batchId;
     private long completedPositions;
@@ -69,33 +68,33 @@ public class ParquetPageSource
             List<String> columnNames,
             RuntimeStats runtimeStats)
     {
-        this(parquetReader, types, fields, nCopies(types.size(), false), columnNames, runtimeStats);
+        this(parquetReader, types, fields, OptionalInt.empty(), columnNames, runtimeStats);
     }
 
     public ParquetPageSource(
             ParquetReader parquetReader,
             List<Type> types,
             List<Optional<Field>> fields,
-            List<Boolean> rowIndexLocations,
+            OptionalInt rowPositionColumnIndex,
             List<String> columnNames,
             RuntimeStats runtimeStats)
     {
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
-        this.rowIndexLocations = requireNonNull(rowIndexLocations, "rowIndexLocations is null");
+        this.rowPositionColumnIndex = requireNonNull(rowPositionColumnIndex, "rowPositionColumnIndex is null");
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
 
-        checkArgument(
-                types.size() == rowIndexLocations.size() && types.size() == fields.size(),
-                "types, rowIndexLocations, and fields must correspond one-to-one-to-one");
-        Streams.forEachPair(
-                rowIndexLocations.stream(),
-                fields.stream(),
-                (isIndexColumn, field) -> checkArgument(
-                        !(isIndexColumn && field.isPresent()),
-                        "Field info for row index column must be empty Optional"));
+        checkArgument(types.size() == fields.size(),
+                "types and fields must correspond one-to-one");
+
+        checkArgument(rowPositionColumnIndex.isEmpty() ||
+                (rowPositionColumnIndex.getAsInt() >= 0 && rowPositionColumnIndex.getAsInt() < types.size()),
+                "Invalid row position column index: %s (valid range: [0, %s))",
+                rowPositionColumnIndex.orElse(-1), types.size());
+        checkArgument(rowPositionColumnIndex.isEmpty() || fields.get(rowPositionColumnIndex.getAsInt()).isEmpty(),
+                "Field info for row position column must be empty Optional");
     }
 
     @Override
@@ -242,7 +241,7 @@ public class ParquetPageSource
 
     private boolean isIndexColumn(int column)
     {
-        return rowIndexLocations.get(column);
+        return rowPositionColumnIndex.isPresent() && rowPositionColumnIndex.getAsInt() == column;
     }
 
     private static Block getRowIndexColumn(long baseIndex, int size)

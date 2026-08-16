@@ -7,7 +7,8 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "map(boolean,bigint)",
       "paramTypes": [
         "bigint",
@@ -20,8 +21,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "aggregateMetadata": {
@@ -30,7 +31,8 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "map(tinyint,bigint)",
       "paramTypes": [
         "bigint",
@@ -43,8 +45,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "aggregateMetadata": {
@@ -53,7 +55,8 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "map(smallint,bigint)",
       "paramTypes": [
         "bigint",
@@ -66,8 +69,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "aggregateMetadata": {
@@ -76,7 +79,8 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "map(integer,bigint)",
       "paramTypes": [
         "bigint",
@@ -89,8 +93,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "aggregateMetadata": {
@@ -99,7 +103,8 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "map(bigint,bigint)",
       "paramTypes": [
         "bigint",
@@ -112,8 +117,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "aggregateMetadata": {
@@ -122,7 +127,8 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "map(varchar,bigint)",
       "paramTypes": [
         "bigint",
@@ -135,8 +141,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "aggregateMetadata": {
@@ -145,7 +151,8 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "map(json,bigint)",
       "paramTypes": [
         "bigint",

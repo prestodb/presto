@@ -13,21 +13,32 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpRequestFilter;
+import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.scalar.sql.NativeSqlInvokedFunctionsPlugin;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
+import com.facebook.presto.server.InternalAuthenticationManager;
+import com.facebook.presto.sidecar.expressions.NativeExpressionOptimizer;
+import com.facebook.presto.sidecar.expressions.NativeExpressionOptimizerFactory;
+import com.facebook.presto.sidecar.expressions.NativeSidecarExpressionInterpreter;
 import com.facebook.presto.sidecar.functionNamespace.FunctionDefinitionProvider;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionDefinitionProvider;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManager;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
+import com.facebook.presto.sidecar.nativechecker.NativePlanChecker;
+import com.facebook.presto.sidecar.nativechecker.NativePlanCheckerProvider;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProvider;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.plan.PlanCheckerProvider;
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -42,6 +53,8 @@ import com.google.common.collect.Ordering;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -49,6 +62,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.presto.SystemSessionProperties.EXPRESSION_OPTIMIZER_NAME;
+import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
@@ -75,7 +90,7 @@ public class TestNativeSidecarPlugin
     private static final String REGEX_FUNCTION_NAMESPACE = "native.default.*";
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
     private static final long SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB = 128;
-    private static final int INLINED_SQL_FUNCTIONS_COUNT = 7;
+    private static final int INLINED_SQL_FUNCTIONS_COUNT = 5;
 
     @Override
     protected void createTables()
@@ -126,7 +141,14 @@ public class TestNativeSidecarPlugin
                         "function-implementation-type", "CPP",
                         "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
         queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
-        queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
+        queryRunner.loadPlanCheckerProviderManager("native",
+                ImmutableMap.of(
+                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
+        queryRunner.loadExpressionOptimizer(
+                NativeExpressionOptimizerFactory.NAME,
+                "native",
+                ImmutableMap.of(
+                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
     }
 
@@ -135,15 +157,33 @@ public class TestNativeSidecarPlugin
     {
         WorkerSessionPropertyProvider sessionPropertyProvider = getQueryRunner().getMetadata().getSessionPropertyManager().getWorkerSessionPropertyProviders().get(NativeSystemSessionPropertyProviderFactory.NAME);
         checkArgument(sessionPropertyProvider instanceof NativeSystemSessionPropertyProvider, "Expected  NativeSystemSessionPropertyProvider but got  %s", sessionPropertyProvider);
-        long sessionProviderHttpClientConfigContentSize = ((NativeSystemSessionPropertyProvider) sessionPropertyProvider).getHttpClient().getMaxContentLength();
-        assertEquals(sessionProviderHttpClientConfigContentSize, new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
+        HttpClient httpClient = ((NativeSystemSessionPropertyProvider) sessionPropertyProvider).getHttpClient();
+        assertEquals(httpClient.getMaxContentLength(), new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
+        testInternalAuthenticationFilter(httpClient);
 
         FunctionNamespaceManager<? extends SqlFunction> functionNamespaceManager = getQueryRunner().getMetadata().getFunctionAndTypeManager().getFunctionNamespaceManagers().get(NativeFunctionNamespaceManagerFactory.NAME);
         checkArgument(functionNamespaceManager instanceof NativeFunctionNamespaceManager, "Expected  NativeFunctionNamespaceManager but got  %s", functionNamespaceManager);
         FunctionDefinitionProvider functionDefinitionProvider = ((NativeFunctionNamespaceManager) functionNamespaceManager).getFunctionDefinitionProvider();
         checkArgument(functionDefinitionProvider instanceof NativeFunctionDefinitionProvider, "Expected  NativeFunctionDefinitionProvider but got %s", functionDefinitionProvider);
-        long functionProviderHttpClientConfigContentSize = ((NativeFunctionDefinitionProvider) functionDefinitionProvider).getHttpClient().getMaxContentLength();
-        assertEquals(functionProviderHttpClientConfigContentSize, new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
+        httpClient = ((NativeFunctionDefinitionProvider) functionDefinitionProvider).getHttpClient();
+        assertEquals(httpClient.getMaxContentLength(), new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
+        testInternalAuthenticationFilter(httpClient);
+
+        ExpressionOptimizer expressionOptimizer = getQueryRunner().getExpressionManager().getExpressionOptimizer(NativeExpressionOptimizerFactory.NAME);
+        checkArgument(expressionOptimizer instanceof NativeExpressionOptimizer, "Expected  NativeExpressionOptimizer but got  %s", expressionOptimizer);
+        NativeSidecarExpressionInterpreter interpreter = ((NativeExpressionOptimizer) expressionOptimizer).getRowExpressionInterpreterService();
+        httpClient = interpreter.getHttpClient();
+        assertEquals(httpClient.getMaxContentLength(), new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
+        testInternalAuthenticationFilter(httpClient);
+
+        List<PlanCheckerProvider> planCheckerProviders = getQueryRunner().getPlanCheckerProviderManager().getPlanCheckerProviders();
+        assertEquals(planCheckerProviders.size(), 1);
+        PlanCheckerProvider provider = planCheckerProviders.get(0);
+        checkArgument(provider instanceof NativePlanCheckerProvider, "Expected  NativePlanCheckerProvider but got  %s", provider);
+        NativePlanChecker planChecker = (NativePlanChecker) provider.getFragmentPlanCheckers().get(0);
+        httpClient = planChecker.getHttpClient();
+        assertEquals(httpClient.getMaxContentLength(), new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
+        testInternalAuthenticationFilter(httpClient);
     }
 
     @Test
@@ -278,7 +318,7 @@ public class TestNativeSidecarPlugin
         // These function signatures are only supported in the native execution engine
         assertQuerySucceeds("select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])");
         assertQuerySucceeds("SELECT array_sort(quantities, x -> abs(x)) FROM orders_ex");
-        assertQuerySucceeds("SELECT array_sort(quantities, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) FROM orders_ex");
+        assertQuery("SELECT array_sort(quantities, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) FROM orders_ex");
 
         assertQuery("SELECT array_sort(map_keys(map_union(quantity_by_linenumber))) FROM orders_ex");
         assertQuery("SELECT filter(quantities, q -> q > 10) FROM orders_ex");
@@ -563,6 +603,12 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT any_values_match(MAP(ARRAY[orderkey], ARRAY[totalprice]), k -> abs(k) > 20) from orders");
         assertQuery("SELECT no_values_match(MAP(ARRAY[orderkey], ARRAY[comment]), k -> length(k) > 2) from orders");
         assertQuery("SELECT no_keys_match(MAP(ARRAY[comment], ARRAY[custkey]), k -> ends_with(k, 'a')) from orders");
+
+        // Key_sampling function
+        assertQuery("select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey");
+
+        // Array functions
+        assertQuery("SELECT array_split_into_chunks(split(comment, ''), 2) from nation");
     }
 
     @Test
@@ -572,11 +618,11 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT array_split_into_chunks(split(comment, ''), 2) from nation");
         assertQuery("SELECT array_least_frequent(quantities) from orders_ex");
         assertQuery("SELECT array_least_frequent(split(comment, ''), 5) from nation");
-        assertQuerySucceeds("SELECT array_top_n(ARRAY[orderkey], 25, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from orders");
+        assertQuery("SELECT array_top_n(ARRAY[orderkey], 25, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from orders");
 
         // Map functions
-        assertQuerySucceeds("SELECT map_top_n_values(MAP(ARRAY[comment], ARRAY[nationkey]), 2, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation");
-        assertQuerySucceeds("SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation");
+        assertQuery("SELECT map_top_n_values(MAP(ARRAY[comment], ARRAY[nationkey]), 2, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation");
+        assertQuery("SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation");
 
         Session sessionWithKeyBasedSampling = Session.builder(getSession())
                 .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
@@ -599,32 +645,21 @@ public class TestNativeSidecarPlugin
 
         // Array functions
         assertQueryFails(session,
-                "SELECT array_split_into_chunks(split(comment, ''), 2) from nation",
-                ".*Scalar function name not registered: native.default.array_split_into_chunks.*");
-        assertQueryFails(session,
                 "SELECT array_least_frequent(quantities) from orders_ex",
                 ".*Scalar function name not registered: native.default.array_least_frequent.*");
         assertQueryFails(session,
                 "SELECT array_least_frequent(split(comment, ''), 2) from nation",
                 ".*Scalar function name not registered: native.default.array_least_frequent.*");
-        assertQueryFails(session,
-                "SELECT array_top_n(ARRAY[orderkey], 25, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from orders",
-                " Scalar function native\\.default\\.array_top_n not registered with arguments.*",
-                true);
 
         // Map functions
         assertQueryFails(session,
-                "SELECT map_top_n_values(MAP(ARRAY[comment], ARRAY[nationkey]), 2, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation",
+                "SELECT map_top_n_values(MAP(ARRAY[comment], ARRAY[nationkey]), 2, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation",
                 ".*Scalar function native\\.default\\.map_top_n_values not registered with arguments.*",
                 true);
         assertQueryFails(session,
-                "SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation",
+                "SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation",
                 ".*Scalar function native\\.default\\.map_top_n_keys not registered with arguments.*",
                 true);
-
-        assertQueryFails(session,
-                "select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey",
-                ".*Scalar function name not registered: native.default.key_sampling_percent.*");
     }
 
     @Test
@@ -646,6 +681,226 @@ public class TestNativeSidecarPlugin
         }
     }
 
+    // TODO: Remove this test once all remaining failures
+    //  are addressed using the native expression optimizer, and it is enabled everywhere.
+
+    @Test
+    public void testNativeExpressionOptimizer()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "true")
+                .build();
+
+        // When using the native expression optimizer, the resolved optimized expression may contain a FunctionHandle. It is important that the correct type of function handle is constructed.
+        // Previously, the optimizer returned a BuiltInFunctionHandle, which caused errors such as "function not registered/found" because the function name was prefixed with `native.default`
+        // and resolution was attempted using the BuiltInFunctionNamespaceManager.
+        // With VeloxToPrestoExpr now returning a NativeFunctionHandle for native (C++) functions, we ensure that the NativeFunctionNamespaceManager is used to resolve native (C++) functions correctly.
+
+        // By adding these test cases, we verify that the reconstructed FunctionHandle is now a NativeFunctionHandle and is resolved correctly.
+        assertQuerySucceeds(session, "SELECT array_sort(ARRAY[-3, 2, -100, 5], x -> IF(x = 5, NULL, abs(x)))");
+        assertQuerySucceeds(session, "SELECT array_sort_desc(ARRAY[-25, 20000, -17, 3672], x -> IF(x = 5, NULL, abs(x)))");
+
+        // aggregates
+        assertUpdate(session, "ANALYZE region", 5);
+        assertQuerySucceeds(session, "select count(*) from orders");
+        assertQuerySucceeds(session, "select count(regionkey) from region");
+        assertQuerySucceeds(session, "select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey");
+        // no-op
+        assertQuerySucceeds(session, "SELECT IF(1 = 1, count(*), count(*)) FROM orders");
+        assertQuerySucceeds(session, "SELECT CASE WHEN true THEN count(*) ELSE count(*) END FROM ORDERS");
+
+        // windows
+        assertQuerySucceeds(session, "SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey, orderstatus) rn, * from orders) WHERE rn = 1");
+        assertQuerySucceeds(session, "WITH t AS (SELECT linenumber, row_number() over (partition by linenumber order by linenumber) as rn FROM lineitem) SELECT * FROM t WHERE rn = 1");
+        assertQuerySucceeds(session, "SELECT row_number() OVER (PARTITION BY orderdate ORDER BY orderdate) FROM orders");
+
+        // IN expressions
+        assertQuerySucceeds(session, "SELECT table_name FROM information_schema.columns WHERE table_name IN ('nation', 'region')");
+        assertQuerySucceeds(session, "SELECT name FROM nation WHERE nationkey NOT IN (1, 2, 3, 4, 5, 10, 11, 12, 13)");
+        assertQuerySucceeds(session, "SELECT orderkey FROM lineitem WHERE shipmode IN ('TRUCK', 'FOB', 'RAIL')");
+        assertQuerySucceeds(session, "SELECT table_name, COALESCE(abs(ordinal_position), 0) as abs_pos FROM information_schema.columns WHERE table_catalog = 'hive' AND table_name IN ('nation', 'region') ORDER BY table_name, ordinal_position");
+        assertQuerySucceeds(session, "SELECT table_name, ordinal_position FROM information_schema.columns  WHERE abs(ordinal_position) IN (1, 2, 3) AND table_catalog = 'hive' AND table_name != 'roles' ORDER BY table_name, ordinal_position");
+        assertQuerySucceeds(session, "select lower(table_name) from information_schema.tables where table_name = 'lineitem' or table_name = 'LINEITEM'");
+
+        // Test dereference expression.
+        assertQuerySucceeds(session,
+                "select cast(row(row(row(random(10), if(random(10) >= 0, 2)), random(10)), random(100)) AS row(x row(y row(a int, b int), c int), d int))[1][1][2]");
+        assertQuerySucceeds(session,
+                "select cast(row(row(row(random(10), if(random(10) < 0, 2)), random(10)), random(100)) AS row(x row(y row(a int, b int), c int), d int))[1][2]");
+        assertQuerySucceeds(session,
+                "select cast(row(row(null, random(10)), random(100)) AS row(x row(y row(a int, b int), c int), d int))[1][1][1]");
+        assertQuerySucceeds(session,
+                "select cast(row(row(null, if(random(100) >= 0, 4)), random(10)) AS row(x row(y row(a int, b int), c int), d int))[2]");
+
+        // Test dereference expression with SQL invoked function, array_least_frequent.
+        assertQuerySucceeds(session, "SELECT array_least_frequent(array_agg(orderkey)) from orders");
+        assertQuerySucceeds(session, "SELECT array_least_frequent(array_agg(nationkey)) from nation");
+
+        // Test session properties propagating through the optimizer
+        assertEquals(
+                computeActual(session, "SELECT JSON_FORMAT(CAST(ROW(1 + 2, CONCAT('a', 'b')) AS JSON))"),
+                computeActual("select '{\"\":3,\"\":\"ab\"}'"));
+        assertEquals(
+                computeActual(session, "SELECT JSON_FORMAT(CAST(CAST(ROW(1 + 2, CONCAT('a', 'b')) AS ROW(id BIGINT, name VARCHAR)) AS JSON))"),
+                computeActual("select '{\"id\":3,\"name\":\"ab\"}'"));
+
+        // equal lambda expressions in args
+        assertEquals(
+                computeActual(session, "SELECT REDUCE_AGG((x,y), (0,0), (x, y)->(x[1],y[1]), (x,y)->(x[1],y[1]))[1] FROM (SELECT 1 x, 2 y)"),
+                computeActual(session, "SELECT 0"));
+        assertEquals(
+                computeActual(session, "select reduce_agg(x, array[], (x, y)->array[element_at(x, 2)],  (x, y)->array[element_at(x, 2)]) from (select array[array[1]]) T(x)"),
+                computeActual(session, "select array[null]"));
+        assertQueryFails(session, "select reduce_agg(x, null, (x,y)->try(x+y), (x,y)->try(x+y)) from (select 1 union all select 10) T(x)", "(?s).*Initial value in reduce_agg cannot be null.*");
+        // here some reduce_aggs coalesce overflow/zero-divide errors to null in the input/combine functions
+        assertQueryFails(session, "select reduce_agg(x, 0, (x,y)->try(1/x+1/y), (x,y)->try(1/x+1/y)) from ((select 0) union all select 10.) T(x)", "!states->isNullAt\\(i\\) Lambda expressions in reduce_agg should not return null for non-null inputs", true);
+        assertQueryFails(session, "select reduce_agg(x, 0, (x, y)->try(x+y), (x, y)->try(x+y)) from (values 2817, 9223372036854775807) AS T(x)", "!states->isNullAt\\(i\\) Lambda expressions in reduce_agg should not return null for non-null inputs", true);
+
+        assertQuery(
+                session,
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn = 1 OR rn IN (3, 4) OR rn BETWEEN 6 AND 7",
+                getSession(),
+                "VALUES " +
+                        "(1, 1, 'O'), " +
+                        "(3, 3, 'F'), " +
+                        "(4, 4, 'O'), " +
+                        "(6, 6, 'F'), " +
+                        "(7, 7, 'O')");
+
+        assertQueryWithSameQueryRunner(session, "SELECT CAST(NULL AS ROW(s1 VARCHAR, s2 VARCHAR))", "SELECT NULL");
+        assertQueryWithSameQueryRunner(session,
+                "SELECT IF (0 = 0, NULL, ROW(regionkey, 1)) FROM region",
+                "VALUES (NULL), (NULL), (NULL), (NULL), (NULL)");
+
+        // Verify try(failing_function()) returns NULL with try and try_cast.
+        assertQueryWithSameQueryRunner(session, "SELECT TRY(CAST(abs(-1234567890) AS TINYINT))", "SELECT NULL");
+        assertQueryWithSameQueryRunner(session, "SELECT TRY_CAST(abs(-1234567890) AS TINYINT)", "SELECT NULL");
+        assertQueryWithSameQueryRunner(session, "SELECT COALESCE(TRY(CAST(abs(-1234567890) AS TINYINT)), 0)", "SELECT 0");
+        assertQueryWithSameQueryRunner(session, "SELECT COALESCE(TRY_CAST(abs(-1234567890) AS TINYINT), 0)", "SELECT 0");
+        assertQueryWithSameQueryRunner(session, "SELECT TRY(fail(VARCHAR 'error message'))", "SELECT NULL");
+        assertQueryWithSameQueryRunner(session, "SELECT COALESCE(TRY(fail(VARCHAR 'error message')), 1)", "SELECT 1");
+        assertQueryWithSameQueryRunner(session, "SELECT TRY(CAST(TRY(fail(VARCHAR 'error message')) AS BIGINT))", "SELECT NULL");
+        assertQueryWithSameQueryRunner(session, "SELECT COALESCE(TRY(CAST(TRY(fail(VARCHAR 'error message')) AS INTEGER)), 2)", "SELECT 2");
+        /// TODO: Enable test once Varchar(N) is supported in Velox.
+        // assertQueryWithSameQueryRunner(session, "SELECT coalesce(try_cast(clerk AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
+
+        // Test TRY with CAST expression.
+        assertQuerySucceeds(session, "SELECT TRY(CAST(orderkey AS TINYINT)) FROM orders");
+        assertQuerySucceeds(session, "SELECT TRY(CAST(comment AS BIGINT)) FROM orders");
+        assertQuerySucceeds(session, "SELECT TRY(CAST(orderkey AS DOUBLE)) FROM orders");
+        assertQuerySucceeds(session, "SELECT TRY_CAST(orderkey AS TINYINT) FROM orders");
+        assertQuerySucceeds(session, "SELECT TRY_CAST(comment AS BIGINT) FROM orders");
+        assertQuerySucceeds(session, "SELECT TRY_CAST(orderkey AS DOUBLE) FROM orders");
+
+        // Ensure args passed down to the native expression optimizer are of the same type.
+        Session preparedStatementSession = Session.builder(session)
+                .addPreparedStatement("my_query", "SELECT c1[10] FROM (SELECT ? as c1)")
+                .build();
+        assertQueryWithSameQueryRunner(preparedStatementSession,
+                "EXECUTE my_query USING MAP(ARRAY[BIGINT '10', 200], ARRAY [100, 300])", "VALUES (100)");
+
+        // This test ensures we correctly pick the bigint implementation version of the grouping
+        // function which supports up to 62 columns. Semantically it is exactly the same as
+        // TestGroupingOperationFunction#testMoreThanThirtyTwoArguments. That test is a little easier to
+        // understand and verify.
+        String fortyLetterSequence = "aa, ab, ac, ad, ae, af, ag, ah, ai, aj, ak, al, am, an, ao, ap, aq, ar, asa, at, au, av, aw, ax, ay, az, " +
+                "ba, bb, bc, bd, be, bf, bg, bh, bi, bj, bk, bl, bm, bn";
+        String fortyIntegers = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, " +
+                "31, 32, 33, 34, 35, 36, 37, 38, 39, 40";
+        // 20, 2, 13, 33, 40, 9 , 14 (corresponding indices from Left to right in the above fortyLetterSequence)
+        String groupingSet1 = "at, ab, am, bg, bn, ai, an";
+        // 28, 4, 5, 29, 31, 10 (corresponding indices from left to right in the above fortyLetterSequence)
+        String groupingSet2 = "bb, ad, ae, bc, be, aj";
+        String query = String.format(
+                "SELECT grouping(%s) FROM (VALUES (%s)) AS t(%s) GROUP BY GROUPING SETS ((%s), (%s), (%s))",
+                fortyLetterSequence,
+                fortyIntegers,
+                fortyLetterSequence,
+                fortyLetterSequence,
+                groupingSet1,
+                groupingSet2);
+        assertQueryWithSameQueryRunner(session, query, "VALUES (0), (822283861886), (995358664191)");
+
+        Instant current = getNowInstant(session);
+        Instant future = getNowInstant(session);
+        assertTrue(future.isAfter(current));
+
+        // Test BIND expression is preserved when lambda captures outer variable.
+        assertQueryWithSameQueryRunner(session,
+                "SELECT IF(TRY(CAST(a AS INT)) IN (1, 5), TRY(CAST(b AS DOUBLE)), 0.0) " +
+                        "FROM (VALUES " +
+                        "(varchar'1', varchar'2.1'), " +
+                        "(varchar'5', varchar'3.4'), " +
+                        "(varchar'2', varchar'9.8')) t(a, b)",
+                "VALUES CAST(2.1 AS DOUBLE), CAST(3.4 AS DOUBLE), CAST(0.0 AS DOUBLE)");
+        assertQueryWithSameQueryRunner(session,
+                "SELECT TRANSFORM(col1, x -> IF(x, col2[2], 0)) " +
+                        "FROM (VALUES " +
+                        "(ARRAY[false], ARRAY[0, 7]), " +
+                        "(ARRAY[true], ARRAY[0, 7]), " +
+                        "(ARRAY[false], ARRAY[0, 9])) t(col1, col2)",
+                "VALUES ARRAY[0], ARRAY[7], ARRAY[0]");
+        assertQueryWithSameQueryRunner(session,
+                "SELECT FILTER(MAP_VALUES(map1), x -> x >= ELEMENT_AT(MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), " +
+                        "COALESCE(ELEMENT_AT(other_map, name), 'low'))) AS v1, " +
+                        "FILTER(MAP_VALUES(map1), x -> x >= ELEMENT_AT(MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), " +
+                        "COALESCE(ELEMENT_AT(other_map, name), 'low'))) AS v2 " +
+                        "FROM (SELECT MAP(ARRAY['low'], ARRAY[100000]) map1, '' name) CROSS JOIN (SELECT MAP() AS other_map) risk_map",
+                "VALUES (ARRAY[100000], ARRAY[100000])");
+        assertQueryWithSameQueryRunner(session,
+                "SELECT COALESCE(TRY(TRANSFORM_VALUES(id, (k, v) -> k / v)), MAP()) " +
+                        "FROM (VALUES " +
+                        "(MAP(ARRAY[1, 2], ARRAY[0, 0])), " +
+                        "(MAP(ARRAY[1, 2], ARRAY[1, 2])), " +
+                        "(MAP(ARRAY[28, 56], ARRAY[2, 4])), " +
+                        "(MAP(ARRAY[5, 7], ARRAY[2, 3])), " +
+                        "(MAP(ARRAY[4, 5], ARRAY[0, 0])), " +
+                        "(MAP(ARRAY[12, 72], ARRAY[3, 6]))) AS t (id)",
+                "VALUES " +
+                        "MAP(), " +
+                        "MAP(ARRAY[1, 2], ARRAY[1, 1]), " +
+                        "MAP(ARRAY[28, 56], ARRAY[14, 14]), " +
+                        "MAP(ARRAY[5, 7], ARRAY[2, 2]), " +
+                        "MAP(), " +
+                        "MAP(ARRAY[12, 72], ARRAY[4, 12])");
+
+        // Verify UNKNOWN type expressions produce a structured error instead of crashing the sidecar.
+        assertQueryFails(session, "SELECT array_except(ARRAY[], ARRAY[])", ".*Errors encountered while optimizing expressions\\..*", true);
+    }
+
+    @Test
+    public void testMergeKHyperLogLog()
+    {
+        assertQuery(
+                "select cardinality(merge(khll)), uniqueness_distribution(merge(khll)) " +
+                        "from (" +
+                        "   select k1, k2, khyperloglog_agg(v1, v2) khll " +
+                        "   from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), " +
+                        "                (2, 1, 11, 30), (2, 1, 11, 11), (2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2) " +
+                        "   group by k1, k2" +
+                        ")");
+
+        // Test merge(KHyperLogLog) when there are no rows.
+        assertQuery(
+                "select cardinality(merge(khll)), uniqueness_distribution(merge(khll)) " +
+                        "from (" +
+                        "   select khyperloglog_agg(v1, v2) khll " +
+                        "   from (values (1, 1, 2, 3)) t(k1, k2, v1, v2) " +
+                        "   where 1 = 0" +
+                        ")");
+
+        // Verify merge(KHyperLogLog) handles null states correctly.
+        assertQuery(
+                "select cardinality(merge(khll)), uniqueness_distribution(merge(khll)) " +
+                        "from (" +
+                        "   select CAST(null AS KHYPERLOGLOG) khll" +
+                        ")");
+    }
+
     private String generateRandomTableName()
     {
         String tableName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
@@ -665,5 +920,31 @@ public class TestNativeSidecarPlugin
         return inputRows.stream()
                 .filter(row -> Pattern.matches(REGEX_SESSION_NAMESPACE, row.getFields().get(4).toString()))
                 .collect(Collectors.toList());
+    }
+
+    private static void testInternalAuthenticationFilter(HttpClient httpClient)
+    {
+        // check if filter present
+        List<HttpRequestFilter> filters = ((JettyHttpClient) httpClient).getRequestFilters();
+
+        InternalAuthenticationManager authenticationManager = filters.stream()
+                .filter(InternalAuthenticationManager.class::isInstance)
+                .map(InternalAuthenticationManager.class::cast)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("InternalAuthenticationManager filter not found"));
+
+        // Verify that the test shared secret is propagated all the way through
+        assertTrue(authenticationManager.getSharedSecret().isPresent());
+        assertEquals(authenticationManager.getSharedSecret().get(), "internal-shared-secret");
+    }
+
+    private Instant getNowInstant(Session session)
+    {
+        List<MaterializedRow> rows = computeActual(session, "select now()").getMaterializedRows();
+        assertEquals(rows.size(), 1);
+
+        Object value = rows.get(0).getField(0);
+        checkArgument(value instanceof ZonedDateTime, "Expected ZonedDateTime but got %s", value);
+        return ((ZonedDateTime) value).toInstant();
     }
 }

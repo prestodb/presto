@@ -25,8 +25,6 @@ import com.facebook.presto.common.predicate.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.FloatRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.LongDecimalRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.MultiRange;
-import com.facebook.presto.common.predicate.TupleDomainFilter.OldDoubleRange;
-import com.facebook.presto.common.predicate.TupleDomainFilter.OldFloatRange;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
@@ -138,16 +136,7 @@ public class TupleDomainFilterUtils
             }
         }
 
-        // if we are dealing with OldDoubleRange or OldFloatRange, we are using the old nan definition
-        // and need special handling for NaNs
-        if (firstRangeFilter instanceof OldDoubleRange || firstRangeFilter instanceof OldFloatRange) {
-            // != and NOT IN filters should return true when applied to NaN
-            // E.g. NaN != 1.0 as well as NaN NOT IN (1.0, 2.5, 3.6) should return true; otherwise false.
-            boolean nanAllowed = isNotIn(ranges);
-            return MultiRange.of(rangeFilters, nullAllowed, nanAllowed);
-        }
-
-        return MultiRange.of(rangeFilters, nullAllowed, false);
+        return MultiRange.of(rangeFilters, nullAllowed);
     }
 
     /**
@@ -224,10 +213,10 @@ public class TupleDomainFilterUtils
             return BooleanValue.of(((Boolean) range.getSingleValue()).booleanValue(), nullAllowed);
         }
         if (type.equals(DOUBLE)) {
-            return doubleRangeToFilter(range, nullAllowed, type == DOUBLE);
+            return doubleRangeToFilter(range, nullAllowed);
         }
         if (type.equals(REAL)) {
-            return floatRangeToFilter(range, nullAllowed, type == REAL);
+            return floatRangeToFilter(range, nullAllowed);
         }
         if (type instanceof DecimalType) {
             if (((DecimalType) type).isShort()) {
@@ -260,29 +249,12 @@ public class TupleDomainFilterUtils
         return BigintRange.of(lowerLong, upperLong, nullAllowed);
     }
 
-    private static TupleDomainFilter doubleRangeToFilter(Range range, boolean nullAllowed, boolean useNewNanDefinition)
+    private static TupleDomainFilter doubleRangeToFilter(Range range, boolean nullAllowed)
     {
         Marker low = range.getLow();
         Marker high = range.getHigh();
-        // todo: for unbounded should we make upper double NaN, or does it not matter because we don't use the value anyway
         double lowerDouble = low.isLowerUnbounded() ? Double.MIN_VALUE : (double) low.getValue();
         double upperDouble = high.isUpperUnbounded() ? Double.MAX_VALUE : (double) high.getValue();
-        if (!useNewNanDefinition) {
-            if (!low.isLowerUnbounded() && Double.isNaN(lowerDouble)) {
-                return ALWAYS_FALSE;
-            }
-            if (!high.isUpperUnbounded() && Double.isNaN(upperDouble)) {
-                return ALWAYS_FALSE;
-            }
-            return OldDoubleRange.of(
-                    lowerDouble,
-                    low.isLowerUnbounded(),
-                    low.getBound() == Marker.Bound.ABOVE,
-                    upperDouble,
-                    high.isUpperUnbounded(),
-                    high.getBound() == Marker.Bound.BELOW,
-                    nullAllowed);
-        }
         return DoubleRange.of(
                 lowerDouble,
                 low.isLowerUnbounded(),
@@ -293,28 +265,12 @@ public class TupleDomainFilterUtils
                 nullAllowed);
     }
 
-    private static TupleDomainFilter floatRangeToFilter(Range range, boolean nullAllowed, boolean useNewNanDefinition)
+    private static TupleDomainFilter floatRangeToFilter(Range range, boolean nullAllowed)
     {
         Marker low = range.getLow();
         Marker high = range.getHigh();
         float lowerFloat = low.isLowerUnbounded() ? Float.MIN_VALUE : intBitsToFloat(toIntExact((long) low.getValue()));
         float upperFloat = high.isUpperUnbounded() ? Float.MAX_VALUE : intBitsToFloat(toIntExact((long) high.getValue()));
-        if (!useNewNanDefinition) {
-            if (!low.isLowerUnbounded() && Float.isNaN(lowerFloat)) {
-                return ALWAYS_FALSE;
-            }
-            if (!high.isUpperUnbounded() && Float.isNaN(upperFloat)) {
-                return ALWAYS_FALSE;
-            }
-            return OldFloatRange.of(
-                    lowerFloat,
-                    low.isLowerUnbounded(),
-                    low.getBound() == Marker.Bound.ABOVE,
-                    upperFloat,
-                    high.isUpperUnbounded(),
-                    high.getBound() == Marker.Bound.BELOW,
-                    nullAllowed);
-        }
         return FloatRange.of(
                 lowerFloat,
                 low.isLowerUnbounded(),

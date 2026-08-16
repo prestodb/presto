@@ -34,6 +34,7 @@ import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.ClientRequestFilterModule;
 import com.facebook.presto.builtin.tools.WorkerFunctionRegistryTool;
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -70,12 +71,15 @@ import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderMana
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManagerModule;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.util.Modules;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.LinkedHashMap;
@@ -117,8 +121,25 @@ public class PrestoServer
     @Override
     public void run()
     {
+        // Allow JSON property names longer than Jackson 2.18's default 50,000-char limit.
+        // Without this, JsonCodec<PlanFragment> fails on workers when Assignments map keys
+        // (VariableReferenceExpression names) exceed maxNameLength for complex projection chains
+        // over deeply nested struct schemas. Must be set before any JsonFactory is constructed
+        // (including the static one inside JsonCodec).
+        StreamReadConstraints.overrideDefaultStreamReadConstraints(
+                StreamReadConstraints.builder()
+                        .maxNameLength(Integer.MAX_VALUE)
+                        .build());
+
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
+
+        // Netty 4.2 enables SSL endpoint verification by default. The Drift Netty transport
+        // does not pass hostnames to the SSL engine, causing SSLHandshakeException. Disable
+        // the default endpoint verification until Drift is updated to support it.
+        if (System.getProperty("io.netty.handler.ssl.defaultEndpointVerificationAlgorithm") == null) {
+            System.setProperty("io.netty.handler.ssl.defaultEndpointVerificationAlgorithm", "NONE");
+        }
 
         Logger log = Logger.get(PrestoServer.class);
 
@@ -128,7 +149,8 @@ public class PrestoServer
                 new DiscoveryModule(),
                 new HttpServerModule(),
                 new ClientRequestFilterModule(),
-                new JsonModule(),
+                Modules.override(new JsonModule()).with(
+                        binder -> binder.bind(ObjectMapper.class).toProvider(PrestoObjectMapperProvider.class)),
                 installModuleIf(
                         FeaturesConfig.class,
                         FeaturesConfig::isJsonSerdeCodeGenerationEnabled,
@@ -160,7 +182,25 @@ public class PrestoServer
         try {
             Injector injector = app.initialize();
 
-            injector.getInstance(PluginManager.class).loadPlugins();
+            PluginManager pluginManager = injector.getInstance(PluginManager.class);
+
+            // Load only CoordinatorPlugin service providers first
+            pluginManager.loadCoordinatorPluginsOnly();
+
+            // todo: fix this hack
+            //  Load type managers before loading any other plugin service providers as we could have a new serving type manager.
+            //  Currently, when sidecar plugin is installed, the serving type manager is NativeTypeManager and we need to ensure
+            //  any types loaded from plugins are added to the serving type manager.
+            injector.getInstance(StaticTypeManagerStore.class).loadTypeManagers();
+
+            // Load remaining service providers (Plugin and RouterPlugin)
+            pluginManager.loadRemainingPlugins();
+
+            // get all required auth configs to pass down to http clients
+            AuthClientConfigs authClientConfigs =
+                    createAuthClientConfigs(
+                            injector.getInstance(InternalCommunicationConfig.class),
+                            injector.getInstance(NodeInfo.class));
 
             ServerConfig serverConfig = injector.getInstance(ServerConfig.class);
 
@@ -180,8 +220,7 @@ public class PrestoServer
                     injector.getInstance(Announcer.class),
                     injector.getInstance(DriftServer.class));
 
-            injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
-            injector.getInstance(StaticTypeManagerStore.class).loadTypeManagers();
+            injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(authClientConfigs);
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             if (injector.getInstance(FeaturesConfig.class).isBuiltInSidecarFunctionsEnabled()) {
@@ -202,15 +241,15 @@ public class PrestoServer
             injector.getInstance(TracerProviderManager.class).loadTracerProvider();
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
-            injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders();
+            injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders(authClientConfigs);
             PlanCheckerProviderManager planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
             InternalNodeManager nodeManager = injector.getInstance(DiscoveryNodeManager.class);
             NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);
             PluginNodeManager pluginNodeManager = new PluginNodeManager(nodeManager, nodeInfo.getEnvironment());
-            planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager);
+            planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager, authClientConfigs);
 
             injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
-            injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories();
+            injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories(authClientConfigs);
 
             injector.getInstance(FunctionAndTypeManager.class)
                     .getBuiltInPluginFunctionNamespaceManager().triggerConflictCheckWithBuiltInFunctions();
@@ -224,12 +263,28 @@ public class PrestoServer
 
             injector.getInstance(Announcer.class).start();
 
+            injector.getInstance(ServerStartupState.class).setStartupComplete();
+
             log.info("======== SERVER STARTED ========");
         }
         catch (Throwable e) {
             log.error(e);
             System.exit(1);
         }
+    }
+
+    public static AuthClientConfigs createAuthClientConfigs(InternalCommunicationConfig config, NodeInfo nodeInfo)
+    {
+        return new AuthClientConfigs(
+                nodeInfo.getNodeId(),
+                config.getKeyStorePath(),
+                config.getKeyStorePassword(),
+                config.getTrustStorePath(),
+                config.getTrustStorePassword(),
+                config.getExcludeCipherSuites(),
+                config.getIncludedCipherSuites(),
+                config.isInternalJwtEnabled(),
+                config.getSharedSecret());
     }
 
     protected Iterable<? extends Module> getAdditionalModules()

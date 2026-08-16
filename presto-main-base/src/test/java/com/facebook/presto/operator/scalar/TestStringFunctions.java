@@ -761,6 +761,21 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testTrimUnboundedVarchar()
+    {
+        // Unbounded VARCHAR has length 2147483647; CHAR is capped at 65536. If a trim overload
+        // declares a char(x) argument, signature binding rebases the actual type onto char and
+        // instantiates char(2147483647), which throws instead of simply failing to bind.
+        assertFunction("TRIM(CAST('abc ' AS VARCHAR))", VARCHAR, "abc");
+        assertFunction("LTRIM(CAST(' abc' AS VARCHAR))", VARCHAR, "abc");
+        assertFunction("RTRIM(CAST('abc ' AS VARCHAR))", VARCHAR, "abc");
+
+        assertFunction("TRIM(CAST(' abc ' AS VARCHAR), ' ')", VARCHAR, "abc");
+        assertFunction("LTRIM(CAST(' abc' AS VARCHAR), ' ')", VARCHAR, "abc");
+        assertFunction("RTRIM(CAST('abc ' AS VARCHAR), ' ')", VARCHAR, "abc");
+    }
+
+    @Test
     public void testLeftTrimParametrized()
     {
         assertFunction("LTRIM('', '')", createVarcharType(0), "");

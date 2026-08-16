@@ -42,11 +42,11 @@ import java.util.Set;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
-import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static com.facebook.presto.spi.function.table.GenericTableReturnTypeSpecification.GENERIC_TABLE;
 import static com.facebook.presto.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static com.facebook.presto.spi.function.table.TableFunctionProcessorState.Processed.usedInputAndProduced;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
@@ -155,7 +155,7 @@ public class ExcludeColumns
                     if (input == null) {
                         return FINISHED;
                     }
-                    return usedInputAndProduced(getOnlyElement(input).orElseThrow(() -> new PrestoException(INVALID_ARGUMENTS, "Missing data processor input")));
+                    return usedInputAndProduced(input.stream().collect(onlyElement()).orElseThrow(() -> new PrestoException(INVALID_ARGUMENTS, "Missing data processor input")));
                 };
             }
         };

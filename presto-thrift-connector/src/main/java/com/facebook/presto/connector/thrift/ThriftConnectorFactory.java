@@ -16,7 +16,7 @@ package com.facebook.presto.connector.thrift;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.connector.thrift.util.RebindSafeMBeanServer;
+import com.facebook.presto.common.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.connector.Connector;
@@ -25,6 +25,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import io.netty.buffer.PooledByteBufAllocator;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -65,7 +66,7 @@ public class ThriftConnectorFactory
         try {
             Bootstrap app = new Bootstrap(
                     new MBeanModule(),
-                    new DriftNettyClientModule(),
+                    new DriftNettyClientModule(PooledByteBufAllocator.DEFAULT),
                     binder -> {
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());

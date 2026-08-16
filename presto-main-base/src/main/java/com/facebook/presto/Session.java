@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollect
 import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -58,13 +59,14 @@ import java.util.TimeZone;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_JSON_CAST;
+import static com.facebook.presto.SystemSessionProperties.getTryFunctionCatchableErrors;
 import static com.facebook.presto.SystemSessionProperties.isCanonicalizedJsonExtract;
 import static com.facebook.presto.SystemSessionProperties.isFieldNameInJsonCastEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
+import static com.facebook.presto.SystemSessionProperties.isLegacySTEquals;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
-import static com.facebook.presto.SystemSessionProperties.warnOnCommonNanPatterns;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -536,8 +538,9 @@ public final class Session
                 .setFieldNamesInJsonCastEnabled(isFieldNameInJsonCastEnabled(this))
                 .setLegacyJsonCast(legacyJsonCast)
                 .setExtraCredentials(identity.getExtraCredentials())
-                .setWarnOnCommonNanPatterns(warnOnCommonNanPatterns(this))
                 .setCanonicalizedJsonExtract(isCanonicalizedJsonExtract(this))
+                .setTryCatchableErrorCodes(parseTryCatchableErrorCodes(getTryFunctionCatchableErrors(this)))
+                .setLegacyStEquals(isLegacySTEquals(this))
                 .build();
     }
 
@@ -570,7 +573,7 @@ public final class Session
                 transactionId,
                 clientTransactionSupport,
                 identity.getUser(),
-                identity.getPrincipal().map(Principal::toString),
+                identity.getPrincipal().map(Principal::getName),
                 source,
                 catalog,
                 schema,
@@ -588,7 +591,9 @@ public final class Session
                 unprocessedCatalogProperties,
                 identity.getRoles(),
                 preparedStatements,
-                sessionFunctions);
+                sessionFunctions,
+                identity.getSelectedUser(),
+                identity.getReasonForSelect());
     }
 
     @Override
@@ -623,6 +628,19 @@ public final class Session
     public static SessionBuilder builder(Session session)
     {
         return new SessionBuilder(session);
+    }
+
+    private static Set<String> parseTryCatchableErrorCodes(String errorCodesString)
+    {
+        if (errorCodesString == null || errorCodesString.isEmpty()) {
+            return ImmutableSet.of();
+        }
+        return Splitter.on(",")
+                .trimResults()
+                .omitEmptyStrings()
+                .splitToList(errorCodesString)
+                .stream()
+                .collect(ImmutableSet.toImmutableSet());
     }
 
     public static class SessionBuilder

@@ -187,6 +187,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot drop a column from table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyAlterColumn(String tableName)
+    {
+        denyAlterColumn(tableName, null);
+    }
+
+    public static void denyAlterColumn(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot alter a column for table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyRenameColumn(String tableName)
     {
         denyRenameColumn(tableName, null);
@@ -405,6 +415,26 @@ public class AccessDeniedException
     public static void denySetRole(String role)
     {
         throw new AccessDeniedException(format("Cannot set role %s", role));
+    }
+
+    public static void denyCreateBranch(String tableName)
+    {
+        denyCreateBranch(tableName, null);
+    }
+
+    public static void denyCreateBranch(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create branch on table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyCreateTag(String tableName)
+    {
+        denyCreateTag(tableName, null);
+    }
+
+    public static void denyCreateTag(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create tag on table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyDropBranch(String tableName)

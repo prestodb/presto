@@ -28,6 +28,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IndexJoinNode;
@@ -55,12 +56,12 @@ import com.facebook.presto.sql.planner.assertions.RowNumberSymbolMatcher;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestProcedureRegistry;
 import com.facebook.presto.testing.TestingHandleResolver;
@@ -70,6 +71,7 @@ import com.facebook.presto.tests.QueryTemplate;
 import com.facebook.presto.util.MorePredicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -90,6 +92,7 @@ import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTP
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.LEAF_NODE_LIMIT_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.LOCAL_EXCHANGE_PARENT_PREFERENCE_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.MAX_LEAF_NODES_IN_PLAN;
 import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
@@ -98,12 +101,15 @@ import static com.facebook.presto.SystemSessionProperties.PREFER_SORT_MERGE_JOIN
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
+import static com.facebook.presto.SystemSessionProperties.SINGLE_NODE_EXECUTION_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
@@ -140,6 +146,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.mergeJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.nullExpression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.rowNumber;
@@ -209,7 +216,7 @@ public class TestLogicalPlanner
                         Set<BaseProcedure<?>> procedures = new HashSet<>();
                         procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_fun",
                                 arguments,
-                                (session, transactionContext, procedureHandle, fragments) -> null,
+                                (session, transactionContext, procedureHandle, fragments, sortOrderIndex) -> null,
                                 (session, transactionContext, procedureHandle, fragments) -> {},
                                 ignored -> new TestProcedureRegistry.TestProcedureContext()));
 
@@ -1804,6 +1811,18 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testVarbinaryExpression()
+    {
+        assertPlan("select X'abc4', cast ('hello' as varbinary), cast(null as varbinary)",
+                anyTree(strictProject(
+                        ImmutableMap.of(
+                                "col_1", expression("X'ab c4'"),
+                                "col_2", expression("X'68 65 6c 6c 6f'"),
+                                "col_3", expression(new NullLiteral())),
+                        values())));
+    }
+
+    @Test
     public void testRewriteExcludeColumnsFunctionToProjection()
     {
         assertPlan("SELECT *\n" +
@@ -1811,6 +1830,50 @@ public class TestLogicalPlanner
                         "    INPUT => TABLE(orders),\n" +
                         "    COLUMNS => DESCRIPTOR(comment)))\n",
                 output(tableScan("orders")));
+    }
+
+    @Test
+    public void testNullExpression()
+    {
+        assertPlan("select null, IF(true, NULL, 1), null, cast(null as bigint), cast (null as Integer)",
+                anyTree(strictProject(
+                        ImmutableMap.of(
+                                "col_1", nullExpression(UNKNOWN),
+                                "col_2", nullExpression(INTEGER),
+                                "col_3", nullExpression(BIGINT)),
+                        values())));
+
+        assertPlan("select null, cast (null as Integer), null, cast(null as bigint), cast (null as Integer)",
+                anyTree(strictProject(
+                        ImmutableMap.of(
+                                "col_1", nullExpression(UNKNOWN),
+                                "col_2", nullExpression(INTEGER),
+                                "col_3", nullExpression(BIGINT)),
+                        values())));
+    }
+
+    @Test
+    public void testInfinityAndNaNExpression()
+    {
+        assertPlan("select nan(), infinity(), cast (nan() as real), cast(infinity() as real)",
+                anyTree(strictProject(
+                        ImmutableMap.of(
+                                "col_1", expression("double 'NaN'"),
+                                "col_2", expression("double 'Infinity'"),
+                                "col_3", expression("real 'NaN'"),
+                                "col_4", expression("real 'Infinity'")),
+                        values())));
+    }
+
+    @Test
+    public void testBigintAndIntegerExpression()
+    {
+        assertPlan("select cast(123 as integer), cast(123 as bigint)",
+                anyTree(strictProject(
+                        ImmutableMap.of(
+                                "col_4", expression("bigint '123'"),
+                                "col_3", expression("integer '123'")),
+                        values())));
     }
 
     private Session noJoinReordering()
@@ -2136,5 +2199,87 @@ public class TestLogicalPlanner
     {
         String query = "SELECT min((SELECT totalprice FROM orders WHERE orderstatus = \"Outer.Table\".\"orderstatus\")) as min FROM orders AS \"Outer.Table\"";
         assertPlanSucceeded(query, this.getQueryRunner().getDefaultSession());
+    }
+
+    @Test
+    public void testLocalExchangeWithParentPreference()
+    {
+        // Query with two nested aggregations on the orders table:
+        // First aggregation: GROUP BY orderstatus, orderpriority (cardinality = 3 * 5 = 15)
+        // Second aggregation: GROUP BY orderstatus (cardinality = 3)
+        String query = "SELECT sum(cnt) FROM (SELECT orderstatus, orderpriority, count(*) cnt FROM orders GROUP BY orderstatus, orderpriority) GROUP BY orderstatus";
+
+        // Test ALWAYS strategy: always use parent preferences regardless of concurrency.
+        // First aggregation partitions by orderstatus (parent preference), second aggregation becomes SINGLE.
+        assertLocalExchangeWithParentPreference(query, "ALWAYS", "4", true);
+        assertLocalExchangeWithParentPreference(query, "ALWAYS", "2", true);
+
+        // Test NEVER strategy: never use parent preferences regardless of concurrency.
+        // Both aggregations partition by their own grouping keys.
+        assertLocalExchangeWithParentPreference(query, "NEVER", "4", false);
+        assertLocalExchangeWithParentPreference(query, "NEVER", "2", false);
+
+        // Test AUTOMATIC strategy: cost-based decision.
+        // When task concurrency (4) > parent cardinality (3), don't use parent preferences.
+        assertLocalExchangeWithParentPreference(query, "AUTOMATIC", "4", false);
+        // When task concurrency (2) <= parent cardinality (3), use parent preferences.
+        assertLocalExchangeWithParentPreference(query, "AUTOMATIC", "2", true);
+    }
+
+    private void assertLocalExchangeWithParentPreference(String query, String strategy, String taskConcurrency, boolean expectParentPreference)
+    {
+        Session session = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(SINGLE_NODE_EXECUTION_ENABLED, "true")
+                .setSystemProperty(TASK_CONCURRENCY, taskConcurrency)
+                .setSystemProperty(LOCAL_EXCHANGE_PARENT_PREFERENCE_STRATEGY, strategy)
+                .build();
+
+        if (expectParentPreference) {
+            // When using parent preferences, first aggregation partitions by orderstatus (parent preference),
+            // and there is no local exchange at the second aggregation which becomes a SINGLE aggregation
+            assertDistributedPlan(
+                    query,
+                    session,
+                    anyTree(
+                            project(
+                                    aggregation(
+                                            ImmutableMap.of("outer_sum", functionCall("sum", ImmutableList.of("final_count"))),
+                                            SINGLE,
+                                            project(
+                                                    aggregation(
+                                                            ImmutableMap.of("final_count", functionCall("count", ImmutableList.of("partial_count"))),
+                                                            FINAL,
+                                                            exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("orderstatus"),
+                                                                    project(
+                                                                            aggregation(
+                                                                                    ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of())),
+                                                                                    PARTIAL,
+                                                                                    anyTree(
+                                                                                            tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderpriority", "orderpriority"))))))))))));
+        }
+        else {
+            // When not using parent preferences, local exchanges partition by each aggregation's own grouping keys
+            assertDistributedPlan(
+                    query,
+                    session,
+                    anyTree(
+                            aggregation(
+                                    ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                    FINAL,
+                                    exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("orderstatus"),
+                                            aggregation(
+                                                    ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("final_count"))),
+                                                    PARTIAL,
+                                                    project(
+                                                            aggregation(
+                                                                    ImmutableMap.of("final_count", functionCall("count", ImmutableList.of("partial_count"))),
+                                                                    FINAL,
+                                                                    exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("orderstatus", "orderpriority"),
+                                                                            aggregation(
+                                                                                    ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of())),
+                                                                                    PARTIAL,
+                                                                                    anyTree(
+                                                                                            tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderpriority", "orderpriority"))))))))))));
+        }
     }
 }

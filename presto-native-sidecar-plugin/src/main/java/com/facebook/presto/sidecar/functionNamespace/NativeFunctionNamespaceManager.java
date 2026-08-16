@@ -63,7 +63,6 @@ import static com.facebook.presto.builtin.tools.WorkerFunctionUtil.createSqlInvo
 import static com.facebook.presto.common.type.TypeSignatureUtils.resolveIntermediateType;
 import static com.facebook.presto.spi.StandardErrorCode.DUPLICATE_FUNCTION_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -136,25 +135,14 @@ public class NativeFunctionNamespaceManager
     public final AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle, TypeManager typeManager)
     {
         checkCatalog(functionHandle);
-        checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
-
-        SqlFunctionHandle sqlFunctionHandle = (SqlFunctionHandle) functionHandle;
-        if (aggregationImplementationByHandle.containsKey(sqlFunctionHandle)) {
-            return aggregationImplementationByHandle.get(sqlFunctionHandle);
-        }
-        if (functionHandle instanceof NativeFunctionHandle) {
-            return processNativeFunctionHandle((NativeFunctionHandle) sqlFunctionHandle, typeManager);
-        }
-        else {
-            return processSqlFunctionHandle(sqlFunctionHandle, typeManager);
-        }
+        checkArgument(functionHandle instanceof NativeFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
+        return processNativeFunctionHandle((NativeFunctionHandle) functionHandle, typeManager);
     }
 
     private AggregationFunctionImplementation processNativeFunctionHandle(NativeFunctionHandle nativeFunctionHandle, TypeManager typeManager)
     {
         Signature signature = nativeFunctionHandle.getSignature();
-        SqlFunction function = getSqlFunctionFromSignature(signature);
-        SqlInvokedFunction sqlFunction = (SqlInvokedFunction) function;
+        SqlInvokedFunction sqlFunction = getSqlInvokedFunctionFromSignature(signature);
 
         checkArgument(
                 sqlFunction.getAggregationMetadata().isPresent(),
@@ -176,19 +164,6 @@ public class NativeFunctionNamespaceManager
         return aggregationImplementationByHandle.get(nativeFunctionHandle);
     }
 
-    private AggregationFunctionImplementation processSqlFunctionHandle(SqlFunctionHandle sqlFunctionHandle, TypeManager typeManager)
-    {
-        SqlFunctionId functionId = sqlFunctionHandle.getFunctionId();
-        if (!memoizedFunctionsSupplier.get().containsKey(functionId)) {
-            throw new PrestoException(GENERIC_USER_ERROR, format("Function '%s' is missing from cache", functionId.getId()));
-        }
-
-        aggregationImplementationByHandle.put(
-                sqlFunctionHandle,
-                sqlInvokedFunctionToAggregationImplementation(memoizedFunctionsSupplier.get().get(functionId), typeManager));
-        return aggregationImplementationByHandle.get(sqlFunctionHandle);
-    }
-
     @Override
     protected Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedObjectName functionName)
     {
@@ -206,13 +181,8 @@ public class NativeFunctionNamespaceManager
     @Override
     protected FunctionMetadata fetchFunctionMetadataDirect(SqlFunctionHandle functionHandle)
     {
-        if (functionHandle instanceof NativeFunctionHandle) {
-            return getMetadataFromNativeFunctionHandle(functionHandle);
-        }
-
-        return fetchFunctionsDirect(functionHandle.getFunctionId().getFunctionName()).stream()
-                .filter(function -> function.getRequiredFunctionHandle().equals(functionHandle))
-                .map(this::sqlInvokedFunctionToMetadata).collect(onlyElement());
+        checkArgument(functionHandle instanceof NativeFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
+        return getMetadataFromNativeFunctionHandle(functionHandle);
     }
 
     @Override
@@ -262,13 +232,7 @@ public class NativeFunctionNamespaceManager
     @Override
     public final FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
     {
-        FunctionHandle functionHandle = super.getFunctionHandle(transactionHandle, signature);
-
-        // only handle generic variadic signatures here , for normal signature we use the AbstractSqlInvokedFunctionNamespaceManager function handle.
-        if (functionHandle == null) {
-            return new NativeFunctionHandle(signature);
-        }
-        return functionHandle;
+        return new NativeFunctionHandle(signature);
     }
 
     @VisibleForTesting
@@ -288,10 +252,11 @@ public class NativeFunctionNamespaceManager
         functions.put(functionId, function.withVersion("1"));
     }
 
-    private SqlFunction getSqlFunctionFromSignature(Signature signature)
+    private SqlInvokedFunction getSqlInvokedFunctionFromSignature(Signature signature)
     {
         try {
-            return specializedFunctionKeyCache.getUnchecked(signature).getFunction();
+            SqlFunction sqlFunction = specializedFunctionKeyCache.getUnchecked(signature).getFunction();
+            return (SqlInvokedFunction) sqlFunction;
         }
         catch (UncheckedExecutionException e) {
             throw convertToPrestoException(e, format("Error getting FunctionMetadata for signature: %s", signature));
@@ -302,9 +267,7 @@ public class NativeFunctionNamespaceManager
     {
         NativeFunctionHandle nativeFunctionHandle = (NativeFunctionHandle) functionHandle;
         Signature signature = nativeFunctionHandle.getSignature();
-        SqlFunction function = getSqlFunctionFromSignature(signature);
-
-        SqlInvokedFunction sqlFunction = (SqlInvokedFunction) function;
+        SqlInvokedFunction sqlFunction = getSqlInvokedFunctionFromSignature(signature);
         return new FunctionMetadata(
                 signature.getName(),
                 signature.getArgumentTypes(),
@@ -312,13 +275,13 @@ public class NativeFunctionNamespaceManager
                         .map(Parameter::getName)
                         .collect(toImmutableList()),
                 signature.getReturnType(),
-                function.getSignature().getKind(),
+                sqlFunction.getSignature().getKind(),
                 sqlFunction.getRoutineCharacteristics().getLanguage(),
                 getFunctionImplementationType(sqlFunction),
-                function.isDeterministic(),
-                function.isCalledOnNullInput(),
+                sqlFunction.isDeterministic(),
+                sqlFunction.isCalledOnNullInput(),
                 sqlFunction.getVersion(),
-                function.getComplexTypeFunctionDescriptor());
+                sqlFunction.getComplexTypeFunctionDescriptor());
     }
 
     private static PrestoException convertToPrestoException(UncheckedExecutionException exception, String failureMessage)

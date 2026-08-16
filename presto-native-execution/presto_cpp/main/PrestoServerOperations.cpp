@@ -174,7 +174,7 @@ std::string PrestoServerOperations::veloxQueryConfigOperation(
           ServerOperation::targetString(op.target),
           ServerOperation::actionString(op.action));
       return fmt::format(
-          "Have set system property value '{}' to '{}'. Old value was '{}'.\n",
+          "Have set velox query config property '{}' to '{}'. Old value was '{}'.\n",
           name,
           value,
           SystemConfig::instance()

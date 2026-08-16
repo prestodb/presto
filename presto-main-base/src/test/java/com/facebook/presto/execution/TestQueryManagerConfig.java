@@ -85,7 +85,9 @@ public class TestQueryManagerConfig
                 .setRateLimiterCacheLimit(1000)
                 .setRateLimiterCacheWindowMinutes(5)
                 .setEnableWorkerIsolation(false)
-                .setMinColumnarEncodingChannelsToPreferRowWiseEncoding(1000));
+                .setMinColumnarEncodingChannelsToPreferRowWiseEncoding(1000)
+                .setMaxQueryAdmissionsPerSecond(Integer.MAX_VALUE)
+                .setMinRunningQueriesForPacing(30));
     }
 
     @Test
@@ -100,7 +102,7 @@ public class TestQueryManagerConfig
                 .put("query.stage-count-warning-threshold", "12300")
                 .put("max-total-running-task-count-to-kill-query", "60000")
                 .put("max-query-running-task-count", "10000")
-                .put("experimental.max-total-running-task-count-to-not-execute-new-query", "50000")
+                .put("max-total-running-task-count-to-not-execute-new-query", "50000")
                 .put("concurrency-threshold-to-enable-resource-group-refresh", "2")
                 .put("resource-group-runtimeinfo-refresh-interval", "10ms")
                 .put("query.schedule-split-batch-size", "99")
@@ -141,6 +143,8 @@ public class TestQueryManagerConfig
                 .put("query.cte-partitioning-provider-catalog", "hive")
                 .put("query-manager.enable-worker-isolation", "true")
                 .put("min-columnar-encoding-channels-to-prefer-row-wise-encoding", "123")
+                .put("query-manager.query-pacing.max-queries-per-second", "10")
+                .put("query-manager.query-pacing.min-running-queries", "5")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -193,7 +197,9 @@ public class TestQueryManagerConfig
                 .setRateLimiterCacheWindowMinutes(60)
                 .setCtePartitioningProviderCatalog("hive")
                 .setEnableWorkerIsolation(true)
-                .setMinColumnarEncodingChannelsToPreferRowWiseEncoding(123);
+                .setMinColumnarEncodingChannelsToPreferRowWiseEncoding(123)
+                .setMaxQueryAdmissionsPerSecond(10)
+                .setMinRunningQueriesForPacing(5);
         ConfigAssertions.assertFullMapping(properties, expected);
     }
 }

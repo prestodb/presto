@@ -20,7 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.type.IpPrefixType.IPPREFIX;
+import static com.facebook.presto.common.type.IpPrefixType.IPPREFIX;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.System.arraycopy;
 import static org.testng.Assert.assertEquals;

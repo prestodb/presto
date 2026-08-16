@@ -564,6 +564,46 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testPmod()
+    {
+        // Integer types: positive modulo of negative inputs.
+        assertFunction("pmod(9, 3)", INTEGER, 0);
+        assertFunction("pmod(10, 3)", INTEGER, 1);
+        assertFunction("pmod(-7, 3)", INTEGER, 2);
+        assertFunction("pmod(0, 3)", INTEGER, 0);
+        assertFunction("pmod(-9, 3)", INTEGER, 0);
+
+        // Typed integer overloads.
+        assertFunction("pmod(TINYINT '-7', TINYINT '3')", TINYINT, (byte) 2);
+        assertFunction("pmod(SMALLINT '-7', SMALLINT '3')", SMALLINT, (short) 2);
+        assertFunction("pmod(INTEGER '-7', INTEGER '3')", INTEGER, 2);
+        assertFunction("pmod(BIGINT '-7', BIGINT '3')", BIGINT, 2L);
+
+        // INT64_MIN % -1 edge case — must not overflow, returns 0.
+        assertFunction("pmod(BIGINT '" + Long.MIN_VALUE + "', BIGINT '-1')", BIGINT, 0L);
+
+        // Division by zero returns NULL.
+        assertFunction("pmod(10, 0)", INTEGER, null);
+        assertFunction("pmod(TINYINT '10', TINYINT '0')", TINYINT, null);
+
+        // Double.
+        assertFunction("pmod(0.0E0, 1.0E0)", DOUBLE, 0.0);
+        assertFunction("pmod(6.0E0, 2.0E0)", DOUBLE, 0.0);
+        assertFunction("pmod(-7.0E0, 3.0E0)", DOUBLE, 2.0);
+        assertFunction("pmod(10.0E0, 3.0E0)", DOUBLE, 1.0);
+        assertFunction("pmod(-10.0E0, 3.0E0)", DOUBLE, 2.0);
+        assertFunction("pmod(DOUBLE '5.0', DOUBLE '0.0')", DOUBLE, null);
+
+        // Real.
+        assertFunction("pmod(REAL '-7.0', REAL '3.0')", REAL, 2.0f);
+        assertFunction("pmod(REAL '5.0', REAL '0.0')", REAL, null);
+
+        // NULL propagation.
+        assertFunction("pmod(5.0E0, NULL)", DOUBLE, null);
+        assertFunction("pmod(NULL, 5.0E0)", DOUBLE, null);
+    }
+
+    @Test
     public void testPi()
     {
         assertFunction("pi()", DOUBLE, Math.PI);

@@ -41,4 +41,16 @@ public class StringSqlFunctions
     {
         return "RETURN REVERSE(SUBSTR(REVERSE(str), 1, N))";
     }
+
+    @SqlInvokedScalarFunction(value = "split_part_reverse", deterministic = true, calledOnNullInput = false)
+    @Description("Splits string on delimiter and returns the field at the given index. " +
+            "Positive indices count from the start (1-based), matching split_part. " +
+            "Negative indices count from the end (-1 = last, -2 = second-to-last). " +
+            "Returns NULL if the absolute index exceeds the number of parts.")
+    @SqlParameters({@SqlParameter(name = "str", type = "varchar"), @SqlParameter(name = "delimiter", type = "varchar"), @SqlParameter(name = "idx", type = "bigint")})
+    @SqlType("varchar")
+    public static String splitPartReverse()
+    {
+        return "RETURN ELEMENT_AT(SPLIT(str, delimiter), idx)";
+    }
 }

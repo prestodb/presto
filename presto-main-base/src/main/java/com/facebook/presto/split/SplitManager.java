@@ -30,8 +30,10 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.google.common.collect.ImmutableMap;
 import jakarta.inject.Inject;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -70,6 +72,11 @@ public class SplitManager
 
     public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector)
     {
+        return getSplits(session, table, splitSchedulingStrategy, warningCollector, ImmutableMap.of());
+    }
+
+    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector, Map<String, String> partitionColumnMapping)
+    {
         long startTime = System.nanoTime();
         ConnectorId connectorId = table.getConnectorId();
         ConnectorSplitManager splitManager = getConnectorSplitManager(connectorId);
@@ -90,7 +97,7 @@ public class SplitManager
                 table.getTransaction(),
                 connectorSession,
                 layout,
-                new SplitSchedulingContext(splitSchedulingStrategy, preferSplitHostAddresses, warningCollector));
+                new SplitSchedulingContext(splitSchedulingStrategy, preferSplitHostAddresses, warningCollector, partitionColumnMapping));
 
         SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, table.getTransaction(), source);
         if (minScheduleSplitBatchSize > 1) {

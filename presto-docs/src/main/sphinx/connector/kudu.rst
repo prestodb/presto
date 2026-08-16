@@ -29,46 +29,46 @@ To configure the Kudu connector, create a catalog properties file
 ``etc/catalog/kudu.properties`` with the following contents,
 replacing the properties as appropriate:
 
-  .. code-block:: none
+.. code-block:: properties
 
-       connector.name=kudu
+    connector.name=kudu
 
-       ## List of Kudu master addresses, at least one is needed (comma separated)
-       ## Supported formats: example.com, example.com:7051, 192.0.2.1, 192.0.2.1:7051,
-       ##                    [2001:db8::1], [2001:db8::1]:7051, 2001:db8::1
-       kudu.client.master-addresses=localhost
+    ## List of Kudu master addresses, at least one is needed (comma separated)
+    ## Supported formats: example.com, example.com:7051, 192.0.2.1, 192.0.2.1:7051,
+    ##                    [2001:db8::1], [2001:db8::1]:7051, 2001:db8::1
+    kudu.client.master-addresses=localhost
 
-       ## Kudu does not support schemas, but the connector can emulate them optionally.
-       ## By default, this feature is disabled, and all tables belong to the default schema.
-       ## For more details see connector documentation.
-       #kudu.schema-emulation.enabled=false
+    ## Kudu does not support schemas, but the connector can emulate them optionally.
+    ## By default, this feature is disabled, and all tables belong to the default schema.
+    ## For more details see connector documentation.
+    #kudu.schema-emulation.enabled=false
 
-       ## Prefix to use for schema emulation (only relevant if `kudu.schema-emulation.enabled=true`)
-       ## The standard prefix is `presto::`. Empty prefix is also supported.
-       ## For more details see connector documentation.
-       #kudu.schema-emulation.prefix=
+    ## Prefix to use for schema emulation (only relevant if `kudu.schema-emulation.enabled=true`)
+    ## The standard prefix is `presto::`. Empty prefix is also supported.
+    ## For more details see connector documentation.
+    #kudu.schema-emulation.prefix=
 
-       #######################
-       ### Advanced Kudu Java client configuration
-       #######################
+    #######################
+    ### Advanced Kudu Java client configuration
+    #######################
 
-       ## Default timeout used for administrative operations (e.g. createTable, deleteTable, etc.)
-       #kudu.client.default-admin-operation-timeout = 30s
+    ## Default timeout used for administrative operations such as createTable or deleteTable.
+    #kudu.client.default-admin-operation-timeout = 30s
 
-       ## Default timeout used for user operations
-       #kudu.client.default-operation-timeout = 30s
+    ## Default timeout used for user operations
+    #kudu.client.default-operation-timeout = 30s
 
-       ## Default timeout to use when waiting on data from a socket
-       #kudu.client.default-socket-read-timeout = 10s
+    ## Default timeout to use when waiting on data from a socket
+    #kudu.client.default-socket-read-timeout = 10s
 
-       ## Disable Kudu client's collection of statistics.
-       #kudu.client.disable-statistics = false
+    ## Disable Kudu client's collection of statistics.
+    #kudu.client.disable-statistics = false
 
 
 Querying Data
 -------------
 
-Apache Kudu does not support schemas, i.e. namespaces for tables.
+Apache Kudu does not support schemas: that is, namespaces for tables.
 The connector can optionally emulate schemas by table naming conventions.
 
 Default behaviour (without schema emulation)
@@ -82,15 +82,15 @@ with ``SELECT * FROM kudu.default.orders`` or simple with ``SELECT * FROM orders
 if catalog and schema are set to ``kudu`` and ``default`` respectively.
 
 Table names can contain any characters in Kudu. In this case, use double quotes.
-E.g. To query a Kudu table named ``special.table!`` use ``SELECT * FROM kudu.default."special.table!"``.
+
+To query a Kudu table named ``special.table!`` use ``SELECT * FROM kudu.default."special.table!"``.
 
 
-Example
-^^^^^^^
+.. rubric:: Example
 
--  Create a users table in the default schema with
+Create a users table in the default schema with
 
-  .. code:: sql
+.. code-block:: sql
 
     CREATE TABLE kudu.default.users (
       user_id int WITH (primary_key = true),
@@ -102,19 +102,18 @@ Example
     );
 
 On creating a Kudu table you must/can specify addition information about
-the primary key, encoding, and compression of columns and hash or range
-partitioning. Details see in section
-`Create Table`_.
+the primary key, encoding, and compression of columns and hash or range partitioning.
+Details see in section `Create Table`_.
 
--  The table can be described using
+The table can be described using
 
-  .. code:: sql
+.. code-block:: sql
 
     DESCRIBE kudu.default.users;
 
 You should get something like
 
-::
+.. code-block:: none
 
        Column   |  Type   |                      Extra                      | Comment
     ------------+---------+-------------------------------------------------+---------
@@ -124,15 +123,15 @@ You should get something like
     (3 rows)
 
 
--  Insert some data with
+Insert some data with
 
-  .. code:: sql
+.. code-block:: sql
 
     INSERT INTO kudu.default.users VALUES (1, 'Donald', 'Duck'), (2, 'Mickey', 'Mouse');
 
--  Select the inserted data
+Select the inserted data
 
-  .. code:: sql
+.. code-block:: sql
 
     SELECT * FROM kudu.default.users;
 
@@ -140,45 +139,40 @@ You should get something like
 Behaviour With Schema Emulation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If schema emulation has been enabled in the connector properties, i.e. ``etc/catalog/kudu.properties``,
+If schema emulation has been enabled in the connector properties, for example ``etc/catalog/kudu.properties``,
 tables are mapped to schemas depending on some conventions.
 
-- With ``kudu.schema-emulation.enabled=true`` and ``kudu.schema-emulation.prefix=``,
-  the mapping works like:
+With ``kudu.schema-emulation.enabled=true`` and ``kudu.schema-emulation.prefix=``, the mapping works like:
 
-  +----------------------------+---------------------------------+
-  | Kudu Table Name            | Presto Qualified Name           |
-  +============================+=================================+
-  | ``orders``                 | ``kudu.default.orders``         |
-  +----------------------------+---------------------------------+
-  | ``part1.part2``            | ``kudu.part1.part2``            |
-  +----------------------------+---------------------------------+
-  | ``x.y.z``                  | ``kudu.x."y.z"``                |
-  +----------------------------+---------------------------------+
++----------------------------+---------------------------------+
+| Kudu Table Name            | Presto Qualified Name           |
++============================+=================================+
+| ``orders``                 | ``kudu.default.orders``         |
++----------------------------+---------------------------------+
+| ``part1.part2``            | ``kudu.part1.part2``            |
++----------------------------+---------------------------------+
+| ``x.y.z``                  | ``kudu.x."y.z"``                |
++----------------------------+---------------------------------+
 
-  As schemas are not directly supported by Kudu, a special table named
-  ``$schemas`` is created for managing the schemas.
+As schemas are not directly supported by Kudu, a special table named ``$schemas`` is created for managing the schemas.
 
+With ``kudu.schema-emulation.enabled=true`` and ``kudu.schema-emulation.prefix=presto::``, the mapping works like:
 
-- With ``kudu.schema-emulation.enabled=true`` and ``kudu.schema-emulation.prefix=presto::``,
-  the mapping works like:
++----------------------------+---------------------------------+
+| Kudu Table Name            | Presto Qualified Name           |
++============================+=================================+
+| ``orders``                 | ``kudu.default.orders``         |
++----------------------------+---------------------------------+
+| ``part1.part2``            | ``kudu.default."part1.part2"``  |
++----------------------------+---------------------------------+
+| ``x.y.z``                  | ``kudu.default."x.y.z"``        |
++----------------------------+---------------------------------+
+| ``presto::part1.part2``    | ``kudu.part1.part2``            |
++----------------------------+---------------------------------+
+| ``presto:x.y.z``           | ``kudu.x."y.z"``                |
++----------------------------+---------------------------------+
 
-  +----------------------------+---------------------------------+
-  | Kudu Table Name            | Presto Qualified Name           |
-  +============================+=================================+
-  | ``orders``                 | ``kudu.default.orders``         |
-  +----------------------------+---------------------------------+
-  | ``part1.part2``            | ``kudu.default."part1.part2"``  |
-  +----------------------------+---------------------------------+
-  | ``x.y.z``                  | ``kudu.default."x.y.z"``        |
-  +----------------------------+---------------------------------+
-  | ``presto::part1.part2``    | ``kudu.part1.part2``            |
-  +----------------------------+---------------------------------+
-  | ``presto:x.y.z``           | ``kudu.x."y.z"``                |
-  +----------------------------+---------------------------------+
-
-  As schemas are not directly supported by Kudu, a special table named
-  ``presto::$schemas`` is created for managing the schemas.
+As schemas are not directly supported by Kudu, a special table named ``presto::$schemas`` is created for managing the schemas.
 
 Data Type Mapping
 -----------------
@@ -315,7 +309,7 @@ for column encoding and compression.
 
 Simple Example:
 
-  .. code:: sql
+.. code-block:: sql
 
     CREATE TABLE user_events (
       user_id int WITH (primary_key = true),
@@ -335,17 +329,17 @@ explicitly set to 3.
 The primary key columns must always be the first columns of the column list.
 All columns used in partitions must be part of the primary key.
 
-The table property ``number_of_replicas`` is optional. It defines the
-number of tablet replicas and must be an odd number. If it is not specified,
-the default replication factor from the Kudu master configuration is used.
+The table property ``number_of_replicas`` is optional.
+It defines the number of tablet replicas and must be an odd number.
+If it is not specified, the default replication factor from the Kudu master configuration is used.
 
 Kudu supports two different kinds of partitioning: hash and range partitioning.
 Hash partitioning distributes rows by hash value into one of many buckets.
-Range partitions distributes rows using a totally-ordered range partition key.
+Range partitions distribute rows using a totally-ordered range partition key.
 The concrete range partitions must be created explicitly.
-Kudu also supports multi-level partitioning. A table must have at least one
-partitioning (either hash or range). It can have at most one range partitioning,
-but multiple hash partitioning 'levels'.
+Kudu also supports multi-level partitioning.
+A table must have at least one partitioning (either hash or range).
+It can have at most one range partitioning, but multiple hash partitioning 'levels'.
 
 For more details see `Partitioning Design`_.
 
@@ -392,9 +386,8 @@ Besides column name and type, you can specify some more properties of a column.
 
 
 Example
-^^^^^^^
 
-  .. code:: sql
+.. code-block:: sql
 
     CREATE TABLE mytable (
       name varchar WITH (primary_key = true, encoding = 'dictionary', compression = 'snappy'),
@@ -412,8 +405,7 @@ A table must have at least one partitioning (either hash or range).
 It can have at most one range partitioning, but multiple hash partitioning 'levels'.
 For more details see Apache Kudu documentation: `Partitioning`_
 
-If you create a Kudu table in Presto, the partitioning design is given by
-several table properties.
+If you create a Kudu table in Presto, the partitioning design is given by several table properties.
 
 .. _Partitioning: https://kudu.apache.org/docs/schema_design.html#partitioning
 
@@ -424,14 +416,13 @@ Hash partitioning
 You can provide the first hash partition group with two table properties:
 
 The ``partition_by_hash_columns`` defines the column(s) belonging to the
-partition group and ``partition_by_hash_buckets`` the number of partitions to
-split the hash values range into. All partition columns must be part of the
-primary key.
+partition group and ``partition_by_hash_buckets`` the number of partitions to split the hash values range into.
+All partition columns must be part of the primary key.
 
 
 Example:
 
-  .. code:: sql
+.. code-block:: sql
 
     CREATE TABLE mytable (
       col1 varchar WITH (primary_key=true),
@@ -443,16 +434,14 @@ Example:
     )
 
 
-This defines a hash partitioning with the columns ``col1`` and ``col2``
-distributed over 4 partitions.
+This defines a hash partitioning with the columns ``col1`` and ``col2`` distributed over 4 partitions.
 
 To define two separate hash partition groups use also the second pair
-of table properties named ``partition_by_second_hash_columns`` and
-``partition_by_second_hash_buckets``.
+of table properties named ``partition_by_second_hash_columns`` and ``partition_by_second_hash_buckets``.
 
 Example:
 
-  .. code:: sql
+.. code-block:: sql
 
     CREATE TABLE mytable (
       col1 varchar WITH (primary_key=true),
@@ -474,18 +463,16 @@ As a result you have table with 2 x 3 = 6 partitions.
 Range partitioning
 ^^^^^^^^^^^^^^^^^^
 
-You can provide at most one range partitioning in Apache Kudu. The columns
-are defined with the table property ``partition_by_range_columns``.
-The ranges themselves are given either in the
-table property ``range_partitions`` on creating the table.
-Or alternatively, the procedures ``kudu.system.add_range_partition`` and
-``kudu.system.drop_range_partition`` can be used to manage range
-partitions for existing tables. For both ways see below for more
-details.
+You can provide at most one range partitioning in Apache Kudu.
+The columns are defined with the table property ``partition_by_range_columns``.
+The ranges themselves are given either in the table property ``range_partitions`` on creating the table.
+Or alternatively, the procedures ``kudu.system.add_range_partition`` and ``kudu.system.drop_range_partition``
+can be used to manage range partitions for existing tables.
+For both ways see below for more details.
 
 Example:
 
-  .. code:: sql
+.. code-block:: sql
 
     CREATE TABLE events (
       rack varchar WITH (primary_key=true),
@@ -515,7 +502,7 @@ must be given in the table property ``partition_design`` separately.
 
 Example:
 
-  .. code:: sql
+.. code-block:: sql
 
     CREATE TABLE events (
       serialno varchar WITH (primary_key = true),
@@ -531,12 +518,12 @@ Example:
     );
 
 This creates a table with a hash partition on column ``serialno`` with 4
-buckets and range partitioning on column ``event_time``. Additionally
-three range partitions are created:
+buckets and range partitioning on column ``event_time``.
+Additionally three range partitions are created:
 
-    1. for all event_times before the year 2017 (lower bound = ``null`` means it is unbound)
-    2. for the first half of the year 2017
-    3. for the second half the year 2017
+1. for all event_times before the year 2017 (lower bound = ``null`` means it is unbound)
+2. for the first half of the year 2017
+3. for the second half the year 2017
 
 This means any try to add rows with ``event_time`` of year 2018 or greater will fail, as no partition is defined.
 The next section shows how to define a new range partition for an existing table.
@@ -544,57 +531,52 @@ The next section shows how to define a new range partition for an existing table
 Managing range partitions
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For existing tables, there are procedures to add and drop a range
-partition.
+For existing tables, there are procedures to add and drop a range partition.
 
-- adding a range partition
+Adding a range partition
 
-  .. code:: sql
+.. code-block:: sql
 
-    CALL kudu.system.add_range_partition(<schema>, <table>, <range_partition_as_json_string>),
+    CALL kudu.system.add_range_partition(<schema>, <table>, <range_partition_as_json_string>)
 
-- dropping a range partition
+Dropping a range partition
 
-  .. code:: sql
+.. code-block:: sql
 
     CALL kudu.system.drop_range_partition(<schema>, <table>, <range_partition_as_json_string>)
 
-  - ``<schema>``: schema of the table
+Parameters:
 
-  - ``<table>``: table names
+- ``<schema>``: schema of the table
+- ``<table>``: table name
+- ``<range_partition_as_json_string>``: lower and upper bound of the range partition as JSON string in the form
+  ``'{"lower": <value>, "upper": <value>}'``, or if the range partition
+  has multiple columns: ``'{"lower": [<value_col1>,...], "upper": [<value_col1>,...]}'``.
 
-  - ``<range_partition_as_json_string>``: lower and upper bound of the
-    range partition as json string in the form
-    ``'{"lower": <value>, "upper": <value>}'``, or if the range partition
-    has multiple columns:
-    ``'{"lower": [<value_col1>,...], "upper": [<value_col1>,...]}'``. The
-    concrete literal for lower and upper bound values are depending on
-    the column types.
+  The concrete literal for the lower and upper bound values depends on the column types:
 
-    Examples:
+  +-------------------------------+----------------------------------------------+
+  | Presto Data Type              | JSON string example                          |
+  +===============================+==============================================+
+  | ``BIGINT``                    | ``‘{“lower”: 0, “upper”: 1000000}’``         |
+  +-------------------------------+----------------------------------------------+
+  | ``SMALLINT``                  | ``‘{“lower”: 10, “upper”: null}’``           |
+  +-------------------------------+----------------------------------------------+
+  | ``VARCHAR``                   | ``‘{“lower”: “A”, “upper”: “M”}’``           |
+  +-------------------------------+----------------------------------------------+
+  | ``TIMESTAMP``                 | ``‘{“lower”: “2018-02-01T00:00:00.000”,      |
+  |                               | “upper”: “2018-02-01T12:00:00.000”}’``       |
+  +-------------------------------+----------------------------------------------+
+  | ``BOOLEAN``                   | ``‘{“lower”: false, “upper”: true}’``        |
+  +-------------------------------+----------------------------------------------+
+  | ``VARBINARY``                 | values encoded as base64 strings             |
+  +-------------------------------+----------------------------------------------+
 
-    +-------------------------------+----------------------------------------------+
-    | Presto Data Type              | JSON string example                          |
-    +===============================+==============================================+
-    | ``BIGINT``                    | ``‘{“lower”: 0, “upper”: 1000000}’``         |
-    +-------------------------------+----------------------------------------------+
-    | ``SMALLINT``                  | ``‘{“lower”: 10, “upper”: null}’``           |
-    +-------------------------------+----------------------------------------------+
-    | ``VARCHAR``                   | ``‘{“lower”: “A”, “upper”: “M”}’``           |
-    +-------------------------------+----------------------------------------------+
-    | ``TIMESTAMP``                 | ``‘{“lower”: “2018-02-01T00:00:00.000”,      |
-    |                               | “upper”: “2018-02-01T12:00:00.000”}’``       |
-    +-------------------------------+----------------------------------------------+
-    | ``BOOLEAN``                   | ``‘{“lower”: false, “upper”: true}’``        |
-    +-------------------------------+----------------------------------------------+
-    | ``VARBINARY``                 | values encoded as base64 strings             |
-    +-------------------------------+----------------------------------------------+
-
-    To specified an unbounded bound, use the value ``null``.
+  To specify an unbounded bound, use the value ``null``.
 
 Example:
 
-  .. code:: sql
+.. code-block:: sql
 
     CALL kudu.system.add_range_partition('myschema', 'events', '{"lower": "2018-01-01", "upper": "2018-06-01"}')
 
@@ -603,8 +585,7 @@ This would add a range partition for a table ``events`` in the schema
 ``2018-01-01T00:00:00.000``) and the upper bound ``2018-07-01``.
 
 Use the sql statement ``SHOW CREATE TABLE`` to query the existing
-range partitions (they are shown in the table property
-``range_partitions``).
+range partitions (they are shown in the table property ``range_partitions``).
 
 Add Column
 ----------
@@ -614,7 +595,7 @@ You can specify the same column properties as on creating a table.
 
 Example:
 
-  .. code:: sql
+.. code-block:: sql
 
     ALTER TABLE mytable ADD COLUMN extraInfo varchar WITH (nullable = true, encoding = 'plain')
 

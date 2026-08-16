@@ -77,7 +77,24 @@ public class QuerySessionSupplier
     {
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
-                .setIdentity(authenticateIdentity(queryId, context))
+                .setIdentity(authenticateIdentity(queryId, context));
+        populateSessionBuilder(sessionBuilder, context, warningCollectorFactory, false);
+        return sessionBuilder;
+    }
+
+    @Override
+    public Session createSessionForFailedQuery(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
+    {
+        SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
+                .setQueryId(queryId)
+                .setIdentity(context.getIdentity());
+        populateSessionBuilder(sessionBuilder, context, warningCollectorFactory, true);
+        return sessionBuilder.build();
+    }
+
+    private void populateSessionBuilder(SessionBuilder sessionBuilder, SessionContext context, WarningCollectorFactory warningCollectorFactory, boolean ignoreFailures)
+    {
+        sessionBuilder
                 .setSource(context.getSource())
                 .setCatalog(context.getCatalog())
                 .setSchema(context.getSchema())
@@ -94,25 +111,25 @@ public class QuerySessionSupplier
             sessionBuilder.setTimeZoneKey(forcedSessionTimeZone.get());
         }
         else if (context.getTimeZoneId() != null) {
-            sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId()));
+            applyAction(ignoreFailures, () -> sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId())));
         }
 
         if (context.getLanguage() != null) {
-            sessionBuilder.setLocale(Locale.forLanguageTag(context.getLanguage()));
+            applyAction(ignoreFailures, () -> sessionBuilder.setLocale(Locale.forLanguageTag(context.getLanguage())));
         }
 
         for (Entry<String, String> entry : context.getSystemProperties().entrySet()) {
-            sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
+            applyAction(ignoreFailures, () -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
         }
         for (Entry<String, Map<String, String>> catalogProperties : context.getCatalogSessionProperties().entrySet()) {
             String catalog = catalogProperties.getKey();
             for (Entry<String, String> entry : catalogProperties.getValue().entrySet()) {
-                sessionBuilder.setCatalogSessionProperty(catalog, entry.getKey(), entry.getValue());
+                applyAction(ignoreFailures, () -> sessionBuilder.setCatalogSessionProperty(catalog, entry.getKey(), entry.getValue()));
             }
         }
 
         for (Entry<String, String> preparedStatement : context.getPreparedStatements().entrySet()) {
-            sessionBuilder.addPreparedStatement(preparedStatement.getKey(), preparedStatement.getValue());
+            applyAction(ignoreFailures, () -> sessionBuilder.addPreparedStatement(preparedStatement.getKey(), preparedStatement.getValue()));
         }
 
         if (context.supportClientTransaction()) {
@@ -120,14 +137,27 @@ public class QuerySessionSupplier
         }
 
         for (Entry<SqlFunctionId, SqlInvokedFunction> entry : context.getSessionFunctions().entrySet()) {
-            sessionBuilder.addSessionFunction(entry.getKey(), entry.getValue());
+            applyAction(ignoreFailures, () -> sessionBuilder.addSessionFunction(entry.getKey(), entry.getValue()));
         }
 
         // Put after setSystemProperty are called
-        WarningCollector warningCollector = warningCollectorFactory.create(sessionBuilder.getSystemProperty(WARNING_HANDLING, WarningHandlingLevel.class));
-        sessionBuilder.setWarningCollector(warningCollector);
+        applyAction(ignoreFailures, () -> {
+            WarningCollector warningCollector = warningCollectorFactory.create(sessionBuilder.getSystemProperty(WARNING_HANDLING, WarningHandlingLevel.class));
+            sessionBuilder.setWarningCollector(warningCollector);
+        });
+    }
 
-        return sessionBuilder;
+    private void applyAction(boolean ignoreFailures, Runnable action)
+    {
+        try {
+            action.run();
+        }
+        catch (RuntimeException e) {
+            if (!ignoreFailures) {
+                throw e;
+            }
+            log.warn(e, "Skipping exception while building failed query session: ", e);
+        }
     }
 
     private Identity authenticateIdentity(QueryId queryId, SessionContext context)
@@ -136,14 +166,19 @@ public class QuerySessionSupplier
         Optional<AuthorizedIdentity> authorizedIdentity = context.getAuthorizedIdentity();
         authorizedIdentity = authorizedIdentity.isPresent() ? authorizedIdentity : getAuthorizedIdentity(accessControl, securityConfig, queryId, context);
 
-        return authorizedIdentity.map(identity -> new Identity(
-                context.getIdentity().getUser(),
-                context.getIdentity().getPrincipal(),
-                context.getIdentity().getRoles(),
-                context.getIdentity().getExtraCredentials(),
-                context.getIdentity().getExtraAuthenticators(),
-                Optional.of(identity.getUserName()),
-                identity.getReasonForSelect(),
-                context.getCertificates())).orElseGet(context::getIdentity);
+        return authorizedIdentity.map(identity -> {
+            Optional<java.security.Principal> principal = identity.getAuthorizedPrincipal().isPresent()
+                    ? identity.getAuthorizedPrincipal()
+                    : context.getIdentity().getPrincipal();
+            return new Identity(
+                    context.getIdentity().getUser(),
+                    principal,
+                    context.getIdentity().getRoles(),
+                    context.getIdentity().getExtraCredentials(),
+                    context.getIdentity().getExtraAuthenticators(),
+                    Optional.of(identity.getUserName()),
+                    identity.getReasonForSelect(),
+                    context.getCertificates());
+        }).orElseGet(context::getIdentity);
     }
 }

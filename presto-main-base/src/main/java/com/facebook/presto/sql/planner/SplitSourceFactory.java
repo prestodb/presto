@@ -16,14 +16,20 @@ package com.facebook.presto.sql.planner;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayoutResult;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IndexJoinNode;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -41,6 +47,7 @@ import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -49,7 +56,6 @@ import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSourceProvider;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -57,13 +63,13 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -71,12 +77,14 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class SplitSourceFactory
@@ -85,11 +93,13 @@ public class SplitSourceFactory
 
     private final SplitSourceProvider splitSourceProvider;
     private final WarningCollector warningCollector;
+    private final Metadata metadata;
 
-    public SplitSourceFactory(SplitSourceProvider splitSourceProvider, WarningCollector warningCollector)
+    public SplitSourceFactory(SplitSourceProvider splitSourceProvider, WarningCollector warningCollector, Metadata metadata)
     {
         this.splitSourceProvider = requireNonNull(splitSourceProvider, "splitSourceProvider is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     public Map<PlanNodeId, SplitSource> createSplitSources(PlanFragment fragment, Session session, TableWriteInfo tableWriteInfo)
@@ -150,11 +160,15 @@ public class SplitSourceFactory
         {
             // get dataSource for table
             TableHandle table = node.getTable();
+            Map<String, String> partitionColumnMapping = stageExecutionDescriptor.isScanGroupedExecution(node.getId())
+                    ? stageExecutionDescriptor.getPartitionColumnMapping(node.getId())
+                    : ImmutableMap.of();
             Supplier<SplitSource> splitSourceSupplier = () -> splitSourceProvider.getSplits(
                     session,
                     table,
                     getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId()),
-                    warningCollector);
+                    warningCollector,
+                    partitionColumnMapping);
 
             SplitSource splitSource = new LazySplitSource(splitSourceSupplier);
 
@@ -210,7 +224,74 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitIndexJoin(IndexJoinNode node, Context context)
         {
-            return node.getProbeSource().accept(this, context);
+            Map<PlanNodeId, SplitSource> probeSplits = node.getProbeSource().accept(this, context);
+            Map<PlanNodeId, SplitSource> indexSplits = node.getIndexSource().accept(this, context);
+            return ImmutableMap.<PlanNodeId, SplitSource>builder()
+                    .putAll(probeSplits)
+                    .putAll(indexSplits)
+                    .build();
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitIndexSource(IndexSourceNode node, Context context)
+        {
+            // Only create split sources for native execution with bucketed
+            // index tables. Non-bucketed index tables handle data fetching
+            // internally in the worker via connector::createIndexSource()
+            // and do not need coordinator splits. Java execution uses the
+            // Index SPI at runtime and never needs coordinator splits.
+            if (!isNativeExecutionEnabled(session)) {
+                return ImmutableMap.of();
+            }
+
+            if (!metadata.getLayout(session, node.getTableHandle())
+                    .getTablePartitioning()
+                    .isPresent()) {
+                return ImmutableMap.of();
+            }
+
+            TableHandle table = node.getTableHandle();
+            SplitSchedulingStrategy strategy = getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId());
+            Map<String, String> partitionColumnMapping = stageExecutionDescriptor.isScanGroupedExecution(node.getId())
+                    ? stageExecutionDescriptor.getPartitionColumnMapping(node.getId())
+                    : ImmutableMap.of();
+
+            // Use LazySplitSource to defer the potentially expensive MetaStore
+            // call (split enumeration and layout resolution) until splits are
+            // actually needed, consistent with visitTableScan().
+            SplitSource splitSource = new LazySplitSource(
+                    () -> {
+                        // The index source's table handle frequently arrives
+                        // without a resolved layout (IndexJoinOptimizer passes
+                        // the bare TableScan handle, and the connector plan
+                        // optimizer does not always fold the static partition
+                        // predicate into it). When that happens,
+                        // SplitManager.getSplits falls back to
+                        // Constraint.alwaysTrue() and enumerates ALL
+                        // partitions, ignoring static partition predicates.
+                        // Resolve a pruned layout from the node's
+                        // currentConstraint so partition predicates prune the
+                        // index side.
+                        TableHandle resolvedTable = table;
+                        if (!resolvedTable.getLayout().isPresent()
+                                && !node.getCurrentConstraint().isAll()) {
+                            TableLayoutResult layoutResult = metadata.getLayout(
+                                    session,
+                                    resolvedTable,
+                                    new Constraint<ColumnHandle>(node.getCurrentConstraint()),
+                                    Optional.empty());
+                            resolvedTable = layoutResult.getLayout().getNewTableHandle();
+                        }
+                        return splitSourceProvider.getSplits(
+                                session,
+                                resolvedTable,
+                                strategy,
+                                warningCollector,
+                                partitionColumnMapping);
+                    });
+            splitSources.add(splitSource);
+
+            return ImmutableMap.of(node.getId(), splitSource);
         }
 
         @Override
@@ -243,7 +324,7 @@ public class SplitSourceFactory
                     Map<PlanNodeId, SplitSource> nodeSplits = node.getSource().accept(this, context);
                     // TODO: when this happens we should switch to either BERNOULLI or page sampling
                     if (nodeSplits.size() == 1) {
-                        PlanNodeId planNodeId = getOnlyElement(nodeSplits.keySet());
+                        PlanNodeId planNodeId = nodeSplits.keySet().stream().collect(onlyElement());
                         SplitSource sampledSplitSource = new SampledSplitSource(nodeSplits.get(planNodeId), node.getSampleRatio());
                         return ImmutableMap.of(planNodeId, sampledSplitSource);
                     }
@@ -439,6 +520,12 @@ public class SplitSourceFactory
 
         @Override
         public Map<PlanNodeId, SplitSource> visitMergeWriter(MergeWriterNode node, Context context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitRPC(RPCNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }

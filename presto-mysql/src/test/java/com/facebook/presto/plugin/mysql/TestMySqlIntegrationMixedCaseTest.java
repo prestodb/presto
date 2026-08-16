@@ -19,7 +19,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -40,12 +40,12 @@ import static org.testng.Assert.assertTrue;
 public class TestMySqlIntegrationMixedCaseTest
         extends AbstractTestQueryFramework
 {
-    private final MySQLContainer<?> mysqlContainer;
+    private final MySQLContainer mysqlContainer;
 
     public TestMySqlIntegrationMixedCaseTest()
             throws Exception
     {
-        this.mysqlContainer = new MySQLContainer<>("mysql:8.0")
+        this.mysqlContainer = new MySQLContainer("mysql:8.0")
                 .withDatabaseName("tpch")
                 .withUsername("testuser")
                 .withPassword("testpass");

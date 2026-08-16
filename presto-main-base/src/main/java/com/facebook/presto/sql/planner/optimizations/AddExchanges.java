@@ -18,7 +18,9 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.PrestoException;
@@ -28,6 +30,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
@@ -54,19 +57,21 @@ import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PreferredProperties.PartitioningProperties;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -76,12 +81,13 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -105,6 +111,8 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getAggregationPartitioningMergingStrategy;
@@ -112,6 +120,11 @@ import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializa
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getPartialMergePushdownStrategy;
 import static com.facebook.presto.SystemSessionProperties.getPartitioningProviderCatalog;
+import static com.facebook.presto.SystemSessionProperties.getRemoteFunctionFixedParallelismTaskCount;
+import static com.facebook.presto.SystemSessionProperties.getRemoteFunctionNamesForFixedParallelism;
+import static com.facebook.presto.SystemSessionProperties.getRpcFunctionParallelism;
+import static com.facebook.presto.SystemSessionProperties.getTableScanShuffleParallelismThreshold;
+import static com.facebook.presto.SystemSessionProperties.getTableScanShuffleStrategy;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isAddPartialNodeForRowNumberWithLimit;
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
@@ -131,6 +144,9 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingl
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
 import static com.facebook.presto.spi.plan.LimitNode.Step.PARTIAL;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.ShuffleForTableScanStrategy.ALWAYS_ENABLED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.ShuffleForTableScanStrategy.COST_BASED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.ShuffleForTableScanStrategy.DISABLED;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.getNumberOfTableScans;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleTableScans;
 import static com.facebook.presto.sql.planner.PlannerUtils.containsSystemTableScan;
@@ -159,7 +175,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -213,6 +229,7 @@ public class AddExchanges
         private final ExchangeMaterializationStrategy exchangeMaterializationStrategy;
         private final PartitioningProviderManager partitioningProviderManager;
         private final boolean nativeExecution;
+        private boolean isDeleteOrUpdateQuery;
 
         public Rewriter(
                 PlanNodeIdAllocator idAllocator,
@@ -249,8 +266,31 @@ public class AddExchanges
         {
             Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments());
             PreferredProperties translatedPreferred = preferredProperties.translate(symbol -> Optional.ofNullable(identities.get(symbol)));
+            PlanWithProperties planWithProperties = planChild(node, translatedPreferred);
 
-            return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));
+            if (node.getLocality().equals(ProjectNode.Locality.REMOTE)) {
+                String functionNameRegex = getRemoteFunctionNamesForFixedParallelism(session);
+                if (!functionNameRegex.isEmpty()) {
+                    Pattern pattern;
+                    try {
+                        pattern = Pattern.compile(functionNameRegex);
+                    }
+                    catch (PatternSyntaxException e) {
+                        return rebaseAndDeriveProperties(node, planWithProperties);
+                    }
+                    if (node.getAssignments().getExpressions().stream().filter(x -> x instanceof CallExpression)
+                            .anyMatch(x -> pattern.matcher(((CallExpression) x).getFunctionHandle().getName()).matches())) {
+                        int taskCount = getRemoteFunctionFixedParallelismTaskCount(session);
+                        checkState(taskCount > 0, "taskCount should be larger than 0");
+                        PlanNode exchangeNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, planWithProperties.getNode(), taskCount);
+                        ActualProperties exchangeProperties = deriveProperties(exchangeNode, planWithProperties.getProperties());
+                        PlanNode newNode = ChildReplacer.replaceChildren(node, ImmutableList.of(exchangeNode));
+                        return new PlanWithProperties(newNode, deriveProperties(newNode, exchangeProperties));
+                    }
+                }
+            }
+
+            return rebaseAndDeriveProperties(node, planWithProperties);
         }
 
         @Override
@@ -570,6 +610,7 @@ public class AddExchanges
                                 idAllocator.getNextId(),
                                 child.getNode(),
                                 node.getSpecification(),
+                                node.getRankingFunction(),
                                 node.getRowNumberVariable(),
                                 node.getMaxRowCountPerPartition(),
                                 true,
@@ -606,8 +647,16 @@ public class AddExchanges
         }
 
         @Override
+        public PlanWithProperties visitUpdate(UpdateNode node, PreferredProperties context)
+        {
+            isDeleteOrUpdateQuery = true;
+            return visitPlan(node, context);
+        }
+
+        @Override
         public PlanWithProperties visitDelete(DeleteNode node, PreferredProperties preferredProperties)
         {
+            isDeleteOrUpdateQuery = true;
             if (!node.getInputDistribution().isPresent()) {
                 return visitPlan(node, preferredProperties);
             }
@@ -819,6 +868,21 @@ public class AddExchanges
         }
 
         @Override
+        public PlanWithProperties visitRPC(RPCNode node, PreferredProperties preferredProperties)
+        {
+            PlanWithProperties source = accept(node.getSource(), preferredProperties);
+
+            int taskCount = getRpcFunctionParallelism(session);
+            if (taskCount > 1) {
+                PlanNode newNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, source.getNode(), taskCount);
+                newNode = ChildReplacer.replaceChildren(node, ImmutableList.of(newNode));
+                return new PlanWithProperties(newNode, derivePropertiesRecursively(newNode));
+            }
+
+            return rebaseAndDeriveProperties(node, source);
+        }
+
+        @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, PreferredProperties preferredProperties)
         {
             return getTableWriterPlanWithProperties(node, preferredProperties, node.getTablePartitioningScheme(), node.isSingleWriterPerPartitionRequired());
@@ -899,6 +963,18 @@ public class AddExchanges
             // An additional exchange makes sure the data flows through a native worker in case it need to be partitioned for downstream processing
             if (nativeExecution && containsSystemTableScan(plan)) {
                 plan = gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
+            }
+            else if (!getTableScanShuffleStrategy(session).equals(DISABLED) && !isDeleteOrUpdateQuery) {
+                if (getTableScanShuffleStrategy(session).equals(ALWAYS_ENABLED)) {
+                    plan = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
+                }
+                else if (getTableScanShuffleStrategy(session).equals(COST_BASED)) {
+                    Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
+                    TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), ImmutableList.copyOf(node.getAssignments().values()), constraint);
+                    if (!tableStatistics.getParallelismFactor().isUnknown() && tableStatistics.getParallelismFactor().getValue() < getTableScanShuffleParallelismThreshold(session)) {
+                        plan = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
+                    }
+                }
             }
             // TODO: Support selecting layout with best local property once connector can participate in query optimization.
             return new PlanWithProperties(plan, derivePropertiesRecursively(plan));
@@ -1603,7 +1679,7 @@ public class AddExchanges
 
         private PlanWithProperties planChild(PlanNode node, PreferredProperties preferredProperties)
         {
-            return accept(getOnlyElement(node.getSources()), preferredProperties);
+            return accept(node.getSources().stream().collect(onlyElement()), preferredProperties);
         }
 
         private PlanWithProperties rebaseAndDeriveProperties(PlanNode node, PlanWithProperties child)

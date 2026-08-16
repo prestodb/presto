@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.transaction.TransactionId;
-import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
@@ -29,6 +28,7 @@ import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -106,9 +106,11 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NEGATION;
+import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -129,6 +131,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.TRY_CAST;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
@@ -209,7 +212,8 @@ public final class SqlToRowExpressionTranslator
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
                 session.getSessionFunctions(),
-                context);
+                context,
+                isNativeExecutionEnabled(session));
     }
 
     public static RowExpression translate(
@@ -223,6 +227,31 @@ public final class SqlToRowExpressionTranslator
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             Context context)
     {
+        return translate(
+                expression,
+                types,
+                layout,
+                functionAndTypeManager,
+                user,
+                transactionId,
+                sqlFunctionProperties,
+                sessionFunctions,
+                context,
+                false);
+    }
+
+    private static RowExpression translate(
+            Expression expression,
+            Map<NodeRef<Expression>, Type> types,
+            Map<VariableReferenceExpression, Integer> layout,
+            FunctionAndTypeManager functionAndTypeManager,
+            Optional<String> user,
+            Optional<TransactionId> transactionId,
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            Context context,
+            boolean nativeExecutionEnabled)
+    {
         Visitor visitor = new Visitor(
                 types,
                 layout,
@@ -230,7 +259,8 @@ public final class SqlToRowExpressionTranslator
                 user,
                 transactionId,
                 sqlFunctionProperties,
-                sessionFunctions);
+                sessionFunctions,
+                nativeExecutionEnabled);
         RowExpression result = visitor.process(expression, context);
         requireNonNull(result, "translated expression is null");
         return result;
@@ -272,6 +302,7 @@ public final class SqlToRowExpressionTranslator
         private final SqlFunctionProperties sqlFunctionProperties;
         private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
         private final FunctionResolution functionResolution;
+        private final boolean nativeExecutionEnabled;
 
         private Visitor(
                 Map<NodeRef<Expression>, Type> types,
@@ -280,7 +311,8 @@ public final class SqlToRowExpressionTranslator
                 Optional<String> user,
                 Optional<TransactionId> transactionId,
                 SqlFunctionProperties sqlFunctionProperties,
-                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
+                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+                boolean nativeExecutionEnabled)
         {
             this.types = requireNonNull(types, "types is null");
             this.layout = requireNonNull(layout);
@@ -291,6 +323,7 @@ public final class SqlToRowExpressionTranslator
             this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties);
             this.functionResolution = new FunctionResolution(functionAndTypeResolver);
             this.sessionFunctions = requireNonNull(sessionFunctions);
+            this.nativeExecutionEnabled = nativeExecutionEnabled;
         }
 
         private Type getType(Expression node)
@@ -393,7 +426,7 @@ public final class SqlToRowExpressionTranslator
                 type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("Unsupported type: " + node.getType());
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported type: " + node.getType());
             }
 
             return constant(node.getValue(), type);
@@ -407,7 +440,7 @@ public final class SqlToRowExpressionTranslator
                 type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("Unsupported type: " + node.getType());
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported type: " + node.getType());
             }
 
             try {
@@ -518,14 +551,51 @@ public final class SqlToRowExpressionTranslator
                     .map(TypeSignatureProvider::new)
                     .collect(toImmutableList());
 
-            return call(node.getName().toString(),
-                    functionAndTypeResolver.resolveFunction(
-                            Optional.of(sessionFunctions),
-                            transactionId,
-                            functionAndTypeResolver.qualifyObjectName(node.getName()),
-                            argumentTypes),
-                    getType(node),
-                    arguments);
+            FunctionHandle functionHandle = functionAndTypeResolver.resolveFunction(
+                    Optional.of(sessionFunctions),
+                    transactionId,
+                    functionAndTypeResolver.qualifyObjectName(node.getName()),
+                    argumentTypes);
+
+            OptionalInt varArgPosStart = functionAndTypeResolver.getFunctionMetadata(functionHandle).getVarArgPosStart();
+            if (varArgPosStart.isPresent()) {
+                return foldAnyVariadicTailToJson(node, arguments, varArgPosStart.getAsInt());
+            }
+
+            return call(node.getName().toString(), functionHandle, getType(node), arguments);
+        }
+
+        // A call to a variable-arity "__ANY__" function: pack the trailing (any-typed) arguments into a
+        // single JSON value -- CAST(ROW(tail...) AS JSON) -- and dispatch to the concrete (head..., json)
+        // overload, so the RowExpression layer only ever sees a fixed-arity, executable call.
+        private RowExpression foldAnyVariadicTailToJson(FunctionCall node, List<RowExpression> arguments, int varArgPosStart)
+        {
+            List<RowExpression> tail = arguments.subList(varArgPosStart, arguments.size());
+            RowExpression tailRow = specialForm(
+                    ROW_CONSTRUCTOR,
+                    RowType.anonymous(tail.stream().map(RowExpression::getType).collect(toImmutableList())),
+                    tail);
+            RowExpression tailJson = call(
+                    CAST.name(),
+                    functionAndTypeResolver.lookupCast("CAST", tailRow.getType(), JSON),
+                    JSON,
+                    tailRow);
+
+            List<RowExpression> foldedArguments = ImmutableList.<RowExpression>builder()
+                    .addAll(arguments.subList(0, varArgPosStart))
+                    .add(tailJson)
+                    .build();
+            List<TypeSignatureProvider> foldedArgumentTypes = foldedArguments.stream()
+                    .map(RowExpression::getType)
+                    .map(Type::getTypeSignature)
+                    .map(TypeSignatureProvider::new)
+                    .collect(toImmutableList());
+            FunctionHandle concreteFunctionHandle = functionAndTypeResolver.resolveFunction(
+                    Optional.of(sessionFunctions),
+                    transactionId,
+                    functionAndTypeResolver.qualifyObjectName(node.getName()),
+                    foldedArgumentTypes);
+            return call(node.getName().toString(), concreteFunctionHandle, getType(node), foldedArguments);
         }
 
         @Override
@@ -769,6 +839,16 @@ public final class SqlToRowExpressionTranslator
                     rhs);
         }
 
+        private RowExpression buildNotEquals(RowExpression lhs, RowExpression rhs)
+        {
+            return call(
+                    NOT_EQUAL.getOperator(),
+                    functionResolution.comparisonFunction(ComparisonExpression.Operator.NOT_EQUAL, lhs.getType(), rhs.getType()),
+                    BOOLEAN,
+                    lhs,
+                    rhs);
+        }
+
         @Override
         protected RowExpression visitExists(ExistsPredicate existsPredicate, Context context)
         {
@@ -917,9 +997,11 @@ public final class SqlToRowExpressionTranslator
                 return likeFunctionCall(value, call(getSourceLocation(node), "LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 
-            RowExpression prefixOrSuffixMatch = generateLikePrefixOrSuffixMatch(value, pattern);
-            if (prefixOrSuffixMatch != null) {
-                return prefixOrSuffixMatch;
+            if (!nativeExecutionEnabled) {
+                RowExpression prefixOrSuffixMatch = generateLikePrefixOrSuffixMatch(value, pattern);
+                if (prefixOrSuffixMatch != null) {
+                    return prefixOrSuffixMatch;
+                }
             }
 
             if (!functionResolution.supportsLikePatternFunction()) {
@@ -955,11 +1037,10 @@ public final class SqlToRowExpressionTranslator
                         }
                         else if (LIKE_SIMPLE_EXISTS_PATTERN.matcher(patternString).matches()) {
                             // pattern should just exist in the string ignoring leading and trailing stuff
-                            // x LIKE '%some string%' is same as CARDINALITY(SPLIT(x, 'some string', 2)) = 2
-                            // Split is most efficient as it uses string.indexOf java builtin so little memory/cpu overhead
-                            return buildEquals(
-                                    call(functionAndTypeManager, "CARDINALITY", BIGINT, call(functionAndTypeManager, "SPLIT", new ArrayType(VARCHAR), value, constant(slice.slice(1, matchBytesLength - 2), VARCHAR), constant(2L, BIGINT))),
-                                    constant(2L, BIGINT));
+                            // x LIKE '%some string%' is same as STRPOS(x, 'some string') != 0
+                            return buildNotEquals(
+                                    call(functionAndTypeManager, "STRPOS", BIGINT, value, constant(slice.slice(1, matchBytesLength - 2), VARCHAR)),
+                                    constant(0L, BIGINT));
                         }
                     }
                 }

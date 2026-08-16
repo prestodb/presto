@@ -35,9 +35,11 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -291,6 +293,104 @@ class HiveSplitSource
                 splitScanRatio);
     }
 
+    public static HiveSplitSource bucketedPartitionAware(
+            ConnectorSession session,
+            String databaseName,
+            String tableName,
+            CacheQuotaRequirement cacheQuotaRequirement,
+            int maxInitialSplits,
+            int estimatedOutstandingSplitsPerBucket,
+            DataSize maxOutstandingSplitsSize,
+            HiveSplitLoader splitLoader,
+            Executor executor,
+            CounterStat highMemorySplitSourceCounter,
+            double splitScanRatio,
+            Map<String, String> columnNameMapping,
+            Function<HivePartitionKey, String> partitionValueNormalizer)
+    {
+        return new HiveSplitSource(
+                session,
+                databaseName,
+                tableName,
+                cacheQuotaRequirement,
+                new PerBucket()
+                {
+                    private final Map<String, AsyncQueue<InternalHiveSplit>> queues = new ConcurrentHashMap<>();
+                    private final AtomicBoolean finished = new AtomicBoolean();
+
+                    @Override
+                    public ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit connectorSplit)
+                    {
+                        checkArgument(bucketNumber.isPresent());
+                        String key = buildQueueKey(bucketNumber.getAsInt(), connectorSplit.getPartitionKeys(), columnNameMapping, partitionValueNormalizer);
+                        AsyncQueue<InternalHiveSplit> queue = queueFor(key);
+                        queue.offer(connectorSplit);
+                        return immediateFuture(null);
+                    }
+
+                    @Override
+                    public ListenableFuture<List<ConnectorSplit>> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, List<ConnectorSplit>>> function)
+                    {
+                        throw new UnsupportedOperationException("partition-aware split source requires partition values");
+                    }
+
+                    @Override
+                    public ListenableFuture<List<ConnectorSplit>> borrowBatchAsync(OptionalInt bucketNumber, Map<String, String> partitionValues, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, List<ConnectorSplit>>> function)
+                    {
+                        checkArgument(bucketNumber.isPresent(), "partition-aware split source requires bucket number");
+                        String key = buildQueueKey(bucketNumber.getAsInt(), partitionValues);
+                        return queueFor(key).borrowBatchAsync(maxSize, function);
+                    }
+
+                    @Override
+                    public void noMoreSplits()
+                    {
+                        if (finished.compareAndSet(false, true)) {
+                            queues.values().forEach(AsyncQueue::finish);
+                        }
+                    }
+
+                    @Override
+                    public boolean isFinished(OptionalInt bucketNumber)
+                    {
+                        throw new UnsupportedOperationException("partition-aware split source requires partition values");
+                    }
+
+                    @Override
+                    public boolean isFinished(OptionalInt bucketNumber, Map<String, String> partitionValues)
+                    {
+                        checkArgument(bucketNumber.isPresent(), "partition-aware split source requires bucket number");
+                        String key = buildQueueKey(bucketNumber.getAsInt(), partitionValues);
+                        return queueFor(key).isFinished();
+                    }
+
+                    @Override
+                    public int rewind(OptionalInt bucketNumber)
+                    {
+                        throw new UnsupportedOperationException("rewind is not supported for partition-aware split source");
+                    }
+
+                    private AsyncQueue<InternalHiveSplit> queueFor(String key)
+                    {
+                        AtomicBoolean isNew = new AtomicBoolean();
+                        AsyncQueue<InternalHiveSplit> queue = queues.computeIfAbsent(key, ignored -> {
+                            isNew.set(true);
+                            return new AsyncQueue<>(estimatedOutstandingSplitsPerBucket, executor);
+                        });
+                        if (isNew.get() && finished.get()) {
+                            queue.finish();
+                        }
+                        return queue;
+                    }
+                },
+                maxInitialSplits,
+                maxOutstandingSplitsSize,
+                splitLoader,
+                highMemorySplitSourceCounter,
+                false,
+                splitScanRatio);
+    }
+
     public static HiveSplitSource bucketedRewindable(
             ConnectorSession session,
             String databaseName,
@@ -481,7 +581,8 @@ class HiveSplitSource
         }
 
         OptionalInt bucketNumber = toBucketNumber(partitionHandle);
-        ListenableFuture<List<ConnectorSplit>> future = queues.borrowBatchAsync(bucketNumber, maxSize, internalSplits -> {
+        Optional<Map<String, String>> targetPartitionValues = toPartitionValues(partitionHandle);
+        Function<List<InternalHiveSplit>, AsyncQueue.BorrowResult<InternalHiveSplit, List<ConnectorSplit>>> borrowFunction = internalSplits -> {
             ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder = ImmutableList.builder();
             ImmutableList.Builder<ConnectorSplit> resultBuilder = ImmutableList.builder();
             int removedEstimatedSizeInBytes = 0;
@@ -569,7 +670,15 @@ class HiveSplitSource
             bufferedInternalSplitCount.addAndGet(splitsToInsert.size() - result.size());
 
             return new AsyncQueue.BorrowResult<>(splitsToInsert, result);
-        });
+        };
+
+        ListenableFuture<List<ConnectorSplit>> future;
+        if (targetPartitionValues.isPresent()) {
+            future = queues.borrowBatchAsync(bucketNumber, targetPartitionValues.get(), maxSize, borrowFunction);
+        }
+        else {
+            future = queues.borrowBatchAsync(bucketNumber, maxSize, borrowFunction);
+        }
 
         ListenableFuture<ConnectorSplitBatch> transform = Futures.transform(future, splits -> {
             requireNonNull(splits, "splits is null");
@@ -584,7 +693,11 @@ class HiveSplitSource
                 // Side note 2: One could argue that the isEmpty check is overly conservative.
                 //              The caller of getNextBatch will likely need to make an extra invocation.
                 //              But an extra invocation likely doesn't matter.
-                return new ConnectorSplitBatch(splits, splits.isEmpty() && queues.isFinished(bucketNumber));
+                boolean isLastBatch = splits.isEmpty()
+                        && (targetPartitionValues.isPresent()
+                                ? queues.isFinished(bucketNumber, targetPartitionValues.get())
+                                : queues.isFinished(bucketNumber));
+                return new ConnectorSplitBatch(splits, isLastBatch);
             }
             else {
                 return new ConnectorSplitBatch(splits, false);
@@ -636,7 +749,64 @@ class HiveSplitSource
         if (partitionHandle == NOT_PARTITIONED) {
             return OptionalInt.empty();
         }
+        if (partitionHandle instanceof CompoundPartitionHandle) {
+            CompoundPartitionHandle compound = (CompoundPartitionHandle) partitionHandle;
+            return OptionalInt.of(((HivePartitionHandle) compound.getBucketHandle()).getBucket());
+        }
         return OptionalInt.of(((HivePartitionHandle) partitionHandle).getBucket());
+    }
+
+    private static Optional<Map<String, String>> toPartitionValues(ConnectorPartitionHandle partitionHandle)
+    {
+        if (partitionHandle instanceof CompoundPartitionHandle) {
+            return Optional.of(((CompoundPartitionHandle) partitionHandle).getPartitionValues());
+        }
+        return Optional.empty();
+    }
+
+    @VisibleForTesting
+    static String buildQueueKey(
+            int bucketNumber,
+            List<HivePartitionKey> partitionKeys,
+            Map<String, String> columnNameMapping,
+            Function<HivePartitionKey, String> partitionValueNormalizer)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append(bucketNumber).append('|');
+        partitionKeys.stream()
+                .filter(key -> columnNameMapping.containsKey(key.getName()))
+                .sorted(Comparator.comparing(key -> columnNameMapping.get(key.getName())))
+                .forEach(key -> {
+                    String canonicalName = columnNameMapping.get(key.getName());
+                    String value = partitionValueNormalizer.apply(key);
+                    checkQueueKeyComponent(canonicalName, value);
+                    sb.append(canonicalName).append('=').append(value).append('|');
+                });
+        return sb.toString();
+    }
+
+    @VisibleForTesting
+    static String buildQueueKey(int bucketNumber, Map<String, String> partitionValues)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append(bucketNumber).append('|');
+        partitionValues.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> {
+                    String value = entry.getValue() != null ? entry.getValue() : "";
+                    checkQueueKeyComponent(entry.getKey(), value);
+                    sb.append(entry.getKey()).append('=').append(value).append('|');
+                });
+        return sb.toString();
+    }
+
+    @VisibleForTesting
+    static void checkQueueKeyComponent(String columnName, String value)
+    {
+        checkArgument(!columnName.contains("|"),
+                "Queue key delimiter character '|' in column name: %s. Set session property partition_aware_grouped_execution=false to disable partition-aware scheduling", columnName);
+        checkArgument(!value.contains("|"),
+                "Queue key delimiter character '|' in partition value: %s. Set session property partition_aware_grouped_execution=false to disable partition-aware scheduling", value);
     }
 
     private static <T> boolean setIf(AtomicReference<T> atomicReference, T newValue, Predicate<T> predicate)
@@ -669,9 +839,19 @@ class HiveSplitSource
 
         ListenableFuture<List<ConnectorSplit>> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, List<ConnectorSplit>>> function);
 
+        default ListenableFuture<List<ConnectorSplit>> borrowBatchAsync(OptionalInt bucketNumber, Map<String, String> partitionValues, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, List<ConnectorSplit>>> function)
+        {
+            throw new UnsupportedOperationException("partition-aware borrowBatchAsync requires a PerBucket implementation that supports partition values");
+        }
+
         void noMoreSplits();
 
         boolean isFinished(OptionalInt bucketNumber);
+
+        default boolean isFinished(OptionalInt bucketNumber, Map<String, String> partitionValues)
+        {
+            throw new UnsupportedOperationException("partition-aware isFinished requires a PerBucket implementation that supports partition values");
+        }
 
         // returns the number of finished InternalHiveSplits that are rewound
         int rewind(OptionalInt bucketNumber);

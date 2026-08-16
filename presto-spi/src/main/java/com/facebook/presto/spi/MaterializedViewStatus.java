@@ -42,11 +42,26 @@ public class MaterializedViewStatus
     {
         private final List<TupleDomain<String>> predicateDisjuncts;
         private final List<String> columnNames;
+        private final TupleDomain<String> incrementalRefreshPredicate;
 
         public MaterializedDataPredicates(List<TupleDomain<String>> predicateDisjuncts, List<String> keys)
         {
+            this(predicateDisjuncts, keys, TupleDomain.all());
+        }
+
+        /**
+         * @param incrementalRefreshPredicate narrowing predicate applied to base scans during
+         *        incremental refresh only. Stitching must ignore it — applying a narrowing
+         *        predicate to a stale-read would drop rows the stitched query needs to deliver.
+         */
+        public MaterializedDataPredicates(
+                List<TupleDomain<String>> predicateDisjuncts,
+                List<String> keys,
+                TupleDomain<String> incrementalRefreshPredicate)
+        {
             this.predicateDisjuncts = unmodifiableList(new ArrayList<>(requireNonNull(predicateDisjuncts, "partitionSpecs is null")));
             this.columnNames = unmodifiableList(new ArrayList<>(requireNonNull(keys, "keys is null")));
+            this.incrementalRefreshPredicate = requireNonNull(incrementalRefreshPredicate, "incrementalRefreshPredicate is null");
         }
 
         public boolean isEmpty()
@@ -62,6 +77,11 @@ public class MaterializedViewStatus
         public List<String> getColumnNames()
         {
             return columnNames;
+        }
+
+        public TupleDomain<String> getIncrementalRefreshPredicate()
+        {
+            return incrementalRefreshPredicate;
         }
     }
 

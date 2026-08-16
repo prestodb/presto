@@ -206,6 +206,35 @@ public class TestEventListener
     }
 
     @Test
+    public void testScanRawInputBytes()
+            throws Exception
+    {
+        // Aggregation places a final-aggregation (exchange) stage on top of the lineitem
+        // scan, so scanRawInputBytes must reflect only the leaf-scan raw input, not the
+        // exchange input. Same event/split shape as testNormalQuery.
+        int expectedEvents = 1 + 1 + 1 + SPLITS_PER_NODE + 1 + 1;
+        runQueryAndWaitForEvents("SELECT sum(linenumber) FROM lineitem", expectedEvents);
+
+        // Completed event: scanRawInputBytes must match the query's actual scan-only raw
+        // input (QueryStats.rawInputDataSize is already operator-filtered to leaf scans).
+        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        QueryStats queryStats = queryRunner.getCoordinator().getQueryManager()
+                .getFullQueryInfo(new QueryId(queryCompletedEvent.getMetadata().getQueryId()))
+                .getQueryStats();
+        assertEquals(
+                queryCompletedEvent.getStatistics().getScanRawInputBytes(),
+                queryStats.getRawInputDataSize().toBytes());
+
+        // Progress event: on the running path totalBytes can include exchange input,
+        // so scan-only raw input must be non-negative and never exceed it.
+        QueryProgressEvent queryProgressEvent = generatedEvents.getQueryProgressEvent();
+        assertNotNull(queryProgressEvent);
+        assertTrue(queryProgressEvent.getStatistics().getScanRawInputBytes() >= 0);
+        assertTrue(queryProgressEvent.getStatistics().getScanRawInputBytes()
+                <= queryProgressEvent.getStatistics().getTotalBytes());
+    }
+
+    @Test
     public void testPrepareAndExecute()
             throws Exception
     {

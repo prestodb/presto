@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.sql.planner;
 
+import com.facebook.presto.common.AuthClientConfigs;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RowExpressionSerde;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -26,13 +28,23 @@ public class ExpressionOptimizerContext
     private final RowExpressionSerde rowExpressionSerde;
     private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution functionResolution;
+    private final AuthClientConfigs authClientConfigs;
+    private final TypeManager typeManager;
 
-    public ExpressionOptimizerContext(NodeManager nodeManager, RowExpressionSerde rowExpressionSerde, FunctionMetadataManager functionMetadataManager, StandardFunctionResolution functionResolution)
+    public ExpressionOptimizerContext(
+            NodeManager nodeManager,
+            RowExpressionSerde rowExpressionSerde,
+            FunctionMetadataManager functionMetadataManager,
+            StandardFunctionResolution functionResolution,
+            AuthClientConfigs authClientConfigs,
+            TypeManager typeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.rowExpressionSerde = requireNonNull(rowExpressionSerde, "rowExpressionSerde is null");
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        this.authClientConfigs = requireNonNull(authClientConfigs, "authClientConfigs is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     public NodeManager getNodeManager()
@@ -53,5 +65,15 @@ public class ExpressionOptimizerContext
     public StandardFunctionResolution getFunctionResolution()
     {
         return functionResolution;
+    }
+
+    public AuthClientConfigs getAuthClientConfigs()
+    {
+        return authClientConfigs;
+    }
+
+    public TypeManager getTypeManager()
+    {
+        return typeManager;
     }
 }

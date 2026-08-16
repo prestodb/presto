@@ -36,6 +36,7 @@ import java.time.format.DateTimeFormatter;
 
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
 import static com.facebook.presto.tests.datatype.DataType.charDataType;
@@ -98,9 +99,9 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip(stringDataType("varchar(10)", createVarcharType(10)), "text_a")//utf-8
                 .addRoundTrip(stringDataType("varchar(255)", createVarcharType(255)), "text_b")
                 .addRoundTrip(stringDataType("varchar(21844)", createVarcharType(21844)), "text_c")
-                .addRoundTrip(stringDataType("varchar(21846)", createVarcharType(5592405)), "text_d")
-                .addRoundTrip(stringDataType("varchar(65536)", createVarcharType(5592405)), "text_e")
-                .addRoundTrip(stringDataType("varchar(16777215)", createVarcharType(1431655765)), "text_f")
+                .addRoundTrip(stringDataType("varchar(21846)", createVarcharType(16777215)), "text_d")
+                .addRoundTrip(stringDataType("varchar(65536)", createVarcharType(16777215)), "text_e")
+                .addRoundTrip(stringDataType("varchar(16777215)", createVarcharType(16777215)), "text_f")
                 .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_parameterized_varchar"));
     }
 
@@ -108,10 +109,10 @@ public class TestSingleStoreTypeMapping
     public void testSingleStoreCreatedParameterizedVarchar()
     {
         DataTypeTest.create()
-                .addRoundTrip(stringDataType("tinytext", createVarcharType(255 / 3)), "a")//utf-8
-                .addRoundTrip(stringDataType("text", createVarcharType(65535 / 3)), "b")
-                .addRoundTrip(stringDataType("mediumtext", createVarcharType(16777215 / 3)), "c")
-                .addRoundTrip(stringDataType("longtext", createVarcharType((int) (4294967295L / 3))), "d")
+                .addRoundTrip(stringDataType("tinytext", createVarcharType(255)), "a")
+                .addRoundTrip(stringDataType("text", createVarcharType(65535)), "b")
+                .addRoundTrip(stringDataType("mediumtext", createVarcharType(16777215)), "c")
+                .addRoundTrip(stringDataType("longtext", createUnboundedVarcharType()), "d")
                 .addRoundTrip(varcharDataType(32), "e")
                 .addRoundTrip(varcharDataType(15000), "f")
                 .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.singlestore_test_parameterized_varchar"));
@@ -122,10 +123,10 @@ public class TestSingleStoreTypeMapping
     {
         String sampleUnicodeText = "\u653b\u6bbb\u6a5f\u52d5\u968a";
         DataTypeTest.create()
-                .addRoundTrip(stringDataType("tinytext", createVarcharType(255 / 3)), sampleUnicodeText)
-                .addRoundTrip(stringDataType("text", createVarcharType(65535 / 3)), sampleUnicodeText)
-                .addRoundTrip(stringDataType("mediumtext", createVarcharType(16777215 / 3)), sampleUnicodeText)
-                .addRoundTrip(stringDataType("longtext", createVarcharType((int) (4294967295L / 3))), sampleUnicodeText)
+                .addRoundTrip(stringDataType("tinytext", createVarcharType(255)), sampleUnicodeText)
+                .addRoundTrip(stringDataType("text", createVarcharType(65535)), sampleUnicodeText)
+                .addRoundTrip(stringDataType("mediumtext", createVarcharType(16777215)), sampleUnicodeText)
+                .addRoundTrip(stringDataType("longtext", createUnboundedVarcharType()), sampleUnicodeText)
                 .addRoundTrip(varcharDataType(sampleUnicodeText.length()), sampleUnicodeText)
                 .addRoundTrip(varcharDataType(32), sampleUnicodeText)
                 .addRoundTrip(varcharDataType(20000), sampleUnicodeText)

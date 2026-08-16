@@ -22,6 +22,8 @@ import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.spark.execution.property.NativeExecutionConfigModule;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.core.StreamWriteConstraints;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
@@ -42,6 +44,7 @@ public class PrestoSparkServiceFactory
     @Override
     public IPrestoSparkService createService(SparkProcessType sparkProcessType, PrestoSparkConfiguration configuration, PrestoSparkBootstrapTimer bootstrapTimer)
     {
+        overrideJacksonStreamConstraints();
         bootstrapTimer.beginPrestoSparkServiceCreation();
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(configuration.getConfigProperties());
@@ -64,6 +67,17 @@ public class PrestoSparkServiceFactory
         bootstrapTimer.endPrestoSparkServiceCreation();
         log.info("Initialized");
         return prestoSparkService;
+    }
+
+    // Presto on Spark bootstraps here instead of PrestoServer.run(); relax Jackson's default read
+    // name-length and write nesting-depth limits so large plan fragments (de)serialize. Mutates
+    // JVM-global Jackson defaults, so it must run before any JsonFactory is constructed.
+    static void overrideJacksonStreamConstraints()
+    {
+        StreamReadConstraints.overrideDefaultStreamReadConstraints(
+                StreamReadConstraints.builder().maxNameLength(Integer.MAX_VALUE).build());
+        StreamWriteConstraints.overrideDefaultStreamWriteConstraints(
+                StreamWriteConstraints.builder().maxNestingDepth(Integer.MAX_VALUE).build());
     }
 
     protected List<Module> getAdditionalModules(PrestoSparkConfiguration configuration)

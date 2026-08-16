@@ -35,7 +35,6 @@ public class HiveWriter
     private final String targetPath;
     private final Consumer<HiveWriter> onCommit;
     private final HiveWriterStats hiveWriterStats;
-    private final boolean writeTempData;
 
     private long rowCount;
     private long inputSizeInBytes;
@@ -49,8 +48,7 @@ public class HiveWriter
             String writePath,
             String targetPath,
             Consumer<HiveWriter> onCommit,
-            HiveWriterStats hiveWriterStats,
-            boolean writeTempData)
+            HiveWriterStats hiveWriterStats)
     {
         this.fileWriter = requireNonNull(fileWriter, "fileWriter is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
@@ -60,7 +58,6 @@ public class HiveWriter
         this.targetPath = requireNonNull(targetPath, "targetPath is null");
         this.onCommit = requireNonNull(onCommit, "onCommit is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
-        this.writeTempData = writeTempData;
     }
 
     public long getWrittenBytes()
@@ -81,11 +78,6 @@ public class HiveWriter
     public Optional<String> getPartitionName()
     {
         return partitionName;
-    }
-
-    public boolean isWriteTempData()
-    {
-        return writeTempData;
     }
 
     public void append(Page dataPage)

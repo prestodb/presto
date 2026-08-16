@@ -27,7 +27,7 @@ import com.facebook.presto.spi.function.table.AbstractConnectorTableFunction;
 import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
-import com.facebook.presto.spi.function.table.ReturnTypeSpecification.DescribedTable;
+import com.facebook.presto.spi.function.table.DescribedTableReturnTypeSpecification;
 import com.facebook.presto.spi.function.table.ScalarArgument;
 import com.facebook.presto.spi.function.table.ScalarArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableFunctionAnalysis;
@@ -96,7 +96,7 @@ public class Sequence
                                     .type(BIGINT)
                                     .defaultValue(1L)
                                     .build()),
-                    new DescribedTable(descriptor(ImmutableList.of("sequential_number"), ImmutableList.of(BIGINT))));
+                    new DescribedTableReturnTypeSpecification(descriptor(ImmutableList.of("sequential_number"), ImmutableList.of(BIGINT))));
         }
 
         @Override

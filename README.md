@@ -11,7 +11,7 @@ See the [Presto documentation](https://prestodb.io/docs/current/) for general do
 
 ## Mission and Architecture
 
-See [PrestoDB: Mission and Architecture](ARCHITECTURE.md). 
+See [PrestoDB: Mission and Architecture](ARCHITECTURE.md).
 
 ## Requirements
 
@@ -30,6 +30,8 @@ Presto is a standard Maven project. Simply run the following command from the pr
     ./mvnw clean install
 
 On the first build, Maven will download all the dependencies from the internet and cache them in the local repository (`~/.m2/repository`), which can take a considerable amount of time. Subsequent builds will be faster.
+
+When building multiple Presto projects locally, each project may write updates to the user's global M2 cache, which could cause build issues. You can configure your local `.mvn/maven.config` to support a local cache specific to that project via `-Dmaven.repo.local=./.m2/repository`.
 
 Presto has a comprehensive set of unit tests that can take several minutes to run. You can disable the tests when building:
 
@@ -65,7 +67,7 @@ To modify the loaded plugins in IntelliJ, modify the `config.properties` located
 
 ### Additional configuration for Java 17
 
-When running with Java 17, additional `--add-opens` flags are required to allow reflective access used by certain catalogs based on which catalogs are configured.  
+When running with Java 17, additional `--add-opens` flags are required to allow reflective access used by certain catalogs based on which catalogs are configured.
 For the default set of catalogs loaded when starting the Presto server in IntelliJ without changes, add the following flags to the **VM Options**:
 
     --add-opens=java.base/java.io=ALL-UNNAMED
@@ -155,6 +157,10 @@ resources will be hot-reloaded and changes are reflected on browser refresh.
 
 Check out [building instructions](https://github.com/prestodb/presto/tree/master/presto-native-execution#build-from-source) to get started.
 
+## Using development containers
+
+The PrestoDB project provides support for development containers in its own repository.
+Please visit the [presto-dev README](https://github.com/prestodb/presto-dev/blob/main/README.md) for details.
 
 <hr>
 </details>

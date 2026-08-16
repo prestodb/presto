@@ -13,14 +13,13 @@
  */
 #pragma once
 
-#include <folly/Singleton.h>
+#include <exception>
 #include <unordered_map>
+
+#include <folly/Singleton.h>
+
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/VeloxException.h"
-
-namespace std {
-class exception;
-}
 
 namespace facebook::presto {
 namespace protocol {

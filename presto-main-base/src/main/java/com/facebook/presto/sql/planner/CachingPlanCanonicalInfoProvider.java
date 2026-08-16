@@ -38,6 +38,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.enableVerboseHistoryBasedOptimizerRuntimeStats;
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
+import static com.facebook.presto.SystemSessionProperties.isVerbosePlannerRuntimeStatsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
 import static com.facebook.presto.SystemSessionProperties.logQueryPlansUsedInHistoryBasedOptimizer;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
@@ -79,7 +80,7 @@ public class CachingPlanCanonicalInfoProvider
         long startTimeInNano = System.nanoTime();
         long profileStartTime = 0;
         long timeoutInMilliseconds = getHistoryBasedOptimizerTimeoutLimit(session).toMillis();
-        boolean enableVerboseRuntimeStats = isVerboseRuntimeStatsEnabled(session) || enableVerboseHistoryBasedOptimizerRuntimeStats(session);
+        boolean enableVerboseRuntimeStats = isVerboseRuntimeStatsEnabled(session) || isVerbosePlannerRuntimeStatsEnabled(session) || enableVerboseHistoryBasedOptimizerRuntimeStats(session);
         Map<CacheKey, PlanNodeCanonicalInfo> cache = historyBasedStatisticsCacheManager.getCanonicalInfoCache(session.getQueryId());
         PlanNodeCanonicalInfo result = cache.get(key);
         if (result != null || cacheOnly) {

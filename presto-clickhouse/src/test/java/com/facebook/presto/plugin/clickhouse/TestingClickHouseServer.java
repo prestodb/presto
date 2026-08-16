@@ -13,15 +13,12 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import org.testcontainers.containers.ClickHouseContainer;
+import org.testcontainers.clickhouse.ClickHouseContainer;
 
 import java.io.Closeable;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
-
-import static java.lang.String.format;
-import static org.testcontainers.containers.ClickHouseContainer.HTTP_PORT;
 
 public class TestingClickHouseServer
         implements Closeable
@@ -44,7 +41,10 @@ public class TestingClickHouseServer
     }
     public void execute(String sql)
     {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(
+                getJdbcUrl(),
+                dockerContainer.getUsername(),
+                dockerContainer.getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
@@ -55,10 +55,7 @@ public class TestingClickHouseServer
 
     public String getJdbcUrl()
     {
-        String s = format("jdbc:clickhouse://%s:%s/", dockerContainer.getContainerIpAddress(),
-                dockerContainer.getMappedPort(HTTP_PORT));
-        return format("jdbc:clickhouse://%s:%s/", dockerContainer.getContainerIpAddress(),
-                dockerContainer.getMappedPort(HTTP_PORT));
+        return dockerContainer.getJdbcUrl();
     }
 
     @Override

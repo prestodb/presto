@@ -27,11 +27,11 @@ struct SystemSplit : public velox::connector::ConnectorSplit {
         schemaName_(schemaName),
         tableName_(tableName) {}
 
-  const std::string& schemaName() {
+  const std::string& schemaName() const {
     return schemaName_;
   }
 
-  const std::string& tableName() {
+  const std::string& tableName() const {
     return tableName_;
   }
 

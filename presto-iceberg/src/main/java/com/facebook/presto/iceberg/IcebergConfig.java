@@ -31,6 +31,7 @@ import org.apache.iceberg.hadoop.HadoopFileIO;
 import java.util.EnumSet;
 import java.util.List;
 
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.airlift.units.DataSize.succinctDataSize;
 import static com.facebook.presto.hive.HiveCompressionCodec.ZSTD;
@@ -40,6 +41,7 @@ import static com.facebook.presto.iceberg.util.StatisticsUtil.decodeMergeFlags;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
 import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
@@ -62,6 +64,7 @@ public class IcebergConfig
     private boolean deleteAsJoinRewriteEnabled = true;
     private int deleteAsJoinRewriteMaxDeleteColumns = 400;
     private int rowsForMetadataOptimizationThreshold = 1000;
+    private int commitNumberRetries = COMMIT_NUM_RETRIES_DEFAULT;
     private int metadataPreviousVersionsMax = METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
     private boolean metadataDeleteAfterCommit = METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
     private int metricsMaxInferredColumn = METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
@@ -77,6 +80,11 @@ public class IcebergConfig
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors();
     private DataSize maxStatisticsFileCacheSize = succinctDataSize(256, MEGABYTE);
     private String materializedViewStoragePrefix = "__mv_storage__";
+    private String materializedViewDefaultStorageSchema;
+    private int materializedViewMaxChangedPartitions = 100;
+    private int materializedViewDefaultMaxSnapshotsPerRefresh;
+    private boolean aggregatePushDownEnabled = true;
+    private DataSize targetMaxFileSize = succinctDataSize(1, GIGABYTE);
 
     @NotNull
     public FileFormat getFileFormat()
@@ -414,6 +422,20 @@ public class IcebergConfig
     }
 
     @Min(0)
+    public int getCommitNumberRetries()
+    {
+        return commitNumberRetries;
+    }
+
+    @Config("iceberg.commit-number-retries")
+    @ConfigDescription("Number of times to retry a commit before failing")
+    public IcebergConfig setCommitNumberRetries(int commitNumberRetries)
+    {
+        this.commitNumberRetries = commitNumberRetries;
+        return this;
+    }
+
+    @Min(0)
     public int getMetadataPreviousVersionsMax()
     {
         return metadataPreviousVersionsMax;
@@ -494,6 +516,82 @@ public class IcebergConfig
     public IcebergConfig setMaterializedViewStoragePrefix(String materializedViewStoragePrefix)
     {
         this.materializedViewStoragePrefix = materializedViewStoragePrefix;
+        return this;
+    }
+
+    public String getMaterializedViewDefaultStorageSchema()
+    {
+        return materializedViewDefaultStorageSchema;
+    }
+
+    @Config("iceberg.materialized-view-default-storage-schema")
+    @ConfigDescription("Default schema for materialized view storage tables when the storage_schema " +
+            "table property is not set. Defaults to the materialized view's own schema; point at a " +
+            "locked-down schema to keep storage tables out of users' reach.")
+    public IcebergConfig setMaterializedViewDefaultStorageSchema(String materializedViewDefaultStorageSchema)
+    {
+        this.materializedViewDefaultStorageSchema = materializedViewDefaultStorageSchema;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaterializedViewMaxChangedPartitions()
+    {
+        return materializedViewMaxChangedPartitions;
+    }
+
+    @Config("iceberg.materialized-view-max-changed-partitions")
+    @ConfigDescription("Maximum number of changed partitions to track for materialized view staleness detection. " +
+            "If the number of changed partitions exceeds this threshold, the materialized view will fall back to full recompute.")
+    public IcebergConfig setMaterializedViewMaxChangedPartitions(int materializedViewMaxChangedPartitions)
+    {
+        this.materializedViewMaxChangedPartitions = materializedViewMaxChangedPartitions;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaterializedViewDefaultMaxSnapshotsPerRefresh()
+    {
+        return materializedViewDefaultMaxSnapshotsPerRefresh;
+    }
+
+    @Config("iceberg.materialized-view-default-max-snapshots-per-refresh")
+    @ConfigDescription("Default upper bound on snapshots consumed per base table per refresh when the materialized view " +
+            "does not override it. 0 means unbounded (no default bound).")
+    public IcebergConfig setMaterializedViewDefaultMaxSnapshotsPerRefresh(int materializedViewDefaultMaxSnapshotsPerRefresh)
+    {
+        this.materializedViewDefaultMaxSnapshotsPerRefresh = materializedViewDefaultMaxSnapshotsPerRefresh;
+        return this;
+    }
+
+    public boolean isAggregatePushDownEnabled()
+    {
+        return aggregatePushDownEnabled;
+    }
+
+    @Config("iceberg.aggregate-push-down-enabled")
+    @ConfigDescription("Controls whether to push down aggregate (MIN/MAX/COUNT) to Iceberg based on data file stats.")
+    public IcebergConfig setAggregatePushDownEnabled(boolean aggregatePushDownEnabled)
+    {
+        this.aggregatePushDownEnabled = aggregatePushDownEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getTargetMaxFileSize()
+    {
+        return targetMaxFileSize;
+    }
+
+    @Min(1)
+    @Config("iceberg.target-max-file-size")
+    @ConfigDescription("Target maximum size of written files; the actual size may be larger")
+    public IcebergConfig setTargetMaxFileSize(DataSize targetMaxFileSize)
+    {
+        if (targetMaxFileSize.toBytes() < 1) {
+            throw new IllegalArgumentException("iceberg.target-max-file-size must be at least 1 byte");
+        }
+        this.targetMaxFileSize = targetMaxFileSize;
         return this;
     }
 }

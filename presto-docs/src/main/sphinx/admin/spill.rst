@@ -2,11 +2,6 @@
 Spill to Disk
 =============
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Overview
 --------
 
@@ -30,7 +25,7 @@ of memory to queries and prevents deadlock caused by memory allocation.
 It is efficient when there are a lot of small queries in the cluster, but
 leads to killing large queries that don't stay within the limits.
 
-To overcome this inefficiency, the concept of revocable memory was introduced. A
+To overcome this limitation, the concept of revocable memory was introduced. A
 query can request memory that does not count toward the limits, but this memory
 can be revoked by the memory manager at any time. When memory is revoked, the
 query runner spills intermediate data from memory to disk and continues to
@@ -70,7 +65,7 @@ excessive spilling for queries that consume large amounts of memory per node.
 These queries would finish much quicker if spill were disabled because they
 would execute in the reserved pool. However, doing so could also significantly
 reduce cluster concurrency. In such a situation we recommend disabling the 
-reserved memory pool via the ``experimental.reserved-pool-enabled`` config 
+reserved memory pool by using the ``experimental.reserved-pool-enabled`` configuration 
 property.
 
 Spill Disk Space
@@ -106,6 +101,8 @@ When spill encryption is enabled (``spill-encryption-enabled`` property in
 :ref:`tuning-spilling`), spill contents will be encrypted with a randomly generated
 (per spill file) secret key. Enabling this will decrease the performance of spilling
 to disk but can protect spilled data from being recovered from the files written to disk.
+
+.. _spill-operations:
 
 Supported Operations
 --------------------

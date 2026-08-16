@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -57,19 +57,23 @@ import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPE
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestTables;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Locale.ROOT;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -88,7 +92,7 @@ public class TestCassandraConnector
             System.currentTimeMillis(),
             new CassandraSessionProperties(new CassandraClientConfig()).getSessionProperties(),
             ImmutableMap.of(),
-            true,
+            false,
             Optional.empty(),
             ImmutableSet.of(),
             Optional.empty(),
@@ -98,10 +102,11 @@ public class TestCassandraConnector
     protected SchemaTableName table;
     protected SchemaTableName tableUnpartitioned;
     protected SchemaTableName invalidTable;
+    protected SchemaTableName rollbackTable;
     private CassandraServer server;
-    private ConnectorMetadata metadata;
     private ConnectorSplitManager splitManager;
     private ConnectorRecordSetProvider recordSetProvider;
+    private Connector connector;
 
     @BeforeClass
     public void setup()
@@ -115,13 +120,13 @@ public class TestCassandraConnector
         String connectorId = "cassandra-test";
         CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(connectorId);
 
-        Connector connector = connectorFactory.create(connectorId, ImmutableMap.of(
-                "cassandra.contact-points", server.getHost(),
-                "cassandra.native-protocol-port", Integer.toString(server.getPort())),
+        connector = connectorFactory.create(connectorId, ImmutableMap.of(
+                        "cassandra.contact-points", server.getHost(),
+                        "cassandra.native-protocol-port", Integer.toString(server.getPort()),
+                        "cassandra.allow-drop-table", "true",
+                        "cassandra.load-policy.use-dc-aware", "true",
+                        "cassandra.load-policy.dc-aware.local-dc", "datacenter1"),
                 new TestingConnectorContext());
-
-        metadata = connector.getMetadata(CassandraTransactionHandle.INSTANCE);
-        assertInstanceOf(metadata, CassandraMetadata.class);
 
         splitManager = connector.getSplitManager();
         assertInstanceOf(splitManager, CassandraSplitManager.class);
@@ -133,6 +138,7 @@ public class TestCassandraConnector
         table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase(ROOT));
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
+        rollbackTable = new SchemaTableName(database, "rollback_table");
     }
 
     @Test
@@ -149,6 +155,8 @@ public class TestCassandraConnector
     @Test
     public void testGetDatabaseNames()
     {
+        ConnectorTransactionHandle transactionHandle = connector.beginTransaction(READ_UNCOMMITTED, true);
+        ConnectorMetadata metadata = connector.getMetadata(transactionHandle);
         List<String> databases = metadata.listSchemaNames(SESSION);
         assertTrue(databases.contains(database.toLowerCase(ROOT)));
     }
@@ -156,6 +164,8 @@ public class TestCassandraConnector
     @Test
     public void testGetTableNames()
     {
+        ConnectorTransactionHandle transactionHandle = connector.beginTransaction(READ_UNCOMMITTED, true);
+        ConnectorMetadata metadata = connector.getMetadata(transactionHandle);
         List<SchemaTableName> tables = metadata.listTables(SESSION, database);
         assertTrue(tables.contains(table));
     }
@@ -164,12 +174,16 @@ public class TestCassandraConnector
     @Test(enabled = false, expectedExceptions = SchemaNotFoundException.class)
     public void testGetTableNamesException()
     {
+        ConnectorTransactionHandle transactionHandle = connector.beginTransaction(READ_UNCOMMITTED, true);
+        ConnectorMetadata metadata = connector.getMetadata(transactionHandle);
         metadata.listTables(SESSION, INVALID_DATABASE);
     }
 
     @Test
     public void testListUnknownSchema()
     {
+        ConnectorTransactionHandle transactionHandle = connector.beginTransaction(READ_UNCOMMITTED, true);
+        ConnectorMetadata metadata = connector.getMetadata(transactionHandle);
         assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual")));
         assertEquals(metadata.listTables(SESSION, "totally_invalid_database_name"), ImmutableList.of());
         assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
@@ -178,23 +192,23 @@ public class TestCassandraConnector
     @Test
     public void testGetRecords()
     {
-        ConnectorTableHandle tableHandle = getTableHandle(table);
+        ConnectorTransactionHandle transactionHandle = connector.beginTransaction(READ_UNCOMMITTED, true);
+        ConnectorMetadata metadata = connector.getMetadata(transactionHandle);
+        ConnectorTableHandle tableHandle = getTableHandle(table, metadata);
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        ConnectorTransactionHandle transaction = CassandraTransactionHandle.INSTANCE;
-
         ConnectorTableLayoutResult layoutResult = metadata.getTableLayoutForConstraint(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty());
         ConnectorTableLayoutHandle layout = layoutResult.getTableLayout().getHandle();
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction, SESSION, layout, new SplitSchedulingContext(UNGROUPED_SCHEDULING, false, WarningCollector.NOOP)));
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transactionHandle, SESSION, layout, new SplitSchedulingContext(UNGROUPED_SCHEDULING, false, WarningCollector.NOOP)));
 
         long rowNumber = 0;
         for (ConnectorSplit split : splits) {
             CassandraSplit cassandraSplit = (CassandraSplit) split;
 
             long completedBytes = 0;
-            try (RecordCursor cursor = recordSetProvider.getRecordSet(transaction, SESSION, cassandraSplit, columnHandles).cursor()) {
+            try (RecordCursor cursor = recordSetProvider.getRecordSet(transactionHandle, SESSION, cassandraSplit, columnHandles).cursor()) {
                 while (cursor.advanceNextPosition()) {
                     try {
                         assertReadFields(cursor, tableMetadata.getColumns());
@@ -211,7 +225,7 @@ public class TestCassandraConnector
 
                     assertEquals(keyValue, String.format("key %d", rowId));
 
-                    assertEquals(Bytes.toHexString(cursor.getSlice(columnIndex.get("typebytes")).getBytes()), String.format("0x%08X", rowId));
+                    assertEquals(bytesToHex(cursor.getSlice(columnIndex.get("typebytes")).getBytes()), String.format("0x%08X", rowId));
 
                     // VARINT is returned as a string
                     assertEquals(cursor.getSlice(columnIndex.get("typeinteger")).toStringUtf8(), String.valueOf(rowId));
@@ -220,7 +234,7 @@ public class TestCassandraConnector
 
                     assertEquals(cursor.getSlice(columnIndex.get("typeuuid")).toStringUtf8(), String.format("00000000-0000-0000-0000-%012d", rowId));
 
-                    assertEquals(cursor.getSlice(columnIndex.get("typetimestamp")).toStringUtf8(), Long.valueOf(DATE.getTime()).toString());
+                    assertEquals(cursor.getLong(columnIndex.get("typetimestamp")), packDateTimeWithZone(DATE.getTime(), UTC_KEY));
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);
@@ -229,6 +243,39 @@ public class TestCassandraConnector
             }
         }
         assertEquals(rowNumber, 9);
+    }
+
+    @Test
+    public void testRollbackTables()
+    {
+        ConnectorTableMetadata connectorTableMetadata = new ConnectorTableMetadata(
+                rollbackTable,
+                ImmutableList.of(
+                        ColumnMetadata.builder()
+                                .setName("test_col")
+                                .setType(BIGINT)
+                                .build()));
+
+        // start a transaction
+        ConnectorTransactionHandle transactionHandle = connector.beginTransaction(READ_UNCOMMITTED, true);
+        ConnectorMetadata metadata = connector.getMetadata(transactionHandle);
+        ConnectorOutputTableHandle handle = null;
+
+        try {
+            // Begin table creation (STAGING only)
+            handle = metadata.beginCreateTable(SESSION, connectorTableMetadata, Optional.empty());
+            // simulate a failure
+            throw new RuntimeException("Force failure before finish");
+        }
+        catch (RuntimeException e) {
+            if (handle != null) {
+                // table should exist
+                assertTrue(metadata.listTables(SESSION, database).contains(rollbackTable));
+                // rollback table
+                connector.rollback(transactionHandle);
+            }
+        }
+        assertFalse(metadata.listTables(SESSION, database).contains(rollbackTable));
     }
 
     private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
@@ -247,6 +294,9 @@ public class TestCassandraConnector
                     cursor.getLong(columnIndex);
                 }
                 else if (TIMESTAMP.equals(type)) {
+                    cursor.getLong(columnIndex);
+                }
+                else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
                     cursor.getLong(columnIndex);
                 }
                 else if (DOUBLE.equals(type)) {
@@ -270,7 +320,7 @@ public class TestCassandraConnector
         }
     }
 
-    private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
+    private ConnectorTableHandle getTableHandle(SchemaTableName tableName, ConnectorMetadata metadata)
     {
         ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName);
         checkArgument(handle != null, "table not found: %s", tableName);
@@ -296,5 +346,14 @@ public class TestCassandraConnector
             i++;
         }
         return index.build();
+    }
+
+    private static String bytesToHex(byte[] bytes)
+    {
+        StringBuilder sb = new StringBuilder("0x");
+        for (byte b : bytes) {
+            sb.append(String.format("%02X", b));
+        }
+        return sb.toString();
     }
 }

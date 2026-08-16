@@ -45,7 +45,9 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INCOMPATIBLE_VERSION;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_METADATA_TABLES;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -102,6 +104,13 @@ public class ManifestsTable
 
     private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable, long snapshotId)
     {
+        int formatVersion = ((org.apache.iceberg.BaseTable) icebergTable).operations().current().formatVersion();
+        if (formatVersion > MAX_FORMAT_VERSION_FOR_METADATA_TABLES) {
+            throw new PrestoException(ICEBERG_INCOMPATIBLE_VERSION,
+                    format("Cannot read Iceberg manifest files for table format version %d (max supported: %d). Upgrade Presto to read this table.",
+                            formatVersion, MAX_FORMAT_VERSION_FOR_METADATA_TABLES));
+        }
+
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
 
         Snapshot snapshot = icebergTable.snapshot(snapshotId);

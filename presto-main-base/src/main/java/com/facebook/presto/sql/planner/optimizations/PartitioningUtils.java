@@ -179,6 +179,9 @@ public class PartitioningUtils
 
     public static boolean isPartitionedOn(Partitioning partitioning, Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> knownConstants)
     {
+        if (partitioning.getArguments().isEmpty()) {
+            return partitioning.getHandle().isSingleNode() || partitioning.getHandle().isCoordinatorOnly();
+        }
         for (RowExpression argument : partitioning.getArguments()) {
             // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
             // can safely ignore all constant columns when comparing partition properties

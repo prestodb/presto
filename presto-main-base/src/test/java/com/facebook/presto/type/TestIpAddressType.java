@@ -20,7 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.type.IpAddressType.IPADDRESS;
+import static com.facebook.presto.common.type.IpAddressType.IPADDRESS;
 import static org.testng.Assert.assertEquals;
 
 public class TestIpAddressType

@@ -16,6 +16,7 @@ FROM ${DEPENDENCY_IMAGE} as prestissimo-image
 
 ARG OSNAME=centos
 ARG BUILD_TYPE=Release
+ARG PRESTO_OPTIONAL_FEATURES=''
 ARG EXTRA_CMAKE_FLAGS=''
 ARG NUM_THREADS=8
 ARG CUDA_ARCHITECTURES=70
@@ -27,9 +28,11 @@ ENV BUILD_DIR=""
 RUN mkdir -p /prestissimo /runtime-libraries
 COPY . /prestissimo/
 RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
+    /bin/bash -c 'if [[ "${EXTRA_CMAKE_FLAGS}" =~ -DPRESTO_ENABLE_CUDF=ON ]] || [[ ",${PRESTO_OPTIONAL_FEATURES}," =~ ,cudf, ]]; then unset CC; unset CXX; source /opt/rh/gcc-toolset-14/enable; fi && \
+    PRESTO_OPTIONAL_FEATURES=${PRESTO_OPTIONAL_FEATURES} \
     EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS} \
     NUM_THREADS=${NUM_THREADS} make --directory="/prestissimo/" cmake-and-build BUILD_TYPE=${BUILD_TYPE} BUILD_DIR=${BUILD_DIR} BUILD_BASE_DIR=${BUILD_BASE_DIR} && \
-    ccache -sz -v
+    ccache -sz -v'
 RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server  | grep "not found") && \
     LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | awk 'NF == 4 { system("cp " $3 " /runtime-libraries") }'
 

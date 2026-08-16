@@ -42,6 +42,7 @@ public class RoutineCharacteristics
         public static final Language SQL = new Language("SQL");
         public static final Language JAVA = new Language("Java");
         public static final Language CPP = new Language("CPP");
+        public static final Language PYTHON = new Language("PYTHON");
 
         private final String language;
 

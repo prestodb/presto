@@ -20,7 +20,7 @@ General Changes
 * Improve support for correlated subqueries containing equality predicates.
 * Improve performance of correlated ``EXISTS`` subqueries.
 * Limit the number of grouping sets in a ``GROUP BY`` clause.
-  The default limit is ``2048`` and can be set via the ``analyzer.max-grouping-sets``
+  The default limit is ``2048`` and can be set with the ``analyzer.max-grouping-sets``
   configuration property or the ``max_grouping_sets`` session property.
 * Allow coercion between row types regardless of field names.
   Previously, a row type is coercible to another only if the field name in the source type

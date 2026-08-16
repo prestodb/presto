@@ -10,8 +10,8 @@ equivalent varchar.
 
 When necessary, values can be explicitly cast to a particular type.
 
-Conversion Functions
---------------------
+Functions
+---------
 
 .. function:: cast(value AS type) -> type
 

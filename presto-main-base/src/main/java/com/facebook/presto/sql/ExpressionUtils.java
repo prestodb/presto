@@ -15,16 +15,19 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
@@ -296,21 +299,33 @@ public final class ExpressionUtils
         if (!removablePrefix.isPresent()) {
             return groupingElement;
         }
+        if (groupingElement instanceof GroupingSets) {
+            ImmutableList.Builder<List<Expression>> rewrittenSets = ImmutableList.builder();
+            for (List<Expression> set : ((GroupingSets) groupingElement).getSets()) {
+                rewrittenSets.add(removePrefixFromExpressions(set, removablePrefix));
+            }
+            return new GroupingSets(rewrittenSets.build());
+        }
+        List<Expression> rewritten = removePrefixFromExpressions(groupingElement.getExpressions(), removablePrefix);
         if (groupingElement instanceof SimpleGroupBy) {
-            boolean prefixRemoved = false;
-            ImmutableList.Builder<Expression> rewrittenColumns = ImmutableList.builder();
-            for (Expression column : groupingElement.getExpressions()) {
-                Expression processedColumn = removeExpressionPrefix(column, removablePrefix);
-                if (processedColumn != column) {
-                    prefixRemoved = true;
-                }
-                rewrittenColumns.add(processedColumn);
-            }
-            if (prefixRemoved) {
-                return new SimpleGroupBy(rewrittenColumns.build());
-            }
+            return new SimpleGroupBy(rewritten);
+        }
+        if (groupingElement instanceof Cube) {
+            return new Cube(rewritten);
+        }
+        if (groupingElement instanceof Rollup) {
+            return new Rollup(rewritten);
         }
         return groupingElement;
+    }
+
+    private static List<Expression> removePrefixFromExpressions(List<Expression> expressions, Optional<Identifier> removablePrefix)
+    {
+        ImmutableList.Builder<Expression> rewritten = ImmutableList.builder();
+        for (Expression column : expressions) {
+            rewritten.add(removeExpressionPrefix(column, removablePrefix));
+        }
+        return rewritten.build();
     }
 
     public static SortItem removeSortItemPrefix(SortItem sortItem, Optional<Identifier> removablePrefix)

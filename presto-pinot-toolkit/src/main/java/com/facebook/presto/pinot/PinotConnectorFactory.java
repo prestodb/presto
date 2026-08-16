@@ -16,7 +16,9 @@ package com.facebook.presto.pinot;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.util.RebindSafeMBeanServer;
 import com.facebook.presto.expressions.LogicalRowExpressions;
+import com.facebook.presto.pinot.auth.PinotTlsAuthenticationModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeManager;
@@ -69,6 +71,7 @@ public class PinotConnectorFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new MBeanModule(),
+                    new PinotTlsAuthenticationModule(),
                     new PinotModule(connectorId), binder -> {
                 binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
                 binder.bind(ConnectorId.class).toInstance(new ConnectorId(connectorId));

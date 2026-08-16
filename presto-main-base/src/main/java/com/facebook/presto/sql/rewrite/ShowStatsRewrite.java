@@ -26,6 +26,7 @@ import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VariableWidthType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -33,12 +34,14 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.StringRange;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.QueryUtil;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
@@ -116,9 +119,10 @@ public class ShowStatsRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
             WarningCollector warningCollector,
-            String query)
+            String query,
+            ViewDefinitionReferences viewDefinitionReferences)
     {
-        return (Statement) new Visitor(metadata, session, parameters, queryExplainer, warningCollector, query).process(node, null);
+        return (Statement) new Visitor(metadata, session, parameters, queryExplainer, warningCollector, query, viewDefinitionReferences).process(node, null);
     }
 
     private static class Visitor
@@ -130,8 +134,9 @@ public class ShowStatsRewrite
         private final Optional<QueryExplainer> queryExplainer;
         private final WarningCollector warningCollector;
         private final String sqlString;
+        private final ViewDefinitionReferences viewDefinitionReferences;
 
-        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector, String sqlString)
+        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector, String sqlString, ViewDefinitionReferences viewDefinitionReferences)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
@@ -139,6 +144,7 @@ public class ShowStatsRewrite
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.sqlString = requireNonNull(sqlString, "sqlString is null");
+            this.viewDefinitionReferences = requireNonNull(viewDefinitionReferences, "viewDefinitionReferences is null");
         }
 
         @Override
@@ -149,7 +155,7 @@ public class ShowStatsRewrite
             if (node.getRelation() instanceof TableSubquery) {
                 Query query = ((TableSubquery) node.getRelation()).getQuery();
                 QuerySpecification specification = (QuerySpecification) query.getQueryBody();
-                Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty(), Optional.empty()), parameters, warningCollector, sqlString);
+                Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty(), Optional.empty()), parameters, warningCollector, sqlString, viewDefinitionReferences);
                 Set<String> columns = validateShowStatsSubquery(node, query, specification, plan);
                 Table table = (Table) specification.getFrom().get();
                 Constraint<ColumnHandle> constraint = getConstraint(plan);
@@ -317,8 +323,15 @@ public class ShowStatsRewrite
             rowValues.add(createEstimateRepresentation(columnStatistics.getDistinctValuesCount()));
             rowValues.add(createEstimateRepresentation(columnStatistics.getNullsFraction()));
             rowValues.add(NULL_DOUBLE);
-            rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMin)));
-            rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMax)));
+            if (columnStatistics.getStringRange().isPresent()) {
+                checkState(type instanceof VariableWidthType, "String range was specified for a non variable width-type %s", type);
+                rowValues.add(columnStatistics.getStringRange().map(StringRange::getMin).<Expression>map(StringLiteral::new).orElse(NULL_VARCHAR));
+                rowValues.add(columnStatistics.getStringRange().map(StringRange::getMax).<Expression>map(StringLiteral::new).orElse(NULL_VARCHAR));
+            }
+            else {
+                rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMin)));
+                rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMax)));
+            }
             rowValues.add(columnStatistics.getHistogram().map(Objects::toString).<Expression>map(StringLiteral::new).orElse(NULL_VARCHAR));
             return new Row(rowValues.build());
         }

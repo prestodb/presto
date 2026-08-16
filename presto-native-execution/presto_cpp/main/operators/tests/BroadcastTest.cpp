@@ -117,9 +117,8 @@ class BroadcastTest : public exec::test::OperatorTestBase,
       const std::string& basePath,
       const std::vector<std::string>& broadcastFilePaths) {
     // Create plan for read node using file path.
-    auto readerPlan = exec::test::PlanBuilder()
-                          .exchange(dataType, velox::VectorSerde::Kind::kPresto)
-                          .planNode();
+    auto readerPlan =
+        exec::test::PlanBuilder().exchange(dataType, "Presto").planNode();
     exec::CursorParameters broadcastReadParams;
     broadcastReadParams.planNode = readerPlan;
 
@@ -348,9 +347,8 @@ TEST_P(BroadcastTest, malformedBroadcastInfoJson) {
   std::string basePath = "/tmp";
   std::string invalidBroadcastFilePath = "/tmp/file.bin";
 
-  auto readerPlan = exec::test::PlanBuilder()
-                        .exchange(dataType, velox::VectorSerde::Kind::kPresto)
-                        .planNode();
+  auto readerPlan =
+      exec::test::PlanBuilder().exchange(dataType, "Presto").planNode();
   exec::CursorParameters broadcastReadParams;
   broadcastReadParams.planNode = readerPlan;
 

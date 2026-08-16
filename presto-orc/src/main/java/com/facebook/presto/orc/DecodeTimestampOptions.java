@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.orc;
 
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
@@ -29,17 +28,17 @@ public class DecodeTimestampOptions
     private final long nanosecondsPerUnit;
     private final long baseSeconds;
 
-    public DecodeTimestampOptions(DateTimeZone hiveStorageTimeZone, boolean enableMicroPrecision)
+    public DecodeTimestampOptions(ZoneId timezone, boolean enableMicroPrecision)
     {
         this.enableMicroPrecision = enableMicroPrecision;
         TimeUnit timeUnit = enableMicroPrecision ? MICROSECONDS : MILLISECONDS;
 
-        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        requireNonNull(timezone, "timezone is null");
 
         this.unitsPerSecond = timeUnit.convert(1, TimeUnit.SECONDS);
         this.nanosecondsPerUnit = TimeUnit.NANOSECONDS.convert(1, timeUnit);
 
-        this.baseSeconds = MILLISECONDS.toSeconds(new DateTime(2015, 1, 1, 0, 0, hiveStorageTimeZone).getMillis());
+        this.baseSeconds = ZonedDateTime.of(2015, 1, 1, 0, 0, 0, 0, timezone).toEpochSecond();
     }
 
     public boolean enableMicroPrecision()
@@ -58,7 +57,7 @@ public class DecodeTimestampOptions
     }
 
     /**
-     * @return Seconds since 01/01/2015 (see https://orc.apache.org/specification/ORCv1/) in hive storage timezone (see {@link DecodeTimestampOptions#DecodeTimestampOptions(DateTimeZone, boolean)} })
+     * @return Seconds since 01/01/2015 (see https://orc.apache.org/specification/ORCv1/) in hive storage timezone (see {@link DecodeTimestampOptions#DecodeTimestampOptions(ZoneId, boolean)} })
      */
     public long getBaseSeconds()
     {

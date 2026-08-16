@@ -71,7 +71,6 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import io.airlift.slice.Slices;
 
 import java.util.ArrayList;
@@ -120,9 +119,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
 
 public class PredicatePushDown
         implements PlanOptimizer
@@ -305,6 +304,13 @@ public class PredicatePushDown
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<RowExpression> context)
         {
+            // Fast path: when inherited predicate is TRUE, there are no conjuncts
+            // to push through the project, so skip the expensive determinism check
+            // on all assignments.
+            if (context.get().equals(TRUE_CONSTANT)) {
+                return context.defaultRewrite(node, TRUE_CONSTANT);
+            }
+
             Set<VariableReferenceExpression> deterministicVariables = node.getAssignments().entrySet().stream()
                     .filter(entry -> determinismEvaluator.isDeterministic(entry.getValue()))
                     .map(Map.Entry::getKey)
@@ -532,7 +538,7 @@ public class PredicatePushDown
             ImmutableList.Builder<RowExpression> joinFilterBuilder = ImmutableList.builder();
             for (RowExpression conjunct : extractConjuncts(newJoinPredicate)) {
                 if (joinEqualityExpression(node.getLeft().getOutputVariables()).test(conjunct)) {
-                    boolean alignedComparison = Iterables.all(extractUnique(getLeft(conjunct)), in(node.getLeft().getOutputVariables()));
+                    boolean alignedComparison = extractUnique(getLeft(conjunct)).stream().allMatch(in(node.getLeft().getOutputVariables()));
                     RowExpression leftExpression = (alignedComparison) ? getLeft(conjunct) : getRight(conjunct);
                     RowExpression rightExpression = (alignedComparison) ? getRight(conjunct) : getLeft(conjunct);
 
@@ -1024,8 +1030,8 @@ public class PredicatePushDown
                 Collection<VariableReferenceExpression> outerVariables,
                 boolean inferInequalityPredicates)
         {
-            checkArgument(Iterables.all(extractUnique(outerEffectivePredicate), in(outerVariables)), "outerEffectivePredicate must only contain variables from outerVariables");
-            checkArgument(Iterables.all(extractUnique(innerEffectivePredicate), not(in(outerVariables))), "innerEffectivePredicate must not contain variables from outerVariables");
+            checkArgument(extractUnique(outerEffectivePredicate).stream().allMatch(in(outerVariables)), "outerEffectivePredicate must only contain variables from outerVariables");
+            checkArgument(extractUnique(innerEffectivePredicate).stream().allMatch(not(in(outerVariables))), "innerEffectivePredicate must not contain variables from outerVariables");
 
             ImmutableList.Builder<RowExpression> outerPushdownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<RowExpression> innerPushdownConjuncts = ImmutableList.builder();
@@ -1033,12 +1039,12 @@ public class PredicatePushDown
             ImmutableList.Builder<RowExpression> joinConjuncts = ImmutableList.builder();
 
             // Strip out non-deterministic conjuncts
-            postJoinConjuncts.addAll(filter(extractConjuncts(inheritedPredicate), not(determinismEvaluator::isDeterministic)));
+            postJoinConjuncts.addAll(extractConjuncts(inheritedPredicate).stream().filter(not(determinismEvaluator::isDeterministic)).collect(toList()));
             inheritedPredicate = logicalRowExpressions.filterDeterministicConjuncts(inheritedPredicate);
 
             outerEffectivePredicate = logicalRowExpressions.filterDeterministicConjuncts(outerEffectivePredicate);
             innerEffectivePredicate = logicalRowExpressions.filterDeterministicConjuncts(innerEffectivePredicate);
-            joinConjuncts.addAll(filter(extractConjuncts(joinPredicate), not(determinismEvaluator::isDeterministic)));
+            joinConjuncts.addAll(extractConjuncts(joinPredicate).stream().filter(not(determinismEvaluator::isDeterministic)).collect(toList()));
             joinPredicate = logicalRowExpressions.filterDeterministicConjuncts(joinPredicate);
 
             // Generate equality inferences
@@ -1178,18 +1184,18 @@ public class PredicatePushDown
                 Collection<VariableReferenceExpression> leftVariables,
                 boolean inferInequalityPredicates)
         {
-            checkArgument(Iterables.all(extractUnique(leftEffectivePredicate), in(leftVariables)), "leftEffectivePredicate must only contain variables from leftVariables");
-            checkArgument(Iterables.all(extractUnique(rightEffectivePredicate), not(in(leftVariables))), "rightEffectivePredicate must not contain variables from leftVariables");
+            checkArgument(extractUnique(leftEffectivePredicate).stream().allMatch(in(leftVariables)), "leftEffectivePredicate must only contain variables from leftVariables");
+            checkArgument(extractUnique(rightEffectivePredicate).stream().allMatch(not(in(leftVariables))), "rightEffectivePredicate must not contain variables from leftVariables");
 
             ImmutableList.Builder<RowExpression> leftPushDownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<RowExpression> rightPushDownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<RowExpression> joinConjuncts = ImmutableList.builder();
 
             // Strip out non-deterministic conjuncts
-            joinConjuncts.addAll(filter(extractConjuncts(inheritedPredicate), not(determinismEvaluator::isDeterministic)));
+            joinConjuncts.addAll(extractConjuncts(inheritedPredicate).stream().filter(not(determinismEvaluator::isDeterministic)).collect(toList()));
             inheritedPredicate = logicalRowExpressions.filterDeterministicConjuncts(inheritedPredicate);
 
-            joinConjuncts.addAll(filter(extractConjuncts(joinPredicate), not(determinismEvaluator::isDeterministic)));
+            joinConjuncts.addAll(extractConjuncts(joinPredicate).stream().filter(not(determinismEvaluator::isDeterministic)).collect(toList()));
             joinPredicate = logicalRowExpressions.filterDeterministicConjuncts(joinPredicate);
 
             leftEffectivePredicate = logicalRowExpressions.filterDeterministicConjuncts(leftEffectivePredicate);
@@ -1473,8 +1479,8 @@ public class PredicatePushDown
                     if (variables1.isEmpty() || variables2.isEmpty()) {
                         return false;
                     }
-                    return (Iterables.all(variables1, in(leftVariables)) && Iterables.all(variables2, not(in(leftVariables)))) ||
-                            (Iterables.all(variables2, in(leftVariables)) && Iterables.all(variables1, not(in(leftVariables))));
+                    return (variables1.stream().allMatch(in(leftVariables)) && variables2.stream().allMatch(not(in(leftVariables)))) ||
+                            (variables2.stream().allMatch(in(leftVariables)) && variables1.stream().allMatch(not(in(leftVariables))));
                 }
                 return false;
             };
@@ -1694,7 +1700,7 @@ public class PredicatePushDown
             List<VariableReferenceExpression> groupingKeyVariables = node.getGroupingKeys();
 
             // Strip out non-deterministic conjuncts
-            postAggregationConjuncts.addAll(ImmutableList.copyOf(filter(extractConjuncts(inheritedPredicate), not(determinismEvaluator::isDeterministic))));
+            postAggregationConjuncts.addAll(extractConjuncts(inheritedPredicate).stream().filter(not(determinismEvaluator::isDeterministic)).collect(toList()));
             inheritedPredicate = logicalRowExpressions.filterDeterministicConjuncts(inheritedPredicate);
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
@@ -1758,7 +1764,7 @@ public class PredicatePushDown
             List<RowExpression> postUnnestConjuncts = new ArrayList<>();
 
             // Strip out non-deterministic conjuncts
-            postUnnestConjuncts.addAll(ImmutableList.copyOf(filter(extractConjuncts(inheritedPredicate), not(determinismEvaluator::isDeterministic))));
+            postUnnestConjuncts.addAll(extractConjuncts(inheritedPredicate).stream().filter(not(determinismEvaluator::isDeterministic)).collect(toList()));
             inheritedPredicate = logicalRowExpressions.filterDeterministicConjuncts(inheritedPredicate);
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot

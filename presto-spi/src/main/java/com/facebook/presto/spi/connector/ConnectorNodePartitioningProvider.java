@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.ToIntFunction;
 
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -42,6 +43,31 @@ public interface ConnectorNodePartitioningProvider
             ConnectorPartitioningHandle partitioningHandle)
     {
         return singletonList(NOT_PARTITIONED);
+    }
+
+    /**
+     * Returns a list of partition handles for partition-aware grouped execution.
+     * Each handle represents a (bucket, partitionValues) combination.
+     * The connector creates compound handles and matching per-(bucket, partition) split queues.
+     *
+     * <p>The default falls back to the standard bucket-only handles when partitionValues is empty
+     * (i.e., partition-aware scheduling is not active), and throws for non-empty partitionValues
+     * because the connector must provide its own implementation to create per-(bucket, partition) handles.
+     * Connectors supporting partition-aware grouped execution must override this method.
+     *
+     * @param partitionValues distinct partition value combinations for partition-aware scheduling;
+     *                        empty when partition-aware scheduling is not enabled
+     */
+    default List<ConnectorPartitionHandle> listPartitionHandles(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioningHandle,
+            List<Map<String, String>> partitionValues)
+    {
+        if (partitionValues.isEmpty()) {
+            return listPartitionHandles(transactionHandle, session, partitioningHandle);
+        }
+        throw new UnsupportedOperationException("Connector does not support partition-aware grouped execution");
     }
 
     ConnectorBucketNodeMap getBucketNodeMap(

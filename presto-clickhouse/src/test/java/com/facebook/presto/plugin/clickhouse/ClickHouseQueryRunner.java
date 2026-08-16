@@ -60,6 +60,8 @@ public final class ClickHouseQueryRunner
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("clickhouse.connection-url", server.getJdbcUrl());
+            connectorProperties.putIfAbsent("clickhouse.connection-user", server.getClickHouseContainer().getUsername());
+            connectorProperties.putIfAbsent("clickhouse.connection-password", server.getClickHouseContainer().getPassword());
             connectorProperties.putIfAbsent("clickhouse.allow-drop-table", String.valueOf(true));
             connectorProperties.putIfAbsent("clickhouse.map-string-as-varchar", String.valueOf(true));
 

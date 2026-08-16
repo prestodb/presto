@@ -13,13 +13,31 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.session.PropertyMetadata;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
+import static com.facebook.presto.spi.StandardMaterializedViewProperties.getStandardMvProperties;
 
 public class MaterializedViewPropertyManager
         extends AbstractPropertyManager
 {
+    private static final List<PropertyMetadata<?>> ENGINE_PROPERTIES = getStandardMvProperties();
+
     public MaterializedViewPropertyManager()
     {
         super("materialized view", INVALID_MATERIALIZED_VIEW_PROPERTY);
+    }
+
+    public void addPropertiesWithEngineDefaults(ConnectorId connectorId, List<PropertyMetadata<?>> connectorProperties)
+    {
+        List<PropertyMetadata<?>> combinedProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .addAll(ENGINE_PROPERTIES)
+                .addAll(connectorProperties)
+                .build();
+        addProperties(connectorId, combinedProperties);
     }
 }

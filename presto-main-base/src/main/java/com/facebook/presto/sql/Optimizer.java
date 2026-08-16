@@ -104,7 +104,7 @@ public class Optimizer
     {
         validateIntermediatePlanWithRuntimeStats(root);
 
-        boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
+        boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session) || SystemSessionProperties.isVerbosePlannerRuntimeStatsEnabled(session);
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
                 if (Thread.currentThread().isInterrupted()) {

@@ -39,6 +39,7 @@ import static com.facebook.presto.SystemSessionProperties.enableVerboseHistoryBa
 import static com.facebook.presto.SystemSessionProperties.estimateSizeUsingVariablesForHBO;
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.getHistoryInputTableStatisticsMatchingThreshold;
+import static com.facebook.presto.SystemSessionProperties.isVerbosePlannerRuntimeStatsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_PLAN_NODE_HASHES;
@@ -94,7 +95,7 @@ public class HistoryBasedPlanStatisticsCalculator
         }
         ImmutableList.Builder<PlanNodeWithHash> planNodesWithHash = ImmutableList.builder();
         Iterable<PlanNode> planNodeIterable = forTree(PlanNode::getSources).depthFirstPreOrder(root);
-        boolean enableVerboseRuntimeStats = isVerboseRuntimeStatsEnabled(session) || enableVerboseHistoryBasedOptimizerRuntimeStats(session);
+        boolean enableVerboseRuntimeStats = isVerboseRuntimeStatsEnabled(session) || isVerbosePlannerRuntimeStatsEnabled(session) || enableVerboseHistoryBasedOptimizerRuntimeStats(session);
         long profileStartTime = 0;
         for (PlanNode plan : planNodeIterable) {
             if (checkTimeOut(startTimeInNano, timeoutInMilliseconds)) {

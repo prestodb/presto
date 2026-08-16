@@ -25,29 +25,47 @@ import static java.util.Objects.requireNonNull;
 
 public final class DeltaColumn
 {
-    private final String name;
+    private final Long id;
+    private final String physicalName;
+    private final String logicalName;
     private final TypeSignature type;
     private final boolean nullable;
     private final boolean partition;
 
     @JsonCreator
     public DeltaColumn(
-            @JsonProperty("name") String name,
+            @JsonProperty("id") Long id,
+            @JsonProperty("physicalName") String physicalName,
+            @JsonProperty("logicalName") String logicalName,
             @JsonProperty("type") TypeSignature type,
             @JsonProperty("nullable") boolean nullable,
             @JsonProperty("partition") boolean partition)
     {
-        checkArgument(!isNullOrEmpty(name), "name is null or is empty");
-        this.name = name;
+        checkArgument(!isNullOrEmpty(logicalName), "name is null or is empty");
+        this.id = id;
+        this.physicalName = physicalName;
+        this.logicalName = logicalName;
         this.type = requireNonNull(type, "type is null");
         this.nullable = nullable;
         this.partition = partition;
     }
 
     @JsonProperty
-    public String getName()
+    public Long getId()
     {
-        return name;
+        return this.id;
+    }
+
+    @JsonProperty
+    public String getPhysicalName()
+    {
+        return this.physicalName;
+    }
+
+    @JsonProperty
+    public String getLogicalName()
+    {
+        return this.logicalName;
     }
 
     @JsonProperty
@@ -71,7 +89,7 @@ public final class DeltaColumn
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, nullable, partition);
+        return Objects.hash(this.physicalName, type, nullable, partition);
     }
 
     @Override
@@ -85,7 +103,8 @@ public final class DeltaColumn
         }
 
         DeltaColumn other = (DeltaColumn) obj;
-        return Objects.equals(this.name, other.name) &&
+        return Objects.equals(this.id, other.id) &&
+                Objects.equals(this.physicalName, other.physicalName) &&
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.nullable, other.nullable) &&
                 Objects.equals(this.partition, other.partition);
@@ -94,6 +113,7 @@ public final class DeltaColumn
     @Override
     public String toString()
     {
-        return name + ":nullable=" + nullable + ":partition=" + partition;
+        return "id=" + this.id + ":physicalName=" + this.physicalName + ":logicalName" +
+            this.logicalName + ":nullable=" + nullable + ":partition=" + partition;
     }
 }

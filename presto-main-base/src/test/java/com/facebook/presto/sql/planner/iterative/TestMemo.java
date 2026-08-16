@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.assertEquals;
 
 public class TestMemo
@@ -77,7 +77,7 @@ public class TestMemo
 
         // replace child of root node with another node, retaining child's child
         int yGroup = getChildGroup(memo, memo.getRootGroup());
-        GroupReference zRef = (GroupReference) getOnlyElement(memo.getNode(yGroup).getSources());
+        GroupReference zRef = (GroupReference) memo.getNode(yGroup).getSources().stream().collect(onlyElement());
         PlanNode transformed = node(zRef);
         memo.replace(yGroup, transformed, "rule");
         assertEquals(memo.getGroupCount(), 3);

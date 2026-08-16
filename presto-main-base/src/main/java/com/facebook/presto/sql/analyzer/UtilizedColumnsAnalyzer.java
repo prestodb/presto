@@ -247,16 +247,19 @@ public class UtilizedColumnsAnalyzer
 
             // Wildcards are unresolved in the QuerySpecification's list of SelectItem, so we use output expressions from analysis instead
             List<Expression> selectItems = analysis.getOutputExpressions(querySpec);
-            if (!context.prunable) {
-                // Examine all the output expressions
-                for (Expression expression : selectItems) {
-                    process(expression, context);
+            // selectItems can be null for statements like CREATE TABLE IF NOT EXISTS when the table already exists
+            if (selectItems != null) {
+                if (!context.prunable) {
+                    // Examine all the output expressions
+                    for (Expression expression : selectItems) {
+                        process(expression, context);
+                    }
                 }
-            }
-            else {
-                // Prune (Only examine output expressions that have been referenced)
-                for (FieldId fieldId : context.getFieldIdsToExploreInRelation(querySpec)) {
-                    process(selectItems.get(fieldId.getFieldIndex()), context);
+                else {
+                    // Prune (Only examine output expressions that have been referenced)
+                    for (FieldId fieldId : context.getFieldIdsToExploreInRelation(querySpec)) {
+                        process(selectItems.get(fieldId.getFieldIndex()), context);
+                    }
                 }
             }
 

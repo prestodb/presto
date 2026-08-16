@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
@@ -130,7 +131,8 @@ public class TestPrestoNativeBuiltInFunctions
                 Optional.empty(),
                 Optional.of(ImmutableList.of()),
                 Optional.of(ImmutableList.of()),
-                Optional.empty());
+                Optional.empty(),
+                false);
 
         return ImmutableList.of(createSqlInvokedFunction("test_agg_function", testFunctionMetadata, "presto"));
     }
@@ -149,7 +151,7 @@ public class TestPrestoNativeBuiltInFunctions
         transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), transactionSession -> {
-                    String actualPlan = explainer.getJsonPlan(transactionSession, getSqlParser().createStatement(query, createParsingOptions(transactionSession)), ExplainType.Type.LOGICAL, emptyList(), WarningCollector.NOOP, query);
+                    String actualPlan = explainer.getJsonPlan(transactionSession, getSqlParser().createStatement(query, createParsingOptions(transactionSession)), ExplainType.Type.LOGICAL, emptyList(), WarningCollector.NOOP, query, new ViewDefinitionReferences());
                     Pattern p = Pattern.compile(jsonPlanRegex, Pattern.MULTILINE);
                     if (shouldContainRegex) {
                         if (!p.matcher(actualPlan).find()) {
@@ -222,6 +224,5 @@ public class TestPrestoNativeBuiltInFunctions
         assertPlan("SELECT test_agg_function(5, cast(orderkey as smallint), orderkey) FROM tpch.tiny.orders", anyTree(any()));
 
         assertQuerySucceeds("SELECT ARRAY_SORT( ARRAY[ ARRAY['a', 'b', 'c'] ], (x, y) -> IF( COALESCE( x[1], '' ) > COALESCE( y[1], '' ), 1, IF( COALESCE( x[1], '' ) < COALESCE( y[1], '' ), -1, 0 ) ) )");
-        assertQuerySucceeds("SELECT ARRAY_SORT( ARRAY[ ARRAY['a', 'b', 'c'] ], (x, y) -> IF( COALESCE( x[1], '' ) > COALESCE( y[1], '' ), cast(1 as bigint), IF( COALESCE( x[1], '' ) < COALESCE( y[1], '' ), cast(-1 as bigint), cast(0 as bigint) ) ) )");
     }
 }

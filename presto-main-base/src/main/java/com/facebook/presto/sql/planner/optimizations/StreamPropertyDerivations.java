@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.UniqueProperty;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -40,6 +41,7 @@ import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -49,7 +51,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -58,6 +59,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -66,13 +68,11 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.HashMap;
@@ -99,6 +99,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -281,6 +282,15 @@ public final class StreamPropertyDerivations
         }
 
         @Override
+        public StreamProperties visitRPC(RPCNode node, List<StreamProperties> inputProperties)
+        {
+            // RPCNode may return rows out of order (PER_ROW mode dispatches
+            // individual RPCs that complete asynchronously), so ordering is
+            // not preserved. Partitioning is unchanged since RPCNode is 1:1.
+            return inputProperties.get(0).unordered(true);
+        }
+
+        @Override
         public StreamProperties visitValues(ValuesNode node, List<StreamProperties> context)
         {
             // values always produces a single stream
@@ -400,7 +410,7 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitProject(ProjectNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
 
             // We can describe properties in terms of inputs that are projected unmodified (i.e., identity projections)
             Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments().getMap());
@@ -438,13 +448,13 @@ public final class StreamPropertyDerivations
                 inputToOutputMappings.putIfAbsent(argument, argument);
             }
 
-            return Iterables.getOnlyElement(inputProperties).translate(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
+            return inputProperties.stream().collect(onlyElement()).translate(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
         }
 
         @Override
         public StreamProperties visitAggregation(AggregationNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
 
             // Only grouped symbols projected symbols are passed through
             return properties.translate(variable -> node.getGroupingKeys().contains(variable) ? Optional.of(variable) : Optional.empty());
@@ -453,7 +463,7 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitStatisticsWriterNode(StatisticsWriterNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
             // analyze finish only outputs row count
             return properties.withUnspecifiedPartitioning();
         }
@@ -461,7 +471,7 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitTableFinish(TableFinishNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
             // table finish only outputs the row count
             return properties.withUnspecifiedPartitioning();
         }
@@ -469,7 +479,7 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitDelete(DeleteNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
             // delete only outputs the row count
             return properties.withUnspecifiedPartitioning();
         }
@@ -477,7 +487,7 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitCallDistributedProcedure(CallDistributedProcedureNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
             // call distributed procedure only outputs the row count
             return properties.withUnspecifiedPartitioning();
         }
@@ -485,7 +495,7 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitTableWriter(TableWriterNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
             // table writer only outputs the row count
             return properties.withUnspecifiedPartitioning();
         }
@@ -493,21 +503,21 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitUpdate(UpdateNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
             return properties.withUnspecifiedPartitioning();
         }
 
         @Override
         public StreamProperties visitMergeWriter(MergeWriterNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
             return properties.withUnspecifiedPartitioning();
         }
 
         @Override
         public StreamProperties visitMergeProcessor(MergeProcessorNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
             return properties.withUnspecifiedPartitioning();
         }
 
@@ -521,13 +531,13 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitTableWriteMerge(TableWriterMergeNode node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
         public StreamProperties visitUnnest(UnnestNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
 
             // We can describe properties in terms of inputs that are projected unmodified (i.e., not the unnested symbols)
             Set<VariableReferenceExpression> passThroughInputs = ImmutableSet.copyOf(node.getReplicateVariables());
@@ -542,7 +552,7 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitExplainAnalyze(ExplainAnalyzeNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
             // explain only outputs the plan string
             return properties.withUnspecifiedPartitioning();
         }
@@ -573,7 +583,7 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitAssignUniqueId(AssignUniqueId node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
             if (properties.getPartitioningColumns().isPresent()) {
                 // preserve input (possibly preferred) partitioning
                 return properties;
@@ -591,24 +601,24 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitOutput(OutputNode node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties)
+            return inputProperties.stream().collect(onlyElement())
                     .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputVariables(), column));
         }
 
         @Override
         public StreamProperties visitMarkDistinct(MarkDistinctNode node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
         public StreamProperties visitWindow(WindowNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties childProperties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties childProperties = inputProperties.stream().collect(onlyElement());
             if (childProperties.isSingleStream() && node.getPartitionBy().isEmpty() && node.getOrderingScheme().isPresent()) {
                 return StreamProperties.ordered();
             }
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
@@ -624,7 +634,7 @@ public final class StreamPropertyDerivations
                 return StreamProperties.singleStream(); // TODO allow multiple; return partitioning properties
             }
 
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = inputProperties.stream().collect(onlyElement());
 
             Set<VariableReferenceExpression> passThroughInputs = Sets.intersection(ImmutableSet.copyOf(node.getSource().orElseThrow(NoSuchElementException::new).getOutputVariables()), ImmutableSet.copyOf(node.getOutputVariables()));
             StreamProperties translatedProperties = properties.translate(column -> {
@@ -641,13 +651,13 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitRowNumber(RowNumberNode node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
         public StreamProperties visitTopNRowNumber(TopNRowNumberNode node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
@@ -655,15 +665,16 @@ public final class StreamPropertyDerivations
         {
             // Partial TopN doesn't guarantee that stream is ordered
             if (node.getStep().equals(TopNNode.Step.PARTIAL)) {
-                return Iterables.getOnlyElement(inputProperties);
+                return inputProperties.stream().collect(onlyElement());
             }
-            return StreamProperties.ordered();
+            StreamProperties input = inputProperties.stream().collect(onlyElement());
+            return StreamProperties.ordered().withStreamPropertiesFromUniqueColumn(input.getStreamPropertiesFromUniqueColumn());
         }
 
         @Override
         public StreamProperties visitSort(SortNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties sourceProperties = Iterables.getOnlyElement(inputProperties);
+            StreamProperties sourceProperties = inputProperties.stream().collect(onlyElement());
             if (sourceProperties.isSingleStream()) {
                 // stream is only sorted if sort operator is executed without parallelism
                 return StreamProperties.ordered();
@@ -675,13 +686,13 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitLimit(LimitNode node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
         public StreamProperties visitDistinctLimit(DistinctLimitNode node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
@@ -705,13 +716,13 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitFilter(FilterNode node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
         public StreamProperties visitSample(SampleNode node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return inputProperties.stream().collect(onlyElement());
         }
 
         @Override
@@ -789,10 +800,10 @@ public final class StreamPropertyDerivations
             // When unique properties exists, the stream is also partitioned on the unique column
             if (otherActualProperties.isPresent() && otherActualProperties.get().getPropertiesFromUniqueColumn().isPresent()) {
                 ActualProperties propertiesFromUniqueColumn = otherActualProperties.get().getPropertiesFromUniqueColumn().get();
-                if (Iterables.getOnlyElement(propertiesFromUniqueColumn.getLocalProperties()) instanceof UniqueProperty) {
-                    VariableReferenceExpression uniqueVariable = (VariableReferenceExpression) ((UniqueProperty<?>) Iterables.getOnlyElement(propertiesFromUniqueColumn.getLocalProperties())).getColumn();
+                if (propertiesFromUniqueColumn.getLocalProperties().stream().collect(onlyElement()) instanceof UniqueProperty) {
+                    VariableReferenceExpression uniqueVariable = (VariableReferenceExpression) ((UniqueProperty<?>) propertiesFromUniqueColumn.getLocalProperties().stream().collect(onlyElement())).getColumn();
                     checkState(streamPropertiesFromUniqueColumn.isPresent() && streamPropertiesFromUniqueColumn.get().partitioningColumns.isPresent()
-                            && Iterables.getOnlyElement(streamPropertiesFromUniqueColumn.get().partitioningColumns.get()).equals(uniqueVariable));
+                            && streamPropertiesFromUniqueColumn.get().partitioningColumns.get().stream().collect(onlyElement()).equals(uniqueVariable));
                 }
             }
             this.streamPropertiesFromUniqueColumn = streamPropertiesFromUniqueColumn;
@@ -856,7 +867,7 @@ public final class StreamPropertyDerivations
         public StreamProperties uniqueToGroupProperties()
         {
             if (otherActualProperties.isPresent() && otherActualProperties.get().getPropertiesFromUniqueColumn().isPresent()) {
-                if (Iterables.getOnlyElement(otherActualProperties.get().getPropertiesFromUniqueColumn().get().getLocalProperties()) instanceof UniqueProperty) {
+                if (otherActualProperties.get().getPropertiesFromUniqueColumn().get().getLocalProperties().stream().collect(onlyElement()) instanceof UniqueProperty) {
                     Optional<ActualProperties> groupedProperties = PropertyDerivations.uniqueToGroupProperties(otherActualProperties.get().getPropertiesFromUniqueColumn().get());
                     return new StreamProperties(distribution, partitioningColumns, ordered,
                             otherActualProperties.map(x -> ActualProperties.builderFrom(x).propertiesFromUniqueColumn(groupedProperties).build()),
@@ -869,7 +880,7 @@ public final class StreamPropertyDerivations
         public boolean hasUniqueProperties()
         {
             if (otherActualProperties.isPresent() && otherActualProperties.get().getPropertiesFromUniqueColumn().isPresent()) {
-                return Iterables.getOnlyElement(otherActualProperties.get().getPropertiesFromUniqueColumn().get().getLocalProperties()) instanceof UniqueProperty;
+                return otherActualProperties.get().getPropertiesFromUniqueColumn().get().getLocalProperties().stream().collect(onlyElement()) instanceof UniqueProperty;
             }
             return false;
         }

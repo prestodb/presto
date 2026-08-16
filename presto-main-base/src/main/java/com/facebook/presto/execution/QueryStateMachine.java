@@ -168,6 +168,7 @@ public class QueryStateMachine
 
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
     private final AtomicReference<Optional<String>> expandedQuery = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<Optional<String>> materializedViewRewrittenQuery = new AtomicReference<>(Optional.empty());
 
     private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = new ConcurrentHashMap<>();
     private final Set<SqlFunctionId> removedSessionFunctions = Sets.newConcurrentHashSet();
@@ -176,6 +177,10 @@ public class QueryStateMachine
     private final AtomicReference<Set<String>> scalarFunctions = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Set<String>> aggregateFunctions = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Set<String>> windowFunctions = new AtomicReference<>(ImmutableSet.of());
+
+    private final AtomicReference<QueryStateTransitionMonitor> stateTransitionMonitor = new AtomicReference<>();
+    private final AtomicReference<QueryState> previousState = new AtomicReference<>(WAITING_FOR_PREREQUISITES);
+    private final AtomicLong previousStateTimestamp = new AtomicLong(System.currentTimeMillis());
 
     private QueryStateMachine(
             String query,
@@ -400,6 +405,7 @@ public class QueryStateMachine
                 stageStats.getCompletedSplits(),
 
                 succinctBytes(stageStats.getRawInputDataSizeInBytes()),
+                succinctBytes(stageStats.getScanRawInputDataSizeInBytes()),
                 stageStats.getRawInputPositions(),
 
                 stageStats.getCumulativeUserMemory(),
@@ -482,6 +488,7 @@ public class QueryStateMachine
                 outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
                 query,
                 expandedQuery.get(),
+                materializedViewRewrittenQuery.get(),
                 preparedQuery,
                 queryStats,
                 Optional.ofNullable(setCatalog.get()),
@@ -774,6 +781,11 @@ public class QueryStateMachine
         this.expandedQuery.set(expandedQuery);
     }
 
+    public void setMaterializedViewRewrittenQuery(Optional<String> materializedViewRewrittenQuery)
+    {
+        this.materializedViewRewrittenQuery.set(materializedViewRewrittenQuery);
+    }
+
     public QueryState getQueryState()
     {
         return queryState.get();
@@ -985,6 +997,42 @@ public class QueryStateMachine
     }
 
     /**
+     * Sets the state transition monitor for this query state machine.
+     * The monitor will track state transition durations and detect anomalies.
+     */
+    public void setStateTransitionMonitor(QueryStateTransitionMonitor monitor)
+    {
+        requireNonNull(monitor, "monitor is null");
+        if (stateTransitionMonitor.compareAndSet(null, monitor)) {
+            monitor.registerQuery(queryId);
+            addStateChangeListener(newState -> trackStateTransition(newState));
+        }
+    }
+
+    /**
+     * Tracks a state transition and reports it to the monitor if present.
+     */
+    private void trackStateTransition(QueryState newState)
+    {
+        QueryStateTransitionMonitor monitor = stateTransitionMonitor.get();
+        if (monitor == null) {
+            return;
+        }
+
+        QueryState prevState = previousState.get();
+        long prevTimestamp = previousStateTimestamp.get();
+        long currentTimestamp = System.currentTimeMillis();
+        long durationMillis = currentTimestamp - prevTimestamp;
+
+        if (prevState != null) {
+            monitor.recordStateTransition(queryId, prevState, newState, durationMillis);
+        }
+
+        previousState.set(newState);
+        previousStateTimestamp.set(currentTimestamp);
+    }
+
+    /**
      * Add a listener for the final query info.  This notification is guaranteed to be fired only once.
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor.
@@ -1127,6 +1175,7 @@ public class QueryStateMachine
                 queryInfo.getFieldNames(),
                 queryInfo.getQuery(),
                 queryInfo.getExpandedQuery(),
+                queryInfo.getMaterializedViewRewrittenQuery(),
                 queryInfo.getPreparedQuery(),
                 queryInfo.getQueryStats(),
                 queryInfo.getSetCatalog(),
@@ -1215,6 +1264,7 @@ public class QueryStateMachine
                         plan.getOutputOrderingScheme(),
                         plan.getStageExecutionDescriptor(),
                         plan.isOutputTableWriterFragment(),
+                        plan.getOutputTransportType(),
                         plan.getStatsAndCosts().map(QueryStateMachine::pruneHistogramsFromStatsAndCosts),
                         plan.getJsonRepresentation())), // Remove the plan
                 stage.getLatestAttemptExecutionInfo(),
@@ -1246,6 +1296,7 @@ public class QueryStateMachine
                 queryInfo.getFieldNames(),
                 queryInfo.getQuery(),
                 queryInfo.getExpandedQuery(),
+                queryInfo.getMaterializedViewRewrittenQuery(),
                 queryInfo.getPreparedQuery(),
                 pruneQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getSetCatalog(),

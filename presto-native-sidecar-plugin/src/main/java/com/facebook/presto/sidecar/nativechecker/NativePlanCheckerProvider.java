@@ -14,11 +14,8 @@
 
 package com.facebook.presto.sidecar.nativechecker;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.plan.PlanChecker;
 import com.facebook.presto.spi.plan.PlanCheckerProvider;
-import com.facebook.presto.spi.plan.SimplePlanFragment;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
@@ -29,23 +26,20 @@ import static java.util.Objects.requireNonNull;
 public class NativePlanCheckerProvider
         implements PlanCheckerProvider
 {
-    private final NodeManager nodeManager;
-    private final JsonCodec<SimplePlanFragment> planFragmentJsonCodec;
     private final NativePlanCheckerConfig config;
+    private final NativePlanChecker planChecker;
 
     @Inject
-    public NativePlanCheckerProvider(NodeManager nodeManager, JsonCodec<SimplePlanFragment> planFragmentJsonCodec, NativePlanCheckerConfig config)
+    public NativePlanCheckerProvider(NativePlanCheckerConfig config, NativePlanChecker planChecker)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.planFragmentJsonCodec = requireNonNull(planFragmentJsonCodec, "planFragmentJsonCodec is null");
         this.config = requireNonNull(config, "config is null");
+        this.planChecker = requireNonNull(planChecker, "planChecker is null");
     }
 
     @Override
     public List<PlanChecker> getFragmentPlanCheckers()
     {
         return config.isPlanValidationEnabled() ?
-                ImmutableList.of(new NativePlanChecker(nodeManager, planFragmentJsonCodec)) :
-                ImmutableList.of();
+                ImmutableList.of(planChecker) : ImmutableList.of();
     }
 }

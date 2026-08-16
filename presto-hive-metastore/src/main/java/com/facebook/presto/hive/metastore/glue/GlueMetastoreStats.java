@@ -13,15 +13,11 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
-import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.stats.TimeStat;
-import com.facebook.airlift.units.Duration;
-import com.facebook.presto.hive.aws.AbstractSdkMetricsCollector;
+import com.facebook.presto.hive.aws.metrics.AwsSdkClientStats;
+import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import software.amazon.awssdk.metrics.MetricPublisher;
 
 public class GlueMetastoreStats
 {
@@ -37,18 +33,19 @@ public class GlueMetastoreStats
     private final GlueCatalogApiStats getTable = new GlueCatalogApiStats();
     private final GlueCatalogApiStats batchCreatePartitions = new GlueCatalogApiStats();
     private final GlueCatalogApiStats batchGetPartitions = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats batchUpdatePartitions = new GlueCatalogApiStats();
     private final GlueCatalogApiStats updatePartition = new GlueCatalogApiStats();
     private final GlueCatalogApiStats deletePartition = new GlueCatalogApiStats();
     private final GlueCatalogApiStats getPartitions = new GlueCatalogApiStats();
     private final GlueCatalogApiStats getPartition = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats getColumnStatisticsForTable = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats getColumnStatisticsForPartition = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats updateColumnStatisticsForTable = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats deleteColumnStatisticsForTable = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats updateColumnStatisticsForPartition = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats deleteColumnStatisticsForPartition = new GlueCatalogApiStats();
 
-    // see AWSRequestMetrics
-    private final CounterStat awsRequestCount = new CounterStat();
-    private final CounterStat awsRetryCount = new CounterStat();
-    private final CounterStat awsThrottleExceptions = new CounterStat();
-    private final TimeStat awsRequestTime = new TimeStat(MILLISECONDS);
-    private final TimeStat awsClientExecuteTime = new TimeStat(MILLISECONDS);
-    private final TimeStat awsClientRetryPauseTime = new TimeStat(MILLISECONDS);
+    private final AwsSdkClientStats awsSdkClientStats = new AwsSdkClientStats();
 
     @Managed
     @Nested
@@ -136,6 +133,13 @@ public class GlueMetastoreStats
 
     @Managed
     @Nested
+    public GlueCatalogApiStats getBatchUpdatePartitions()
+    {
+        return batchUpdatePartitions;
+    }
+
+    @Managed
+    @Nested
     public GlueCatalogApiStats getUpdatePartition()
     {
         return updatePartition;
@@ -164,95 +168,55 @@ public class GlueMetastoreStats
 
     @Managed
     @Nested
-    public CounterStat getAwsRequestCount()
+    public GlueCatalogApiStats getGetColumnStatisticsForTable()
     {
-        return awsRequestCount;
+        return getColumnStatisticsForTable;
     }
 
     @Managed
     @Nested
-    public CounterStat getAwsRetryCount()
+    public GlueCatalogApiStats getGetColumnStatisticsForPartition()
     {
-        return awsRetryCount;
+        return getColumnStatisticsForPartition;
     }
 
     @Managed
     @Nested
-    public CounterStat getAwsThrottleExceptions()
+    public GlueCatalogApiStats getUpdateColumnStatisticsForTable()
     {
-        return awsThrottleExceptions;
+        return updateColumnStatisticsForTable;
     }
 
     @Managed
     @Nested
-    public TimeStat getAwsRequestTime()
+    public GlueCatalogApiStats getDeleteColumnStatisticsForTable()
     {
-        return awsRequestTime;
+        return deleteColumnStatisticsForTable;
     }
 
     @Managed
     @Nested
-    public TimeStat getAwsClientExecuteTime()
+    public GlueCatalogApiStats getUpdateColumnStatisticsForPartition()
     {
-        return awsClientExecuteTime;
+        return updateColumnStatisticsForPartition;
     }
 
     @Managed
     @Nested
-    public TimeStat getAwsClientRetryPauseTime()
+    public GlueCatalogApiStats getDeleteColumnStatisticsForPartition()
     {
-        return awsClientRetryPauseTime;
+        return deleteColumnStatisticsForPartition;
     }
 
-    public GlueSdkClientMetricsCollector newRequestMetricsCollector()
+    @Managed
+    @Flatten
+    public AwsSdkClientStats getAwsSdkClientStats()
     {
-        return new GlueSdkClientMetricsCollector(this);
+        return awsSdkClientStats;
     }
 
-    public static class GlueSdkClientMetricsCollector
-            extends AbstractSdkMetricsCollector
+    public MetricPublisher newRequestMetricPublisher()
     {
-        private final GlueMetastoreStats stats;
-
-        public GlueSdkClientMetricsCollector(GlueMetastoreStats stats)
-        {
-            this.stats = requireNonNull(stats, "stats is null");
-        }
-
-        @Override
-        protected void recordRequestCount(long count)
-        {
-            stats.awsRequestCount.update(count);
-        }
-
-        @Override
-        protected void recordRetryCount(long count)
-        {
-            stats.awsRetryCount.update(count);
-        }
-
-        @Override
-        protected void recordThrottleExceptionCount(long count)
-        {
-            stats.awsThrottleExceptions.update(count);
-        }
-
-        @Override
-        protected void recordHttpRequestTime(Duration duration)
-        {
-            stats.awsRequestTime.add(duration);
-        }
-
-        @Override
-        protected void recordClientExecutionTime(Duration duration)
-        {
-            stats.awsClientExecuteTime.add(duration);
-        }
-
-        @Override
-        protected void recordRetryPauseTime(Duration duration)
-        {
-            stats.awsClientRetryPauseTime.add(duration);
-        }
+        return awsSdkClientStats.newRequestMetricsPublisher();
     }
 }

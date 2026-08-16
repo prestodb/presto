@@ -15,8 +15,14 @@
 #include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
+#include <folly/json.h>
+#include <algorithm>
+#include <unordered_set>
+
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
+#include "velox/connectors/hive/iceberg/IcebergFieldMetadata.h"
+#include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
@@ -24,12 +30,25 @@ namespace facebook::presto {
 
 namespace {
 
+// Row-lineage columns are not included in a table's dataColumns but may exist
+// physically in written files. Centralizing the names here means adding a new
+// lineage column only requires updating this one set.
+const std::unordered_set<std::string> kRowLineageColumnNames = {
+    velox::connector::hive::iceberg::IcebergMetadataColumn::kRowIdColumnName,
+    velox::connector::hive::iceberg::IcebergMetadataColumn::
+        kLastUpdatedSequenceNumberColumnName,
+};
+
 velox::connector::hive::iceberg::FileContent toVeloxFileContent(
     const presto::protocol::iceberg::FileContent content) {
   if (content == protocol::iceberg::FileContent::DATA) {
     return velox::connector::hive::iceberg::FileContent::kData;
   } else if (content == protocol::iceberg::FileContent::POSITION_DELETES) {
     return velox::connector::hive::iceberg::FileContent::kPositionalDeletes;
+  } else if (content == protocol::iceberg::FileContent::EQUALITY_DELETES) {
+    return velox::connector::hive::iceberg::FileContent::kEqualityDeletes;
+  } else if (content == protocol::iceberg::FileContent::DELETION_VECTOR) {
+    return velox::connector::hive::iceberg::FileContent::kDeletionVector;
   }
   VELOX_UNSUPPORTED("Unsupported file content: {}", fmt::underlying(content));
 }
@@ -37,17 +56,63 @@ velox::connector::hive::iceberg::FileContent toVeloxFileContent(
 velox::dwio::common::FileFormat toVeloxFileFormat(
     const presto::protocol::iceberg::FileFormat format) {
   if (format == protocol::iceberg::FileFormat::ORC) {
-    return velox::dwio::common::FileFormat::ORC;
+    // Iceberg manifests have no DWRF enum, so Meta's DWRF files (and
+    // genuine ORC files, which DWRF is a superset of) are reported as
+    // "ORC" on the wire per the cross-engine convention shared with the
+    // Java planner (FileFormat.DWRF.toIceberg() in
+    // presto-facebook-iceberg). Velox only registers a writer for
+    // FileFormat::DWRF, so map protocol ORC -> velox DWRF here to unify
+    // the two views and let the DWRF writer/reader (which handles both
+    // formats) take over.
+    return velox::dwio::common::FileFormat::DWRF;
   } else if (format == protocol::iceberg::FileFormat::PARQUET) {
     return velox::dwio::common::FileFormat::PARQUET;
+  } else if (format == protocol::iceberg::FileFormat::DWRF) {
+    // The protocol enum now carries DWRF directly (post-regen alignment
+    // with the Java FileFormat enum). Java's `format='DWRF'` write paths
+    // (InsertTableHandle, MergeTableHandle, etc.) send "DWRF" on the wire
+    // for tables created with `WITH (format='DWRF', ...)`. Map straight
+    // through to Velox's DWRF.
+    return velox::dwio::common::FileFormat::DWRF;
+  } else if (format == protocol::iceberg::FileFormat::NIMBLE) {
+    // Same rationale as DWRF — the regen added NIMBLE to the protocol
+    // enum, so Java's `format='NIMBLE'` write paths now reach the bridge
+    // directly instead of being silently coerced to ORC by nlohmann's
+    // unknown-enum-string-falls-back-to-first behavior.
+    return velox::dwio::common::FileFormat::NIMBLE;
+  } else if (format == protocol::iceberg::FileFormat::PUFFIN) {
+    // Iceberg V3 deletion-vector files are stored in Puffin format. The
+    // Velox DV branch in IcebergSplitReader keys off
+    // FileContent::kDeletionVector rather than this format, but map it
+    // through anyway so the value round-trips correctly.
+    return velox::dwio::common::FileFormat::PUFFIN;
   }
   VELOX_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
+}
+
+// Read-path file-format mapping. A file reported as Iceberg "ORC" on the wire
+// may be a genuine ORC file (written by the Java/presto-orc writer, the default
+// for table data in tests) whose footer follows the ORC proto schema. The Velox
+// reader selects its PostScript proto schema purely from the FileFormat it is
+// handed (ReaderBase: FileFormat::ORC -> proto::orc::PostScript, otherwise the
+// DWRF proto::PostScript) rather than sniffing magic bytes. Mapping ORC ->
+// Velox DWRF on read (as toVeloxFileFormat does for the writer's sake) makes
+// the reader parse a genuine-ORC PostScript with the DWRF schema, where the
+// compression enum ordinals diverge (ORC ZSTD=5 collides with DWRF LZ4=5),
+// yielding "lz4 failed to decompress" on ZSTD-compressed streams. Map ORC ->
+// Velox ORC here so the ORC reader (registered via registerOrcReaderFactory)
+// parses the correct schema; all other formats reuse the write mapping.
+velox::dwio::common::FileFormat toVeloxReadFileFormat(
+    const presto::protocol::iceberg::FileFormat format) {
+  if (format == protocol::iceberg::FileFormat::ORC) {
+    return velox::dwio::common::FileFormat::ORC;
+  }
+  return toVeloxFileFormat(format);
 }
 
 std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
     const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
-    bool isPushdownFilterEnabled,
     const std::string& tableName,
     const protocol::List<protocol::Column>& dataColumns,
     const protocol::TableHandle& tableHandle,
@@ -94,13 +159,26 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
       types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
           fieldNamesToLowerCase, parsedType->kind(), parsedType));
     }
+
+    // Row-lineage columns are not included in the table's dataColumns but may
+    // exist physically in the written files (e.g. after MERGE/UPDATE). Add any
+    // requested lineage columns to finalDataColumns so the reader can match
+    // them with the Parquet schema.
+    for (const auto& handle : columnHandles) {
+      if (kRowLineageColumnNames.count(handle->name()) &&
+          std::find(names.begin(), names.end(), handle->name()) ==
+              names.end()) {
+        names.emplace_back(handle->name());
+        types.push_back(handle->dataType());
+      }
+    }
+
     finalDataColumns = ROW(std::move(names), std::move(types));
   }
 
   return std::make_unique<velox::connector::hive::HiveTableHandle>(
       tableHandle.connectorId,
       tableName,
-      isPushdownFilterEnabled,
       std::move(subfieldFilters),
       remainingFilter,
       finalDataColumns,
@@ -150,6 +228,117 @@ toVeloxIcebergPartitionSpec(
       spec.specId, fields);
 }
 
+velox::parquet::ParquetFieldId toParquetField(
+    const protocol::iceberg::ColumnIdentity& column) {
+  std::vector<velox::parquet::ParquetFieldId> children;
+  if (!column.children.empty()) {
+    children.reserve(column.children.size());
+    for (const auto& child : column.children) {
+      children.push_back(toParquetField(child));
+    }
+  }
+  // ParquetFieldId does not declare a constructor that takes fieldId and
+  // children, so we use aggregate initialization to make it work for compilers
+  // that don't create the necessary constructors by default (e.g clang-15).
+  velox::parquet::ParquetFieldId pf{.fieldId = column.id, .children = children};
+  return pf;
+}
+
+// Extracts the Iceberg partition spec ID from the JSON-encoded spec carried on
+// each split (IcebergSplit.partitionSpecAsJson on the Java side). The JSON
+// always has a top-level "specId" integer per Iceberg's PartitionSpecParser.
+// Returns std::nullopt only when parsing fails so callers can decide whether
+// to omit the resulting info column (synthesis paths that depend on a real
+// spec_id should treat absence as a hard error).
+std::optional<int32_t> tryParsePartitionSpecId(
+    const std::string& partitionSpecAsJson) {
+  if (partitionSpecAsJson.empty()) {
+    return std::nullopt;
+  }
+  try {
+    const auto parsed = folly::parseJson(partitionSpecAsJson);
+    if (!parsed.isObject()) {
+      return std::nullopt;
+    }
+    const auto* specIdField = parsed.get_ptr("specId");
+    if (specIdField == nullptr || !specIdField->isInt()) {
+      return std::nullopt;
+    }
+    return static_cast<int32_t>(specIdField->asInt());
+  } catch (const folly::json::parse_error&) {
+    return std::nullopt;
+  } catch (const folly::TypeError&) {
+    return std::nullopt;
+  }
+}
+
+// Builds the Velox Iceberg V3 type-attribute tree (IcebergFieldMetadata) from
+// the protocol ColumnIdentity, walked in lockstep with toParquetField(). Each
+// protocol field is nullable; an absent typeAttributes (the common case) yields
+// an empty metadata node. The field id itself is carried separately via
+// toParquetField(), not stamped here.
+velox::connector::hive::iceberg::IcebergFieldMetadata toIcebergFieldMetadata(
+    const protocol::iceberg::ColumnIdentity& column) {
+  velox::connector::hive::iceberg::IcebergFieldMetadata metadata;
+  if (column.typeAttributes != nullptr) {
+    const auto& attributes = *column.typeAttributes;
+    if (attributes.required != nullptr) {
+      metadata.required = *attributes.required;
+    }
+    if (attributes.longType != nullptr) {
+      metadata.longType = *attributes.longType;
+    }
+    if (attributes.timestampUnit != nullptr) {
+      metadata.timestampUnit = *attributes.timestampUnit;
+    }
+    if (attributes.binaryType != nullptr) {
+      metadata.binaryType = *attributes.binaryType;
+    }
+    if (attributes.structType != nullptr) {
+      metadata.structType = *attributes.structType;
+    }
+    if (attributes.length != nullptr) {
+      metadata.length = *attributes.length;
+    }
+  }
+  metadata.children.reserve(column.children.size());
+  for (const auto& child : column.children) {
+    metadata.children.push_back(toIcebergFieldMetadata(child));
+  }
+  return metadata;
+}
+
+// Converts the protocol's existing-deletion-vector map (data-file path -> DV
+// descriptor) into the Velox handle's ExistingDeletionVector map so the
+// deletion-vector sink can seed a new DV with the prior DV's positions on a
+// repeated V3 mutation. Empty for INSERT and first-time mutations.
+std::unordered_map<
+    std::string,
+    velox::connector::hive::iceberg::IcebergInsertTableHandle::
+        ExistingDeletionVector>
+toExistingDeletionVectors(
+    const std::map<std::string, protocol::iceberg::DeleteFile>&
+        protocolDeletionVectors) {
+  std::unordered_map<
+      std::string,
+      velox::connector::hive::iceberg::IcebergInsertTableHandle::
+          ExistingDeletionVector>
+      result;
+  result.reserve(protocolDeletionVectors.size());
+  for (const auto& [dataFile, deleteFile] : protocolDeletionVectors) {
+    velox::connector::hive::iceberg::IcebergInsertTableHandle::
+        ExistingDeletionVector descriptor;
+    descriptor.puffinPath = deleteFile.path;
+    descriptor.contentOffset =
+        deleteFile.contentOffset ? *deleteFile.contentOffset : 0;
+    descriptor.contentLength =
+        deleteFile.contentSizeInBytes ? *deleteFile.contentSizeInBytes : 0;
+    descriptor.recordCount = deleteFile.recordCount;
+    descriptor.fileSizeInBytes = deleteFile.fileSizeInBytes;
+    result.emplace(dataFile, std::move(descriptor));
+  }
+  return result;
+}
 } // namespace
 
 std::unique_ptr<velox::connector::ConnectorSplit>
@@ -183,28 +372,74 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
     std::unordered_map<int32_t, std::string> upperBounds(
         deleteFile.upperBounds.begin(), deleteFile.upperBounds.end());
 
+    // Iceberg V3 backward-compat: older iceberg-api releases report DV
+    // files with content()=POSITION_DELETES and format()=PUFFIN (the
+    // DELETION_VECTOR enum value was added later). Treat any Puffin delete
+    // file as a DV here so it routes to the Velox DeletionVectorReader
+    // rather than PositionalDeleteFileReader (which would call
+    // getReaderFactory(PUFFIN) and fail with "ReaderFactory not registered
+    // for format puffin").
+    auto veloxContent =
+        (deleteFile.format == protocol::iceberg::FileFormat::PUFFIN)
+        ? velox::connector::hive::iceberg::FileContent::kDeletionVector
+        : toVeloxFileContent(deleteFile.content);
+
     velox::connector::hive::iceberg::IcebergDeleteFile icebergDeleteFile(
-        toVeloxFileContent(deleteFile.content),
+        veloxContent,
         deleteFile.path,
-        toVeloxFileFormat(deleteFile.format),
+        toVeloxReadFileFormat(deleteFile.format),
         deleteFile.recordCount,
         deleteFile.fileSizeInBytes,
         std::vector(deleteFile.equalityFieldIds),
         lowerBounds,
-        upperBounds);
+        upperBounds,
+        // The delete file carries its own dataSequenceNumber (the sequence
+        // number of the delete operation), which the Velox DV applier uses for
+        // sequence-number-based conflict resolution.
+        deleteFile.dataSequenceNumber,
+        // The three V3 Optional<> fields are absent for V2 splits — fall back
+        // to 0 / empty when the shared_ptr is null.
+        deleteFile.contentOffset ? *deleteFile.contentOffset : 0,
+        deleteFile.contentSizeInBytes ? *deleteFile.contentSizeInBytes : 0,
+        deleteFile.referencedDataFile ? *deleteFile.referencedDataFile
+                                      : std::string{});
 
     deletes.emplace_back(icebergDeleteFile);
   }
 
   std::unordered_map<std::string, std::string> infoColumns = {
-      {"$data_sequence_number",
-       std::to_string(icebergSplit->dataSequenceNumber)},
-      {"$path", icebergSplit->path}};
+      {"$path", icebergSplit->path},
+      {velox::connector::hive::iceberg::IcebergMetadataColumn::
+           kDataSequenceNumberInfoColumn,
+       std::to_string(icebergSplit->dataSequenceNumber)}};
+  if (icebergSplit->firstRowId >= 0) {
+    infoColumns[velox::connector::hive::iceberg::IcebergMetadataColumn::
+                    kFirstRowIdInfoColumn] =
+        std::to_string(icebergSplit->firstRowId);
+  }
+
+  // Iceberg MERGE INTO row-id synthesis: feed the split's partition spec ID
+  // and the per-file PartitionData JSON down to the Velox split reader so it
+  // can populate the spec_id and partition_data fields of the synthetic
+  // $target_table_row_id ROW column. partitionSpecAsJson is required on every
+  // Iceberg split; partitionDataJson is optional (absent for unpartitioned
+  // tables, in which case Java emits an empty string — match that here).
+  if (auto specId = tryParsePartitionSpecId(icebergSplit->partitionSpecAsJson);
+      specId.has_value()) {
+    infoColumns.emplace(
+        velox::connector::hive::iceberg::IcebergMetadataColumn::
+            kSpecIdInfoColumn,
+        fmt::to_string(*specId));
+  }
+  infoColumns.emplace(
+      velox::connector::hive::iceberg::IcebergMetadataColumn::
+          kPartitionDataInfoColumn,
+      icebergSplit->partitionDataJson ? *icebergSplit->partitionDataJson : "");
 
   return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
       icebergSplit->path,
-      toVeloxFileFormat(icebergSplit->fileFormat),
+      toVeloxReadFileFormat(icebergSplit->fileFormat),
       icebergSplit->start,
       icebergSplit->length,
       partitionKeys,
@@ -228,19 +463,20 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
   //  constructor similar to how Hive Connector is handling for bucketing
   velox::type::fbhive::HiveTypeParser hiveTypeParser;
   auto type = stringToType(icebergColumn->type, typeParser);
-  velox::connector::hive::HiveColumnHandle::ColumnParseParameters
-      columnParseParameters;
-  if (type->isDate()) {
-    columnParseParameters.partitionDateValueFormat = velox::connector::hive::
-        HiveColumnHandle::ColumnParseParameters::kDaysSinceEpoch;
+
+  std::optional<std::string> defaultValue;
+  if (icebergColumn->defaultValue) {
+    defaultValue = *icebergColumn->defaultValue;
   }
-  return std::make_unique<velox::connector::hive::HiveColumnHandle>(
+
+  return std::make_unique<velox::connector::hive::iceberg::IcebergColumnHandle>(
       icebergColumn->columnIdentity.name,
       toHiveColumnType(icebergColumn->columnType),
       type,
-      type,
+      toParquetField(icebergColumn->columnIdentity),
       toRequiredSubfields(icebergColumn->requiredSubfields),
-      columnParseParameters);
+      defaultValue,
+      toIcebergFieldMetadata(icebergColumn->columnIdentity));
 }
 
 std::unique_ptr<velox::connector::ConnectorTableHandle>
@@ -248,6 +484,8 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) const {
+  VELOX_CHECK_NOT_NULL(
+      tableHandle.connectorTableLayout, "Missing table layout");
   auto icebergLayout = std::dynamic_pointer_cast<
       const protocol::iceberg::IcebergTableLayoutHandle>(
       tableHandle.connectorTableLayout);
@@ -296,13 +534,42 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
   return toIcebergTableHandle(
       icebergLayout->domainPredicate,
       icebergLayout->remainingPredicate,
-      icebergLayout->pushdownFilterEnabled,
       tableName,
       icebergLayout->dataColumns,
       tableHandle,
       columnHandles,
       exprConverter,
       typeParser);
+}
+
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::ExecuteProcedureHandle* executeProcedureHandle,
+    const TypeParser& typeParser) const {
+  auto icebergDistributedProcedureHandle = std::dynamic_pointer_cast<
+      protocol::iceberg::IcebergDistributedProcedureHandle>(
+      executeProcedureHandle->handle.connectorHandle);
+
+  VELOX_CHECK_NOT_NULL(
+      icebergDistributedProcedureHandle,
+      "Unexpected call distributed procedure handle type {}",
+      executeProcedureHandle->handle.connectorHandle->_type);
+
+  const auto inputColumns = toIcebergColumns(
+      icebergDistributedProcedureHandle->inputColumns, typeParser);
+
+  return std::make_unique<
+      velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+      inputColumns,
+      std::make_shared<velox::connector::hive::LocationHandle>(
+          fmt::format("{}/data", icebergDistributedProcedureHandle->outputPath),
+          fmt::format("{}/data", icebergDistributedProcedureHandle->outputPath),
+          velox::connector::hive::LocationHandle::TableType::kExisting),
+      toVeloxFileFormat(icebergDistributedProcedureHandle->fileFormat),
+      toVeloxIcebergPartitionSpec(
+          icebergDistributedProcedureHandle->partitionSpec, typeParser),
+      std::optional(toFileCompressionKind(
+          icebergDistributedProcedureHandle->compressionCodec)));
 }
 
 std::unique_ptr<protocol::ConnectorProtocol>
@@ -324,7 +591,7 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       createHandle->handle.connectorHandle->_type);
 
   const auto inputColumns =
-      toHiveColumns(icebergOutputTableHandle->inputColumns, typeParser);
+      toIcebergColumns(icebergOutputTableHandle->inputColumns, typeParser);
 
   return std::make_unique<
       velox::connector::hive::iceberg::IcebergInsertTableHandle>(
@@ -354,7 +621,7 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       insertHandle->handle.connectorHandle->_type);
 
   const auto inputColumns =
-      toHiveColumns(icebergInsertTableHandle->inputColumns, typeParser);
+      toIcebergColumns(icebergInsertTableHandle->inputColumns, typeParser);
 
   return std::make_unique<
       velox::connector::hive::iceberg::IcebergInsertTableHandle>(
@@ -370,18 +637,109 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
           toFileCompressionKind(icebergInsertTableHandle->compressionCodec)));
 }
 
-std::vector<velox::connector::hive::HiveColumnHandlePtr>
-IcebergPrestoToVeloxConnector::toHiveColumns(
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::DeleteHandle* deleteHandle,
+    const TypeParser& typeParser) const {
+  auto icebergDeleteTableHandle =
+      std::dynamic_pointer_cast<protocol::iceberg::IcebergDeleteTableHandle>(
+          deleteHandle->handle.connectorHandle);
+
+  VELOX_CHECK_NOT_NULL(
+      icebergDeleteTableHandle,
+      "Unexpected delete table handle type {}",
+      deleteHandle->handle.connectorHandle->_type);
+
+  const auto inputColumns =
+      toIcebergColumns(icebergDeleteTableHandle->inputColumns, typeParser);
+
+  // Derive Velox WriteKind from the protocol's fileContent. Only the V3
+  // deletion-vector branch routes through this bridge today; V2
+  // POSITION_DELETES flows through the Java row-id-rewrite path on the
+  // coordinator and never reaches the C++ worker as a typed DeleteHandle.
+  // If we do see a non-DELETION_VECTOR fileContent here we fall back to
+  // kData so the existing IcebergDataSink raises a clear error rather
+  // than silently emitting a deletion vector for the wrong format.
+  const auto writeKind = icebergDeleteTableHandle->fileContent ==
+          protocol::iceberg::FileContent::DELETION_VECTOR
+      ? velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+            kDeletionVector
+      : velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+            kData;
+
+  return std::make_unique<
+      velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+      inputColumns,
+      std::make_shared<velox::connector::hive::LocationHandle>(
+          fmt::format("{}/data", icebergDeleteTableHandle->outputPath),
+          fmt::format("{}/data", icebergDeleteTableHandle->outputPath),
+          velox::connector::hive::LocationHandle::TableType::kExisting),
+      toVeloxFileFormat(icebergDeleteTableHandle->fileFormat),
+      toVeloxIcebergPartitionSpec(
+          icebergDeleteTableHandle->partitionSpec, typeParser),
+      std::optional(
+          toFileCompressionKind(icebergDeleteTableHandle->compressionCodec)),
+      /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
+      writeKind,
+      toExistingDeletionVectors(
+          icebergDeleteTableHandle->existingDeletionVectors
+              ? *icebergDeleteTableHandle->existingDeletionVectors
+              : std::map<std::string, protocol::iceberg::DeleteFile>{}));
+}
+
+std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
+IcebergPrestoToVeloxConnector::toIcebergColumns(
     const protocol::List<protocol::iceberg::IcebergColumnHandle>& inputColumns,
     const TypeParser& typeParser) const {
-  std::vector<velox::connector::hive::HiveColumnHandlePtr> hiveColumns;
-  hiveColumns.reserve(inputColumns.size());
+  std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
+      icebergColumns;
+  icebergColumns.reserve(inputColumns.size());
   for (const auto& columnHandle : inputColumns) {
-    hiveColumns.emplace_back(
-        std::dynamic_pointer_cast<velox::connector::hive::HiveColumnHandle>(
+    icebergColumns.emplace_back(
+        std::dynamic_pointer_cast<
+            velox::connector::hive::iceberg::IcebergColumnHandle>(
             std::shared_ptr(toVeloxColumnHandle(&columnHandle, typeParser))));
   }
-  return hiveColumns;
+  return icebergColumns;
+}
+
+// Layer 3b: MergeHandle → IcebergInsertTableHandle (with WriteKind::kMerge).
+// MergeHandle.connectorMergeTableHandle is the IcebergMergeTableHandle which
+// wraps an IcebergInsertTableHandle (the same protocol struct used by plain
+// INSERT). We unwrap it and forward to the IcebergInsertTableHandle build
+// path, then tag the Velox handle with WriteKind::kMerge so
+// IcebergConnector::createDataSink dispatches to IcebergMergeSink (Layer 2).
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::MergeHandle* mergeHandle,
+    const TypeParser& typeParser) const {
+  auto icebergMergeTableHandle =
+      std::dynamic_pointer_cast<protocol::iceberg::IcebergMergeTableHandle>(
+          mergeHandle->connectorMergeTableHandle);
+
+  VELOX_CHECK_NOT_NULL(
+      icebergMergeTableHandle,
+      "Unexpected merge table handle type {}",
+      mergeHandle->connectorMergeTableHandle->_type);
+
+  const auto& innerInsert = icebergMergeTableHandle->insertTableHandle;
+  const auto inputColumns =
+      toIcebergColumns(innerInsert.inputColumns, typeParser);
+
+  return std::make_unique<
+      velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+      inputColumns,
+      std::make_shared<velox::connector::hive::LocationHandle>(
+          fmt::format("{}/data", innerInsert.outputPath),
+          fmt::format("{}/data", innerInsert.outputPath),
+          velox::connector::hive::LocationHandle::TableType::kExisting),
+      toVeloxFileFormat(innerInsert.fileFormat),
+      toVeloxIcebergPartitionSpec(innerInsert.partitionSpec, typeParser),
+      std::optional(toFileCompressionKind(innerInsert.compressionCodec)),
+      std::unordered_map<std::string, std::string>{},
+      velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+          kMerge,
+      toExistingDeletionVectors(innerInsert.existingDeletionVectors));
 }
 
 } // namespace facebook::presto

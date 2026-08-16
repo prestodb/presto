@@ -41,23 +41,23 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 //    Dispatching                                                                                   -----------
 //        |                                                                                         | dispatchingTime
 //        V                                                                                         V
-//     Planning                                                                                     ----------------------------------
-//        |                                                                                         | executionTime     | planningTime
-//        |      Analysis Start                                                                     |                   |        -----------
-//        |         |                                                                               |                   |        | analysisTime
-//        |         V                                                                               |                   |        V
-//        |      Analysis End                                                                       |                   |        -----------
-//        V                                                                                         |                   V
-//     Starting                                                                                     |                   -----------
+//     Planning                                                                                     -----------
+//        |                                                                                         | planningTime
+//        |      Analysis Start                                                                     |        -----------
+//        |         |                                                                               |        | analysisTime
+//        |         V                                                                               |        V
+//        |      Analysis End                                                                       |        -----------
+//        V                                                                                         V
+//     Starting                                                                                     -----------
+//        |
+//        V                                                                                         -----------
+//     Running                                                                                      | executionTime
 //        |                                                                                         |
-//        V                                                                                         |
-//     Running                                                                                      |
-//        |                                                                                         |
-//        V                                                                                         |
-//    Finishing                                                                                     |                   -----------
-//        |                                                                                         |                   | finishingTime
-//        V                                                                                         V                   V
-//       End                                                                                        ----------------------------------
+//        V                                                                                         V
+//    Finishing                                                                                      -----------
+//        |                                                                                         | finishingTime
+//        V                                                                                         V
+//       End                                                                                        -----------
 public class QueryStateTimer
 {
     private final Ticker ticker;
@@ -71,6 +71,7 @@ public class QueryStateTimer
     private final AtomicReference<Long> beginColumnAccessPermissionCheckingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginDispatchingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginPlanningNanos = new AtomicReference<>();
+    private final AtomicReference<Long> beginRunningNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginFinishingNanos = new AtomicReference<>();
     private final AtomicReference<Long> endNanos = new AtomicReference<>();
 
@@ -199,6 +200,7 @@ public class QueryStateTimer
     private void beginRunning(long now)
     {
         beginStarting(now);
+        beginRunningNanos.compareAndSet(null, now);
     }
 
     public void beginFinishing()
@@ -210,6 +212,7 @@ public class QueryStateTimer
     {
         beginRunning(now);
         beginFinishingNanos.compareAndSet(null, now);
+        executionTime.compareAndSet(null, nanosSince(beginRunningNanos, now));
     }
 
     public void endQuery()
@@ -221,7 +224,6 @@ public class QueryStateTimer
     {
         beginFinishing(now);
         finishingTime.compareAndSet(null, nanosSince(beginFinishingNanos, now));
-        executionTime.compareAndSet(null, nanosSince(beginPlanningNanos, now));
         endNanos.compareAndSet(null, now);
     }
 
@@ -255,7 +257,7 @@ public class QueryStateTimer
 
     public long getExecutionStartTimeInMillis()
     {
-        return toMillis(beginPlanningNanos);
+        return toMillis(beginRunningNanos);
     }
 
     public Duration getElapsedTime()
@@ -314,7 +316,7 @@ public class QueryStateTimer
 
     public Duration getExecutionTime()
     {
-        return getDuration(executionTime, beginPlanningNanos);
+        return getDuration(executionTime, beginRunningNanos);
     }
 
     public long getEndTimeInMillis()

@@ -16,21 +16,25 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
 import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 import jakarta.inject.Inject;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.MaterializedViewDefinition.ColumnMapping;
+import static com.facebook.presto.spi.transaction.IsolationLevel.REPEATABLE_READ;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergHiveMetadataFactory
@@ -53,6 +57,9 @@ public class IcebergHiveMetadataFactory
     final ManifestFileCache manifestFileCache;
     final IcebergTableProperties tableProperties;
     final ConnectorSystemConfig connectorSystemConfig;
+    final long perTransactionCacheMaximumSize;
+    final boolean metastoreImpersonationEnabled;
+    final int metastorePartitionCacheMaxColumnCount;
 
     @Inject
     public IcebergHiveMetadataFactory(
@@ -72,7 +79,8 @@ public class IcebergHiveMetadataFactory
             StatisticsFileCache statisticsFileCache,
             ManifestFileCache manifestFileCache,
             IcebergTableProperties tableProperties,
-            ConnectorSystemConfig connectorSystemConfig)
+            ConnectorSystemConfig connectorSystemConfig,
+            MetastoreClientConfig metastoreClientConfig)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -91,13 +99,24 @@ public class IcebergHiveMetadataFactory
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "icebergTableProperties is null");
         this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
+        requireNonNull(metastoreClientConfig, "metastoreClientConfig is null");
+        this.perTransactionCacheMaximumSize = metastoreClientConfig.getPerTransactionMetastoreCacheMaximumSize();
+        this.metastoreImpersonationEnabled = metastoreClientConfig.isMetastoreImpersonationEnabled();
+        this.metastorePartitionCacheMaxColumnCount = metastoreClientConfig.getPartitionCacheColumnCountLimit();
     }
 
-    public ConnectorMetadata create()
+    public IcebergTransactionMetadata create()
     {
+        return create(REPEATABLE_READ, true);
+    }
+
+    public IcebergTransactionMetadata create(IsolationLevel isolationLevel, boolean autoCommitContext)
+    {
+        ExtendedHiveMetastore perTransactionMetastore = InMemoryCachingHiveMetastore.memoizeMetastore(
+                metastore, metastoreImpersonationEnabled, perTransactionCacheMaximumSize, metastorePartitionCacheMaxColumnCount);
         return new IcebergHiveMetadata(
                 catalogName,
-                metastore,
+                perTransactionMetastore,
                 hdfsEnvironment,
                 typeManager,
                 procedureRegistry,
@@ -112,6 +131,8 @@ public class IcebergHiveMetadataFactory
                 statisticsFileCache,
                 manifestFileCache,
                 tableProperties,
-                connectorSystemConfig);
+                connectorSystemConfig,
+                isolationLevel,
+                autoCommitContext);
     }
 }

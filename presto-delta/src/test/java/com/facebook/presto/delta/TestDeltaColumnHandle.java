@@ -35,14 +35,14 @@ public class TestDeltaColumnHandle
     @Test
     public void testPartitionColumn()
     {
-        DeltaColumnHandle expectedPartitionColumn = new DeltaColumnHandle("partitionColumn", parseTypeSignature(DOUBLE), PARTITION, Optional.empty());
+        DeltaColumnHandle expectedPartitionColumn = new DeltaColumnHandle(null, "partitionColumn", "partitionColumn", parseTypeSignature(DOUBLE), PARTITION, Optional.empty());
         testRoundTrip(expectedPartitionColumn);
     }
 
     @Test
     public void testRegularColumn()
     {
-        DeltaColumnHandle expectedRegularColumn = new DeltaColumnHandle("regularColumn", parseTypeSignature(DOUBLE), REGULAR, Optional.of(new Subfield("first")));
+        DeltaColumnHandle expectedRegularColumn = new DeltaColumnHandle(0L, "phys", "regularColumn", parseTypeSignature(DOUBLE), REGULAR, Optional.of(new Subfield("first")));
         testRoundTrip(expectedRegularColumn);
     }
 
@@ -51,7 +51,9 @@ public class TestDeltaColumnHandle
         String json = codec.toJson(expected);
         DeltaColumnHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getName(), expected.getName());
+        assertEquals(actual.getId(), expected.getId());
+        assertEquals(actual.getPhysicalName(), expected.getPhysicalName());
+        assertEquals(actual.getLogicalName(), expected.getLogicalName());
         assertEquals(actual.getColumnType(), expected.getColumnType());
         assertEquals(actual.getDataType(), expected.getDataType());
         assertEquals(actual.getSubfield(), expected.getSubfield());

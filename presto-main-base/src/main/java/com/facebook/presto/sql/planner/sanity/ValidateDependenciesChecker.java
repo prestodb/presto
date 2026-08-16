@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
@@ -31,6 +32,7 @@ import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.MVRewriteCandidatesNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.MergeJoinNode;
@@ -38,6 +40,7 @@ import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.RefreshMaterializedViewNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SetOperationNode;
 import com.facebook.presto.spi.plan.SortNode;
@@ -48,6 +51,7 @@ import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -58,7 +62,6 @@ import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.optimizations.WindowNodeUtil;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -68,6 +71,7 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -77,7 +81,6 @@ import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -527,6 +530,36 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
+        public Void visitMVRewriteCandidates(MVRewriteCandidatesNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            // Visit original plan
+            node.getOriginalPlan().accept(this, boundVariables);
+
+            // Visit all candidate plans and validate output sizes match the original
+            int expectedOutputSize = node.getOriginalPlan().getOutputVariables().size();
+            for (MVRewriteCandidatesNode.MVRewriteCandidate candidate : node.getCandidates()) {
+                candidate.getPlan().accept(this, boundVariables);
+                checkArgument(
+                        candidate.getPlan().getOutputVariables().size() == expectedOutputSize,
+                        "MV candidate %s has %s output variables but original plan has %s",
+                        candidate.getFullyQualifiedName(),
+                        candidate.getPlan().getOutputVariables().size(),
+                        expectedOutputSize);
+            }
+
+            // Validate that output variables match the original plan's output
+            Set<VariableReferenceExpression> originalOutputs = ImmutableSet.copyOf(node.getOriginalPlan().getOutputVariables());
+            checkDependencies(
+                    originalOutputs,
+                    node.getOutputVariables(),
+                    "Invalid node. Output variables (%s) not in original plan output (%s)",
+                    node.getOutputVariables(),
+                    originalOutputs);
+
+            return null;
+        }
+
+        @Override
         public Void visitJoin(JoinNode node, Set<VariableReferenceExpression> boundVariables)
         {
             node.getLeft().accept(this, boundVariables);
@@ -773,6 +806,23 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
+        public Void visitRefreshMaterializedView(RefreshMaterializedViewNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundVariables); // visit child
+
+            checkDependencies(
+                    source.getOutputVariables(),
+                    node.getOutputVariables(),
+                    "Invalid RefreshMaterializedViewNode %s: output variables %s not produced by source %s",
+                    node.getId(),
+                    node.getOutputVariables(),
+                    source.getOutputVariables());
+
+            return null;
+        }
+
+        @Override
         public Void visitTableWriteMerge(TableWriterMergeNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
@@ -786,6 +836,26 @@ public final class ValidateDependenciesChecker
         {
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
+            return null;
+        }
+
+        @Override
+        public Void visitRPC(RPCNode node, Set<VariableReferenceExpression> boundSymbols)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundSymbols); // visit child
+
+            Set<String> sourceOutputNames = source.getOutputVariables().stream()
+                    .map(VariableReferenceExpression::getName)
+                    .collect(toImmutableSet());
+            for (String argColumn : node.getArgumentColumns()) {
+                checkArgument(
+                        sourceOutputNames.contains(argColumn),
+                        "Invalid node. RPCNode argument column (%s) not in source plan output (%s)",
+                        argColumn,
+                        source.getOutputVariables());
+            }
+
             return null;
         }
 

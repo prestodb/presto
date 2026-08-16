@@ -11,4 +11,4 @@
 # limitations under the License.
 
 add_library(presto_functions_rest_server RemoteFunctionRestService.cpp RestFunctionRegistry.cpp)
-target_link_libraries(presto_functions_rest_server velox_presto_serializer)
+target_link_libraries(presto_functions_rest_server velox)

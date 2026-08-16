@@ -17,6 +17,7 @@ import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.DelegatingMetadataManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -107,6 +108,9 @@ public class RemoteMetadataManager
                 ? ImmutableList.of()
                 : readValue(tableListJson, new TypeReference<List<QualifiedObjectName>>() {});
     }
+
+    @Override
+    public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type) {}
 
     @Override
     public List<QualifiedObjectName> listViews(Session session, QualifiedTablePrefix prefix)

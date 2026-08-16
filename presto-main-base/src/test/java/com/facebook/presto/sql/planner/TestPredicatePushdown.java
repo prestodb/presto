@@ -321,6 +321,19 @@ public class TestPredicatePushdown
     }
 
     @Test
+    public void testNoPredicateOverProjection()
+    {
+        // When there is no WHERE clause, the inherited predicate is TRUE.
+        // The fast path should skip determinism checking on all assignments.
+        assertPlan(
+                "SELECT orderkey * 2 AS x, custkey FROM orders",
+                anyTree(
+                        tableScan("orders", ImmutableMap.of(
+                                "orderkey", "orderkey",
+                                "custkey", "custkey"))));
+    }
+
+    @Test
     public void testPredicatePushDownOverProjection()
     {
         // Non-singletons should not be pushed down

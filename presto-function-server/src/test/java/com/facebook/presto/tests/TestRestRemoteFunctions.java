@@ -122,6 +122,23 @@ public class TestRestRemoteFunctions
     }
 
     @Test
+    public void testCastArgument()
+    {
+        assertQueryWithSameQueryRunner(
+                "SELECT orderkey, totalprice, rest.default.abs(CAST(totalprice AS bigint)) FROM orders",
+                "SELECT orderkey, totalprice, abs(CAST(totalprice AS bigint)) FROM orders");
+        assertQueryWithSameQueryRunner(
+                "SELECT rest.default.abs(shippriority) FROM orders",
+                "SELECT abs(shippriority) FROM orders");
+        assertQueryWithSameQueryRunner(
+                "SELECT rest.default.floor(CAST(totalprice AS real)) FROM orders",
+                "SELECT floor(CAST(totalprice AS real)) FROM orders");
+        assertQueryWithSameQueryRunner(
+                "SELECT rest.default.length(CAST(comment AS VARBINARY)) FROM orders",
+                "SELECT length(CAST(comment AS VARBINARY)) FROM orders");
+    }
+
+    @Test
     public void testRemoteFunctionAppliedToColumn()
     {
         assertQueryWithSameQueryRunner(

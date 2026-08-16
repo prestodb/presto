@@ -21,7 +21,7 @@ General Changes
 * Improve performance of ``GROUP BY`` queries that compute a mix of distinct
   and non-distinct aggregations. This optimization can be turned on by setting
   the ``optimizer.optimize-mixed-distinct-aggregations`` configuration option or
-  via the ``optimize_mixed_distinct_aggregations`` session property.
+  with the ``optimize_mixed_distinct_aggregations`` session property.
 * Change default task concurrency to 16.
 
 Hive Changes

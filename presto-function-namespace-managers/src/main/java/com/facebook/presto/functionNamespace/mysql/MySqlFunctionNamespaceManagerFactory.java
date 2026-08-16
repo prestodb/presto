@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.FunctionNamespaceManagerContext;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.google.inject.Injector;
+import io.netty.buffer.PooledByteBufAllocator;
 
 import java.util.Map;
 
@@ -51,7 +52,7 @@ public class MySqlFunctionNamespaceManagerFactory
     {
         try {
             Bootstrap app = new Bootstrap(
-                    new DriftNettyClientModule(),
+                    new DriftNettyClientModule(PooledByteBufAllocator.DEFAULT),
                     new MySqlFunctionNamespaceManagerModule(catalogName),
                     new MySqlConnectionModule(),
                     new SimpleAddressSqlFunctionExecutorsModule());

@@ -35,6 +35,7 @@ public class TestServerConfig
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(ServerConfig.class)
                 .setCoordinator(true)
+                .setWebUIEnabled(true)
                 .setPrestoVersion(null)
                 .setDataSources(null)
                 .setIncludeExceptionInResponse(true)
@@ -50,7 +51,8 @@ public class TestServerConfig
                 .setClusterStatsExpirationDuration(new Duration(0, MILLISECONDS))
                 .setNestedDataSerializationEnabled(true)
                 .setClusterResourceGroupStateInfoExpirationDuration(new Duration(0, MILLISECONDS))
-                .setClusterTag(null));
+                .setClusterTag(null)
+                .setStartupCompleteRequiredForActive(false));
     }
 
     @Test
@@ -58,6 +60,7 @@ public class TestServerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("coordinator", "false")
+                .put("webui-enabled", "false")
                 .put("presto.version", "test")
                 .put("datasources", "jmx")
                 .put("http.include-exception-in-response", "false")
@@ -74,10 +77,12 @@ public class TestServerConfig
                 .put("nested-data-serialization-enabled", "false")
                 .put("cluster-resource-group-state-info-expiration-duration", "10s")
                 .put("cluster-tag", "test-cluster")
+                .put("server.startup-complete-required-for-active", "true")
                 .build();
 
         ServerConfig expected = new ServerConfig()
                 .setCoordinator(false)
+                .setWebUIEnabled(false)
                 .setPrestoVersion("test")
                 .setDataSources("jmx")
                 .setIncludeExceptionInResponse(false)
@@ -93,7 +98,8 @@ public class TestServerConfig
                 .setClusterStatsExpirationDuration(new Duration(10, SECONDS))
                 .setNestedDataSerializationEnabled(false)
                 .setClusterResourceGroupStateInfoExpirationDuration(new Duration(10, SECONDS))
-                .setClusterTag("test-cluster");
+                .setClusterTag("test-cluster")
+                .setStartupCompleteRequiredForActive(true);
 
         assertFullMapping(properties, expected);
     }

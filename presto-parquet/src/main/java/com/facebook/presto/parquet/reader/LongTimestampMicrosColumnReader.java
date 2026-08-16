@@ -17,13 +17,16 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import org.joda.time.DateTimeZone;
+
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 public class LongTimestampMicrosColumnReader
-        extends AbstractColumnReader
+        extends AbstractTimestampColumnReader
 {
     public LongTimestampMicrosColumnReader(RichColumnDescriptor descriptor)
     {
@@ -31,7 +34,7 @@ public class LongTimestampMicrosColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<DateTimeZone> timezone)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             long utcMillis = MICROSECONDS.toMillis(valuesReader.readLong());

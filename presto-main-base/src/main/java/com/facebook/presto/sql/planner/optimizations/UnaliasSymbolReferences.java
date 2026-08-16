@@ -20,6 +20,7 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
@@ -51,6 +52,7 @@ import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -62,7 +64,6 @@ import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -71,6 +72,7 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -80,7 +82,6 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -88,7 +89,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
@@ -106,7 +106,6 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocati
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateVariable;
 import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.facebook.presto.sql.relational.Expressions.isNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -415,7 +414,8 @@ public class UnaliasSymbolReferences
                     node.isEnsureSourceOrdering(),
                     node.getOrderingScheme().map(this::canonicalizeAndDistinct),
                     node.getExchangeType(),
-                    node.getEncoding());
+                    node.getEncoding(),
+                    node.getTransportType());
         }
 
         @Override
@@ -593,6 +593,7 @@ public class UnaliasSymbolReferences
                     node.getId(),
                     context.rewrite(node.getSource()),
                     canonicalizeAndDistinct(node.getSpecification()),
+                    node.getRankingFunction(),
                     canonicalize(node.getRowNumberVariable()),
                     node.getMaxRowCountPerPartition(),
                     node.isPartial(),
@@ -839,6 +840,28 @@ public class UnaliasSymbolReferences
         }
 
         @Override
+        public PlanNode visitRPC(RPCNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+            List<RowExpression> newArguments = node.getArguments().stream()
+                    .map(this::canonicalize)
+                    .collect(toImmutableList());
+            List<String> newArgumentColumns = node.getArgumentColumns().stream()
+                    .map(this::canonicalizeColumnName)
+                    .collect(toImmutableList());
+            return new RPCNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    source,
+                    node.getFunctionName(),
+                    newArguments,
+                    newArgumentColumns,
+                    canonicalize(node.getOutputVariable()),
+                    node.getStreamingMode(),
+                    node.getDispatchBatchSize());
+        }
+
+        @Override
         public PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
         {
             throw new UnsupportedOperationException("Unsupported plan node " + node.getClass().getSimpleName());
@@ -863,7 +886,7 @@ public class UnaliasSymbolReferences
                         map(entry.getKey(), variable);
                     }
                 }
-                else if (!isNull(expression) && determinismEvaluator.isDeterministic(expression)) {
+                else if (determinismEvaluator.isDeterministic(expression)) {
                     // Try to map same deterministic expressions within a projection into the same symbol
                     // Omit NullLiterals since those have ambiguous types
                     VariableReferenceExpression computedVariable = computedExpressions.get(expression);
@@ -886,9 +909,26 @@ public class UnaliasSymbolReferences
 
         private VariableReferenceExpression canonicalize(VariableReferenceExpression variable)
         {
-            String canonical = variable.getName();
+            String name = variable.getName();
+            if (!mapping.containsKey(name)) {
+                // Fast path: no mapping exists, return original variable to avoid allocation
+                return variable;
+            }
+            String canonical = name;
+            Set<String> visited = new HashSet<>();
+            visited.add(canonical);
             while (mapping.containsKey(canonical)) {
                 canonical = mapping.get(canonical);
+                if (!visited.add(canonical)) {
+                    // Cycle detected in alias mapping; break the cycle by removing the mapping entry
+                    // that would close the loop and stop at the current canonical name.
+                    mapping.remove(canonical);
+                    break;
+                }
+            }
+            if (canonical.equals(name)) {
+                // Mapping resolved back to original name (cycle was broken), return original
+                return variable;
             }
             return new VariableReferenceExpression(variable.getSourceLocation(), canonical, types.get(new SymbolReference(getNodeLocation(variable.getSourceLocation()), canonical)));
         }
@@ -904,6 +944,15 @@ public class UnaliasSymbolReferences
         private RowExpression canonicalize(RowExpression value)
         {
             return RowExpressionVariableInliner.inlineVariables(this::canonicalize, value);
+        }
+
+        private String canonicalizeColumnName(String name)
+        {
+            String canonical = name;
+            while (mapping.containsKey(canonical)) {
+                canonical = mapping.get(canonical);
+            }
+            return canonical;
         }
 
         private List<VariableReferenceExpression> canonicalizeAndDistinct(List<VariableReferenceExpression> outputs)
@@ -990,7 +1039,7 @@ public class UnaliasSymbolReferences
             for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : setOperationVariableMap.entrySet()) {
                 VariableReferenceExpression canonicalOutputVariable = canonicalize(entry.getKey());
                 if (addVariables.add(canonicalOutputVariable)) {
-                    result.put(canonicalOutputVariable, ImmutableList.copyOf(Iterables.transform(entry.getValue(), this::canonicalize)));
+                    result.put(canonicalOutputVariable, entry.getValue().stream().map(this::canonicalize).collect(toImmutableList()));
                 }
             }
             return result;

@@ -28,6 +28,11 @@
         <artifact id="${project.groupId}:presto-main:${project.version}" />
     </artifactSet>
 
+    <!-- FlightShim -->
+    <artifactSet to="lib">
+        <artifact id="${project.groupId}:presto-flight-shim:${project.version}" />
+    </artifactSet>
+
     <!-- Java Plugins -->
     <artifactSet to="plugin/resource-group-managers">
         <artifact id="${project.groupId}:presto-resource-group-managers:zip:${project.version}">
@@ -37,6 +42,12 @@
 
     <artifactSet to="plugin/password-authenticators">
         <artifact id="${project.groupId}:presto-password-authenticators:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/openlineage-event-listener">
+        <artifact id="${project.groupId}:presto-openlineage-event-listener:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -281,12 +292,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/sql-invoked-functions-plugin">
-        <artifact id="${project.groupId}:presto-sql-invoked-functions-plugin:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <!-- Native Plugins -->
     <artifactSet to="native-plugin/resource-group-managers">
         <artifact id="${project.groupId}:presto-resource-group-managers:zip:${project.version}">
@@ -372,8 +377,123 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="native-plugin/native-sql-invoked-functions-plugin">
-        <artifact id="${project.groupId}:presto-native-sql-invoked-functions-plugin:zip:${project.version}">
+    <artifactSet to="native-plugin/cassandra">
+        <artifact id="${project.groupId}:presto-cassandra:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/mongodb">
+        <artifact id="${project.groupId}:presto-mongodb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/mysql">
+        <artifact id="${project.groupId}:presto-mysql:zip:${project.version}">
+            <unpack />
+            <exclude dir="mysql-connector-j-9.2.0.jar" />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/oracle">
+        <artifact id="${project.groupId}:presto-oracle:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/postgresql">
+        <artifact id="${project.groupId}:presto-postgresql:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/redis">
+        <artifact id="${project.groupId}:presto-redis:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/singlestore">
+        <artifact id="${project.groupId}:presto-singlestore:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/hana">
+        <artifact id="${project.groupId}:presto-hana:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/redshift">
+        <artifact id="${project.groupId}:presto-redshift:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/sqlserver">
+        <artifact id="${project.groupId}:presto-sqlserver:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/presto-bigquery">
+        <artifact id="${project.groupId}:presto-bigquery:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/clickhouse">
+        <artifact id="${project.groupId}:presto-clickhouse:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/presto-druid">
+        <artifact id="${project.groupId}:presto-druid:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/presto-elasticsearch">
+        <artifact id="${project.groupId}:presto-elasticsearch:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/kafka">
+        <artifact id="${project.groupId}:presto-kafka:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/pinot">
+        <artifact id="${project.groupId}:presto-pinot:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/prometheus">
+        <artifact id="${project.groupId}:presto-prometheus:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/blackhole">
+        <artifact id="${project.groupId}:presto-blackhole:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/presto-druid">
+        <artifact id="${project.groupId}:presto-druid:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/localfile">
+        <artifact id="${project.groupId}:presto-local-file:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

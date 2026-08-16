@@ -38,3 +38,5 @@ Functions and Operators
     functions/setdigest
     functions/sketch
     functions/pinot
+    functions/plugin-loaded-functions
+    functions/table

@@ -31,17 +31,21 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -139,9 +143,16 @@ public class PayloadJoinOptimizer
     {
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         if (isEnabled(session)) {
+            PlanNode flattenedPlan = flattenJoinChains(plan, idAllocator);
             Rewriter rewriter = new PayloadJoinOptimizer.Rewriter(session, this.metadata, types, functionAndTypeManager, idAllocator, variableAllocator);
-            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new JoinContext());
-            return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, flattenedPlan, new JoinContext());
+            if (rewriter.isPlanChanged()) {
+                return PlanOptimizerResult.optimizerResult(rewrittenPlan, true);
+            }
+            // Pre-pass may have restructured the plan, but if the main rewrite
+            // didn't fire, return the original plan to avoid plan changes that
+            // don't produce the payload join optimization.
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
         return PlanOptimizerResult.optimizerResult(plan, false);
     }
@@ -356,6 +367,10 @@ public class PayloadJoinOptimizer
                 return planNode;
             }
 
+            // Detect IS NOT NULL predicates on join keys to skip null checks in the rejoin
+            Set<VariableReferenceExpression> nonNullVars = extractNonNullVariablesFromScanFilterProject(planNode, joinKeys);
+            context.get().addNonNullKeys(nonNullVars);
+
             List<VariableReferenceExpression> outputCols = planNode.getOutputVariables();
             if (!ImmutableSet.copyOf(planNode.getOutputVariables()).containsAll(joinKeys)) {
                 // not all join keys are in the plan node: check if there are any pushable projections
@@ -406,6 +421,7 @@ public class PayloadJoinOptimizer
 
             Set<VariableReferenceExpression> joinKeys = context.getJoinKeys();
             Map<VariableReferenceExpression, VariableReferenceExpression> joinKeyMap = context.getJoinKeyMap();
+            Set<VariableReferenceExpression> nonNullKeys = context.getNonNullKeys();
 
             checkState(null != payloadPlanNode, "Payload plannode not initialized");
             checkState(null != joinKeyMap, "joinkey map not initialized");
@@ -415,8 +431,7 @@ public class PayloadJoinOptimizer
             // build new assignments of the form "jk IS NULL as jk_NULL"
             Assignments.Builder assignments = Assignments.builder();
 
-            ImmutableList.Builder<RowExpression> coalesceComparisonBuilder = ImmutableList.builder();
-            ImmutableList.Builder<RowExpression> nullComparisonBuilder = ImmutableList.builder();
+            ImmutableList.Builder<RowExpression> joinPredicateBuilder = ImmutableList.builder();
 
             List<VariableReferenceExpression> joinOutputCols = keysNode.getOutputVariables();
 
@@ -427,25 +442,43 @@ public class PayloadJoinOptimizer
             for (VariableReferenceExpression var : joinKeys) {
                 VariableReferenceExpression newVar = joinKeyMap.get(var);
 
-                VariableReferenceExpression isNullVar = variableAllocator.newVariable(var.getName() + "_NULL", BOOLEAN);
-                assignments.put(isNullVar, specialForm(IS_NULL, BOOLEAN, ImmutableList.of(var)));
+                if (nonNullKeys.contains(var)) {
+                    // Key is guaranteed non-null: use direct equality
+                    joinPredicateBuilder.add(equalityPredicate(functionResolution, newVar, var));
+                }
+                else {
+                    // Key may be null: use IS_NULL comparison + COALESCE comparison
+                    VariableReferenceExpression isNullVar = variableAllocator.newVariable(var.getName() + "_NULL", BOOLEAN);
+                    assignments.put(isNullVar, specialForm(IS_NULL, BOOLEAN, ImmutableList.of(var)));
 
-                // construct predicate of the form "coalesce(newVar, 0) = coalesce(var, 0)"
-                RowExpression coalesceComp = equalityPredicate(functionResolution, coalesceToZero(newVar), coalesceToZero(var));
-                RowExpression nullComp = equalityPredicate(functionResolution, specialForm(IS_NULL, BOOLEAN, ImmutableList.of(newVar)), isNullVar);
-                nullComparisonBuilder.add(nullComp);
-                coalesceComparisonBuilder.add(coalesceComp);
+                    RowExpression coalesceComp = equalityPredicate(functionResolution, coalesceToZero(newVar), coalesceToZero(var));
+                    RowExpression nullComp = equalityPredicate(functionResolution, specialForm(IS_NULL, BOOLEAN, ImmutableList.of(newVar)), isNullVar);
+                    joinPredicateBuilder.add(nullComp);
+                    joinPredicateBuilder.add(coalesceComp);
+                }
             }
 
             ProjectNode projectNode = new ProjectNode(planNodeIdAllocator.getNextId(), keysNode, assignments.build());
             List<VariableReferenceExpression> resultOutputCols = Stream.concat(payloadPlanNode.getOutputVariables().stream(), projectNode.getOutputVariables().stream()).collect(toImmutableList());
 
-            List<RowExpression> joinCriteria = Stream.concat(nullComparisonBuilder.build().stream(), coalesceComparisonBuilder.build().stream()).collect(toImmutableList());
+            List<RowExpression> joinCriteria = joinPredicateBuilder.build();
+
+            // If all keys are non-null and all key expressions are deterministic,
+            // use INNER join (every payload row matches exactly one distinct key).
+            // Non-deterministic keys (e.g., random()) are computed separately in the
+            // cloned payload and distinct-keys subtrees, so values may differ and
+            // an INNER join could incorrectly drop rows.
+            RowExpressionDeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+            Map<VariableReferenceExpression, RowExpression> projectionsToPush = context.getProjectionsToPush();
+            boolean allKeysDeterministic = joinKeys.stream()
+                    .allMatch(key -> !projectionsToPush.containsKey(key) || determinismEvaluator.isDeterministic(projectionsToPush.get(key)));
+            boolean allKeysNonNull = nonNullKeys.containsAll(joinKeys);
+            JoinType rejoinType = (allKeysNonNull && allKeysDeterministic) ? JoinType.INNER : JoinType.LEFT;
 
             return new JoinNode(
                     keysNode.getSourceLocation(),
                     planNodeIdAllocator.getNextId(),
-                    JoinType.LEFT,
+                    rejoinType,
                     payloadPlanNode,
                     projectNode,
                     ImmutableList.of(),
@@ -510,6 +543,44 @@ public class PayloadJoinOptimizer
         {
             return joinKeys.stream().allMatch(key -> key.getType() instanceof VarcharType || isNumericType(key.getType()));
         }
+
+        private Set<VariableReferenceExpression> extractNonNullVariablesFromScanFilterProject(PlanNode node, Set<VariableReferenceExpression> joinKeys)
+        {
+            FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+            ImmutableSet.Builder<VariableReferenceExpression> nonNullVars = ImmutableSet.builder();
+            extractNonNullVariablesRecursive(node, joinKeys, functionResolution, nonNullVars);
+            return nonNullVars.build();
+        }
+
+        private void extractNonNullVariablesRecursive(PlanNode node, Set<VariableReferenceExpression> joinKeys,
+                FunctionResolution functionResolution, ImmutableSet.Builder<VariableReferenceExpression> result)
+        {
+            if (node instanceof FilterNode) {
+                FilterNode filterNode = (FilterNode) node;
+                RowExpression predicate = filterNode.getPredicate();
+                for (RowExpression conjunct : LogicalRowExpressions.extractConjuncts(predicate)) {
+                    if (conjunct instanceof CallExpression) {
+                        CallExpression call = (CallExpression) conjunct;
+                        if (functionResolution.isNotFunction(call.getFunctionHandle())
+                                && call.getArguments().size() == 1
+                                && call.getArguments().get(0) instanceof SpecialFormExpression
+                                && ((SpecialFormExpression) call.getArguments().get(0)).getForm() == IS_NULL
+                                && ((SpecialFormExpression) call.getArguments().get(0)).getArguments().size() == 1
+                                && ((SpecialFormExpression) call.getArguments().get(0)).getArguments().get(0) instanceof VariableReferenceExpression) {
+                            VariableReferenceExpression variable = (VariableReferenceExpression) ((SpecialFormExpression) call.getArguments().get(0)).getArguments().get(0);
+                            if (joinKeys.contains(variable)) {
+                                result.add(variable);
+                            }
+                        }
+                    }
+                }
+                extractNonNullVariablesRecursive(filterNode.getSource(), joinKeys, functionResolution, result);
+            }
+            else if (node instanceof ProjectNode) {
+                extractNonNullVariablesRecursive(((ProjectNode) node).getSource(), joinKeys, functionResolution, result);
+            }
+            // TableScanNode is a leaf — nothing to do
+        }
     }
 
     private static RowExpression zeroForType(Type type)
@@ -522,11 +593,256 @@ public class PayloadJoinOptimizer
         return constant(Slices.utf8Slice(""), VarcharType.VARCHAR);
     }
 
+    /**
+     * Pre-pass: flatten LOJ chains by removing identity projections and hoisting cross joins
+     * above the LOJ chain. This allows the payload join optimization to handle more join patterns.
+     */
+    private static PlanNode flattenJoinChains(PlanNode node, PlanNodeIdAllocator idAllocator)
+    {
+        List<PlanNode> children = node.getSources();
+        ImmutableList.Builder<PlanNode> newChildrenBuilder = ImmutableList.builder();
+        boolean childChanged = false;
+        for (PlanNode child : children) {
+            PlanNode newChild = flattenJoinChains(child, idAllocator);
+            if (newChild != child) {
+                childChanged = true;
+            }
+            newChildrenBuilder.add(newChild);
+        }
+
+        PlanNode current = childChanged ? replaceChildren(node, newChildrenBuilder.build()) : node;
+
+        if (current instanceof JoinNode && ((JoinNode) current).getType() == LEFT) {
+            PlanNode flattened = flattenLeftChain((JoinNode) current, idAllocator);
+            if (flattened instanceof JoinNode && ((JoinNode) flattened).getType() == LEFT) {
+                return reorderLeftJoinChain((JoinNode) flattened, idAllocator);
+            }
+            return flattened;
+        }
+
+        return current;
+    }
+
+    private static PlanNode flattenLeftChain(JoinNode joinNode, PlanNodeIdAllocator idAllocator)
+    {
+        PlanNode left = joinNode.getLeft();
+
+        // Case 1: Left child is an identity projection - remove it
+        if (left instanceof ProjectNode && isIdentityProjection((ProjectNode) left)) {
+            PlanNode projectSource = ((ProjectNode) left).getSource();
+            List<VariableReferenceExpression> newOutput = Stream.concat(
+                    projectSource.getOutputVariables().stream(),
+                    joinNode.getRight().getOutputVariables().stream())
+                    .collect(toImmutableList());
+
+            JoinNode newJoin = new JoinNode(
+                    joinNode.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    joinNode.getType(),
+                    projectSource,
+                    joinNode.getRight(),
+                    joinNode.getCriteria(),
+                    newOutput,
+                    joinNode.getFilter(),
+                    joinNode.getLeftHashVariable(),
+                    joinNode.getRightHashVariable(),
+                    joinNode.getDistributionType(),
+                    joinNode.getDynamicFilters());
+
+            return flattenLeftChain(newJoin, idAllocator);
+        }
+
+        // Case 2: Left child is a cross join - hoist it above the LOJ
+        if (left instanceof JoinNode && ((JoinNode) left).isCrossJoin()) {
+            JoinNode crossJoin = (JoinNode) left;
+
+            Set<VariableReferenceExpression> lojLeftKeys = extractLeftJoinKeys(joinNode);
+            Set<VariableReferenceExpression> crossLeftCols = ImmutableSet.copyOf(crossJoin.getLeft().getOutputVariables());
+            Set<VariableReferenceExpression> crossRightCols = ImmutableSet.copyOf(crossJoin.getRight().getOutputVariables());
+
+            PlanNode chainSide = null;
+            PlanNode crossSide = null;
+
+            if (crossLeftCols.containsAll(lojLeftKeys)) {
+                chainSide = crossJoin.getLeft();
+                crossSide = crossJoin.getRight();
+            }
+            else if (crossRightCols.containsAll(lojLeftKeys)) {
+                chainSide = crossJoin.getRight();
+                crossSide = crossJoin.getLeft();
+            }
+
+            if (chainSide != null) {
+                List<VariableReferenceExpression> lojOutput = Stream.concat(
+                        chainSide.getOutputVariables().stream(),
+                        joinNode.getRight().getOutputVariables().stream())
+                        .collect(toImmutableList());
+
+                JoinNode newLOJ = new JoinNode(
+                        joinNode.getSourceLocation(),
+                        idAllocator.getNextId(),
+                        joinNode.getType(),
+                        chainSide,
+                        joinNode.getRight(),
+                        joinNode.getCriteria(),
+                        lojOutput,
+                        joinNode.getFilter(),
+                        joinNode.getLeftHashVariable(),
+                        joinNode.getRightHashVariable(),
+                        joinNode.getDistributionType(),
+                        joinNode.getDynamicFilters());
+
+                PlanNode flattenedLOJ = flattenLeftChain(newLOJ, idAllocator);
+
+                List<VariableReferenceExpression> crossOutput = Stream.concat(
+                        flattenedLOJ.getOutputVariables().stream(),
+                        crossSide.getOutputVariables().stream())
+                        .collect(toImmutableList());
+
+                return new JoinNode(
+                        crossJoin.getSourceLocation(),
+                        idAllocator.getNextId(),
+                        crossJoin.getType(),
+                        flattenedLOJ,
+                        crossSide,
+                        crossJoin.getCriteria(),
+                        crossOutput,
+                        crossJoin.getFilter(),
+                        crossJoin.getLeftHashVariable(),
+                        crossJoin.getRightHashVariable(),
+                        crossJoin.getDistributionType(),
+                        crossJoin.getDynamicFilters());
+            }
+        }
+
+        return joinNode;
+    }
+
+    private static Set<VariableReferenceExpression> extractLeftJoinKeys(JoinNode joinNode)
+    {
+        ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
+
+        for (EquiJoinClause clause : joinNode.getCriteria()) {
+            builder.add(clause.getLeft());
+        }
+
+        if (joinNode.getFilter().isPresent()) {
+            Set<VariableReferenceExpression> rightCols = ImmutableSet.copyOf(joinNode.getRight().getOutputVariables());
+            for (VariableReferenceExpression var : VariablesExtractor.extractAll(joinNode.getFilter().get())) {
+                if (!rightCols.contains(var)) {
+                    builder.add(var);
+                }
+            }
+        }
+
+        return builder.build();
+    }
+
+    private static boolean isIdentityProjection(ProjectNode project)
+    {
+        return project.getAssignments().entrySet().stream()
+                .allMatch(entry -> entry.getValue().equals(entry.getKey()));
+    }
+
+    /**
+     * Reorder LOJs in a chain so that base-keyed LOJs (keys from the base table) come first,
+     * and dependent LOJs (keys from other LOJ results) are pushed to the top. This maximizes
+     * the number of LOJs that the payload join optimization can handle.
+     */
+    private static PlanNode reorderLeftJoinChain(JoinNode topJoin, PlanNodeIdAllocator idAllocator)
+    {
+        // Collect all LOJs in the chain (top to bottom order)
+        List<JoinNode> joins = new ArrayList<>();
+        PlanNode current = topJoin;
+        while (current instanceof JoinNode && ((JoinNode) current).getType() == LEFT) {
+            joins.add((JoinNode) current);
+            current = ((JoinNode) current).getLeft();
+        }
+        PlanNode baseNode = current;
+
+        if (joins.size() < 3) {
+            return topJoin;
+        }
+
+        Set<VariableReferenceExpression> baseColumns = ImmutableSet.copyOf(baseNode.getOutputVariables());
+
+        // Classify in bottom-to-top order: base-keyed vs dependent
+        List<JoinNode> baseKeyed = new ArrayList<>();
+        List<JoinNode> dependent = new ArrayList<>();
+        boolean needsReorder = false;
+        boolean seenDependent = false;
+
+        for (int i = joins.size() - 1; i >= 0; i--) {
+            JoinNode j = joins.get(i);
+            Set<VariableReferenceExpression> leftKeys = extractLeftJoinKeys(j);
+            if (baseColumns.containsAll(leftKeys)) {
+                baseKeyed.add(j);
+                if (seenDependent) {
+                    needsReorder = true;
+                }
+            }
+            else {
+                dependent.add(j);
+                seenDependent = true;
+            }
+        }
+
+        if (!needsReorder || baseKeyed.size() < 2) {
+            return topJoin;
+        }
+
+        // Rebuild: base -> baseKeyed LOJs -> dependent LOJs
+        PlanNode result = baseNode;
+        for (JoinNode j : baseKeyed) {
+            List<VariableReferenceExpression> newOutput = Stream.concat(
+                    result.getOutputVariables().stream(),
+                    j.getRight().getOutputVariables().stream())
+                    .collect(toImmutableList());
+
+            result = new JoinNode(
+                    j.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    j.getType(),
+                    result,
+                    j.getRight(),
+                    j.getCriteria(),
+                    newOutput,
+                    j.getFilter(),
+                    j.getLeftHashVariable(),
+                    j.getRightHashVariable(),
+                    j.getDistributionType(),
+                    j.getDynamicFilters());
+        }
+        for (JoinNode j : dependent) {
+            List<VariableReferenceExpression> newOutput = Stream.concat(
+                    result.getOutputVariables().stream(),
+                    j.getRight().getOutputVariables().stream())
+                    .collect(toImmutableList());
+
+            result = new JoinNode(
+                    j.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    j.getType(),
+                    result,
+                    j.getRight(),
+                    j.getCriteria(),
+                    newOutput,
+                    j.getFilter(),
+                    j.getLeftHashVariable(),
+                    j.getRightHashVariable(),
+                    j.getDistributionType(),
+                    j.getDynamicFilters());
+        }
+
+        return result;
+    }
+
     private static class JoinContext
     {
         private Set<VariableReferenceExpression> joinKeys = new HashSet<>();
         private Map<VariableReferenceExpression, VariableReferenceExpression> joinKeyMap;
         private Map<VariableReferenceExpression, RowExpression> projectionsToPush = new HashMap<>();
+        private Set<VariableReferenceExpression> nonNullKeys = new HashSet<>();
 
         int numJoins;
         PlanNode payloadNode;
@@ -580,6 +896,7 @@ public class PayloadJoinOptimizer
             joinKeyMap = null;
             numJoins = 0;
             payloadNode = null;
+            nonNullKeys = new HashSet<>();
         }
 
         public int getNumJoins()
@@ -595,6 +912,16 @@ public class PayloadJoinOptimizer
         public boolean needsPayloadRejoin()
         {
             return payloadNode != null;
+        }
+
+        public Set<VariableReferenceExpression> getNonNullKeys()
+        {
+            return nonNullKeys;
+        }
+
+        public void addNonNullKeys(Set<VariableReferenceExpression> keys)
+        {
+            nonNullKeys.addAll(keys);
         }
     }
 }

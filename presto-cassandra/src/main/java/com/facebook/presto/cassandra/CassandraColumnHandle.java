@@ -132,7 +132,7 @@ public class CassandraColumnHandle
     {
         return ColumnMetadata.builder()
                 .setName(CassandraCqlUtils.cqlNameToSqlName(name))
-                .setType(cassandraType.getNativeType())
+                .setType(getType())
                 .setHidden(hidden)
                 .build();
     }
@@ -141,14 +141,14 @@ public class CassandraColumnHandle
     {
         return ColumnMetadata.builder()
                 .setName(name)
-                .setType(cassandraType.getNativeType())
+                .setType(getType())
                 .setHidden(hidden)
                 .build();
     }
 
     public Type getType()
     {
-        return cassandraType.getNativeType();
+        return CassandraType.getPrestoType(cassandraType, typeArguments);
     }
 
     public FullCassandraType getFullType()

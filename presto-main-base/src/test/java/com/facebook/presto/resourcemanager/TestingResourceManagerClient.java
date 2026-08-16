@@ -14,6 +14,7 @@
 package com.facebook.presto.resourcemanager;
 
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
+import com.facebook.presto.resourcemanager.thrift.ResourceManagerClient;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;

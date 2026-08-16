@@ -35,6 +35,7 @@ public class QueryStatistics
     private final Duration planningTime;
     private final Optional<Duration> analysisTime;
     private final Duration executionTime;
+    private final Duration finishingTime;
 
     private final int peakRunningTasks;
     private final long peakUserMemoryBytes;
@@ -60,6 +61,7 @@ public class QueryStatistics
     private final int completedSplits;
     private final boolean complete;
     private final RuntimeStats runtimeStats;
+    private final long scanRawInputBytes;
 
     public QueryStatistics(
             Duration cpuTime,
@@ -75,6 +77,7 @@ public class QueryStatistics
             Duration planningTime,
             Optional<Duration> analysisTime,
             Duration executionTime,
+            Duration finishingTime,
             int peakRunningTasks,
             long peakUserMemoryBytes,
             long peakTotalNonRevocableMemoryBytes,
@@ -95,7 +98,8 @@ public class QueryStatistics
             double cumulativeTotalMemory,
             int completedSplits,
             boolean complete,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            long scanRawInputBytes)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.retriedCpuTime = requireNonNull(retriedCpuTime, "retriedCpuTime is null");
@@ -110,6 +114,7 @@ public class QueryStatistics
         this.planningTime = requireNonNull(planningTime, "planningTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
+        this.finishingTime = requireNonNull(finishingTime, "finishingTime is null");
         this.peakRunningTasks = peakRunningTasks;
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTotalNonRevocableMemoryBytes = peakTotalNonRevocableMemoryBytes;
@@ -131,6 +136,7 @@ public class QueryStatistics
         this.completedSplits = completedSplits;
         this.complete = complete;
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+        this.scanRawInputBytes = scanRawInputBytes;
     }
 
     public Duration getCpuTime()
@@ -196,6 +202,11 @@ public class QueryStatistics
     public Duration getExecutionTime()
     {
         return executionTime;
+    }
+
+    public Duration getFinishingTime()
+    {
+        return finishingTime;
     }
 
     public int getPeakRunningTasks()
@@ -301,5 +312,10 @@ public class QueryStatistics
     public RuntimeStats getRuntimeStats()
     {
         return runtimeStats;
+    }
+
+    public long getScanRawInputBytes()
+    {
+        return scanRawInputBytes;
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.spi.statistics;
 
 import org.openjdk.jol.info.ClassLayout;
 import org.openjdk.jol.info.GraphLayout;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -36,10 +37,8 @@ public class TestColumnStatistics
                 .setRange(new DoubleRange(100, 100))
                 .setNullsFraction(Estimate.of(0.1))
                 .build();
-
-        // test without histogram
         long actualSize = GraphLayout.parseInstance(stats).totalSize();
-        assertEquals(actualSize, stats.getEstimatedSize());
+        assertEquals(actualSize, stats.getEstimatedSize(), 16);
     }
 
     /**
@@ -76,6 +75,39 @@ public class TestColumnStatistics
                 .build();
         long actualSize = GraphLayout.parseInstance(stats).totalSize();
         assertEquals(actualSize, stats.getEstimatedSize());
+    }
+
+    @DataProvider(name = "testColumnStatisticsEstimatedSizeAccuracyWithStringRange")
+    public static String[][] minMaxValues()
+    {
+        return new String[][] {{"", ""}, {"", "zzzasA"}, {"aBCd", "z a very long string for"}, {"a medium string", "z"},
+                {"यह एक लंबी स्ट्रिंग है।", "यह स्ट्रिंग लंबी है।"}};
+    }
+
+    @Test(dataProvider = "testColumnStatisticsEstimatedSizeAccuracyWithStringRange")
+    public void testColumnStatisticsEstimatedSizeAccuracyWithStringRange(String min, String max)
+    {
+        ColumnStatistics stats = ColumnStatistics.builder()
+                .setDataSize(Estimate.of(100))
+                .setDistinctValuesCount(Estimate.of(1))
+                .setStringRange(new StringRange(min, max))
+                .setNullsFraction(Estimate.of(0.1))
+                .build();
+        long actualSize = GraphLayout.parseInstance(stats).totalSize();
+        int error = 32; // allow for slight overestimate.
+        assertEquals(actualSize, stats.getEstimatedSize(), error);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testNegativeScenarioColumnStatisticsWithBothStringAndDoubleRange()
+    {
+        ColumnStatistics.builder()
+                .setDataSize(Estimate.of(100))
+                .setDistinctValuesCount(Estimate.of(1))
+                .setStringRange(new StringRange("", "zZxZ"))
+                .setRange(new DoubleRange(0, 1))
+                .setNullsFraction(Estimate.of(0.1))
+                .build();
     }
 
     /**

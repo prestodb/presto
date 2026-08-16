@@ -20,7 +20,7 @@ General Changes
 * Check for duplicate columns in ``CREATE TABLE`` before asking the connector to create
   the table. This improves the error message for most connectors and will prevent errors
   for connectors that do not perform validation internally.
-* Add support for null values on the left-hand side of a semijoin (i.e., ``IN`` predicate
+* Add support for null values on the left-hand side of a semijoin (that is, ``IN`` predicate
   with subqueries).
 * Add ``SHOW STATS`` to display table and query statistics.
 * Improve implicit coercion support for functions involving lambda. Specifically, this makes
@@ -31,10 +31,10 @@ General Changes
   and ``ORDER BY`` clauses.
 * Improve performance of certain queries involving ``OUTER JOIN`` and aggregations, or
   containing certain forms of correlated subqueries. This optimization is experimental
-  and can be turned on via the ``push_aggregation_through_join`` session property or the
+  and can be turned on with the ``push_aggregation_through_join`` session property or the
   ``optimizer.push-aggregation-through-join`` config option.
 * Improve performance of certain queries involving joins and aggregations.  This optimization
-  is experimental and can be turned on via the ``push_partial_aggregation_through_join``
+  is experimental and can be turned on with the ``push_partial_aggregation_through_join``
   session property.
 * Improve error message when a lambda expression has a different number of arguments than expected.
 * Improve error message when certain invalid ``GROUP BY`` expressions containing lambda expressions.
@@ -45,7 +45,7 @@ Hive Changes
 * Fix handling of trailing spaces for the ``CHAR`` type when reading RCFile.
 * Allow inserts into tables that have more partitions than the partitions-per-scan limit.
 * Add support for exposing Hive table statistics to the engine. This option is experimental and
-  can be turned on via the ``statistics_enabled`` session property.
+  can be turned on with the ``statistics_enabled`` session property.
 * Ensure file name is always present for error messages about corrupt ORC files.
 
 Cassandra Changes

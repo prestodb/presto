@@ -22,7 +22,7 @@ Description
 
 Defines a literal inline table.
 
-``VALUES`` can be used anywhere a query can be used (e.g., the ``FROM`` clause
+``VALUES`` can be used anywhere a query can be used (for example, the ``FROM`` clause
 of a :doc:`select`, an :doc:`insert`, or even at the top level). ``VALUES`` creates
 an anonymous table without column names, but the table and columns can be named
 using an ``AS`` clause with column aliases.

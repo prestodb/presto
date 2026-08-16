@@ -129,6 +129,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.addExact;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
@@ -802,7 +803,13 @@ public final class HttpRemoteTaskWithEventLoop
                 future.set(null);
             }
             else {
-                whenSplitQueueHasSpace.createNewListener().addListener(() -> future.set(null), taskEventLoop);
+                ListenableFuture<?> innerListener = whenSplitQueueHasSpace.createNewListener();
+                innerListener.addListener(() -> future.set(null), taskEventLoop);
+                future.addListener(() -> {
+                    if (future.isCancelled()) {
+                        innerListener.cancel(false);
+                    }
+                }, directExecutor());
             }
         }, "whenSplitQueueHasSpace");
         return future;

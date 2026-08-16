@@ -125,6 +125,7 @@ public class EqualityDeletesSplitSource
                 ImmutableList.of(),
                 Optional.empty(),
                 IcebergUtil.getDataSequenceNumber(deleteFile),
+                -1L,
                 affinitySchedulingSectionSize);
     }
 }

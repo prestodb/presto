@@ -28,6 +28,9 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   Map<String, String> storageProperties = {};
   List<SortField> sortOrder = {};
   std::shared_ptr<SchemaTableName> materializedViewName = {};
+  std::shared_ptr<bool> fullRefreshRequired = {};
+  List<String> insertedColumns = {};
+  Map<String, DeleteFile> existingDeletionVectors = {};
 
   IcebergInsertTableHandle() noexcept;
 };

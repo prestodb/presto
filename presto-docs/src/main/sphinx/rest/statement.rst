@@ -27,7 +27,7 @@ Statement Resource
    stage identifier of "0" as shown in the following example response.
 
    This root stage aggregates the responses from other stages running
-   on Presto workers and delivers them to the client via the Presto
+   on Presto workers and delivers them to the client through the Presto
    coordinator. When a client receives a response to this POST it will
    contain a "nextUri" property which directs the client to query this
    address for additional results from the query.

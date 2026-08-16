@@ -7,7 +7,8 @@
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "double",
       "paramTypes": [
         "smallint"
@@ -18,8 +19,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "aggregateMetadata": {
@@ -28,7 +29,8 @@
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "double",
       "paramTypes": [
         "integer"
@@ -39,8 +41,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "aggregateMetadata": {
@@ -49,7 +51,8 @@
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "double",
       "paramTypes": [
         "bigint"
@@ -60,8 +63,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "aggregateMetadata": {
@@ -70,7 +73,8 @@
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "double",
       "paramTypes": [
         "real"
@@ -81,8 +85,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "aggregateMetadata": {
@@ -91,7 +95,8 @@
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "double",
       "paramTypes": [
         "double"
@@ -102,8 +107,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     }
   ]
 }

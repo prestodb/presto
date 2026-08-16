@@ -17,7 +17,7 @@ data warehouse. Hive is a combination of three components:
   Hadoop Distributed File System (HDFS) or in Amazon S3.
 * Metadata about how the data files are mapped to schemas and tables.
   This metadata is stored in a database such as MySQL and is accessed
-  via the Hive metastore service.
+  by using the Hive metastore service.
 * A query language called HiveQL. This query language is executed
   on a distributed computing framework such as MapReduce or Tez.
 
@@ -63,7 +63,7 @@ Additional Resources for Metastore Configuration
 * `AWS Glue Catalog Configuration Properties`_
 
 Additional authentication-related configuration properties are covered in
-:ref:`connector/hive-security:Hive Metastore Thrift Service Authentication` and
+:ref:`connector/hive-security:Hive Metastore Authentication` and
 :ref:`connector/hive-security:HDFS Authentication`.
 
 
@@ -121,7 +121,7 @@ When not using Kerberos with HDFS, Presto will access HDFS using the
 OS user of the Presto process. For example, if Presto is running as
 ``nobody``, it will access HDFS as ``nobody``. You can override this
 username by setting the ``HADOOP_USER_NAME`` system property in the
-Presto :ref:`presto_jvm_config`, replacing ``hdfs_user`` with the
+Presto :ref:`installation/deployment:JVM Config`, replacing ``hdfs_user`` with the
 appropriate username:
 
 .. code-block:: none
@@ -164,9 +164,18 @@ Property Name                                            Description            
                                                          absolutely necessary to access HDFS.
                                                          Example: ``/etc/hdfs-site.xml``
 
-``hive.storage-format``                                  The default file format used when creating new tables.       ``ORC``
+``hive.storage-format``                                  The default file format used when creating new tables. The   ``ORC``
+                                                         available values are ``ORC``, ``PARQUET``, ``AVRO``,
+                                                         ``RCBINARY``, ``RCTEXT``, ``SEQUENCEFILE``, ``JSON``,
+                                                         and ``TEXTFILE``.
 
-``hive.compression-codec``                               The compression codec to use when writing files.             ``GZIP``
+``hive.compression-codec``                               The compression codec to use when writing files. The         ``GZIP``
+                                                         available values are ``NONE``, ``SNAPPY``, ``GZIP``,
+                                                         ``LZ4``, and ``ZSTD``.
+                                                         
+                                                         Note: ``LZ4`` is only available when
+                                                         ``hive.storage-format=ORC``. ``ZSTD`` is available
+                                                         for both ``ORC`` and ``PARQUET`` formats.
 
 ``hive.force-local-scheduling``                          Force splits to be scheduled on the same node as the Hadoop  ``false``
                                                          DataNode process serving the split data. This is useful for
@@ -236,13 +245,25 @@ Property Name                                            Description            
 
 .. _constructor: https://github.com/apache/hadoop/blob/02a9190af5f8264e25966a80c8f9ea9bb6677899/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/conf/Configuration.java#L844-L875
 
+Hive Session Properties
+-----------------------
+
+======================================================== ============================================================ ============
+Property Name                                            Description                                                  Default
+======================================================== ============================================================ ============
+``native_max_target_file_size``                          Native Execution only. Maximum target file size. When a      ``0B``
+                                                         file exceeds this size during writing, the writer will
+                                                         close the current file and start writing to a new file.
+                                                         Zero means no limit.
+======================================================== ============================================================ ============
+
 Avro Configuration Properties
 -----------------------------
 
 When querying or creating Avro-formatted tables with the Hive connector, you may need to supply or override the Avro schema. In addition, Hive Metastore, especially Hive 3.x, must be configured to read storage schemas for Avro tables.
 
-Table Properties
-^^^^^^^^^^^^^^^^
+Avro Table Properties
+^^^^^^^^^^^^^^^^^^^^^
 
 These properties can be used when creating or querying Avro tables in Presto:
 
@@ -253,6 +274,14 @@ Property Name                                            Description            
                                                          reading an Avro-formatted table. If specified, Presto will fetch                override schema)
                                                          and use this schema instead of relying on any schema in the
                                                          Metastore.
+
+``skip_header_line_count``                               Number of header lines to skip when reading CSV or TEXTFILE tables.             None (ignored if not set). Must be non-negative. Only valid for
+                                                         When set to ``1``, a header row will be written when creating new               CSV and TEXTFILE formats. Values greater than ``1`` are not
+                                                         CSV or TEXTFILE tables.                                                         supported for ``CREATE TABLE AS`` or ``INSERT`` operations.
+
+``skip_footer_line_count``                               Number of footer lines to skip when reading CSV or TEXTFILE tables.             None (ignored if not set). Must be non-negative. Only valid for
+                                                         Cannot be used when inserting into a table.                                     CSV and TEXTFILE formats. This property is not
+                                                                                                                                         supported for ``CREATE TABLE AS`` or ``INSERT`` operations.
 ======================================================== ============================================================================== ======================================================================================
 
 Hive Metastore Configuration for Avro
@@ -271,6 +300,32 @@ Add the ``metastore.storage.schema.reader.impl`` property to ``hive-site.xml`` w
 
 You must restart the metastore service for this configuration to take effect. This setting allows the metastore to read storage schemas for Avro tables and avoids ``Storage schema reading not supported`` errors.
 
+Textfile Configuration Properties
+---------------------------------
+
+Textfile Table Properties
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+These properties can be used when creating TEXTFILE tables in Presto:
+
+======================================================== ============================================================================== =============================
+Property Name                                            Description                                                                    Default
+======================================================== ============================================================================== =============================
+``textfile_field_delim``                                 A custom single-character delimiter to separate fields.                        NONE
+
+``textfile_escape_delim``                                A custom single-character delimiter to escape characters.                      NONE
+
+``textfile_collection_delim``                            A custom single-character delimiter to separate collection elements.           NONE
+
+``textfile_mapkey_delim``                                A custom single-character delimiter to separate map keys.                      NONE
+
+======================================================== ============================================================================== =============================
+
+These properties are mapped to the corresponding properties in Hive ``LazySerDeParameters`` during serialization and
+follow the same behaviors with ``LazySimpleSerDe``.
+If they are not defined, the Hive defaults are used, which are typically ``\001`` for field delimiter, ``\002`` for
+collection delimiter, ``\003`` for map key delimiter, and escape character is disabled.
+
 Metastore Configuration Properties
 ----------------------------------
 
@@ -281,14 +336,28 @@ Property Name                                                         Descriptio
 ======================================================== ============================================================= ============
 ``hive.metastore-timeout``                               Timeout for Hive metastore requests.                           ``10s``
 
-``hive.metastore-cache-ttl``                             Duration how long cached metastore data should be considered   ``0s``
+``hive.metastore.cache.enabled-caches``                  Comma-separated list of metastore cache types to enable.        NONE
+                                                         The value should be a valid <CACHE_TYPE>.
+
+``hive.metastore.cache.disabled-caches``                 Comma-separated list of metastore cache types to disable.       NONE
+                                                         The value should be a valid <CACHE_TYPE>.
+
+``hive.metastore.cache.ttl.default``                     Duration how long cached metastore data should be considered   ``0s``
                                                          valid.
+
+``hive.metastore.cache.ttl-by-type``                     Per-cache time-to-live (TTL) overrides for Hive metastore       NONE
+                                                         caches. The value is a comma-separated list of
+                                                         <CACHE_TYPE>:<DURATION> pairs.
 
 ``hive.metastore-cache-maximum-size``                    Hive metastore cache maximum size.                              10000
 
-``hive.metastore-refresh-interval``                      Asynchronously refresh cached metastore data after access      ``0s``
+``hive.metastore.cache.refresh-interval.default``        Asynchronously refresh cached metastore data after access      ``0s``
                                                          if it is older than this but is not yet expired, allowing
                                                          subsequent accesses to see fresh data.
+
+``hive.metastore.cache.refresh-interval-by-type``        Per-cache refresh interval overrides for Hive metastore         NONE
+                                                         caches. The value is a comma-separated list of
+                                                         <CACHE_TYPE>:<DURATION> pairs.
 
 ``hive.metastore-refresh-max-threads``                   Maximum threads used to refresh cached metastore data.          100
 
@@ -306,6 +375,98 @@ Property Name                                                         Descriptio
 ``hive.metastore.thrift.client.tls.truststore-password`` Password for the trust store.                                   NONE
 
 ======================================================== ============================================================= ============
+
+.. note::
+
+  The supported values for ``CACHE_TYPE`` when enabling Hive Metastore Cache are:
+
+  * ``ALL``: Represents all supported Hive metastore cache types.
+  * ``DATABASE``: Caches metadata for individual Hive databases.
+  * ``DATABASE_NAMES``: Caches the list of all database names in the metastore.
+  * ``TABLE``: Caches metadata for individual Hive tables.
+  * ``TABLE_NAMES``: Caches the list of table names within a database.
+  * ``TABLE_STATISTICS``: Caches column-level statistics for Hive tables.
+  * ``TABLE_CONSTRAINTS``: Caches table constraint metadata such as primary and unique keys.
+  * ``PARTITION``: Caches metadata for individual Hive partitions.
+  * ``PARTITION_STATISTICS``: Caches column-level statistics for individual partitions.
+  * ``PARTITION_FILTER``: Caches partition name lookups based on partition filter predicates.
+  * ``PARTITION_NAMES``: Caches the list of partition names for a table.
+  * ``VIEW_NAMES``: Caches the list of view names within a database.
+  * ``TABLE_PRIVILEGES``: Caches table-level privilege information for users and roles.
+  * ``ROLES``: Caches the list of available Hive roles.
+  * ``ROLE_GRANTS``: Caches role grant mappings for principals.
+
+Metastore Cache Metrics
+-----------------------
+
+The Hive connector uses in-memory caching to reduce load on the Hive metastore and improve query performance. 
+The connector maintains 14 distinct caches, each optimized for specific types of metadata. All caches expose 
+JMX metrics that provide visibility into cache performance, helping you monitor efficiency, tune cache 
+configurations, and troubleshoot performance issues.
+
+Metric Types
+^^^^^^^^^^^^
+
+Each cache exposes four types of metrics:
+
+* **hit** - Number of successful cache lookups (metadata found in cache)
+* **miss** - Number of cache misses requiring metastore access
+* **eviction** - Number of entries evicted from cache due to size limits or TTL expiration
+* **size** - Current number of entries stored in the cache
+
+JMX Metric Naming Convention
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+All cache metrics can be queried from the following JMX table:
+
+.. code-block:: sql
+
+    SELECT <metricname> FROM jmx.current."com.facebook.presto.hive.metastore:name=<catalogname>,type=metastorecachestatscache"
+
+Where:
+
+* ``<catalogname>`` is the catalog name
+* ``<metricname>`` is the cache metric name
+
+
+Each of the 14 caches exposes 4 metrics (``hit``, ``miss``, ``eviction``, ``size``) following the pattern ``<cachename><metrictype>``:
+
+Available Metrics
+^^^^^^^^^^^^^^^^^
+
+The following table lists the available cache metrics.
+
+================================ ========================================
+Cache Name                       Example Metric
+================================ ========================================
+``databasecache``                ``databasecachehit``
+``databasenamescache``           ``databasenamescachehit``
+``tablecache``                   ``tablecachehit``
+``tablenamescache``              ``tablenamescachehit``
+``tablestatisticscache``         ``tablestatisticscachehit``
+``tableconstraintscache``        ``tableconstraintscachehit``
+``partitioncache``               ``partitioncachehit``
+``partitionfiltercache``         ``partitionfiltercachehit``
+``partitionnamescache``          ``partitionnamescachehit``
+``partitionstatisticscache``     ``partitionstatisticscachehit``
+``viewnamescache``               ``viewnamescachehit``
+``tableprivilegescache``         ``tableprivilegescachehit``
+``rolescache``                   ``rolescachehit``
+``rolegrantscache``              ``rolegrantscachehit``
+================================ ========================================
+
+**Example:**
+
+.. code-block:: sql
+
+    SELECT databasecachehit, tablecachehit, partitionfiltercachehit FROM jmx.current."com.facebook.presto.hive.metastore:name=<catalogname>,type=metastorecachestatscache"
+
+For cache invalidation procedures, see `Invalidate Metastore Cache`_.
+
+.. note::
+
+    All 14 caches are enabled by default when metastore caching is configured. Metrics are automatically 
+    exposed through JMX without additional configuration.
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
@@ -350,6 +511,12 @@ Property Name                                        Description
 
 ``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
                                                      Catalog.
+
+``hive.metastore.glue.column-statistics-enabled``    Enable use of column statistics on Glue Metastore
+
+``hive.metastore.glue.read-statistics-threads``      Number of threads for parallel statistics reads from Glue
+
+``hive.metastore.glue.write-statistics-threads``     Number of threads for parallel statistics writes to Glue
 ==================================================== ============================================================
 
 .. _s3selectpushdown:
@@ -385,7 +552,7 @@ Property Name                                Description
                                              connect to an S3-compatible storage system instead
                                              of AWS. When using v4 signatures, it is recommended to
                                              set this to the AWS region-specific endpoint
-                                             (e.g., ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
+                                             (for example, ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
 
 ``hive.s3.storage-class``                    The S3 storage class to use when writing the data. Currently only
                                              ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
@@ -473,7 +640,7 @@ interface and provide a two-argument constructor that takes a
 as arguments. A custom credentials provider can be used to provide
 temporary credentials from STS (using ``STSSessionCredentialsProvider``),
 IAM role-based credentials (using ``STSAssumeRoleSessionCredentialsProvider``),
-or credentials for a specific use case (e.g., bucket/user specific credentials).
+or credentials for a specific use case (such as bucket/user specific credentials).
 This Hadoop configuration property must be set in the Hadoop configuration
 files referenced by the ``hive.config.resources`` Hive connector property.
 
@@ -688,9 +855,9 @@ Understanding and Tuning the Maximum Connections
 ################################################
 
 Presto can use its native S3 file system or EMRFS. When using the native FS, the
-maximum connections is configured via the ``hive.s3.max-connections``
+maximum connections is configured with the ``hive.s3.max-connections``
 configuration property. When using EMRFS, the maximum connections is configured
-via the ``fs.s3.maxConnections`` Hadoop configuration property.
+with the ``fs.s3.maxConnections`` Hadoop configuration property.
 
 S3 Select Pushdown bypasses the file systems when accessing Amazon S3 for
 predicate operations. In this case, the value of
@@ -700,6 +867,156 @@ client connections allowed for those operations from worker nodes.
 If your workload experiences the error *Timeout waiting for connection from
 pool*, increase the value of both ``hive.s3select-pushdown.max-connections`` and
 the maximum connections configuration for the file system you are using.
+
+Azure Configuration
+-------------------
+
+The Hive connector supports Azure Blob Storage (``wasbs://``) and Azure Data Lake Storage Gen2 (``abfss://``).
+Configure Azure storage access in your catalog properties file, such as in ``etc/catalog/hive.properties``.
+
+Azure Blob Storage
+^^^^^^^^^^^^^^^^^^
+
+.. code-block:: none
+
+    hive.azure.wasb-storage-account=mystorageaccount
+    hive.azure.wasb-access-key=<wasb-access-key>
+
+ADLS Gen2 - Access Key
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: none
+
+    hive.azure.abfs-storage-account=mydatalake
+    hive.azure.abfs-access-key=<abfs-access-key>
+
+ADLS Gen2 - OAuth 2.0
+^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: none
+
+    hive.azure.abfs-storage-account=mydatalake
+    hive.azure.abfs.oauth.endpoint=https://login.microsoftonline.com/<tenant-id>/oauth2/token
+    hive.azure.abfs.oauth.client-id=<oauth-client-id>
+    hive.azure.abfs.oauth.secret=<your_client_secret_here>
+
+Configuration Properties
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+================================================= ======================================================================
+Property Name                                     Description
+================================================= ======================================================================
+``hive.azure.wasb-storage-account``               Azure Blob Storage account name (without ``.blob.core.windows.net`` suffix)
+
+``hive.azure.wasb-access-key``                    Azure Blob Storage access key
+
+``hive.azure.abfs-storage-account``               ADLS Gen2 Storage account name (without ``.dfs.core.windows.net`` suffix)
+
+``hive.azure.abfs-access-key``                    Shared access key for ADLS Gen2
+
+``hive.azure.abfs.oauth.endpoint``                OAuth 2.0 token endpoint (includes tenant ID)
+                                                  ``https://login.microsoftonline.com/<tenant-id>/oauth2/token``
+
+``hive.azure.abfs.oauth.client-id``               OAuth 2.0 client/application ID
+
+``hive.azure.abfs.oauth.secret``                  OAuth 2.0 client secret
+================================================= ======================================================================
+
+Configuration Requirement
+#########################
+
+* WASB requires both ``wasb-storage-account`` and ``wasb-access-key`` to be set
+* ABFS with access key requires both ``abfs-storage-account`` and ``abfs-access-key`` to be set
+* ABFS with OAuth requires ``abfs-storage-account``, ``abfs.oauth.endpoint``, ``abfs.oauth.client-id``, and ``abfs.oauth.secret`` (all four properties) to be set
+* If both access key and OAuth2 are configured for ABFS, OAuth2 takes precedence with no fallback to access key if OAuth2 fails
+
+Avoid hardcoding credentials in configuration files. Use environment variables or secret management systems.
+
+URI Format
+^^^^^^^^^^
+
+Azure Blob Storage:
+
+.. code-block:: none
+
+    wasbs://<container>@<storage-account>.blob.core.windows.net/<path>
+
+ADLS Gen2:
+
+.. code-block:: none
+
+    abfss://<container>@<storage-account>.dfs.core.windows.net/<path>
+
+Usage Examples
+^^^^^^^^^^^^^^
+
+Create External Table
+#####################
+
+.. code-block:: none
+
+    CREATE TABLE hive.default.orders (
+        orderkey bigint,
+        custkey bigint,
+        orderstatus varchar(1),
+        totalprice double
+    ) WITH (
+        external_location = 'abfss://mycontainer@mydatalake.dfs.core.windows.net/orders/',
+        format = 'PARQUET'
+    );
+
+Create Schema
+#############
+
+.. code-block:: none
+
+    CREATE SCHEMA hive.azure_data
+    WITH (location = 'abfss://mycontainer@mydatalake.dfs.core.windows.net/schemas/');
+
+Query and Write
+###############
+
+.. code-block:: none
+
+    -- Query existing data
+    SELECT * FROM hive.default.orders;
+
+    -- Write new data
+    CREATE TABLE hive.azure_data.sales WITH (format = 'ORC')
+    AS SELECT * FROM hive.default.orders WHERE orderdate > DATE '2024-01-01';
+
+Troubleshooting
+^^^^^^^^^^^^^^^
+
+Authentication Errors
+#####################
+
+If you see ``403 Forbidden`` or ``401 Unauthorized``:
+
+* Verify storage account names are correct (without ``.blob.core.windows.net`` or ``.dfs.core.windows.net`` suffix)
+* Check if access keys or OAuth2 credentials are correct
+* For OAuth2, ensure the service principal has Storage Blob Data Contributor or Reader role in Azure
+
+Connection Errors
+#################
+
+If you see connection timeouts or ``UnknownHostException``:
+
+* Verify network connectivity between Presto nodes and Azure
+* Check if `Azure storage firewall rules <https://learn.microsoft.com/en-us/azure/storage/common/storage-network-security>`_ allow access from Presto nodes
+* Test endpoint reachability: ``*.blob.core.windows.net`` and ``*.dfs.core.windows.net``
+
+Path Errors
+###########
+
+If you see ``Path not found`` or ``Container does not exist``:
+
+* Verify URI format is correct (``wasbs://`` or ``abfss://``)
+* Confirm whether the container exists in the storage account
+* Check the storage account name in URI matches catalog configuration
+* For ADLS Gen2, ensure `hierarchical namespace <https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-namespace>`_ is enabled
+
+Check Presto logs for detailed error messages if issues occur.
 
 Alluxio Configuration
 ---------------------
@@ -719,7 +1036,7 @@ Alluxio Client-Side Configuration
 To configure Alluxio client-side properties on Presto, append the Alluxio
 configuration directory (``${ALLUXIO_HOME}/conf``) to the Presto JVM classpath,
 so that the Alluxio properties file ``alluxio-site.properties`` can be loaded as a resource.
-Update the Presto :ref:`presto_jvm_config` file ``etc/jvm.config`` to include the following:
+Update the Presto :ref:`installation/deployment:JVM Config` file ``etc/jvm.config`` to include the following:
 
 .. code-block:: none
 
@@ -731,7 +1048,7 @@ the single ``alluxio-site.properties`` file. For details, see `Customize Alluxio
 
 Alternatively, add Alluxio configuration properties to the Hadoop configuration
 files (``core-site.xml``, ``hdfs-site.xml``) and configure the Hive connector
-to use the `Hadoop configuration files <#hdfs-configuration>`__ via the
+to use the `Hadoop configuration files <#hdfs-configuration>`__ with the
 ``hive.config.resources`` connector property.
 
 Deploy Alluxio with Presto
@@ -746,7 +1063,7 @@ for more details.
 Alluxio Catalog Service
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-An alternative way for Presto to interact with Alluxio is via the
+An alternative way for Presto to interact with Alluxio is through the
 `Alluxio Catalog Service. <https://docs.alluxio.io/os/user/stable/en/core-services/Catalog.html?utm_source=prestodb&utm_medium=prestodocs>`_.
 The primary benefits for using the Alluxio Catalog Service are simpler
 deployment of Alluxio with Presto, and enabling schema-aware optimizations
@@ -820,8 +1137,8 @@ Collecting table and column statistics
 --------------------------------------
 
 The Hive connector supports collection of table and partition statistics
-via the :doc:`/sql/analyze` statement. When analyzing a partitioned table,
-the partitions to analyze can be specified via the optional ``partitions``
+by using the :doc:`/sql/analyze` statement. When analyzing a partitioned table,
+the partitions to analyze can be specified with the optional ``partitions``
 property, which is an array containing the values of the partition keys
 in the order they are declared in the table schema::
 
@@ -948,9 +1265,9 @@ from a valid Avro schema file located locally or remotely in HDFS/Web server.
 
 To specify that Avro schema should be used for interpreting table's data one must use ``avro_schema_url`` table property.
 The schema can be placed remotely in
-HDFS (e.g. ``avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'``),
-S3 (e.g. ``avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'``),
-a web server (e.g. ``avro_schema_url = 'http://example.org/schema/avro_data.avsc'``)
+HDFS (for example, ``avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'``),
+S3 (for example, ``avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'``),
+a web server (for example, ``avro_schema_url = 'http://example.org/schema/avro_data.avsc'``)
 as well as local file system. This url where the schema is located, must be accessible from the
 Hive metastore and Presto coordinator/worker nodes.
 
@@ -995,7 +1312,7 @@ Limitations
 The following operations are not supported when ``avro_schema_url`` is set:
 
 * ``CREATE TABLE AS`` is not supported.
-* Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
+* Bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
 
 Parquet Writer Version
@@ -1034,7 +1351,7 @@ Sync Partition Metadata
 
   The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
   with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
-  file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
+  file system paths to use lowercase (for example, ``col_x=SomeValue``). Partitions on the file system
   not conforming to this convention are ignored, unless the argument is set to ``false``.
 
 Invalidate Directory List Cache
@@ -1043,7 +1360,7 @@ Invalidate Directory List Cache
 Invalidating directory list cache is useful when the files are added or deleted in the cache directory path and you want to make the changes visible to Presto immediately.
 There are a couple of ways for invalidating this cache:
 
-* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.CachingDirectoryLister#flushCache``) to invalidate the directory list cache. You can call this procedure to invalidate the directory list cache by connecting via jconsole or jmxterm. This procedure flushes all the cache entries.
+* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.CachingDirectoryLister#flushCache``) to invalidate the directory list cache. You can call this procedure to invalidate the directory list cache by connecting with jconsole or jmxterm. This procedure flushes all the cache entries.
 
 * The Hive connector exposes ``system.invalidate_directory_list_cache`` procedure which gives the flexibility to invalidate the list cache completely or partially as per the requirement and can be invoked in various ways.
 
@@ -1091,7 +1408,7 @@ How to invalidate metastore cache?
 Invalidating metastore cache is useful when the Hive metastore is updated outside of Presto and you want to make the changes visible to Presto immediately.
 There are a couple of ways for invalidating this cache and are listed below -
 
-* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore#invalidateAll``) to invalidate the metastore cache. You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm. However, this procedure flushes the cache for all the tables in all the schemas.
+* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore#invalidateAll``) to invalidate the metastore cache. You can call this procedure to invalidate the metastore cache by connecting with jconsole or jmxterm. However, this procedure flushes the cache for all the tables in all the schemas.
 
 * The Hive connector exposes ``system.invalidate_metastore_cache`` procedure which enables users to invalidate the metastore cache completely or partially as per the requirement and can be invoked with various arguments. See `Invalidate Metastore Cache`_ for more information.
 

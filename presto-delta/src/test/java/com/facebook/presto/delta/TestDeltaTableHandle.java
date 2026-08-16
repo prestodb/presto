@@ -63,10 +63,10 @@ public class TestDeltaTableHandle
     public void testJsonRoundTrip()
     {
         List<DeltaColumn> columns = ImmutableList.of(
-                new DeltaColumn("c1", parseTypeSignature(StandardTypes.REAL), true, true),
-                new DeltaColumn("c2", parseTypeSignature(INTEGER), false, true),
-                new DeltaColumn("c3", parseTypeSignature(DOUBLE), false, false),
-                new DeltaColumn("c4", parseTypeSignature(DATE), true, false));
+                new DeltaColumn(null, null, "c1", parseTypeSignature(StandardTypes.REAL), true, true),
+                new DeltaColumn(null, null, "c2", parseTypeSignature(INTEGER), false, true),
+                new DeltaColumn(null, null, "c3", parseTypeSignature(DOUBLE), false, false),
+                new DeltaColumn(null, null, "c4", parseTypeSignature(DATE), true, false));
 
         DeltaTable deltaTable = new DeltaTable(
                 "schema",
@@ -76,7 +76,41 @@ public class TestDeltaTableHandle
                 columns);
 
         DeltaColumnHandle c1ColumnHandle = new DeltaColumnHandle(
-                columns.get(0).getName(),
+                columns.get(0).getId(),
+                columns.get(0).getPhysicalName(),
+                columns.get(0).getLogicalName(),
+                columns.get(0).getType(),
+                columns.get(0).isPartition() ? PARTITION : REGULAR,
+                Optional.empty());
+
+        DeltaTableHandle expected = new DeltaTableHandle("delta", deltaTable);
+
+        String json = getJsonCodec().toJson(expected);
+        DeltaTableHandle actual = getJsonCodec().fromJson(json);
+
+        assertEquals(actual.getDeltaTable(), expected.getDeltaTable());
+    }
+
+    @Test
+    public void testJsonRoundTripWithColumnMapping()
+    {
+        List<DeltaColumn> columns = ImmutableList.of(
+                new DeltaColumn(0L, "c1", "c1", parseTypeSignature(StandardTypes.REAL), true, true),
+                new DeltaColumn(1L, "c2", "c2", parseTypeSignature(INTEGER), false, true),
+                new DeltaColumn(2L, "c3", "c3", parseTypeSignature(DOUBLE), false, false),
+                new DeltaColumn(3L, "c4", "c4", parseTypeSignature(DATE), true, false));
+
+        DeltaTable deltaTable = new DeltaTable(
+                "schema",
+                "table",
+                "s3:/bucket/table/location",
+                Optional.of(1L),
+                columns);
+
+        DeltaColumnHandle c1ColumnHandle = new DeltaColumnHandle(
+                columns.get(0).getId(),
+                columns.get(0).getPhysicalName(),
+                columns.get(0).getLogicalName(),
                 columns.get(0).getType(),
                 columns.get(0).isPartition() ? PARTITION : REGULAR,
                 Optional.empty());

@@ -4,7 +4,9 @@
 #
 # 1. Validate that the generated files that have been checked in to the webapp folder are in sync
 #    with the source.
-# 2. Make sure there are no type checker warnings reported by Flow
+# 2. Make sure there are no type checker warnings reported by TypeScript
+# 3. Run ESLint to check for code quality issues
+# 4. Run Jest tests to ensure code functionality
 
 set -euo pipefail
 
@@ -40,5 +42,12 @@ fi
 
 if ! yarn --cwd ${WEBUI_ROOT}/ run lint --quiet; then
     echo "ERROR: ESlint errors found"
+    exit 1
+fi
+
+# Fail on test failures only (coverage thresholds disabled for now)
+
+if ! yarn --cwd ${WEBUI_ROOT}/ run test:ci; then
+    echo "ERROR: Tests failed"
     exit 1
 fi

@@ -14,12 +14,17 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static com.facebook.presto.execution.ClusterOverloadConfig.OVERLOAD_POLICY_CNT_BASED;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 public class TestClusterOverloadConfig
 {
@@ -31,7 +36,8 @@ public class TestClusterOverloadConfig
                 .setAllowedOverloadWorkersPct(0.01)
                 .setAllowedOverloadWorkersCnt(0)
                 .setOverloadPolicyType(OVERLOAD_POLICY_CNT_BASED)
-                .setOverloadCheckCacheTtlInSecs(5));
+                .setOverloadCheckCacheTtlInSecs(5)
+                .setThrottlingBypassResourceGroups(null));
     }
 
     @Test
@@ -43,6 +49,7 @@ public class TestClusterOverloadConfig
                 .put("cluster-overload.allowed-overload-workers-cnt", "5")
                 .put("cluster-overload.overload-policy-type", "overload_worker_pct_based_throttling")
                 .put("cluster.overload-check-cache-ttl-secs", "10")
+                .put("cluster-overload.bypass-resource-groups", "global.admin, global.etl.priority")
                 .build();
 
         ClusterOverloadConfig expected = new ClusterOverloadConfig()
@@ -50,8 +57,40 @@ public class TestClusterOverloadConfig
                 .setAllowedOverloadWorkersPct(0.05)
                 .setAllowedOverloadWorkersCnt(5)
                 .setOverloadPolicyType("overload_worker_pct_based_throttling")
-                .setOverloadCheckCacheTtlInSecs(10);
+                .setOverloadCheckCacheTtlInSecs(10)
+                .setThrottlingBypassResourceGroups("global.admin, global.etl.priority");
 
         ConfigAssertions.assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testThrottlingBypassParsing()
+    {
+        ClusterOverloadConfig config = new ClusterOverloadConfig();
+        assertEquals(config.getThrottlingBypassResourceGroups(), ImmutableSet.of());
+
+        config.setThrottlingBypassResourceGroups("global.admin, global.etl, ,global.adhoc");
+        assertEquals(
+                config.getThrottlingBypassResourceGroups(),
+                ImmutableSet.of(
+                        new ResourceGroupId(ImmutableList.of("global", "admin")),
+                        new ResourceGroupId(ImmutableList.of("global", "etl")),
+                        new ResourceGroupId(ImmutableList.of("global", "adhoc"))));
+
+        config.setThrottlingBypassResourceGroups(null);
+        assertEquals(config.getThrottlingBypassResourceGroups(), ImmutableSet.of());
+
+        config.setThrottlingBypassResourceGroups("");
+        assertEquals(config.getThrottlingBypassResourceGroups(), ImmutableSet.of());
+    }
+
+    @Test
+    public void testThrottlingBypassMalformedEntryFailsFast()
+    {
+        // Empty segments are rejected by ResourceGroupId; airlift Bootstrap surfaces this as a
+        // configuration error tagged with the property name.
+        ClusterOverloadConfig config = new ClusterOverloadConfig();
+        assertThrows(IllegalArgumentException.class,
+                () -> config.setThrottlingBypassResourceGroups("global..admin"));
     }
 }

@@ -34,19 +34,29 @@ public class TestMaterializedViewRewriteQueryShapeValidator
         assertSucceeds("SELECT SUM(x) AS sum_x, y FROM tbl GROUP BY y ORDER BY z");
     }
     @Test
-    public void unsupportedFunction()
+    public void scalarFunction()
     {
-        assertFails(
-                "SELECT GEOMETRIC_MEAN(x) AS geomean_x, y FROM tbl GROUP BY y",
-                "Query shape invalid: geometric_mean function is not supported for materialized view optimizations");
+        assertSucceeds("SELECT CONCAT(x, y) AS concat_xy, z FROM tbl GROUP BY z");
     }
 
     @Test
-    public void havingClause()
+    public void scalarFunctionWithAggregate()
     {
-        assertFails(
-                "SELECT SUM(x) AS sum_x, y FROM tbl GROUP BY y HAVING COUNT(x) < 10",
-                "Query shape invalid: HAVING is not supported for materialized view optimizations");
+        assertSucceeds("SELECT IF(y > 0, SUM(x), 0) AS conditional_sum, y FROM tbl GROUP BY y");
+    }
+
+    @Test
+    public void jsonFunction()
+    {
+        assertSucceeds("SELECT JSON_EXTRACT_SCALAR(x, '$.key'), y FROM tbl GROUP BY y");
+    }
+
+    @Test
+    public void havingClauseAllowed()
+    {
+        assertSucceeds("SELECT SUM(x) AS sum_x, y FROM tbl GROUP BY y HAVING y > 'a'");
+        assertSucceeds("SELECT SUM(x) AS sum_x, y FROM tbl GROUP BY y HAVING COUNT(x) < 10");
+        assertSucceeds("SELECT SUM(x) AS sum_x, y, z FROM tbl GROUP BY y, z HAVING y > 'a' AND SUM(x) > 10");
     }
 
     private static void assertFails(String baseQuerySql, String expectedErrorMessage)

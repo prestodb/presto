@@ -7,6 +7,11 @@ env:
   CONTINUOUS_INTEGRATION: true
   RETRY: .github/bin/retry
 
+concurrency:
+  # Cancel superseded in-progress runs for the same PR/branch to save CI capacity; never cancel master.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -18,12 +23,12 @@ jobs:
       codechange: ${{ steps.filter.outputs.codechange }}
     steps:
       # For pull requests it's not necessary to checkout the code
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
           filters: |
             codechange:
-              - '!presto-docs/**'
+              - '!(presto-docs{,/**}|presto-native-execution/presto_cpp{,/**})'
               - 'presto-ui/**'
   web-ui-checks:
     runs-on: ubuntu-latest
@@ -36,7 +41,7 @@ jobs:
       group: ${{ github.workflow }}-web-ui-checks-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           show-progress: false
           persist-credentials: false

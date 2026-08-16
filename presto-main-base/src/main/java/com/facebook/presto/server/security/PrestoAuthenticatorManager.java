@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import jakarta.inject.Inject;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,7 +38,7 @@ public class PrestoAuthenticatorManager
 {
     private static final Logger log = Logger.get(PrestoAuthenticatorManager.class);
 
-    private static final File CONFIG_FILE = new File("etc/presto-authenticator.properties");
+    private static final Path CONFIG_FILE = Paths.get("etc/presto-authenticator.properties");
     private static final String NAME_PROPERTY = "presto-authenticator.name";
 
     private final Map<String, PrestoAuthenticatorFactory> factories = new ConcurrentHashMap<>();
@@ -71,7 +73,7 @@ public class PrestoAuthenticatorManager
             return;
         }
 
-        File configFileLocation = CONFIG_FILE.getAbsoluteFile();
+        File configFileLocation = CONFIG_FILE.toAbsolutePath().toFile();
         Map<String, String> properties = new HashMap<>(loadProperties(configFileLocation));
 
         String name = properties.remove(NAME_PROPERTY);

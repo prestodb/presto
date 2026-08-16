@@ -109,7 +109,6 @@ public final class IcebergQueryRunner
         private Builder() {}
 
         private CatalogType catalogType = HIVE;
-        private Map<String, Map<String, String>> icebergCatalogs = new HashMap<>();
         private Map<String, String> extraProperties = new HashMap<>();
         private Map<String, String> extraConnectorProperties = new HashMap<>();
         private Map<String, String> tpcdsProperties = new HashMap<>();

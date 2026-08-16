@@ -1,0 +1,39 @@
+{
+  "udfSignatureMap": {
+    "count_any": [
+      {
+        "docString": "facing variable-arity any function; the RowExpression translator folds its tail into a single JSON argument and dispatches to the concrete (varchar, json) overload",
+        "functionKind": "SCALAR",
+        "outputType": "bigint",
+        "paramTypes": [
+          "varchar",
+          "__ANY__"
+        ],
+        "schema": "test_schema",
+        "variableArity": true,
+        "routineCharacteristics": {
+          "language": "SQL",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "body": "RETURN 0"
+      },
+      {
+        "docString": "concrete backend over (varchar, json): counts the folded trailing arguments",
+        "functionKind": "SCALAR",
+        "outputType": "bigint",
+        "paramTypes": [
+          "varchar",
+          "json"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "SQL",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "body": "RETURN JSON_ARRAY_LENGTH(input1)"
+      }
+    ]
+  }
+}

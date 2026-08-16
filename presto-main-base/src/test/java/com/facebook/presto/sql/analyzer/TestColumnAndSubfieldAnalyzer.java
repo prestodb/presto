@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,12 +25,14 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY;
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_WITH_SUBFIELDS;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.testng.Assert.assertEquals;
@@ -214,9 +217,12 @@ public class TestColumnAndSubfieldAnalyzer
                 .readUncommitted()
                 .readOnly()
                 .execute(session, s -> {
-                    Analyzer analyzer = createAnalyzer(s, metadata, WarningCollector.NOOP, query);
+                    Analyzer analyzer = createAnalyzer(s, metadata, WarningCollector.NOOP, Optional.empty(), query);
                     Statement statement = SQL_PARSER.createStatement(query);
-                    Analysis analysis = analyzer.analyze(statement);
+                    Analysis analysis = analyzer.analyzeSemantic(statement, false);
+                    AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
+                    checkAccessPermissions(accessControlReferences, analysis.getViewDefinitionReferences(), query, session.getPreparedStatements(), session.getIdentity(), accessControl, session.getAccessControlContext());
+
                     assertEquals(
                             analysis.getAccessControlReferences().getTableColumnAndSubfieldReferencesForAccessControl()
                                     .values().stream().findFirst().get().entrySet().stream()

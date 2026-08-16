@@ -13,18 +13,33 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.oss.driver.api.core.type.DataTypes;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestCassandraType
 {
+    @Test
+    public void testGetCassandraTypeForStringTypes()
+    {
+        // VARCHAR is an alias of TEXT in driver 4.x, so DataTypes.TEXT resolves to TEXT
+        assertEquals(CassandraType.getCassandraType(TEST_SESSION.toConnectorSession(), DataTypes.TEXT), CassandraType.TEXT);
+        assertEquals(CassandraType.getCassandraType(TEST_SESSION.toConnectorSession(), DataTypes.ASCII), CassandraType.ASCII);
+    }
+
     @Test
     public void testJsonMapEncoding()
     {
@@ -35,6 +50,23 @@ public class TestCassandraType
         assertTrue(isValidJson(CassandraType.buildArrayValue(Lists.newArrayList((short) -32768, (short) 0, (short) 32767), CassandraType.SMALLINT)));
         assertTrue(isValidJson(CassandraType.buildArrayValue(Lists.newArrayList((byte) -128, (byte) 0, (byte) 127), CassandraType.TINYINT)));
         assertTrue(isValidJson(CassandraType.buildArrayValue(Lists.newArrayList("1970-01-01", "5555-06-15", "9999-12-31"), CassandraType.DATE)));
+    }
+
+    @Test
+    public void testVectorTypeMapping()
+    {
+        // vector<float, 3> is exposed by the driver as a VectorType (which extends CustomType);
+        // it must be classified as VECTOR, not CUSTOM.
+        assertEquals(CassandraType.getCassandraType(TEST_SESSION.toConnectorSession(), DataTypes.vectorOf(DataTypes.FLOAT, 3)), CassandraType.VECTOR);
+        assertEquals(CassandraType.VECTOR.getTypeArgumentSize(), 1);
+    }
+
+    @Test
+    public void testVectorPrestoTypeIsArrayOfElement()
+    {
+        Type prestoType = CassandraType.getPrestoType(CassandraType.VECTOR, ImmutableList.of(CassandraType.FLOAT));
+        assertTrue(prestoType instanceof ArrayType);
+        assertEquals(((ArrayType) prestoType).getElementType(), RealType.REAL);
     }
 
     private static void continueWhileNotNull(JsonParser parser, JsonToken token)

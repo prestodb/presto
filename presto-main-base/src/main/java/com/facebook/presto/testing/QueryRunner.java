@@ -114,6 +114,11 @@ public interface QueryRunner
         throw new UnsupportedOperationException();
     }
 
+    default void loadExpressionOptimizer(String expressionOptimizerFactoryName, String expressionOptimizerName, Map<String, String> properties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     Lock getExclusiveLock();
 
     default void loadTypeManager(String typeManagerName)

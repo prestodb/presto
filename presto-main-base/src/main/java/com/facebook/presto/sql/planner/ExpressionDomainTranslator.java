@@ -76,8 +76,8 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQU
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Collections.emptyMap;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -166,7 +166,7 @@ public final class ExpressionDomainTranslator
 
         Expression excludedPointsExpression = new NotExpression(new InPredicate(reference, new InListExpression(excludedPoints)));
         if (excludedPoints.size() == 1) {
-            excludedPointsExpression = new ComparisonExpression(NOT_EQUAL, reference, getOnlyElement(excludedPoints));
+            excludedPointsExpression = new ComparisonExpression(NOT_EQUAL, reference, excludedPoints.stream().collect(onlyElement()));
         }
 
         return combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
@@ -207,7 +207,7 @@ public final class ExpressionDomainTranslator
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(new ComparisonExpression(EQUAL, reference, getOnlyElement(singleValues)));
+            disjuncts.add(new ComparisonExpression(EQUAL, reference, singleValues.stream().collect(onlyElement())));
         }
         else if (singleValues.size() > 1) {
             disjuncts.add(new InPredicate(reference, new InListExpression(singleValues)));
@@ -226,7 +226,7 @@ public final class ExpressionDomainTranslator
 
         Expression predicate;
         if (values.size() == 1) {
-            predicate = new ComparisonExpression(EQUAL, reference, getOnlyElement(values));
+            predicate = new ComparisonExpression(EQUAL, reference, values.stream().collect(onlyElement()));
         }
         else {
             predicate = new InPredicate(reference, new InListExpression(values));

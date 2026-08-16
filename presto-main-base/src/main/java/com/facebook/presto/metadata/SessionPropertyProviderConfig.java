@@ -17,21 +17,23 @@ import com.facebook.airlift.configuration.Config;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class SessionPropertyProviderConfig
 {
-    private File sessionPropertyProvidersConfigurationDir = new File("etc/session-property-providers/");
+    private Path sessionPropertyProvidersConfigurationDir = Paths.get("etc/session-property-providers/");
 
     @NotNull
     public File getSessionPropertyProvidersConfigurationDir()
     {
-        return sessionPropertyProvidersConfigurationDir;
+        return sessionPropertyProvidersConfigurationDir.toFile();
     }
 
     @Config("session-property-provider.config-dir")
     public SessionPropertyProviderConfig setSessionPropertyProvidersConfigurationDir(File dir)
     {
-        this.sessionPropertyProvidersConfigurationDir = dir;
+        this.sessionPropertyProvidersConfigurationDir = dir.toPath();
         return this;
     }
 }

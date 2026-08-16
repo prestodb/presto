@@ -14,9 +14,10 @@
 package com.facebook.presto.iceberg.procedure;
 
 import com.facebook.presto.iceberg.IcebergMetadataFactory;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
@@ -66,9 +67,12 @@ public class RollbackToSnapshotProcedure
 
     public void rollbackToSnapshot(ConnectorSession clientSession, String schema, String table, Long snapshotId)
     {
-        SchemaTableName schemaTableName = new SchemaTableName(schema, table);
-        ConnectorMetadata metadata = metadataFactory.create();
-        getIcebergTable(metadata, clientSession, schemaTableName)
-                .manageSnapshots().rollbackTo(snapshotId).commit();
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            SchemaTableName schemaTableName = new SchemaTableName(schema, table);
+            IcebergTransactionMetadata metadata = metadataFactory.create();
+            getIcebergTable(metadata, clientSession, schemaTableName)
+                    .manageSnapshots().rollbackTo(snapshotId).commit();
+            metadata.commit();
+        }
     }
 }

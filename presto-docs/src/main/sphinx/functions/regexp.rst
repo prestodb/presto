@@ -5,10 +5,10 @@ Regular Expression Functions
 All of the regular expression functions use the `Java pattern`_ syntax,
 with a few notable exceptions:
 
-* When using multi-line mode (enabled via the ``(?m)`` flag),
+* When using multi-line mode (enabled with the ``(?m)`` flag),
   only ``\n`` is recognized as a line terminator. Additionally,
   the ``(?d)`` flag is not supported and must not be used.
-* Case-insensitive matching (enabled via the ``(?i)`` flag) is always
+* Case-insensitive matching (enabled with the ``(?i)`` flag) is always
   performed in a Unicode-aware manner. However, context-sensitive and
   local-sensitive matching is not supported. Additionally, the
   ``(?u)`` flag is not supported and must not be used.
@@ -41,14 +41,14 @@ with a few notable exceptions:
 
     .. _Capturing groups: http://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#cg
 
-.. function:: regexp_extract_all(string, pattern) -> array(varchar)
+.. function:: regexp_extract_all(string, pattern) -> array[varchar]
 
     Returns the substring(s) matched by the regular expression ``pattern``
     in ``string``::
 
         SELECT regexp_extract_all('1a 2b 14m', '\d+'); -- [1, 2, 14]
 
-.. function:: regexp_extract_all(string, pattern, group) -> array(varchar)
+.. function:: regexp_extract_all(string, pattern, group) -> array[varchar]
 
     Finds all occurrences of the regular expression ``pattern`` in ``string``
     and returns the `capturing group number`_ ``group``::
@@ -109,7 +109,7 @@ with a few notable exceptions:
 
         SELECT regexp_replace('new york', '(\w)(\w*)', x -> upper(x[1]) || lower(x[2])); --'New York'
 
-.. function:: regexp_split(string, pattern) -> array(varchar)
+.. function:: regexp_split(string, pattern) -> array[varchar]
 
     Splits ``string`` using the regular expression ``pattern`` and returns an
     array. Trailing empty strings are preserved::

@@ -31,6 +31,7 @@ import jakarta.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +49,7 @@ public class TempStorageManager
 {
     private static final Logger log = Logger.get(TempStorageManager.class);
     // TODO: Make this configurable
-    private static final File TEMP_STORAGE_CONFIGURATION_DIR = new File("etc/temp-storage/");
+    private static final Path TEMP_STORAGE_CONFIGURATION_DIR = Paths.get("etc/temp-storage/");
     public static final String TEMP_STORAGE_FACTORY_NAME = "temp-storage-factory.name";
 
     private final Map<String, TempStorageFactory> tempStorageFactories = new ConcurrentHashMap<>();
@@ -104,7 +105,7 @@ public class TempStorageManager
                         TEMP_STORAGE_FACTORY_NAME,
                         "local"));
 
-        for (File file : listFiles(TEMP_STORAGE_CONFIGURATION_DIR)) {
+        for (File file : listFiles(TEMP_STORAGE_CONFIGURATION_DIR.toFile())) {
             if (file.isFile() && file.getName().endsWith(".properties")) {
                 String name = getNameWithoutExtension(file.getName());
                 Map<String, String> properties = loadProperties(file);

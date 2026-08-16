@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -37,6 +38,7 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 
 public abstract class AbstractTestFilterStatsCalculator
 {
@@ -61,6 +63,36 @@ public abstract class AbstractTestFilterStatsCalculator
         session = testSessionBuilder()
                 .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.toString(withHistograms))
                 .build();
+    }
+
+    /**
+     * Returns expressions on a variable with NDV 1 and the expected row count after applying the filter
+     * Row count for the input plan node is assumed to be 100
+     * @return
+     */
+    @DataProvider
+    public static Object[][] ndv1Expressions()
+    {
+        return new Object[][] {
+                {"name <> 'bar'", 90D}, // 100 * UNKNOWN_FILTER_COEFFICIENT
+                {"name <> 'name' AND name <> 'bar'", 81D}, // 100 * UNKNOWN_FILTER_COEFFICIENT * UNKNOWN_FILTER_COEFFICIENT
+                {"name <> 'foo' OR name is NULL", 90D}, // 100 * UNKNOWN_FILTER_COEFFICIENT
+                {"name is NULL OR name <> 'foo'", 90D}, // 100 * UNKNOWN_FILTER_COEFFICIENT
+        };
+    }
+
+    @DataProvider
+    public static Object[][] inList()
+    {
+        return new Object[][] {
+                {"'one'"},
+                {"'one','two'"},
+                {"'one','two','three'"},
+                {"'one','two','three','four'"},
+                {"'one','two','three','four','five'"},
+                {"'one','two','three','four','five','six'"},
+                {"'one','two','three','four','five','six', 'seven'"}
+        };
     }
 
     @BeforeClass
@@ -500,6 +532,50 @@ public abstract class AbstractTestFilterStatsCalculator
                                 .build());
     }
 
+    @Test(dataProvider = "inList")
+    public void testInPredicateWithoutNDV(String inList)
+    {
+        Expression exp = expression("status IN (" + inList + ")");
+        TypeProvider customTypes = TypeProvider.fromVariables(ImmutableList.<VariableReferenceExpression>builder()
+                .add(new VariableReferenceExpression(Optional.empty(), "status", MEDIUM_VARCHAR_TYPE))
+                .build());
+
+        RowExpression rowExpression = translator.translateAndOptimize(exp, customTypes);
+
+        VariableStatsEstimate nameStats = VariableStatsEstimate.builder()
+                // Nulls fraction is known, but NDV is not. Stats propagation should work
+                .setNullsFraction(0.0D)
+                .build();
+
+        PlanNodeStatsEstimate inputStats = PlanNodeStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "status", MEDIUM_VARCHAR_TYPE), nameStats)
+                .setOutputRowCount(100D)
+                .build();
+
+        PlanNodeStatsEstimate rowExpressionStatsEstimate = statsCalculator.filterStats(inputStats, rowExpression, session);
+
+        // The IN filter should always apply a filter factor between (0,1) (never NaN/0/1)
+        int inListLength = inList.split(",").length;
+        if (inListLength == 1) {
+            // A single entry IN list is equivalent to an infinite range intersect; we use StatisticRange#INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR (0.5)
+            // as our filter factor, resulting in :  non-null-inputRowCount * 0.5  = 50
+            assertEquals(rowExpressionStatsEstimate.getOutputRowCount(), 50D);
+        }
+        else {
+            // Multiple values in the IN list - We sum up the estimates, but cap it to non-null-inputRowCount * CEIL_IN_PREDICATE_UPPER_BOUND_COEFFICIENT  = 80 in this case
+            assertEquals(rowExpressionStatsEstimate.getOutputRowCount(), 80D);
+        }
+    }
+
+    @Test(dataProvider = "inList")
+    public void testNotInPredicateEstimateIsNeverZero(String inList)
+    {
+        RowExpression rowExpression = translator.translateAndOptimize(expression("mediumVarchar NOT IN (" + inList + ")"), standardTypes);
+        PlanNodeStatsEstimate rowExpressionStatsEstimate = statsCalculator.filterStats(standardInputStatistics, rowExpression, session);
+
+        assertNotEquals(rowExpressionStatsEstimate.getOutputRowCount(), 0D, 0.0001D);
+    }
+
     @Test
     public void testInPredicateFilter()
     {
@@ -588,7 +664,8 @@ public abstract class AbstractTestFilterStatsCalculator
 
         // More values in range than distinct values
         assertExpression("z IN (DOUBLE '-1', 3.14e0, 0e0, 1e0, 2e0, 3e0, 4e0, 5e0, 6e0, 7e0, 8e0, DOUBLE '-2')")
-                .outputRowsCount(900.0)
+                // Range estimate is never the full-range, it's non-null count * CEIL_IN_PREDICATE_UPPER_BOUND_COEFFICIENT
+                .outputRowsCount(720.0)
                 .variableStats(new VariableReferenceExpression(Optional.empty(), "z", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(5.0)
                                 .lowValue(-2.0)
@@ -603,6 +680,34 @@ public abstract class AbstractTestFilterStatsCalculator
                                 .lowValue(-1.0)
                                 .highValue(1.0)
                                 .nullsFraction(0.0));
+    }
+
+    @Test(dataProvider = "ndv1Expressions")
+    public void testNotEqualsOnVariablesWithNDV1(String expressionStr, double expectedOutputRowsCount)
+    {
+        Expression exp = expression(expressionStr);
+
+        VariableReferenceExpression name = new VariableReferenceExpression(Optional.empty(), "name", MEDIUM_VARCHAR_TYPE);
+        TypeProvider customTypes = TypeProvider.fromVariables(ImmutableList.<VariableReferenceExpression>builder()
+                .add(name)
+                .build());
+
+        RowExpression rowExpression = translator.translateAndOptimize(exp, customTypes);
+
+        VariableStatsEstimate nameStats = VariableStatsEstimate.builder()
+                .setNullsFraction(0D)
+                .setDistinctValuesCount(1D)
+                .build();
+
+        PlanNodeStatsEstimate rowExpressionStatsEstimate = statsCalculator.filterStats(PlanNodeStatsEstimate.builder()
+                .addVariableStatistics(name, nameStats)
+                .setOutputRowCount(100D)
+                .build(), rowExpression, session);
+
+        PlanNodeStatsAssertion.assertThat(rowExpressionStatsEstimate)
+                .outputRowsCount(expectedOutputRowsCount)
+                // Variable Stats remains unchanged
+                .variableStats(name, variableStats -> variableStats.distinctValuesCount(1D).nullsFraction(0D));
     }
 
     protected PlanNodeStatsAssertion assertExpression(String expression)

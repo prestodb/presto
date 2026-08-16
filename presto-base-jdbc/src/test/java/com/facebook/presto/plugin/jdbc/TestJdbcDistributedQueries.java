@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.Test;
 
@@ -29,7 +30,7 @@ public class TestJdbcDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createJdbcQueryRunner(TpchTable.getTables());
+        return createJdbcQueryRunner(ImmutableMap.of(), TpchTable.getTables());
     }
 
     @Override

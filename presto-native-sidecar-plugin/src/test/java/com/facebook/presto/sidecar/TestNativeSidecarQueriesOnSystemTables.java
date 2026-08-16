@@ -17,6 +17,7 @@ import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
@@ -24,6 +25,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNati
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
 public class TestNativeSidecarQueriesOnSystemTables
         extends AbstractTestQueryFramework
@@ -46,8 +48,10 @@ public class TestNativeSidecarQueriesOnSystemTables
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .setCoordinatorSidecarEnabled(true)
+                .setExtraCoordinatorProperties(
+                        ImmutableMap.of("expression-optimizer-name", "native"))
                 .build();
-        TestNativeSidecarPlugin.setupNativeSidecarPlugin(queryRunner);
+        setupNativeSidecarPlugin(queryRunner);
         return queryRunner;
     }
 

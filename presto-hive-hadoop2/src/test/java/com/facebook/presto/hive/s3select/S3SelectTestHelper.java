@@ -144,7 +144,7 @@ public class S3SelectTestHelper
         S3ConfigurationUpdater s3Config = new PrestoS3ConfigurationUpdater(new HiveS3Config()
                 .setS3AwsAccessKey(awsAccessKey)
                 .setS3AwsSecretKey(awsSecretKey));
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config, metastoreClientConfig, s3Config, ignored -> {}), ImmutableSet.of(), config);
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config, metastoreClientConfig, s3Config, ignored -> {}, ignored -> {}), ImmutableSet.of(), config);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         ColumnConverterProvider columnConverterProvider = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
@@ -182,6 +182,8 @@ public class S3SelectTestHelper
                 new HiveTableWritabilityChecker(config));
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
+                config.getDateTimeZone(),
+                FUNCTION_AND_TYPE_MANAGER,
                 transactionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,

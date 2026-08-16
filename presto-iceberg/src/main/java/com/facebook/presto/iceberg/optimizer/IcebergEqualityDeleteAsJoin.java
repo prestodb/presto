@@ -27,8 +27,8 @@ import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.iceberg.IcebergTableName;
 import com.facebook.presto.iceberg.IcebergTableType;
-import com.facebook.presto.iceberg.IcebergTransactionManager;
 import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
@@ -73,12 +73,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.resourceGroups.QueryType.DELETE;
+import static com.facebook.presto.common.resourceGroups.QueryType.UPDATE;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
@@ -137,11 +138,16 @@ public class IcebergEqualityDeleteAsJoin
     {
         int maxDeleteColumns = getDeleteAsJoinRewriteMaxDeleteColumns(session);
         checkArgument(maxDeleteColumns >= 0, "maxDeleteColumns must be non-negative, got %s", maxDeleteColumns);
-        if (!isDeleteToJoinPushdownEnabled(session) || maxDeleteColumns == 0) {
+        if (!isDeleteToJoinPushdownEnabled(session) || maxDeleteColumns == 0 || isDeleteOrUpdateQuery(session)) {
             return maxSubplan;
         }
         return rewriteWith(new DeleteAsJoinRewriter(functionResolution,
                 transactionManager, idAllocator, session, typeManager, variableAllocator), maxSubplan);
+    }
+
+    private boolean isDeleteOrUpdateQuery(ConnectorSession session)
+    {
+        return session.getQueryType().map(t -> t == DELETE || t == UPDATE).orElse(false);
     }
 
     private static class DeleteAsJoinRewriter
@@ -228,13 +234,6 @@ public class IcebergEqualityDeleteAsJoin
             for (Map.Entry<Set<Integer>, DeleteSetInfo> entry : deleteSchemas.entrySet()) {
                 DeleteSetInfo deleteGroupInfo = entry.getValue();
 
-                List<Types.NestedField> deleteFields = deleteGroupInfo
-                        .equalityFieldIds
-                        .stream()
-                        .map(fieldId -> icebergTable.schema().findField(fieldId))
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toList());
-
                 VariableReferenceExpression joinSequenceNumber = toVariableReference(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE);
                 deleteVersionColumns.add(joinSequenceNumber);
                 ImmutableMap<VariableReferenceExpression, ColumnHandle> deleteColumnAssignments = ImmutableMap.<VariableReferenceExpression, ColumnHandle>builder()
@@ -264,7 +263,6 @@ public class IcebergEqualityDeleteAsJoin
                 TableScanNode deleteTableScan = createDeletesTableScan(deleteColumnAssignments,
                         icebergTableHandle,
                         tableName,
-                        deleteFields,
                         table,
                         deleteGroupInfo);
 
@@ -342,7 +340,6 @@ public class IcebergEqualityDeleteAsJoin
         private TableScanNode createDeletesTableScan(ImmutableMap<VariableReferenceExpression, ColumnHandle> deleteColumnAssignments,
                 IcebergTableHandle icebergTableHandle,
                 IcebergTableName tableName,
-                List<Types.NestedField> deleteFields,
                 TableHandle table,
                 DeleteSetInfo deleteInfo)
         {
@@ -351,6 +348,7 @@ public class IcebergEqualityDeleteAsJoin
                     new IcebergTableName(tableName.getTableName(),
                             IcebergTableType.EQUALITY_DELETES, // Read equality deletes instead of data
                             tableName.getSnapshotId(),
+                            tableName.getBranchName(),
                             Optional.empty()),
                     icebergTableHandle.isSnapshotSpecified(),
                     icebergTableHandle.getOutputPath(),
@@ -382,6 +380,7 @@ public class IcebergEqualityDeleteAsJoin
                     new IcebergTableName(tableName.getTableName(),
                             IcebergTableType.DATA_WITHOUT_EQUALITY_DELETES, // Don't apply equality deletes in the split
                             tableName.getSnapshotId(),
+                            tableName.getBranchName(),
                             tableName.getChangelogEndSnapshot()),
                     icebergTableHandle.isSnapshotSpecified(),
                     icebergTableHandle.getOutputPath(),

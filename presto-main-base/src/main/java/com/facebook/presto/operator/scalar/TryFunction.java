@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -24,12 +25,9 @@ import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import io.airlift.slice.Slice;
 
+import java.util.Set;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 
 @Description("internal try function for desugaring TRY")
@@ -42,13 +40,13 @@ public final class TryFunction
     @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
     @SqlNullable
     @SqlType("T")
-    public static Long tryLong(@SqlType("function(T)") TryLongLambda function)
+    public static Long tryLong(SqlFunctionProperties properties, @SqlType("function(T)") TryLongLambda function)
     {
         try {
             return function.apply();
         }
         catch (PrestoException e) {
-            propagateIfUnhandled(e);
+            propagateIfUnhandled(e, properties);
             return null;
         }
     }
@@ -57,13 +55,13 @@ public final class TryFunction
     @TypeParameterSpecialization(name = "T", nativeContainerType = double.class)
     @SqlNullable
     @SqlType("T")
-    public static Double tryDouble(@SqlType("function(T)") TryDoubleLambda function)
+    public static Double tryDouble(SqlFunctionProperties properties, @SqlType("function(T)") TryDoubleLambda function)
     {
         try {
             return function.apply();
         }
         catch (PrestoException e) {
-            propagateIfUnhandled(e);
+            propagateIfUnhandled(e, properties);
             return null;
         }
     }
@@ -72,13 +70,13 @@ public final class TryFunction
     @TypeParameterSpecialization(name = "T", nativeContainerType = boolean.class)
     @SqlNullable
     @SqlType("T")
-    public static Boolean tryBoolean(@SqlType("function(T)") TryBooleanLambda function)
+    public static Boolean tryBoolean(SqlFunctionProperties properties, @SqlType("function(T)") TryBooleanLambda function)
     {
         try {
             return function.apply();
         }
         catch (PrestoException e) {
-            propagateIfUnhandled(e);
+            propagateIfUnhandled(e, properties);
             return null;
         }
     }
@@ -87,13 +85,13 @@ public final class TryFunction
     @TypeParameterSpecialization(name = "T", nativeContainerType = Slice.class)
     @SqlNullable
     @SqlType("T")
-    public static Slice trySlice(@SqlType("function(T)") TrySliceLambda function)
+    public static Slice trySlice(SqlFunctionProperties properties, @SqlType("function(T)") TrySliceLambda function)
     {
         try {
             return function.apply();
         }
         catch (PrestoException e) {
-            propagateIfUnhandled(e);
+            propagateIfUnhandled(e, properties);
             return null;
         }
     }
@@ -102,13 +100,13 @@ public final class TryFunction
     @TypeParameterSpecialization(name = "T", nativeContainerType = Block.class)
     @SqlNullable
     @SqlType("T")
-    public static Block tryBlock(@SqlType("function(T)") TryBlockLambda function)
+    public static Block tryBlock(SqlFunctionProperties properties, @SqlType("function(T)") TryBlockLambda function)
     {
         try {
             return function.apply();
         }
         catch (PrestoException e) {
-            propagateIfUnhandled(e);
+            propagateIfUnhandled(e, properties);
             return null;
         }
     }
@@ -154,20 +152,25 @@ public final class TryFunction
             return supplier.get();
         }
         catch (PrestoException e) {
-            propagateIfUnhandled(e);
+            propagateIfUnhandled(e, null);
             return defaultValue;
         }
     }
 
-    private static void propagateIfUnhandled(PrestoException e)
+    private static void propagateIfUnhandled(PrestoException e, SqlFunctionProperties properties)
             throws PrestoException
     {
-        int errorCode = e.getErrorCode().getCode();
-        if (errorCode == DIVISION_BY_ZERO.toErrorCode().getCode()
-                || errorCode == INVALID_CAST_ARGUMENT.toErrorCode().getCode()
-                || errorCode == INVALID_FUNCTION_ARGUMENT.toErrorCode().getCode()
-                || errorCode == NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode().getCode()) {
+        // Check if error is catchable by TRY function
+        if (e.getErrorCode().isCatchableByTry()) {
             return;
+        }
+
+        // Check if the error code is in the session-specified list of catchable errors
+        if (properties != null) {
+            Set<String> catchableErrorCodes = properties.getTryCatchableErrorCodes();
+            if (catchableErrorCodes != null && catchableErrorCodes.contains(e.getErrorCode().getName())) {
+                return;
+            }
         }
 
         throw e;

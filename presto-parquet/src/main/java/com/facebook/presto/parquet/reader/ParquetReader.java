@@ -21,7 +21,6 @@ import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RowBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import com.facebook.presto.common.type.DateTimeEncoding;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -36,9 +35,12 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.ParquetResultVerifierUtils;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.VariantField;
 import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate;
 import com.facebook.presto.parquet.reader.ColumnIndexFilterUtils.OffsetRange;
+import com.facebook.presto.parquet.spark.Variant;
+import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -58,12 +60,15 @@ import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -80,13 +85,14 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
-import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.parquet.ParquetValidationUtils.validateParquet;
 import static com.facebook.presto.parquet.reader.ListColumnReader.calculateCollectionOffsets;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -118,6 +124,7 @@ public class ParquetReader
     private final List<RowRanges> blockRowRanges;
     private final Map<ColumnPath, ColumnDescriptor> paths = new HashMap<>();
     private final boolean columnIndexFilterEnabled;
+    private final Optional<DateTimeZone> timezone;
     private BlockMetaData currentBlockMetadata;
     /**
      * Index in the Parquet file of the first row of the current group
@@ -146,7 +153,8 @@ public class ParquetReader
             Predicate parquetPredicate,
             List<ColumnIndexStore> blockIndexStores,
             boolean columnIndexFilterEnabled,
-            Optional<InternalFileDecryptor> fileDecryptor)
+            Optional<InternalFileDecryptor> fileDecryptor,
+            Optional<DateTimeZone> timezone)
     {
         this.blocks = blocks;
         this.firstRowsOfBlocks = requireNonNull(firstRowsOfBlocks, "firstRowsOfBlocks is null");
@@ -164,6 +172,7 @@ public class ParquetReader
         maxBytesPerCell = new long[columns.size()];
         this.blockIndexStores = blockIndexStores;
         this.blockRowRanges = listWithNulls(this.blocks.size());
+        this.timezone = requireNonNull(timezone, "timezone is null");
 
         firstRowsOfBlocks.ifPresent(firstRows -> {
             checkArgument(blocks.size() == firstRows.size(), "elements of firstRowsOfBlocks must correspond to blocks");
@@ -351,7 +360,7 @@ public class ParquetReader
                         Optional.of(filteredOffsetIndex),
                         pageReaderMemoryContext);
 
-                columnReader.init(pageReader, field, currentGroupRowRanges);
+                columnReader.init(pageReader, field, currentGroupRowRanges, timezone);
 
                 if (enableVerification) {
                     ColumnReader verificationColumnReader = verificationColumnReaders[field.getId()];
@@ -362,7 +371,7 @@ public class ParquetReader
                             columnDescriptor,
                             Optional.of(filteredOffsetIndex),
                             verificationPageReaderMemoryContext);
-                    verificationColumnReader.init(pageReaderVerification, field, currentGroupRowRanges);
+                    verificationColumnReader.init(pageReaderVerification, field, currentGroupRowRanges, timezone);
                 }
             }
             else {
@@ -373,7 +382,7 @@ public class ParquetReader
                         columnDescriptor,
                         Optional.empty(),
                         pageReaderMemoryContext);
-                columnReader.init(pageReader, field, null);
+                columnReader.init(pageReader, field, null, timezone);
 
                 if (enableVerification) {
                     ColumnReader verificationColumnReader = verificationColumnReaders[field.getId()];
@@ -384,17 +393,17 @@ public class ParquetReader
                             columnDescriptor,
                             Optional.empty(),
                             verificationPageReaderMemoryContext);
-                    verificationColumnReader.init(pageReaderVerification, field, null);
+                    verificationColumnReader.init(pageReaderVerification, field, null, timezone);
                 }
             }
         }
 
-        ColumnChunk columnChunk = columnReader.readNext();
+        ColumnChunk columnChunk = columnReader.readNext(timezone);
         columnChunk = typeCoercion(columnChunk, field.getDescriptor().getPrimitiveType().getPrimitiveTypeName(), field.getType());
 
         if (enableVerification) {
             ColumnReader verificationColumnReader = verificationColumnReaders[field.getId()];
-            ColumnChunk expected = verificationColumnReader.readNext();
+            ColumnChunk expected = verificationColumnReader.readNext(timezone);
             ParquetResultVerifierUtils.verifyColumnChunks(columnChunk, expected, columnDescriptor.getPath().length > 1, field, dataSource.getId());
         }
 
@@ -536,11 +545,39 @@ public class ParquetReader
         return readColumnChunk(field).getBlock();
     }
 
+    private ColumnChunk readVariant(VariantField field)
+            throws IOException
+    {
+        ColumnChunk valueChunk = readColumnChunk(field.getValue());
+        int positionCount = valueChunk.getBlock().getPositionCount();
+
+        BlockBuilder variantBlock = VARCHAR.createBlockBuilder(null, positionCount);
+        if (positionCount > 0) {
+            ColumnChunk metadataChunk = readColumnChunk(field.getMetadata());
+            ZoneId zoneId = ZoneOffset.UTC;
+            for (int i = 0; i < valueChunk.getBlock().getPositionCount(); i++) {
+                if (valueChunk.getBlock().isNull(i) || metadataChunk.getBlock().isNull(i)) {
+                    variantBlock.appendNull();
+                }
+                else {
+                    Slice value = VARBINARY.getSlice(valueChunk.getBlock(), i);
+                    Slice metadata = VARBINARY.getSlice(metadataChunk.getBlock(), i);
+                    Variant variant = new Variant(value.byteArray(), metadata.byteArray());
+                    VARCHAR.writeSlice(variantBlock, utf8Slice(variant.toJson(zoneId)));
+                }
+            }
+        }
+        return new ColumnChunk(variantBlock.build(), valueChunk.getDefinitionLevels(), valueChunk.getRepetitionLevels());
+    }
+
     private ColumnChunk readColumnChunk(Field field)
             throws IOException
     {
         ColumnChunk columnChunk;
-        if (ROW.equals(field.getType().getTypeSignature().getBase())) {
+        if (field instanceof VariantField) {
+            columnChunk = readVariant((VariantField) field);
+        }
+        else if (ROW.equals(field.getType().getTypeSignature().getBase())) {
             columnChunk = readStruct((GroupField) field);
         }
         else if (MAP.equals(field.getType().getTypeSignature().getBase())) {
@@ -597,11 +634,6 @@ public class ParquetReader
                 newBlock = rewriteIntegerArrayBlock((IntArrayBlock) columnChunk.getBlock(), outputType);
             }
         }
-        else if (TIMESTAMP_WITH_TIME_ZONE.equals(outputType) && physicalDataType == PrimitiveTypeName.INT96) {
-            if (columnChunk.getBlock() instanceof LongArrayBlock) {
-                newBlock = rewriteTimeLongArrayBlock((LongArrayBlock) columnChunk.getBlock(), outputType);
-            }
-        }
 
         if (newBlock != null) {
             return new ColumnChunk(newBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
@@ -636,23 +668,6 @@ public class ParquetReader
             }
             else {
                 targetType.writeLong(newBlockBuilder, longArrayBlock.getLong(position));
-            }
-        }
-
-        return newBlockBuilder.build();
-    }
-
-    private static Block rewriteTimeLongArrayBlock(LongArrayBlock longArrayBlock, Type targetType)
-    {
-        int positionCount = longArrayBlock.getPositionCount();
-        BlockBuilder newBlockBuilder = targetType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            if (longArrayBlock.isNull(position)) {
-                newBlockBuilder.appendNull();
-            }
-            else {
-                // We shift the bits to encode timezone information
-                targetType.writeLong(newBlockBuilder, DateTimeEncoding.packDateTimeWithZone(longArrayBlock.getLong(position), UTC_KEY));
             }
         }
 

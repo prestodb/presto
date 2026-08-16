@@ -626,6 +626,83 @@ public final class MathFunctions
         return floatToRawIntBits(intBitsToFloat((int) num1) % intBitsToFloat((int) num2));
     }
 
+    @Description("positive remainder of given quotient")
+    @ScalarFunction("pmod")
+    @SqlNullable
+    @SqlType(StandardTypes.TINYINT)
+    public static Long pmodTinyint(@SqlType(StandardTypes.TINYINT) long num1, @SqlType(StandardTypes.TINYINT) long num2)
+    {
+        return pmodLong(num1, num2);
+    }
+
+    @Description("positive remainder of given quotient")
+    @ScalarFunction("pmod")
+    @SqlNullable
+    @SqlType(StandardTypes.SMALLINT)
+    public static Long pmodSmallint(@SqlType(StandardTypes.SMALLINT) long num1, @SqlType(StandardTypes.SMALLINT) long num2)
+    {
+        return pmodLong(num1, num2);
+    }
+
+    @Description("positive remainder of given quotient")
+    @ScalarFunction("pmod")
+    @SqlNullable
+    @SqlType(StandardTypes.INTEGER)
+    public static Long pmodInteger(@SqlType(StandardTypes.INTEGER) long num1, @SqlType(StandardTypes.INTEGER) long num2)
+    {
+        return pmodLong(num1, num2);
+    }
+
+    @Description("positive remainder of given quotient")
+    @ScalarFunction("pmod")
+    @SqlNullable
+    @SqlType(StandardTypes.BIGINT)
+    public static Long pmodBigint(@SqlType(StandardTypes.BIGINT) long num1, @SqlType(StandardTypes.BIGINT) long num2)
+    {
+        return pmodLong(num1, num2);
+    }
+
+    private static Long pmodLong(long num1, long num2)
+    {
+        if (num2 == 0) {
+            return null;
+        }
+        if (num2 == 1 || num2 == -1) {
+            return 0L;
+        }
+        long r = num1 % num2;
+        return (r > 0) ? r : (r + num2) % num2;
+    }
+
+    @Description("positive remainder of given quotient")
+    @ScalarFunction("pmod")
+    @SqlNullable
+    @SqlType(StandardTypes.DOUBLE)
+    public static Double pmodDouble(@SqlType(StandardTypes.DOUBLE) double num1, @SqlType(StandardTypes.DOUBLE) double num2)
+    {
+        if (num2 == 0.0) {
+            return null;
+        }
+        double r = num1 % num2;
+        return (r > 0) ? r : (r + num2) % num2;
+    }
+
+    @Description("positive remainder of given quotient")
+    @ScalarFunction("pmod")
+    @SqlNullable
+    @SqlType(StandardTypes.REAL)
+    public static Long pmodFloat(@SqlType(StandardTypes.REAL) long num1, @SqlType(StandardTypes.REAL) long num2)
+    {
+        float f1 = intBitsToFloat((int) num1);
+        float f2 = intBitsToFloat((int) num2);
+        if (f2 == 0.0f) {
+            return null;
+        }
+        float r = f1 % f2;
+        float result = (r > 0) ? r : (r + f2) % f2;
+        return (long) floatToRawIntBits(result);
+    }
+
     @Description("the constant Pi")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)

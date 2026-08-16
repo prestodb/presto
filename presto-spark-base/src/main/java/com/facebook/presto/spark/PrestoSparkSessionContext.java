@@ -29,6 +29,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import jakarta.annotation.Nullable;
 
+import java.security.cert.X509Certificate;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -77,7 +79,8 @@ public class PrestoSparkSessionContext
                         extraCredentials.build(),
                         extraTokenAuthenticators.build(),
                         Optional.empty(),
-                        Optional.empty()),
+                        Optional.empty(),
+                        prestoSparkSession.getCertificates()),
                 prestoSparkSession.getCatalog().orElse(null),
                 prestoSparkSession.getSchema().orElse(null),
                 prestoSparkSession.getSource().orElse(null),
@@ -126,6 +129,12 @@ public class PrestoSparkSessionContext
     public Identity getIdentity()
     {
         return identity;
+    }
+
+    @Override
+    public List<X509Certificate> getCertificates()
+    {
+        return identity.getCertificates();
     }
 
     @Nullable

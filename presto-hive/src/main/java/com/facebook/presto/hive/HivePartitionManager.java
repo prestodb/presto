@@ -207,7 +207,7 @@ public class HivePartitionManager
     {
         if (isOptimizeParsingOfPartitionValues(session) && partitionNames.size() >= getOptimizeParsingOfPartitionValuesThreshold(session)) {
             List<HivePartition> partitionList = partitionNames.stream()
-                    .map(partitionNameWithVersion -> parsePartition(tableName, partitionNameWithVersion, partitionColumns, partitionTypes, timeZone))
+                    .map(partitionNameWithVersion -> parsePartition(session, tableName, partitionNameWithVersion, partitionColumns, partitionTypes))
                     .collect(toImmutableList());
 
             Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().get();
@@ -252,7 +252,7 @@ public class HivePartitionManager
         else {
             return partitionNames.stream()
                     // Apply extra filters which could not be done by getFilteredPartitionNames
-                    .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, partitionTypes, constraint))
+                    .map(partitionName -> parseValuesAndFilterPartition(session, tableName, partitionName, partitionColumns, partitionTypes, constraint))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .collect(toImmutableList());
@@ -425,13 +425,14 @@ public class HivePartitionManager
         Table table = getTable(session, metastore, hiveTableHandle, isOfflineDataDebugModeEnabled(session));
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
+
         List<Type> partitionColumnTypes = partitionColumns.stream()
                 .map(column -> typeManager.getType(column.getTypeSignature()))
                 .collect(toImmutableList());
 
         List<HivePartition> partitionList = partitionValuesList.stream()
                 .map(partitionValues -> makePartName(table.getPartitionColumns(), partitionValues))
-                .map(partitionName -> parseValuesAndFilterPartition(tableName, new PartitionNameWithVersion(partitionName, Optional.empty()), partitionColumns, partitionColumnTypes, alwaysTrue()))
+                .map(partitionName -> parseValuesAndFilterPartition(session, tableName, new PartitionNameWithVersion(partitionName, Optional.empty()), partitionColumns, partitionColumnTypes, alwaysTrue()))
                 .map(partition -> partition.orElseThrow(() -> new VerifyException("partition must exist")))
                 .collect(toImmutableList());
 
@@ -449,13 +450,14 @@ public class HivePartitionManager
     }
 
     private Optional<HivePartition> parseValuesAndFilterPartition(
+            ConnectorSession session,
             SchemaTableName tableName,
             PartitionNameWithVersion partitionNameWithVersion,
             List<HiveColumnHandle> partitionColumns,
             List<Type> partitionColumnTypes,
             Constraint<ColumnHandle> constraint)
     {
-        HivePartition partition = parsePartition(tableName, partitionNameWithVersion, partitionColumns, partitionColumnTypes, timeZone);
+        HivePartition partition = parsePartition(session, tableName, partitionNameWithVersion, partitionColumns, partitionColumnTypes);
 
         Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().get();
         for (HiveColumnHandle column : partitionColumns) {
@@ -512,12 +514,12 @@ public class HivePartitionManager
                 .orElseThrow(() -> new TableNotFoundException(hiveTableHandle.getSchemaTableName()));
     }
 
-    public static HivePartition parsePartition(
+    public HivePartition parsePartition(
+            ConnectorSession session,
             SchemaTableName tableName,
             PartitionNameWithVersion partitionNameWithVersion,
             List<HiveColumnHandle> partitionColumns,
-            List<Type> partitionColumnTypes,
-            DateTimeZone timeZone)
+            List<Type> partitionColumnTypes)
     {
         List<String> partitionColumnNames = partitionColumns.stream()
                 .map(HiveColumnHandle::getName)
@@ -526,7 +528,7 @@ public class HivePartitionManager
         ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builder();
         for (int i = 0; i < partitionColumns.size(); i++) {
             HiveColumnHandle column = partitionColumns.get(i);
-            NullableValue parsedValue = parsePartitionValue(partitionNameWithVersion.getPartitionName(), partitionValues.get(i), partitionColumnTypes.get(i), timeZone);
+            NullableValue parsedValue = parsePartitionValue(Optional.of(session), partitionNameWithVersion.getPartitionName(), partitionValues.get(i), partitionColumnTypes.get(i), timeZone);
             builder.put(column, parsedValue);
         }
         Map<ColumnHandle, NullableValue> values = builder.build();

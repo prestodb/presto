@@ -104,8 +104,10 @@ class HttpJwtTestSuite : public ::testing::TestWithParam<bool> {
     auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
     request->requestPromise = std::move(reqPromise);
 
+    auto jwtOpts = systemConfig->jwtOptions();
+
     auto responseFuture =
-        sendGet(client.get(), "/async/msg", sendDelayMs, "TestBody");
+        sendGet(client.get(), "/async/msg", sendDelayMs, "TestBody", jwtOpts);
 
     auto serverConfig = jwtSystemConfig(serverSystemConfigOverride);
     auto valuesMap = serverConfig->rawConfigsCopy();
@@ -133,7 +135,7 @@ class HttpJwtTestSuite : public ::testing::TestWithParam<bool> {
 TEST_P(HttpJwtTestSuite, basicJwtTest) {
   const bool useHttps = GetParam();
 
-  auto response = std::move(produceHttpResponse(useHttps));
+  auto response = produceHttpResponse(useHttps);
 
   EXPECT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
 }
@@ -145,8 +147,7 @@ TEST_P(HttpJwtTestSuite, jwtSecretMismatch) {
 
   const bool useHttps = GetParam();
 
-  auto response =
-      std::move(produceHttpResponse(useHttps, {}, serverConfigOverride));
+  auto response = produceHttpResponse(useHttps, {}, serverConfigOverride);
 
   EXPECT_EQ(response->headers()->getStatusCode(), http::kHttpUnauthorized);
 }
@@ -162,8 +163,8 @@ TEST_P(HttpJwtTestSuite, jwtExpiredToken) {
 
   const bool useHttps = GetParam();
 
-  auto response = std::move(
-      produceHttpResponse(useHttps, clientConfigOverride, {}, kSendDelay));
+  auto response =
+      produceHttpResponse(useHttps, clientConfigOverride, {}, kSendDelay);
 
   EXPECT_EQ(response->headers()->getStatusCode(), http::kHttpUnauthorized);
 }
@@ -176,8 +177,7 @@ TEST_P(HttpJwtTestSuite, jwtServerVerificationDisabled) {
 
   const bool useHttps = GetParam();
 
-  auto response =
-      std::move(produceHttpResponse(useHttps, {}, serverConfigOverride));
+  auto response = produceHttpResponse(useHttps, {}, serverConfigOverride);
 
   EXPECT_EQ(response->headers()->getStatusCode(), http::kHttpUnauthorized);
 }
@@ -190,8 +190,7 @@ TEST_P(HttpJwtTestSuite, jwtClientMissingJwt) {
 
   const bool useHttps = GetParam();
 
-  auto response =
-      std::move(produceHttpResponse(useHttps, clientConfigOverride));
+  auto response = produceHttpResponse(useHttps, clientConfigOverride);
 
   EXPECT_EQ(response->headers()->getStatusCode(), http::kHttpUnauthorized);
 }

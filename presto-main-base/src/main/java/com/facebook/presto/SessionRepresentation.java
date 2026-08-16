@@ -69,6 +69,8 @@ public final class SessionRepresentation
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> preparedStatements;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
+    private final Optional<String> selectedUser;
+    private final Optional<String> reasonForSelect;
 
     @ThriftConstructor
     @JsonCreator
@@ -95,7 +97,9 @@ public final class SessionRepresentation
             @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
             @JsonProperty("roles") Map<String, SelectedRole> roles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
-            @JsonProperty("sessionFunctions") Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
+            @JsonProperty("sessionFunctions") Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            @JsonProperty("selectedUser") Optional<String> selectedUser,
+            @JsonProperty("reasonForSelect") Optional<String> reasonForSelect)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -118,6 +122,8 @@ public final class SessionRepresentation
         this.roles = ImmutableMap.copyOf(roles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
         this.sessionFunctions = ImmutableMap.copyOf(sessionFunctions);
+        this.selectedUser = selectedUser == null ? Optional.empty() : selectedUser;
+        this.reasonForSelect = reasonForSelect == null ? Optional.empty() : reasonForSelect;
 
         ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         for (Entry<ConnectorId, Map<String, String>> entry : catalogProperties.entrySet()) {
@@ -293,6 +299,20 @@ public final class SessionRepresentation
         return sessionFunctions;
     }
 
+    @ThriftField(24)
+    @JsonProperty
+    public Optional<String> getSelectedUser()
+    {
+        return selectedUser;
+    }
+
+    @ThriftField(25)
+    @JsonProperty
+    public Optional<String> getReasonForSelect()
+    {
+        return reasonForSelect;
+    }
+
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
         return toSession(sessionPropertyManager, emptyMap(), emptyMap());
@@ -315,8 +335,8 @@ public final class SessionRepresentation
                         roles,
                         extraCredentials,
                         extraAuthenticators,
-                        Optional.empty(),
-                        Optional.empty()),
+                        selectedUser,
+                        reasonForSelect),
                 source,
                 catalog,
                 schema,

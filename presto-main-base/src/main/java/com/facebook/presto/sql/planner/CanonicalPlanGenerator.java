@@ -50,6 +50,7 @@ import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -64,7 +65,6 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -78,7 +78,9 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
@@ -87,7 +89,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Stack;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -312,10 +313,10 @@ public class CanonicalPlanGenerator
         List<PlanNode> sources = new ArrayList<>();
         ImmutableList.Builder<RowExpression> allFilters = ImmutableList.builder();
         ImmutableList.Builder<EquiJoinClause> criterias = ImmutableList.builder();
-        Stack<JoinNode> stack = new Stack<>();
+        Deque<JoinNode> stack = new ArrayDeque<>();
 
         stack.push(node);
-        while (!stack.empty()) {
+        while (!stack.isEmpty()) {
             JoinNode top = stack.pop();
             top.getCriteria().forEach(criterias::add);
             // ReorderJoins can move predicates between `criteria` and `filters`, so we put all equalities
@@ -699,6 +700,7 @@ public class CanonicalPlanGenerator
                 new DataOrganizationSpecification(
                         partitionBy,
                         node.getSpecification().getOrderingScheme().map(scheme -> getCanonicalOrderingScheme(scheme, context.getExpressions()))),
+                node.getRankingFunction(),
                 rowNumberVariable,
                 node.getMaxRowCountPerPartition(),
                 node.isPartial(),

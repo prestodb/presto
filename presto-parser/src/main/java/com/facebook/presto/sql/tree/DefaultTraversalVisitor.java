@@ -486,6 +486,13 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitSetColumnDefault(SetColumnDefault node, C context)
+    {
+        process(node.getDefaultExpression(), context);
+        return null;
+    }
+
+    @Override
     protected R visitMerge(Merge node, C context)
     {
         process(node.getTarget(), context);
@@ -498,6 +505,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitMergeInsert(MergeInsert node, C context)
     {
+        node.getCondition().ifPresent(condition -> process(condition, context));
         node.getColumns().forEach(column -> process(column, context));
         node.getValues().forEach(expression -> process(expression, context));
         return null;
@@ -506,10 +514,18 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitMergeUpdate(MergeUpdate node, C context)
     {
+        node.getCondition().ifPresent(condition -> process(condition, context));
         node.getAssignments().forEach(assignment -> {
             process(assignment.getTarget(), context);
             process(assignment.getValue(), context);
         });
+        return null;
+    }
+
+    @Override
+    protected R visitMergeDelete(MergeDelete node, C context)
+    {
+        node.getCondition().ifPresent(condition -> process(condition, context));
         return null;
     }
 
@@ -587,6 +603,19 @@ public abstract class DefaultTraversalVisitor<R, C>
         node.getElements().forEach(tableElement -> process(tableElement, context));
         node.getProperties().forEach(property -> process(property, context));
 
+        return null;
+    }
+
+    @Override
+    protected R visitCreateVectorIndex(CreateVectorIndex node, C context)
+    {
+        for (Identifier column : node.getColumns()) {
+            process(column, context);
+        }
+        node.getUpdatingFor().ifPresent(updatingFor -> process(updatingFor, context));
+        for (Property property : node.getProperties()) {
+            process(property, context);
+        }
         return null;
     }
 

@@ -18,6 +18,8 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AccessControlReferences;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -48,6 +50,7 @@ import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.values;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissionsForTablesAndColumns;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static java.util.Objects.requireNonNull;
 
@@ -65,9 +68,10 @@ final class DescribeOutputRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
             WarningCollector warningCollector,
-            String query)
+            String query,
+            ViewDefinitionReferences viewDefinitionReferences)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, accessControl, warningCollector, query).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, accessControl, warningCollector, query, viewDefinitionReferences).process(node, null);
     }
 
     private static final class Visitor
@@ -82,6 +86,7 @@ final class DescribeOutputRewrite
         private final AccessControl accessControl;
         private final WarningCollector warningCollector;
         private final String query;
+        private final ViewDefinitionReferences viewDefinitionReferences;
 
         public Visitor(
                 Session session,
@@ -92,7 +97,8 @@ final class DescribeOutputRewrite
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
                 AccessControl accessControl,
                 WarningCollector warningCollector,
-                String query)
+                String query,
+                ViewDefinitionReferences viewDefinitionReferences)
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = parser;
@@ -103,6 +109,7 @@ final class DescribeOutputRewrite
             this.accessControl = accessControl;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.query = requireNonNull(query, "query is null");
+            this.viewDefinitionReferences = requireNonNull(viewDefinitionReferences, "viewDefinitionReferences is null");
         }
 
         @Override
@@ -111,8 +118,10 @@ final class DescribeOutputRewrite
             String sqlString = session.getPreparedStatement(node.getName().getValue());
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session, warningCollector));
 
-            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, query);
-            Analysis analysis = analyzer.analyze(statement, true);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, query, viewDefinitionReferences);
+            Analysis analysis = analyzer.analyzeSemantic(statement, true);
+            AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
+            checkAccessPermissionsForTablesAndColumns(accessControlReferences);
 
             Optional<String> limit = Optional.empty();
             Row[] rows = analysis.getRootScope().getRelationType().getVisibleFields().stream().map(field -> createDescribeOutputRow(field, analysis)).toArray(Row[]::new);

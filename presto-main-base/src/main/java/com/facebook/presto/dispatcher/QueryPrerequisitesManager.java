@@ -20,7 +20,9 @@ import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesContext;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -39,7 +41,7 @@ public class QueryPrerequisitesManager
 {
     private static final Logger log = Logger.get(QueryPrerequisitesManager.class);
 
-    private static final File QUERY_PREREQUISITES_CONFIG = new File("etc/query-prerequisites.properties");
+    private static final Path QUERY_PREREQUISITES_CONFIG = Paths.get("etc/query-prerequisites.properties");
     private static final String QUERY_PREREQUISITES_PROPERTY_NAME = "query-prerequisites.factory";
     private final Map<String, QueryPrerequisitesFactory> queryPrerequisitesFactories = new ConcurrentHashMap<>();
     private final QueryPrerequisites defaultQueryPrerequisites = new DefaultQueryPrerequisites();
@@ -57,12 +59,12 @@ public class QueryPrerequisitesManager
     public void loadQueryPrerequisites()
             throws Exception
     {
-        if (QUERY_PREREQUISITES_CONFIG.exists()) {
-            Map<String, String> properties = new HashMap<>(loadProperties(QUERY_PREREQUISITES_CONFIG));
+        if (Files.exists(QUERY_PREREQUISITES_CONFIG)) {
+            Map<String, String> properties = new HashMap<>(loadProperties(QUERY_PREREQUISITES_CONFIG.toFile()));
 
             String factoryName = properties.remove(QUERY_PREREQUISITES_PROPERTY_NAME);
             checkArgument(!isNullOrEmpty(factoryName),
-                    "Query Prerequisites configuration %s does not contain %s", QUERY_PREREQUISITES_CONFIG.getAbsoluteFile(), QUERY_PREREQUISITES_PROPERTY_NAME);
+                    "Query Prerequisites configuration %s does not contain %s", QUERY_PREREQUISITES_CONFIG.toAbsolutePath().toFile(), QUERY_PREREQUISITES_PROPERTY_NAME);
 
             log.info("-- Loading query prerequisites factory --");
 

@@ -84,8 +84,8 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
@@ -205,7 +205,7 @@ public final class RowExpressionDomainTranslator
 
         RowExpression excludedPointsExpression = not(functionResolution, in(reference, excludedPoints));
         if (excludedPoints.size() == 1) {
-            excludedPointsExpression = notEqual(reference, getOnlyElement(excludedPoints));
+            excludedPointsExpression = notEqual(reference, excludedPoints.stream().collect(onlyElement()));
         }
 
         return logicalRowExpressions.combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
@@ -246,7 +246,7 @@ public final class RowExpressionDomainTranslator
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(equal(reference, getOnlyElement(singleValues)));
+            disjuncts.add(equal(reference, singleValues.stream().collect(onlyElement())));
         }
         else if (singleValues.size() > 1) {
             disjuncts.add(in(reference, singleValues));
@@ -265,7 +265,7 @@ public final class RowExpressionDomainTranslator
 
         RowExpression predicate;
         if (values.size() == 1) {
-            predicate = equal(reference, getOnlyElement(values));
+            predicate = equal(reference, values.stream().collect(onlyElement()));
         }
         else {
             predicate = in(reference, values);

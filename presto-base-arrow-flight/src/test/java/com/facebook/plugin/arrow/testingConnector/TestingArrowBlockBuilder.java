@@ -34,7 +34,7 @@ public class TestingArrowBlockBuilder
     }
 
     @Override
-    protected Type getPrestoTypeFromArrowField(Field field)
+    public Type getPrestoTypeFromArrowField(Field field)
     {
         String columnLength = field.getMetadata().get("columnLength");
         int length = columnLength != null ? Integer.parseInt(columnLength) : 0;

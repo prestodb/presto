@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
@@ -33,6 +34,13 @@ import com.facebook.presto.connector.tvf.TestingTableFunctions.TableArgumentFunc
 import com.facebook.presto.connector.tvf.TestingTableFunctions.TableArgumentRowSemanticsFunction;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.TwoScalarArgumentsFunction;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.TwoTableArgumentsFunction;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
+import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.TaskCountEstimator;
+import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
@@ -43,13 +51,16 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -63,13 +74,22 @@ import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
+import com.facebook.presto.sql.expressions.JsonCodecRowExpressionSerde;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
+import com.facebook.presto.sql.planner.PlanFragmenter;
+import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.TestProcedureRegistry;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingMetadata;
@@ -80,6 +100,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
+import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -87,6 +109,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY;
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_WITH_SUBFIELDS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -108,6 +131,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -196,7 +220,7 @@ public class AbstractAnalyzerTest
         procedures.add(new Procedure("system", "procedure", arguments));
         procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_procedure",
                 distributedArguments,
-                (session, transactionContext, procedureHandle, fragments) -> null,
+                (session, transactionContext, procedureHandle, fragments, sortOrderIndex) -> null,
                 (session, transactionContext, procedureHandle, fragments) -> {},
                 ignored -> new TestProcedureRegistry.TestProcedureContext()));
         metadata.getProcedureRegistry().addProcedures(SECOND_CONNECTOR_ID, procedures);
@@ -339,6 +363,16 @@ public class AbstractAnalyzerTest
                         ColumnMetadata.builder().setName("z").setType(BIGINT).build())),
                 false));
 
+        // table with id and embedding columns for vector index tests
+        SchemaTableName table14 = new SchemaTableName("s1", "t14");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table14, ImmutableList.of(
+                        ColumnMetadata.builder().setName("id").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("embedding_real").setType(new ArrayType(RealType.REAL)).build(),
+                        ColumnMetadata.builder().setName("embedding_double").setType(new ArrayType(DOUBLE)).build(),
+                        ColumnMetadata.builder().setName("name").setType(VARCHAR).build())),
+                false));
+
         // materialized view referencing table in same schema
         List<SchemaTableName> baseTables = new ArrayList<>(Collections.singletonList(table2));
         MaterializedViewDefinition.TableColumn baseTableColumns = new MaterializedViewDefinition.TableColumn(table2, "a", true);
@@ -350,15 +384,15 @@ public class AbstractAnalyzerTest
                 new MaterializedViewDefinition.ColumnMapping(materializedViewTableColumn, Collections.singletonList(baseTableColumns)));
 
         MaterializedViewDefinition materializedViewData1 = new MaterializedViewDefinition(
-                        "select a from t2",
-                        "s1",
-                        "mv1",
-                        baseTables,
-                        Optional.of("user"),
-                        Optional.empty(),
-                        columnMappings,
-                        new ArrayList<>(),
-                        Optional.of(new ArrayList<>(Collections.singletonList("a"))));
+                "select a from t2",
+                "s1",
+                "mv1",
+                baseTables,
+                Optional.of("user"),
+                Optional.empty(),
+                columnMappings,
+                new ArrayList<>(),
+                Optional.of(new ArrayList<>(Collections.singletonList("a"))));
 
         ConnectorTableMetadata materializedViewMetadata1 = new ConnectorTableMetadata(
                 materializedTable, ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
@@ -393,6 +427,48 @@ public class AbstractAnalyzerTest
                 new SchemaTableName("s1", "v2"),
                 ImmutableList.of(ColumnMetadata.builder().setName("a").setType(VARCHAR).build()));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata2, viewData2, false));
+
+        // valid view with symmetric type coercion between stored and analyzed types
+        String viewDataSymmetricCoercion = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select CAST(a AS INTEGER) a from t1",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", BIGINT)),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataSymmetricCoercion = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_symmetric_coercion"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataSymmetricCoercion, viewDataSymmetricCoercion, false));
+
+        // issue-shaped view: stored char(3), analyzed char(20); should be valid with symmetric coercion
+        String viewDataCharSymmetricCoercion = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select CAST('abc' AS CHAR(20)) a",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", CharType.createCharType(3))),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataCharSymmetricCoercion = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_char_symmetric_coercion"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(CharType.createCharType(3)).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataCharSymmetricCoercion, viewDataCharSymmetricCoercion, false));
+
+        // issue-shaped view: stored char(3), analyzed varchar; should remain stale under default coercion rules
+        String viewDataCharVarcharStale = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select b from t6",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("b", CharType.createCharType(3))),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataCharVarcharStale = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_char_varchar_stale"),
+                ImmutableList.of(ColumnMetadata.builder().setName("b").setType(CharType.createCharType(3)).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataCharVarcharStale, viewDataCharVarcharStale, false));
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -566,9 +642,24 @@ public class AbstractAnalyzerTest
                 .readUncommitted()
                 .readOnly()
                 .execute(clientSession, session -> {
-                    Analyzer analyzer = AbstractAnalyzerTest.createAnalyzer(session, metadata, warningCollector, query);
+                    Analyzer analyzer = AbstractAnalyzerTest.createAnalyzer(session, metadata, warningCollector, Optional.empty(), query);
                     Statement statement = SQL_PARSER.createStatement(query);
-                    analyzer.analyze(statement);
+                    Analysis analysis = analyzer.analyzeSemantic(statement, false);
+                    AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
+                    checkAccessPermissions(accessControlReferences, analysis.getViewDefinitionReferences(), query, session.getPreparedStatements(), session.getIdentity(), accessControl, session.getAccessControlContext());
+                });
+    }
+
+    protected Analysis analyzeAndGetAnalysis(Session clientSession, @Language("SQL") String query)
+    {
+        return transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .readOnly()
+                .execute(clientSession, session -> {
+                    Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP, Optional.empty(), query);
+                    Statement statement = SQL_PARSER.createStatement(query);
+                    return analyzer.analyzeSemantic(statement, false);
                 });
     }
 
@@ -642,18 +733,61 @@ public class AbstractAnalyzerTest
         }
     }
 
-    protected static Analyzer createAnalyzer(Session session, Metadata metadata, WarningCollector warningCollector, String query)
+    protected static Analyzer createAnalyzer(Session session, Metadata metadata, WarningCollector warningCollector, Optional<QueryExplainer> queryExplainer, String query)
     {
         return new Analyzer(
                 session,
                 metadata,
                 SQL_PARSER,
                 new AllowAllAccessControl(),
-                Optional.empty(),
+                queryExplainer,
                 emptyList(),
                 emptyMap(),
                 warningCollector,
-                query);
+                query,
+                new ViewDefinitionReferences());
+    }
+
+    protected static QueryExplainer createTestingQueryExplainer(Session session, AccessControl accessControl, Metadata metadata)
+    {
+        try (LocalQueryRunner localQueryRunner = new LocalQueryRunner(session)) {
+            SqlParser sqlParser = new SqlParser();
+            FeaturesConfig featuresConfig = new FeaturesConfig();
+            TaskCountEstimator taskCountEstimator = new TaskCountEstimator(localQueryRunner::getNodeCount);
+            CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
+            List<PlanOptimizer> optimizers = new PlanOptimizers(
+                    metadata,
+                    sqlParser,
+                    localQueryRunner.getNodeCount() == 1,
+                    new MBeanExporter(new TestingMBeanServer()),
+                    localQueryRunner.getSplitManager(),
+                    localQueryRunner.getPlanOptimizerManager(),
+                    localQueryRunner.getPageSourceManager(),
+                    localQueryRunner.getStatsCalculator(),
+                    costCalculator,
+                    new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
+                    new CostComparator(featuresConfig),
+                    taskCountEstimator,
+                    new PartitioningProviderManager(),
+                    featuresConfig,
+                    new ExpressionOptimizerManager(
+                            new PluginNodeManager(new InMemoryNodeManager()),
+                            localQueryRunner.getMetadata().getFunctionAndTypeManager(),
+                            new JsonCodecRowExpressionSerde(jsonCodec(RowExpression.class))),
+                    new TaskManagerConfig(),
+                    localQueryRunner.getAccessControl())
+                    .getPlanningTimeOptimizers();
+            return new QueryExplainer(
+                    optimizers,
+                    new PlanFragmenter(metadata, localQueryRunner.getNodePartitioningManager(), new QueryManagerConfig(), featuresConfig, localQueryRunner.getPlanCheckerProviderManager()),
+                    metadata,
+                    accessControl,
+                    sqlParser,
+                    localQueryRunner.getStatsCalculator(),
+                    costCalculator,
+                    ImmutableMap.of(),
+                    new PlanChecker(featuresConfig, false, localQueryRunner.getPlanCheckerProviderManager()));
+        }
     }
 
     private Catalog createTestingCatalog(String catalogName, ConnectorId connectorId)

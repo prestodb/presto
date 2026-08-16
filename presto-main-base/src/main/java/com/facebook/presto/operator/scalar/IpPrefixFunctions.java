@@ -32,15 +32,15 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
+import static com.facebook.presto.common.type.IpAddressType.IPADDRESS;
+import static com.facebook.presto.common.type.IpPrefixType.IPPREFIX;
 import static com.facebook.presto.operator.scalar.ArraySortFunction.sort;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.type.IpAddressOperators.between;
 import static com.facebook.presto.type.IpAddressOperators.castFromVarcharToIpAddress;
-import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.facebook.presto.type.IpPrefixOperators.castFromIpPrefixToIpAddress;
 import static com.facebook.presto.type.IpPrefixOperators.castFromVarcharToIpPrefix;
-import static com.facebook.presto.type.IpPrefixType.IPPREFIX;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;

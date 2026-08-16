@@ -15,13 +15,15 @@
 #include <folly/executors/ThreadedExecutor.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "folly/experimental/EventCount.h"
+#include "folly/synchronization/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/operators/MaterializedOutput.h"
+#include "presto_cpp/main/operators/MaterializedOutputBuffer.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -32,6 +34,7 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+#include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -112,7 +115,7 @@ class Cursor {
       TaskManager* taskManager,
       const protocol::TaskId& taskId,
       const RowTypePtr& rowType,
-      velox::VectorSerde::Kind serdeKind,
+      const std::string& serdeKind,
       memory::MemoryPool* pool)
       : pool_(pool),
         taskManager_(taskManager),
@@ -178,7 +181,7 @@ class Cursor {
   TaskManager* const taskManager_;
   const protocol::TaskId taskId_;
   const RowTypePtr rowType_;
-  const velox::VectorSerde::Kind serdeKind_;
+  const std::string serdeKind_;
   bool atEnd_{false};
   uint64_t sequence_{0};
 };
@@ -190,14 +193,10 @@ void setAggregationSpillConfig(
 }
 
 class TaskManagerTest : public exec::test::OperatorTestBase,
-                        public testing::WithParamInterface<VectorSerde::Kind> {
+                        public testing::WithParamInterface<std::string> {
  public:
-  static std::vector<VectorSerde::Kind> getTestParams() {
-    const std::vector<VectorSerde::Kind> kinds(
-        {VectorSerde::Kind::kPresto,
-         VectorSerde::Kind::kCompactRow,
-         VectorSerde::Kind::kUnsafeRow});
-    return kinds;
+  static std::vector<std::string> getTestParams() {
+    return {"Presto", "CompactRow", "UnsafeRow"};
   }
 
   static void SetUpTestCase() {
@@ -974,6 +973,91 @@ TEST_P(TaskManagerTest, queuedEmptyGroupedExecutionTask) {
   }
 }
 
+// Tests that aborting one queued task from a query does not prevent other
+// queued tasks from the same query from being started. This is a regression
+// test for a bug where tasks from different fragments of the same query were
+// grouped in a single queue entry, and aborting any one of them (e.g. because
+// its fragment completed on other workers) would silently discard all the
+// other still-valid tasks in the same entry.
+TEST_P(TaskManagerTest, queuedTaskAbortDoesNotBlockSiblings) {
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kWorkerOverloadedTaskQueuingEnabled), "true");
+
+  // Create two plan fragments representing different stages of the same query.
+  // Both are simple table scans with partitioned output.
+  core::PlanNodeId scanNodeId1;
+  auto planFragment1 = exec::test::PlanBuilder()
+                           .tableScan(rowType_)
+                           .capturePlanNodeId(scanNodeId1)
+                           .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+                           .planFragment();
+
+  core::PlanNodeId scanNodeId2;
+  auto planFragment2 = exec::test::PlanBuilder()
+                           .tableScan(rowType_)
+                           .capturePlanNodeId(scanNodeId2)
+                           .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+                           .planFragment();
+
+  // Mark server as overloaded so tasks get queued instead of started.
+  taskManager_->setServerOverloaded(true);
+
+  // Use the same query ID but different stage IDs, so that both tasks share the
+  // same queryCtx and are grouped in the same queue entry.
+  const protocol::TaskId taskId1 = "queueAbortQuery.4.0.1.0";
+  const protocol::TaskId taskId2 = "queueAbortQuery.5.0.1.0";
+
+  // Create both tasks with no splits and 'no more splits'.
+  {
+    long splitSequenceId{0};
+    protocol::TaskUpdateRequest updateRequest;
+    updateRequest.sources.push_back(
+        makeSource(scanNodeId1, {}, true, splitSequenceId));
+    createOrUpdateTask(taskId1, updateRequest, planFragment1);
+  }
+  {
+    long splitSequenceId{0};
+    protocol::TaskUpdateRequest updateRequest;
+    updateRequest.sources.push_back(
+        makeSource(scanNodeId2, {}, true, splitSequenceId));
+    createOrUpdateTask(taskId2, updateRequest, planFragment2);
+  }
+
+  // Verify both tasks are queued (not started).
+  auto prestoTask1 = taskManager_->tasks().at(taskId1);
+  auto prestoTask2 = taskManager_->tasks().at(taskId2);
+  ASSERT_FALSE(prestoTask1->taskStarted);
+  ASSERT_FALSE(prestoTask2->taskStarted);
+  ASSERT_EQ(taskManager_->numQueuedTasks(), 2);
+
+  // Simulate the coordinator aborting one task (e.g. its fragment completed on
+  // other workers). This sets the task state to ABORTED but does not remove it
+  // from the queue.
+  taskManager_->deleteTask(taskId1, true, false);
+
+  // Verify task1 is aborted but task2 is still planned.
+  ASSERT_EQ(prestoTask1->info.taskStatus.state, protocol::TaskState::ABORTED);
+  ASSERT_FALSE(prestoTask2->taskStarted);
+
+  // Clear overload and trigger the dequeue.
+  taskManager_->setServerOverloaded(false);
+  taskManager_->maybeStartNextQueuedTask();
+
+  // The key assertion: task2 must have been started despite task1 being
+  // aborted.
+  ASSERT_TRUE(prestoTask2->taskStarted)
+      << "Task from a different stage was not started after its sibling "
+         "was aborted — the aborted task blocked the entire queue entry.";
+
+  // Verify task2 runs to completion.
+  auto results = fetchAllResults(taskId2, rowType_, {taskId2});
+  ASSERT_EQ(results.results.size(), 0);
+  auto execTask2 = prestoTask2->task;
+  if (execTask2) {
+    ASSERT_EQ(execTask2->state(), TaskState::kFinished);
+  }
+}
+
 // Runs "select * from t where c0 % 5 = 1" query.
 // Creates one task and provides splits one at a time.
 TEST_P(TaskManagerTest, tableScanOneSplitAtATime) {
@@ -1470,7 +1554,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   veloxTask->start(1);
   prestoTask->taskStarted = true;
 
-  auto outputBufferManager = OutputBufferManager::getInstanceRef();
+  auto outputBufferManager = DefaultOutputBufferManager::getInstanceRef();
   ASSERT_TRUE(outputBufferManager != nullptr);
   // Wait until the task has produced all the output buffers so its memory usage
   // stay constant to ease test.
@@ -1726,6 +1810,78 @@ TEST_P(TaskManagerTest, summarize) {
   taskInfo = taskManager_->deleteTask(taskId, true, true);
   // pipeline stats available when summarize set to false and task is finished
   ASSERT_GT(taskInfo->stats.pipelines.size(), 0);
+}
+
+// Minimal no-op shuffle writer for testing buffer creation without
+// requiring a real shuffle backend.
+namespace {
+class NoOpShuffleWriter : public operators::ShuffleWriter {
+ public:
+  void collect(int32_t, std::string_view, std::string_view) override {}
+  void noMoreData(bool) override {}
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return {};
+  }
+};
+
+class NoOpShuffleFactory : public operators::ShuffleInterfaceFactory {
+ public:
+  static constexpr std::string_view kName{"noop_shuffle"};
+
+  std::shared_ptr<operators::ShuffleReader>
+  createReader(const std::string&, int32_t, memory::MemoryPool*) override {
+    return nullptr;
+  }
+
+  std::shared_ptr<operators::ShuffleWriter> createWriter(
+      const std::string&,
+      memory::MemoryPool*) override {
+    return std::make_shared<NoOpShuffleWriter>();
+  }
+};
+} // namespace
+
+TEST_P(TaskManagerTest, duplicateCreateTaskWithMaterializedOutput) {
+  const int32_t numPartitions = 2;
+  operators::ShuffleInterfaceFactory::registerFactory(
+      std::string(NoOpShuffleFactory::kName),
+      std::make_unique<NoOpShuffleFactory>());
+  exec::Operator::registerOperator(
+      std::make_unique<operators::MaterializedOutputTranslator>());
+
+  auto data = makeRowVector({makeFlatVector<int32_t>({1, 2, 3, 4})});
+  auto dataType = asRowType(data->type());
+
+  auto valuesNode = exec::test::PlanBuilder().values({data}, true).planNode();
+  auto planNode = std::make_shared<operators::MaterializedOutputNode>(
+      "matOut",
+      std::vector<core::TypedExprPtr>{},
+      numPartitions,
+      dataType,
+      std::make_shared<exec::HashPartitionFunctionSpec>(
+          dataType, std::vector<column_index_t>{0}),
+      false,
+      operators::ShuffleWriterMetadata{
+          "{}", std::string(NoOpShuffleFactory::kName)},
+      valuesNode);
+  core::PlanFragment planFragment{planNode};
+
+  protocol::TaskId taskId = "dup_test.0.0.1.0";
+  protocol::TaskUpdateRequest updateRequest;
+
+  // First call creates the task and registers the buffer.
+  auto taskInfo1 = createOrUpdateTask(taskId, updateRequest, planFragment);
+  ASSERT_NE(taskInfo1, nullptr);
+  EXPECT_NE(operators::MaterializedOutputBuffer::getBuffer(taskId), nullptr);
+
+  // Second call with the same taskId is a no-op — no crash.
+  auto taskInfo2 = createOrUpdateTask(taskId, updateRequest, planFragment);
+  ASSERT_NE(taskInfo2, nullptr);
+
+  // Clean up: remove buffer, delete task, wait for cleanup.
+  operators::MaterializedOutputBuffer::removeBuffer(taskId);
+  taskManager_->deleteTask(taskId, false, false);
+  waitForAllOldTasksToBeCleaned(taskManager_.get(), 10'000'000);
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

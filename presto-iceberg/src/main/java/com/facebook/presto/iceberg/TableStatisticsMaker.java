@@ -36,6 +36,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.DisjointRangeDomainHistogram;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.StringRange;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -74,6 +75,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.CharBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -105,6 +107,7 @@ import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.statistics.KllHistogram.isKllHistogramSupportedType;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateAndSetTableSize;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.formatIdentifier;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.getTotalRecords;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.HISTOGRAM;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
@@ -120,7 +123,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.iceberg.SnapshotSummary.TOTAL_RECORDS_PROP;
 
 public class TableStatisticsMaker
 {
@@ -223,10 +225,12 @@ public class TableStatisticsMaker
                     .setRowCount(Estimate.of(0))
                     .build();
         }
-        // the total record count for the whole table
+        // the total record count for the whole table: prefer the O(1) snapshot summary,
+        // and fall back to a full manifest scan only when the summary lacks total-records
         Optional<Long> totalRecordCount = Optional.of(intersection)
                 .filter(domain -> !domain.isAll())
-                .map(domain -> getDataTableSummary(tableHandle, ImmutableList.of(), TupleDomain.all(), idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields).getRecordCount());
+                .map(domain -> getTotalRecords(icebergTable.snapshot(tableHandle.getIcebergTableName().getSnapshotId().get()))
+                        .orElseGet(() -> getDataTableSummary(tableHandle, ImmutableList.of(), TupleDomain.all(), idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields).getRecordCount()));
 
         double recordCount = summary.getRecordCount();
         TableStatistics.Builder result = TableStatistics.builder();
@@ -270,6 +274,10 @@ public class TableStatisticsMaker
                             .map(histogram -> DisjointRangeDomainHistogram
                                     .addConjunction(histogram, Range.range(DOUBLE, histRange.getMin(), true, histRange.getMax(), true))));
                 }
+                else if (min instanceof CharBuffer && max instanceof CharBuffer) {
+                    final StringRange stringRange = new StringRange(String.valueOf(min), String.valueOf(max));
+                    columnBuilder.setStringRange(stringRange);
+                }
             }
             result.setColumnStatistics(columnHandle, columnBuilder.build());
         }
@@ -283,9 +291,11 @@ public class TableStatisticsMaker
             List<Types.NestedField> nonPartitionPrimitiveColumns,
             List<PartitionField> partitionFields)
     {
+        // Iceberg's expression binder rejects predicates on metadata columns; strip them here.
+        TupleDomain<IcebergColumnHandle> nonMetadataIntersection = IcebergUtil.getNonMetadataColumnConstraints(intersection);
         TableScan tableScan = icebergTable.newScan()
                 .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
-                .filter(toIcebergExpression(intersection))
+                .filter(toIcebergExpression(nonMetadataIntersection))
                 .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
                 .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
                 .includeColumnStats();
@@ -498,7 +508,7 @@ public class TableStatisticsMaker
     private static Types.NestedField getField(ColumnStatisticMetadata metadata, Table icebergTable, Snapshot snapshot)
     {
         return Optional.ofNullable(icebergTable.schemas().get(snapshot.schemaId()))
-                .map(schema -> schema.findField(metadata.getColumnName()))
+                .map(schema -> schema.caseInsensitiveFindField(metadata.getColumnName()))
                 .orElseThrow(() -> {
                     log.warn("failed to find column name %s in schema of table %s", metadata.getColumnName(), icebergTable.name());
                     return new PrestoException(ICEBERG_INVALID_METADATA, format("failed to find column name %s in schema of table %s", metadata.getColumnName(), icebergTable.name()));
@@ -524,6 +534,9 @@ public class TableStatisticsMaker
             Map<Integer, Object> newStats,
             Predicate<Integer> predicate)
     {
+        if (!summary.hasValidColumnMetrics()) {
+            return;
+        }
         for (PartitionField field : partitionFields) {
             int id = field.sourceId();
             if (summary.getCorruptedStats().contains(id)) {
@@ -565,12 +578,9 @@ public class TableStatisticsMaker
                     long firstDiff = abs(target.timestampMillis() - firstSnap.timestampMillis());
                     long secondDiff = abs(target.timestampMillis() - secondSnap.timestampMillis());
 
-                    // check if total-record exists
-                    Optional<Long> targetTotalRecords = Optional.ofNullable(target.summary().get(TOTAL_RECORDS_PROP)).map(Long::parseLong);
-                    Optional<Long> firstTotalRecords = Optional.ofNullable(firstSnap.summary().get(TOTAL_RECORDS_PROP))
-                            .map(Long::parseLong);
-                    Optional<Long> secondTotalRecords = Optional.ofNullable(secondSnap.summary().get(TOTAL_RECORDS_PROP))
-                            .map(Long::parseLong);
+                    Optional<Long> targetTotalRecords = getTotalRecords(target);
+                    Optional<Long> firstTotalRecords = getTotalRecords(firstSnap);
+                    Optional<Long> secondTotalRecords = getTotalRecords(secondSnap);
 
                     if (targetTotalRecords.isPresent() && firstTotalRecords.isPresent() && secondTotalRecords.isPresent()) {
                         long targetTotal = targetTotalRecords.get();

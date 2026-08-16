@@ -17,13 +17,16 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.MaterializedViewQueryOptimizer;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
@@ -36,13 +39,12 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
+import static com.facebook.presto.sql.rewrite.MaterializedViewRewriteResult.materializedViewRewriteResult;
 import static java.util.Objects.requireNonNull;
 
 public class MaterializedViewOptimizationRewrite
-        implements StatementRewrite.Rewrite
 {
-    @Override
-    public Statement rewrite(
+    public MaterializedViewRewriteResult rewrite(
             Session session,
             Metadata metadata,
             SqlParser parser,
@@ -52,11 +54,11 @@ public class MaterializedViewOptimizationRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
             WarningCollector warningCollector,
-            String query)
+            String query,
+            ViewDefinitionReferences viewDefinitionReferences)
     {
-        return (Statement) new MaterializedViewOptimizationRewrite
-                .Visitor(metadata, session, parser, accessControl)
-                .process(node, null);
+        Statement rewritten = (Statement) new Visitor(metadata, session, parser, accessControl).process(node, null);
+        return materializedViewRewriteResult(rewritten, rewritten != node);
     }
 
     private static final class Visitor
@@ -91,6 +93,33 @@ public class MaterializedViewOptimizationRewrite
                 return optimizeQueryUsingMaterializedView(metadata, session, sqlParser, accessControl, query);
             }
             return query;
+        }
+
+        @Override
+        protected Node visitCreateTableAsSelect(CreateTableAsSelect node, Void context)
+        {
+            Query rewritten = (Query) process(node.getQuery(), context);
+            if (rewritten == node.getQuery()) {
+                return node;
+            }
+            return new CreateTableAsSelect(
+                    node.getName(),
+                    rewritten,
+                    node.isNotExists(),
+                    node.getProperties(),
+                    node.isWithData(),
+                    node.getColumnAliases(),
+                    node.getComment());
+        }
+
+        @Override
+        protected Node visitInsert(Insert node, Void context)
+        {
+            Query rewritten = (Query) process(node.getQuery(), context);
+            if (rewritten == node.getQuery()) {
+                return node;
+            }
+            return new Insert(node.getTarget(), node.getColumns(), rewritten);
         }
     }
 

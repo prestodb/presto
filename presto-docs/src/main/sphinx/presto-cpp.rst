@@ -7,12 +7,16 @@ Note: Presto C++ is in active development. See :doc:`Limitations </presto_cpp/li
 .. toctree::
     :maxdepth: 1
 
+    presto_cpp/installation
     presto_cpp/features
+    presto_cpp/functions
     presto_cpp/sidecar
     presto_cpp/limitations
     presto_cpp/plugin
     presto_cpp/properties
     presto_cpp/properties-session
+    presto_cpp/metrics
+    presto_cpp/federation
 
 Overview
 ========
@@ -30,7 +34,7 @@ A Presto C++ worker can be configured as a sidecar to customize the Java
 coordinator's functionality for Presto C++ clusters. The Presto C++ sidecar
 implements additional REST endpoints to provide the coordinator more
 information about the Presto C++ worker, such as session properties and
-functions, via the ``NativeSidecarPlugin``. It is recommended to configure
+functions, by using the ``NativeSidecarPlugin``. It is recommended to configure
 at least one worker in the Presto C++ cluster as a sidecar. See :doc:`presto_cpp/sidecar`
 and :ref:`native-sidecar-plugin` for more details.
 
@@ -92,3 +96,20 @@ TPC-DS Connector
 * TPC-DS connector, with ``tpcds.use-varchar-type=true`` in the coordinator's TPCDS catalog file.
 
 For more information see :doc:`/connector/tpcds` documentation.
+
+JMX Connector
+^^^^^^^^^^^^^
+
+* JMX connector is supported for monitoring and observability in Presto C++ clusters.
+
+* In Presto C++ clusters, JMX metrics are only available from the **Java coordinator**, not from C++ workers. This is because C++ workers
+  do not run a JVM and therefore do not have JMX MBeans. Only coordinator-specific metrics are accessible.
+
+* Configuration: The JMX catalog only needs to be configured on the **coordinator**. The C++ workers do not need JMX catalog configuration
+  because they cannot expose JMX metrics.
+
+* Example query to access coordinator metadata metrics::
+
+    SELECT * FROM jmx.current."com.facebook.presto.metadata:name=MetadataManagerStats"
+
+For more information see :doc:`/admin/jmx-metrics`.

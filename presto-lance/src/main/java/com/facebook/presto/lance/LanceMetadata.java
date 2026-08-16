@@ -1,0 +1,326 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.lance;
+
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
+import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
+
+import javax.inject.Inject;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
+import static java.util.Collections.singletonList;
+import static java.util.Objects.requireNonNull;
+
+public class LanceMetadata
+        implements ConnectorMetadata
+{
+    private final LanceNamespaceHolder namespaceHolder;
+    private final JsonCodec<LanceCommitTaskData> commitTaskDataCodec;
+
+    @Inject
+    public LanceMetadata(
+            LanceNamespaceHolder namespaceHolder,
+            JsonCodec<LanceCommitTaskData> commitTaskDataCodec)
+    {
+        this.namespaceHolder = requireNonNull(namespaceHolder, "namespaceHolder is null");
+        this.commitTaskDataCodec = requireNonNull(commitTaskDataCodec, "commitTaskDataCodec is null");
+    }
+
+    @Override
+    public boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        return namespaceHolder.schemaExists(schemaName);
+    }
+
+    @Override
+    public List<String> listSchemaNames(ConnectorSession session)
+    {
+        return namespaceHolder.listSchemaNames();
+    }
+
+    @Override
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    {
+        if (!schemaExists(session, tableName.getSchemaName())) {
+            return null;
+        }
+        String tablePath = namespaceHolder.getTablePath(tableName.getSchemaName(), tableName.getTableName());
+        if (tablePath == null) {
+            return null;
+        }
+        List<String> tableId = namespaceHolder.getTableId(tableName.getSchemaName(), tableName.getTableName());
+        long datasetVersion = namespaceHolder.getLatestVersion(tablePath);
+        return new LanceTableHandle(tableName.getSchemaName(), tableName.getTableName(), tablePath, tableId, Optional.of(datasetVersion));
+    }
+
+    @Override
+    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
+    {
+        return new ConnectorTableLayout(handle);
+    }
+
+    @Override
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
+    {
+        LanceTableHandle lanceTable = (LanceTableHandle) table;
+        Schema arrowSchema = describeTableOrFail(lanceTable);
+        SchemaTableName schemaTableName = new SchemaTableName(lanceTable.getSchemaName(), lanceTable.getTableName());
+
+        ImmutableList.Builder<ColumnMetadata> columnsMetadata = ImmutableList.builder();
+        for (Field field : arrowSchema.getFields()) {
+            columnsMetadata.add(ColumnMetadata.builder()
+                    .setName(field.getName())
+                    .setType(LanceColumnHandle.toPrestoType(field))
+                    .setNullable(field.isNullable())
+                    .build());
+        }
+
+        return new ConnectorTableMetadata(schemaTableName, columnsMetadata.build());
+    }
+
+    /**
+     * Reads the Arrow schema for an already-resolved table handle.
+     *
+     * <p>The handle's path came from the namespace, so a failure here means the dataset itself
+     * could not be opened. Returning {@code null}/empty in that case would surface as an NPE or
+     * as a table that appears to have no columns, both of which hide the real cause.
+     */
+    private Schema describeTableOrFail(LanceTableHandle lanceTable)
+    {
+        try {
+            return namespaceHolder.describeTable(lanceTable.getTablePath(), lanceTable.getDatasetVersion());
+        }
+        catch (PrestoException e) {
+            throw e;
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(LanceErrorCode.LANCE_ERROR,
+                    format("Failed to read schema for table %s.%s at %s",
+                            lanceTable.getSchemaName(), lanceTable.getTableName(), lanceTable.getTablePath()),
+                    e);
+        }
+    }
+
+    @Override
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    {
+        if (schemaName.isPresent()) {
+            String schema = schemaName.get();
+            if (!namespaceHolder.schemaExists(schema)) {
+                return ImmutableList.of();
+            }
+            return listTablesInSchema(schema);
+        }
+
+        // No schema filter means every schema in the catalog. Falling back to a single
+        // default schema would return nothing in multi-level mode, where "default" is
+        // not a real namespace.
+        ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
+        for (String schema : namespaceHolder.listSchemaNames()) {
+            // The namespace just listed these, so an existence check would be a wasted round trip.
+            tables.addAll(listTablesInSchema(schema));
+        }
+        return tables.build();
+    }
+
+    private List<SchemaTableName> listTablesInSchema(String schema)
+    {
+        return namespaceHolder.listTables(schema).stream()
+                .map(tableName -> new SchemaTableName(schema, tableName))
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        LanceTableHandle lanceTable = (LanceTableHandle) tableHandle;
+        Schema arrowSchema = describeTableOrFail(lanceTable);
+
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        for (Field field : arrowSchema.getFields()) {
+            LanceColumnHandle columnHandle = new LanceColumnHandle(
+                    field.getName(),
+                    LanceColumnHandle.toPrestoType(field),
+                    field.isNullable());
+            columnHandles.put(field.getName(), columnHandle);
+        }
+        return columnHandles.build();
+    }
+
+    @Override
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        return ((LanceColumnHandle) columnHandle).getColumnMetadata();
+    }
+
+    @Override
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        List<SchemaTableName> tables = prefix.getTableName() != null
+                ? singletonList(prefix.toSchemaTableName())
+                : listTables(session, Optional.ofNullable(prefix.getSchemaName()));
+
+        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
+        for (SchemaTableName tableName : tables) {
+            ConnectorTableHandle tableHandle = getTableHandle(session, tableName);
+            if (tableHandle != null) {
+                ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
+                if (tableMetadata != null) {
+                    columns.put(tableName, tableMetadata.getColumns());
+                }
+            }
+        }
+        return columns.build();
+    }
+
+    @Override
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            Constraint<ColumnHandle> constraint,
+            Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        LanceTableHandle lanceTable = (LanceTableHandle) table;
+        ConnectorTableLayout layout = new ConnectorTableLayout(
+                new LanceTableLayoutHandle(lanceTable, constraint.getSummary()));
+        return new ConnectorTableLayoutResult(layout, constraint.getSummary());
+    }
+
+    @Override
+    public ConnectorOutputTableHandle beginCreateTable(
+            ConnectorSession session,
+            ConnectorTableMetadata tableMetadata,
+            Optional<ConnectorNewTableLayout> layout)
+    {
+        Schema arrowSchema = LancePageToArrowConverter.toArrowSchema(tableMetadata.getColumns());
+
+        String schemaName = tableMetadata.getTable().getSchemaName();
+        String tableName = tableMetadata.getTable().getTableName();
+
+        String tablePath = namespaceHolder.createTable(schemaName, tableName, arrowSchema);
+        List<String> tableId = namespaceHolder.getTableId(schemaName, tableName);
+
+        List<LanceColumnHandle> columns = tableMetadata.getColumns().stream()
+                .map(col -> new LanceColumnHandle(col.getName(), col.getType(), col.isNullable()))
+                .collect(toImmutableList());
+
+        return new LanceWritableTableHandle(
+                schemaName,
+                tableName,
+                tablePath,
+                tableId,
+                arrowSchema.toJson(),
+                columns);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateTable(
+            ConnectorSession session,
+            ConnectorOutputTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        LanceWritableTableHandle handle = (LanceWritableTableHandle) tableHandle;
+
+        if (!fragments.isEmpty()) {
+            List<org.lance.FragmentMetadata> allFragments = collectFragments(fragments);
+            namespaceHolder.commitAppend(handle.getTablePath(), allFragments);
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        LanceTableHandle lanceTable = (LanceTableHandle) tableHandle;
+        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTablePath(), lanceTable.getDatasetVersion());
+
+        List<LanceColumnHandle> columns = arrowSchema.getFields().stream()
+                .map(field -> new LanceColumnHandle(
+                        field.getName(),
+                        LanceColumnHandle.toPrestoType(field),
+                        field.isNullable()))
+                .collect(toImmutableList());
+
+        return new LanceWritableTableHandle(
+                lanceTable.getSchemaName(),
+                lanceTable.getTableName(),
+                lanceTable.getTablePath(),
+                lanceTable.getTableId(),
+                arrowSchema.toJson(),
+                columns);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(
+            ConnectorSession session,
+            ConnectorInsertTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        LanceWritableTableHandle handle = (LanceWritableTableHandle) tableHandle;
+
+        if (!fragments.isEmpty()) {
+            List<org.lance.FragmentMetadata> allFragments = collectFragments(fragments);
+            namespaceHolder.commitAppend(handle.getTablePath(), allFragments);
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        LanceTableHandle lanceTable = (LanceTableHandle) tableHandle;
+        namespaceHolder.dropTable(lanceTable.getTableId());
+    }
+
+    private List<org.lance.FragmentMetadata> collectFragments(Collection<Slice> fragments)
+    {
+        ImmutableList.Builder<org.lance.FragmentMetadata> allFragments = ImmutableList.builder();
+        for (Slice slice : fragments) {
+            LanceCommitTaskData commitData = commitTaskDataCodec.fromJson(slice.getBytes());
+            allFragments.addAll(LanceFragmentData.deserializeFragments(commitData.getFragmentsJson()));
+        }
+        return allFragments.build();
+    }
+}

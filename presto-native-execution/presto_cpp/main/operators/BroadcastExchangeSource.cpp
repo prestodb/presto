@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include <fmt/format.h>
+#include <folly/ScopeGuard.h>
 #include <folly/Uri.h>
 
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
@@ -41,6 +42,10 @@ BroadcastExchangeSource::request(
   }
 
   return folly::makeTryWith([&]() -> Response {
+    SCOPE_EXIT {
+      checkFinish();
+    };
+
     int64_t totalBytes = 0;
     std::vector<std::unique_ptr<velox::exec::SerializedPageBase>> pages;
 
@@ -82,6 +87,10 @@ BroadcastExchangeSource::requestDataSizes(
     std::chrono::microseconds /*maxWait*/) {
   // Deferred execution to avoid blocking the caller thread.
   return folly::makeSemiFuture().deferValue([this](auto&&) -> Response {
+    SCOPE_EXIT {
+      checkFinish();
+    };
+
     auto remainingPageSizes = reader_->remainingPageSizes();
 
     // If the source is empty from the start, signal completion to ExchangeQueue

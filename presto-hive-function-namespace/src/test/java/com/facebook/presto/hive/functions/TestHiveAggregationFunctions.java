@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -150,7 +151,8 @@ public class TestHiveAggregationFunctions
                 "hive-functions",
                 "hive",
                 Collections.emptyMap(),
-                server.getPluginNodeManager());
+                server.getPluginNodeManager(),
+                defaultAuthClientConfigs(server.getPluginNodeManager().getCurrentNode().getNodeIdentifier()));
         server.refreshNodes();
         return server;
     }

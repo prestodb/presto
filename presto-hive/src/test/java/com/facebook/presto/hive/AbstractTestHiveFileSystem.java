@@ -26,6 +26,7 @@ import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreCacheSpecProvider;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreOperationResult;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -231,6 +232,8 @@ public abstract class AbstractTestHiveFileSystem
 
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
+                config.getDateTimeZone(),
+                FUNCTION_AND_TYPE_MANAGER,
                 transactionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
@@ -508,7 +511,7 @@ public abstract class AbstractTestHiveFileSystem
 
         public TestingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, MetastoreClientConfig metastoreClientConfig, Path basePath, HdfsEnvironment hdfsEnvironment)
         {
-            super(delegate, executor, NOOP_METASTORE_CACHE_STATS, metastoreClientConfig);
+            super(delegate, executor, NOOP_METASTORE_CACHE_STATS, metastoreClientConfig, new MetastoreCacheSpecProvider(metastoreClientConfig));
             this.basePath = basePath;
             this.hdfsEnvironment = hdfsEnvironment;
         }

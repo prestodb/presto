@@ -25,8 +25,10 @@ import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactor
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.inject.Inject;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -44,7 +46,7 @@ import static java.util.Objects.requireNonNull;
 public class SessionPropertyDefaults
 {
     private static final Logger log = Logger.get(SessionPropertyDefaults.class);
-    private static final File SESSION_PROPERTY_CONFIGURATION = new File("etc/session-property-config.properties");
+    private static final Path SESSION_PROPERTY_CONFIGURATION = Paths.get("etc/session-property-config.properties");
     private static final String SESSION_PROPERTY_MANAGER_NAME = "session-property-config.configuration-manager";
 
     private final SessionPropertyConfigurationManagerContext configurationManagerContext;
@@ -69,11 +71,11 @@ public class SessionPropertyDefaults
     public void loadConfigurationManager()
             throws IOException
     {
-        if (!SESSION_PROPERTY_CONFIGURATION.exists()) {
+        if (!Files.exists(SESSION_PROPERTY_CONFIGURATION)) {
             return;
         }
 
-        Map<String, String> properties = loadProperties(SESSION_PROPERTY_CONFIGURATION);
+        Map<String, String> properties = loadProperties(SESSION_PROPERTY_CONFIGURATION.toFile());
         checkArgument(!isNullOrEmpty(properties.get(SESSION_PROPERTY_MANAGER_NAME)),
                 "Session property configuration %s does not contain %s",
                 SESSION_PROPERTY_CONFIGURATION,

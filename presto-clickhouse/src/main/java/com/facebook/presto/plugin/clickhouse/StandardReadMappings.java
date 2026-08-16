@@ -48,7 +48,6 @@ import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERR
 import static com.facebook.presto.plugin.clickhouse.DateTimeUtil.getMillisOfDay;
 import static com.facebook.presto.plugin.clickhouse.ReadMapping.longReadMapping;
 import static com.facebook.presto.plugin.clickhouse.ReadMapping.sliceReadMapping;
-import static com.facebook.presto.plugin.clickhouse.TimestampUtil.getMillisecondsFromTimestampString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
@@ -141,8 +140,9 @@ public final class StandardReadMappings
     {
         return longReadMapping(TIMESTAMP, (resultSet, columnIndex) -> {
             Timestamp timestamp = resultSet.getTimestamp(columnIndex);
-            // getTimestamp loses the milliseconds, but we can get them from the getString
-            return timestamp.getTime() + getMillisecondsFromTimestampString(resultSet.getString(columnIndex));
+            // In ClickHouse JDBC 0.3.2+, getTimestamp() properly includes milliseconds
+            // so we don't need to extract them separately from getString()
+            return timestamp.getTime();
         });
     }
 

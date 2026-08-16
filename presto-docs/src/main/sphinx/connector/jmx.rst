@@ -6,7 +6,7 @@ The JMX connector provides the ability to query JMX information from all
 nodes in a Presto cluster. This is very useful for monitoring or debugging.
 Java Management Extensions (JMX) provides information about the Java
 Virtual Machine and all of the software running inside it. Presto itself
-is heavily instrumented via JMX.
+is heavily instrumented with JMX.
 
 This connector can also be configured so that chosen JMX information will
 be periodically dumped and stored in memory for later access.

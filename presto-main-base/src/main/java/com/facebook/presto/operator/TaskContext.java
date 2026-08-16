@@ -60,8 +60,6 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getLast;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -443,7 +441,9 @@ public class TaskContext
         // check for end state to avoid callback ordering problems
         updateStatsIfDone(taskStateMachine.getState());
 
-        List<PipelineStats> pipelineStats = ImmutableList.copyOf(transform(pipelineContexts, PipelineContext::getPipelineStats));
+        List<PipelineStats> pipelineStats = pipelineContexts.stream()
+                .map(PipelineContext::getPipelineStats)
+                .collect(toImmutableList());
 
         long lastExecutionEndTime = 0;
 
@@ -464,6 +464,7 @@ public class TaskContext
         long totalAllocation = 0;
 
         long rawInputDataSize = 0;
+        long scanRawInputDataSize = 0;
         long rawInputPositions = 0;
 
         long processedInputDataSize = 0;
@@ -520,7 +521,13 @@ public class TaskContext
             }
 
             physicalWrittenDataSize += pipeline.getPhysicalWrittenDataSizeInBytes();
-            pipeline.getOperatorSummaries().stream().forEach(stats -> mergedRuntimeStats.mergeWith(stats.getRuntimeStats()));
+            for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
+                mergedRuntimeStats.mergeWith(operatorStats.getRuntimeStats());
+                String operatorType = operatorStats.getOperatorType();
+                if (operatorType.equals(TableScanOperator.class.getSimpleName()) || operatorType.equals(ScanFilterAndProjectOperator.class.getSimpleName())) {
+                    scanRawInputDataSize += operatorStats.getRawInputDataSizeInBytes();
+                }
+            }
         }
 
         long startNanos = this.startNanos.get();
@@ -613,6 +620,7 @@ public class TaskContext
                 blockedReasons.build(),
                 totalAllocation,
                 rawInputDataSize,
+                scanRawInputDataSize,
                 rawInputPositions,
                 processedInputDataSize,
                 processedInputPositions,
@@ -700,7 +708,7 @@ public class TaskContext
         }, null);
         ImmutableList.Builder<OperatorMemoryReservationSummary> result = ImmutableList.builder();
         for (Collection<OperatorContext> operators : operatorContexts.asMap().values()) {
-            OperatorContext lastContext = getLast(operators);
+            OperatorContext lastContext = operators.stream().reduce((first, second) -> second).orElse(null);
             long totalOperatorMemoryReservationInBytes = 0;
             List<DataSize> reservations = new ArrayList<>();
             for (OperatorContext context : operators) {

@@ -19,13 +19,11 @@ import com.facebook.presto.testing.QueryRunner;
 public class TestPrestoNativeIcebergTpchQueriesParquetUsingThrift
         extends AbstractTestNativeIcebergTpchQueries
 {
-    private final String storageFormat = "PARQUET";
-
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
         return PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder()
-                .setStorageFormat(storageFormat)
+                .setStorageFormat(getStorageFormat())
                 .setUseThrift(true)
                 .build();
     }
@@ -34,7 +32,7 @@ public class TestPrestoNativeIcebergTpchQueriesParquetUsingThrift
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
         return PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder()
-                .setStorageFormat(storageFormat)
+                .setStorageFormat(getStorageFormat())
                 .build();
     }
 }

@@ -15,28 +15,49 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.airlift.units.Duration;
 import com.facebook.airlift.units.MinDuration;
 import com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheScope;
+import com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import com.google.inject.ConfigurationException;
+import com.google.inject.spi.Message;
+import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.transform;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class MetastoreClientConfig
 {
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
     private boolean verifyChecksum = true;
     private boolean requireHadoopNative = true;
 
-    private Duration metastoreCacheTtl = new Duration(0, TimeUnit.SECONDS);
-    private Duration metastoreRefreshInterval = new Duration(0, TimeUnit.SECONDS);
+    private Set<MetastoreCacheType> enabledCaches = ImmutableSet.of();
+    private Set<MetastoreCacheType> disabledCaches = ImmutableSet.of();
+    private Duration defaultMetastoreCacheTtl = new Duration(0, TimeUnit.SECONDS);
+    private Map<MetastoreCacheType, Duration> metastoreCacheTtlByType = ImmutableMap.of();
+    private Duration defaultMetastoreCacheRefreshInterval = new Duration(0, TimeUnit.SECONDS);
+    private Map<MetastoreCacheType, Duration> metastoreCacheRefreshIntervalByType = ImmutableMap.of();
     private long metastoreCacheMaximumSize = 10000;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private int maxMetastoreRefreshThreads = 100;
@@ -90,31 +111,135 @@ public class MetastoreClientConfig
         return this;
     }
 
-    @NotNull
-    public Duration getMetastoreCacheTtl()
+    public Set<MetastoreCacheType> getEnabledCaches()
     {
-        return metastoreCacheTtl;
+        return enabledCaches;
+    }
+
+    @Config("hive.metastore.cache.enabled-caches")
+    @ConfigDescription("Comma-separated list of metastore cache types to enable")
+    public MetastoreClientConfig setEnabledCaches(String caches)
+    {
+        if (caches == null) {
+            this.enabledCaches = ImmutableSet.of();
+            return this;
+        }
+
+        this.enabledCaches = ImmutableSet.copyOf(transform(
+                SPLITTER.split(caches),
+                cache -> MetastoreCacheType.valueOf(cache.toUpperCase(ENGLISH))));
+        return this;
+    }
+
+    public Set<MetastoreCacheType> getDisabledCaches()
+    {
+        return disabledCaches;
+    }
+
+    @Config("hive.metastore.cache.disabled-caches")
+    @ConfigDescription("Comma-separated list of metastore cache types to disable")
+    public MetastoreClientConfig setDisabledCaches(String caches)
+    {
+        if (caches == null) {
+            this.disabledCaches = ImmutableSet.of();
+            return this;
+        }
+
+        this.disabledCaches = ImmutableSet.copyOf(transform(
+                SPLITTER.split(caches),
+                cache -> MetastoreCacheType.valueOf(cache.toUpperCase(ENGLISH))));
+        return this;
+    }
+
+    @PostConstruct
+    public void isBothEnabledAndDisabledConfigured()
+    {
+        if (!getEnabledCaches().isEmpty() && !getDisabledCaches().isEmpty()) {
+            throw new ConfigurationException(ImmutableList.of(new Message("Only one of 'hive.metastore.cache.enabled-caches' or 'hive.metastore.cache.disabled-caches' can be set. " +
+                    "These configs are mutually exclusive.")));
+        }
+    }
+
+    @NotNull
+    public Duration getDefaultMetastoreCacheTtl()
+    {
+        return defaultMetastoreCacheTtl;
     }
 
     @MinDuration("0ms")
-    @Config("hive.metastore-cache-ttl")
-    public MetastoreClientConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
+    @Config("hive.metastore.cache.ttl.default")
+    @ConfigDescription("Default time-to-live for Hive metastore cache entries. " +
+            "It is used when no per-cache TTL override is configured. " +
+            "TTL of 0ms would mean cache is disabled.")
+    @LegacyConfig("hive.metastore-cache-ttl")
+    public MetastoreClientConfig setDefaultMetastoreCacheTtl(Duration defaultMetastoreCacheTtl)
     {
-        this.metastoreCacheTtl = metastoreCacheTtl;
+        this.defaultMetastoreCacheTtl = defaultMetastoreCacheTtl;
+        return this;
+    }
+
+    public Map<MetastoreCacheType, Duration> getMetastoreCacheTtlByType()
+    {
+        return metastoreCacheTtlByType;
+    }
+
+    @Config("hive.metastore.cache.ttl-by-type")
+    @ConfigDescription("Per-cache time-to-live (TTL) overrides for Hive metastore caches.\n" +
+            "The value is a comma-separated list of <CACHE_TYPE>:<DURATION> pairs.")
+    public MetastoreClientConfig setMetastoreCacheTtlByType(String metastoreCacheTtlByTypeValues)
+    {
+        if (metastoreCacheTtlByTypeValues == null || metastoreCacheTtlByTypeValues.isEmpty()) {
+            return this;
+        }
+
+        this.metastoreCacheTtlByType = Arrays.stream(metastoreCacheTtlByTypeValues.split(","))
+                .map(entry -> entry.split(":"))
+                .filter(parts -> parts.length == 2)
+                .collect(toImmutableMap(
+                        parts -> MetastoreCacheType.valueOf(parts[0].trim().toUpperCase(ENGLISH)),
+                        parts -> Duration.valueOf(parts[1].trim())));
+
         return this;
     }
 
     @NotNull
-    public Duration getMetastoreRefreshInterval()
+    public Duration getDefaultMetastoreCacheRefreshInterval()
     {
-        return metastoreRefreshInterval;
+        return defaultMetastoreCacheRefreshInterval;
     }
 
     @MinDuration("1ms")
-    @Config("hive.metastore-refresh-interval")
-    public MetastoreClientConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
+    @Config("hive.metastore.cache.refresh-interval.default")
+    @ConfigDescription("Default refresh interval for Hive metastore cache entries.\n" +
+            "Controls how often cached values are asynchronously refreshed.")
+    @LegacyConfig("hive.metastore-refresh-interval")
+    public MetastoreClientConfig setDefaultMetastoreCacheRefreshInterval(Duration defaultMetastoreCacheRefreshInterval)
     {
-        this.metastoreRefreshInterval = metastoreRefreshInterval;
+        this.defaultMetastoreCacheRefreshInterval = defaultMetastoreCacheRefreshInterval;
+        return this;
+    }
+
+    public Map<MetastoreCacheType, Duration> getMetastoreCacheRefreshIntervalByType()
+    {
+        return metastoreCacheRefreshIntervalByType;
+    }
+
+    @Config("hive.metastore.cache.refresh-interval-by-type")
+    @ConfigDescription("Per-cache refresh interval overrides for Hive metastore caches.\n" +
+            "The value is a comma-separated list of <CACHE_TYPE>:<DURATION> pairs.")
+    public MetastoreClientConfig setMetastoreCacheRefreshIntervalByType(String metastoreCacheRefreshIntervalByTypeValues)
+    {
+        if (metastoreCacheRefreshIntervalByTypeValues == null || metastoreCacheRefreshIntervalByTypeValues.isEmpty()) {
+            return this;
+        }
+
+        this.metastoreCacheRefreshIntervalByType = Arrays.stream(metastoreCacheRefreshIntervalByTypeValues.split(","))
+                .map(entry -> entry.split(":"))
+                .filter(parts -> parts.length == 2)
+                .collect(toImmutableMap(
+                        parts -> MetastoreCacheType.valueOf(parts[0].trim().toUpperCase(ENGLISH)),
+                        parts -> Duration.valueOf(parts[1].trim())));
+
         return this;
     }
 

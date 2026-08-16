@@ -32,7 +32,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -59,10 +58,8 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class WindowOperator
@@ -253,15 +250,15 @@ public class WindowOperator
                 .limit(preSortedChannelPrefix)
                 .collect(toImmutableList());
 
-        List<Integer> unGroupedOrderChannels = ImmutableList.copyOf(concat(unGroupedPartitionChannels, sortChannels));
-        List<SortOrder> unGroupedOrdering = ImmutableList.copyOf(concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST), sortOrder));
+        List<Integer> unGroupedOrderChannels = Stream.concat(unGroupedPartitionChannels.stream(), sortChannels.stream()).collect(toImmutableList());
+        List<SortOrder> unGroupedOrdering = Stream.concat(Stream.generate(() -> ASC_NULLS_LAST).limit(unGroupedPartitionChannels.size()), sortOrder.stream()).collect(toImmutableList());
 
         List<Integer> orderChannels;
         List<SortOrder> ordering;
         if (preSortedChannelPrefix > 0) {
             // This already implies that set(preGroupedChannels) == set(partitionChannels) (enforced with checkArgument)
-            orderChannels = ImmutableList.copyOf(Iterables.skip(sortChannels, preSortedChannelPrefix));
-            ordering = ImmutableList.copyOf(Iterables.skip(sortOrder, preSortedChannelPrefix));
+            orderChannels = sortChannels.stream().skip(preSortedChannelPrefix).collect(toImmutableList());
+            ordering = sortOrder.stream().skip(preSortedChannelPrefix).collect(toImmutableList());
         }
         else {
             // Otherwise, we need to sort by the unGroupedPartitionChannels and all original sort channels

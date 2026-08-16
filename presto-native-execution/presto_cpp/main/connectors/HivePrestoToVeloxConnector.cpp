@@ -14,6 +14,9 @@
 
 #include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
 
+#include <string_view>
+#include <unordered_set>
+
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
@@ -336,6 +339,8 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) const {
+  VELOX_CHECK_NOT_NULL(
+      tableHandle.connectorTableLayout, "Missing table layout");
   auto hiveLayout =
       std::dynamic_pointer_cast<const protocol::hive::HiveTableLayoutHandle>(
           tableHandle.connectorTableLayout);
@@ -380,9 +385,9 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
   return toHiveTableHandle(
       hiveLayout->domainPredicate,
       hiveLayout->remainingPredicate,
-      hiveLayout->pushdownFilterEnabled,
       tableName,
       hiveLayout->dataColumns,
+      /*indexColumns=*/{},
       tableHandle,
       columnHandles,
       hiveLayout->tableParameters,
@@ -404,6 +409,9 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
   bool isPartitioned{false};
   const auto inputColumns = toHiveColumns(
       hiveOutputTableHandle->inputColumns, typeParser, isPartitioned);
+  auto serdeParameters =
+      extractSerdeParameters(hiveOutputTableHandle->additionalTableParameters);
+
   return std::make_unique<velox::connector::hive::HiveInsertTableHandle>(
       inputColumns,
       toLocationHandle(hiveOutputTableHandle->locationHandle),
@@ -411,7 +419,8 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
       toHiveBucketProperty(
           inputColumns, hiveOutputTableHandle->bucketProperty, typeParser),
       std::optional(
-          toFileCompressionKind(hiveOutputTableHandle->compressionCodec)));
+          toFileCompressionKind(hiveOutputTableHandle->compressionCodec)),
+      std::move(serdeParameters));
 }
 
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
@@ -441,7 +450,12 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
           toFileCompressionKind(hiveInsertTableHandle->compressionCodec)),
       std::unordered_map<std::string, std::string>(
           table->storage.serdeParameters.begin(),
-          table->storage.serdeParameters.end()));
+          table->storage.serdeParameters.end()),
+      nullptr, // writerOptions
+      false, // ensureFiles
+      std::make_shared<velox::connector::hive::HiveInsertFileNameGenerator>(),
+      std::unordered_map<std::string, std::string>(
+          table->storage.parameters.begin(), table->storage.parameters.end()));
 }
 
 std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>

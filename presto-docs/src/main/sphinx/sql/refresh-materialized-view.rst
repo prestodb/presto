@@ -29,6 +29,12 @@ Refresh a materialized view::
 
     REFRESH MATERIALIZED VIEW daily_sales
 
+.. important::
+
+    - A newly created materialized view has an **empty storage table**.
+    - Therefore, it is considered **stale immediately after creation**.
+    - You must run a refresh before querying when using strict modes like ``FAIL``.
+
 See Also
 --------
 

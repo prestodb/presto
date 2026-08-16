@@ -30,17 +30,27 @@ public class MergeInsert
 
     public MergeInsert(List<Identifier> columns, List<Expression> values)
     {
-        this(Optional.empty(), columns, values);
+        this(Optional.empty(), Optional.empty(), columns, values);
     }
 
     public MergeInsert(NodeLocation location, List<Identifier> columns, List<Expression> values)
     {
-        this(Optional.of(location), columns, values);
+        this(Optional.of(location), Optional.empty(), columns, values);
     }
 
     public MergeInsert(Optional<NodeLocation> location, List<Identifier> columns, List<Expression> values)
     {
-        super(location);
+        this(location, Optional.empty(), columns, values);
+    }
+
+    public MergeInsert(NodeLocation location, Optional<Expression> condition, List<Identifier> columns, List<Expression> values)
+    {
+        this(Optional.of(location), condition, columns, values);
+    }
+
+    public MergeInsert(Optional<NodeLocation> location, Optional<Expression> condition, List<Identifier> columns, List<Expression> values)
+    {
+        super(location, condition);
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
     }
@@ -77,6 +87,7 @@ public class MergeInsert
     public List<? extends Node> getChildren()
     {
         ImmutableList.Builder<Node> builder = ImmutableList.builder();
+        getCondition().ifPresent(builder::add);
         builder.addAll(columns);
         builder.addAll(values);
         return builder.build();
@@ -85,7 +96,7 @@ public class MergeInsert
     @Override
     public int hashCode()
     {
-        return Objects.hash(columns, values);
+        return Objects.hash(getCondition(), columns, values);
     }
 
     @Override
@@ -98,7 +109,8 @@ public class MergeInsert
             return false;
         }
         MergeInsert o = (MergeInsert) obj;
-        return Objects.equals(columns, o.columns) &&
+        return Objects.equals(getCondition(), o.getCondition()) &&
+                Objects.equals(columns, o.columns) &&
                 Objects.equals(values, o.values);
     }
 
@@ -106,6 +118,7 @@ public class MergeInsert
     public String toString()
     {
         return toStringHelper(this)
+                .add("condition", getCondition().orElse(null))
                 .add("columns", columns)
                 .add("values", values)
                 .omitNullValues()

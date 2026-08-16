@@ -279,11 +279,6 @@ public class TestNativeExpressionInterpreter
     @Test(enabled = false)
     public void testVarbinaryLiteral() {}
 
-    // TODO: current timestamp returns the session timestamp and this should be evaluated on the sidecar plugin.
-    @Override
-    @Test(enabled = false)
-    public void testCurrentTimestamp() {}
-
     /// TODO: current_user should be evaluated in the sidecar plugin and not in the sidecar.
     @Override
     @Test(enabled = false)
@@ -434,7 +429,7 @@ public class TestNativeExpressionInterpreter
             newSetBinder(binder, BlockEncoding.class);
             jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
             jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
-            jsonCodecBinder(binder).bindListJsonCodec(RowExpression.class);
+            jsonCodecBinder(binder).bindJsonCodec(ExpressionOptimizationRequest.class);
             jsonCodecBinder(binder).bindListJsonCodec(RowExpressionOptimizationResult.class);
 
             httpClientBinder(binder).bindHttpClient("sidecar", ForSidecarInfo.class);

@@ -36,6 +36,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.isRemoveCrossJoinWithConstantSingleRowInputEnabled;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.google.common.base.Preconditions.checkState;
@@ -103,7 +104,7 @@ public class RemoveCrossJoinWithConstantInput
         if (!mapping.isPresent()) {
             return Result.empty();
         }
-        PlanNode resultNode = addProjections(joinInput, context.getIdAllocator(), mapping.get());
+        PlanNode resultNode = addProjections(joinInput, context.getIdAllocator(), mapping.get(), UNKNOWN);
         if (node.getFilter().isPresent()) {
             resultNode = new FilterNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), resultNode, node.getFilter().get());
         }

@@ -29,6 +29,7 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 
@@ -253,6 +254,18 @@ public class LimitPushDown
                         node.getFilteringSourceHashVariable(),
                         node.getDistributionType(),
                         node.getDynamicFilters());
+            }
+            return node;
+        }
+
+        @Override
+        public PlanNode visitRPC(RPCNode node, RewriteContext<LimitContext> context)
+        {
+            // RPCNode preserves cardinality (1:1) in both PER_ROW and BATCH modes.
+            PlanNode source = context.rewrite(node.getSource(), context.get());
+            if (source != node.getSource()) {
+                planChanged = true;
+                return node.replaceChildren(ImmutableList.of(source));
             }
             return node;
         }

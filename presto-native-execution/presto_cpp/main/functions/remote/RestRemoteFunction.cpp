@@ -33,7 +33,8 @@ class RestRemoteFunction : public velox::functions::RemoteVectorFunction {
         restClient_(std::move(restClient)) {}
 
  protected:
-  std::unique_ptr<velox::functions::remote::RemoteFunctionResponse>
+  folly::coro::Task<
+      std::unique_ptr<velox::functions::remote::RemoteFunctionResponse>>
   invokeRemoteFunction(
       const velox::functions::remote::RemoteFunctionRequest& request)
       const override {
@@ -55,7 +56,7 @@ class RestRemoteFunction : public velox::functions::RemoteVectorFunction {
     velox::functions::remote::RemoteFunctionPage result;
     result.payload_ref() = std::move(*responseBody);
     response->result_ref() = std::move(result);
-    return response;
+    co_return response;
   }
 
   std::string remoteLocationToString() const override {

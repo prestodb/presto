@@ -15,7 +15,7 @@ package com.facebook.presto.mongodb;
 
 import com.facebook.presto.plugin.base.security.SslContextProvider;
 import com.facebook.presto.tests.SslKeystoreManager;
-import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoClientSettings;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -23,6 +23,7 @@ import javax.net.ssl.SSLContext;
 
 import java.io.File;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.tests.SslKeystoreManager.SSL_STORE_PASSWORD;
 import static com.facebook.presto.tests.SslKeystoreManager.getKeystorePath;
@@ -124,66 +125,76 @@ public class TestMongoTlsConfiguration
     }
 
     @Test
-    public void testMongoClientOptionsWithTlsEnabled()
+    public void testMongoClientSettingsWithTlsEnabled()
     {
         MongoClientConfig config = new MongoClientConfig()
                 .setSeeds("localhost:27017");
         configureTlsProperties(config);
 
-        MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder()
-                .connectionsPerHost(config.getConnectionsPerHost())
-                .connectTimeout(config.getConnectionTimeout())
-                .socketTimeout(config.getSocketTimeout())
-                .socketKeepAlive(config.getSocketKeepAlive())
-                .maxWaitTime(config.getMaxWaitTime())
-                .minConnectionsPerHost(config.getMinConnectionsPerHost())
-                .writeConcern(config.getWriteConcern().getWriteConcern());
+        MongoClientSettings.Builder settingsBuilder = MongoClientSettings.builder();
+
+        settingsBuilder.applyToConnectionPoolSettings(builder -> builder
+                .maxSize(config.getConnectionsPerHost())
+                .minSize(config.getMinConnectionsPerHost())
+                .maxWaitTime(config.getMaxWaitTime(), TimeUnit.MILLISECONDS));
+
+        settingsBuilder.applyToSocketSettings(builder -> builder
+                .connectTimeout(config.getConnectionTimeout(), TimeUnit.MILLISECONDS)
+                .readTimeout(config.getSocketTimeout(), TimeUnit.MILLISECONDS));
+
+        settingsBuilder.writeConcern(config.getWriteConcern().getWriteConcern());
 
         // Configure SSL
         if (config.isTlsEnabled()) {
             SslContextProvider sslContextProvider = createSslContextProvider(config);
 
             sslContextProvider.buildSslContext().ifPresent(sslContext -> {
-                optionsBuilder.sslContext(sslContext);
-                optionsBuilder.sslEnabled(true);
+                settingsBuilder.applyToSslSettings(builder -> builder
+                        .enabled(true)
+                        .context(sslContext));
             });
         }
 
-        MongoClientOptions options = optionsBuilder.build();
+        MongoClientSettings settings = settingsBuilder.build();
 
-        assertTrue(options.isSslEnabled(), "SSL should be enabled in MongoClientOptions");
-        assertNotNull(options.getSslContext(), "SSL context should be set in MongoClientOptions");
+        assertTrue(settings.getSslSettings().isEnabled(), "SSL should be enabled in MongoClientSettings");
+        assertNotNull(settings.getSslSettings().getContext(), "SSL context should be set in MongoClientSettings");
     }
 
     @Test
-    public void testMongoClientOptionsWithTlsDisabled()
+    public void testMongoClientSettingsWithTlsDisabled()
     {
         MongoClientConfig config = new MongoClientConfig()
                 .setSeeds("localhost:27017")
                 .setTlsEnabled(false);
 
-        MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder()
-                .connectionsPerHost(config.getConnectionsPerHost())
-                .connectTimeout(config.getConnectionTimeout())
-                .socketTimeout(config.getSocketTimeout())
-                .socketKeepAlive(config.getSocketKeepAlive())
-                .maxWaitTime(config.getMaxWaitTime())
-                .minConnectionsPerHost(config.getMinConnectionsPerHost())
-                .writeConcern(config.getWriteConcern().getWriteConcern());
+        MongoClientSettings.Builder settingsBuilder = MongoClientSettings.builder();
+
+        settingsBuilder.applyToConnectionPoolSettings(builder -> builder
+                .maxSize(config.getConnectionsPerHost())
+                .minSize(config.getMinConnectionsPerHost())
+                .maxWaitTime(config.getMaxWaitTime(), TimeUnit.MILLISECONDS));
+
+        settingsBuilder.applyToSocketSettings(builder -> builder
+                .connectTimeout(config.getConnectionTimeout(), TimeUnit.MILLISECONDS)
+                .readTimeout(config.getSocketTimeout(), TimeUnit.MILLISECONDS));
+
+        settingsBuilder.writeConcern(config.getWriteConcern().getWriteConcern());
 
         // Configure SSL
         if (config.isTlsEnabled()) {
             SslContextProvider sslContextProvider = createSslContextProvider(config);
 
             sslContextProvider.buildSslContext().ifPresent(sslContext -> {
-                optionsBuilder.sslContext(sslContext);
-                optionsBuilder.sslEnabled(true);
+                settingsBuilder.applyToSslSettings(builder -> builder
+                        .enabled(true)
+                        .context(sslContext));
             });
         }
 
-        MongoClientOptions options = optionsBuilder.build();
+        MongoClientSettings settings = settingsBuilder.build();
 
-        assertFalse(options.isSslEnabled(), "SSL should be disabled in MongoClientOptions");
+        assertFalse(settings.getSslSettings().isEnabled(), "SSL should be disabled in MongoClientSettings");
     }
 
     @Test
@@ -245,24 +256,28 @@ public class TestMongoTlsConfiguration
         Optional<SSLContext> sslContext = sslContextProvider.buildSslContext();
         assertTrue(sslContext.isPresent(), "SSL context should be created");
 
-        // Build MongoClientOptions
-        MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder()
-                .connectionsPerHost(config.getConnectionsPerHost())
-                .connectTimeout(config.getConnectionTimeout())
-                .readPreference(config.getReadPreference().getReadPreference());
+        MongoClientSettings.Builder settingsBuilder = MongoClientSettings.builder();
+
+        settingsBuilder.applyToConnectionPoolSettings(builder -> builder
+                .maxSize(config.getConnectionsPerHost()));
+
+        settingsBuilder.applyToSocketSettings(builder -> builder
+                .connectTimeout(config.getConnectionTimeout(), TimeUnit.MILLISECONDS));
+
+        settingsBuilder.readPreference(config.getReadPreference().getReadPreference());
 
         sslContext.ifPresent(ctx -> {
-            optionsBuilder.sslContext(ctx);
-            optionsBuilder.sslEnabled(true);
+            settingsBuilder.applyToSslSettings(builder -> builder
+                    .enabled(true)
+                    .context(ctx));
         });
 
-        MongoClientOptions options = optionsBuilder.build();
+        MongoClientSettings settings = settingsBuilder.build();
 
-        // Verify final options
-        assertTrue(options.isSslEnabled(), "SSL should be enabled");
-        assertNotNull(options.getSslContext(), "SSL context should be set");
-        assertEquals(options.getConnectionsPerHost(), 50);
-        assertEquals(options.getConnectTimeout(), 5000);
+        assertTrue(settings.getSslSettings().isEnabled(), "SSL should be enabled");
+        assertNotNull(settings.getSslSettings().getContext(), "SSL context should be set");
+        assertEquals(settings.getConnectionPoolSettings().getMaxSize(), 50);
+        assertEquals(settings.getSocketSettings().getConnectTimeout(TimeUnit.MILLISECONDS), 5000);
     }
 
     @Test

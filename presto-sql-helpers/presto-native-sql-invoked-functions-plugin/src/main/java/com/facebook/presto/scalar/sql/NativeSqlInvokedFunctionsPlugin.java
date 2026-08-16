@@ -27,7 +27,6 @@ public class NativeSqlInvokedFunctionsPlugin
         return ImmutableSet.<Class<?>>builder()
                 .add(NativeArraySqlFunctions.class)
                 .add(NativeMapSqlFunctions.class)
-                .add(NativeSimpleSamplingPercent.class)
                 .build();
     }
 }

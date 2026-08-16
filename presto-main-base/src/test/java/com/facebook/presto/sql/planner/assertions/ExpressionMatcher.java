@@ -98,7 +98,7 @@ public class ExpressionMatcher
         return result;
     }
 
-    private static Map<VariableReferenceExpression, RowExpression> getAssignments(PlanNode node)
+    static Map<VariableReferenceExpression, RowExpression> getAssignments(PlanNode node)
     {
         if (node instanceof ProjectNode) {
             ProjectNode projectNode = (ProjectNode) node;

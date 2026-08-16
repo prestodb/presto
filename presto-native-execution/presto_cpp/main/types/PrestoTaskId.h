@@ -12,8 +12,13 @@
  * limitations under the License.
  */
 #pragma once
-#include <folly/Conv.h>
+
+#include <cstdint>
 #include <string>
+#include <vector>
+
+#include <folly/Conv.h>
+
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto {
@@ -66,7 +71,7 @@ class PrestoTaskId {
 
  private:
   std::string queryId_;
-  // Also known as fregment id.
+  // Also known as fragment id.
   int32_t stageId_{0};
   int32_t stageExecutionId_{0};
   // Also known as shard id.

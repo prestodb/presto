@@ -1,5 +1,5 @@
-===============================
-Deploy Presto Using Helm Charts
-===============================
+=======================
+Deploy Presto with Helm
+=======================
 
-To deploy Presto using Helm charts, see the `Presto Helm Charts README <https://github.com/prestodb/presto-helm-charts/>`_. 
+To deploy Presto using Helm, see the `Presto Helm Charts README <https://github.com/prestodb/presto-helm-charts/>`_.

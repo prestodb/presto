@@ -31,7 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -73,11 +73,11 @@ public class SimplifyCardinalityMapRewriter
         public RowExpression rewriteCall(CallExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
         {
             if (node.getDisplayName().equals("cardinality") && node.getArguments().size() == 1) {
-                RowExpression argument = getOnlyElement(node.getArguments());
+                RowExpression argument = node.getArguments().stream().collect(onlyElement());
                 if (argument instanceof CallExpression) {
                     CallExpression callExpression = (CallExpression) argument;
                     if (MAP_FUNCTIONS.contains(callExpression.getDisplayName()) && callExpression.getArguments().size() == 1) {
-                        RowExpression rewrittenArgument = treeRewriter.rewrite(getOnlyElement(callExpression.getArguments()), context);
+                        RowExpression rewrittenArgument = treeRewriter.rewrite(callExpression.getArguments().stream().collect(onlyElement()), context);
                         List<Type> types = ImmutableList.of(rewrittenArgument.getType());
                         // rewrite the FunctionHandle, as the input types may have changed
                         // e.g. from ArrayCardinalityFunction for cardinality(map_keys(x)) to

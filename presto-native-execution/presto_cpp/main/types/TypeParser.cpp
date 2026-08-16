@@ -11,19 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <boost/algorithm/string.hpp>
-#include <iostream>
-
 #include "presto_cpp/main/types/TypeParser.h"
-#include "velox/functions/prestosql/types/parser/TypeParser.h"
 
 #include "presto_cpp/main/common/Configs.h"
+#include "velox/functions/prestosql/types/parser/TypeParser.h"
 
 namespace facebook::presto {
 
 velox::TypePtr TypeParser::parse(const std::string& text) const {
   if (SystemConfig::instance()->charNToVarcharImplicitCast()) {
-    if (text.find("char(") == 0 || text.find("CHAR(") == 0) {
+    if (text.starts_with("char(") || text.starts_with("CHAR(")) {
       return velox::VARCHAR();
     }
   }
@@ -32,6 +29,18 @@ velox::TypePtr TypeParser::parse(const std::string& text) const {
         text.find("VarcharEnum") != std::string::npos) {
       VELOX_UNSUPPORTED("Unsupported type: {}", text);
     }
+  }
+  // Varchar-backed Presto logical types that have no Velox type. Native
+  // normally never parses these: PrestoToVeloxExpr unwraps the inline cast(...
+  // as <T>) (or, for LIKE, the cast(... as LikePattern)) down to the inner
+  // varchar. But when such a value is materialized into a projection column —
+  // e.g. a remote (RPC) function result feeding LIKE, regexp, or json_extract,
+  // where the optimizer hoists the constant pattern below the RPC node — the
+  // column's declared type and references to it reach this parser. Their
+  // runtime value is the varchar pattern/path, so resolve them to varchar.
+  if (text == "LikePattern" || text == "Re2JRegExp" || text == "JsonPath" ||
+      text == "CodePoints") {
+    return velox::VARCHAR();
   }
   auto it = cache_.find(text);
   if (it != cache_.end()) {

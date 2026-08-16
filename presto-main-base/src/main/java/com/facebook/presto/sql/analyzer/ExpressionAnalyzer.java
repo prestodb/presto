@@ -40,6 +40,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -116,7 +117,6 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.slice.SliceUtf8;
@@ -126,6 +126,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -159,7 +160,6 @@ import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isNonNullConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteralType;
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.getResolvedLambdaArguments;
@@ -197,7 +197,7 @@ import static com.facebook.presto.util.LegacyRowFieldOrdinalAccessUtil.parseAnon
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
@@ -615,16 +615,7 @@ public class ExpressionAnalyzer
         protected Type visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
             OperatorType operatorType = OperatorType.valueOf(node.getOperator().name());
-            Type outputType = getOperator(context, node, operatorType, node.getLeft(), node.getRight());
-            // this needs to be checked after the call to getOperator(), because that's where the argument types get analyzed
-            if (sqlFunctionProperties.shouldWarnOnCommonNanPatterns() &&
-                    (TypeUtils.isApproximateNumericType(getExpressionType(node.getLeft())) || TypeUtils.isApproximateNumericType(getExpressionType(node.getRight())))) {
-                warningCollector.add(new PrestoWarning(
-                        SEMANTIC_WARNING,
-                        "Comparison operations involving DOUBLE or REAL types may include NaNs in the input. " +
-                                "Consider filtering out NaN values from your comparison input using the is_nan() function."));
-            }
-            return outputType;
+            return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
 
         @Override
@@ -755,17 +746,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitArithmeticBinary(ArithmeticBinaryExpression node, StackableAstVisitorContext<Context> context)
         {
-            Type returnType = getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
-            if (sqlFunctionProperties.shouldWarnOnCommonNanPatterns() &&
-                    node.getOperator() == ArithmeticBinaryExpression.Operator.DIVIDE &&
-                    TypeUtils.isApproximateNumericType(returnType) &&
-                    !isConstant(node.getLeft()) &&
-                    !isConstant(node.getRight())) {
-                warningCollector.add(new PrestoWarning(SEMANTIC_WARNING,
-                        "Division operations on DOUBLE/REAL types may produce NaNs or infinities if there are zeros in the denominator. " +
-                                "Consider checking the denominator of your division operation for zeros."));
-            }
-            return returnType;
+            return getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
         }
 
         @Override
@@ -1270,14 +1251,14 @@ public class ExpressionAnalyzer
         private boolean containsFeatures(Expression expression)
         {
             if (expression instanceof Identifier) {
-                return ((Identifier) expression).getValue().toLowerCase().contains("features");
+                return ((Identifier) expression).getValue().toLowerCase(Locale.US).contains("features");
             }
             if (expression instanceof SymbolReference) {
-                return ((SymbolReference) expression).getName().toLowerCase().contains("features");
+                return ((SymbolReference) expression).getName().toLowerCase(Locale.US).contains("features");
             }
             if (expression instanceof DereferenceExpression) {
                 DereferenceExpression deref = (DereferenceExpression) expression;
-                return containsFeatures(deref.getBase()) || deref.getField().getValue().toLowerCase().contains("features");
+                return containsFeatures(deref.getBase()) || deref.getField().getValue().toLowerCase(Locale.US).contains("features");
             }
             return false;
         }
@@ -1314,7 +1295,7 @@ public class ExpressionAnalyzer
             if (orderBy.getSortItems().size() != 1) {
                 throw new SemanticException(INVALID_ORDER_BY, orderBy, "Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY (actual: %s)", orderBy.getSortItems().size());
             }
-            Expression sortKey = Iterables.getOnlyElement(orderBy.getSortItems()).getSortKey();
+            Expression sortKey = orderBy.getSortItems().stream().collect(onlyElement()).getSortKey();
             Type sortKeyType = getExpressionType(sortKey);
             if (!isNumericType(sortKeyType) && !isDateTimeType(sortKeyType)) {
                 throw new SemanticException(TYPE_MISMATCH, sortKey, "Window frame of type RANGE PRECEDING or FOLLOWING requires that sort item type be numeric, datetime or interval (actual: %s)", sortKeyType);
@@ -1334,7 +1315,7 @@ public class ExpressionAnalyzer
             }
 
             // resolve function to calculate frame boundary value (add / subtract offset from sortKey)
-            SortItem.Ordering ordering = Iterables.getOnlyElement(orderBy.getSortItems()).getOrdering();
+            SortItem.Ordering ordering = orderBy.getSortItems().stream().collect(onlyElement()).getOrdering();
             OperatorType operatorType;
             FunctionHandle function;
             if ((boundType == PRECEDING && ordering == ASCENDING) || (boundType == FOLLOWING && ordering == DESCENDING)) {
@@ -1551,7 +1532,7 @@ public class ExpressionAnalyzer
                 scalarSubqueries.add(NodeRef.of(node));
             }
             sourceFields.add(queryScope.getRelationType().getFieldByIndex(0));
-            Type type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
+            Type type = queryScope.getRelationType().getVisibleFields().stream().collect(onlyElement()).getType();
             return setExpressionType(node, type);
         }
 
@@ -2021,7 +2002,7 @@ public class ExpressionAnalyzer
     {
         // expressions at this point can not have sub queries so deny all access checks
         // in the future, we will need a full access controller here to verify access to functions
-        Analysis analysis = new Analysis(null, parameters, isDescribe);
+        Analysis analysis = new Analysis(null, parameters, isDescribe, new ViewDefinitionReferences());
         ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType()).build());

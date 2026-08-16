@@ -16,4 +16,5 @@ package com.facebook.presto.spi;
 public enum MaterializedViewRefreshType
 {
     FULL,
+    INCREMENTAL,
 }

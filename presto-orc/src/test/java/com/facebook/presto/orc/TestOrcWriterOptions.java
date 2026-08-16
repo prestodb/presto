@@ -199,7 +199,7 @@ public class TestOrcWriterOptions
                 "stringDictionarySortingEnabled=true, stringDictionaryEncodingEnabled=true, " +
                 "dwrfWriterOptions=Optional[DwrfStripeCacheOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=4MB}], " +
                 "ignoreDictionaryRowGroupSizes=false, preserveDirectEncodingStripeCount=0, flattenedColumns=[4], mapStatisticsEnabled=true, " +
-                "maxFlattenedMapKeyCount=27, resetOutputBuffer=false, lazyOutputBuffer=false}";
+                "maxFlattenedMapKeyCount=27, resetOutputBuffer=false, lazyOutputBuffer=false, verifyCompression=false}";
         assertEquals(expectedString, writerOptions.toString());
     }
 }

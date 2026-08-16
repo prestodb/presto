@@ -13,11 +13,14 @@
  */
 #include <gtest/gtest.h>
 
+#include <string>
+
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
-#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/functions/prestosql/PrestoQueryConfig.h"
 
 using namespace facebook::presto;
 using namespace facebook::presto::protocol;
@@ -92,6 +95,33 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
              EXPECT_EQ(expectedValue, config.spillFileCreateConfig());
            }},
 
+      {.veloxConfigKey = core::QueryConfig::kAggregationSpillFileCreateConfig,
+       .sessionPropertyKey = std::make_optional<std::string>(
+           SessionProperties::kAggregationSpillFileCreateConfig),
+       .systemConfigKey =
+           std::string(SystemConfig::kSpillerAggregationFileCreateConfig),
+       .sessionValue = "test_agg_config_1",
+       .differentSessionValue = "test_agg_config_2",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 expectedValue, config.aggregationSpillFileCreateConfig());
+           }},
+
+      {.veloxConfigKey = core::QueryConfig::kHashJoinSpillFileCreateConfig,
+       .sessionPropertyKey = std::make_optional<std::string>(
+           SessionProperties::kHashJoinSpillFileCreateConfig),
+       .systemConfigKey =
+           std::string(SystemConfig::kSpillerHashJoinFileCreateConfig),
+       .sessionValue = "test_join_config_1",
+       .differentSessionValue = "test_join_config_2",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(expectedValue, config.hashJoinSpillFileCreateConfig());
+           }},
+
       {.veloxConfigKey = core::QueryConfig::kSpillEnabled,
        .sessionPropertyKey =
            std::make_optional<std::string>(core::QueryConfig::kSpillEnabled),
@@ -141,6 +171,18 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
                  expectedValue == "true", config.aggregationSpillEnabled());
            }},
 
+      {.veloxConfigKey = core::QueryConfig::kMaxSpillBytes,
+       .sessionPropertyKey =
+           std::make_optional<std::string>(SessionProperties::kMaxSpillBytes),
+       .systemConfigKey = std::string(SystemConfig::kMaxSpillBytes),
+       .sessionValue = "214748364800",
+       .differentSessionValue = "107374182400",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) noexcept {
+             EXPECT_EQ(std::stoull(expectedValue), config.maxSpillBytes());
+           }},
+
       {.veloxConfigKey = core::QueryConfig::kRequestDataSizesMaxWaitSec,
        .sessionPropertyKey = std::make_optional<std::string>(
            SessionProperties::kRequestDataSizesMaxWaitSec),
@@ -182,7 +224,8 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
                  config.maxLocalExchangePartitionBufferSize());
            }},
 
-      {.veloxConfigKey = core::QueryConfig::kPrestoArrayAggIgnoreNulls,
+      {.veloxConfigKey = functions::prestosql::PrestoQueryConfig::qualify(
+           functions::prestosql::PrestoQueryConfig::kArrayAggIgnoreNulls),
        .sessionPropertyKey = std::nullopt,
        .systemConfigKey = std::string(SystemConfig::kUseLegacyArrayAgg),
        .sessionValue = "",
@@ -191,7 +234,9 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
            [](const core::QueryConfig& config,
               const std::string& expectedValue) {
              EXPECT_EQ(
-                 expectedValue == "true", config.prestoArrayAggIgnoreNulls());
+                 expectedValue == "true",
+                 functions::prestosql::PrestoQueryConfig{config}
+                     .arrayAggIgnoreNulls());
            }},
 
       {.veloxConfigKey = core::QueryConfig::kMaxOutputBufferSize,
@@ -275,12 +320,92 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
              }
              EXPECT_EQ(expectedBytes, config.maxExchangeBufferSize());
            }},
+
+      {.veloxConfigKey = core::QueryConfig::kMaxLocalExchangeBufferSize,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey =
+           std::string(SystemConfig::kMaxLocalExchangeBufferSize),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 std::stoull(expectedValue),
+                 config.maxLocalExchangeBufferSize());
+           }},
+
+      {.veloxConfigKey = core::QueryConfig::kParallelOutputJoinBuildRowsEnabled,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey =
+           std::string(SystemConfig::kParallelOutputJoinBuildRowsEnabled),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 expectedValue == "true",
+                 config.parallelOutputJoinBuildRowsEnabled());
+           }},
+
+      {.veloxConfigKey =
+           core::QueryConfig::kHashProbeBloomFilterPushdownMaxSize,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey =
+           std::string(SystemConfig::kHashProbeBloomFilterPushdownMaxSize),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 std::stoull(expectedValue),
+                 config.hashProbeBloomFilterPushdownMaxSize());
+           }},
+
+      {.veloxConfigKey = core::QueryConfig::kTaskWriterCount,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey = std::string(SystemConfig::kTaskWriterCount),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(std::stoi(expectedValue), config.taskWriterCount());
+           }},
+
+      {.veloxConfigKey = core::QueryConfig::kTaskPartitionedWriterCount,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey =
+           std::string(SystemConfig::kTaskPartitionedWriterCount),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 std::stoi(expectedValue), config.taskPartitionedWriterCount());
+           }},
+
+      {.veloxConfigKey = core::QueryConfig::kExchangeLazyFetchingEnabled,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey =
+           std::string(SystemConfig::kExchangeLazyFetchingEnabled),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 expectedValue == "true", config.exchangeLazyFetchingEnabled());
+           }},
   };
 
   // CRITICAL: This count MUST match the exact number of entries in
   // veloxToPrestoConfigMapping If this assertion fails, it means a new
   // mapping was added and this test needs to be updated
-  const size_t kExpectedMappingCount = 14;
+  const size_t kExpectedMappingCount = 23;
   EXPECT_EQ(kExpectedMappingCount, testCases.size());
 
   // Test each mapping to ensure session properties override system configs
@@ -513,7 +638,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, specialHardCodedPrestoConfigurations) {
 
   session.systemProperties.clear();
   auto veloxConfig3 = QueryConfig(toVeloxConfigs(session));
-  EXPECT_TRUE(veloxConfig3.adjustTimestampToTimezone());
+  EXPECT_FALSE(veloxConfig3.adjustTimestampToTimezone());
 
   session.systemProperties.clear();
   auto veloxConfig8 = QueryConfig(toVeloxConfigs(session));
@@ -651,6 +776,12 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
        .systemConfigKey = std::string(SystemConfig::kQueryMaxMemoryPerNode)},
       {.veloxConfigKey = core::QueryConfig::kSpillFileCreateConfig,
        .systemConfigKey = std::string(SystemConfig::kSpillerFileCreateConfig)},
+      {.veloxConfigKey = core::QueryConfig::kAggregationSpillFileCreateConfig,
+       .systemConfigKey =
+           std::string(SystemConfig::kSpillerAggregationFileCreateConfig)},
+      {.veloxConfigKey = core::QueryConfig::kHashJoinSpillFileCreateConfig,
+       .systemConfigKey =
+           std::string(SystemConfig::kSpillerHashJoinFileCreateConfig)},
       {.veloxConfigKey = core::QueryConfig::kSpillEnabled,
        .systemConfigKey = std::string(SystemConfig::kSpillEnabled)},
       {.veloxConfigKey = core::QueryConfig::kJoinSpillEnabled,
@@ -659,6 +790,8 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
        .systemConfigKey = std::string(SystemConfig::kOrderBySpillEnabled)},
       {.veloxConfigKey = core::QueryConfig::kAggregationSpillEnabled,
        .systemConfigKey = std::string(SystemConfig::kAggregationSpillEnabled)},
+      {.veloxConfigKey = core::QueryConfig::kMaxSpillBytes,
+       .systemConfigKey = std::string(SystemConfig::kMaxSpillBytes)},
       {.veloxConfigKey = core::QueryConfig::kRequestDataSizesMaxWaitSec,
        .systemConfigKey =
            std::string(SystemConfig::kRequestDataSizesMaxWaitSec)},
@@ -678,7 +811,8 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
            core::QueryConfig::kHashProbeBloomFilterPushdownMaxSize,
        .systemConfigKey =
            std::string(SystemConfig::kHashProbeBloomFilterPushdownMaxSize)},
-      {.veloxConfigKey = core::QueryConfig::kPrestoArrayAggIgnoreNulls,
+      {.veloxConfigKey = functions::prestosql::PrestoQueryConfig::qualify(
+           functions::prestosql::PrestoQueryConfig::kArrayAggIgnoreNulls),
        .systemConfigKey = std::string(SystemConfig::kUseLegacyArrayAgg)},
       {.veloxConfigKey = core::QueryConfig::kTaskWriterCount,
        .systemConfigKey = std::string(SystemConfig::kTaskWriterCount)},
@@ -700,7 +834,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
            std::string(SystemConfig::kExchangeLazyFetchingEnabled)},
   };
 
-  const size_t kExpectedSystemConfigMappingCount = 20;
+  const size_t kExpectedSystemConfigMappingCount = 23;
   EXPECT_EQ(kExpectedSystemConfigMappingCount, expectedMappings.size())
       << "Update expectedMappings to match veloxToPrestoConfigMapping";
 
@@ -716,11 +850,6 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
   }
 
   // Verify special case configs (always added)
-  EXPECT_TRUE(
-      veloxConfigs.count(core::QueryConfig::kAdjustTimestampToTimezone) > 0);
-  EXPECT_EQ(
-      "true", veloxConfigs.at(core::QueryConfig::kAdjustTimestampToTimezone));
-
   EXPECT_TRUE(
       veloxConfigs.count(core::QueryConfig::kDriverCpuTimeSliceLimitMs) > 0);
   EXPECT_EQ(
@@ -738,9 +867,9 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
       expectedExactConfigs++;
     }
   }
-  expectedExactConfigs += 2; // kAdjustTimestampToTimezone,
-                             // kDriverCpuTimeSliceLimitMs
+  expectedExactConfigs += 1; // kDriverCpuTimeSliceLimitMs
   expectedExactConfigs += 1; // kSessionStartTime
+  expectedExactConfigs += 1; // kSessionTimezone (always added)
 
   // Use exact matching to catch any config additions/removals
   EXPECT_EQ(veloxConfigs.size(), expectedExactConfigs)

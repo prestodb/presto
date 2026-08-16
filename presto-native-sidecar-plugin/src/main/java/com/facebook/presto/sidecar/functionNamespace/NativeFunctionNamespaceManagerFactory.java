@@ -21,7 +21,6 @@ import com.facebook.presto.spi.function.FunctionHandleResolver;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerContext;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
-import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.google.inject.Injector;
 
 import java.util.Map;
@@ -37,7 +36,7 @@ public class NativeFunctionNamespaceManagerFactory
 {
     public static final String NAME = "native";
 
-    private static final SqlFunctionHandle.Resolver HANDLE_RESOLVER = SqlFunctionHandle.Resolver.getInstance();
+    private static final NativeFunctionHandle.Resolver HANDLE_RESOLVER = NativeFunctionHandle.Resolver.getInstance();
 
     @Override
     public String getName()
@@ -58,7 +57,7 @@ public class NativeFunctionNamespaceManagerFactory
             Bootstrap app = new Bootstrap(
                     new NativeFunctionNamespaceManagerModule(catalogName, context.getNodeManager(), context.getFunctionMetadataManager()),
                     new NoopSqlFunctionExecutorsModule(),
-                    new NativeSidecarCommunicationModule());
+                    new NativeSidecarCommunicationModule(context.getAuthClientConfigs()));
 
             Injector injector = app
                     .doNotInitializeLogging()

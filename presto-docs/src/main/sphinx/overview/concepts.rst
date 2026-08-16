@@ -38,7 +38,7 @@ data from all coordinators and workers and constructs a global view of the clust
 A Presto installation with a disaggregated coordinator needs a resource manager.
 Clusters support multiple resource managers, each acting as a primary.
 
-Coordinators and workers communicate with resource managers using a thrift API.
+Coordinators and workers can communicate with resource managers using either a Thrift or HTTP API.
 
 Coordinator
 ^^^^^^^^^^^
@@ -113,9 +113,9 @@ from both Hive clusters (even within the same SQL query).
 Catalog
 ^^^^^^^
 
-A Presto catalog contains schemas and references a data source via a
+A Presto catalog contains schemas and references a data source through a
 connector.  For example, you can configure a JMX catalog to provide
-access to JMX information via the JMX connector. When you run a SQL
+access to JMX information through the JMX connector. When you run a SQL
 statement in Presto, you are running it against one or more catalogs.
 Other examples of catalogs include the Hive catalog to connect to a
 Hive data source.
@@ -247,7 +247,7 @@ Split
 
 Tasks operate on splits which are sections of a larger data
 set. Stages at the lowest level of a distributed query plan retrieve
-data via splits from connectors, and intermediate stages at a higher
+data by using splits from connectors, and intermediate stages at a higher
 level of a distributed query plan retrieve data from other stages.
 
 When Presto is scheduling a query, the coordinator will query a

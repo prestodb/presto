@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg.rest;
 
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.hive.azure.AzureConfigurationInitializer;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.iceberg.IcebergCatalogName;
@@ -22,6 +23,7 @@ import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.security.ConnectorIdentity;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.jsonwebtoken.Jwts;
@@ -37,7 +39,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
+import static com.facebook.presto.iceberg.rest.AuthenticationType.BASIC;
 import static com.facebook.presto.iceberg.rest.AuthenticationType.OAUTH2;
+import static com.facebook.presto.iceberg.rest.PrestoRestTLSConfigurer.KEYSTORE_PASSWORD;
+import static com.facebook.presto.iceberg.rest.PrestoRestTLSConfigurer.KEYSTORE_PATH;
+import static com.facebook.presto.iceberg.rest.PrestoRestTLSConfigurer.TLS_CONFIGURER_IMPL;
+import static com.facebook.presto.iceberg.rest.PrestoRestTLSConfigurer.TRUSTSTORE_PASSWORD;
+import static com.facebook.presto.iceberg.rest.PrestoRestTLSConfigurer.TRUSTSTORE_PATH;
 import static com.facebook.presto.iceberg.rest.SessionType.USER;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -46,6 +54,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.CatalogProperties.URI;
 import static org.apache.iceberg.CatalogUtil.configureHadoopConf;
+import static org.apache.iceberg.rest.auth.AuthProperties.AUTH_TYPE;
+import static org.apache.iceberg.rest.auth.AuthProperties.AUTH_TYPE_BASIC;
+import static org.apache.iceberg.rest.auth.AuthProperties.BASIC_PASSWORD;
+import static org.apache.iceberg.rest.auth.AuthProperties.BASIC_USERNAME;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.JWT_TOKEN_TYPE;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.OAUTH2_SERVER_URI;
@@ -55,6 +67,17 @@ import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
 public class IcebergRestCatalogFactory
         extends IcebergNativeCatalogFactory
 {
+    // These keys mirror org.apache.iceberg.rest.HTTPClient's package-private REST_PROXY_* constants,
+    // which HTTPClient.Builder.build() reads to configure the Apache HttpClient proxy.
+    @VisibleForTesting
+    static final String REST_PROXY_HOSTNAME = "rest.client.proxy.hostname";
+    @VisibleForTesting
+    static final String REST_PROXY_PORT = "rest.client.proxy.port";
+    @VisibleForTesting
+    static final String REST_PROXY_USERNAME = "rest.client.proxy.username";
+    @VisibleForTesting
+    static final String REST_PROXY_PASSWORD = "rest.client.proxy.password";
+
     private final IcebergRestConfig catalogConfig;
     private final NodeVersion nodeVersion;
     private final String catalogName;
@@ -67,9 +90,10 @@ public class IcebergRestCatalogFactory
             IcebergCatalogName catalogName,
             S3ConfigurationUpdater s3ConfigurationUpdater,
             GcsConfigurationInitializer gcsConfigurationInitialize,
+            AzureConfigurationInitializer azureConfigurationInitialize,
             NodeVersion nodeVersion)
     {
-        super(config, catalogName, s3ConfigurationUpdater, gcsConfigurationInitialize);
+        super(config, catalogName, s3ConfigurationUpdater, gcsConfigurationInitialize, azureConfigurationInitialize);
         this.catalogConfig = requireNonNull(catalogConfig, "catalogConfig is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null").getCatalogName();
@@ -114,6 +138,14 @@ public class IcebergRestCatalogFactory
         properties.put(URI, catalogConfig.getServerUri().orElseThrow(
                 () -> new IllegalStateException("iceberg.rest.uri must be set for REST catalog")));
 
+        if (catalogConfig.isTlsEnabled()) {
+            properties.put(TLS_CONFIGURER_IMPL, PrestoRestTLSConfigurer.class.getName());
+            catalogConfig.getKeystorePath().ifPresent(path -> properties.put(KEYSTORE_PATH, path));
+            catalogConfig.getKeystorePassword().ifPresent(password -> properties.put(KEYSTORE_PASSWORD, password));
+            catalogConfig.getTruststorePath().ifPresent(path -> properties.put(TRUSTSTORE_PATH, path));
+            catalogConfig.getTruststorePassword().ifPresent(password -> properties.put(TRUSTSTORE_PASSWORD, password));
+        }
+
         catalogConfig.getAuthenticationType().ifPresent(type -> {
             if (type == OAUTH2) {
                 // The oauth2/tokens endpoint of the REST catalog spec has been deprecated and will
@@ -128,7 +160,23 @@ public class IcebergRestCatalogFactory
                 catalogConfig.getToken().ifPresent(token -> properties.put(TOKEN, token));
                 catalogConfig.getScope().ifPresent(scope -> properties.put(SCOPE, scope));
             }
+            if (type == BASIC) {
+                String basicAuthUsername = catalogConfig.getBasicAuthUsername().orElseThrow(
+                        () -> new IllegalStateException("iceberg.rest.auth.basic.username must be set for REST catalog when BASIC authentication is enabled"));
+                String basicAuthPassword = catalogConfig.getBasicAuthPassword().orElseThrow(
+                        () -> new IllegalStateException("iceberg.rest.auth.basic.password must be set for REST catalog when BASIC authentication is enabled"));
+                properties.put(AUTH_TYPE, AUTH_TYPE_BASIC);
+                properties.put(BASIC_USERNAME, basicAuthUsername);
+                properties.put(BASIC_PASSWORD, basicAuthPassword);
+            }
         });
+
+        if (catalogConfig.isProxyEnabled()) {
+            properties.put(REST_PROXY_HOSTNAME, catalogConfig.getProxyHostname().get());
+            properties.put(REST_PROXY_PORT, String.valueOf(catalogConfig.getProxyPort().get()));
+            catalogConfig.getProxyUsername().ifPresent(username -> properties.put(REST_PROXY_USERNAME, username));
+            catalogConfig.getProxyPassword().ifPresent(password -> properties.put(REST_PROXY_PASSWORD, password));
+        }
 
         catalogConfig.getSessionType().filter(type -> type.equals(USER))
                 .ifPresent(type -> properties.put(CatalogProperties.USER, session.getUser()));

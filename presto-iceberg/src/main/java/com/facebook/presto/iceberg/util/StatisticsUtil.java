@@ -41,6 +41,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotSummary;
 import org.apache.iceberg.Table;
 
 import java.util.Arrays;
@@ -104,7 +106,7 @@ public final class StatisticsUtil
                     .setNullsFraction(icebergColumnStats.getNullsFraction())
                     .setDistinctValuesCount(icebergColumnStats.getDistinctValuesCount())
                     .setHistogram(icebergColumnStats.getHistogram())
-                    .setRange(icebergColumnStats.getRange());
+                    .setStringRange(icebergColumnStats.getStringRange());
             if (hiveColumnStats != null) {
                 // NDVs
                 if (mergeFlags.contains(NUMBER_OF_DISTINCT_VALUES)) {
@@ -198,6 +200,19 @@ public final class StatisticsUtil
     public static String formatIdentifier(String s)
     {
         return '"' + s.replace("\"", "\"\"") + '"';
+    }
+
+    /**
+     * Returns the total record count stored in the snapshot summary, or empty if unavailable.
+     * Iceberg writes {@code total-records} into every snapshot summary on commit; it may be absent
+     * for snapshots produced by very old writers or external tools that do not populate summary stats.
+     */
+    public static Optional<Long> getTotalRecords(Snapshot snapshot)
+    {
+        if (snapshot == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(snapshot.summary().get(SnapshotSummary.TOTAL_RECORDS_PROP)).map(Long::parseLong);
     }
 
     /**

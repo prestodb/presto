@@ -724,7 +724,7 @@ public class TestResourceManagerClusterStateProvider
         assertEquals(clusterMemoryPoolInfo.getLargestMemoryQuery().map(QueryId::getId), largestMemoryQuery);
     }
 
-    private static BasicQueryInfo createQueryInfo(String queryId, QueryState state)
+    public static BasicQueryInfo createQueryInfo(String queryId, QueryState state)
     {
         return createQueryInfo(queryId, state, "global", GENERAL_POOL);
     }
@@ -768,6 +768,7 @@ public class TestResourceManagerClusterStateProvider
                         14,
                         15,
                         100,
+                        DataSize.valueOf("21GB"),
                         DataSize.valueOf("21GB"),
                         22,
                         23,

@@ -14,7 +14,8 @@
           "code": 1234,
           "name": "name",
           "type": "INSUFFICIENT_RESOURCES",
-          "retriable": true
+          "retriable": true,
+          "catchableByTry": false
       },
       "remoteHost": "localhost:8080",
       "errorCause": "UNKNOWN"
@@ -32,7 +33,8 @@
           "code": 1234,
           "name": "name",
           "type": "EXTERNAL",
-          "retriable": true
+          "retriable": true,
+          "catchableByTry": false
       },
       "remoteHost": "localhost:8080",
       "errorCause": "LOW_PARTITION_COUNT"
@@ -50,7 +52,8 @@
           "code": 1234,
           "name": "name",
           "type": "INTERNAL_ERROR",
-          "retriable": true
+          "retriable": true,
+          "catchableByTry": false
       },
       "remoteHost": "localhost:8080",
       "errorCause": "EXCEEDS_BROADCAST_MEMORY_LIMIT"
@@ -64,7 +67,8 @@
         "code": 1234,
         "name": "name",
         "type": "INTERNAL_ERROR",
-        "retriable": false
+        "retriable": false,
+        "catchableByTry": false
     },
     "remoteHost": "localhost:8080",
     "errorCause": "EXCEEDS_BROADCAST_MEMORY_LIMIT"

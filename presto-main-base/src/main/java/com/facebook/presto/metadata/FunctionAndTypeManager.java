@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
@@ -88,6 +89,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -303,6 +305,18 @@ public class FunctionAndTypeManager
             }
 
             @Override
+            public void addType(Type type)
+            {
+                FunctionAndTypeManager.this.addType(type);
+            }
+
+            @Override
+            public void addParametricType(ParametricType parametricType)
+            {
+                FunctionAndTypeManager.this.addParametricType(parametricType);
+            }
+
+            @Override
             public Collection<SqlFunction> listBuiltInFunctions()
             {
                 return FunctionAndTypeManager.this.listBuiltInFunctions();
@@ -359,12 +373,13 @@ public class FunctionAndTypeManager
             String functionNamespaceManagerName,
             String catalogName,
             Map<String, String> properties,
-            NodeManager nodeManager)
+            NodeManager nodeManager,
+            AuthClientConfigs authClientConfigs)
     {
         requireNonNull(functionNamespaceManagerName, "functionNamespaceManagerName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
         checkState(factory != null, "No factory for function namespace manager %s", functionNamespaceManagerName);
-        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(this, nodeManager, this));
+        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(this, nodeManager, this, authClientConfigs));
         functionNamespaceManager.setBlockEncodingSerde(blockEncodingSerde);
 
         transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
@@ -649,18 +664,20 @@ public class FunctionAndTypeManager
         return resolveFunctionInternal(transactionId, functionName, parameterTypes);
     }
 
+    @Override
     public void addType(Type type)
     {
         TypeSignatureBase typeSignatureBase = type.getTypeSignature().getTypeSignatureBase();
         checkArgument(typeSignatureBase.hasStandardType(), "Expect standard types");
-        builtInTypeAndFunctionNamespaceManager.addType(type);
+        servingTypeManager.get().addType(type);
     }
 
+    @Override
     public void addParametricType(ParametricType parametricType)
     {
         TypeSignatureBase typeSignatureBase = parametricType.getTypeSignatureBase();
         checkArgument(typeSignatureBase.hasStandardType(), "Expect standard types");
-        builtInTypeAndFunctionNamespaceManager.addParametricType(parametricType);
+        servingTypeManager.get().addParametricType(parametricType);
     }
 
     @VisibleForTesting
@@ -1067,8 +1084,9 @@ public class FunctionAndTypeManager
 
     private Map<String, ParametricType> getServingTypeManagerParametricTypes()
     {
+        // While loading the parametric types, the name is in lowercase.
         return servingTypeManager.get().getParametricTypes().stream()
-                .collect(toImmutableMap(ParametricType::getName, parametricType -> parametricType));
+                .collect(toImmutableMap(parametricType -> parametricType.getName().toLowerCase(Locale.ENGLISH), parametricType -> parametricType));
     }
 
     private Collection<? extends SqlFunction> getFunctions(

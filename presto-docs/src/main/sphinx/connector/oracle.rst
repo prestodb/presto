@@ -74,7 +74,72 @@ Property Name                                      Description                  
 ``case-sensitive-name-matching``                   Enable case sensitive identifier support for schema and table        ``false``
                                                    names for the connector. When disabled, names are matched
                                                    case-insensitively using lowercase normalization.
+
+``jdbc-fetch-size``                                Number of rows to fetch from the database at a time. Higher          ``20000``
+                                                   values can improve performance for large result sets but may
+                                                   increase memory usage.
 ================================================== ==================================================================== ===========
+
+Oracle-Specific Configuration Properties
+----------------------------------------
+
+================================================== ==================================================================== ===========
+Property Name                                      Description                                                          Default
+================================================== ==================================================================== ===========
+``oracle.tls.enabled``                             Enable TLS/SSL for secure connections to Oracle database.            ``false``
+
+``oracle.tls.truststore-path``                     Path to the Java truststore file containing the Oracle server's
+                                                   SSL certificate. Required when ``oracle.tls.enabled`` is ``true``.
+
+``oracle.tls.truststore-password``                 Password for the truststore file. Required when
+                                                   ``oracle.tls.enabled`` is ``true``.
+================================================== ==================================================================== ===========
+
+TLS/SSL Configuration
+^^^^^^^^^^^^^^^^^^^^^
+
+To enable secure connections to Oracle using TLS/SSL, configure the following properties:
+
+.. code-block:: none
+
+    oracle.tls.enabled=true
+    oracle.tls.truststore-path=/path/to/truststore.jks
+    oracle.tls.truststore-password=changeit
+
+The truststore file must contain the Oracle server's SSL certificate or the certificate
+authority (CA) certificate that signed the Oracle server's certificate.
+
+
+Procedures
+----------
+
+Use the :doc:`/sql/call` statement to perform data manipulation or administrative tasks. Procedures are available in the ``system`` schema of the catalog.
+
+Execute Procedure
+^^^^^^^^^^^^^^^^^
+
+Underlying datasources may support some operation or SQL syntax which is not supported by Presto, either at the parser level or at the connector level.
+Trying to run such SQL statements in Presto can result in errors during parsing or analysing. For example, Oracle supports the DELETE statement which is not
+supported in the Oracle connector. Running this procedure enables users to do a SQL passthrough to the underlying database, and Presto just acts as a middle man
+for passing the statement.
+
+The following arguments are available:
+
+============= ========== =============== =======================================================================
+Argument Name Required   Type            Description
+============= ========== =============== =======================================================================
+``QUERY``     Yes        string          SQL statement to run
+============= ========== =============== =======================================================================
+
+Examples:
+
+* Delete a row from table `employees` where `employee_id = 101`::
+
+    CALL oracle.system.execute('delete from employees where employee_id = 101')
+
+    CALL oracle.system.execute(QUERY => 'delete from employees where employee_id = 101')
+
+
 
 Querying Oracle
 ---------------
@@ -115,13 +180,18 @@ Oracle to PrestoDB type mapping
 The connector maps Oracle types to the corresponding PrestoDB types:
 
 .. list-table:: Oracle to PrestoDB type mapping
-  :widths: 50, 50
   :header-rows: 1
 
   * - Oracle type
     - PrestoDB type
   * - ``BLOB``
     - ``VARBINARY``
+  * - ``BINARY_FLOAT``
+    - ``REAL``
+  * - ``REAL``
+    - ``REAL``
+  * - ``BINARY_DOUBLE``
+    - ``DOUBLE``
 
 Oracle Connector Limitations
 ----------------------------

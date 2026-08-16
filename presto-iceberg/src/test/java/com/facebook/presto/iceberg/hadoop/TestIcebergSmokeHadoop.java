@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.iceberg.hadoop;
 
+import com.facebook.presto.hive.azure.HiveAzureConfig;
+import com.facebook.presto.hive.azure.HiveAzureConfigurationInitializer;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.HiveS3Config;
@@ -67,7 +69,8 @@ public class TestIcebergSmokeHadoop
         IcebergNativeCatalogFactory catalogFactory = new IcebergNativeCatalogFactory(icebergConfig,
                 new IcebergCatalogName(ICEBERG_CATALOG),
                 new PrestoS3ConfigurationUpdater(new HiveS3Config()),
-                new HiveGcsConfigurationInitializer(new HiveGcsConfig()));
+                new HiveGcsConfigurationInitializer(new HiveGcsConfig()),
+                new HiveAzureConfigurationInitializer(new HiveAzureConfig()));
 
         return IcebergUtil.getNativeIcebergTable(catalogFactory,
                 session,

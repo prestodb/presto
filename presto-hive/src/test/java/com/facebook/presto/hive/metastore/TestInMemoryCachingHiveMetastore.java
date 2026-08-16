@@ -18,7 +18,6 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.MockHiveMetastore;
 import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.PartitionNameWithVersion;
-import com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheScope;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.HiveCluster;
 import com.facebook.presto.hive.metastore.thrift.HiveMetastoreClient;
@@ -45,6 +44,10 @@ import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.ALL;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.PARTITION;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.PARTITION_STATISTICS;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.TABLE;
 import static com.facebook.presto.hive.metastore.NoopMetastoreCacheStats.NOOP_METASTORE_CACHE_STATS;
 import static com.facebook.presto.hive.metastore.Partition.Builder;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.BAD_DATABASE;
@@ -77,7 +80,8 @@ public class TestInMemoryCachingHiveMetastore
     private static final ImmutableList<PartitionNameWithVersion> EXPECTED_PARTITIONS = ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2);
 
     private MockHiveMetastoreClient mockClient;
-    private InMemoryCachingHiveMetastore metastore;
+    private InMemoryCachingHiveMetastore metastoreWithAllCachesEnabled;
+    private InMemoryCachingHiveMetastore metastoreWithSelectiveCachesEnabled;
     private ThriftHiveMetastoreStats stats;
 
     @BeforeMethod
@@ -87,20 +91,44 @@ public class TestInMemoryCachingHiveMetastore
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        // Configure Metastore Cache
+        metastoreClientConfig.setDefaultMetastoreCacheTtl(new Duration(5, TimeUnit.MINUTES));
+        metastoreClientConfig.setDefaultMetastoreCacheRefreshInterval(new Duration(1, TimeUnit.MINUTES));
+        metastoreClientConfig.setMetastoreCacheMaximumSize(1000);
+        metastoreClientConfig.setEnabledCaches(ALL.name());
+
         ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(mockHiveCluster, metastoreClientConfig, HDFS_ENVIRONMENT);
         PartitionMutator hivePartitionMutator = new HivePartitionMutator();
-        metastore = new InMemoryCachingHiveMetastore(
+        metastoreWithAllCachesEnabled = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore, hivePartitionMutator),
                 executor,
                 false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
                 1000,
                 false,
-                MetastoreCacheScope.ALL,
                 0.0,
                 metastoreClientConfig.getPartitionCacheColumnCountLimit(),
-                NOOP_METASTORE_CACHE_STATS);
+                NOOP_METASTORE_CACHE_STATS,
+                new MetastoreCacheSpecProvider(metastoreClientConfig));
+
+        MetastoreClientConfig metastoreClientConfigWithSelectiveCaching = new MetastoreClientConfig();
+        // Configure Metastore Cache
+        metastoreClientConfigWithSelectiveCaching.setDefaultMetastoreCacheTtl(new Duration(5, TimeUnit.MINUTES));
+        metastoreClientConfigWithSelectiveCaching.setDefaultMetastoreCacheRefreshInterval(new Duration(1, TimeUnit.MINUTES));
+        metastoreClientConfigWithSelectiveCaching.setMetastoreCacheMaximumSize(1000);
+        metastoreClientConfigWithSelectiveCaching.setDisabledCaches(TABLE.name());
+
+        ThriftHiveMetastore thriftHiveMetastoreWithSelectiveCaching = new ThriftHiveMetastore(mockHiveCluster, metastoreClientConfigWithSelectiveCaching, HDFS_ENVIRONMENT);
+        metastoreWithSelectiveCachesEnabled = new InMemoryCachingHiveMetastore(
+                new BridgingHiveMetastore(thriftHiveMetastoreWithSelectiveCaching, hivePartitionMutator),
+                executor,
+                false,
+                1000,
+                false,
+                0.0,
+                metastoreClientConfigWithSelectiveCaching.getPartitionCacheColumnCountLimit(),
+                NOOP_METASTORE_CACHE_STATS,
+                new MetastoreCacheSpecProvider(metastoreClientConfigWithSelectiveCaching));
+
         stats = thriftHiveMetastore.getStats();
     }
 
@@ -108,19 +136,19 @@ public class TestInMemoryCachingHiveMetastore
     public void testGetAllDatabases()
     {
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of(TEST_DATABASE));
+        assertEquals(metastoreWithAllCachesEnabled.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of(TEST_DATABASE));
+        assertEquals(metastoreWithAllCachesEnabled.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 1);
 
-        metastore.invalidateAll();
+        metastoreWithAllCachesEnabled.invalidateAll();
 
-        assertEquals(metastore.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of(TEST_DATABASE));
+        assertEquals(metastoreWithAllCachesEnabled.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 2);
 
         // Test invalidate a specific database
-        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE);
-        assertEquals(metastore.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of(TEST_DATABASE));
+        metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE);
+        assertEquals(metastoreWithAllCachesEnabled.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 3);
     }
 
@@ -128,69 +156,94 @@ public class TestInMemoryCachingHiveMetastore
     public void testGetAllTable()
     {
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(metastoreWithAllCachesEnabled.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(metastoreWithAllCachesEnabled.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 1);
 
-        metastore.invalidateAll();
+        metastoreWithAllCachesEnabled.invalidateAll();
 
-        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(metastoreWithAllCachesEnabled.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 2);
 
         // Test invalidate a specific database which will also invalidate all table caches mapped to that database
-        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE);
-        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE);
+        assertEquals(metastoreWithAllCachesEnabled.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 3);
-        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(metastoreWithAllCachesEnabled.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 3);
 
         // Test invalidate a specific database.table which also invalidates the tablesNamesCache for that database
-        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
-        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
+        assertEquals(metastoreWithAllCachesEnabled.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 4);
+    }
+
+    @Test
+    public void testGetAllTableWithSelectiveCaching()
+    {
+        assertEquals(mockClient.getAccessCount(), 0);
+        assertEquals(metastoreWithSelectiveCachesEnabled.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(mockClient.getAccessCount(), 1);
+        assertEquals(metastoreWithSelectiveCachesEnabled.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(mockClient.getAccessCount(), 1);
+
+        metastoreWithSelectiveCachesEnabled.invalidateAll();
+
+        assertEquals(metastoreWithSelectiveCachesEnabled.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertEquals(mockClient.getAccessCount(), 2);
     }
 
     public void testInvalidDbGetAllTAbles()
     {
-        assertFalse(metastore.getAllTables(TEST_METASTORE_CONTEXT, BAD_DATABASE).isPresent());
+        assertFalse(metastoreWithAllCachesEnabled.getAllTables(TEST_METASTORE_CONTEXT, BAD_DATABASE).isPresent());
     }
 
     @Test
     public void testGetTable()
     {
         assertEquals(mockClient.getAccessCount(), 0);
-        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
+        assertNotNull(metastoreWithAllCachesEnabled.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 1);
-        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
+        assertNotNull(metastoreWithAllCachesEnabled.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 1);
 
-        metastore.invalidateAll();
+        metastoreWithAllCachesEnabled.invalidateAll();
 
-        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
+        assertNotNull(metastoreWithAllCachesEnabled.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 2);
 
         // Test invalidate a specific database which will also invalidate all table caches mapped to that database
-        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE);
-        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
+        metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE);
+        assertNotNull(metastoreWithAllCachesEnabled.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 3);
-        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
+        assertNotNull(metastoreWithAllCachesEnabled.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 3);
 
-        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS));
+        assertNotNull(metastoreWithAllCachesEnabled.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 4);
 
         // Test invalidate a specific table
-        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
-        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS));
+        metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
+        assertNotNull(metastoreWithAllCachesEnabled.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 4);
-        assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
+        assertNotNull(metastoreWithAllCachesEnabled.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 5);
+    }
+
+    @Test
+    public void testGetTableWithSelectiveCaching()
+    {
+        assertEquals(mockClient.getAccessCount(), 0);
+        assertNotNull(metastoreWithSelectiveCachesEnabled.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
+        assertEquals(mockClient.getAccessCount(), 1);
+        assertNotNull(metastoreWithSelectiveCachesEnabled.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
+        assertEquals(mockClient.getAccessCount(), 2);
     }
 
     public void testInvalidDbGetTable()
     {
-        assertFalse(metastore.getTable(TEST_METASTORE_CONTEXT, BAD_DATABASE, TEST_TABLE).isPresent());
+        assertFalse(metastoreWithAllCachesEnabled.getTable(TEST_METASTORE_CONTEXT, BAD_DATABASE, TEST_TABLE).isPresent());
 
         assertEquals(stats.getGetTable().getThriftExceptions().getTotalCount(), 0);
         assertEquals(stats.getGetTable().getTotalFailures().getTotalCount(), 0);
@@ -202,33 +255,33 @@ public class TestInMemoryCachingHiveMetastore
     {
         ImmutableList<PartitionNameWithVersion> expectedPartitions = ImmutableList.of(TEST_PARTITION_NAME_WITHOUT_VERSION1, TEST_PARTITION_NAME_WITHOUT_VERSION2);
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
 
-        metastore.invalidateAll();
+        metastoreWithAllCachesEnabled.invalidateAll();
 
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 2);
 
         // Test invalidate the database which will also invalidate all linked table and partition caches
-        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE);
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 3);
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 3);
 
         // Test invalidate a specific table which will also invalidate all linked partition caches
-        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 4);
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 4);
 
         // Test invalidate a specific partition
-        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of("key"), ImmutableList.of("testpartition1"));
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of("key"), ImmutableList.of("testpartition1"));
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 5);
     }
 
@@ -236,27 +289,27 @@ public class TestInMemoryCachingHiveMetastore
     public void testInvalidInvalidateCache()
     {
         // Test invalidate cache with null/empty database name
-        assertThatThrownBy(() -> metastore.invalidateCache(TEST_METASTORE_CONTEXT, null))
+        assertThatThrownBy(() -> metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("databaseName cannot be null or empty");
 
         // Test invalidate cache with null/empty table name
-        assertThatThrownBy(() -> metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, null))
+        assertThatThrownBy(() -> metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("tableName cannot be null or empty");
 
         // Test invalidate cache with invalid/empty partition columns list
-        assertThatThrownBy(() -> metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(), ImmutableList.of()))
+        assertThatThrownBy(() -> metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(), ImmutableList.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("partitionColumnNames cannot be null or empty");
 
         // Test invalidate cache with invalid/empty partition values list
-        assertThatThrownBy(() -> metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of("key"), ImmutableList.of()))
+        assertThatThrownBy(() -> metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of("key"), ImmutableList.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("partitionValues cannot be null or empty");
 
         // Test invalidate cache with mismatched partition columns and values list
-        assertThatThrownBy(() -> metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of("key1", "key2"), ImmutableList.of("testpartition1")))
+        assertThatThrownBy(() -> metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of("key1", "key2"), ImmutableList.of("testpartition1")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("partitionColumnNames and partitionValues should be of same length");
     }
@@ -264,7 +317,7 @@ public class TestInMemoryCachingHiveMetastore
     @Test
     public void testInvalidGetPartitionNames()
     {
-        assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, BAD_DATABASE, TEST_TABLE).get(), ImmutableList.of());
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionNames(TEST_METASTORE_CONTEXT, BAD_DATABASE, TEST_TABLE).get(), ImmutableList.of());
     }
 
     @Test
@@ -273,14 +326,14 @@ public class TestInMemoryCachingHiveMetastore
         ImmutableList<PartitionNameWithVersion> expectedPartitions = ImmutableList.of(TEST_PARTITION_NAME_WITHOUT_VERSION1, TEST_PARTITION_NAME_WITHOUT_VERSION2);
 
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
 
-        metastore.invalidateAll();
+        metastoreWithAllCachesEnabled.invalidateAll();
 
-        assertEquals(metastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
@@ -311,18 +364,23 @@ public class TestInMemoryCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        // Configure Metastore Cache
+        metastoreClientConfig.setDefaultMetastoreCacheTtl(new Duration(5, TimeUnit.MINUTES));
+        metastoreClientConfig.setDefaultMetastoreCacheRefreshInterval(new Duration(1, TimeUnit.MINUTES));
+        metastoreClientConfig.setMetastoreCacheMaximumSize(1000);
+        metastoreClientConfig.setEnabledCaches(String.join(",", PARTITION.name(), PARTITION_STATISTICS.name()));
+
         InMemoryCachingHiveMetastore partitionCachingEnabledmetastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
                 executor,
                 false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
                 1000,
                 true,
-                MetastoreCacheScope.PARTITION,
                 0.0,
                 10_000,
-                NOOP_METASTORE_CACHE_STATS);
+                NOOP_METASTORE_CACHE_STATS,
+                new MetastoreCacheSpecProvider(metastoreClientConfig));
 
         assertEquals(mockClient.getAccessCount(), 0);
         assertEquals(partitionCachingEnabledmetastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), EXPECTED_PARTITIONS);
@@ -361,18 +419,23 @@ public class TestInMemoryCachingHiveMetastore
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        // Configure Metastore Cache
+        metastoreClientConfig.setDefaultMetastoreCacheTtl(new Duration(5, TimeUnit.MINUTES));
+        metastoreClientConfig.setDefaultMetastoreCacheRefreshInterval(new Duration(1, TimeUnit.MINUTES));
+        metastoreClientConfig.setMetastoreCacheMaximumSize(1000);
+        metastoreClientConfig.setEnabledCaches(String.join(",", PARTITION.name(), PARTITION_STATISTICS.name()));
+
         InMemoryCachingHiveMetastore partitionCachingEnabledmetastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(mockHiveMetastore, partitionMutator),
                 executor,
                 false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
                 1000,
                 true,
-                MetastoreCacheScope.PARTITION,
                 0.0,
                 10_000,
-                NOOP_METASTORE_CACHE_STATS);
+                NOOP_METASTORE_CACHE_STATS,
+                new MetastoreCacheSpecProvider(metastoreClientConfig));
 
         int clientAccessCount = 0;
         for (int i = 0; i < 100; i++) {
@@ -388,7 +451,7 @@ public class TestInMemoryCachingHiveMetastore
 
     public void testInvalidGetPartitionNamesByParts()
     {
-        assertTrue(metastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, BAD_DATABASE, TEST_TABLE, ImmutableMap.of()).isEmpty());
+        assertTrue(metastoreWithAllCachesEnabled.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, BAD_DATABASE, TEST_TABLE, ImmutableMap.of()).isEmpty());
     }
 
     @Test
@@ -399,18 +462,23 @@ public class TestInMemoryCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        // Configure Metastore Cache
+        metastoreClientConfig.setDefaultMetastoreCacheTtl(new Duration(5, TimeUnit.MINUTES));
+        metastoreClientConfig.setDefaultMetastoreCacheRefreshInterval(new Duration(1, TimeUnit.MINUTES));
+        metastoreClientConfig.setMetastoreCacheMaximumSize(1000);
+        metastoreClientConfig.setEnabledCaches(String.join(",", PARTITION.name(), PARTITION_STATISTICS.name()));
+
         InMemoryCachingHiveMetastore partitionCacheVerificationEnabledMetastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
                 executor,
                 false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
                 1000,
                 true,
-                MetastoreCacheScope.PARTITION,
                 100.0,
                 10_000,
-                NOOP_METASTORE_CACHE_STATS);
+                NOOP_METASTORE_CACHE_STATS,
+                new MetastoreCacheSpecProvider(metastoreClientConfig));
 
         // Warmup the cache
         partitionCacheVerificationEnabledMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2));
@@ -430,19 +498,24 @@ public class TestInMemoryCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        // Configure Metastore Cache
+        metastoreClientConfig.setDefaultMetastoreCacheTtl(new Duration(5, TimeUnit.MINUTES));
+        metastoreClientConfig.setDefaultMetastoreCacheRefreshInterval(new Duration(1, TimeUnit.MINUTES));
+        metastoreClientConfig.setMetastoreCacheMaximumSize(1000);
+        metastoreClientConfig.setEnabledCaches(String.join(",", PARTITION.name(), PARTITION_STATISTICS.name()));
+
         InMemoryCachingHiveMetastore partitionCachingEnabledMetastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
                 executor,
                 false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
                 1000,
                 true,
-                MetastoreCacheScope.PARTITION,
                 0.0,
                 // set the cached partition column count limit as 1 for testing purpose
                 1,
-                NOOP_METASTORE_CACHE_STATS);
+                NOOP_METASTORE_CACHE_STATS,
+                new MetastoreCacheSpecProvider(metastoreClientConfig));
 
         // Select all of the available partitions. Normally they would have been loaded into the cache. But because of column count limit, they will not be cached
         assertEquals(partitionCachingEnabledMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2)).size(), 2);
@@ -461,43 +534,43 @@ public class TestInMemoryCachingHiveMetastore
     public void testGetPartitionsByNames()
     {
         assertEquals(mockClient.getAccessCount(), 0);
-        metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
+        metastoreWithAllCachesEnabled.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
         assertEquals(mockClient.getAccessCount(), 1);
 
         // Select half of the available partitions and load them into the cache
-        assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1)).size(), 1);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1)).size(), 1);
         assertEquals(mockClient.getAccessCount(), 2);
 
         // Now select all of the partitions
-        assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2)).size(), 2);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2)).size(), 2);
         // There should be one more access to fetch the remaining partition
         assertEquals(mockClient.getAccessCount(), 3);
 
         // Now if we fetch any or both of them, they should not hit the client
-        assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1)).size(), 1);
-        assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION2)).size(), 1);
-        assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2)).size(), 2);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1)).size(), 1);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION2)).size(), 1);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2)).size(), 2);
         assertEquals(mockClient.getAccessCount(), 3);
 
-        metastore.invalidateAll();
+        metastoreWithAllCachesEnabled.invalidateAll();
 
         // Fetching both should only result in one batched access
-        assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2)).size(), 2);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2)).size(), 2);
         assertEquals(mockClient.getAccessCount(), 4);
 
         // Test invalidate a specific partition
-        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of("key"), ImmutableList.of("testpartition1"));
+        metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of("key"), ImmutableList.of("testpartition1"));
 
         // This should still be a cache hit
-        assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION2)).size(), 1);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION2)).size(), 1);
         assertEquals(mockClient.getAccessCount(), 4);
 
         // This should be a cache miss
-        assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1)).size(), 1);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1)).size(), 1);
         assertEquals(mockClient.getAccessCount(), 5);
 
         // This should be a cache hit
-        assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2)).size(), 2);
+        assertEquals(metastoreWithAllCachesEnabled.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2)).size(), 2);
         assertEquals(mockClient.getAccessCount(), 5);
     }
 
@@ -507,31 +580,31 @@ public class TestInMemoryCachingHiveMetastore
     {
         assertEquals(mockClient.getAccessCount(), 0);
 
-        assertEquals(metastore.listRoles(TEST_METASTORE_CONTEXT), TEST_ROLES);
+        assertEquals(metastoreWithAllCachesEnabled.listRoles(TEST_METASTORE_CONTEXT), TEST_ROLES);
         assertEquals(mockClient.getAccessCount(), 1);
 
-        assertEquals(metastore.listRoles(TEST_METASTORE_CONTEXT), TEST_ROLES);
+        assertEquals(metastoreWithAllCachesEnabled.listRoles(TEST_METASTORE_CONTEXT), TEST_ROLES);
         assertEquals(mockClient.getAccessCount(), 1);
 
-        metastore.invalidateAll();
+        metastoreWithAllCachesEnabled.invalidateAll();
 
-        assertEquals(metastore.listRoles(TEST_METASTORE_CONTEXT), TEST_ROLES);
+        assertEquals(metastoreWithAllCachesEnabled.listRoles(TEST_METASTORE_CONTEXT), TEST_ROLES);
         assertEquals(mockClient.getAccessCount(), 2);
 
-        metastore.createRole(TEST_METASTORE_CONTEXT, "role", "grantor");
+        metastoreWithAllCachesEnabled.createRole(TEST_METASTORE_CONTEXT, "role", "grantor");
 
-        assertEquals(metastore.listRoles(TEST_METASTORE_CONTEXT), TEST_ROLES);
+        assertEquals(metastoreWithAllCachesEnabled.listRoles(TEST_METASTORE_CONTEXT), TEST_ROLES);
         assertEquals(mockClient.getAccessCount(), 3);
 
-        metastore.dropRole(TEST_METASTORE_CONTEXT, "testrole");
+        metastoreWithAllCachesEnabled.dropRole(TEST_METASTORE_CONTEXT, "testrole");
 
-        assertEquals(metastore.listRoles(TEST_METASTORE_CONTEXT), TEST_ROLES);
+        assertEquals(metastoreWithAllCachesEnabled.listRoles(TEST_METASTORE_CONTEXT), TEST_ROLES);
         assertEquals(mockClient.getAccessCount(), 4);
     }
 
     public void testInvalidGetPartitionsByNames()
     {
-        Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, BAD_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1));
+        Map<String, Optional<Partition>> partitionsByNames = metastoreWithAllCachesEnabled.getPartitionsByNames(TEST_METASTORE_CONTEXT, BAD_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1));
         assertEquals(partitionsByNames.size(), 1);
         Optional<Partition> onlyElement = Iterables.getOnlyElement(partitionsByNames.values());
         assertFalse(onlyElement.isPresent());
@@ -543,7 +616,7 @@ public class TestInMemoryCachingHiveMetastore
         // Throw exceptions on usage
         mockClient.setThrowException(true);
         try {
-            metastore.getAllDatabases(TEST_METASTORE_CONTEXT);
+            metastoreWithAllCachesEnabled.getAllDatabases(TEST_METASTORE_CONTEXT);
         }
         catch (RuntimeException ignored) {
         }
@@ -551,7 +624,7 @@ public class TestInMemoryCachingHiveMetastore
 
         // Second try should hit the client again
         try {
-            metastore.getAllDatabases(TEST_METASTORE_CONTEXT);
+            metastoreWithAllCachesEnabled.getAllDatabases(TEST_METASTORE_CONTEXT);
         }
         catch (RuntimeException ignored) {
         }
@@ -562,25 +635,25 @@ public class TestInMemoryCachingHiveMetastore
     public void testTableConstraints()
     {
         assertEquals(mockClient.getAccessCount(), 0);
-        List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
+        List<TableConstraint<String>> tableConstraints = metastoreWithAllCachesEnabled.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(tableConstraints.get(0), new PrimaryKeyConstraint<>(Optional.of("pk"), new LinkedHashSet<>(ImmutableList.of("c1")), true, true, false));
         assertEquals(tableConstraints.get(1), new UniqueConstraint<>(Optional.of("uk"), new LinkedHashSet<>(ImmutableList.of("c2")), true, true, false));
         assertEquals(tableConstraints.get(2), new NotNullConstraint<>("c3"));
         assertEquals(mockClient.getAccessCount(), 3);
-        metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
+        metastoreWithAllCachesEnabled.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(mockClient.getAccessCount(), 3);
-        metastore.invalidateAll();
-        metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
+        metastoreWithAllCachesEnabled.invalidateAll();
+        metastoreWithAllCachesEnabled.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(mockClient.getAccessCount(), 6);
 
         // Test invalidate TEST_TABLE, which should not affect any entries linked to TEST_TABLE_WITH_CONSTRAINTS
-        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
-        metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
+        metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE);
+        metastoreWithAllCachesEnabled.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(mockClient.getAccessCount(), 6);
 
         // Test invalidate TEST_TABLE_WITH_CONSTRAINTS
-        metastore.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
-        metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
+        metastoreWithAllCachesEnabled.invalidateCache(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
+        metastoreWithAllCachesEnabled.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(mockClient.getAccessCount(), 9);
     }
 

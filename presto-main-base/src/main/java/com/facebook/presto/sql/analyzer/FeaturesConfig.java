@@ -23,10 +23,12 @@ import com.facebook.airlift.units.MaxDataSize;
 import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.spi.MaterializedViewRefreshType;
 import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.security.ViewSecurity;
+import com.facebook.presto.sql.planner.iterative.rule.materializedview.MaterializedViewRewriteStrategy;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -88,6 +90,8 @@ public class FeaturesConfig
     private boolean colocatedJoinsEnabled = true;
     private boolean groupedExecutionEnabled = true;
     private boolean recoverableGroupedExecutionEnabled;
+    private boolean partitionAwareGroupedExecutionEnabled;
+    private boolean groupedExecutionWhenCapableEnabled;
     private double maxFailedTaskPercentage = 0.3;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
@@ -124,6 +128,7 @@ public class FeaturesConfig
     private int optimizeMetadataQueriesCallThreshold = 100;
     private boolean optimizeHashGeneration = true;
     private boolean enableIntermediateAggregations;
+    private boolean enableParallelizeChainedAggregations;
     private boolean optimizeCaseExpressionPredicate;
     private boolean pushTableWriteThroughUnion = true;
     private CompressionCodec exchangeCompressionCodec = CompressionCodec.NONE;
@@ -155,16 +160,29 @@ public class FeaturesConfig
     private double defaultJoinSelectivityCoefficient;
     private double defaultWriterReplicationCoefficient = 3;
     private boolean pushAggregationThroughJoin = true;
+    private boolean pushPartialAggregationThroughJoin;
+    private boolean pushSemiJoinThroughUnion;
+    private boolean pushAggregationThroughDisjointUnion;
+    private boolean optimizeCascadingFiltersAndProjections;
+    private boolean optimizeJoinFanOut;
+    private boolean simplifyCoalesceOverJoinKeys;
+    private boolean pushdownThroughUnnest;
+    private boolean simplifyAggregationsOverConstant;
+    private boolean preAggregateBeforeGroupingSets;
+    private boolean pushProjectionThroughCrossJoin;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean useMarkDistinct = true;
     private boolean exploitConstraints = true;
     private boolean preferPartialAggregation = true;
     private PartialAggregationStrategy partialAggregationStrategy = PartialAggregationStrategy.ALWAYS;
+    private LocalExchangeParentPreferenceStrategy localExchangeParentPreferenceStrategy = LocalExchangeParentPreferenceStrategy.ALWAYS;
     private double partialAggregationByteReductionThreshold = 0.5;
     private boolean adaptivePartialAggregationEnabled;
     private double adaptivePartialAggregationRowsReductionRatioThreshold = 0.8;
     private boolean optimizeTopNRowNumber = true;
+
+    private boolean optimizeTopNRank;
     private boolean pushLimitThroughOuterJoin = true;
     private boolean optimizeConstantGroupingKeys = true;
 
@@ -174,6 +192,12 @@ public class FeaturesConfig
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
     private int dynamicFilteringRangeRowLimitPerDriver;
+    private DistributedDynamicFilterStrategy distributedDynamicFilterStrategy = DistributedDynamicFilterStrategy.DISABLED;
+    private Duration distributedDynamicFilterMaxWaitTime = new Duration(2, SECONDS);
+    private int distributedDynamicFilterMaxWaitExtensions = 2;
+    private DataSize distributedDynamicFilterMaxSize = new DataSize(1, MEGABYTE);
+    private double distributedDynamicFilterCardinalityRatioThreshold = 0.1;
+    private boolean distributedDynamicFilterOnReplicatedJoins;
 
     private boolean fragmentResultCachingEnabled;
 
@@ -206,6 +230,7 @@ public class FeaturesConfig
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly = true;
     private boolean checkAccessControlWithSubfields;
+    private boolean alwaysAnalyzeCreateTableQueryEnabled;
     private boolean skipRedundantSort = true;
     private boolean isAllowWindowOrderByLiterals = true;
 
@@ -228,10 +253,14 @@ public class FeaturesConfig
     private boolean materializedViewDataConsistencyEnabled = true;
     private boolean materializedViewPartitionFilteringEnabled = true;
     private boolean queryOptimizationWithMaterializedViewEnabled;
+    private boolean materializedViewQueryRewriteCostBasedSelectionEnabled;
     private boolean legacyMaterializedViewRefresh = true;
     private boolean allowLegacyMaterializedViewsToggle;
     private boolean materializedViewAllowFullRefreshEnabled;
+    private MaterializedViewRefreshType materializedViewDefaultRefreshType = MaterializedViewRefreshType.FULL;
     private MaterializedViewStaleReadBehavior materializedViewStaleReadBehavior = MaterializedViewStaleReadBehavior.USE_VIEW_QUERY;
+    private MaterializedViewRewriteStrategy materializedViewStitchingStrategy = MaterializedViewRewriteStrategy.ALWAYS;
+    private MaterializedViewRewriteStrategy materializedViewIncrementalRefreshStrategy = MaterializedViewRewriteStrategy.ALWAYS;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
     private String analyzerType = "BUILTIN";
@@ -273,6 +302,7 @@ public class FeaturesConfig
     private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
     private boolean mergeDuplicateAggregationsEnabled = true;
     private boolean mergeAggregationsWithAndWithoutFilter;
+    private int mergeSumsToVectorSumThreshold;
     private boolean simplifyPlanWithEmptyInput = true;
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
     private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
@@ -287,6 +317,8 @@ public class FeaturesConfig
     private boolean pullUpExpressionFromLambda;
     private boolean rewriteConstantArrayContainsToIn;
     private boolean rewriteExpressionWithConstantVariable = true;
+    private boolean optimizeRowInPredicate;
+    private boolean pushFilterThroughSelectingAggregation;
     private boolean optimizeConditionalApproxDistinct = true;
 
     private boolean preProcessMetadataCalls;
@@ -323,12 +355,23 @@ public class FeaturesConfig
     private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
     private boolean addExchangeBelowPartialAggregationOverGroupId;
     private boolean addDistinctBelowSemiJoinBuild;
+    private boolean rewriteBucketedSemiJoinToJoin;
+    private boolean mergeMaxByMinByAggregationsEnabled;
     private boolean pushdownSubfieldForMapFunctions = true;
+    private boolean pushdownSubfieldForCardinality;
     private long maxSerializableObjectSize = 1000;
     private boolean utilizeUniquePropertyInQueryPlanning = true;
     private String expressionOptimizerUsedInRowExpressionRewrite = "";
+    private double tableScanShuffleParallelismThreshold = 0.1;
+    private ShuffleForTableScanStrategy tableScanShuffleStrategy = ShuffleForTableScanStrategy.DISABLED;
+    private boolean skipPushdownThroughExchangeForRemoteProjection;
+    private boolean pullConstantProjectionAboveExchange;
+    private PullRowLocalChainAboveExchangeStrategy pullRowLocalChainAboveExchangeStrategy = PullRowLocalChainAboveExchangeStrategy.DISABLED;
+    private String remoteFunctionNamesForFixedParallelism = "";
+    private int remoteFunctionFixedParallelismTaskCount = 10;
 
     private boolean builtInSidecarFunctionsEnabled;
+    private String tryFunctionCatchableErrors = "";
 
     public enum PartitioningPrecisionStrategy
     {
@@ -415,6 +458,13 @@ public class FeaturesConfig
         AUTOMATIC // Let the optimizer decide for each aggregation
     }
 
+    public enum LocalExchangeParentPreferenceStrategy
+    {
+        ALWAYS, // Always use parent preferences for local exchange partitioning
+        NEVER, // Never use parent preferences, use aggregation's own grouping keys
+        AUTOMATIC // Cost-based: use parent preferences only if cardinality >= taskConcurrency
+    }
+
     public enum AggregationIfToFilterRewriteStrategy
     {
         DISABLED,
@@ -438,6 +488,13 @@ public class FeaturesConfig
     }
 
     public enum ShardedJoinStrategy
+    {
+        DISABLED,
+        COST_BASED,
+        ALWAYS
+    }
+
+    public enum DistributedDynamicFilterStrategy
     {
         DISABLED,
         COST_BASED,
@@ -483,6 +540,22 @@ public class FeaturesConfig
     {
         DISABLED,
         ALWAYS_ENABLED
+    }
+
+    public enum ShuffleForTableScanStrategy
+    {
+        DISABLED,
+        ALWAYS_ENABLED,
+        COST_BASED
+    }
+
+    public enum PullRowLocalChainAboveExchangeStrategy
+    {
+        DISABLED,
+        ALWAYS_ENABLED,
+        // TODO: COST_BASED currently applies the rewrite structurally (same as ALWAYS_ENABLED);
+        // cost-based selection is a separate layer to be implemented later.
+        COST_BASED
     }
 
     @Min(1)
@@ -646,6 +719,32 @@ public class FeaturesConfig
     public FeaturesConfig setRecoverableGroupedExecutionEnabled(boolean recoverableGroupedExecutionEnabled)
     {
         this.recoverableGroupedExecutionEnabled = recoverableGroupedExecutionEnabled;
+        return this;
+    }
+
+    public boolean isPartitionAwareGroupedExecutionEnabled()
+    {
+        return partitionAwareGroupedExecutionEnabled;
+    }
+
+    @Config("partition-aware-grouped-execution-enabled")
+    @ConfigDescription("Schedule each (bucket, partition-values) pair as a separate lifespan in grouped execution, reducing per-lifespan memory for bucketed + partitioned tables")
+    public FeaturesConfig setPartitionAwareGroupedExecutionEnabled(boolean partitionAwareGroupedExecutionEnabled)
+    {
+        this.partitionAwareGroupedExecutionEnabled = partitionAwareGroupedExecutionEnabled;
+        return this;
+    }
+
+    public boolean isGroupedExecutionWhenCapableEnabled()
+    {
+        return groupedExecutionWhenCapableEnabled;
+    }
+
+    @Config("grouped-execution-when-capable-enabled")
+    @ConfigDescription("Use grouped execution for any grouped-execution-capable (bucketed) fragment, even when no downstream operator makes it individually beneficial (e.g. a bucketed scan feeding a shuffle or a bucketed table write)")
+    public FeaturesConfig setGroupedExecutionWhenCapableEnabled(boolean groupedExecutionWhenCapableEnabled)
+    {
+        this.groupedExecutionWhenCapableEnabled = groupedExecutionWhenCapableEnabled;
         return this;
     }
 
@@ -1120,6 +1219,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public LocalExchangeParentPreferenceStrategy getLocalExchangeParentPreferenceStrategy()
+    {
+        return localExchangeParentPreferenceStrategy;
+    }
+
+    @Config("optimizer.local-exchange-parent-preference-strategy")
+    public FeaturesConfig setLocalExchangeParentPreferenceStrategy(LocalExchangeParentPreferenceStrategy localExchangeParentPreferenceStrategy)
+    {
+        this.localExchangeParentPreferenceStrategy = localExchangeParentPreferenceStrategy;
+        return this;
+    }
+
     public double getPartialAggregationByteReductionThreshold()
     {
         return partialAggregationByteReductionThreshold;
@@ -1161,10 +1272,22 @@ public class FeaturesConfig
         return optimizeTopNRowNumber;
     }
 
+    public boolean isOptimizeTopNRank()
+    {
+        return optimizeTopNRank;
+    }
+
     @Config("optimizer.optimize-top-n-row-number")
     public FeaturesConfig setOptimizeTopNRowNumber(boolean optimizeTopNRowNumber)
     {
         this.optimizeTopNRowNumber = optimizeTopNRowNumber;
+        return this;
+    }
+
+    @Config("optimizer.optimize-top-n-rank")
+    public FeaturesConfig setOptimizeTopNRank(boolean optimizeTopNRank)
+    {
+        this.optimizeTopNRank = optimizeTopNRank;
         return this;
     }
 
@@ -1554,6 +1677,86 @@ public class FeaturesConfig
         return this;
     }
 
+    public DistributedDynamicFilterStrategy getDistributedDynamicFilterStrategy()
+    {
+        return distributedDynamicFilterStrategy;
+    }
+
+    @Config("distributed-dynamic-filter.strategy")
+    @ConfigDescription("When to add distributed dynamic filters to joins for split-level pruning")
+    public FeaturesConfig setDistributedDynamicFilterStrategy(DistributedDynamicFilterStrategy distributedDynamicFilterStrategy)
+    {
+        this.distributedDynamicFilterStrategy = distributedDynamicFilterStrategy;
+        return this;
+    }
+
+    public Duration getDistributedDynamicFilterMaxWaitTime()
+    {
+        return distributedDynamicFilterMaxWaitTime;
+    }
+
+    @Config("distributed-dynamic-filter.max-wait-time")
+    public FeaturesConfig setDistributedDynamicFilterMaxWaitTime(Duration distributedDynamicFilterMaxWaitTime)
+    {
+        this.distributedDynamicFilterMaxWaitTime = distributedDynamicFilterMaxWaitTime;
+        return this;
+    }
+
+    @Min(0)
+    public int getDistributedDynamicFilterMaxWaitExtensions()
+    {
+        return distributedDynamicFilterMaxWaitExtensions;
+    }
+
+    @Config("distributed-dynamic-filter.max-wait-extensions")
+    @ConfigDescription("Maximum number of additional max-wait-time cycles to grant a partitioned dynamic filter when partition contributions are still arriving. Total wall = (1 + extensions) * max-wait-time. Set to 0 to disable adaptive extension.")
+    public FeaturesConfig setDistributedDynamicFilterMaxWaitExtensions(int distributedDynamicFilterMaxWaitExtensions)
+    {
+        this.distributedDynamicFilterMaxWaitExtensions = distributedDynamicFilterMaxWaitExtensions;
+        return this;
+    }
+
+    public DataSize getDistributedDynamicFilterMaxSize()
+    {
+        return distributedDynamicFilterMaxSize;
+    }
+
+    @Config("distributed-dynamic-filter.max-size")
+    @ConfigDescription("Maximum size of coordinator-side merged dynamic filter before collapsing to min/max range")
+    public FeaturesConfig setDistributedDynamicFilterMaxSize(DataSize distributedDynamicFilterMaxSize)
+    {
+        this.distributedDynamicFilterMaxSize = distributedDynamicFilterMaxSize;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getDistributedDynamicFilterCardinalityRatioThreshold()
+    {
+        return distributedDynamicFilterCardinalityRatioThreshold;
+    }
+
+    @Config("distributed-dynamic-filter.cardinality-ratio-threshold")
+    @ConfigDescription("Maximum build/probe cardinality ratio for cost-based dynamic filter creation")
+    public FeaturesConfig setDistributedDynamicFilterCardinalityRatioThreshold(double distributedDynamicFilterCardinalityRatioThreshold)
+    {
+        this.distributedDynamicFilterCardinalityRatioThreshold = distributedDynamicFilterCardinalityRatioThreshold;
+        return this;
+    }
+
+    public boolean isDistributedDynamicFilterOnReplicatedJoins()
+    {
+        return distributedDynamicFilterOnReplicatedJoins;
+    }
+
+    @Config("distributed-dynamic-filter.on-replicated-joins")
+    @ConfigDescription("Add distributed dynamic filters to REPLICATED (broadcast) joins. Disabled by default because Velox's in-fragment pushdown already covers them")
+    public FeaturesConfig setDistributedDynamicFilterOnReplicatedJoins(boolean distributedDynamicFilterOnReplicatedJoins)
+    {
+        this.distributedDynamicFilterOnReplicatedJoins = distributedDynamicFilterOnReplicatedJoins;
+        return this;
+    }
+
     public boolean isFragmentResultCachingEnabled()
     {
         return fragmentResultCachingEnabled;
@@ -1616,6 +1819,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isEnableParallelizeChainedAggregations()
+    {
+        return enableParallelizeChainedAggregations;
+    }
+
+    @Config("optimizer.parallelize-chained-aggregation")
+    @ConfigDescription("Insert a local round-robin exchange above the inner aggregation in chained aggregations to parallelize the outer PARTIAL across local drivers")
+    public FeaturesConfig setEnableParallelizeChainedAggregations(boolean enableParallelizeChainedAggregations)
+    {
+        this.enableParallelizeChainedAggregations = enableParallelizeChainedAggregations;
+        return this;
+    }
+
     public boolean isPushAggregationThroughJoin()
     {
         return pushAggregationThroughJoin;
@@ -1625,6 +1841,131 @@ public class FeaturesConfig
     public FeaturesConfig setPushAggregationThroughJoin(boolean value)
     {
         this.pushAggregationThroughJoin = value;
+        return this;
+    }
+
+    public boolean isPushPartialAggregationThroughJoin()
+    {
+        return pushPartialAggregationThroughJoin;
+    }
+
+    @Config("optimizer.push-partial-aggregation-through-join")
+    @ConfigDescription("Push partial aggregations below joins")
+    public FeaturesConfig setPushPartialAggregationThroughJoin(boolean pushPartialAggregationThroughJoin)
+    {
+        this.pushPartialAggregationThroughJoin = pushPartialAggregationThroughJoin;
+        return this;
+    }
+
+    public boolean isPushSemiJoinThroughUnion()
+    {
+        return pushSemiJoinThroughUnion;
+    }
+
+    @Config("optimizer.push-semi-join-through-union")
+    @ConfigDescription("Push semi join through union to allow parallel semi join execution")
+    public FeaturesConfig setPushSemiJoinThroughUnion(boolean pushSemiJoinThroughUnion)
+    {
+        this.pushSemiJoinThroughUnion = pushSemiJoinThroughUnion;
+        return this;
+    }
+
+    public boolean isPushAggregationThroughDisjointUnion()
+    {
+        return pushAggregationThroughDisjointUnion;
+    }
+
+    @Config("optimizer.push-aggregation-through-disjoint-union")
+    @ConfigDescription("Push aggregation completely below UNION ALL when at least one grouping key has constant values that are disjoint across union branches, eliminating the final aggregation")
+    public FeaturesConfig setPushAggregationThroughDisjointUnion(boolean pushAggregationThroughDisjointUnion)
+    {
+        this.pushAggregationThroughDisjointUnion = pushAggregationThroughDisjointUnion;
+        return this;
+    }
+
+    public boolean isOptimizeCascadingFiltersAndProjections()
+    {
+        return optimizeCascadingFiltersAndProjections;
+    }
+
+    @Config("optimizer.optimize-cascading-filters-and-projections")
+    @ConfigDescription("Coalesce cascading projections by fully inlining deterministic child expressions and merge adjacent filter/project so shared subexpressions are co-located for native (Velox) CSE")
+    public FeaturesConfig setOptimizeCascadingFiltersAndProjections(boolean optimizeCascadingFiltersAndProjections)
+    {
+        this.optimizeCascadingFiltersAndProjections = optimizeCascadingFiltersAndProjections;
+        return this;
+    }
+    public boolean isOptimizeJoinFanOut()
+    {
+        return optimizeJoinFanOut;
+    }
+
+    @Config("optimizer.optimize-join-fan-out")
+    @ConfigDescription("Collapse a fan-out equi-join whose preserved side is an aggregation grouped by a strict superset of the join keys by packing non-key columns with array_agg(row(...)) and re-expanding them with a local UNNEST above the join")
+    public FeaturesConfig setOptimizeJoinFanOut(boolean optimizeJoinFanOut)
+    {
+        this.optimizeJoinFanOut = optimizeJoinFanOut;
+        return this;
+    }
+
+    public boolean isSimplifyCoalesceOverJoinKeys()
+    {
+        return simplifyCoalesceOverJoinKeys;
+    }
+
+    @Config("optimizer.simplify-coalesce-over-join-keys")
+    @ConfigDescription("Simplify redundant COALESCE expressions over equi-join keys based on join type")
+    public FeaturesConfig setSimplifyCoalesceOverJoinKeys(boolean simplifyCoalesceOverJoinKeys)
+    {
+        this.simplifyCoalesceOverJoinKeys = simplifyCoalesceOverJoinKeys;
+        return this;
+    }
+
+    public boolean isPushdownThroughUnnest()
+    {
+        return pushdownThroughUnnest;
+    }
+
+    @Config("optimizer.pushdown-through-unnest")
+    public FeaturesConfig setPushdownThroughUnnest(boolean value)
+    {
+        this.pushdownThroughUnnest = value;
+        return this;
+    }
+
+    public boolean isSimplifyAggregationsOverConstant()
+    {
+        return simplifyAggregationsOverConstant;
+    }
+
+    @Config("optimizer.simplify-aggregations-over-constant")
+    public FeaturesConfig setSimplifyAggregationsOverConstant(boolean simplifyAggregationsOverConstant)
+    {
+        this.simplifyAggregationsOverConstant = simplifyAggregationsOverConstant;
+        return this;
+    }
+
+    public boolean isPreAggregateBeforeGroupingSets()
+    {
+        return preAggregateBeforeGroupingSets;
+    }
+
+    @Config("optimizer.pre-aggregate-before-grouping-sets")
+    public FeaturesConfig setPreAggregateBeforeGroupingSets(boolean preAggregateBeforeGroupingSets)
+    {
+        this.preAggregateBeforeGroupingSets = preAggregateBeforeGroupingSets;
+        return this;
+    }
+
+    public boolean isPushProjectionThroughCrossJoin()
+    {
+        return pushProjectionThroughCrossJoin;
+    }
+
+    @Config("optimizer.push-projection-through-cross-join")
+    public FeaturesConfig setPushProjectionThroughCrossJoin(boolean pushProjectionThroughCrossJoin)
+    {
+        this.pushProjectionThroughCrossJoin = pushProjectionThroughCrossJoin;
         return this;
     }
 
@@ -1965,6 +2306,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isAlwaysAnalyzeCreateTableQueryEnabled()
+    {
+        return alwaysAnalyzeCreateTableQueryEnabled;
+    }
+
+    @Config("always-analyze-create-table-query-enabled")
+    public FeaturesConfig setAlwaysAnalyzeCreateTableQueryEnabled(boolean alwaysAnalyzeCreateTableQueryEnabled)
+    {
+        this.alwaysAnalyzeCreateTableQueryEnabled = alwaysAnalyzeCreateTableQueryEnabled;
+        return this;
+    }
+
     public boolean isCheckAccessControlWithSubfields()
     {
         return checkAccessControlWithSubfields;
@@ -2190,6 +2543,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isMaterializedViewQueryRewriteCostBasedSelectionEnabled()
+    {
+        return materializedViewQueryRewriteCostBasedSelectionEnabled;
+    }
+
+    @Config("materialized-view-query-rewrite-cost-based-selection-enabled")
+    @ConfigDescription("When enabled, collect all compatible MV candidates and defer selection to cost-based optimizer instead of using the first compatible MV")
+    public FeaturesConfig setMaterializedViewQueryRewriteCostBasedSelectionEnabled(boolean value)
+    {
+        this.materializedViewQueryRewriteCostBasedSelectionEnabled = value;
+        return this;
+    }
+
     public boolean isLegacyMaterializedViews()
     {
         return legacyMaterializedViewRefresh;
@@ -2230,6 +2596,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public MaterializedViewRefreshType getMaterializedViewDefaultRefreshType()
+    {
+        return materializedViewDefaultRefreshType;
+    }
+
+    @Config("materialized-view-default-refresh-type")
+    @ConfigDescription("Default refresh type for materialized views when not specified on the view (FULL or INCREMENTAL)")
+    public FeaturesConfig setMaterializedViewDefaultRefreshType(MaterializedViewRefreshType value)
+    {
+        this.materializedViewDefaultRefreshType = value;
+        return this;
+    }
+
     public MaterializedViewStaleReadBehavior getMaterializedViewStaleReadBehavior()
     {
         return materializedViewStaleReadBehavior;
@@ -2240,6 +2619,32 @@ public class FeaturesConfig
     public FeaturesConfig setMaterializedViewStaleReadBehavior(MaterializedViewStaleReadBehavior value)
     {
         this.materializedViewStaleReadBehavior = value;
+        return this;
+    }
+
+    public MaterializedViewRewriteStrategy getMaterializedViewStitchingStrategy()
+    {
+        return materializedViewStitchingStrategy;
+    }
+
+    @Config("materialized-view-stitching-strategy")
+    @ConfigDescription("Controls when query-time stitching of partially stale materialized views fires (ALWAYS, NEVER, or AUTOMATIC for cost-based)")
+    public FeaturesConfig setMaterializedViewStitchingStrategy(MaterializedViewRewriteStrategy value)
+    {
+        this.materializedViewStitchingStrategy = value;
+        return this;
+    }
+
+    public MaterializedViewRewriteStrategy getMaterializedViewIncrementalRefreshStrategy()
+    {
+        return materializedViewIncrementalRefreshStrategy;
+    }
+
+    @Config("materialized-view-incremental-refresh-strategy")
+    @ConfigDescription("Controls when incremental refresh of materialized views fires (ALWAYS, NEVER, or AUTOMATIC for cost-based)")
+    public FeaturesConfig setMaterializedViewIncrementalRefreshStrategy(MaterializedViewRewriteStrategy value)
+    {
+        this.materializedViewIncrementalRefreshStrategy = value;
         return this;
     }
 
@@ -2728,6 +3133,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public int getMergeSumsToVectorSumThreshold()
+    {
+        return mergeSumsToVectorSumThreshold;
+    }
+
+    @Config("optimizer.merge-sums-to-vector-sum-threshold")
+    @ConfigDescription("Minimum number of SUM aggregations to merge into a single vector_sum call (0 = disabled)")
+    public FeaturesConfig setMergeSumsToVectorSumThreshold(int mergeSumsToVectorSumThreshold)
+    {
+        this.mergeSumsToVectorSumThreshold = mergeSumsToVectorSumThreshold;
+        return this;
+    }
+
     public boolean isSimplifyPlanWithEmptyInput()
     {
         return this.simplifyPlanWithEmptyInput;
@@ -2985,6 +3403,32 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteExpressionWithConstantVariable(boolean rewriteExpressionWithConstantVariable)
     {
         this.rewriteExpressionWithConstantVariable = rewriteExpressionWithConstantVariable;
+        return this;
+    }
+
+    public boolean isOptimizeRowInPredicate()
+    {
+        return this.optimizeRowInPredicate;
+    }
+
+    @Config("optimizer.optimize-row-in-predicate")
+    @ConfigDescription("Optimize ROW(...) IN/NOT IN (ROW(...), ...) by adding per-column IN/NOT IN predicates to help the domain translator extract constraints")
+    public FeaturesConfig setOptimizeRowInPredicate(boolean optimizeRowInPredicate)
+    {
+        this.optimizeRowInPredicate = optimizeRowInPredicate;
+        return this;
+    }
+
+    public boolean isPushFilterThroughSelectingAggregation()
+    {
+        return this.pushFilterThroughSelectingAggregation;
+    }
+
+    @Config("optimizer.push-filter-through-selecting-aggregation")
+    @ConfigDescription("Push HAVING-style filter on MAX/MIN/ARBITRARY aggregate output below the aggregation when the predicate direction matches the aggregate")
+    public FeaturesConfig setPushFilterThroughSelectingAggregation(boolean pushFilterThroughSelectingAggregation)
+    {
+        this.pushFilterThroughSelectingAggregation = pushFilterThroughSelectingAggregation;
         return this;
     }
 
@@ -3246,6 +3690,32 @@ public class FeaturesConfig
         return addDistinctBelowSemiJoinBuild;
     }
 
+    @Config("optimizer.rewrite-bucketed-semi-join-to-join")
+    @ConfigDescription("Rewrite semi join to left join when both sides are bucketed by the join key")
+    public FeaturesConfig setRewriteBucketedSemiJoinToJoin(boolean rewriteBucketedSemiJoinToJoin)
+    {
+        this.rewriteBucketedSemiJoinToJoin = rewriteBucketedSemiJoinToJoin;
+        return this;
+    }
+
+    public boolean isRewriteBucketedSemiJoinToJoin()
+    {
+        return rewriteBucketedSemiJoinToJoin;
+    }
+
+    @Config("optimizer.merge-max-by-and-min-by-aggregations")
+    @ConfigDescription("Merge multiple max_by or min_by aggregations with the same comparison key into a single aggregation with ROW argument")
+    public FeaturesConfig setMergeMaxByMinByAggregationsEnabled(boolean mergeMaxByMinByAggregationsEnabled)
+    {
+        this.mergeMaxByMinByAggregationsEnabled = mergeMaxByMinByAggregationsEnabled;
+        return this;
+    }
+
+    public boolean isMergeMaxByMinByAggregationsEnabled()
+    {
+        return mergeMaxByMinByAggregationsEnabled;
+    }
+
     @Config("optimizer.pushdown-subfield-for-map-functions")
     @ConfigDescription("Enable subfield pruning for map functions, currently include map_subset and map_filter")
     public FeaturesConfig setPushdownSubfieldForMapFunctions(boolean pushdownSubfieldForMapFunctions)
@@ -3257,6 +3727,19 @@ public class FeaturesConfig
     public boolean isPushdownSubfieldForMapFunctions()
     {
         return pushdownSubfieldForMapFunctions;
+    }
+
+    @Config("optimizer.pushdown-subfield-for-cardinality")
+    @ConfigDescription("Enable subfield pruning for cardinality() function to skip reading keys and values")
+    public FeaturesConfig setPushdownSubfieldForCardinality(boolean pushdownSubfieldForCardinality)
+    {
+        this.pushdownSubfieldForCardinality = pushdownSubfieldForCardinality;
+        return this;
+    }
+
+    public boolean isPushdownSubfieldForCardinality()
+    {
+        return pushdownSubfieldForCardinality;
     }
 
     @Config("optimizer.utilize-unique-property-in-query-planning")
@@ -3298,6 +3781,71 @@ public class FeaturesConfig
         return maxSerializableObjectSize;
     }
 
+    public double getTableScanShuffleParallelismThreshold()
+    {
+        return tableScanShuffleParallelismThreshold;
+    }
+
+    @Config("optimizer.table-scan-shuffle-parallelism-threshold")
+    @ConfigDescription("Parallelism threshold for adding a shuffle above table scan. When the table's parallelism factor is below this threshold (0.0-1.0) and TABLE_SCAN_SHUFFLE_STRATEGY is COST_BASED, a round-robin shuffle exchange is added above the table scan to redistribute data.")
+    public FeaturesConfig setTableScanShuffleParallelismThreshold(double tableScanShuffleParallelismThreshold)
+    {
+        this.tableScanShuffleParallelismThreshold = tableScanShuffleParallelismThreshold;
+        return this;
+    }
+
+    public ShuffleForTableScanStrategy getTableScanShuffleStrategy()
+    {
+        return tableScanShuffleStrategy;
+    }
+
+    @Config("optimizer.table-scan-shuffle-strategy")
+    @ConfigDescription("Strategy for adding shuffle above table scan to redistribute data. Options are DISABLED, ALWAYS_ENABLED, COST_BASED")
+    public FeaturesConfig setTableScanShuffleStrategy(ShuffleForTableScanStrategy tableScanShuffleStrategy)
+    {
+        this.tableScanShuffleStrategy = tableScanShuffleStrategy;
+        return this;
+    }
+
+    public boolean isSkipPushdownThroughExchangeForRemoteProjection()
+    {
+        return skipPushdownThroughExchangeForRemoteProjection;
+    }
+
+    @Config("optimizer.skip-pushdown-through-exchange-for-remote-projection")
+    @ConfigDescription("Skip pushing down remote projection through exchange")
+    public FeaturesConfig setSkipPushdownThroughExchangeForRemoteProjection(boolean skipPushdownThroughExchangeForRemoteProjection)
+    {
+        this.skipPushdownThroughExchangeForRemoteProjection = skipPushdownThroughExchangeForRemoteProjection;
+        return this;
+    }
+
+    public boolean isPullConstantProjectionAboveExchange()
+    {
+        return pullConstantProjectionAboveExchange;
+    }
+
+    @Config("optimizer.pull-constant-projection-above-exchange")
+    @ConfigDescription("Pull constant assignments in projections above remote exchanges to reduce network I/O")
+    public FeaturesConfig setPullConstantProjectionAboveExchange(boolean pullConstantProjectionAboveExchange)
+    {
+        this.pullConstantProjectionAboveExchange = pullConstantProjectionAboveExchange;
+        return this;
+    }
+
+    public PullRowLocalChainAboveExchangeStrategy getPullRowLocalChainAboveExchangeStrategy()
+    {
+        return pullRowLocalChainAboveExchangeStrategy;
+    }
+
+    @Config("optimizer.pull-row-local-chain-above-exchange-strategy")
+    @ConfigDescription("Strategy for pulling a chain of row-local operators (unnest, deterministic projections) above a remote exchange so the exchange shuffles the smaller pre-expansion input. Options are DISABLED, ALWAYS_ENABLED, COST_BASED")
+    public FeaturesConfig setPullRowLocalChainAboveExchangeStrategy(PullRowLocalChainAboveExchangeStrategy pullRowLocalChainAboveExchangeStrategy)
+    {
+        this.pullRowLocalChainAboveExchangeStrategy = pullRowLocalChainAboveExchangeStrategy;
+        return this;
+    }
+
     @Config("built-in-sidecar-functions-enabled")
     @ConfigDescription("Enable using CPP functions from sidecar over coordinator SQL implementations.")
     public FeaturesConfig setBuiltInSidecarFunctionsEnabled(boolean builtInSidecarFunctionsEnabled)
@@ -3309,5 +3857,45 @@ public class FeaturesConfig
     public boolean isBuiltInSidecarFunctionsEnabled()
     {
         return this.builtInSidecarFunctionsEnabled;
+    }
+
+    public String getRemoteFunctionNamesForFixedParallelism()
+    {
+        return remoteFunctionNamesForFixedParallelism;
+    }
+
+    @Config("optimizer.remote-function-names-for-fixed-parallelism")
+    @ConfigDescription("Regex pattern to match remote function names that should use fixed parallelism")
+    public FeaturesConfig setRemoteFunctionNamesForFixedParallelism(String remoteFunctionNamesForFixedParallelism)
+    {
+        this.remoteFunctionNamesForFixedParallelism = remoteFunctionNamesForFixedParallelism;
+        return this;
+    }
+
+    @Min(1)
+    public int getRemoteFunctionFixedParallelismTaskCount()
+    {
+        return remoteFunctionFixedParallelismTaskCount;
+    }
+
+    @Config("optimizer.remote-function-fixed-parallelism-task-count")
+    @ConfigDescription("Number of tasks to use for remote functions matching the fixed parallelism pattern. If not set (0), the default hash partition count will be used.")
+    public FeaturesConfig setRemoteFunctionFixedParallelismTaskCount(int remoteFunctionFixedParallelismTaskCount)
+    {
+        this.remoteFunctionFixedParallelismTaskCount = remoteFunctionFixedParallelismTaskCount;
+        return this;
+    }
+
+    public String getTryFunctionCatchableErrors()
+    {
+        return tryFunctionCatchableErrors;
+    }
+
+    @Config("try-function-catchable-errors")
+    @ConfigDescription("Comma-separated list of error code names that TRY function should catch")
+    public FeaturesConfig setTryFunctionCatchableErrors(String tryFunctionCatchableErrors)
+    {
+        this.tryFunctionCatchableErrors = tryFunctionCatchableErrors;
+        return this;
     }
 }

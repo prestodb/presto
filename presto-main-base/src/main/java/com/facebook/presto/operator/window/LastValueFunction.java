@@ -19,7 +19,7 @@ import com.facebook.presto.spi.function.WindowFunctionSignature;
 
 import java.util.List;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 @WindowFunctionSignature(name = "last_value", typeVariable = "T", returnType = "T", argumentTypes = "T")
 public class LastValueFunction
@@ -29,7 +29,7 @@ public class LastValueFunction
 
     public LastValueFunction(List<Integer> argumentChannels)
     {
-        this.argumentChannel = getOnlyElement(argumentChannels);
+        this.argumentChannel = argumentChannels.stream().collect(onlyElement());
     }
 
     @Override

@@ -14,35 +14,46 @@
 package com.facebook.presto.resourcemanager;
 
 import com.facebook.drift.client.DriftClient;
+import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.util.PeriodicTaskExecutor;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol.THRIFT;
 import static java.util.Objects.requireNonNull;
 
 public class ClusterQueryTrackerService
 {
-    private final DriftClient<ResourceManagerClient> resourceManagerClient;
+    private final DriftClient<com.facebook.presto.resourcemanager.thrift.ResourceManagerClient> resourceManagerClient;
     private final ScheduledExecutorService executorService;
     private final long runningTaskCountFetchIntervalMillis;
     private AtomicInteger runningTaskCount;
     private final PeriodicTaskExecutor runningTaskCountUpdater;
+    private final ResourceManagerClient httpResourceManagerClient;
+    private final InternalCommunicationConfig internalCommunicationConfig;
+    private final AtomicBoolean inFlight = new AtomicBoolean(false);
 
     @Inject
     public ClusterQueryTrackerService(
-            @ForResourceManager DriftClient<ResourceManagerClient> resourceManagerClient,
+            @ForResourceManager DriftClient<com.facebook.presto.resourcemanager.thrift.ResourceManagerClient> resourceManagerClient,
+            ResourceManagerClient httpResourceManagerClient,
             @ForResourceManager ScheduledExecutorService executorService,
-            ResourceManagerConfig resourceManagerConfig)
+            ResourceManagerConfig resourceManagerConfig,
+            InternalCommunicationConfig internalCommunicationConfig)
     {
         this.resourceManagerClient = requireNonNull(resourceManagerClient, "resourceManagerClient is null");
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.runningTaskCountFetchIntervalMillis = requireNonNull(resourceManagerConfig, "resourceManagerConfig is null").getRunningTaskCountFetchInterval().toMillis();
         this.runningTaskCount = new AtomicInteger(0);
         this.runningTaskCountUpdater = new PeriodicTaskExecutor(runningTaskCountFetchIntervalMillis, executorService, () -> updateRunningTaskCount());
+        this.httpResourceManagerClient = requireNonNull(httpResourceManagerClient, "httpResourceManagerClient is null");
+        this.internalCommunicationConfig = requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null");
     }
 
     @PostConstruct
@@ -64,6 +75,19 @@ public class ClusterQueryTrackerService
 
     private void updateRunningTaskCount()
     {
-        this.runningTaskCount.set(resourceManagerClient.get().getRunningTaskCount());
+        if (internalCommunicationConfig.getResourceManagerCommunicationProtocol() == THRIFT) {
+            this.runningTaskCount.set(resourceManagerClient.get().getRunningTaskCount());
+        }
+        else {
+            if (!inFlight.compareAndSet(false, true)) {
+                return;
+            }
+            try {
+                this.runningTaskCount.set(httpResourceManagerClient.getRunningTaskCount(Optional.empty()));
+            }
+            finally {
+                inFlight.set(false);
+            }
+        }
     }
 }

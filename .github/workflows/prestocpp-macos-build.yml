@@ -4,6 +4,11 @@ on:
   workflow_dispatch: {}
   pull_request: {}
 
+concurrency:
+  # Cancel superseded in-progress runs for the same PR/branch to save CI capacity; never cancel master.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 jobs:
   changes:
     runs-on: macos-15
@@ -16,7 +21,7 @@ jobs:
     steps:
       # For pull requests it's not necessary to checkout the code
       - name: Run changes check for PRs
-        uses: dorny/paths-filter@7267a8516b6f92bdb098633497bad573efdbf271
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
           filters: |
@@ -37,13 +42,13 @@ jobs:
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
       HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "TRUE"
       # The arm runners (macos-14 and later) have only 7GB RAM.
-      BUILD_TYPE: "${{ matrix.os ==  'macos-15' && 'Release' || 'Debug' }}"
+      BUILD_TYPE: "${{ matrix.os ==  'macos-15' && 'release' || 'debug' }}"
       INSTALL_PREFIX: /tmp/deps-install
     concurrency:
       group: ${{ github.workflow }}-prestocpp-macos-build-${{ github.event.pull_request.number }}-${{ matrix.os }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: |
           needs.changes.outputs.codechange == 'true'
         with:
@@ -69,12 +74,19 @@ jobs:
         run: |
           set -xu
           source presto-native-execution/scripts/setup-macos.sh
-          export PROMPT_ALWAYS_RESPOND=n
+          export PROMPT_ALWAYS_RESPOND=y
 
           # First selectively install the minimal dependencies for Velox.
           install_build_prerequisites
           install_velox_deps_from_brew
           install_double_conversion
+
+          # Install glog/gflags because they are not installed from homebrew.
+          install_gflags
+          install_glog
+
+          # Install protobuf because it is not installed from homebrew.
+          install_protobuf
 
           # Velox deps needed by proxygen, a presto dependency.
           install_boost
@@ -85,6 +97,10 @@ jobs:
           install_wangle
           install_mvfst
 
+          # FileUtils.h pulls Buffer.h without declaring the dependency leading
+          # to a missing xsimd header if bundled.
+          install_xsimd
+
           # Velox dependencies that Presto directly depends on.
           install_re2
           install_fbthrift
@@ -92,8 +108,7 @@ jobs:
           # Now install the presto dependencies.
           install_presto_deps
 
-          echo "NJOBS=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
-          brew link --force protobuf@21
+          echo "NUM_THREADS=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
 
       - name: Install Github CLI for using apache/infrastructure-actions/stash
         if: |
@@ -121,11 +136,7 @@ jobs:
           export PATH=$(brew --prefix m4)/bin:$(brew --prefix bison)/bin:${PATH}
           export BOOST_ROOT=${INSTALL_PREFIX}
           cd presto-native-execution
-          cmake -B _build/${BUILD_TYPE} \
-            -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 \
-            -DENABLE_ALL_WARNINGS=1 \
-            -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
-          ninja -C _build/${BUILD_TYPE} -j ${NJOBS}
+          make ${BUILD_TYPE}
 
       - name: Ccache after
         if: |

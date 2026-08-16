@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public final class BuiltInAggregationFunctionImplementation
@@ -111,7 +111,7 @@ public final class BuiltInAggregationFunctionImplementation
     public Type getIntermediateType()
     {
         if (intermediateType.size() == 1) {
-            return getOnlyElement(intermediateType);
+            return intermediateType.stream().collect(onlyElement());
         }
         else {
             return RowType.withDefaultFieldNames(intermediateType);

@@ -47,7 +47,9 @@ import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.ObjectNames;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +61,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
@@ -86,9 +89,21 @@ public final class InternalResourceGroupManager<C>
         implements ResourceGroupManager<C>, ClusterOverloadStateListener
 {
     private static final Logger log = Logger.get(InternalResourceGroupManager.class);
-    private static final File RESOURCE_GROUPS_CONFIGURATION = new File("etc/resource-groups.properties");
+    private static final Path RESOURCE_GROUPS_CONFIGURATION = Paths.get("etc/resource-groups.properties");
     private static final String CONFIGURATION_MANAGER_PROPERTY_NAME = "resource-groups.configuration-manager";
     private static final int REFRESH_EXECUTOR_POOL_SIZE = 2;
+
+    private final int maxQueryAdmissionsPerSecond;
+    private final int minRunningQueriesForPacing;
+    private final long queryAdmissionIntervalNanos;
+    private final AtomicLong lastAdmittedQueryNanos = new AtomicLong(0L);
+
+    // Pacing metrics - use AtomicLong/AtomicInteger for lock-free updates to avoid deadlock
+    // with resource group locks (see tryAcquireAdmissionSlot for details)
+    private final AtomicLong totalAdmissionAttempts = new AtomicLong(0L);
+    private final AtomicLong totalAdmissionsGranted = new AtomicLong(0L);
+    private final AtomicLong totalAdmissionsDenied = new AtomicLong(0L);
+    private final AtomicInteger totalRunningQueriesCounter = new AtomicInteger(0);
 
     private final ScheduledExecutorService refreshExecutor = newScheduledThreadPool(REFRESH_EXECUTOR_POOL_SIZE, daemonThreadsNamed("resource-group-manager-refresher-%d-" + REFRESH_EXECUTOR_POOL_SIZE));
     private final PeriodicTaskExecutor resourceGroupRuntimeExecutor;
@@ -115,6 +130,7 @@ public final class InternalResourceGroupManager<C>
     private final InternalNodeManager nodeManager;
     private AtomicBoolean isConfigurationManagerLoaded;
     private final ClusterResourceChecker clusterResourceChecker;
+    private final QueryPacingContext queryPacingContext;
 
     @Inject
     public InternalResourceGroupManager(
@@ -141,7 +157,101 @@ public final class InternalResourceGroupManager<C>
         this.resourceGroupRuntimeExecutor = new PeriodicTaskExecutor(resourceGroupRuntimeInfoRefreshInterval.toMillis(), refreshExecutor, this::refreshResourceGroupRuntimeInfo);
         configurationManagerFactories.putIfAbsent(LegacyResourceGroupConfigurationManager.NAME, new LegacyResourceGroupConfigurationManager.Factory());
         this.isConfigurationManagerLoaded = new AtomicBoolean(false);
-        this.clusterResourceChecker = clusterResourceChecker;
+        this.clusterResourceChecker = requireNonNull(clusterResourceChecker, "clusterResourceChecker is null");
+        this.maxQueryAdmissionsPerSecond = queryManagerConfig.getMaxQueryAdmissionsPerSecond();
+        this.minRunningQueriesForPacing = queryManagerConfig.getMinRunningQueriesForPacing();
+        this.queryAdmissionIntervalNanos = (maxQueryAdmissionsPerSecond == Integer.MAX_VALUE)
+            ? 0L
+            : 1_000_000_000L / maxQueryAdmissionsPerSecond;
+        this.queryPacingContext = new QueryPacingContext()
+        {
+            @Override
+            public boolean tryAcquireAdmissionSlot()
+            {
+                return InternalResourceGroupManager.this.tryAcquireAdmissionSlot();
+            }
+
+            @Override
+            public void onQueryStarted()
+            {
+                incrementRunningQueries();
+            }
+
+            @Override
+            public void onQueryFinished()
+            {
+                decrementRunningQueries();
+            }
+        };
+    }
+
+    /**
+     * Global rate limiter for query admissions. Enforces maxQueryAdmissionsPerSecond
+     * when running queries exceed minRunningQueriesForPacing threshold.
+     *
+     * @return true if query can be admitted, false if rate limit exceeded
+     */
+    boolean tryAcquireAdmissionSlot()
+    {
+        // Pacing disabled - return early without tracking metrics
+        if (queryAdmissionIntervalNanos == 0L) {
+            return true;
+        }
+
+        // Running queries below threshold - bypass pacing
+        int currentRunningQueries = getTotalRunningQueries();
+        if (currentRunningQueries < minRunningQueriesForPacing) {
+            return true;
+        }
+
+        totalAdmissionAttempts.incrementAndGet();
+
+        // Atomic update for global rate limiting. With multiple root resource groups,
+        // concurrent threads may call this method simultaneously (each holding their
+        // own root group's lock). Compare-and-swap ensures correctness in that scenario.
+        // With a single root group, the root lock serializes access, making the atomic
+        // update redundant but harmless.
+        for (int attempt = 0; attempt < 10; attempt++) {
+            long now = System.nanoTime();
+            long last = lastAdmittedQueryNanos.get();
+
+            // Check if enough time has elapsed since last admission
+            if (last != 0L && (now - last) < queryAdmissionIntervalNanos) {
+                totalAdmissionsDenied.incrementAndGet();
+                return false;
+            }
+
+            // Atomically update timestamp if unchanged; retry if another thread won
+            if (lastAdmittedQueryNanos.compareAndSet(last, now)) {
+                totalAdmissionsGranted.incrementAndGet();
+                return true;
+            }
+        }
+
+        // Exhausted retries - deny to prevent starvation under extreme contention
+        totalAdmissionsDenied.incrementAndGet();
+        return false;
+    }
+
+    /**
+     * Returns total running queries across all resource groups.
+     * Uses atomic counter updated via callbacks to avoid locking resource groups.
+     */
+    private int getTotalRunningQueries()
+    {
+        return totalRunningQueriesCounter.get();
+    }
+
+    /** Called by InternalResourceGroup when a query starts execution. */
+    public void incrementRunningQueries()
+    {
+        totalRunningQueriesCounter.incrementAndGet();
+    }
+
+    /** Called by InternalResourceGroup when a query finishes execution. */
+    public void decrementRunningQueries()
+    {
+        totalRunningQueriesCounter.decrementAndGet();
     }
 
     @Override
@@ -193,12 +303,12 @@ public final class InternalResourceGroupManager<C>
     public void loadConfigurationManager()
             throws Exception
     {
-        if (RESOURCE_GROUPS_CONFIGURATION.exists()) {
-            Map<String, String> properties = new HashMap<>(loadProperties(RESOURCE_GROUPS_CONFIGURATION));
+        if (Files.exists(RESOURCE_GROUPS_CONFIGURATION)) {
+            Map<String, String> properties = new HashMap<>(loadProperties(RESOURCE_GROUPS_CONFIGURATION.toFile()));
 
             String configurationManagerName = properties.remove(CONFIGURATION_MANAGER_PROPERTY_NAME);
             checkArgument(!isNullOrEmpty(configurationManagerName),
-                    "Resource groups configuration %s does not contain %s", RESOURCE_GROUPS_CONFIGURATION.getAbsoluteFile(), CONFIGURATION_MANAGER_PROPERTY_NAME);
+                    "Resource groups configuration %s does not contain %s", RESOURCE_GROUPS_CONFIGURATION.toAbsolutePath().toFile(), CONFIGURATION_MANAGER_PROPERTY_NAME);
 
             setConfigurationManager(configurationManagerName, properties);
         }
@@ -406,7 +516,15 @@ public final class InternalResourceGroupManager<C>
             else {
                 RootInternalResourceGroup root;
                 if (!isResourceManagerEnabled) {
-                    root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, ignored -> Optional.empty(), rg -> false, nodeManager, clusterResourceChecker);
+                    root = new RootInternalResourceGroup(
+                            id.getSegments().get(0),
+                            this::exportGroup,
+                            executor,
+                            ignored -> Optional.empty(),
+                            rg -> false,
+                            nodeManager,
+                            clusterResourceChecker,
+                            queryPacingContext);
                 }
                 else {
                     root = new RootInternalResourceGroup(
@@ -420,7 +538,8 @@ public final class InternalResourceGroupManager<C>
                                     lastUpdatedResourceGroupRuntimeInfo::get,
                                     concurrencyThreshold),
                             nodeManager,
-                            clusterResourceChecker);
+                            clusterResourceChecker,
+                            queryPacingContext);
                 }
                 group = root;
                 rootGroups.add(root);
@@ -498,6 +617,57 @@ public final class InternalResourceGroupManager<C>
         // When coordinator restarts/deploy, the initial 0 value make sure the metric won't spike. Without it, the first metric published will have larger value
         // due to the delay from the initialization to the actual successful run of refreshAndStartQueries method
         return lastSchedulingCycleRunTimeMs.get() == 0L ? lastSchedulingCycleRunTimeMs.get() : currentTimeMillis() - lastSchedulingCycleRunTimeMs.get();
+    }
+
+    @Managed
+    public int getMaxQueryAdmissionsPerSecond()
+    {
+        return maxQueryAdmissionsPerSecond;
+    }
+
+    @Managed
+    public long getTotalAdmissionAttempts()
+    {
+        return totalAdmissionAttempts.get();
+    }
+
+    @Managed
+    public long getTotalAdmissionsGranted()
+    {
+        return totalAdmissionsGranted.get();
+    }
+
+    @Managed
+    public long getTotalAdmissionsDenied()
+    {
+        return totalAdmissionsDenied.get();
+    }
+
+    @Managed
+    public int getMinRunningQueriesForPacing()
+    {
+        return minRunningQueriesForPacing;
+    }
+
+    @Managed
+    public double getAdmissionGrantRate()
+    {
+        long attempts = totalAdmissionAttempts.get();
+        return attempts > 0 ? (double) totalAdmissionsGranted.get() / attempts : 0.0;
+    }
+
+    @Managed
+    public double getAdmissionDenyRate()
+    {
+        long attempts = totalAdmissionAttempts.get();
+        return attempts > 0 ? (double) totalAdmissionsDenied.get() / attempts : 0.0;
+    }
+
+    @Managed
+    public long getMillisSinceLastAdmission()
+    {
+        long last = lastAdmittedQueryNanos.get();
+        return last == 0L ? -1L : (System.nanoTime() - last) / 1_000_000;
     }
 
     private int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)

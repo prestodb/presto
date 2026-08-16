@@ -46,6 +46,8 @@ public class TestIcebergHiveMetadataListing
                 .map(list -> row(list.toArray()))
                 .collect(Collectors.toList());
         onPresto().executeQuery("CREATE TABLE iceberg.default.iceberg_table1 (_string VARCHAR, _integer INTEGER)");
+        onPresto().executeQuery("INSERT into iceberg.default.iceberg_table1 values('1001', 1), ('1002', 2)");
+        onPresto().executeQuery("CREATE TABLE iceberg.default.iceberg_table2 as select * from iceberg.default.iceberg_table1");
         onPresto().executeQuery("CREATE TABLE hive.default.hive_table (_double DOUBLE)");
         onPresto().executeQuery("CREATE VIEW hive.default.hive_view AS SELECT * FROM hive.default.hive_table");
         onPresto().executeQuery("CREATE VIEW iceberg.default.iceberg_view AS SELECT * FROM iceberg.default.iceberg_table1");
@@ -58,6 +60,7 @@ public class TestIcebergHiveMetadataListing
         onPresto().executeQuery("DROP VIEW IF EXISTS hive.default.hive_view");
         onPresto().executeQuery("DROP VIEW IF EXISTS iceberg.default.iceberg_view");
         onPresto().executeQuery("DROP TABLE IF EXISTS iceberg.default.iceberg_table1");
+        onPresto().executeQuery("DROP TABLE IF EXISTS iceberg.default.iceberg_table2");
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
@@ -66,6 +69,7 @@ public class TestIcebergHiveMetadataListing
         assertThat(onPresto().executeQuery("SHOW TABLES FROM iceberg.default"))
                 .containsOnly(ImmutableList.<QueryAssert.Row>builder()
                         .addAll(preexistingTables)
+                        .add(row("iceberg_table2"))
                         .add(row("iceberg_table1"))
                         .add(row("iceberg_view"))
                         .add(row("hive_view"))
@@ -81,6 +85,8 @@ public class TestIcebergHiveMetadataListing
                         "WHERE table_catalog = 'iceberg' AND table_schema = 'default'"))
                 .containsOnly(ImmutableList.<QueryAssert.Row>builder()
                         .addAll(preexistingColumns)
+                        .add(row("iceberg_table2", "_string"))
+                        .add(row("iceberg_table2", "_integer"))
                         .add(row("iceberg_table1", "_string"))
                         .add(row("iceberg_table1", "_integer"))
                         .add(row("iceberg_view", "_string"))

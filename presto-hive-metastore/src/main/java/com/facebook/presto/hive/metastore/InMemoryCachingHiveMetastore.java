@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveTableHandle;
@@ -53,7 +52,20 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_PARTITION_CACHE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
-import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheScope.ALL;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.DATABASE;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.DATABASE_NAMES;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.PARTITION;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.PARTITION_FILTER;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.PARTITION_NAMES;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.PARTITION_STATISTICS;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.ROLES;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.ROLE_GRANTS;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.TABLE;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.TABLE_CONSTRAINTS;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.TABLE_NAMES;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.TABLE_PRIVILEGES;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.TABLE_STATISTICS;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.VIEW_NAMES;
 import static com.facebook.presto.hive.metastore.HivePartitionName.hivePartitionName;
 import static com.facebook.presto.hive.metastore.HiveTableName.hiveTableName;
 import static com.facebook.presto.hive.metastore.NoopMetastoreCacheStats.NOOP_METASTORE_CACHE_STATS;
@@ -95,6 +107,7 @@ public class InMemoryCachingHiveMetastore
     private final LoadingCache<KeyAndContext<String>, Set<String>> rolesCache;
     private final LoadingCache<KeyAndContext<PrestoPrincipal>, Set<RoleGrant>> roleGrantsCache;
     private final MetastoreCacheStats metastoreCacheStats;
+    private final MetastoreCacheSpecProvider metastoreCacheSpecProvider;
 
     private final boolean metastoreImpersonationEnabled;
     private final boolean partitionVersioningEnabled;
@@ -106,47 +119,43 @@ public class InMemoryCachingHiveMetastore
             @ForCachingHiveMetastore ExtendedHiveMetastore delegate,
             @ForCachingHiveMetastore ExecutorService executor,
             MetastoreCacheStats metastoreCacheStats,
-            MetastoreClientConfig metastoreClientConfig)
+            MetastoreClientConfig metastoreClientConfig,
+            MetastoreCacheSpecProvider metastoreCacheSpecProvider)
     {
         this(
                 delegate,
                 executor,
                 metastoreClientConfig.isMetastoreImpersonationEnabled(),
-                metastoreClientConfig.getMetastoreCacheTtl(),
-                metastoreClientConfig.getMetastoreRefreshInterval(),
                 metastoreClientConfig.getMetastoreCacheMaximumSize(),
                 metastoreClientConfig.isPartitionVersioningEnabled(),
-                metastoreClientConfig.getMetastoreCacheScope(),
                 metastoreClientConfig.getPartitionCacheValidationPercentage(),
                 metastoreClientConfig.getPartitionCacheColumnCountLimit(),
-                metastoreCacheStats);
+                metastoreCacheStats,
+                metastoreCacheSpecProvider);
     }
 
     public InMemoryCachingHiveMetastore(
             ExtendedHiveMetastore delegate,
             ExecutorService executor,
             boolean metastoreImpersonationEnabled,
-            Duration cacheTtl,
-            Duration refreshInterval,
             long maximumSize,
             boolean partitionVersioningEnabled,
-            MetastoreCacheScope metastoreCacheScope,
             double partitionCacheValidationPercentage,
             int partitionCacheColumnCountLimit,
-            MetastoreCacheStats metastoreCacheStats)
+            MetastoreCacheStats metastoreCacheStats,
+            MetastoreCacheSpecProvider metastoreCacheSpecProvider)
     {
         this(
                 delegate,
                 executor,
                 metastoreImpersonationEnabled,
-                OptionalLong.of(cacheTtl.toMillis()),
-                refreshInterval.toMillis() >= cacheTtl.toMillis() ? OptionalLong.empty() : OptionalLong.of(refreshInterval.toMillis()),
                 maximumSize,
                 partitionVersioningEnabled,
-                metastoreCacheScope,
                 partitionCacheValidationPercentage,
                 partitionCacheColumnCountLimit,
-                metastoreCacheStats);
+                metastoreCacheStats,
+                Optional.of(metastoreCacheSpecProvider),
+                false);
     }
 
     public static InMemoryCachingHiveMetastore memoizeMetastore(ExtendedHiveMetastore delegate, boolean isMetastoreImpersonationEnabled, long maximumSize, int partitionCacheMaxColumnCount)
@@ -155,28 +164,26 @@ public class InMemoryCachingHiveMetastore
                 delegate,
                 newDirectExecutorService(),
                 isMetastoreImpersonationEnabled,
-                OptionalLong.empty(),
-                OptionalLong.empty(),
                 maximumSize,
                 false,
-                ALL,
                 0.0,
                 partitionCacheMaxColumnCount,
-                NOOP_METASTORE_CACHE_STATS);
+                NOOP_METASTORE_CACHE_STATS,
+                Optional.empty(),
+                true);
     }
 
     private InMemoryCachingHiveMetastore(
             ExtendedHiveMetastore delegate,
             ExecutorService executor,
             boolean metastoreImpersonationEnabled,
-            OptionalLong expiresAfterWriteMillis,
-            OptionalLong refreshMills,
             long maximumSize,
             boolean partitionVersioningEnabled,
-            MetastoreCacheScope metastoreCacheScope,
             double partitionCacheValidationPercentage,
             int partitionCacheColumnCountLimit,
-            MetastoreCacheStats metastoreCacheStats)
+            MetastoreCacheStats metastoreCacheStats,
+            Optional<MetastoreCacheSpecProvider> metastoreCacheSpecProvider,
+            boolean perTransactionCache)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         requireNonNull(executor, "executor is null");
@@ -185,59 +192,44 @@ public class InMemoryCachingHiveMetastore
         this.partitionCacheValidationPercentage = partitionCacheValidationPercentage;
         this.partitionCacheColumnCountLimit = partitionCacheColumnCountLimit;
         this.metastoreCacheStats = metastoreCacheStats;
+        this.metastoreCacheSpecProvider = metastoreCacheSpecProvider.orElse(null);
 
-        OptionalLong cacheExpiresAfterWriteMillis;
-        OptionalLong cacheRefreshMills;
-        long cacheMaxSize;
+        databaseNamesCache = buildCache(
+                executor,
+                DATABASE_NAMES,
+                CacheLoader.from(this::loadAllDatabases),
+                perTransactionCache,
+                maximumSize);
+        metastoreCacheStats.setDatabaseNamesCache(databaseNamesCache);
 
-        OptionalLong partitionCacheExpiresAfterWriteMillis;
-        OptionalLong partitionCacheRefreshMills;
-        long partitionCacheMaxSize;
+        databaseCache = buildCache(
+                executor,
+                DATABASE,
+                CacheLoader.from(this::loadDatabase),
+                perTransactionCache,
+                maximumSize);
+        metastoreCacheStats.setDatabaseCache(databaseCache);
 
-        switch (metastoreCacheScope) {
-            case PARTITION:
-                partitionCacheExpiresAfterWriteMillis = expiresAfterWriteMillis;
-                partitionCacheRefreshMills = refreshMills;
-                partitionCacheMaxSize = maximumSize;
-                cacheExpiresAfterWriteMillis = OptionalLong.of(0);
-                cacheRefreshMills = OptionalLong.of(0);
-                cacheMaxSize = 0;
-                break;
+        tableNamesCache = buildCache(
+                executor,
+                TABLE_NAMES,
+                CacheLoader.from(this::loadAllTables),
+                perTransactionCache,
+                maximumSize);
+        metastoreCacheStats.setTableNamesCache(tableNamesCache);
 
-            case ALL:
-                partitionCacheExpiresAfterWriteMillis = expiresAfterWriteMillis;
-                partitionCacheRefreshMills = refreshMills;
-                partitionCacheMaxSize = maximumSize;
-                cacheExpiresAfterWriteMillis = expiresAfterWriteMillis;
-                cacheRefreshMills = refreshMills;
-                cacheMaxSize = maximumSize;
-                break;
+        tableStatisticsCache = buildCache(
+                executor,
+                TABLE_STATISTICS,
+                CacheLoader.from(this::loadTableColumnStatistics),
+                perTransactionCache,
+                maximumSize);
+        metastoreCacheStats.setTableStatisticsCache(tableStatisticsCache);
 
-            default:
-                throw new IllegalArgumentException("Unknown metastore-cache-scope: " + metastoreCacheScope);
-        }
-
-        databaseNamesCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(CacheLoader.from(this::loadAllDatabases), executor));
-
-        databaseCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(CacheLoader.from(this::loadDatabase), executor));
-
-        tableNamesCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(CacheLoader.from(this::loadAllTables), executor));
-
-        tableStatisticsCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(new CacheLoader<KeyAndContext<HiveTableName>, PartitionStatistics>()
-                {
-                    @Override
-                    public PartitionStatistics load(KeyAndContext<HiveTableName> key)
-                    {
-                        return loadTableColumnStatistics(key);
-                    }
-                }, executor));
-
-        partitionStatisticsCache = newCacheBuilder(partitionCacheExpiresAfterWriteMillis, partitionCacheRefreshMills, partitionCacheMaxSize)
-                .build(asyncReloading(new CacheLoader<KeyAndContext<HivePartitionName>, PartitionStatistics>()
+        partitionStatisticsCache = buildCache(
+                executor,
+                PARTITION_STATISTICS,
+                new CacheLoader<KeyAndContext<HivePartitionName>, PartitionStatistics>()
                 {
                     @Override
                     public PartitionStatistics load(KeyAndContext<HivePartitionName> key)
@@ -250,27 +242,55 @@ public class InMemoryCachingHiveMetastore
                     {
                         return loadPartitionColumnStatistics(keys);
                     }
-                }, executor));
+                },
+                perTransactionCache,
+                maximumSize);
+        metastoreCacheStats.setPartitionStatisticsCache(partitionStatisticsCache);
 
-        tableCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(CacheLoader.from(this::loadTable), executor));
+        tableCache = buildCache(
+                executor,
+                TABLE,
+                CacheLoader.from(this::loadTable),
+                perTransactionCache,
+                maximumSize);
         metastoreCacheStats.setTableCache(tableCache);
 
-        tableConstraintsCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(CacheLoader.from(this::loadTableConstraints), executor));
+        tableConstraintsCache = buildCache(
+                executor,
+                TABLE_CONSTRAINTS,
+                CacheLoader.from(this::loadTableConstraints),
+                perTransactionCache,
+                maximumSize);
+        metastoreCacheStats.setTableConstraintsCache(tableConstraintsCache);
 
-        viewNamesCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(CacheLoader.from(this::loadAllViews), executor));
+        viewNamesCache = buildCache(
+                executor,
+                VIEW_NAMES,
+                CacheLoader.from(this::loadAllViews),
+                perTransactionCache,
+                maximumSize);
+        metastoreCacheStats.setViewNamesCache(viewNamesCache);
 
-        partitionNamesCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(CacheLoader.from(this::loadPartitionNames), executor));
+        partitionNamesCache = buildCache(
+                executor,
+                PARTITION_NAMES,
+                CacheLoader.from(this::loadPartitionNames),
+                perTransactionCache,
+                maximumSize);
+        metastoreCacheStats.setPartitionNamesCache(partitionNamesCache);
 
-        partitionFilterCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(CacheLoader.from(this::loadPartitionNamesByFilter), executor));
-        metastoreCacheStats.setPartitionNamesCache(partitionFilterCache);
+        partitionFilterCache = buildCache(
+                executor,
+                PARTITION_FILTER,
+                CacheLoader.from(this::loadPartitionNamesByFilter),
+                perTransactionCache,
+                maximumSize);
+        metastoreCacheStats.setPartitionFilterCache(partitionFilterCache);
 
-        partitionCache = newCacheBuilder(partitionCacheExpiresAfterWriteMillis, partitionCacheRefreshMills, partitionCacheMaxSize)
-                .build(asyncReloading(new CacheLoader<KeyAndContext<HivePartitionName>, Optional<Partition>>()
+        partitionCache = buildCache(
+                executor,
+                PARTITION,
+                new CacheLoader<KeyAndContext<HivePartitionName>, Optional<Partition>>()
                 {
                     @Override
                     public Optional<Partition> load(KeyAndContext<HivePartitionName> partitionName)
@@ -283,17 +303,34 @@ public class InMemoryCachingHiveMetastore
                     {
                         return loadPartitionsByNames(partitionNames);
                     }
-                }, executor));
+                },
+                perTransactionCache,
+                maximumSize);
         metastoreCacheStats.setPartitionCache(partitionCache);
 
-        tablePrivilegesCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(CacheLoader.from(this::loadTablePrivileges), executor));
+        tablePrivilegesCache = buildCache(
+                executor,
+                TABLE_PRIVILEGES,
+                CacheLoader.from(this::loadTablePrivileges),
+                perTransactionCache,
+                maximumSize);
+        metastoreCacheStats.setTablePrivilegesCache(tablePrivilegesCache);
 
-        rolesCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(CacheLoader.from(this::loadAllRoles), executor));
+        rolesCache = buildCache(
+                executor,
+                ROLES,
+                CacheLoader.from(this::loadAllRoles),
+                perTransactionCache,
+                maximumSize);
+        metastoreCacheStats.setRolesCache(rolesCache);
 
-        roleGrantsCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(CacheLoader.from(this::loadRoleGrants), executor));
+        roleGrantsCache = buildCache(
+                executor,
+                ROLE_GRANTS,
+                CacheLoader.from(this::loadRoleGrants),
+                perTransactionCache,
+                maximumSize);
+        metastoreCacheStats.setRoleGrantsCache(roleGrantsCache);
     }
 
     @Override
@@ -477,15 +514,21 @@ public class InMemoryCachingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         try {
-            delegate.updatePartitionStatistics(metastoreContext, databaseName, tableName, partitionName, update);
+            delegate.updatePartitionStatistics(metastoreContext, databaseName, tableName, updates);
         }
         finally {
-            partitionStatisticsCache.asMap().keySet().stream()
-                    .filter(partitionFilterKey -> partitionFilterKey.getKey().equals(hivePartitionName(databaseName, tableName, partitionName)))
-                    .forEach(partitionStatisticsCache::invalidate);
+            updates.forEach((partitionName, update) -> {
+                HivePartitionName hivePartitionName = hivePartitionName(databaseName, tableName, partitionName);
+                partitionStatisticsCache.asMap().keySet().stream()
+                        .filter(partitionStatisticsCacheKey -> partitionStatisticsCacheKey.getKey().equals(hivePartitionName))
+                        .forEach(partitionStatisticsCache::invalidate);
+                partitionCache.asMap().keySet().stream()
+                        .filter(partitionCacheKey -> partitionCacheKey.getKey().equals(hivePartitionName))
+                        .forEach(partitionCache::invalidate);
+            });
         }
     }
 
@@ -609,30 +652,6 @@ public class InMemoryCachingHiveMetastore
             return getPartitionNamesWithVersionByFilter(metastoreContext, databaseName, tableName, partitionPredicates);
         }
         return get(partitionFilterCache, getCachingKey(metastoreContext, partitionFilter(databaseName, tableName, partitionPredicates)));
-    }
-
-    private void invalidateStalePartitions(
-            List<PartitionNameWithVersion> partitionNamesWithVersion,
-            String databaseName,
-            String tableName,
-            MetastoreContext metastoreContext)
-    {
-        for (PartitionNameWithVersion partitionNameWithVersion : partitionNamesWithVersion) {
-            HivePartitionName hivePartitionName = hivePartitionName(databaseName, tableName, partitionNameWithVersion.getPartitionName());
-            KeyAndContext<HivePartitionName> partitionNameKey = getCachingKey(metastoreContext, hivePartitionName);
-            Optional<Partition> partition = partitionCache.getIfPresent(partitionNameKey);
-            if (partition == null || !partition.isPresent()) {
-                partitionCache.invalidate(partitionNameKey);
-                partitionStatisticsCache.invalidate(partitionNameKey);
-            }
-            else {
-                Optional<Long> partitionVersion = partition.get().getPartitionVersion();
-                if (!partitionVersion.isPresent() || !partitionVersion.equals(partitionNameWithVersion.getPartitionVersion())) {
-                    partitionCache.invalidate(partitionNameKey);
-                    partitionStatisticsCache.invalidate(partitionNameKey);
-                }
-            }
-        }
     }
 
     private void invalidatePartitionsWithHighColumnCount(Optional<Partition> partition, KeyAndContext<HivePartitionName> partitionCacheKey)
@@ -1087,5 +1106,31 @@ public class InMemoryCachingHiveMetastore
             cacheBuilder = cacheBuilder.refreshAfterWrite(refreshMillis.getAsLong(), MILLISECONDS);
         }
         return cacheBuilder.maximumSize(maximumSize).recordStats();
+    }
+
+    private <K, V> LoadingCache<K, V> buildCache(
+            ExecutorService executor,
+            MetastoreCacheType cacheType,
+            CacheLoader<K, V> loader,
+            boolean isPerTransactionCache,
+            long maximumSize)
+    {
+        if (isPerTransactionCache) {
+            return newCacheBuilder(
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    maximumSize)
+                    .build(asyncReloading(loader, executor));
+        }
+
+        MetastoreCacheSpec spec = metastoreCacheSpecProvider.getMetastoreCacheSpec(cacheType);
+        long cacheTtlMillis = spec.getCacheTtlMillis();
+        long refreshMillis = spec.getRefreshIntervalMillis();
+
+        return newCacheBuilder(
+                OptionalLong.of(cacheTtlMillis),
+                refreshMillis >= cacheTtlMillis ? OptionalLong.empty() : OptionalLong.of(refreshMillis),
+                spec.getMaximumSize())
+                .build(asyncReloading(loader, executor));
     }
 }

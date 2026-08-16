@@ -29,6 +29,7 @@ import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.MergeHandle;
 import com.facebook.presto.spi.NewTableLayout;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
@@ -42,6 +43,7 @@ import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -271,6 +273,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue)
+    {
+        delegate.setColumnDefault(session, tableHandle, columnName, defaultValue);
+    }
+
+    @Override
     public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
     {
         delegate.dropColumn(session, tableHandle, column);
@@ -308,6 +316,22 @@ public abstract class DelegatingMetadataManager
             Collection<ComputedStatistics> computedStatistics)
     {
         return delegate.finishCreateTable(session, tableHandle, fragments, computedStatistics);
+    }
+
+    @Override
+    public OutputTableHandle beginCreateVectorIndex(Session session, String catalogName, ConnectorTableMetadata indexMetadata, Optional<NewTableLayout> layout, SchemaTableName sourceTableName)
+    {
+        return delegate.beginCreateVectorIndex(session, catalogName, indexMetadata, layout, sourceTableName);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateVectorIndex(
+            Session session,
+            OutputTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        return delegate.finishCreateVectorIndex(session, tableHandle, fragments, computedStatistics);
     }
 
     @Override
@@ -353,9 +377,9 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<String> insertColumnNames)
     {
-        return delegate.beginInsert(session, tableHandle);
+        return delegate.beginInsert(session, tableHandle, insertColumnNames);
     }
 
     @Override
@@ -533,9 +557,15 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Object> properties)
     {
-        return delegate.beginRefreshMaterializedView(session, tableHandle);
+        delegate.setMaterializedViewProperties(session, viewName, properties);
+    }
+
+    @Override
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, Optional<RowExpression> refreshScopePredicate)
+    {
+        return delegate.beginRefreshMaterializedView(session, tableHandle, refreshScopePredicate);
     }
 
     @Override
@@ -712,6 +742,34 @@ public abstract class DelegatingMetadataManager
     public void dropBranch(Session session, TableHandle tableHandle, String branchName, boolean branchExists)
     {
         delegate.dropBranch(session, tableHandle, branchName, branchExists);
+    }
+
+    @Override
+    public void createBranch(
+            Session session,
+            TableHandle tableHandle,
+            String branchName,
+            boolean replace,
+            boolean ifNotExists,
+            Optional<ConnectorTableVersion> tableVersion,
+            Optional<Long> retainDays,
+            Optional<Integer> minSnapshotsToKeep,
+            Optional<Long> maxSnapshotAgeDays)
+    {
+        delegate.createBranch(session, tableHandle, branchName, replace, ifNotExists, tableVersion, retainDays, minSnapshotsToKeep, maxSnapshotAgeDays);
+    }
+
+    @Override
+    public void createTag(
+            Session session,
+            TableHandle tableHandle,
+            String tagName,
+            boolean replace,
+            boolean ifNotExists,
+            Optional<ConnectorTableVersion> tableVersion,
+            Optional<Long> retainDays)
+    {
+        delegate.createTag(session, tableHandle, tagName, replace, ifNotExists, tableVersion, retainDays);
     }
 
     @Override

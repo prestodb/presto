@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.TableWriterNodeStatsEstimate;
@@ -30,7 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.units.DataSize.succinctBytes;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
@@ -147,6 +148,7 @@ public class TextRenderer
     {
         Map<String, Double> inputAverages = stats.getOperatorInputPositionsAverages();
         Map<String, Double> inputStdDevs = stats.getOperatorInputPositionsStdDevs();
+        Map<String, OperatorInputStats> inputStats = stats.getOperatorInputStats();
 
         Map<String, Double> hashCollisionsAverages = emptyMap();
         Map<String, Double> hashCollisionsStdDevs = emptyMap();
@@ -162,10 +164,15 @@ public class TextRenderer
         for (String operator : translatedOperatorTypes.keySet()) {
             String translatedOperatorType = translatedOperatorTypes.get(operator);
             double inputAverage = inputAverages.get(operator);
+            long inputTotalRowCount = inputStats.get(operator).getInputPositions();
+            long inputDataSizeInBytes = inputStats.get(operator).getInputDataSizeInBytes();
 
             output.append(translatedOperatorType);
-            output.append(format(Locale.US, "Input avg.: %s rows, Input std.dev.: %s%%%n",
-                    formatDouble(inputAverage), formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
+            output.append(format(Locale.US, "Input total: %s (%s), avg.: %s rows, std.dev.: %s%%%n",
+                    formatPositions(inputTotalRowCount),
+                    DataSize.succinctBytes(inputDataSizeInBytes).toString(),
+                    formatDouble(inputAverage),
+                    formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
 
             double hashCollisionsAverage = hashCollisionsAverages.getOrDefault(operator, 0.0d);
             double expectedHashCollisionsAverage = expectedHashCollisionsAverages.getOrDefault(operator, 0.0d);
@@ -209,7 +216,7 @@ public class TextRenderer
     {
         if (operators.size() == 1) {
             // don't display operator (plan node) name again
-            return ImmutableMap.of(getOnlyElement(operators), "");
+            return ImmutableMap.of(operators.stream().collect(onlyElement()), "");
         }
 
         if (operators.contains("LookupJoinOperator") && operators.contains("HashBuilderOperator")) {
@@ -247,7 +254,7 @@ public class TextRenderer
             output.append(format(formatStr,
                     stats.getSourceInfo().getClass().getSimpleName(),
                     formatAsLong(stats.getOutputRowCount()),
-                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(plan.getPlanNodeRoot())),
+                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(node)),
                     formatDouble(cost.getCpuCost()),
                     formatDouble(cost.getMaxMemory()),
                     formatDouble(cost.getNetworkCost()),

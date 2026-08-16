@@ -34,13 +34,13 @@ public class BigQueryPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private static final Logger log = Logger.get(BigQueryPageSourceProvider.class);
-    private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
+    private final BigQueryReadClientFactory bigQueryReadClientFactory;
     private final int maxReadRowsRetries;
 
     @Inject
-    public BigQueryPageSourceProvider(BigQueryStorageClientFactory bigQueryStorageClientFactory, BigQueryConfig config)
+    public BigQueryPageSourceProvider(BigQueryReadClientFactory bigQueryReadClientFactory, BigQueryConfig config)
     {
-        this.bigQueryStorageClientFactory = bigQueryStorageClientFactory;
+        this.bigQueryReadClientFactory = bigQueryReadClientFactory;
         this.maxReadRowsRetries = config.getMaxReadRowsRetries();
     }
 
@@ -66,6 +66,6 @@ public class BigQueryPageSourceProvider
                 .map(BigQueryColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        return new BigQueryResultPageSource(bigQueryStorageClientFactory, maxReadRowsRetries, bigQuerySplit, bigQueryColumnHandles);
+        return new BigQueryResultPageSource(bigQueryReadClientFactory, maxReadRowsRetries, bigQuerySplit, bigQueryColumnHandles);
     }
 }

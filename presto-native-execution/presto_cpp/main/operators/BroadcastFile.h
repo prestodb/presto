@@ -94,6 +94,9 @@ class BroadcastFileReader {
 
   ~BroadcastFileReader() = default;
 
+  /// Releases the input stream to free memory before destruction.
+  void close();
+
   /// Return true if more data is available.
   bool hasNext();
 
@@ -119,6 +122,7 @@ class BroadcastFileReader {
   const std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
 
   std::unique_ptr<velox::common::FileInputStream> inputStream_;
+  bool closed_{false};
   int64_t numBytes_{0};
   uint32_t numPagesRead_{0};
   std::vector<int64_t> pageSizes_;

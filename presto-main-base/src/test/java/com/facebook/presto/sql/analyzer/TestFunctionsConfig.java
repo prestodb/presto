@@ -43,19 +43,18 @@ public class TestFunctionsConfig
                 .setRegexLibrary(JONI)
                 .setKHyperLogLogAggregationGroupNumberLimit(0)
                 .setLimitNumberOfGroupsForKHyperLogLogAggregations(true)
-                .setUseNewNanDefinition(true)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.NEW)
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW)
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setLegacyRowFieldOrdinalAccess(false)
-                .setLegacyTimestamp(true)
+                .setLegacyTimestamp(false)
                 .setParseDecimalLiteralsAsDouble(false)
-                .setFieldNamesInJsonCastEnabled(false)
-                .setWarnOnCommonNanPatterns(false)
+                .setFieldNamesInJsonCastEnabled(true)
                 .setLegacyCharToVarcharCoercion(false)
                 .setLegacyJsonCast(true)
                 .setCanonicalizedJsonExtract(false)
-                .setDefaultNamespacePrefix(JAVA_BUILTIN_NAMESPACE.toString()));
+                .setDefaultNamespacePrefix(JAVA_BUILTIN_NAMESPACE.toString())
+                .setLegacyStEquals(false));
     }
 
     @Test
@@ -72,19 +71,18 @@ public class TestFunctionsConfig
                 .put("regex-library", "RE2J")
                 .put("khyperloglog-agg-group-limit", "1000")
                 .put("limit-khyperloglog-agg-group-number-enabled", "false")
-                .put("use-new-nan-definition", "false")
                 .put("histogram.implementation", "LEGACY")
                 .put("arrayagg.implementation", "LEGACY")
                 .put("multimapagg.implementation", "LEGACY")
                 .put("deprecated.legacy-row-field-ordinal-access", "true")
-                .put("deprecated.legacy-timestamp", "false")
+                .put("deprecated.legacy-timestamp", "true")
                 .put("parse-decimal-literals-as-double", "true")
-                .put("field-names-in-json-cast-enabled", "true")
-                .put("warn-on-common-nan-patterns", "true")
+                .put("field-names-in-json-cast-enabled", "false")
                 .put("deprecated.legacy-char-to-varchar-coercion", "true")
                 .put("legacy-json-cast", "false")
                 .put("presto.default-namespace", "native.default")
                 .put("canonicalized-json-extract", "true")
+                .put("legacy-st-equals", "true")
                 .build();
 
         FunctionsConfig expected = new FunctionsConfig()
@@ -98,19 +96,18 @@ public class TestFunctionsConfig
                 .setRegexLibrary(RegexLibrary.RE2J)
                 .setKHyperLogLogAggregationGroupNumberLimit(1000)
                 .setLimitNumberOfGroupsForKHyperLogLogAggregations(false)
-                .setUseNewNanDefinition(false)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.LEGACY)
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY)
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.LEGACY)
                 .setLegacyRowFieldOrdinalAccess(true)
-                .setLegacyTimestamp(false)
+                .setLegacyTimestamp(true)
                 .setParseDecimalLiteralsAsDouble(true)
-                .setFieldNamesInJsonCastEnabled(true)
-                .setWarnOnCommonNanPatterns(true)
+                .setFieldNamesInJsonCastEnabled(false)
                 .setLegacyCharToVarcharCoercion(true)
                 .setLegacyJsonCast(false)
                 .setDefaultNamespacePrefix("native.default")
-                .setCanonicalizedJsonExtract(true);
+                .setCanonicalizedJsonExtract(true)
+                .setLegacyStEquals(true);
         assertFullMapping(properties, expected);
     }
 }

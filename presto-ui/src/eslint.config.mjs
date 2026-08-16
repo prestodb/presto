@@ -1,16 +1,40 @@
 import js from "@eslint/js";
 import globals from "globals";
 import prettierEslint from "eslint-plugin-prettier/recommended";
-import react from "eslint-plugin-react";
+import reactPlugin from "@eslint-react/eslint-plugin";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "@typescript-eslint/eslint-plugin";
 import tsparser from "@typescript-eslint/parser";
 
 export default [
     js.configs.recommended,
-    reactHooks.configs["recommended-latest"],
     {
-        ignores: ["**/vendor/**", "**/node_modules/**", "**/sql-parser/**", "webpack.config.js"],
+        files: ["**/*.{jsx,tsx}"],
+        ...reactPlugin.configs.recommended,
+        rules: {
+            ...reactPlugin.configs.recommended.rules,
+            "@eslint-react/no-missing-key": "warn",
+        },
+    },
+    {
+        files: ["**/*.{js,jsx,ts,tsx}"],
+        plugins: {
+            "react-hooks": reactHooks,
+        },
+        rules: {
+            "react-hooks/rules-of-hooks": "error",
+            "react-hooks/exhaustive-deps": "warn",
+        },
+    },
+    {
+        ignores: [
+            "**/vendor/**",
+            "**/node_modules/**",
+            "**/sql-parser/**",
+            "webpack.config.js",
+            "jest.config.js",
+            "coverage/**",
+        ],
     },
     {
         languageOptions: {
@@ -20,8 +44,18 @@ export default [
                 hljs: "readonly",
             },
         },
+        rules: {
+            // pre-existing issues kept as warnings to avoid breaking changes
+            "no-prototype-builtins": "warn",
+            "no-useless-assignment": "warn",
+            // React 17+ uses automatic JSX transform; 'React' import is not needed
+            // but many files still have it — ignore until imports are cleaned up
+            "no-unused-vars": ["error", { varsIgnorePattern: "^React$" }],
+            // new ESLint 10 built-in rule — treat as warning for existing code
+            "preserve-caught-error": "warn",
+        },
     },
-    // React (JSX files)
+    // React JSX language options
     {
         files: ["**/*.jsx"],
         languageOptions: {
@@ -31,21 +65,6 @@ export default [
                 ecmaFeatures: {
                     jsx: true,
                 },
-            },
-        },
-        plugins: {
-            react,
-        },
-        rules: {
-            ...react.configs.recommended.rules,
-            ["react/prop-types"]: "off",
-            ["react/no-deprecated"]: "warn",
-            ["no-prototype-builtins"]: "warn",
-            ["react/react-in-jsx-scope"]: "off", // Not needed with React 17+
-        },
-        settings: {
-            react: {
-                version: "detect",
             },
         },
     },
@@ -64,11 +83,10 @@ export default [
         },
         plugins: {
             "@typescript-eslint": tseslint,
-            react,
         },
         rules: {
             ...tseslint.configs.recommended.rules,
-            ...react.configs.recommended.rules,
+            "no-unused-vars": "off",
             "@typescript-eslint/no-explicit-any": "warn",
             "@typescript-eslint/no-unused-vars": [
                 "error",
@@ -77,13 +95,19 @@ export default [
                     varsIgnorePattern: "^_",
                 },
             ],
-            "react/prop-types": "off", // TypeScript handles prop validation
-            "react/react-in-jsx-scope": "off", // Not needed with React 17+
         },
-        settings: {
-            react: {
-                version: "detect",
+    },
+    // Test files
+    {
+        files: ["**/*.test.{js,jsx,ts,tsx}", "**/*.spec.{js,jsx,ts,tsx}", "**/setupTests.ts", "**/__tests__/**"],
+        languageOptions: {
+            globals: {
+                ...globals.jest,
             },
+        },
+        rules: {
+            "@typescript-eslint/no-explicit-any": "off",
+            "no-undef": "off",
         },
     },
     prettierEslint,

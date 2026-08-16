@@ -21,10 +21,17 @@ import java.util.Set;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
+import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestStandardErrorCode
@@ -71,5 +78,25 @@ public class TestStandardErrorCode
     private static int code(StandardErrorCode error)
     {
         return error.toErrorCode().getCode();
+    }
+
+    @Test
+    public void testCatchableByTryErrors()
+    {
+        // These errors should be caught by TRY() and return NULL
+        assertTrue(DIVISION_BY_ZERO.toErrorCode().isCatchableByTry());
+        assertTrue(INVALID_CAST_ARGUMENT.toErrorCode().isCatchableByTry());
+        assertTrue(INVALID_FUNCTION_ARGUMENT.toErrorCode().isCatchableByTry());
+        assertTrue(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode().isCatchableByTry());
+    }
+
+    @Test
+    public void testNonCatchableByTryErrors()
+    {
+        // These errors should NOT be caught by TRY() - they should propagate
+        assertFalse(GENERIC_INTERNAL_ERROR.toErrorCode().isCatchableByTry());
+        assertFalse(GENERIC_USER_ERROR.toErrorCode().isCatchableByTry());
+        assertFalse(SYNTAX_ERROR.toErrorCode().isCatchableByTry());
+        assertFalse(GENERIC_INSUFFICIENT_RESOURCES.toErrorCode().isCatchableByTry());
     }
 }

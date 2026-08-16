@@ -26,6 +26,7 @@ import com.facebook.presto.spi.security.Privilege;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAlterColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
@@ -49,6 +50,11 @@ public class ReadOnlyAccessControl
     public void checkCanShowCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         // allow
+    }
+
+    public void checkCanAlterColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        denyAlterColumn(tableName.toString());
     }
 
     @Override

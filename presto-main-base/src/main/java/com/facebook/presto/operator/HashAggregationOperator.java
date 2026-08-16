@@ -604,7 +604,7 @@ public class HashAggregationOperator
                 .map(PartialAggregationController::isPartialAggregationDisabled)
                 .orElse(false);
 
-        if (step.isOutputPartial() && partialAggregationDisabled) {
+        if (step.isInputRaw() && step.isOutputPartial() && partialAggregationDisabled) {
             aggregationBuilder = new SkipAggregationBuilder(
                     groupByChannels,
                     hashChannel,

@@ -367,7 +367,8 @@ TEST_F(ArrowFlightConnectorDataTypeTest, mapType) {
          std::numeric_limits<int64_t>::max()},
         {std::numeric_limits<int32_t>::min(),
          std::numeric_limits<int64_t>::min()}}},
-      {{}},
+      std::make_optional<
+          std::vector<std::pair<int32_t, std::optional<int64_t>>>>(),
       {{{42, std::nullopt}}},
       std::nullopt,
       {{{3, -300},

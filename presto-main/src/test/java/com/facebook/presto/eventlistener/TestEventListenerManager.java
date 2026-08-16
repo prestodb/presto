@@ -113,6 +113,8 @@ public class TestEventListenerManager
         assertEquals(generatedEvents.getSplitCompletedEvents().size(), 3);
         generatedEvents.getQueryCreatedEvents().forEach(event -> assertEquals(event, queryCreatedEvent));
         generatedEvents.getQueryCompletedEvents().forEach(event -> assertEquals(event, queryCompletedEvent));
+        generatedEvents.getQueryCompletedEvents().forEach(event ->
+                assertEquals(event.getStatistics().getScanRawInputBytes(), 25000000L));
         generatedEvents.getSplitCompletedEvents().forEach(event -> assertEquals(event, splitCompletedEvent));
 
         tryDeleteFile(tempFile1);
@@ -210,6 +212,7 @@ public class TestEventListenerManager
                 canonicalPlan,
                 statsEquivalentPlan,
                 expandedQuery,
+                Optional.empty(),
                 optimizerInformation,
                 cteInformationList,
                 scalarFunctions,
@@ -246,6 +249,7 @@ public class TestEventListenerManager
         long shuffledBytes = 10000000L;
         long shuffledRows = 200000L;
         long totalBytes = 30000000L;
+        long scanRawInputBytes = 25000000L;
         long totalRows = 400000L;
         long outputBytes = 5000000L;
         long outputRows = 60000L;
@@ -272,6 +276,7 @@ public class TestEventListenerManager
                 planningTime,
                 analysisTime,
                 executionTime,
+                Duration.ofMillis(500),
                 peakRunningTasks,
                 peakUserMemoryBytes,
                 peakTotalNonRevocableMemoryBytes,
@@ -292,7 +297,8 @@ public class TestEventListenerManager
                 cumulativeTotalMemory,
                 completedSplits,
                 complete,
-                runtimeStats);
+                runtimeStats,
+                scanRawInputBytes);
     }
 
     private static QueryMetadata createDummyQueryMetadata()

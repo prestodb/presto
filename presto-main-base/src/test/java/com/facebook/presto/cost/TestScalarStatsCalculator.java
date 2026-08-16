@@ -114,10 +114,12 @@ public class TestScalarStatsCalculator
                 .highValue(75.5)
                 .nullsFraction(0.0);
 
-        assertCalculate(new StringLiteral("blah"))
+        VariableStatsAssertion blah = assertCalculate(new StringLiteral("blah"));
+        blah
                 .distinctValuesCount(1.0)
                 .lowValueUnknown()
                 .highValueUnknown()
+                .averageRowSize(4.0)
                 .nullsFraction(0.0);
 
         assertCalculate(new NullLiteral())
@@ -162,6 +164,7 @@ public class TestScalarStatsCalculator
                 .distinctValuesCount(1.0)
                 .lowValueUnknown()
                 .highValueUnknown()
+                .averageRowSize(11.0)
                 .nullsFraction(0.0);
     }
 

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.client.auth.external;
 
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
+import mockwebserver3.RecordedRequest;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.RecordedRequest;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -103,7 +103,7 @@ public class TestHttpTokenPoller
     @Test
     public void testBadHttpStatus()
     {
-        server.enqueue(new MockResponse().setResponseCode(HTTP_GONE));
+        server.enqueue(new MockResponse.Builder().code(HTTP_GONE).build());
 
         TokenPollResult result = tokenPoller.pollForToken(tokenUri(), ONE_SECOND);
 
@@ -170,7 +170,7 @@ public class TestHttpTokenPoller
 
         RecordedRequest request = server.takeRequest(1, MILLISECONDS);
         assertThat(request.getMethod()).isEqualTo("DELETE");
-        assertThat(request.getRequestUrl()).isEqualTo(HttpUrl.get(tokenUri()));
+        assertThat(request.getUrl()).isEqualTo(HttpUrl.get(tokenUri()));
     }
 
     @Test
@@ -210,15 +210,17 @@ public class TestHttpTokenPoller
 
     private static MockResponse statusAndBody(int status, String body)
     {
-        return new MockResponse()
-                .setResponseCode(status)
-                .addHeader(CONTENT_TYPE, JSON_UTF_8)
-                .setBody(body);
+        return new MockResponse.Builder()
+                .code(status)
+                .addHeader(CONTENT_TYPE, JSON_UTF_8.toString())
+                .body(body)
+                .build();
     }
 
     private static MockResponse status(int status)
     {
-        return new MockResponse()
-                .setResponseCode(status);
+        return new MockResponse.Builder()
+                .code(status)
+                .build();
     }
 }

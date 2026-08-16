@@ -14,16 +14,27 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+
+import java.util.Set;
 
 public class ClusterOverloadConfig
 {
     public static final String OVERLOAD_POLICY_CNT_BASED = "overload_worker_cnt_based_throttling";
     public static final String OVERLOAD_POLICY_PCT_BASED = "overload_worker_pct_based_throttling";
+    private static final Splitter BYPASS_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    private static final Splitter GROUP_ID_SEGMENT_SPLITTER = Splitter.on('.');
+
     private boolean clusterOverloadThrottlingEnabled;
     private double allowedOverloadWorkersPct = 0.01;
     private int allowedOverloadWorkersCnt;
     private String overloadPolicyType = OVERLOAD_POLICY_CNT_BASED;
     private int overloadCheckCacheTtlInSecs = 5;
+    private Set<ResourceGroupId> throttlingBypassResourceGroups = ImmutableSet.of();
 
     /**
      * Gets the time-to-live for the cached cluster overload state.
@@ -107,5 +118,28 @@ public class ClusterOverloadConfig
     public String getOverloadPolicyType()
     {
         return this.overloadPolicyType;
+    }
+
+    public Set<ResourceGroupId> getThrottlingBypassResourceGroups()
+    {
+        return throttlingBypassResourceGroups;
+    }
+
+    @Config("cluster-overload.bypass-resource-groups")
+    @ConfigDescription("Comma-separated list of fully-qualified resource group ids that bypass cluster-overload throttling")
+    public ClusterOverloadConfig setThrottlingBypassResourceGroups(String throttlingBypassResourceGroups)
+    {
+        if (throttlingBypassResourceGroups == null) {
+            this.throttlingBypassResourceGroups = ImmutableSet.of();
+            return this;
+        }
+        // ResourceGroupId rejects empty segments, so a malformed entry like "global..admin" fails fast
+        // at startup. Airlift Bootstrap surfaces the failure with the property name.
+        ImmutableSet.Builder<ResourceGroupId> builder = ImmutableSet.builder();
+        for (String entry : BYPASS_SPLITTER.split(throttlingBypassResourceGroups)) {
+            builder.add(new ResourceGroupId(ImmutableList.copyOf(GROUP_ID_SEGMENT_SPLITTER.split(entry))));
+        }
+        this.throttlingBypassResourceGroups = builder.build();
+        return this;
     }
 }

@@ -67,11 +67,24 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER (COLUMN)? column=identifier DROP NOT NULL                #alterColumnDropNotNull
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER (COLUMN)? column=identifier SET DEFAULT expression       #setColumnDefault
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         SET PROPERTIES properties                                      #setTableProperties
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        CREATE (OR REPLACE)? BRANCH (IF NOT EXISTS)? name=string
+        tableVersionExpression?
+        (RETAIN retainDays=INTEGER_VALUE DAYS)?
+        (WITH SNAPSHOT RETENTION (minSnapshots=INTEGER_VALUE SNAPSHOTS)? (maxSnapshotAge=INTEGER_VALUE DAYS)?)?  #createBranch
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        CREATE (OR REPLACE)? TAG (IF NOT EXISTS)? name=string
+        tableVersionExpression?
+        (RETAIN retainDays=INTEGER_VALUE DAYS)?                         #createTag
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP BRANCH (IF EXISTS)? name=string                           #dropBranch
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP TAG (IF EXISTS)? name=string                              #dropTag
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER COLUMN columnName=identifier SET DATA TYPE type          #setColumnType
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
         '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
@@ -86,6 +99,8 @@ statement
         viewSecurity?
         (WITH properties)? AS (query | '('query')')                    #createMaterializedView
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
+    | ALTER MATERIALIZED VIEW (IF EXISTS)? qualifiedName
+        SET PROPERTIES properties                                      #setMaterializedViewProperties
     | REFRESH MATERIALIZED VIEW qualifiedName
         (WHERE where=booleanExpression)?                               #refreshMaterializedView
     | CREATE (OR REPLACE)? TEMPORARY? FUNCTION functionName=qualifiedName
@@ -159,7 +174,11 @@ statement
         SET updateAssignment (',' updateAssignment)*
         (WHERE where=booleanExpression)?                               #update
     | MERGE INTO qualifiedName (AS? identifier)?
-        USING relation ON expression mergeCase+                        #mergeInto
+          USING relation ON expression mergeCase+                        #mergeInto
+    | CREATE VECTOR INDEX qualifiedName ON qualifiedName
+          '(' identifier (',' identifier)? ')'
+          (WITH properties)?
+          (UPDATING FOR booleanExpression)?                              #createVectorIndex
     ;
 
 query
@@ -177,7 +196,7 @@ tableElement
     ;
 
 columnDefinition
-    : identifier type (NOT NULL)? (COMMENT string)? (WITH properties)?
+    : identifier type (NOT NULL)? (COMMENT string)? (DEFAULT expression)? (WITH properties)?
     ;
 
 likeClause
@@ -541,10 +560,11 @@ filter
     ;
 
 mergeCase
-    : WHEN MATCHED THEN
+    : WHEN MATCHED (AND condition=expression)? THEN
         UPDATE SET targetColumns+=identifier EQ values+=expression
           (',' targetColumns+=identifier EQ values+=expression)*            #mergeUpdate
-    | WHEN NOT MATCHED THEN
+    | WHEN MATCHED (AND condition=expression)? THEN DELETE                  #mergeDelete
+    | WHEN NOT MATCHED (AND condition=expression)? THEN
         INSERT ('(' columns+=identifier (',' columns+=identifier)* ')')?
         VALUES '(' values+=expression (',' values+=expression)* ')'         #mergeInsert
     ;
@@ -690,12 +710,12 @@ nonReserved
     : ADD | ADMIN | ALL | ANALYZE | ANY | ARRAY | ASC | AT
     | BEFORE | BERNOULLI | BRANCH
     | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | COPARTITION | CURRENT | CURRENT_ROLE
-    | DATA | DATE | DAY | DEFINER | DESC | DESCRIPTOR | DETERMINISTIC | DISABLED | DISTRIBUTED
-    | EMPTY | ENABLED | ENFORCED | EXCLUDING | EXPLAIN | EXTERNAL
+    | DATA | DATE | DAY | DEFAULT | DEFINER | DESC | DESCRIPTOR | DETERMINISTIC | DISABLED | DISTRIBUTED | DAYS
+    | EMPTY | ENABLED | ENFORCED | EXCLUDING | EXECUTE | EXPLAIN | EXTERNAL
     | FETCH | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
     | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
-    | IF | IGNORE | INCLUDING | INPUT | INTERVAL | INVOKER | IO | ISOLATION
+    | IF | IGNORE | INCLUDING | INDEX | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
     | KEEP | KEY
     | LANGUAGE | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
@@ -703,12 +723,12 @@ nonReserved
     | NAME | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OF | OFFSET | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
     | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIMARY | PRIVILEGES | PROPERTIES | PRUNE
-    | RANGE | READ | REFRESH | RELY | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
-    | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SQL
+    | RANGE | READ | REFRESH | RELY | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETAIN | RETENTION | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
+    | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SNAPSHOT | SNAPSHOTS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM | SYSTEM_TIME | SYSTEM_VERSION
     | TABLES | TABLESAMPLE | TAG | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
-    | UNBOUNDED | UNCOMMITTED | UNIQUE | UPDATE | USE | USER
-    | VALIDATE | VERBOSE | VERSION | VIEW
+    | UNBOUNDED | UNCOMMITTED | UNIQUE | UPDATE | UPDATING | USE | USER
+    | VALIDATE | VECTOR | VERBOSE | VERSION | VIEW
     | WORK | WRITE
     | YEAR
     | ZONE
@@ -754,9 +774,11 @@ CURRENT_TIMESTAMP: 'CURRENT_TIMESTAMP';
 CURRENT_USER: 'CURRENT_USER';
 DATA: 'DATA';
 DATE: 'DATE';
+DAYS: 'DAYS';
 DAY: 'DAY';
 DEALLOCATE: 'DEALLOCATE';
 DEFINER: 'DEFINER';
+DEFAULT: 'DEFAULT';
 DELETE: 'DELETE';
 DESC: 'DESC';
 DESCRIBE: 'DESCRIBE';
@@ -803,6 +825,7 @@ IF: 'IF';
 IGNORE: 'IGNORE';
 IN: 'IN';
 INCLUDING: 'INCLUDING';
+INDEX: 'INDEX';
 INNER: 'INNER';
 INPUT: 'INPUT';
 INSERT: 'INSERT';
@@ -877,6 +900,8 @@ REPLACE: 'REPLACE';
 RESET: 'RESET';
 RESPECT: 'RESPECT';
 RESTRICT: 'RESTRICT';
+RETAIN: 'RETAIN';
+RETENTION: 'RETENTION';
 RETURN: 'RETURN';
 RETURNS: 'RETURNS';
 REVOKE: 'REVOKE';
@@ -897,6 +922,8 @@ SESSION: 'SESSION';
 SET: 'SET';
 SETS: 'SETS';
 SHOW: 'SHOW';
+SNAPSHOT: 'SNAPSHOT';
+SNAPSHOTS: 'SNAPSHOTS';
 SOME: 'SOME';
 SQL: 'SQL';
 START: 'START';
@@ -928,10 +955,12 @@ UNIQUE: 'UNIQUE';
 UNNEST: 'UNNEST';
 UPDATE: 'UPDATE';
 USE: 'USE';
+UPDATING: 'UPDATING';
 USER: 'USER';
 USING: 'USING';
 VALIDATE: 'VALIDATE';
 VALUES: 'VALUES';
+VECTOR: 'VECTOR';
 VERBOSE: 'VERBOSE';
 VERSION: 'VERSION';
 VIEW: 'VIEW';

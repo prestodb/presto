@@ -35,6 +35,7 @@ import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.Principal;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +85,7 @@ public class PrestoSparkRunner
             String user,
             Optional<Principal> principal,
             Map<String, String> extraCredentials,
+            List<X509Certificate> certificates,
             String catalog,
             String schema,
             Optional<String> source,
@@ -106,6 +108,7 @@ public class PrestoSparkRunner
                 user,
                 principal,
                 extraCredentials,
+                certificates,
                 catalog,
                 schema,
                 source,
@@ -154,6 +157,7 @@ public class PrestoSparkRunner
                 prestoSparkRunnerContext.getUser(),
                 prestoSparkRunnerContext.getPrincipal(),
                 prestoSparkRunnerContext.getExtraCredentials(),
+                prestoSparkRunnerContext.getCertificates(),
                 Optional.ofNullable(prestoSparkRunnerContext.getCatalog()),
                 Optional.ofNullable(prestoSparkRunnerContext.getSchema()),
                 prestoSparkRunnerContext.getSource(),

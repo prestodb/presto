@@ -23,7 +23,9 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
@@ -36,9 +38,12 @@ import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.ProjectNode.Locality;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -47,6 +52,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -56,11 +62,15 @@ import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slices;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -81,9 +91,12 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.callOperator;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
@@ -183,6 +196,11 @@ public class PlannerUtils
 
     public static PlanNode addProjections(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, Map<VariableReferenceExpression, RowExpression> variableMap)
     {
+        return addProjections(source, planNodeIdAllocator, variableMap, LOCAL);
+    }
+
+    public static PlanNode addProjections(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, Map<VariableReferenceExpression, RowExpression> variableMap, Locality locality)
+    {
         Assignments.Builder assignments = Assignments.builder();
         for (VariableReferenceExpression variableReferenceExpression : source.getOutputVariables()) {
             assignments.put(variableReferenceExpression, variableReferenceExpression);
@@ -194,7 +212,7 @@ public class PlannerUtils
                 planNodeIdAllocator.getNextId(),
                 source,
                 assignments.build(),
-                LOCAL);
+                locality);
     }
 
     // Add a projection node, which assignment new value if output exists in variableMap, otherwise identity assignment
@@ -300,6 +318,18 @@ public class PlannerUtils
                 ImmutableList.of());
     }
 
+    /**
+     * Builds an {@code array_agg(argument)} aggregation that packs the (non-grouped) input rows
+     * into an array. The result type is {@code array(argument type)}; the aggregation has no
+     * filter, ordering, mask and is not distinct. Useful for collapsing a fan-out into one row
+     * per group that can later be re-expanded with a {@code CROSS JOIN UNNEST}.
+     */
+    public static AggregationNode.Aggregation createArrayAggregation(FunctionAndTypeManager functionAndTypeManager, RowExpression argument)
+    {
+        CallExpression call = call(functionAndTypeManager, "array_agg", new ArrayType(argument.getType()), argument);
+        return new AggregationNode.Aggregation(call, Optional.empty(), Optional.empty(), false, Optional.empty());
+    }
+
     private static PlanNode cloneFilterNode(FilterNode filterNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> variablesToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator)
     {
         PlanNode newSource = clonePlanNode(filterNode.getSource(), session, metadata, planNodeIdAllocator, variablesToKeep, varMap);
@@ -378,9 +408,57 @@ public class PlannerUtils
         else if (planNode instanceof ProjectNode) {
             return cloneProjectNode((ProjectNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap, planNodeIdAllocator);
         }
+        else if (planNode instanceof UnionNode) {
+            return cloneUnionNode((UnionNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap);
+        }
 
         checkState(false, "Currently cannot clone: " + planNode.getClass().getName() + " nodes.");
         return null;
+    }
+
+    private static PlanNode cloneUnionNode(UnionNode unionNode, Session session, Metadata metadata, PlanNodeIdAllocator idAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
+    {
+        int numSources = unionNode.getSources().size();
+        List<PlanNode> clonedSources = new ArrayList<>();
+        List<Map<VariableReferenceExpression, VariableReferenceExpression>> legVarMaps = new ArrayList<>();
+
+        for (int i = 0; i < numSources; i++) {
+            Map<VariableReferenceExpression, VariableReferenceExpression> sourceMap = unionNode.sourceVariableMap(i);
+            Map<VariableReferenceExpression, VariableReferenceExpression> legVarMap = new HashMap<>();
+
+            List<VariableReferenceExpression> legFieldsToKeep = fieldsToKeep.stream()
+                    .map(sourceMap::get)
+                    .filter(v -> v != null)
+                    .collect(toImmutableList());
+
+            PlanNode clonedLeg = clonePlanNode(unionNode.getSources().get(i), session, metadata, idAllocator, legFieldsToKeep, legVarMap);
+            clonedSources.add(clonedLeg);
+            legVarMaps.add(legVarMap);
+        }
+
+        ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> newOutputToInputs = ImmutableListMultimap.builder();
+        ImmutableList.Builder<VariableReferenceExpression> newOutputVars = ImmutableList.builder();
+
+        for (VariableReferenceExpression outputVar : unionNode.getOutputVariables()) {
+            VariableReferenceExpression newOutputVar = varMap.getOrDefault(outputVar, outputVar);
+            varMap.putIfAbsent(outputVar, newOutputVar);
+            newOutputVars.add(newOutputVar);
+
+            List<VariableReferenceExpression> originalInputs = unionNode.getVariableMapping().get(outputVar);
+            for (int i = 0; i < numSources; i++) {
+                VariableReferenceExpression originalInput = originalInputs.get(i);
+                VariableReferenceExpression clonedInput = legVarMaps.get(i).getOrDefault(originalInput, originalInput);
+                newOutputToInputs.put(newOutputVar, clonedInput);
+            }
+        }
+
+        ListMultimap<VariableReferenceExpression, VariableReferenceExpression> multimap = newOutputToInputs.build();
+        return new UnionNode(
+                unionNode.getSourceLocation(),
+                idAllocator.getNextId(),
+                clonedSources,
+                newOutputVars.build(),
+                fromListMultimap(multimap));
     }
 
     public static String getPlanString(PlanNode planNode, Session session, TypeProvider types, Metadata metadata, boolean isVerboseOptimizerInfoEnabled)
@@ -448,6 +526,57 @@ public class PlannerUtils
         return Optional.empty();
     }
 
+    /**
+     * Returns the set of partition column handles for the given table scan node,
+     * using the connector-agnostic DiscretePredicates API.
+     * Returns empty if the table has no layout or no discrete predicates.
+     */
+    public static Optional<Set<ColumnHandle>> getPartitionColumnHandles(Session session, Metadata metadata, TableScanNode scanNode)
+    {
+        TableLayout layout;
+        if (!scanNode.getTable().getLayout().isPresent()) {
+            try {
+                layout = metadata.getLayout(session, scanNode.getTable(), Constraint.alwaysTrue(), Optional.empty()).getLayout();
+            }
+            catch (Exception e) {
+                return Optional.empty();
+            }
+        }
+        else {
+            layout = metadata.getLayout(session, scanNode.getTable());
+        }
+
+        if (!layout.getDiscretePredicates().isPresent()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(ImmutableSet.copyOf(layout.getDiscretePredicates().get().getColumns()));
+    }
+
+    /**
+     * Resolves a variable through intermediate ProjectNode/FilterNode layers
+     * down to the corresponding variable in a TableScanNode.
+     * Returns empty if the variable cannot be resolved (e.g., non-trivial expression in a projection).
+     */
+    public static Optional<VariableReferenceExpression> resolveToScanVariable(VariableReferenceExpression variable, PlanNode source)
+    {
+        if (source instanceof TableScanNode) {
+            return Optional.of(variable);
+        }
+        if (source instanceof FilterNode) {
+            return resolveToScanVariable(variable, ((FilterNode) source).getSource());
+        }
+        if (source instanceof ProjectNode) {
+            ProjectNode project = (ProjectNode) source;
+            RowExpression expr = project.getAssignments().get(variable);
+            if (expr instanceof VariableReferenceExpression) {
+                return resolveToScanVariable((VariableReferenceExpression) expr, project.getSource());
+            }
+            return Optional.empty();
+        }
+        return Optional.empty();
+    }
+
     public static boolean isFilterAboveTableScan(PlanNode node)
     {
         return node instanceof FilterNode && ((FilterNode) node).getSource() instanceof TableScanNode;
@@ -463,6 +592,66 @@ public class PlannerUtils
         return node instanceof TableScanNode ||
                 node instanceof ProjectNode && isScanFilterProject(((ProjectNode) node).getSource()) ||
                 node instanceof FilterNode && isScanFilterProject(((FilterNode) node).getSource());
+    }
+
+    /**
+     * Like {@link #isScanFilterProject(PlanNode)}, but additionally accepts a {@link UnionNode}
+     * whose every source is itself a scan/filter/project subtree. Use this from optimizers that
+     * specifically support cloning UNION ALL probe sides (e.g. JoinPrefilter's complex-probe-side
+     * mode). Other callers should keep using {@link #isScanFilterProject} so they don't silently
+     * gain UNION ALL handling without being audited.
+     */
+    public static boolean isScanFilterProjectOrUnion(PlanNode node)
+    {
+        return isScanFilterProject(node) ||
+                node instanceof UnionNode && ((UnionNode) node).getSources().stream().allMatch(PlannerUtils::isScanFilterProjectOrUnion);
+    }
+
+    /**
+     * Returns true if the scan-filter-project plan subtree contains only deterministic
+     * expressions in all filters and projections. This check is critical for optimizations
+     * that clone the subtree (e.g., JoinPrefilter), because cloning a subtree with
+     * non-deterministic expressions (like rand()) produces different results from each
+     * clone, leading to incorrect query results.
+     */
+    public static boolean isDeterministicScanFilterProject(PlanNode node, FunctionAndTypeManager functionAndTypeManager)
+    {
+        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+        return isDeterministicPlanSubtree(node, determinismEvaluator, false);
+    }
+
+    /**
+     * Like {@link #isDeterministicScanFilterProject}, but additionally accepts a UnionNode
+     * whose every source is itself a deterministic scan/filter/project (or another such Union)
+     * subtree. Pair with {@link #isScanFilterProjectOrUnion} when the caller specifically
+     * supports cloning UNION ALL probe sides.
+     */
+    public static boolean isDeterministicScanFilterProjectOrUnion(PlanNode node, FunctionAndTypeManager functionAndTypeManager)
+    {
+        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+        return isDeterministicPlanSubtree(node, determinismEvaluator, true);
+    }
+
+    private static boolean isDeterministicPlanSubtree(PlanNode node, DeterminismEvaluator determinismEvaluator, boolean allowUnion)
+    {
+        if (node instanceof TableScanNode) {
+            return true;
+        }
+        else if (node instanceof FilterNode) {
+            FilterNode filterNode = (FilterNode) node;
+            return determinismEvaluator.isDeterministic(filterNode.getPredicate())
+                    && isDeterministicPlanSubtree(filterNode.getSource(), determinismEvaluator, allowUnion);
+        }
+        else if (node instanceof ProjectNode) {
+            ProjectNode projectNode = (ProjectNode) node;
+            return projectNode.getAssignments().getExpressions().stream().allMatch(determinismEvaluator::isDeterministic)
+                    && isDeterministicPlanSubtree(projectNode.getSource(), determinismEvaluator, allowUnion);
+        }
+        else if (allowUnion && node instanceof UnionNode) {
+            return ((UnionNode) node).getSources().stream()
+                    .allMatch(source -> isDeterministicPlanSubtree(source, determinismEvaluator, allowUnion));
+        }
+        return false;
     }
 
     public static CallExpression equalityPredicate(FunctionResolution functionResolution, RowExpression leftExpr, RowExpression rightExpr)
@@ -538,6 +727,42 @@ public class PlannerUtils
         return false;
     }
 
+    /**
+     * Checks whether a plan subtree contains any node that requires coordinator execution.
+     * Walks the tree stopping at remote/materialized exchange boundaries (which become
+     * separate fragments). Returns true if any node indicates coordinator execution:
+     * system connector table scans (information_schema, $system) or coordinator-only
+     * plan nodes (ExplainAnalyze, StatisticsWriter, TableFinish, MetadataDelete).
+     */
+    public static boolean containsCoordinatorOnlyNode(PlanNode plan)
+    {
+        return containsCoordinatorOnlyNode(plan, noLookup());
+    }
+
+    private static boolean containsCoordinatorOnlyNode(PlanNode plan, Lookup lookup)
+    {
+        return searchFrom(plan, lookup)
+                .where(PlannerUtils::isCoordinatorRequiredNode)
+                .recurseOnlyWhen(PlannerUtils::isNotRemoteExchange)
+                .matches();
+    }
+
+    private static boolean isCoordinatorRequiredNode(PlanNode node)
+    {
+        if (node instanceof TableScanNode) {
+            return isInternalSystemConnector(((TableScanNode) node).getTable().getConnectorId());
+        }
+        return isCoordinatorOnlyDistribution(node);
+    }
+
+    private static boolean isNotRemoteExchange(PlanNode node)
+    {
+        if (node instanceof ExchangeNode) {
+            return ((ExchangeNode) node).getScope() == ExchangeNode.Scope.LOCAL;
+        }
+        return true;
+    }
+
     public static boolean isConstant(RowExpression expression, Type type, Object value)
     {
         return expression instanceof ConstantExpression &&
@@ -576,5 +801,195 @@ public class PlannerUtils
             castToVarchar = call("CAST", functionAndTypeManager.lookupCast(CAST, keyExpression.getType(), VARCHAR), VARCHAR, keyExpression);
         }
         return new SpecialFormExpression(COALESCE, VARCHAR, ImmutableList.of(castToVarchar, concatExpression));
+    }
+
+    /**
+     * Randomizes a null join key in its own native type: {@code COALESCE(key, randomDefault)}, where the
+     * default is a random value drawn from the hash-partition-count range so null keys spread across
+     * partitions instead of colliding on one. The key itself is never cast to VARCHAR.
+     * <p>
+     * The default is chosen to rarely collide with a real key (which only saves wasted work, not
+     * correctness): for BIGINT it is {@code -random(N)} (a negative value real ids almost never take),
+     * for DATE a pre-epoch date, and for VARCHAR the textual form of a small random number (e.g.
+     * {@code "53"}). Correctness does not depend on this: callers compare the coalesced key against the RAW
+     * other-side key and guard the join with {@code key IS NOT NULL} (as
+     * {@link com.facebook.presto.sql.planner.optimizations.RandomizeNullKeyInOuterJoin} does), so a
+     * randomized null can never match a real key or a null regardless of the random value.
+     * <p>
+     * For BIGINT/DATE the randomized key is produced in the key's own type, so it stays identical to the raw
+     * other-side key type. For VARCHAR the small random number is cast to unbounded VARCHAR (which never
+     * throws, unlike a cast to a bounded {@code varchar(n)}); the resulting key is unbounded VARCHAR, so the
+     * caller must NOT randomize VARCHAR keys in FULL joins -- FULL-join partitioning property derivation
+     * ({@code COALESCE(probe, build)}) requires the randomized key type to match the raw build key exactly.
+     *
+     * @param keyExpression the original join key expression (BIGINT, DATE, or VARCHAR)
+     * @return {@code COALESCE(key, randomDefault)} in the key's native type (unbounded VARCHAR for VARCHAR keys)
+     */
+    public static RowExpression randomizeJoinKeyNative(Session session, FunctionAndTypeManager functionAndTypeManager, RowExpression keyExpression)
+    {
+        int partitionCount = getHashPartitionCount(session);
+        RowExpression randomNumber = call(
+                functionAndTypeManager,
+                "random",
+                BIGINT,
+                constant((long) partitionCount, BIGINT));
+        // Negate so the fill is negative, which real keys rarely are -> fewer (harmless) hash collisions.
+        RowExpression negativeRandom = callOperator(functionAndTypeManager.getFunctionAndTypeResolver(), OperatorType.NEGATION, BIGINT, randomNumber);
+
+        Type keyType = keyExpression.getType();
+        RowExpression randomDefault;
+        if (keyType.equals(BIGINT)) {
+            randomDefault = negativeRandom;
+        }
+        else if (keyType.equals(DATE)) {
+            // date_add('day', -random(N), DATE '1970-01-01') -> a pre-epoch date, rarely a real key
+            randomDefault = call(
+                    functionAndTypeManager,
+                    "date_add",
+                    DATE,
+                    constant(Slices.utf8Slice("day"), VARCHAR),
+                    negativeRandom,
+                    constant(0L, DATE));
+        }
+        else if (keyType instanceof VarcharType) {
+            // Cast only the small random number to unbounded VARCHAR (e.g. "53"), never the (potentially
+            // large) key itself. Unbounded VARCHAR never overflows on cast; the caller excludes VARCHAR keys
+            // from FULL joins so the unbounded randomized key never needs to match a bounded build key.
+            randomDefault = call("CAST", functionAndTypeManager.lookupCast(CAST, BIGINT, VARCHAR), VARCHAR, randomNumber);
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported key type for native null-key randomization: " + keyType);
+        }
+        // BIGINT/DATE keep their native type; a VARCHAR key's randomized key is unbounded VARCHAR.
+        return new SpecialFormExpression(COALESCE, keyType instanceof VarcharType ? VARCHAR : keyType, ImmutableList.of(keyExpression, randomDefault));
+    }
+
+    public static RowExpression getVariableHash(List<VariableReferenceExpression> inputVariables, FunctionAndTypeManager functionAndTypeManager)
+    {
+        checkArgument(!inputVariables.isEmpty());
+        List<CallExpression> hashExpressionList = inputVariables.stream().map(keyVariable ->
+                callOperator(functionAndTypeManager.getFunctionAndTypeResolver(), OperatorType.XX_HASH_64, BIGINT, keyVariable)).collect(toImmutableList());
+        RowExpression hashExpression = hashExpressionList.get(0);
+        if (hashExpressionList.size() > 1) {
+            hashExpression = orNullHashCode(hashExpression);
+            for (int i = 1; i < hashExpressionList.size(); ++i) {
+                hashExpression = call(functionAndTypeManager, "combine_hash", BIGINT, hashExpression, orNullHashCode(hashExpressionList.get(i)));
+            }
+        }
+        return hashExpression;
+    }
+
+    /**
+     * Walk through Filter/Project chain to find the underlying TableScanNode.
+     */
+    public static Optional<TableScanNode> findTableScanNode(PlanNode node)
+    {
+        if (node instanceof TableScanNode) {
+            return Optional.of((TableScanNode) node);
+        }
+        if (node instanceof FilterNode) {
+            return findTableScanNode(((FilterNode) node).getSource());
+        }
+        if (node instanceof ProjectNode) {
+            return findTableScanNode(((ProjectNode) node).getSource());
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Create a new TableScanNode with one additional column added to outputVariables and assignments.
+     */
+    public static TableScanNode addColumnToTableScan(
+            TableScanNode scanNode,
+            ColumnHandle columnHandle,
+            VariableReferenceExpression variable,
+            PlanNodeIdAllocator idAllocator)
+    {
+        List<VariableReferenceExpression> newOutputVariables = ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(scanNode.getOutputVariables())
+                .add(variable)
+                .build();
+
+        Map<VariableReferenceExpression, ColumnHandle> newAssignments = ImmutableMap.<VariableReferenceExpression, ColumnHandle>builder()
+                .putAll(scanNode.getAssignments())
+                .put(variable, columnHandle)
+                .build();
+
+        return new TableScanNode(
+                scanNode.getSourceLocation(),
+                idAllocator.getNextId(),
+                scanNode.getTable(),
+                newOutputVariables,
+                newAssignments,
+                scanNode.getTableConstraints(),
+                scanNode.getCurrentConstraint(),
+                scanNode.getEnforcedConstraint(),
+                scanNode.getCteMaterializationInfo());
+    }
+
+    /**
+     * Recursively propagate a new variable through a Project/Filter chain by adding
+     * identity assignments in ProjectNodes and rebuilding FilterNodes.
+     * Returns Optional.empty() if an unsupported node type is encountered.
+     */
+    public static Optional<PlanNode> addPassThroughVariable(
+            PlanNode node,
+            VariableReferenceExpression variable,
+            PlanNodeIdAllocator idAllocator)
+    {
+        if (node instanceof TableScanNode) {
+            // TableScanNode should already have the variable added via addColumnToTableScan
+            return Optional.of(node);
+        }
+        if (node instanceof FilterNode) {
+            FilterNode filterNode = (FilterNode) node;
+            return addPassThroughVariable(filterNode.getSource(), variable, idAllocator)
+                    .map(newSource -> new FilterNode(filterNode.getSourceLocation(), idAllocator.getNextId(), newSource, filterNode.getPredicate()));
+        }
+        if (node instanceof ProjectNode) {
+            ProjectNode projectNode = (ProjectNode) node;
+            return addPassThroughVariable(projectNode.getSource(), variable, idAllocator)
+                    .map(newSource -> {
+                        Assignments newAssignments = Assignments.builder()
+                                .putAll(projectNode.getAssignments())
+                                .put(variable, variable)
+                                .build();
+                        return new ProjectNode(idAllocator.getNextId(), newSource, newAssignments);
+                    });
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Returns true if the plan subtree (expected to be a Filter/Project chain
+     * above a TableScanNode) contains any non-deterministic expressions.
+     * Useful for optimizations that clone the subtree — non-deterministic
+     * expressions would produce different values in the clone vs the original.
+     */
+    public static boolean containsNonDeterministicExpression(PlanNode node, FunctionAndTypeManager functionAndTypeManager)
+    {
+        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+        PlanNode current = node;
+        while (current != null) {
+            if (current instanceof ProjectNode) {
+                for (RowExpression expression : ((ProjectNode) current).getAssignments().getExpressions()) {
+                    if (!determinismEvaluator.isDeterministic(expression)) {
+                        return true;
+                    }
+                }
+                current = ((ProjectNode) current).getSource();
+            }
+            else if (current instanceof FilterNode) {
+                if (!determinismEvaluator.isDeterministic(((FilterNode) current).getPredicate())) {
+                    return true;
+                }
+                current = ((FilterNode) current).getSource();
+            }
+            else {
+                // TableScanNode or other leaf
+                break;
+            }
+        }
+        return false;
     }
 }

@@ -20,7 +20,7 @@ Plugin Metadata
 ---------------
 
 Each plugin identifies an entry point: an implementation of the
-``Plugin`` interface. This class name is provided to Presto via
+``Plugin`` interface. This class name is provided to Presto through 
 the standard Java ``ServiceLoader`` interface: the classpath contains
 a resource file named ``com.facebook.presto.spi.Plugin`` in the
 ``META-INF/services`` directory. The content of this file is a
@@ -49,8 +49,8 @@ is ready to create an instance of a connector to back a catalog. There are simil
 methods for ``Type``, ``ParametricType``, ``Function``, ``SystemAccessControl``, and
 ``EventListenerFactory`` objects.
 
-Building Plugins via Maven
---------------------------
+Building Plugins with Maven
+---------------------------
 
 Plugins depend on the SPI from Presto:
 
@@ -83,17 +83,13 @@ Deploying a Custom Plugin
 -------------------------
 
 In order to add a custom plugin to a Presto installation, create a directory
-for that plugin in the Presto plugin directory and add all the necessary jars
-for the plugin to that directory. For example, for a plugin called
-``my-functions``, you would create a directory ``my-functions`` in the Presto
-plugin directory and add the relevant jars to that directory.
+for that plugin in the Presto plugin directory and add all the necessary JAR
+files to that directory. Plugins must be installed on all nodes in the Presto
+cluster (coordinator and workers).
 
-By default, the plugin directory is the ``plugin`` directory relative to the
-directory in which Presto is installed, but it is configurable using the
-configuration variable ``catalog.config-dir``. In order for Presto to pick up
-the new plugin, you must restart Presto.
-
-Plugins must be installed on all nodes in the Presto cluster (coordinator and workers).
+For detailed step-by-step instructions on deploying custom plugins,
+including how to verify that a plugin has been loaded and troubleshoot common
+errors, see :doc:`/installation/deploy-custom-plugins`.
 
 Coordinator Plugin
 ------------------
@@ -103,7 +99,7 @@ functionality for the Presto coordinator. Presto SPI defines different service
 provider factories and service providers that allow customization of session
 property providers, function namespace managers, type managers, expression
 optimizers, and plan checkers. The following service providers can be accessed
-via their respective provider factories.
+through their respective provider factories.
 
 +----------------------+----------------------------------------+---------------------------------+
 |       Service        |             Provider Factory           |        Service Provider         |
@@ -130,7 +126,7 @@ Native Sidecar Plugin
 ---------------------
 
 The ``NativeSidecarPlugin`` class implements ``CoordinatorPlugin`` interface
-and returns the following service providers via their respective provider
+and returns the following service providers through their respective provider
 factories.
 
 +----------------------+----------------------------------------------+---------------------------------------+

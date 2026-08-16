@@ -92,8 +92,7 @@ public abstract class AbstractTestFunctions
         this.session = requireNonNull(session, "session is null");
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
         this.functionsConfig = requireNonNull(functionsConfig, "config is null")
-                .setLegacyLogFunction(true)
-                .setUseNewNanDefinition(true);
+                .setLegacyLogFunction(true);
         this.loadInlinedSqlInvokedFunctionsPlugin = loadInlinedSqlInvokedFunctionsPlugin;
     }
 
@@ -168,7 +167,8 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidFunction(projection, errorCode, messagePattern);
     }
 
-    protected void assertInvalidFunction(String projection, String messagePattern)
+    @Override
+    public void assertInvalidFunction(String projection, String messagePattern)
     {
         functionAssertions.assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, messagePattern);
     }
@@ -208,7 +208,8 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidCast(projection);
     }
 
-    protected void assertInvalidCast(@Language("SQL") String projection, String message)
+    @Override
+    public void assertInvalidCast(@Language("SQL") String projection, String message)
     {
         functionAssertions.assertInvalidCast(projection, message);
     }

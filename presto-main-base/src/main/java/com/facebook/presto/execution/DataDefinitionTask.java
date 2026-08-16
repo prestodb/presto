@@ -13,12 +13,19 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.spi.security.AccessControlContext;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Statement;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public interface DataDefinitionTask<T extends Statement>
@@ -32,5 +39,10 @@ public interface DataDefinitionTask<T extends Statement>
         }
 
         return SqlFormatter.formatSql(statement, Optional.of(parameters));
+    }
+
+    default void queryPermissionCheck(AccessControl accessControl, Identity identity, AccessControlContext context, String query, Map<String, String> preparedStatements, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
+    {
+        accessControl.checkQueryIntegrity(identity, context, query, preparedStatements, viewDefinitions, materializedViewDefinitions);
     }
 }

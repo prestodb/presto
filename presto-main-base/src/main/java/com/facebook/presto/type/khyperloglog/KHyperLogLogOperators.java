@@ -14,12 +14,13 @@
 
 package com.facebook.presto.type.khyperloglog;
 
-import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.common.function.OperatorType.CAST;
+import static com.facebook.presto.common.type.StandardTypes.K_HYPER_LOG_LOG;
+import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
 
 public final class KHyperLogLogOperators
 {
@@ -28,15 +29,15 @@ public final class KHyperLogLogOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.VARBINARY)
-    public static Slice castToBinary(@SqlType(KHyperLogLogType.NAME) Slice slice)
+    @SqlType(VARBINARY)
+    public static Slice castToBinary(@SqlType(K_HYPER_LOG_LOG) Slice slice)
     {
         return slice;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(KHyperLogLogType.NAME)
-    public static Slice castFromBinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    @SqlType(K_HYPER_LOG_LOG)
+    public static Slice castFromBinary(@SqlType(VARBINARY) Slice slice)
     {
         return slice;
     }

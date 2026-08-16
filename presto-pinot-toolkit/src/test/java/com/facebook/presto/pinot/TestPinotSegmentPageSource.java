@@ -34,11 +34,12 @@ import org.apache.pinot.common.config.GrpcConfig;
 import org.apache.pinot.common.datatable.DataTable;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.DataSchema;
-import org.apache.pinot.common.utils.grpc.GrpcRequestBuilder;
+import org.apache.pinot.common.utils.grpc.ServerGrpcRequestBuilder;
 import org.apache.pinot.core.common.datatable.DataTableBuilder;
 import org.apache.pinot.core.common.datatable.DataTableBuilderV4;
 import org.apache.pinot.spi.data.DimensionFieldSpec;
 import org.apache.pinot.spi.data.FieldSpec;
+import org.apache.pinot.spi.utils.ByteArray;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.testng.annotations.Test;
 
@@ -172,9 +173,6 @@ public class TestPinotSegmentPageSource
                         case STRING:
                             dataTableBuilder.setColumn(colId, generateRandomStringWithLength(RANDOM.nextInt(20)));
                             break;
-                        case OBJECT:
-                            dataTableBuilder.setColumn(colId, (Object) RANDOM.nextDouble());
-                            break;
                         case BOOLEAN_ARRAY:
                             int length = RANDOM.nextInt(20);
                             int[] booleanArray = new int[length];
@@ -233,7 +231,7 @@ public class TestPinotSegmentPageSource
                         case BYTES:
                             try {
                                 dataTableBuilder.setColumn(colId,
-                                        Hex.decodeHex("0DE0B6B3A7640000".toCharArray())); // Hex of BigDecimal.ONE
+                                        new ByteArray(Hex.decodeHex("0DE0B6B3A7640000".toCharArray()))); // Hex of BigDecimal.ONE
                             }
                             catch (DecoderException e) {
                                 throw new RuntimeException(e);
@@ -425,7 +423,7 @@ public class TestPinotSegmentPageSource
     @Test
     public void testPinotGrpcRequest()
     {
-        final Server.ServerRequest grpcRequest = new GrpcRequestBuilder()
+        final Server.ServerRequest grpcRequest = new ServerGrpcRequestBuilder()
                 .setSegments(ImmutableList.of("segment1"))
                 .setEnableStreaming(true)
                 .setRequestId(121)
@@ -435,12 +433,13 @@ public class TestPinotSegmentPageSource
         Assert.assertEquals(grpcRequest.getSql(), "SELECT * FROM myTable");
         Assert.assertEquals(grpcRequest.getSegmentsCount(), 1);
         Assert.assertEquals(grpcRequest.getSegments(0), "segment1");
-        Assert.assertEquals(grpcRequest.getMetadataCount(), 5);
+        Assert.assertEquals(grpcRequest.getMetadataCount(), 6);
         Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.REQUEST_ID), "121");
         Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.BROKER_ID), "presto-coordinator-grpc");
         Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_TRACE), "false");
         Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_STREAMING), "true");
         Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.PAYLOAD_TYPE), "sql");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.CORRELATION_ID), "121");
     }
 
     private static final class TestingPinotStreamingQueryClient
@@ -455,7 +454,7 @@ public class TestPinotSegmentPageSource
         }
 
         @Override
-        public Iterator<Server.ServerResponse> submit(String host, int port, GrpcRequestBuilder requestBuilder)
+        public Iterator<Server.ServerResponse> submit(String host, int port, ServerGrpcRequestBuilder requestBuilder)
         {
             return new Iterator<Server.ServerResponse>()
             {

@@ -25,14 +25,22 @@ import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
@@ -100,6 +108,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_FUNCTION_ORDERBY_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -123,6 +132,13 @@ public class TestAnalyzer
     {
         List<PrestoWarning> warnings = warningCollector.getWarnings();
         assertTrue(warnings.isEmpty());
+    }
+
+    @Test
+    public void testCTASIfNotExistsWhenExists()
+    {
+        assertHasWarning(analyzeWithWarnings("CREATE TABLE IF NOT EXISTS t1 AS SELECT a, b FROM t1"),
+                SEMANTIC_WARNING, "Table 'tpch.s1.t1' already exists, skipping table creation");
     }
 
     @Test
@@ -1525,6 +1541,24 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testViewWithSymmetricTypeCoercionIsNotStale()
+    {
+        analyze("SELECT * FROM v_symmetric_coercion");
+    }
+
+    @Test
+    public void testViewWithSymmetricCharTypeCoercionIsNotStale()
+    {
+        analyze("SELECT * FROM v_char_symmetric_coercion");
+    }
+
+    @Test
+    public void testViewWithCharAndVarcharTypeMismatchIsNotStale()
+    {
+        analyze("SELECT * FROM v_char_varchar_stale");
+    }
+
+    @Test
     public void testStoredViewAnalysisScoping()
     {
         // the view must not be analyzed using the query context
@@ -2366,5 +2400,222 @@ public class TestAnalyzer
 
         assertFails(NOT_SUPPORTED, "line 1:1: Merging into materialized views is not supported",
                 "MERGE INTO mv1 USING t1 ON mv1.a = t1.a WHEN MATCHED THEN  UPDATE SET id = bar.id + 1");
+    }
+
+    @Test
+    public void testCreateVectorIndex()
+    {
+        // basic success cases — t14 has id:BIGINT, embedding_real:array(real), embedding_double:array(double), name:VARCHAR
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real)");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_double)");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'val1')");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'val1', p2 = 'val2')");
+
+        // with UPDATING FOR clause
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real) UPDATING FOR id > 10");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'val1') UPDATING FOR id BETWEEN 1 AND 100");
+
+        // single column (embedding only)
+        analyze("CREATE VECTOR INDEX test_index ON t14(embedding_real)");
+        analyze("CREATE VECTOR INDEX test_index ON t14(embedding_double)");
+
+        // source table does not exist
+        assertFails(MISSING_TABLE, ".*Source table '.*' does not exist",
+                "CREATE VECTOR INDEX test_index ON nonexistent_table(a, b)");
+
+        // destination table already exists — allowed (connector decides how to handle)
+        analyze("CREATE VECTOR INDEX t1 ON t14(id, embedding_real)");
+
+        // column does not exist in source table
+        assertFails(MISSING_COLUMN, ".*Column 'unknown' does not exist in source table '.*'",
+                "CREATE VECTOR INDEX test_index ON t14(id, unknown)");
+        assertFails(MISSING_COLUMN, ".*Column 'nonexistent' does not exist in source table '.*'",
+                "CREATE VECTOR INDEX test_index ON t14(nonexistent)");
+
+        // duplicate columns
+        assertFails(DUPLICATE_COLUMN_NAME, ".*Column name 'id' specified more than once",
+                "CREATE VECTOR INDEX test_index ON t14(id, id)");
+
+        // embedding column type validation — last column must be array(real) or array(double)
+        assertFails(TYPE_MISMATCH, ".*Embedding column 'id' must be of type array\\(real\\) or array\\(double\\).*",
+                "CREATE VECTOR INDEX test_index ON t14(id)");
+        assertFails(TYPE_MISMATCH, ".*Embedding column 'name' must be of type array\\(real\\) or array\\(double\\).*",
+                "CREATE VECTOR INDEX test_index ON t14(id, name)");
+
+        // duplicate columns
+        assertFails(DUPLICATE_COLUMN_NAME, ".*Column name 'a' specified more than once",
+                "CREATE VECTOR INDEX test_index ON t1(a, a)");
+
+        // duplicate properties
+        assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1",
+                "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'v1', p2 = 'v2', p1 = 'v3')");
+        assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1",
+                "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'v1', \"p1\" = 'v2')");
+
+        // unresolved property value
+        assertFails(MISSING_ATTRIBUTE, ".*'y' cannot be resolved",
+                "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = y)");
+
+        // UPDATING FOR with invalid column reference
+        assertFails(MISSING_ATTRIBUTE, ".*",
+                "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) UPDATING FOR nonexistent_col > 10");
+    }
+
+    // Regression test for the MetadataExtractor.Visitor missing a
+    // visitCreateVectorIndex override. With pre_process_metadata_calls=true
+    // (the default on prism interactive clusters), the extractor walks the
+    // parsed AST and prefetches metadata for every referenced table in
+    // parallel before analysis. CreateVectorIndex.getChildren() does not
+    // expose its source table as a Table AST child (the table name is a
+    // QualifiedName field), so without an explicit override the source
+    // table is never registered for prefetch. The downstream analyzer
+    // lookup then takes the cache-only branch in MetadataUtils, finds
+    // nothing, and throws VIEW_NOT_FOUND with an empty available-views
+    // list. This test asserts the override is in place and that CVI
+    // analysis succeeds when the prefetcher is enabled.
+    @Test
+    public void testCreateVectorIndexWithPreProcessMetadataCalls()
+    {
+        Session preProcessEnabledSession = Session.builder(CLIENT_SESSION)
+                .setSystemProperty(SystemSessionProperties.PRE_PROCESS_METADATA_CALLS, "true")
+                .build();
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            transaction(transactionManager, accessControl)
+                    .singleStatement()
+                    .readUncommitted()
+                    .readOnly()
+                    .execute(preProcessEnabledSession, session -> {
+                        String query = "CREATE VECTOR INDEX test_index ON t14(id, embedding_real)";
+                        Analyzer analyzer = new Analyzer(
+                                session,
+                                metadata,
+                                SQL_PARSER,
+                                new AllowAllAccessControl(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                ImmutableMap.of(),
+                                WarningCollector.NOOP,
+                                Optional.of(executor),
+                                query,
+                                new ViewDefinitionReferences());
+                        Statement statement = SQL_PARSER.createStatement(query);
+                        analyzer.analyzeSemantic(statement, false);
+                    });
+        }
+        finally {
+            executor.shutdownNow();
+        }
+    }
+
+    // The refresh scope (the REFRESH MATERIALIZED VIEW WHERE predicate) is captured during analysis and
+    // carried to the connector. These tests pin down the exact RowExpression StatementAnalyzer produces.
+    @Test
+    public void testRefreshMaterializedViewCapturesWhereScopePredicate()
+    {
+        // the integer literal coerces to the BIGINT column type, so no explicit cast is needed
+        assertEquals(refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a = 5"), Optional.of("EQUAL(a, 5)"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesCompoundScopePredicate()
+    {
+        assertEquals(
+                refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a >= 1 AND a <= 10"),
+                Optional.of("AND(GREATER_THAN_OR_EQUAL(a, 1), LESS_THAN_OR_EQUAL(a, 10))"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesGreaterThanScopePredicate()
+    {
+        assertEquals(refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a > 5"), Optional.of("GREATER_THAN(a, 5)"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesNotEqualScopePredicate()
+    {
+        assertEquals(refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a <> 5"), Optional.of("NOT_EQUAL(a, 5)"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesOrScopePredicate()
+    {
+        assertEquals(
+                refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a = 1 OR a = 2"),
+                Optional.of("OR(EQUAL(a, 1), EQUAL(a, 2))"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesInScopePredicate()
+    {
+        assertEquals(
+                refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a IN (1, 2, 3)"),
+                Optional.of("IN(a, 1, 2, 3)"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewWithoutWhereHasEmptyScope()
+    {
+        assertEquals(refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1"), Optional.empty());
+    }
+
+    // Negative cases: unsupported WHERE shapes are rejected during analysis (no scope predicate is produced),
+    // so the connector never receives a scope it cannot reason about.
+    @Test
+    public void testRefreshMaterializedViewRejectsNonColumnLeftSide()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a + 1 = 5");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewRejectsNonLiteralRightSide()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a = a");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewRejectsNegation()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE NOT (a = 5)");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewRejectsNonLiteralInList()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a IN (a)");
+    }
+
+    @Test
+    public void testCreateMaterializedViewRejectsNonDeterministicFunction()
+    {
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, rand() r FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a FROM t1 WHERE rand() >= 0");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, sum(b * random()) s FROM t1 GROUP BY a");
+    }
+
+    @Test
+    public void testCreateMaterializedViewRejectsSessionTimeFunction()
+    {
+        // now()/current_timestamp() are function calls; CURRENT_TIMESTAMP/CURRENT_DATE are CurrentTime nodes
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, now() ts FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, current_timestamp ts FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, current_date d FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a FROM t1 WHERE current_timestamp IS NOT NULL");
+    }
+
+    @Test
+    public void testCreateMaterializedViewAllowsDeterministicFunction()
+    {
+        analyze("CREATE MATERIALIZED VIEW s1.mv_det AS SELECT a, abs(b) c FROM t1");
+    }
+
+    private Optional<String> refreshScopePredicate(String query)
+    {
+        Optional<RowExpression> predicate = analyzeAndGetAnalysis(CLIENT_SESSION, query)
+                .getRefreshMaterializedViewAnalysis()
+                .orElseThrow(() -> new AssertionError("no refresh materialized view analysis"))
+                .getRefreshScopePredicate();
+        return predicate.map(RowExpression::toString);
     }
 }

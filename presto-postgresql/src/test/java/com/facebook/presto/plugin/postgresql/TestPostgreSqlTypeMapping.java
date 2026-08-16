@@ -26,7 +26,7 @@ import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -70,12 +70,12 @@ import static org.testng.Assert.assertTrue;
 public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
-    private final PostgreSQLContainer<?> postgresContainer;
+    private final PostgreSQLContainer postgresContainer;
 
     public TestPostgreSqlTypeMapping()
             throws Exception
     {
-        this.postgresContainer = new PostgreSQLContainer<>("postgres:14")
+        this.postgresContainer = new PostgreSQLContainer("postgres:14")
                 .withDatabaseName("tpch")
                 .withUsername("testuser")
                 .withPassword("testpass");

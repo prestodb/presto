@@ -14,14 +14,16 @@
 # Propagate errors and improve debugging.
 set -eufx -o pipefail
 
+EXTRA_ARROW_PATCH=${EXTRA_ARROW_PATCH:-""}
+
 JWT_VERSION="v0.6.0"
 PROMETHEUS_VERSION="v1.2.4"
 
-SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
-if [ -f "${SCRIPT_DIR}/setup-common.sh" ]; then
-  source "${SCRIPT_DIR}/setup-common.sh"
+PRESTO_SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
+if [ -f "${PRESTO_SCRIPT_DIR}/setup-common.sh" ]; then
+  source "${PRESTO_SCRIPT_DIR}/setup-common.sh"
 else
-  source "${SCRIPT_DIR}/../velox/scripts/setup-common.sh"
+  source "${PRESTO_SCRIPT_DIR}/../velox/scripts/setup-common.sh"
 fi
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 
@@ -47,7 +49,10 @@ function install_arrow_flight {
   # Arrow Flight enabled. The Velox version of Arrow is used.
   # NOTE: benchmarks are on due to a compilation error with v15.0.0, once updated that can be removed
   # see https://github.com/apache/arrow/issues/41617
-  EXTRA_ARROW_OPTIONS=" -DARROW_FLIGHT=ON -DARROW_BUILD_BENCHMARKS=ON -DgRPC_SOURCE=BUNDLED -DProtobuf_SOURCE=BUNDLED "
+  if [ -z "$EXTRA_ARROW_PATCH" ]; then
+    EXTRA_ARROW_PATCH="${PRESTO_SCRIPT_DIR}/../CMake/arrow/arrow-flight.patch"
+  fi
+  EXTRA_ARROW_OPTIONS=" -DARROW_FLIGHT=ON -DARROW_BUILD_BENCHMARKS=ON -Dabsl_SOURCE=BUNDLED -DgRPC_SOURCE=BUNDLED -DProtobuf_SOURCE=BUNDLED "
   install_arrow
 }
 

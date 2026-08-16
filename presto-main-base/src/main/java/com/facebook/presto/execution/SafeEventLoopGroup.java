@@ -52,6 +52,7 @@ public class SafeEventLoopGroup
 
     @Override
     protected EventLoop newChild(Executor executor, Object... args)
+            throws Exception
     {
         return new SafeEventLoop(this, executor);
     }
@@ -71,7 +72,7 @@ public class SafeEventLoopGroup
                 Runnable task = takeTask();
                 if (task != null) {
                     try {
-                        runTask(task);
+                        task.run();
                     }
                     catch (Throwable t) {
                         log.error(t, "Error executing task on event loop");

@@ -15,10 +15,12 @@ package com.facebook.presto.delta;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.base.Joiner;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -27,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -337,5 +340,81 @@ public class TestDeltaIntegration
         Files.setLastModifiedTime(
                 Paths.get(URI.create(tableLocation)).resolve("_delta_log/").resolve(format("%020d.json", commitId)),
                 FileTime.from(commitTimeMillis, TimeUnit.MILLISECONDS));
+    }
+
+    @Test(dataProvider = "deltaReaderVersions")
+    public void testShowCreateTable(String deltaVersion)
+    {
+        String tableName = deltaVersion + "/data-reader-primitives";
+        String fullTableName = format("%s.%s.\"%s\"", DELTA_CATALOG, DELTA_SCHEMA.toLowerCase(), tableName);
+
+        String createTableQueryTemplate = "CREATE TABLE %s (\n" +
+                "   \"as_int\" integer,\n" +
+                "   \"as_long\" bigint,\n" +
+                "   \"as_byte\" tinyint,\n" +
+                "   \"as_short\" smallint,\n" +
+                "   \"as_boolean\" boolean,\n" +
+                "   \"as_float\" real,\n" +
+                "   \"as_double\" double,\n" +
+                "   \"as_string\" varchar,\n" +
+                "   \"as_binary\" varbinary,\n" +
+                "   \"as_big_decimal\" decimal(1,0)\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   external_location = '%s'\n" +
+                ")";
+
+        String expectedSqlCommand = format(createTableQueryTemplate, fullTableName, goldenTablePath(tableName));
+
+        String showCreateTableCommandResult = (String) computeActual("SHOW CREATE TABLE " + fullTableName).getOnlyValue();
+
+        assertEquals(showCreateTableCommandResult, expectedSqlCommand);
+    }
+
+    @Test
+    public void testCreateTablePointingToNonExistentStorageLocation()
+    {
+        PrestoException expectedException = new PrestoException(INVALID_TABLE_PROPERTY,
+                "External location is not a valid file system URI");
+        try {
+            String sql = "CREATE TABLE test_unexistent_location (dummyColumn INT) " +
+                    "with (external_location='file:///tmp/presto_test_non_existent_location')";
+            getQueryRunner().execute(sql);
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), expectedException.getMessage());
+        }
+    }
+
+    @Test
+    public void testCreateTablePointingToNonDirectory()
+    {
+        PrestoException expectedException = new PrestoException(INVALID_TABLE_PROPERTY,
+                "External location must be a directory");
+        // call goldenTablePath with empty string to get the resource directory directly
+        // as the file isn't created yet
+        String fileName = (goldenTablePath("") + "test_non_directory")
+                // goldenTablePath returns file:/ so we trim the prefix
+                .substring(5);
+        File file = new File(fileName);
+        try {
+            boolean created = file.createNewFile();
+            if (created) {
+                String sql = "CREATE TABLE test_non_directory (dummyColumn INT) " +
+                        "with (external_location='" + file.getAbsolutePath() + "')";
+                getQueryRunner().execute(sql);
+            }
+            else {
+                throw new RuntimeException("Failed to create test file " + file.getAbsolutePath());
+            }
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), expectedException.getMessage());
+        }
+        finally {
+            if (file.exists()) {
+                file.delete();
+            }
+        }
     }
 }

@@ -202,7 +202,7 @@ public class TestRenameTableOnFragileFileSystem
     private static final String newTablePermissionFilePath = String.format("%s/%s/%s/%s/%s", catalogDirectory, newSchemaName, newTableName, ".prestoPermissions", "testFile");
 
     IcebergTableHandle icebergTableHandle = new IcebergTableHandle(originSchemaName,
-            new IcebergTableName(originTableName, IcebergTableType.DATA, Optional.empty(), Optional.empty()),
+            new IcebergTableName(originTableName, IcebergTableType.DATA, Optional.empty(), Optional.empty(), Optional.empty()),
             false,
             Optional.empty(),
             Optional.empty(),
@@ -425,7 +425,8 @@ public class TestRenameTableOnFragileFileSystem
                 new StatisticsFileCache(CacheBuilder.newBuilder().build()),
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 new IcebergTableProperties(new IcebergConfig()),
-                () -> false);
+                () -> false,
+                new MetastoreClientConfig());
         return icebergHiveMetadataFactory.create();
     }
 

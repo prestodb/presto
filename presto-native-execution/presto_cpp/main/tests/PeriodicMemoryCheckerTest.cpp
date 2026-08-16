@@ -191,7 +191,7 @@ TEST_F(PeriodicMemoryCheckerTest, pushbackMemory) {
   {
     auto cachePin = cache::AsyncDataCache::getInstance()->findOrCreate(
         {stringIdLease.id(), 0}, 32L << 20);
-    auto& allocation = cachePin.entry()->data();
+    auto& allocation = cachePin.entry()->nonContiguousData();
     for (int32_t i = 0; i < allocation.numRuns(); ++i) {
       memory::Allocation::PageRun run = allocation.runAt(i);
       int64_t* ptr = reinterpret_cast<int64_t*>(run.data());

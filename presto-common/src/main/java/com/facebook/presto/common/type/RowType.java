@@ -19,10 +19,13 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.RowBlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.ROW;
@@ -42,12 +45,25 @@ public class RowType
 
     private RowType(List<Field> fields)
     {
+        this(fields, fields.stream()
+                .map(Field::getType)
+                .collect(toList()));
+    }
+
+    private RowType(List<Field> fields, List<Type> fieldTypes)
+    {
+        this(fields, fieldTypes, containsDistinctType(fieldTypes) ? Optional.empty() : Optional.of(makeSignature(fields)));
+    }
+
+    @JsonCreator
+    public RowType(List<Field> fields,
+                   List<Type> fieldTypes,
+                   @JsonProperty("typeSignature") Optional<TypeSignature> typeSignature)
+    {
         super(Block.class);
         this.fields = fields;
-        this.fieldTypes = fields.stream()
-                .map(Field::getType)
-                .collect(toList());
-        this.typeSignature = containsDistinctType(this.fieldTypes) ? Optional.empty() : Optional.of(makeSignature(fields));
+        this.fieldTypes = fieldTypes;
+        this.typeSignature = typeSignature;
     }
 
     public static RowType from(List<Field> fields)
@@ -118,6 +134,12 @@ public class RowType
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return new RowBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries);
+    }
+
+    @JsonProperty
+    public List<Field> getFields()
+    {
+        return fields;
     }
 
     @Override
@@ -193,18 +215,13 @@ public class RowType
         return fieldTypes;
     }
 
-    public List<Field> getFields()
-    {
-        return fields;
-    }
-
     public static class Field
     {
         private final Type type;
         private final Optional<String> name;
         private final boolean delimited;
 
-        public Field(Optional<String> name, Type type)
+        public Field(@JsonProperty("name") Optional<String> name, @JsonProperty("type") Type type)
         {
             this(name, type, false);
         }
@@ -216,19 +233,45 @@ public class RowType
             this.delimited = delimited;
         }
 
+        @JsonProperty
         public Type getType()
         {
             return type;
         }
 
+        @JsonProperty
         public Optional<String> getName()
         {
             return name;
         }
 
+        @JsonProperty
         public boolean isDelimited()
         {
             return delimited;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            Field other = (Field) o;
+
+            return Objects.equals(this.name, other.name) &&
+                    Objects.equals(this.type, other.type) &&
+                    Objects.equals(this.delimited, other.delimited);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, type, delimited);
         }
     }
 

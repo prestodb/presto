@@ -31,6 +31,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -40,7 +41,6 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.Rule.Context;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -67,7 +67,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.unnest;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -315,7 +315,7 @@ public class PushDownDereferences
         @Override
         protected Result pushDownDereferences(Context context, N targetNode, BiMap<SpecialFormExpression, VariableReferenceExpression> expressions)
         {
-            PlanNode source = getOnlyElement(targetNode.getSources());
+            PlanNode source = targetNode.getSources().stream().collect(onlyElement());
 
             Map<VariableReferenceExpression, RowExpression> dereferencesMap = expressions.inverse().entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -585,6 +585,6 @@ public class PushDownDereferences
 
     private static VariableReferenceExpression getBase(RowExpression expression)
     {
-        return getOnlyElement(extractAll(expression));
+        return extractAll(expression).stream().collect(onlyElement());
     }
 }

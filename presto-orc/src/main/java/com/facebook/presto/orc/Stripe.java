@@ -18,6 +18,7 @@ import com.facebook.presto.orc.reader.LongDictionaryProvider;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.google.common.collect.ImmutableList;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
@@ -31,14 +32,16 @@ public class Stripe
     private final List<RowGroup> rowGroups;
     private final InputStreamSources dictionaryStreamSources;
     private final LongDictionaryProvider longDictionaryProvider;
+    private final ZoneId timezone;
 
-    public Stripe(long rowCount, Map<Integer, ColumnEncoding> columnEncodings, List<RowGroup> rowGroups, InputStreamSources dictionaryStreamSources)
+    public Stripe(long rowCount, Map<Integer, ColumnEncoding> columnEncodings, List<RowGroup> rowGroups, InputStreamSources dictionaryStreamSources, ZoneId timezone)
     {
         this.rowCount = rowCount;
         this.columnEncodings = requireNonNull(columnEncodings, "columnEncodings is null");
         this.rowGroups = ImmutableList.copyOf(requireNonNull(rowGroups, "rowGroups is null"));
         this.dictionaryStreamSources = requireNonNull(dictionaryStreamSources, "dictionaryStreamSources is null");
         this.longDictionaryProvider = new LongDictionaryProvider(this.dictionaryStreamSources);
+        this.timezone = requireNonNull(timezone, "timezone is null");
     }
 
     public long getRowCount()
@@ -66,6 +69,11 @@ public class Stripe
         return longDictionaryProvider;
     }
 
+    public ZoneId getTimezone()
+    {
+        return timezone;
+    }
+
     @Override
     public String toString()
     {
@@ -75,6 +83,7 @@ public class Stripe
                 .add("rowGroups", rowGroups)
                 .add("dictionaryStreams", dictionaryStreamSources)
                 .add("longDictionaryProvider", longDictionaryProvider)
+                .add("timezone", timezone)
                 .toString();
     }
 }

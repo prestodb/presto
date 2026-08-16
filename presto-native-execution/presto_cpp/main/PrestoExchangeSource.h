@@ -287,6 +287,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   folly::CPUThreadPoolExecutor* const driverExecutor_;
 
   std::shared_ptr<http::HttpClient> httpClient_;
+  http::JwtOptions jwtOptions_;
   RetryState dataRequestRetryState_;
   RetryState abortRetryState_;
   int failedAttempts_;

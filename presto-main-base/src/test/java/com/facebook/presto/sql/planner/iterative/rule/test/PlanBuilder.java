@@ -89,6 +89,7 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -308,6 +309,11 @@ public class PlanBuilder
     public ProjectNode project(PlanNode source, Assignments assignments)
     {
         return new ProjectNode(idAllocator.getNextId(), source, assignments);
+    }
+
+    public ProjectNode project(PlanNode source, Assignments assignments, ProjectNode.Locality locality)
+    {
+        return new ProjectNode(Optional.empty(), idAllocator.getNextId(), source, assignments, locality);
     }
 
     public ProjectNode project(Assignments assignments, PlanNode source)
@@ -625,6 +631,25 @@ public class PlanBuilder
                 mergeTarget(schemaTableName),
                 inputSymbols,
                 outputSymbols);
+    }
+
+    public MergeProcessorNode mergeProcessor(
+            SchemaTableName schemaTableName,
+            PlanNode source,
+            VariableReferenceExpression targetTableRowIdColumnVariable,
+            VariableReferenceExpression mergeRowVariable,
+            List<VariableReferenceExpression> targetColumnVariables,
+            List<VariableReferenceExpression> outputs)
+    {
+        return new MergeProcessorNode(
+                source.getSourceLocation(),
+                idAllocator.getNextId(),
+                source,
+                mergeTarget(schemaTableName),
+                targetTableRowIdColumnVariable,
+                mergeRowVariable,
+                targetColumnVariables,
+                outputs);
     }
 
     private MergeTarget mergeTarget(SchemaTableName schemaTableName)

@@ -46,7 +46,9 @@ import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
@@ -72,7 +74,7 @@ public class AccessControlManager
         implements AccessControl
 {
     private static final Logger log = Logger.get(AccessControlManager.class);
-    private static final File ACCESS_CONTROL_CONFIGURATION = new File("etc/access-control.properties");
+    private static final Path ACCESS_CONTROL_CONFIGURATION = Paths.get("etc/access-control.properties");
     private static final String ACCESS_CONTROL_PROPERTY_NAME = "access-control.name";
 
     private final TransactionManager transactionManager;
@@ -123,11 +125,11 @@ public class AccessControlManager
     public void loadSystemAccessControl()
             throws Exception
     {
-        if (ACCESS_CONTROL_CONFIGURATION.exists()) {
-            Map<String, String> properties = loadProperties(ACCESS_CONTROL_CONFIGURATION);
+        if (Files.exists(ACCESS_CONTROL_CONFIGURATION)) {
+            Map<String, String> properties = loadProperties(ACCESS_CONTROL_CONFIGURATION.toFile());
             checkArgument(!isNullOrEmpty(properties.get(ACCESS_CONTROL_PROPERTY_NAME)),
                     "Access control configuration %s does not contain %s",
-                    ACCESS_CONTROL_CONFIGURATION.getAbsoluteFile(),
+                    ACCESS_CONTROL_CONFIGURATION.toAbsolutePath().toFile(),
                     ACCESS_CONTROL_PROPERTY_NAME);
 
             loadSystemAccessControl(properties);
@@ -460,6 +462,22 @@ public class AccessControlManager
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanAddColumn(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName)));
+        }
+    }
+
+    @Override
+    public void checkCanAlterColumn(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+
+        authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
+
+        authorizationCheck(() -> systemAccessControl.checkCanAlterColumn(identity, context, toCatalogSchemaTableName(tableName)));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanAlterColumn(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName)));
         }
     }
 
@@ -864,6 +882,38 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanCreateBranch(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+
+        authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
+
+        authorizationCheck(() -> systemAccessControl.checkCanCreateBranch(identity, context, toCatalogSchemaTableName(tableName)));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanCreateBranch(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName)));
+        }
+    }
+
+    @Override
+    public void checkCanCreateTag(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+
+        authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
+
+        authorizationCheck(() -> systemAccessControl.checkCanCreateTag(identity, context, toCatalogSchemaTableName(tableName)));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanCreateTag(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName)));
+        }
+    }
+
+    @Override
     public void checkCanDropTag(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");
@@ -1057,31 +1107,283 @@ public class AccessControlManager
         }
     }
 
-    private static class InitializingSystemAccessControl
+    @VisibleForTesting
+    static class InitializingSystemAccessControl
             implements SystemAccessControl
     {
+        private static PrestoException notInitializedError()
+        {
+            return new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+        }
+
         @Override
         public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<String, String> preparedStatements, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
         {
-            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+            throw notInitializedError();
         }
 
         @Override
         public void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName)
         {
-            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+            throw notInitializedError();
+        }
+
+        @Override
+        public AuthorizedIdentity selectAuthorizedIdentity(Identity identity, AccessControlContext context, String userName, List<X509Certificate> certificates)
+        {
+            throw notInitializedError();
         }
 
         @Override
         public void checkCanSetSystemSessionProperty(Identity identity, AccessControlContext context, String propertyName)
         {
-            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+            throw notInitializedError();
         }
 
         @Override
         public void checkCanAccessCatalog(Identity identity, AccessControlContext context, String catalogName)
         {
-            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+            throw notInitializedError();
+        }
+
+        @Override
+        public Set<String> filterCatalogs(Identity identity, AccessControlContext context, Set<String> catalogs)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanCreateSchema(Identity identity, AccessControlContext context, CatalogSchemaName schema)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanDropSchema(Identity identity, AccessControlContext context, CatalogSchemaName schema)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanAlterColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanRenameSchema(Identity identity, AccessControlContext context, CatalogSchemaName schema, String newSchemaName)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanShowSchemas(Identity identity, AccessControlContext context, String catalogName)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public Set<String> filterSchemas(Identity identity, AccessControlContext context, String catalogName, Set<String> schemaNames)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanShowCreateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanCreateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanSetTableProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanDropTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanRenameTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanShowTablesMetadata(Identity identity, AccessControlContext context, CatalogSchemaName schema)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public Set<SchemaTableName> filterTables(Identity identity, AccessControlContext context, String catalogName, Set<SchemaTableName> tableNames)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanShowColumnsMetadata(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public List<ColumnMetadata> filterColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, List<ColumnMetadata> columns)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanAddColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanDropColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanRenameColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanSelectFromColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, Set<String> columns)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanCallProcedure(Identity identity, AccessControlContext context, CatalogSchemaTableName procedure)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanInsertIntoTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanDeleteFromTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanTruncateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanUpdateTableColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanCreateView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanRenameView(Identity identity, AccessControlContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanDropView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanCreateViewWithSelectFromColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, Set<String> columns)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanSetCatalogSessionProperty(Identity identity, AccessControlContext context, String catalogName, String propertyName)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanGrantTablePrivilege(Identity identity, AccessControlContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal grantee, boolean withGrantOption)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanRevokeTablePrivilege(Identity identity, AccessControlContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanCreateBranch(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanCreateTag(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanDropBranch(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanDropTag(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public List<ViewExpression> getRowFilters(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public Map<ColumnMetadata, ViewExpression> getColumnMasks(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+        {
+            throw notInitializedError();
         }
     }
 }

@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -185,19 +186,16 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQueryWithSameQueryRunner(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        checkArgument(!actual.equals(expected));
         QueryAssertions.assertQuery(queryRunner, getSession(), actual, queryRunner, expected, false, false);
     }
 
     protected void assertQueryWithSameQueryRunner(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        checkArgument(!actual.equals(expected));
         QueryAssertions.assertQuery(queryRunner, session, actual, queryRunner, expected, false, false);
     }
 
     protected void assertQueryOrderedWithSameQueryRunner(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        checkArgument(!actual.equals(expected));
         QueryAssertions.assertQuery(queryRunner, getSession(), actual, queryRunner, expected, true, false);
     }
 
@@ -208,7 +206,6 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQueryWithSameQueryRunner(Session actualSession, @Language("SQL") String actual, Session expectedSession, @Language("SQL") String expected)
     {
-        checkArgument(!actual.equals(expected));
         QueryAssertions.assertQuery(queryRunner, actualSession, actual, queryRunner, expectedSession, expected, false, false);
     }
 
@@ -464,6 +461,14 @@ public abstract class AbstractTestQueryFramework
         assertFalse(getQueryRunner().tableExists(session, table));
     }
 
+    protected void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
+    {
+        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
+        assertUpdate(session, "DROP TABLE " + table);
+
+        assertFalse(getQueryRunner().tableExists(session, table));
+    }
+
     private static void assertErrorMessage(String sql, AssertionError error, @Language("RegExp") String regex)
     {
         if (!nullToEmpty(error.getMessage()).matches(regex)) {
@@ -474,6 +479,11 @@ public abstract class AbstractTestQueryFramework
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         return expectedQueryRunner.execute(getSession(), sql, resultTypes);
+    }
+
+    protected MaterializedResult computeExpected(Session session, @Language("SQL") String sql, List<? extends Type> resultTypes)
+    {
+        return expectedQueryRunner.execute(session, sql, resultTypes);
     }
 
     protected void executeExclusively(Runnable executionBlock)
@@ -499,7 +509,7 @@ public abstract class AbstractTestQueryFramework
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getPlan(session, sqlParser.createStatement(explainCommandText.replaceAll(".", " ") + query, createParsingOptions(session)), planType, emptyList(), false, WarningCollector.NOOP, query);
+                    return explainer.getPlan(session, sqlParser.createStatement(explainCommandText.replaceAll(".", " ") + query, createParsingOptions(session)), planType, emptyList(), false, WarningCollector.NOOP, query, new ViewDefinitionReferences());
                 });
     }
 
@@ -509,7 +519,7 @@ public abstract class AbstractTestQueryFramework
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(explainCommandText.replaceAll(".", " ") + query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP, query);
+                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(explainCommandText.replaceAll(".", " ") + query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP, query, new ViewDefinitionReferences());
                 });
     }
 
@@ -519,7 +529,7 @@ public abstract class AbstractTestQueryFramework
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getJsonPlan(session, sqlParser.createStatement(explainCommandText.replaceAll(".", " ") + query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP, query);
+                    return explainer.getJsonPlan(session, sqlParser.createStatement(explainCommandText.replaceAll(".", " ") + query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP, query, new ViewDefinitionReferences());
                 });
     }
 
@@ -539,7 +549,7 @@ public abstract class AbstractTestQueryFramework
         transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    Plan actualPlan = explainer.getLogicalPlan(transactionSession, sqlParser.createStatement(query, createParsingOptions(transactionSession)), emptyList(), WarningCollector.NOOP, query);
+                    Plan actualPlan = explainer.getLogicalPlan(transactionSession, sqlParser.createStatement(query, createParsingOptions(transactionSession)), emptyList(), WarningCollector.NOOP, query, new ViewDefinitionReferences());
                     PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
                     planValidator.accept(actualPlan);
                     return null;
@@ -553,7 +563,7 @@ public abstract class AbstractTestQueryFramework
             return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                     .singleStatement()
                     .execute(session, transactionSession -> {
-                        return explainer.getLogicalPlan(transactionSession, sqlParser.createStatement(sql, createParsingOptions(transactionSession)), emptyList(), WarningCollector.NOOP, sql);
+                        return explainer.getLogicalPlan(transactionSession, sqlParser.createStatement(sql, createParsingOptions(transactionSession)), emptyList(), WarningCollector.NOOP, sql, new ViewDefinitionReferences());
                     });
         }
         catch (RuntimeException e) {
@@ -573,7 +583,7 @@ public abstract class AbstractTestQueryFramework
             return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                     .singleStatement()
                     .execute(session, transactionSession -> {
-                        return explainer.getDistributedPlan(transactionSession, sqlParser.createStatement(sql, createParsingOptions(transactionSession)), emptyList(), WarningCollector.NOOP, sql);
+                        return explainer.getDistributedPlan(transactionSession, sqlParser.createStatement(sql, createParsingOptions(transactionSession)), emptyList(), WarningCollector.NOOP, sql, new ViewDefinitionReferences());
                     });
         }
         catch (RuntimeException e) {

@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
+import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageExecutionStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
@@ -41,6 +42,7 @@ import com.facebook.presto.spi.function.table.ScalarArgument;
 import com.facebook.presto.spi.plan.AbstractJoinNode;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
@@ -75,6 +77,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TableWriterNode.CallDistributedProcedureTarget;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -90,7 +93,6 @@ import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -99,6 +101,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -108,7 +111,7 @@ import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.TransportType;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -121,7 +124,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import io.airlift.slice.Slice;
@@ -415,13 +417,15 @@ public class PlanPrinter
             boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(format("Fragment %s [%s]%n",
-                fragment.getId(),
-                fragment.getPartitioning()));
-
         if (stageInfo.isPresent()) {
-            StageExecutionStats stageExecutionStats = stageInfo.get().getLatestAttemptExecutionInfo().getStats();
-            List<TaskInfo> tasks = stageInfo.get().getLatestAttemptExecutionInfo().getTasks();
+            StageExecutionInfo latestAttempt = stageInfo.get().getLatestAttemptExecutionInfo();
+            builder.append(format("Fragment %s [%s] [%s]%n",
+                    fragment.getId(),
+                    fragment.getPartitioning(),
+                    latestAttempt.getState()));
+
+            StageExecutionStats stageExecutionStats = latestAttempt.getStats();
+            List<TaskInfo> tasks = latestAttempt.getTasks();
 
             double avgPositionsPerTask = tasks.stream().mapToLong(task -> task.getStats().getProcessedInputPositions()).average().orElse(Double.NaN);
             double squaredDifferences = tasks.stream().mapToDouble(task -> Math.pow(task.getStats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
@@ -429,6 +433,11 @@ public class PlanPrinter
 
             builder.append(indentString(1))
                     .append(formattedFragmentString(stageExecutionStats, avgPositionsPerTask, sdAmongTasks, tasks.size()));
+        }
+        else {
+            builder.append(format("Fragment %s [%s]%n",
+                    fragment.getId(),
+                    fragment.getPartitioning()));
         }
 
         PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
@@ -454,7 +463,14 @@ public class PlanPrinter
             builder.append(indentString(1)).append(format("Output ordering: %s%n", fragment.getOutputOrderingScheme()));
         }
         builder.append(indentString(1)).append(format("Output encoding: %s%n", fragment.getPartitioningScheme().getEncoding()));
-        builder.append(indentString(1)).append(format("Stage Execution Strategy: %s%n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
+        StageExecutionDescriptor stageExecDesc = fragment.getStageExecutionDescriptor();
+        if (stageExecDesc.isStageGroupedExecution() && stageExecDesc.getTotalLifespans() > 0) {
+            builder.append(indentString(1)).append(format("Stage Execution Strategy: %s, Total Lifespans: %s%n",
+                    stageExecDesc.getStageExecutionStrategy(), stageExecDesc.getTotalLifespans()));
+        }
+        else {
+            builder.append(indentString(1)).append(format("Stage Execution Strategy: %s%n", stageExecDesc.getStageExecutionStrategy()));
+        }
 
         TypeProvider typeProvider = TypeProvider.fromVariables(fragment.getVariables());
         builder.append(
@@ -487,6 +503,7 @@ public class PlanPrinter
                 Optional.empty(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
+                TransportType.HTTP,
                 Optional.of(estimatedStatsAndCosts),
                 Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment), functionAndTypeManager, session);
@@ -1125,7 +1142,9 @@ public class PlanPrinter
         @Override
         public Void visitTopN(TopNNode node, Void context)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderByVariables(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
+            List<String> keys = node.getOrderingScheme().getOrderByVariables().stream()
+                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
+                    .collect(toImmutableList());
 
             addNode(node,
                     format("TopN%s", node.getStep() == TopNNode.Step.PARTIAL ? "Partial" : ""),
@@ -1136,7 +1155,9 @@ public class PlanPrinter
         @Override
         public Void visitSort(SortNode node, Void context)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderByVariables(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
+            List<String> keys = node.getOrderingScheme().getOrderByVariables().stream()
+                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
+                    .collect(toImmutableList());
 
             String detail = format("[%s]", Joiner.on(", ").join(keys));
             if (!node.getPartitionBy().isEmpty()) {
@@ -1308,6 +1329,13 @@ public class PlanPrinter
         public Void visitMergeWriter(MergeWriterNode node, Void context)
         {
             addNode(node, "MergeWriter", format("table: %s", node.getTarget().toString()));
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitRPC(RPCNode node, Void context)
+        {
+            addNode(node, "RPC", format("function: %s, output: %s, mode: %s", node.getFunctionName(), node.getOutputVariable(), node.getStreamingMode()));
             return processChildren(node, context);
         }
 

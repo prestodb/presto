@@ -3,7 +3,7 @@
     "target": "ES2020",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "jsx": "react",
-    "types": ["jquery"],
+    "types": ["jquery", "jest", "@testing-library/jest-dom"],
     "module": "ESNext",
     "moduleResolution": "node",
     "resolveJsonModule": true,
@@ -19,7 +19,7 @@
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
-    "noEmit": true,
+    "noEmit": true
   },
   "include": [
     "**/*.ts",

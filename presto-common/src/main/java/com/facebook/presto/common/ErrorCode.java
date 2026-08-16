@@ -30,6 +30,7 @@ public final class ErrorCode
     private final String name;
     private final ErrorType type;
     private final boolean retriable;
+    private final boolean catchableByTry;
 
     @JsonCreator
     @ThriftConstructor
@@ -37,7 +38,8 @@ public final class ErrorCode
             @JsonProperty("code") int code,
             @JsonProperty("name") String name,
             @JsonProperty("type") ErrorType type,
-            @JsonProperty("retriable") boolean retriable)
+            @JsonProperty("retriable") boolean retriable,
+            @JsonProperty("catchableByTry") boolean catchableByTry)
     {
         if (code < 0) {
             throw new IllegalArgumentException("code is negative");
@@ -46,11 +48,17 @@ public final class ErrorCode
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
         this.retriable = retriable;
+        this.catchableByTry = catchableByTry;
     }
 
     public ErrorCode(int code, String name, ErrorType type)
     {
-        this(code, name, type, false);
+        this(code, name, type, false, false);
+    }
+
+    public ErrorCode(int code, String name, ErrorType type, boolean retriable)
+    {
+        this(code, name, type, retriable, false);
     }
 
     @JsonProperty
@@ -79,6 +87,13 @@ public final class ErrorCode
     public boolean isRetriable()
     {
         return retriable;
+    }
+
+    @JsonProperty
+    @ThriftField(5)
+    public boolean isCatchableByTry()
+    {
+        return catchableByTry;
     }
 
     @Override

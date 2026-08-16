@@ -63,35 +63,34 @@ velox::VectorPtr tryEvaluateToConstant(
 
 protocol::RowExpressionOptimizationResult optimizeExpression(
     const RowExpressionPtr& input,
-    OptimizerLevel& optimizerLevel,
+    const OptimizerLevel& optimizerLevel,
     const VeloxExprConverter& prestoToVeloxConverter,
     const expression::VeloxToPrestoExprConverter& veloxToPrestoConverter,
     velox::core::QueryCtx* queryCtx,
     velox::memory::MemoryPool* pool) {
   protocol::RowExpressionOptimizationResult result;
   const auto expr = prestoToVeloxConverter.toVeloxExpr(input);
-  auto optimized =
-      velox::expression::optimize(expr, queryCtx, pool, kMakeFailExpr);
 
-  if (optimizerLevel == OptimizerLevel::kEvaluated) {
-    try {
+  try {
+    auto optimized =
+        velox::expression::optimize(expr, queryCtx, pool, kMakeFailExpr);
+
+    if (optimizerLevel == OptimizerLevel::kEvaluated) {
       const auto evalResult = tryEvaluateToConstant(optimized, queryCtx, pool);
       optimized = std::make_shared<velox::core::ConstantTypedExpr>(evalResult);
-    } catch (const velox::VeloxException& e) {
-      result.expressionFailureInfo =
-          toNativeSidecarFailureInfo(translateToPrestoException(e));
-      result.optimizedExpression = nullptr;
-      return result;
-    } catch (const std::exception& e) {
-      result.expressionFailureInfo =
-          toNativeSidecarFailureInfo(translateToPrestoException(e));
-      result.optimizedExpression = nullptr;
-      return result;
     }
-  }
 
-  result.optimizedExpression =
-      veloxToPrestoConverter.getRowExpression(optimized);
+    result.optimizedExpression =
+        veloxToPrestoConverter.getRowExpression(optimized);
+  } catch (const velox::VeloxException& e) {
+    result.expressionFailureInfo =
+        toNativeSidecarFailureInfo(translateToPrestoException(e));
+    result.optimizedExpression = nullptr;
+  } catch (const std::exception& e) {
+    result.expressionFailureInfo =
+        toNativeSidecarFailureInfo(translateToPrestoException(e));
+    result.optimizedExpression = nullptr;
+  }
   return result;
 }
 
@@ -99,7 +98,7 @@ protocol::RowExpressionOptimizationResult optimizeExpression(
 
 std::vector<protocol::RowExpressionOptimizationResult> optimizeExpressions(
     const std::vector<RowExpressionPtr>& input,
-    OptimizerLevel& optimizerLevel,
+    const OptimizerLevel& optimizerLevel,
     velox::core::QueryCtx* queryCtx,
     velox::memory::MemoryPool* pool) {
   TypeParser typeParser;

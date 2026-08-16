@@ -18,7 +18,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -40,13 +40,13 @@ public class TestCredentialPassthrough
     private static final String TEST_USER = "testuser";
     private static final String TEST_PASSWORD = "testpass";
 
-    private final MySQLContainer<?> mysqlContainer;
+    private final MySQLContainer mysqlContainer;
     private final QueryRunner mySqlQueryRunner;
 
     public TestCredentialPassthrough()
             throws Exception
     {
-        mysqlContainer = new MySQLContainer<>("mysql:8.0")
+        mysqlContainer = new MySQLContainer("mysql:8.0")
                 .withDatabaseName(TEST_SCHEMA)
                 .withUsername(TEST_USER)
                 .withPassword(TEST_PASSWORD);
@@ -77,7 +77,7 @@ public class TestCredentialPassthrough
         mySqlQueryRunner.execute(getSession(mysqlContainer), "CREATE TABLE test_create (a bigint, b double, c varchar)");
     }
 
-    public static QueryRunner createQueryRunner(MySQLContainer<?> mysqlContainer)
+    public static QueryRunner createQueryRunner(MySQLContainer mysqlContainer)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -99,7 +99,7 @@ public class TestCredentialPassthrough
         }
     }
 
-    private static Session getSession(MySQLContainer<?> mysqlContainer)
+    private static Session getSession(MySQLContainer mysqlContainer)
     {
         Map<String, String> extraCredentials = ImmutableMap.of("mysql.user", mysqlContainer.getUsername(), "mysql.password", mysqlContainer.getPassword());
         return testSessionBuilder()
@@ -116,7 +116,7 @@ public class TestCredentialPassthrough
                 .build();
     }
 
-    private static String getConnectionUrl(MySQLContainer<?> mysqlContainer)
+    private static String getConnectionUrl(MySQLContainer mysqlContainer)
     {
         String jdbcUrlWithoutDatabase = removeDatabaseFromJdbcUrl(mysqlContainer.getJdbcUrl());
         return format("%s?useSSL=false&allowPublicKeyRetrieval=true", jdbcUrlWithoutDatabase.split("\\?")[0]);

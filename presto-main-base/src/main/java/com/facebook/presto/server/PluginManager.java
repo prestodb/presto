@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.airlift.resolver.ArtifactResolver;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.common.block.BlockEncoding;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -61,10 +62,11 @@ import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.tracing.TracerProviderManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManager;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
-import io.airlift.resolver.ArtifactResolver;
 import jakarta.inject.Inject;
 
 import java.io.File;
@@ -95,7 +97,7 @@ public class PluginManager
     private final QueryPrerequisitesManager queryPrerequisitesManager;
     private final NodeTtlFetcherManager nodeTtlFetcherManager;
     private final ClusterTtlProviderManager clusterTtlProviderManager;
-    private final ArtifactResolver resolver;
+    private final Supplier<ArtifactResolver> resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
@@ -110,6 +112,7 @@ public class PluginManager
     private final PlanCheckerProviderManager planCheckerProviderManager;
     private final ExpressionOptimizerManager expressionOptimizerManager;
     private final PluginInstaller pluginInstaller;
+    private final Supplier<List<PluginManagerUtil.PluginClassLoaderHandle>> cachedPluginClassLoaders;
 
     @Inject
     public PluginManager(
@@ -147,7 +150,7 @@ public class PluginManager
         else {
             this.plugins = ImmutableList.copyOf(config.getPlugins());
         }
-        this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
+        this.resolver = Suppliers.memoize(() -> new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository()));
 
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -172,23 +175,32 @@ public class PluginManager
         this.planCheckerProviderManager = requireNonNull(planCheckerProviderManager, "planCheckerProviderManager is null");
         this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionManager is null");
         this.pluginInstaller = new MainPluginInstaller(this);
+        this.cachedPluginClassLoaders = Suppliers.memoize(this::createPluginClassLoaders);
     }
 
     public void loadPlugins()
             throws Exception
     {
-        PluginManagerUtil.loadPlugins(
+        loadCoordinatorPluginsOnly();
+        loadRemainingPlugins();
+    }
+
+    public void loadCoordinatorPluginsOnly()
+    {
+        PluginManagerUtil.loadCoordinatorPluginsOnly(
+                pluginsLoading,
+                pluginInstaller,
+                cachedPluginClassLoaders.get());
+    }
+
+    public void loadRemainingPlugins()
+    {
+        PluginManagerUtil.loadRemainingPlugins(
                 pluginsLoading,
                 pluginsLoaded,
-                installedPluginsDir,
-                plugins,
                 metadata,
-                resolver,
-                SPI_PACKAGES,
-                COORDINATOR_PLUGIN_SERVICES_FILE,
-                PLUGIN_SERVICES_FILE,
                 pluginInstaller,
-                getClass().getClassLoader());
+                cachedPluginClassLoaders.get());
     }
 
     public void installPlugin(Plugin plugin)
@@ -362,6 +374,23 @@ public class PluginManager
         public void installCoordinatorPlugin(CoordinatorPlugin plugin)
         {
             pluginManager.installCoordinatorPlugin(plugin);
+        }
+    }
+
+    private List<PluginManagerUtil.PluginClassLoaderHandle> createPluginClassLoaders()
+    {
+        try {
+            return PluginManagerUtil.buildClassLoaders(
+                    installedPluginsDir,
+                    plugins,
+                    resolver,
+                    SPI_PACKAGES,
+                    COORDINATOR_PLUGIN_SERVICES_FILE,
+                    PLUGIN_SERVICES_FILE,
+                    getClass().getClassLoader());
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to build plugin classloaders", e);
         }
     }
 }

@@ -19,7 +19,7 @@ Release 0.290
 
 General Changes
 _______________
-* Fix :func:`array_intersect` for single parameter array<array<T>> to be deterministic regardless of the order of null input. :pr:`23890`
+* Fix :func:`!array_intersect` for single parameter array<array<T>> to be deterministic regardless of the order of null input. :pr:`23890`
 * Fix bug in local property calculation when spill is enabled. :pr:`23922`
 * Fix bug to unescape like pattern and validate escape string with no unresolved value. :pr:`23456`
 * Fix to query and filter using Iceberg metadata columns ``$path`` and ``$data_sequence_number``. :pr:`23472`
@@ -35,15 +35,15 @@ _______________
 * Add a session property ``native_max_extended_partial_aggregation_memory`` which specifies Presto native max partial aggregation memory when data reduction is optimal. :pr:`23527`
 * Add a session property ``native_max_partial_aggregation_memory`` which specifies Presto native max partial aggregation memory when data reduction is not optimal. :pr:`23527`
 * Add a session property ``native_max_spill_bytes`` which specifies Presto native max allowed spill bytes. :pr:`23527`
-* Add function :func:`is_private_ip` that returns true when the input IP address is private or a reserved IP address. :pr:`23520`
-* Add function :func:`ip_prefix_subnets` that splits the input prefix into subnets the size of the new prefix length. :pr:`23656`
+* Add function :func:`!is_private_ip` that returns true when the input IP address is private or a reserved IP address. :pr:`23520`
+* Add function :func:`!ip_prefix_subnets` that splits the input prefix into subnets the size of the new prefix length. :pr:`23656`
 * Add new configuration property ``eager-plan-validation-enabled`` for eager building of validation of a logical plan before queuing. :pr:`23649`
 * Add session property ``inline_projections_on_values`` and configuration property ``optimizer.inline-projections-on-values`` to evaluate project node on values node. :pr:`23245`
 * Add support in QueuedStatement protocol to accept pre-minted query id and slug. :pr:`23407`
 * Add support to proxy AuthorizedIdentity using JWT. :pr:`23546`
 * Add support for casting ``char`` datatype to various numeric datatypes. :pr:`23792`
 * Replace configuration property ``async-cache-full-persistence-interval`` with ``async-cache-persistence-interval``. :pr:`23626`
-* Remove ``array_dupes`` and ``array_has_dupes`` alias names from functions :func:`array_duplicates` and :func:`array_has_duplicates`. :pr:`23762`
+* Remove ``array_dupes`` and ``array_has_dupes`` alias names from functions :func:`!array_duplicates` and :func:`!array_has_duplicates`. :pr:`23762`
 
 Presto C++ Changes
 ______________________________________

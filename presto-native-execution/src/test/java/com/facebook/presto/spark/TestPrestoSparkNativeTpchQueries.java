@@ -21,6 +21,12 @@ public class TestPrestoSparkNativeTpchQueries
         extends AbstractTestNativeTpchQueries
 {
     @Override
+    protected String getStorageFormat()
+    {
+        return "DWRF";
+    }
+
+    @Override
     protected QueryRunner createQueryRunner()
     {
         return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();

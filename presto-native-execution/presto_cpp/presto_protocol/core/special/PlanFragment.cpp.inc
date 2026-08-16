@@ -69,6 +69,13 @@ void to_json(json& j, const PlanFragment& p) {
       "outputTableWriterFragment");
   to_json_key(
       j,
+      "outputTransportType",
+      p.outputTransportType,
+      "PlanFragment",
+      "TransportType",
+      "outputTransportType");
+  to_json_key(
+      j,
       "jsonRepresentation",
       p.jsonRepresentation,
       "PlanFragment",
@@ -128,6 +135,13 @@ void from_json(const json& j, PlanFragment& p) {
       "PlanFragment",
       "bool",
       "outputTableWriterFragment");
+  from_json_key(
+      j,
+      "outputTransportType",
+      p.outputTransportType,
+      "PlanFragment",
+      "TransportType",
+      "outputTransportType");
   from_json_key(
       j,
       "jsonRepresentation",

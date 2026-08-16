@@ -133,6 +133,8 @@ constexpr std::string_view kCounterNumBlockedYieldDrivers{
     "presto_cpp.num_blocked_yield_drivers"};
 constexpr std::string_view kCounterNumStuckDrivers{
     "presto_cpp.num_stuck_drivers"};
+constexpr std::string_view kCounterNumDriverThreads{
+    "presto_cpp.num_driver_threads"};
 
 /// Export 100 if worker is overloaded in terms of memory, 0 otherwise.
 constexpr std::string_view kCounterOverloadedMem{"presto_cpp.overloaded_mem"};
@@ -157,6 +159,9 @@ constexpr std::string_view kCounterTotalPartitionedOutputBuffer{
 /// OutputBufferManager.
 constexpr std::string_view kCounterPartitionedOutputBufferGetDataLatencyMs{
     "presto_cpp.partitioned_output_buffer_get_data_latency_ms"};
+/// Worker runtime uptime in seconds after the worker process started.
+constexpr std::string_view kCounterWorkerRuntimeUptimeSecs{
+    "presto_cpp.worker_runtime_uptime_secs"};
 
 /// ================== OS Counters =================
 

@@ -22,6 +22,7 @@ import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.transaction.ForTransactionManager;
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
@@ -37,6 +38,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -67,6 +69,8 @@ public class CatalogServerModule
         driftServerBinder(binder).bindService(CatalogServer.class);
 
         binder.bind(NodeResourceStatusProvider.class).toInstance(() -> true);
+
+        httpClientBinder(binder).bindHttpClient("resourceManager", ForResourceManager.class);
     }
 
     @Provides

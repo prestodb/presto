@@ -113,6 +113,7 @@ import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.INFO;
 import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.airlift.units.Duration.nanosSince;
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getQueryExecutionStrategies;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_EXECUTOR_CORES_PROPERTY;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_TASK_CPUS_PROPERTY;
@@ -304,6 +305,27 @@ public class PrestoSparkQueryRunner
             ImmutableList<Module> additionalModules,
             int availableCpuCount)
     {
+        this(
+                defaultCatalog,
+                additionalConfigProperties,
+                hiveProperties,
+                additionalSparkProperties,
+                dataDirectory,
+                additionalModules,
+                availableCpuCount,
+                ImmutableMap.of());
+    }
+
+    public PrestoSparkQueryRunner(
+            String defaultCatalog,
+            Map<String, String> additionalConfigProperties,
+            Map<String, String> hiveProperties,
+            Map<String, String> additionalSparkProperties,
+            Optional<Path> dataDirectory,
+            ImmutableList<Module> additionalModules,
+            int availableCpuCount,
+            Map<String, String> defaultSessionProperties)
+    {
         setupLogging();
 
         ImmutableMap.Builder<String, String> configProperties = ImmutableMap.builder();
@@ -333,22 +355,23 @@ public class PrestoSparkQueryRunner
 
         Injector injector = injectorFactory.create(new PrestoSparkBootstrapTimer(systemTicker(), false));
 
-        defaultSession = testSessionBuilder(injector.getInstance(SessionPropertyManager.class))
+        Session.SessionBuilder sessionBuilder = testSessionBuilder(injector.getInstance(SessionPropertyManager.class))
                 .setCatalog(defaultCatalog)
                 .setSchema("tpch")
                 // Sql-Standard Access Control Checker
                 // needs us to specify our role
                 .setIdentity(
-                    new Identity(
-                        "hive",
-                        Optional.empty(),
-                        ImmutableMap.of(defaultCatalog,
-                            new SelectedRole(Type.ROLE, Optional.of("admin"))),
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        Optional.empty(),
-                        Optional.empty()))
-                .build();
+                        new Identity(
+                                "hive",
+                                Optional.empty(),
+                                ImmutableMap.of(defaultCatalog,
+                                        new SelectedRole(Type.ROLE, Optional.of("admin"))),
+                                ImmutableMap.of(),
+                                ImmutableMap.of(),
+                                Optional.empty(),
+                                Optional.empty()));
+        defaultSessionProperties.forEach(sessionBuilder::setSystemProperty);
+        defaultSession = sessionBuilder.build();
 
         transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
@@ -550,6 +573,7 @@ public class PrestoSparkQueryRunner
     @Override
     public MaterializedResult execute(Session session, String sql)
     {
+        lock.readLock().lock();
         try {
             return executeWithStrategies(session, sql, getExecutionStrategies(session));
         }
@@ -559,6 +583,9 @@ public class PrestoSparkQueryRunner
             }
 
             throw failure;
+        }
+        finally {
+            lock.readLock().unlock();
         }
     }
 
@@ -659,6 +686,7 @@ public class PrestoSparkQueryRunner
                 session.getIdentity().getUser(),
                 session.getIdentity().getPrincipal(),
                 session.getIdentity().getExtraCredentials(),
+                session.getIdentity().getCertificates(),
                 session.getCatalog(),
                 session.getSchema(),
                 session.getSource(),
@@ -709,7 +737,7 @@ public class PrestoSparkQueryRunner
     @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
-        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, nodeManager);
+        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, nodeManager, defaultAuthClientConfigs(nodeManager.getCurrentNode().getNodeIdentifier()));
     }
 
     @Override

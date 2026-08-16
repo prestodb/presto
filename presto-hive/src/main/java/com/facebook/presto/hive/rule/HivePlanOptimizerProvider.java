@@ -55,9 +55,15 @@ public class HivePlanOptimizerProvider
         requireNonNull(typeManager, "typeManager is null");
         ImmutableSet.Builder<ConnectorPlanOptimizer> planOptimizerBuilder = ImmutableSet.<ConnectorPlanOptimizer>builder()
                 .add(new HiveFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, partitionManager))
-                .add(new HiveAddRequestedColumnsToLayout())
-                .add(new HiveParquetDereferencePushDown(transactionManager, rowExpressionService));
+                .add(new HiveAddRequestedColumnsToLayout());
         if (!connectorSystemConfig.isNativeExecution()) {
+            // HiveParquetDereferencePushDown hoists a nested field into a top level column whose name is the
+            // flattened subfield path ("msg$_$_$x") while its required subfield keeps the original root ("msg.x").
+            // The Java Parquet reader resolves such columns through the subfield path and ignores the column name,
+            // but Velox requires the required subfield root to match the column handle name and fails the scan with
+            // "Required subfield does not match column name". Native workers get equivalent pruning from
+            // PushdownSubfields, which preserves the base column name.
+            planOptimizerBuilder.add(new HiveParquetDereferencePushDown(transactionManager, rowExpressionService));
             planOptimizerBuilder.add(new HivePartialAggregationPushdown(functionResolution, metadataFactory));
         }
 

@@ -14,17 +14,25 @@
 
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TestingColumnHandle;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -58,6 +66,47 @@ public class TestSchedulingOrderVisitor
         TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
         List<PlanNodeId> order = scheduleOrder(planBuilder.indexJoin(JoinType.INNER, a, b));
         assertEquals(order, ImmutableList.of(b.getId(), a.getId()));
+    }
+
+    @Test
+    public void testIndexSourceOrder()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), METADATA);
+        TableHandle tableHandle = new TableHandle(
+                new ConnectorId("testConnector"),
+                new TestingTableHandle(),
+                TestingTransactionHandle.create(),
+                Optional.empty());
+        VariableReferenceExpression lookupVar = planBuilder.variable("lookupKey");
+        IndexSourceNode indexSource = planBuilder.indexSource(
+                tableHandle,
+                ImmutableSet.of(lookupVar),
+                ImmutableList.of(lookupVar),
+                ImmutableMap.of(lookupVar, new TestingColumnHandle("lookupKey")),
+                TupleDomain.<ColumnHandle>all());
+        List<PlanNodeId> order = scheduleOrder(indexSource);
+        assertEquals(order, ImmutableList.of(indexSource.getId()));
+    }
+
+    @Test
+    public void testIndexJoinWithIndexSourceOrder()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), METADATA);
+        TableScanNode probe = planBuilder.tableScan(emptyList(), emptyMap());
+        TableHandle tableHandle = new TableHandle(
+                new ConnectorId("testConnector"),
+                new TestingTableHandle(),
+                TestingTransactionHandle.create(),
+                Optional.empty());
+        VariableReferenceExpression lookupVar = planBuilder.variable("lookupKey");
+        IndexSourceNode indexSource = planBuilder.indexSource(
+                tableHandle,
+                ImmutableSet.of(lookupVar),
+                ImmutableList.of(lookupVar),
+                ImmutableMap.of(lookupVar, new TestingColumnHandle("lookupKey")),
+                TupleDomain.<ColumnHandle>all());
+        List<PlanNodeId> order = scheduleOrder(planBuilder.indexJoin(JoinType.INNER, probe, indexSource));
+        assertEquals(order, ImmutableList.of(indexSource.getId(), probe.getId()));
     }
 
     @Test

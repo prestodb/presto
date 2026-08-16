@@ -1,6 +1,6 @@
-============================
-Deploy Presto using Homebrew
-============================
+===========================
+Deploy Presto with Homebrew
+===========================
 
 This guide explains how to install and get started with Presto on macOS, Linux or WSL2 using the Homebrew package manager.
 

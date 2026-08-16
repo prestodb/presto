@@ -22,13 +22,11 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Streams;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.common.utils.SerializerUtils;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.segment.Metadata;
 import org.apache.druid.segment.QueryableIndex;
-import org.apache.druid.segment.SimpleQueryableIndex;
 import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.column.ColumnDescriptor;
 import org.apache.druid.segment.column.ColumnHolder;
@@ -66,7 +64,6 @@ public class V9SegmentIndexSource
     public V9SegmentIndexSource(SegmentColumnSource segmentColumnSource)
     {
         this.segmentColumnSource = requireNonNull(segmentColumnSource, "segmentColumnSource is null");
-        NullHandling.initializeForTests();
     }
 
     @Override
@@ -74,10 +71,11 @@ public class V9SegmentIndexSource
             throws IOException
     {
         ByteBuffer indexBuffer = ByteBuffer.wrap(segmentColumnSource.getColumnData(INDEX_METADATA_FILE_NAME));
-        GenericIndexed.read(indexBuffer, STRING_STRATEGY);
+        GenericIndexed.read(indexBuffer, STRING_STRATEGY, null);
         GenericIndexed<String> allDimensions = GenericIndexed.read(
                 indexBuffer,
-                STRING_STRATEGY);
+                STRING_STRATEGY,
+                null);
 
         Interval dataInterval = Intervals.utc(indexBuffer.getLong(), indexBuffer.getLong());
 
@@ -114,8 +112,13 @@ public class V9SegmentIndexSource
         columns.put(TIME_COLUMN_NAME, () -> createColumnHolder(TIME_COLUMN_NAME));
 
         Indexed<String> indexed = new ListIndexed<>(availableDimensions);
-        // TODO: get rid of the time column by creating Presto's SimpleQueryableIndex impl
-        return new SimpleQueryableIndex(
+        /*
+         * Druid 35.0.1 made SimpleQueryableIndex abstract, so created PrestoQueryableIndex
+         * based on the original implementation.
+         * TODO: Refactor PrestoQueryableIndex to remove the dependency on the __time column
+         *  and implement a fully Presto-specific QueryableIndex.
+         */
+        return new PrestoQueryableIndex(
                 dataInterval,
                 indexed,
                 segmentBitmapSerdeFactory.getBitmapFactory(),
@@ -136,7 +139,7 @@ public class V9SegmentIndexSource
         try {
             ByteBuffer columnData = ByteBuffer.wrap(segmentColumnSource.getColumnData(columnName));
             ColumnDescriptor columnDescriptor = readColumnDescriptor(columnData);
-            return columnDescriptor.read(columnData, ColumnConfig.DEFAULT, null);
+            return columnDescriptor.read(columnData, ColumnConfig.DEFAULT, null, null);
         }
         catch (IOException e) {
             throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, e);
