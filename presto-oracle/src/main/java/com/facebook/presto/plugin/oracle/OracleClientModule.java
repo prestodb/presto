@@ -49,15 +49,10 @@ public class OracleClientModule
     public static ConnectionFactory connectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig)
             throws SQLException
     {
-        Properties connectionProperties = new Properties();
-
         requireNonNull(oracleConfig, "oracle config is null");
         requireNonNull(config, "BaseJdbc config is null");
 
-        if (config.getConnectionUser() != null && config.getConnectionPassword() != null) {
-            connectionProperties.setProperty("user", config.getConnectionUser());
-            connectionProperties.setProperty("password", config.getConnectionPassword());
-        }
+        Properties connectionProperties = DriverConnectionFactory.basicConnectionProperties(config);
 
         if (oracleConfig.isTlsEnabled()) {
             requireNonNull(oracleConfig.getTrustStorePath(), "oracle.tls.truststore-path is null");

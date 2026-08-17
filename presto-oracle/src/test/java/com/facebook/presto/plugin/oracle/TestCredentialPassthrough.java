@@ -19,11 +19,13 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
@@ -31,14 +33,15 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
  * Regression test for the Oracle connector's connection factory: per-session extraCredentials
  * (user-credential-name / password-credential-name) must be honored, not silently ignored.
  * connection-user / connection-password are deliberately left unset in the catalog properties, so
- * the query below can only succeed via the session's extraCredentials.
+ * the positive-path query below can only succeed via the session's extraCredentials.
  */
 public class TestCredentialPassthrough
 {
-    private final OracleServerTester oracleServer;
-    private final QueryRunner oracleQueryRunner;
+    private OracleServerTester oracleServer;
+    private QueryRunner oracleQueryRunner;
 
-    public TestCredentialPassthrough()
+    @BeforeClass
+    public void createQueryRunner()
             throws Exception
     {
         oracleServer = new OracleServerTester();
@@ -48,15 +51,21 @@ public class TestCredentialPassthrough
     @AfterClass(alwaysRun = true)
     public void destroy()
     {
-        if (oracleServer != null) {
-            oracleServer.close();
-        }
+        closeAllRuntimeException(oracleQueryRunner, oracleServer);
     }
 
     @Test
     public void testCredentialPassthrough()
     {
-        oracleQueryRunner.execute(getSession(), "CREATE TABLE test_create (a bigint)");
+        Session session = getSession(true);
+        oracleQueryRunner.execute(session, "CREATE TABLE test_create (a bigint)");
+        oracleQueryRunner.execute(session, "DROP TABLE test_create");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class)
+    public void testCredentialPassthroughFailsWithoutExtraCredentials()
+    {
+        oracleQueryRunner.execute(getSession(false), "CREATE TABLE test_create_negative (a bigint)");
     }
 
     private static QueryRunner createQueryRunner(OracleServerTester oracleServer)
@@ -81,11 +90,11 @@ public class TestCredentialPassthrough
         }
     }
 
-    private static Session getSession()
+    private static Session getSession(boolean withExtraCredentials)
     {
-        Map<String, String> extraCredentials = ImmutableMap.of(
-                "oracle.user", OracleServerTester.TEST_USER,
-                "oracle.password", OracleServerTester.TEST_PASS);
+        Map<String, String> extraCredentials = withExtraCredentials
+                ? ImmutableMap.of("oracle.user", OracleServerTester.TEST_USER, "oracle.password", OracleServerTester.TEST_PASS)
+                : ImmutableMap.of();
         return testSessionBuilder()
                 .setCatalog("oracle")
                 .setSchema(OracleServerTester.TEST_SCHEMA)
