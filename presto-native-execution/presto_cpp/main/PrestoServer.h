@@ -13,6 +13,8 @@
  */
 #pragma once
 
+#include <atomic>
+
 #include <folly/SocketAddress.h>
 #include <folly/Synchronized.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
@@ -351,6 +353,12 @@ class PrestoServer {
   // We update these members asynchronously and return in http requests w/o
   // delay.
   folly::Synchronized<std::unique_ptr<protocol::MemoryInfo>> memoryInfo_;
+  // AsyncDataCache footprint (evictable). Refreshed off the serving path by
+  // populateMemAndCPUInfo() and read by fetchNodeStatus(), so the cache-shard
+  // walk in AsyncDataCache::refreshStats() stays off the /v1/status poll path
+  // (its cost otherwise scales with shards × workers × poll frequency). 0 until
+  // the first sample and when no cache instance exists (classic JVM behaviour).
+  std::atomic<int64_t> asyncDataCacheBytes_{0};
   CPUMon cpuMon_;
 
   std::string environment_;
