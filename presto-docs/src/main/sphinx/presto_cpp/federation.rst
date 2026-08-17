@@ -35,8 +35,6 @@ Similar to the installation of Presto, this will hold the following configuratio
   The available catalog configuration properties for a connector are described
   in the respective connector documentation.
 
-.. _jvm_configuration:
-
 JVM Configuration
 ^^^^^^^^^^^^^^^^^
 
@@ -55,8 +53,6 @@ The following provides an example of ``etc/jvm.config``.
     -Xmx12G
     --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED
 
-.. _configuration_properties:
-
 Configuration Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -72,8 +68,6 @@ The following provides an example of ``etc/flightshim.properties``.
     flight-shim.server-ssl-certificate-file=/path/to/server.crt
     flight-shim.server-ssl-key-file=/path/to/server.key
 
-.. _authentication:
-
 Authentication
 --------------
 
@@ -83,8 +77,6 @@ cert-key pair ``flight-shim.server-ssl-certificate-file`` and
 include the client cert file with ``client-ssl-certificate-file``. SSL is
 enabled by default, to disable SSL for an unsecure channel (for debugging
 purposes only) add the config ``flight-shim.server-ssl-enabled=false``.
-
-.. _worker_catalog_properties:
 
 Worker Catalog Properties
 -------------------------
@@ -128,8 +120,6 @@ To enable mTLS, the following properties must be configured:
 - ``arrow-flight.client-ssl-certificate``: Path to the client's SSL certificate. Sent to the server for client authentication.
 - ``arrow-flight.client-ssl-key``: Path to the client's SSL private key file. Used to establish the secure connection.
 - ``arrow-flight.server.verify``: When set to true, enables certificate verification.
-
-.. _running_flightshim:
 
 Running FlightShim
 ------------------
