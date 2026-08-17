@@ -427,6 +427,38 @@ to make the query plan easier to read.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-hash-generation\`\``.
 
+``rewrite_approx_distinct_if_to_mask``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Move an ``IF`` condition inside an :func:`!approx_distinct` argument onto the aggregation as a
+mask, rewriting ``approx_distinct(IF(p, e))`` to ``approx_distinct(e)`` masked by ``p``.
+
+This helps in two ways:
+
+* It narrows the projection below the aggregation. With the condition inside the argument, each
+  aggregation materializes its own conditional copy of the value, while with a mask the
+  aggregations over one value share a single column and only a boolean is added per predicate.
+
+* It shrinks the state a partial aggregation ships to its final aggregation. A group whose
+  predicate never holds is still fed a row when the condition is inside the argument, so a sketch
+  is created and serialized for it, whereas a masked row is filtered before the accumulator sees
+  it.
+
+Queries that compute many differently-predicated :func:`!approx_distinct` values over the same
+grouping keys benefit most. The saving appears as CPU: on one such query with 465 conditional calls
+over 26 billion rows, CPU fell by 14 percent, while peak memory per node and shuffled bytes were
+unchanged. Queries whose :func:`!approx_distinct` calls already share a few argument columns see a
+smaller benefit, since common subexpression elimination has already collapsed the projection.
+
+Results are unchanged: ``IF(p, e)`` is NULL where ``p`` is false and :func:`!approx_distinct` does
+not count NULLs, so restricting the input to the rows where ``p`` holds feeds the aggregation the
+same values.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.rewrite-approx-distinct-if-to-mask\`\``.
+
 ``optimize_join_fan_out``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
