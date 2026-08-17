@@ -129,6 +129,51 @@ To enable mTLS, the following properties must be configured:
 - ``arrow-flight.client-ssl-key``: Path to the client's SSL private key file. Used to establish the secure connection.
 - ``arrow-flight.server.verify``: When set to true, enables certificate verification.
 
+.. _flightshim_jmx_metrics:
+
+JMX Metrics
+-----------
+
+FlightShim registers operational metrics as MBeans on the platform MBean server.
+To reach them from outside the FlightShim process, enable the JMX remote agent in
+``etc/jvm.config``, for example:
+
+.. code-block:: none
+
+    -Dcom.sun.management.jmxremote
+    -Dcom.sun.management.jmxremote.port=9080
+    -Dcom.sun.management.jmxremote.rmi.port=9080
+
+Global FlightShim metrics are exported as:
+
+.. code-block:: none
+
+    com.facebook.presto.flightshim:name=FlightShimStats
+
+Per downstream connector metrics (for example ``mysql``) are exported as:
+
+.. code-block:: none
+
+    com.facebook.presto.flightshim:type=FlightShimConnectorStats,name=<connectorId>
+
+FlightShim thread pool metrics are exported as:
+
+.. code-block:: none
+
+    com.facebook.presto.flightshim:name=FlightShimServerExecutionMBean
+
+Downstream JDBC connectors loaded inside FlightShim also export their standard
+connector MBeans (for example JDBC metadata cache stats) when catalogs are
+created.
+
+Example queries using the ``jmx`` connector on a coordinator that can reach
+the FlightShim JMX port:
+
+.. code-block:: sql
+
+    SELECT * FROM jmx.current."com.facebook.presto.flightshim:name=FlightShimStats"
+    SELECT * FROM jmx.current."com.facebook.presto.flightshim:type=FlightShimConnectorStats,name=mysql"
+
 .. _running_flightshim:
 
 Running FlightShim
