@@ -250,9 +250,13 @@ public class ElasticsearchClient
         PoolingAsyncClientConnectionManager poolingAsyncClientConnectionManager = new PoolingAsyncClientConnectionManager(tlsStrategyRegistryBuilder.build());
         poolingAsyncClientConnectionManager.setMaxTotal(config.getMaxHttpConnections());
         clientBuilder.setConnectionManager(poolingAsyncClientConnectionManager);
-        // ES 9.x may send gzip-framed responses even without the client requesting compression,
-        // disabling compression on the client side prevents ambiguous Content-Encoding headers.
-        clientBuilder.disableContentCompression();
+        // Compression is off by default: ES 9.x may send gzip-framed responses even without the client
+        // requesting compression, and disabling it on the client side prevents ambiguous Content-Encoding
+        // headers. Enable it against servers that frame responses correctly, where it saves bandwidth on
+        // large result sets.
+        if (!config.isContentCompressionEnabled()) {
+            clientBuilder.disableContentCompression();
+        }
 
         // AuthScope(null, -1) replaces AuthScope.ANY
         passwordConfig.ifPresent(securityConfig -> {
