@@ -264,6 +264,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kLogNumZombieTasks, 20),
           NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
           NUM_PROP(kHeartbeatFrequencyMs, 0),
+          NUM_PROP(kGpuStatusUpdateIntervalMs, 1'000), // 1s
           BOOL_PROP(kHttpClientHttp2Enabled, false),
           NUM_PROP(kHttpClientHttp2MaxStreamsPerConnection, 8),
           NUM_PROP(kHttpClientHttp2InitialStreamWindow, 1 << 23 /*8MB*/),
@@ -1065,6 +1066,10 @@ uint64_t SystemConfig::announcementMaxFrequencyMs() const {
 
 uint64_t SystemConfig::heartbeatFrequencyMs() const {
   return optionalProperty<uint64_t>(kHeartbeatFrequencyMs).value();
+}
+
+uint64_t SystemConfig::gpuStatusUpdateIntervalMs() const {
+  return optionalProperty<uint64_t>(kGpuStatusUpdateIntervalMs).value();
 }
 
 bool SystemConfig::httpClientHttp2Enabled() const {

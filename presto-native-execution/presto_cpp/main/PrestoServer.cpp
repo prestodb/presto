@@ -89,6 +89,8 @@
 #include "velox/serializers/UnsafeRowSerializer.h"
 
 #ifdef PRESTO_ENABLE_CUDF
+#include <cuda_runtime.h>
+#include <nvml.h>
 #include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/expression/PrestoFunctions.h"
@@ -1318,6 +1320,21 @@ void PrestoServer::addServerPeriodicTasks() {
       1'000'000, // 1 second
       "populate_mem_cpu_info");
 
+#ifdef PRESTO_ENABLE_CUDF
+  // Sample GPU metrics off the serving path so fetchNodeStatus() (RM heartbeat)
+  // only reads cached atomics — never runs synchronous CUDA/NVML probes.
+  // updateGpuStatusCache() is a no-op unless cuDF is enabled at runtime, so
+  // scheduling it unconditionally here is safe regardless of init ordering.
+  const uint64_t gpuStatusIntervalMs =
+      SystemConfig::instance()->gpuStatusUpdateIntervalMs();
+  if (gpuStatusIntervalMs > 0) {
+    periodicTaskManager_->addTask(
+        [server = this]() { server->updateGpuStatusCache(); },
+        gpuStatusIntervalMs * 1'000, // ms -> micros
+        "update_gpu_status");
+  }
+#endif
+
   periodicTaskManager_->addTask(
       [start = start_]() {
         const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
@@ -2014,6 +2031,23 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
     queryMemoryBytes += pool.second.reservedBytes;
   }
 
+  // GPU metrics. cuDF/RMM allocations do not flow through Velox MemoryPools, so
+  // these are sampled directly from the device/NVML. To keep the synchronous
+  // CUDA/NVML probes off this path (fetchNodeStatus feeds the RM heartbeat — a
+  // stalled probe here can get the worker declared dead), sampling runs on the
+  // periodic 'update_gpu_status' task and we only read the cached atomics here.
+  // -1 sentinel when cuDF is disabled/not registered or a probe has not
+  // succeeded yet (same convention as 'nonHeapUsed'). Semantics of each value
+  // are documented on updateGpuStatusCache().
+  const int64_t gpuMemoryUsedBytes =
+      gpuMemoryUsedBytes_.load(std::memory_order_relaxed);
+  const int64_t gpuMemoryCapacityBytes =
+      gpuMemoryCapacityBytes_.load(std::memory_order_relaxed);
+  const int64_t gpuUtilizationPercent =
+      gpuUtilizationPercent_.load(std::memory_order_relaxed);
+  const int64_t gpuMemoryBandwidthPercent =
+      gpuMemoryBandwidthPercent_.load(std::memory_order_relaxed);
+
   protocol::NodeStatus nodeStatus{
       nodeId_,
       {nodeVersion_},
@@ -2030,9 +2064,54 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       nodeMemoryGb * 1024 * 1024 * 1024,
       nonHeapUsed,
       asyncDataCacheBytes,
-      queryMemoryBytes};
+      queryMemoryBytes,
+      gpuMemoryUsedBytes,
+      gpuMemoryCapacityBytes,
+      gpuUtilizationPercent,
+      gpuMemoryBandwidthPercent};
 
   return nodeStatus;
+}
+
+void PrestoServer::updateGpuStatusCache() {
+#ifdef PRESTO_ENABLE_CUDF
+  if (!velox::cudf_velox::CudfConfig::getInstance().enabled) {
+    return;
+  }
+  // cudaMemGetInfo reports the whole device: 'used' reflects the retained RMM
+  // pool reservation (high-water mark) — the right notion for "how full is the
+  // GPU". Stored into gpuMemory{Used,Capacity}Bytes_.
+  size_t gpuFree = 0;
+  size_t gpuTotal = 0;
+  if (cudaMemGetInfo(&gpuFree, &gpuTotal) == cudaSuccess) {
+    gpuMemoryCapacityBytes_.store(
+        static_cast<int64_t>(gpuTotal), std::memory_order_relaxed);
+    gpuMemoryUsedBytes_.store(
+        static_cast<int64_t>(gpuTotal - gpuFree), std::memory_order_relaxed);
+  }
+
+  // GPU compute / memory-bandwidth utilization (%) via NVML — nvidia-smi's
+  // "GPU-Util". Says whether the GPU is actually computing, not how full VRAM
+  // is. NOTE: NVML reports the whole physical device; under fractional/shared
+  // GPU (time-slicing/MPS) this reflects the shared GPU, not just this worker
+  // (see plan Annex A3).
+  // NVML init once for the server lifetime (process exit reclaims it).
+  static const bool nvmlReady = (nvmlInit_v2() == NVML_SUCCESS);
+  if (nvmlReady) {
+    nvmlDevice_t nvmlDevice;
+    nvmlUtilization_t util;
+    // Index 0: inside the container NVML sees only the GPU(s) exposed to this
+    // pod, so device 0 is this worker's GPU. Multi-GPU-visible containers
+    // would need PCI-bus-id mapping to the active CUDA device.
+    if (nvmlDeviceGetHandleByIndex_v2(0, &nvmlDevice) == NVML_SUCCESS &&
+        nvmlDeviceGetUtilizationRates(nvmlDevice, &util) == NVML_SUCCESS) {
+      gpuUtilizationPercent_.store(
+          static_cast<int64_t>(util.gpu), std::memory_order_relaxed);
+      gpuMemoryBandwidthPercent_.store(
+          static_cast<int64_t>(util.memory), std::memory_order_relaxed);
+    }
+  }
+#endif
 }
 
 void PrestoServer::registerDynamicFunctions() {

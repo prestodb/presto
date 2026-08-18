@@ -790,6 +790,14 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHeartbeatFrequencyMs{
       "heartbeat-frequency-ms"};
 
+  /// Period (ms) of the background task that samples GPU memory/utilization
+  /// metrics into the cache read by /v1/status (see PrestoServer::
+  /// updateGpuStatusCache). Keeps CUDA/NVML probes off the heartbeat path.
+  /// 0 disables sampling (GPU fields stay at the -1 sentinel). Only effective
+  /// on cuDF-enabled builds/workers.
+  static constexpr std::string_view kGpuStatusUpdateIntervalMs{
+      "gpu.status-update-interval-ms"};
+
   /// Whether HTTP/2 is enabled for HTTP client connections.
   static constexpr std::string_view kHttpClientHttp2Enabled{
       "http-client.http2-enabled"};
@@ -1294,6 +1302,8 @@ class SystemConfig : public ConfigBase {
   uint64_t announcementMaxFrequencyMs() const;
 
   uint64_t heartbeatFrequencyMs() const;
+
+  uint64_t gpuStatusUpdateIntervalMs() const;
 
   bool httpClientHttp2Enabled() const;
 
