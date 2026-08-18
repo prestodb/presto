@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -29,7 +30,9 @@ import org.joda.time.DateTimeZone;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.function.UnaryOperator;
 
 import static java.util.Objects.requireNonNull;
 
@@ -41,6 +44,7 @@ public class IcebergParquetFileWriter
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
     private final MetricsConfig metricsConfig;
+    private final Optional<UnaryOperator<Page>> pagePruner;
 
     public IcebergParquetFileWriter(
             OutputStream outputStream,
@@ -51,6 +55,7 @@ public class IcebergParquetFileWriter
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
+            Optional<UnaryOperator<Page>> pagePruner,
             CompressionCodecName compressionCodecName,
             Path outputPath,
             HdfsEnvironment hdfsEnvironment,
@@ -74,6 +79,13 @@ public class IcebergParquetFileWriter
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
         this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");
+        this.pagePruner = requireNonNull(pagePruner, "pagePruner is null");
+    }
+
+    @Override
+    public void appendRows(Page dataPage)
+    {
+        super.appendRows(pagePruner.map(pruner -> pruner.apply(dataPage)).orElse(dataPage));
     }
 
     @Override

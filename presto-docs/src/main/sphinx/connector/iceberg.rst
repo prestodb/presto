@@ -2993,6 +2993,8 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``MAP``
   * - ``STRUCT``
     - ``ROW``
+  * - ``UNKNOWN``
+    - ``UNKNOWN``
 
 
 No other types are supported.
@@ -3044,9 +3046,50 @@ Map of PrestoDB types to the relevant Iceberg types:
     - ``MAP``
   * - ``ROW``
     - ``STRUCT``
+  * - ``UNKNOWN``
+    - ``UNKNOWN``
 
 
 No other types are supported.
+
+Unknown type (Iceberg V3)
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Iceberg Format Version 3 adds the ``unknown`` type, for a column whose type is not known. Such a
+column only ever holds null values: it is always optional, is not stored in the data files, and
+always reads back as ``NULL``.
+
+A column of this type can be declared in ``CREATE TABLE``, ``ALTER TABLE ADD COLUMN``, and
+``CREATE TABLE AS SELECT``::
+
+    CREATE TABLE iceberg.web.page_views (view_time TIMESTAMP, extra UNKNOWN) WITH ("format-version" = '3');
+
+    ALTER TABLE iceberg.web.page_views ADD COLUMN more UNKNOWN;
+
+    CREATE TABLE iceberg.web.page_view_copy WITH ("format-version" = '3') AS SELECT view_time, NULL AS extra FROM iceberg.web.page_views;
+
+``INSERT`` statements can write ``NULL`` to an ``unknown`` column or leave the column out entirely.
+Writing any other value is an error, because the value cannot be stored.
+
+An ``unknown`` field of a ``ROW`` behaves the same way, at any depth and inside an ``ARRAY`` or a
+``MAP``: the field is left out of the data file, and the other fields of the row are written and read
+back as usual::
+
+    CREATE TABLE iceberg.web.sessions (session_id BIGINT, page ROW(url VARCHAR, extra UNKNOWN)) WITH ("format-version" = '3');
+
+    INSERT INTO iceberg.web.sessions VALUES (1, ROW('http://example.com', NULL));
+
+**Restrictions:**
+
+* The table must use Iceberg format version 3 or higher.
+* An ``unknown`` column cannot be declared ``NOT NULL``.
+* An ``unknown`` column can be partitioned by ``identity`` and can be sorted on, but it cannot be
+  bucketed, because Iceberg defines no hash for it.
+* Writing a value that has nothing left to store is not supported, because a data file needs
+  something to store for every value: an ``ARRAY(UNKNOWN)``, a ``MAP`` whose keys or values are
+  ``unknown``, a ``ROW`` whose fields are all ``unknown``, and a table whose columns are all
+  ``unknown``. Such a table can be created and read.
+* Type promotion from ``unknown`` to another type is not supported.
 
 
 Sorted Tables

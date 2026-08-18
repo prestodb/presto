@@ -64,6 +64,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
@@ -88,6 +89,7 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getListType
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getMapTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getStructTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharTypeInfo;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.voidTypeInfo;
 
 public final class TypeConverter
 {
@@ -130,6 +132,12 @@ public final class TypeConverter
                 return VarcharType.createUnboundedVarcharType();
             case UUID:
                 return UuidType.UUID;
+            case UNKNOWN:
+                // The Iceberg V3 `unknown` type is always optional, is never stored in data
+                // files, and always reads back as null. Presto's UNKNOWN type has the same
+                // semantics, and is what Iceberg's Spark integration maps `unknown` to
+                // (Spark's NullType).
+                return UNKNOWN;
             case LIST:
                 Types.ListType listType = (Types.ListType) type;
                 return new ArrayType(toPrestoType(listType.elementType(), typeManager));
@@ -223,6 +231,9 @@ public final class TypeConverter
         }
         if (type instanceof UuidType) {
             return Types.UUIDType.get();
+        }
+        if (UNKNOWN.equals(type)) {
+            return Types.UnknownType.get();
         }
         throw new PrestoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }
@@ -359,6 +370,13 @@ public final class TypeConverter
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
+        }
+        if (UNKNOWN.equals(type)) {
+            // Hive has no equivalent of the Iceberg V3 `unknown` type, but `void` is its
+            // all-null type and is what Spark records for NullType. Values are never read
+            // from or written to a file for an `unknown` column, so this type only ever
+            // describes an all-null column.
+            return voidTypeInfo;
         }
         if (isArrayType(type)) {
             TypeInfo elementType = toHiveTypeInfo(type.getTypeParameters().get(0));

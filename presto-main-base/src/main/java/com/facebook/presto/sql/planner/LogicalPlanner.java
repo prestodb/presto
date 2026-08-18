@@ -120,6 +120,7 @@ import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabl
 import static com.facebook.presto.SystemSessionProperties.isNativeUpdateMergeEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
@@ -785,8 +786,11 @@ public class LogicalPlanner
             VariableReferenceExpression output = variableAllocator.newVariable(getSourceLocation(query), column.getName(), column.getType());
             int index = columnHandles.indexOf(columns.get(column.getName()));
             if (index < 0) {
-                Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
-                assignments.put(output, rowExpression(cast, context, analysis));
+                // A null literal is already of the unknown type, which cannot be cast to
+                Expression nullValue = column.getType().equals(UNKNOWN) ?
+                        new NullLiteral() :
+                        new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
+                assignments.put(output, rowExpression(nullValue, context, analysis));
             }
             else {
                 VariableReferenceExpression input = plan.getVariable(index);

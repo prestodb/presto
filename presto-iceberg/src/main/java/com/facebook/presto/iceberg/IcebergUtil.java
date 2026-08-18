@@ -165,6 +165,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnRead
 import static com.facebook.presto.iceberg.IcebergTableProperties.getWriteDataLocation;
 import static com.facebook.presto.iceberg.IcebergTableProperties.isHiveLocksEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
+import static com.facebook.presto.iceberg.UnknownFields.isUnknownType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -197,6 +198,7 @@ import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.hadoop.hive.serde.serdeConstants.VOID_TYPE_NAME;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_ENABLED;
@@ -525,6 +527,12 @@ public final class IcebergUtil
      */
     private static String sanitizeTypeString(org.apache.iceberg.types.Type icebergType)
     {
+        // Iceberg's HiveSchemaUtil cannot convert the V3 `unknown` type. Hive's `void` is
+        // its all-null type and is what Spark records for NullType, so use it here as well.
+        if (isUnknownType(icebergType)) {
+            return VOID_TYPE_NAME;
+        }
+
         if (icebergType.isPrimitiveType()) {
             return HiveSchemaUtil.convert(icebergType).getTypeName();
         }

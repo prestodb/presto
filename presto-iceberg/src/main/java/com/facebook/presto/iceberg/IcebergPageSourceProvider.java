@@ -162,6 +162,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTa
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.UnknownFieldTypes.readType;
 import static com.facebook.presto.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
 import static com.facebook.presto.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -400,7 +401,7 @@ public class IcebergPageSourceProvider
                         if (!parquetField.get().isPrimitive()) {
                             MessageType parquetMessageType = new MessageType("", parquetField.get());
                             Schema icebergSchema = ParquetSchemaUtil.convert(parquetMessageType);
-                            type = toPrestoType(icebergSchema.columns().get(0).type(), typeManager);
+                            type = readType(column.getType(), toPrestoType(icebergSchema.columns().get(0).type(), typeManager));
                         }
                         internalFields.add(constructField(type, lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
                     }

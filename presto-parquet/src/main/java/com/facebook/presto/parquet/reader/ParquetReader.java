@@ -322,9 +322,11 @@ public class ParquetReader
                 blocks[i] = columnChunk.getBlock();
             }
         }
+        List<Type> fieldTypes = field.getType().getTypeParameters();
         for (int i = 0; i < fields.size(); i++) {
             if (blocks[i] == null) {
-                blocks[i] = RunLengthEncodedBlock.create(field.getType(), null, columnChunk.getBlock().getPositionCount());
+                // a field the file does not have reads as null, of the type the field has in the table
+                blocks[i] = RunLengthEncodedBlock.create(fieldTypes.get(i), null, columnChunk.getBlock().getPositionCount());
             }
         }
         BooleanList structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
