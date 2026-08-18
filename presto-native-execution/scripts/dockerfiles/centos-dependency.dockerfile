@@ -55,6 +55,19 @@ RUN bash -c "mkdir build && \
                  install_ucx) && \
     rm -rf build"
 
+# Install sccache for optional S3-backed compile caching.
+# Use NVIDIA's RAPIDS fork, not upstream mozilla/sccache: upstream has no nvcc device
+# LTO support (no -ltoir/.ltoir handling as of v0.17.0 and main), so cudf's JIT LTO
+# fragments -- nvcc -x cu -rdc=true -fatbin with code=[compute_XX,lto_XX] -- die with
+# "fatbinary fatal : Could not open input file 'kernel.ptx'". The fork implements those
+# paths and is what RAPIDS CI uses.
+# See: https://github.com/rapidsai/sccache
+ARG SCCACHE_VERSION="0.17.0-rapids.2"
+RUN wget -q -O- "https://github.com/rapidsai/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-$(uname -m)-unknown-linux-musl.tar.gz" \
+    | tar -C /usr/bin -zf - --wildcards --strip-components=1 -x '*/sccache' && \
+    chmod +x /usr/bin/sccache && \
+    sccache --version
+
 # put CUDA binaries on the PATH
 ENV PATH=/usr/local/cuda/bin:${PATH}
 
