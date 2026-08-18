@@ -1685,7 +1685,8 @@ void PrestoServer::unregisterFileReadersAndWriters() {
 }
 
 void PrestoServer::registerStatsCounters() {
-  registerPrestoMetrics();
+  registerPrestoMetrics(
+      SystemConfig::instance()->enableHttpRequestSizeHistogram());
   velox::registerVeloxMetrics();
   velox::filesystems::registerS3Metrics();
 }
