@@ -92,6 +92,7 @@
 #include <cuda_runtime.h>
 #include <nvml.h>
 #include "velox/experimental/cudf/CudfConfig.h"
+#include "velox/experimental/cudf/exec/GpuResources.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/expression/PrestoFunctions.h"
 #endif
@@ -2048,6 +2049,8 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       gpuUtilizationPercent_.load(std::memory_order_relaxed);
   const int64_t gpuMemoryBandwidthPercent =
       gpuMemoryBandwidthPercent_.load(std::memory_order_relaxed);
+  const int64_t gpuPoolAllocatedBytes =
+      gpuPoolAllocatedBytes_.load(std::memory_order_relaxed);
 
   protocol::NodeStatus nodeStatus{
       nodeId_,
@@ -2069,7 +2072,8 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       gpuMemoryUsedBytes,
       gpuMemoryCapacityBytes,
       gpuUtilizationPercent,
-      gpuMemoryBandwidthPercent};
+      gpuMemoryBandwidthPercent,
+      gpuPoolAllocatedBytes};
 
   return nodeStatus;
 }
@@ -2098,6 +2102,14 @@ void PrestoServer::updateGpuStatusCache() {
   gpuMemoryCapacityBytes_.store(
       gpuMemoryCapacityBytes, std::memory_order_relaxed);
   gpuMemoryUsedBytes_.store(gpuMemoryUsedBytes, std::memory_order_relaxed);
+
+  // Live bytes currently allocated through the cuDF/RMM memory resource, via
+  // velox's statistics adaptor. Unlike gpuMemoryUsedBytes_ — the retained pool
+  // high-water mark from cudaMemGetInfo — this drops when queries free their
+  // allocations, so it separates an idle worker from a busy one. The accessor
+  // itself returns -1 when cuDF is not registered.
+  gpuPoolAllocatedBytes_.store(
+      velox::cudf_velox::cudfAllocatedBytes(), std::memory_order_relaxed);
 
   // GPU compute / memory-bandwidth utilization (%) via NVML — nvidia-smi's
   // "GPU-Util". Says whether the GPU is actually computing, not how full VRAM

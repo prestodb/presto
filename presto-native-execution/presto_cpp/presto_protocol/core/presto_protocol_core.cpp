@@ -8344,6 +8344,13 @@ void to_json(json& j, const NodeStatus& p) {
       "NodeStatus",
       "int64_t",
       "gpuMemoryBandwidthPercent");
+  to_json_key(
+      j,
+      "gpuPoolAllocatedBytes",
+      p.gpuPoolAllocatedBytes,
+      "NodeStatus",
+      "int64_t",
+      "gpuPoolAllocatedBytes");
 }
 
 void from_json(const json& j, NodeStatus& p) {
@@ -8457,6 +8464,15 @@ void from_json(const json& j, NodeStatus& p) {
         "NodeStatus",
         "int64_t",
         "gpuMemoryBandwidthPercent");
+  }
+  if (j.count("gpuPoolAllocatedBytes")) {
+    from_json_key(
+        j,
+        "gpuPoolAllocatedBytes",
+        p.gpuPoolAllocatedBytes,
+        "NodeStatus",
+        "int64_t",
+        "gpuPoolAllocatedBytes");
   }
 }
 } // namespace facebook::presto::protocol

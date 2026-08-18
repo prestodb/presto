@@ -37,7 +37,8 @@ public class TestNodeStatus
             long gpuMemoryUsedBytes,
             long gpuMemoryCapacityBytes,
             long gpuUtilizationPercent,
-            long gpuMemoryBandwidthPercent)
+            long gpuMemoryBandwidthPercent,
+            long gpuPoolAllocatedBytes)
     {
         return new NodeStatus(
                 "test-node",
@@ -59,7 +60,8 @@ public class TestNodeStatus
                 gpuMemoryUsedBytes,
                 gpuMemoryCapacityBytes,
                 gpuUtilizationPercent,
-                gpuMemoryBandwidthPercent);
+                gpuMemoryBandwidthPercent,
+                gpuPoolAllocatedBytes);
     }
 
     @Test
@@ -67,7 +69,7 @@ public class TestNodeStatus
     {
         // Distinct values for every long field, including a negative one, so the
         // round-trip would catch a swapped, dropped, or sign-mangled field.
-        NodeStatus expected = nodeStatus(-1L, 111L, 222L, 333L, 444L, 55L, 66L);
+        NodeStatus expected = nodeStatus(-1L, 111L, 222L, 333L, 444L, 55L, 66L, 777L);
 
         NodeStatus actual = CODEC.fromJson(CODEC.toJson(expected));
 
@@ -78,6 +80,7 @@ public class TestNodeStatus
         assertEquals(actual.getGpuMemoryCapacityBytes(), 444L);
         assertEquals(actual.getGpuUtilizationPercent(), 55L);
         assertEquals(actual.getGpuMemoryBandwidthPercent(), 66L);
+        assertEquals(actual.getGpuPoolAllocatedBytes(), 777L);
         assertEquals(actual.getHeapUsed(), expected.getHeapUsed());
         assertEquals(actual.getHeapAvailable(), expected.getHeapAvailable());
         assertEquals(actual.getNodeId(), expected.getNodeId());
