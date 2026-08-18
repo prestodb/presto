@@ -148,6 +148,37 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
   EXPECT_EQ(failureInfo.errorCode.type, protocol::ErrorType::INTERNAL_ERROR);
 }
 
+TEST(VeloxToPrestoExceptionTranslatorTest, passthroughErrorCode) {
+  VeloxExternalError externalException(
+      "file_name",
+      1,
+      "function_name()",
+      "operator()",
+      "connection refused",
+      "",
+      passthrough_error::encode("JDBC_ERROR", 0x04000000, "EXTERNAL", true),
+      true);
+  try {
+    throw externalException;
+  } catch (const VeloxException& e) {
+    auto failureInfo = translateToPrestoException(e);
+    EXPECT_EQ(failureInfo.errorCode.name, "JDBC_ERROR");
+    EXPECT_EQ(failureInfo.errorCode.code, 0x04000000);
+    EXPECT_EQ(failureInfo.errorCode.type, protocol::ErrorType::EXTERNAL);
+    EXPECT_TRUE(failureInfo.errorCode.retriable);
+  }
+
+  // Malformed or foreign errorCode strings are not decodable.
+  EXPECT_FALSE(passthrough_error::decode("JDBC_ERROR").has_value());
+  EXPECT_FALSE(
+      passthrough_error::decode("PRESTO_PASSTHROUGH:BOGUS_TYPE:0:1:NAME")
+          .has_value());
+  EXPECT_FALSE(passthrough_error::decode("PRESTO_PASSTHROUGH:EXTERNAL:0:x:NAME")
+                   .has_value());
+  EXPECT_FALSE(
+      passthrough_error::decode("PRESTO_PASSTHROUGH:EXTERNAL:0:1:").has_value());
+}
+
 TEST(VeloxToPrestoExceptionTranslatorTest, allErrorCodeTranslations) {
   // Test all error codes in the translation map to ensure they translate
   // correctly
@@ -205,6 +236,28 @@ TEST(VeloxToPrestoExceptionTranslatorTest, allErrorCodeTranslations) {
         EXPECT_EQ(failureInfo.errorCode.type, expectedErrorCode.type)
             << "Error type mismatch for " << errorCode;
         EXPECT_EQ(failureInfo.type, "VeloxUserError");
+        EXPECT_EQ(failureInfo.errorLocation.lineNumber, 42);
+
+      } else if (errorSource == velox::error_source::kErrorSourceExternal) {
+        VeloxException externalException(
+            "test_file.cpp",
+            42,
+            "testFunction()",
+            "testExpression",
+            "test error message",
+            errorSource,
+            errorCode,
+            false);
+
+        auto failureInfo = translator->translate(externalException);
+
+        EXPECT_EQ(failureInfo.errorCode.code, expectedErrorCode.code)
+            << "Error code mismatch for " << errorCode;
+        EXPECT_EQ(failureInfo.errorCode.name, expectedErrorCode.name)
+            << "Error name mismatch for " << errorCode;
+        EXPECT_EQ(failureInfo.errorCode.type, expectedErrorCode.type)
+            << "Error type mismatch for " << errorCode;
+        EXPECT_EQ(failureInfo.type, "VeloxException");
         EXPECT_EQ(failureInfo.errorLocation.lineNumber, 42);
 
       } else if (errorSource == velox::error_source::kErrorSourceSystem) {

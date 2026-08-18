@@ -19,6 +19,9 @@ arrow::Status TestingArrowFlightServer::DoGet(
     const arrow::flight::ServerCallContext& context,
     const arrow::flight::Ticket& request,
     std::unique_ptr<arrow::flight::FlightDataStream>* stream) {
+  if (!doGetFailure_.ok()) {
+    return doGetFailure_;
+  }
   auto it = tables_.find(request.ticket);
   if (it == tables_.end()) {
     return arrow::Status::KeyError(
