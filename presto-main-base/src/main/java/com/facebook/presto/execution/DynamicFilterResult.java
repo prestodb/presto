@@ -22,6 +22,23 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Wire DTO returned by the coordinator's long-poll endpoint ({@code GET /v1/dynamicFilters}).
+ *
+ * <p>Each response carries:
+ * <ul>
+ *   <li>{@code filters} — the resolved {@link com.facebook.presto.common.predicate.TupleDomain}
+ *       per filter ID, keyed by filter ID string.</li>
+ *   <li>{@code version} — monotonically increasing version used by the fetcher to request
+ *       only filters newer than the last seen version.</li>
+ *   <li>{@code operatorCompleted} — true when the build-side operator has finished and no
+ *       further filter updates will arrive.</li>
+ *   <li>{@code completedFilterIds} — the subset of filter IDs that are fully resolved.</li>
+ * </ul>
+ *
+ * <p>Used by {@code DynamicFilterFetcher} (PR4 / #28044) and {@code DynamicFilterPusher}
+ * to carry resolved filters from workers to the coordinator and back to the probe side.
+ */
 public class DynamicFilterResult
 {
     private final Map<String, TupleDomain<String>> filters;

@@ -17,10 +17,34 @@ import com.facebook.airlift.stats.CounterStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import static com.facebook.presto.server.SimpleHttpResponseHandlerStats.IncrementalAverage;
-
 public class DynamicFilterStats
 {
+    /**
+     * Simple running average: tracks count and sum to expose a rolling mean.
+     * Inlined here to avoid a dependency on the {@code server} package.
+     */
+    static final class IncrementalAverage
+    {
+        private long count;
+        private double sum;
+
+        synchronized void add(long value)
+        {
+            count++;
+            sum += value;
+        }
+
+        synchronized double getAverage()
+        {
+            return count == 0 ? 0.0 : sum / count;
+        }
+
+        synchronized long getCount()
+        {
+            return count;
+        }
+    }
+
     private final CounterStat filterFetchSuccess = new CounterStat();
     private final CounterStat filterFetchFailure = new CounterStat();
     private final CounterStat filtersCollected = new CounterStat();

@@ -17,16 +17,24 @@ import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.connector.DynamicFilter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLLECTION_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE;
@@ -43,15 +51,11 @@ import static org.testng.Assert.assertTrue;
 public class TestJoinDynamicFilter
 {
     private static final String DYNAMIC_FILTER_COLLECTION_TIME_NANOS_TEMPLATE = DYNAMIC_FILTER_COLLECTION_TIME_NANOS + "[%s]";
-    public static final String DYNAMIC_FILTER_PARTITIONS_RECEIVED_TEMPLATE = DYNAMIC_FILTER_PARTITIONS_RECEIVED + "[%s]";
+    private static final String DYNAMIC_FILTER_PARTITIONS_RECEIVED_TEMPLATE = DYNAMIC_FILTER_PARTITIONS_RECEIVED + "[%s]";
     private static final String DYNAMIC_FILTER_TIMED_OUT_TEMPLATE = DYNAMIC_FILTER_TIMED_OUT + "[%s]";
     private static final String DYNAMIC_FILTER_DOMAIN_RANGE_COUNT_TEMPLATE = DYNAMIC_FILTER_DOMAIN_RANGE_COUNT + "[%s]";
     private static final Duration DEFAULT_TIMEOUT = new Duration(2, TimeUnit.SECONDS);
     private static final long DEFAULT_MAX_SIZE_BYTES = 1_048_576L; // 1 MB
-
-    private static final TaskId TASK_0 = TaskId.valueOf("query.0.0.0.0");
-    private static final TaskId TASK_1 = TaskId.valueOf("query.0.0.1.0");
-    private static final TaskId TASK_2 = TaskId.valueOf("query.0.0.2.0");
 
     @Test
     public void testPerFilterMetrics()
@@ -142,25 +146,27 @@ public class TestJoinDynamicFilter
 
     @Test
     public void testTimeoutDoesNotResolveFilter()
-            throws Exception
     {
         RuntimeStats runtimeStats = new RuntimeStats();
+        ManualScheduler scheduler = new ManualScheduler();
 
         JoinDynamicFilter filter = new JoinDynamicFilter(
                 "549",
                 "col_a",
                 new Duration(100, TimeUnit.MILLISECONDS),
+                0,
                 DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
                 runtimeStats,
-                false);
+                false,
+                scheduler);
         filter.setExpectedPartitions(2);
 
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
                 ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
 
         filter.startTimeout();
-        Thread.sleep(300);
+        scheduler.tick();
 
         // Future is done (timeout) but filter is NOT fully resolved
         assertFalse(filter.isComplete(), "Timeout should not mark filter as complete");
@@ -845,7 +851,6 @@ public class TestJoinDynamicFilter
     }
 
     // BEGIN ADAPTIVE-WAIT TESTS
-    private static final Duration ADAPTIVE_CYCLE = new Duration(500, TimeUnit.MILLISECONDS);
 
     /**
      * Positive: contributions arrive across two cycles; the first cycle's tick sees
@@ -854,34 +859,34 @@ public class TestJoinDynamicFilter
      */
     @Test
     public void testAdaptiveExtensionAllowsLateArrivalToResolve()
-            throws Exception
     {
         RuntimeStats runtimeStats = new RuntimeStats();
+        ManualScheduler scheduler = new ManualScheduler();
         JoinDynamicFilter filter = new JoinDynamicFilter(
                 "549",
                 "col_a",
-                ADAPTIVE_CYCLE,
+                new Duration(500, TimeUnit.MILLISECONDS),
                 2,  // maxWaitExtensions
                 DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
                 runtimeStats,
-                true);
+                true,
+                scheduler);
         filter.setExpectedPartitions(3);
 
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
                 ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
         filter.startTimeout();
 
-        // Well before the first tick: add a second contribution so the tick observes
-        // progress (size went 1 -> 2 vs. baseline of 1) and extends.
-        Thread.sleep(150);
+        // Add a second contribution so the tick observes progress and extends.
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
                 ImmutableMap.of("549", Domain.singleValue(INTEGER, 20L))));
 
-        // Wait for the first tick to fire and consume one extension, then deliver the
-        // third contribution. tryCompleteResolution on this add will resolve the filter
-        // synchronously since the extension is still in flight.
-        Thread.sleep(ADAPTIVE_CYCLE.toMillis());
+        // First tick — sees progress (1→2 vs. baseline 1), grants one extension.
+        scheduler.tick();
+        assertFalse(filter.isComplete(), "Should not be complete yet — extension granted");
+
+        // Third contribution arrives; tryCompleteResolution resolves synchronously.
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
                 ImmutableMap.of("549", Domain.singleValue(INTEGER, 30L))));
 
@@ -897,27 +902,27 @@ public class TestJoinDynamicFilter
      */
     @Test
     public void testNoProgressFinalizesAtFirstCycle()
-            throws Exception
     {
         RuntimeStats runtimeStats = new RuntimeStats();
+        ManualScheduler scheduler = new ManualScheduler();
         JoinDynamicFilter filter = new JoinDynamicFilter(
                 "549",
                 "col_a",
-                ADAPTIVE_CYCLE,
+                new Duration(500, TimeUnit.MILLISECONDS),
                 3,  // maxWaitExtensions — should NOT be consumed when no progress
                 DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
                 runtimeStats,
-                true);
+                true,
+                scheduler);
         filter.setExpectedPartitions(3);
 
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
                 ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
         filter.startTimeout();
 
-        // Wait one cycle plus a buffer; with the startTimeout baseline in place the
-        // first tick observes zero progress and finalizes — no extension consumed.
-        Thread.sleep(ADAPTIVE_CYCLE.toMillis() + 80);
+        // First tick observes zero new progress (baseline was set at startTimeout) — finalizes.
+        scheduler.tick();
 
         assertFalse(filter.isComplete(), "Should not resolve without enough contributions");
         assertEquals(filter.getCurrentConstraintByColumnName(), TupleDomain.all(),
@@ -927,35 +932,33 @@ public class TestJoinDynamicFilter
     }
 
     /**
-     * Cap: contributions trickle in every cycle but never reach the expected count.
-     * The filter must finalize after exactly (1 + maxWaitExtensions) cycles.
+     * Cap: contributions trickle in every tick but never reach the expected count.
+     * The filter must finalize after exactly (1 + maxWaitExtensions) ticks.
      */
     @Test
     public void testExtensionsCappedByMaxWaitExtensions()
-            throws Exception
     {
         RuntimeStats runtimeStats = new RuntimeStats();
+        ManualScheduler scheduler = new ManualScheduler();
         JoinDynamicFilter filter = new JoinDynamicFilter(
                 "549",
                 "col_a",
-                ADAPTIVE_CYCLE,
+                new Duration(500, TimeUnit.MILLISECONDS),
                 2,  // maxWaitExtensions
                 DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
                 runtimeStats,
-                true);
+                true,
+                scheduler);
         filter.setExpectedPartitions(100);
         filter.startTimeout();
 
-        // Trickle one contribution per cycle for more cycles than the cap permits.
-        // After (1 + 2) = 3 cycles the filter must finalize even though contributions
-        // are still arriving.
-        for (int i = 0; i < 6; i++) {
-            Thread.sleep(ADAPTIVE_CYCLE.toMillis() / 2);
+        // Trickle one contribution per tick; after (1 + 2) = 3 ticks the cap fires.
+        for (int i = 0; i < 3; i++) {
             filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
                     ImmutableMap.of("549", Domain.singleValue(INTEGER, (long) i))));
+            scheduler.tick();
         }
-        Thread.sleep(50);
 
         assertFalse(filter.isComplete(), "Cap should fire before expectedPartitions reached");
         assertEquals(filter.getCurrentConstraintByColumnName(), TupleDomain.all(),
@@ -965,22 +968,23 @@ public class TestJoinDynamicFilter
     /**
      * Correctness: with adaptive extension enabled, the future is completed with
      * all() on timeout and isComplete() / getCurrentConstraintByColumnName() preserve
-     * the 6c07185b guarantee (no partial constraint exposed).
+     * the all-or-nothing contract (no partial constraint exposed).
      */
     @Test
     public void testAdaptiveTimeoutPreservesAllOrNothingContract()
-            throws Exception
     {
         RuntimeStats runtimeStats = new RuntimeStats();
+        ManualScheduler scheduler = new ManualScheduler();
         JoinDynamicFilter filter = new JoinDynamicFilter(
                 "549",
                 "col_a",
-                ADAPTIVE_CYCLE,
+                new Duration(500, TimeUnit.MILLISECONDS),
                 3,  // maxWaitExtensions
                 DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
                 runtimeStats,
-                false);  // extendedMetrics off — exercise the non-diagnostic path
+                false,  // extendedMetrics off — exercise the non-diagnostic path
+                scheduler);
         filter.setExpectedPartitions(4);
 
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
@@ -989,9 +993,10 @@ public class TestJoinDynamicFilter
                 ImmutableMap.of("549", Domain.singleValue(INTEGER, 20L))));
         filter.startTimeout();
 
-        // No further contributions. After capped finalize, partial union (10, 20)
-        // must NOT leak to callers; getCurrentConstraintByColumnName stays all().
-        Thread.sleep(ADAPTIVE_CYCLE.toMillis() * (1 + 3) + 80);
+        // No further contributions — tick through all extensions to exhaust the cap.
+        // Each tick sees no new progress after the first one (count stays at 2).
+        scheduler.tick(); // tick 1: progress baseline was 2, current is 2 → no progress → finalize
+        // (With maxWaitExtensions=3 and no progress, the first tick should finalize immediately)
 
         assertFalse(filter.isComplete(),
                 "Filter must remain incomplete after timeout despite partial contributions");
@@ -1010,4 +1015,133 @@ public class TestJoinDynamicFilter
         assertEquals(filter.getCurrentConstraintByColumnName(), TupleDomain.all());
     }
     // END ADAPTIVE-WAIT TESTS
+
+    /**
+     * A deterministic {@link ScheduledExecutorService} for tests: captures the most
+     * recently scheduled runnable and fires it synchronously on {@link #tick()}.
+     * Replaces {@code Thread.sleep} in adaptive-wait tests.
+     */
+    private static final class ManualScheduler
+            implements ScheduledExecutorService
+    {
+        private final AtomicReference<Runnable> pending = new AtomicReference<>();
+        private final ScheduledExecutorService delegate = Executors.newSingleThreadScheduledExecutor();
+
+        /** Fire the most recently scheduled runnable synchronously. */
+        public void tick()
+        {
+            Runnable task = pending.getAndSet(null);
+            if (task != null) {
+                task.run();
+            }
+        }
+
+        @Override
+        public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit)
+        {
+            pending.set(command);
+            return delegate.schedule(() -> {}, 0, TimeUnit.MILLISECONDS);
+        }
+
+        @Override
+        public <V> ScheduledFuture<V> schedule(java.util.concurrent.Callable<V> callable, long delay, TimeUnit unit)
+        {
+            return delegate.schedule(callable, 0, TimeUnit.MILLISECONDS);
+        }
+
+        @Override
+        public ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit)
+        {
+            return delegate.scheduleAtFixedRate(command, 0, period, unit);
+        }
+
+        @Override
+        public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit)
+        {
+            return delegate.scheduleWithFixedDelay(command, 0, delay, unit);
+        }
+
+        @Override
+        public void shutdown()
+        {
+            delegate.shutdown();
+        }
+
+        @Override
+        public List<Runnable> shutdownNow()
+        {
+            return delegate.shutdownNow();
+        }
+
+        @Override
+        public boolean isShutdown()
+        {
+            return delegate.isShutdown();
+        }
+
+        @Override
+        public boolean isTerminated()
+        {
+            return delegate.isTerminated();
+        }
+
+        @Override
+        public boolean awaitTermination(long timeout, TimeUnit unit)
+                throws InterruptedException
+        {
+            return delegate.awaitTermination(timeout, unit);
+        }
+
+        @Override
+        public <T> Future<T> submit(Callable<T> task)
+        {
+            return delegate.submit(task);
+        }
+
+        @Override
+        public <T> Future<T> submit(Runnable task, T result)
+        {
+            return delegate.submit(task, result);
+        }
+
+        @Override
+        public Future<?> submit(Runnable task)
+        {
+            return delegate.submit(task);
+        }
+
+        @Override
+        public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks)
+                throws InterruptedException
+        {
+            return delegate.invokeAll(tasks);
+        }
+
+        @Override
+        public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit)
+                throws InterruptedException
+        {
+            return delegate.invokeAll(tasks, timeout, unit);
+        }
+
+        @Override
+        public <T> T invokeAny(Collection<? extends Callable<T>> tasks)
+                throws InterruptedException, ExecutionException
+        {
+            return delegate.invokeAny(tasks);
+        }
+
+        @Override
+        public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit)
+                throws InterruptedException, ExecutionException, TimeoutException
+        {
+            return delegate.invokeAny(tasks, timeout, unit);
+        }
+
+        @Override
+        public void execute(Runnable command)
+        {
+            delegate.execute(command);
+        }
+    }
 }

@@ -24,8 +24,20 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A {@link RuntimeFilter} backed by a {@link TupleDomain}.
+ *
+ * <p>Each instance targets exactly one join column: the underlying domain is either
+ * {@code all()}, {@code none()}, or contains exactly one column entry keyed by the
+ * filter ID string. {@link #toTupleDomain(String, Type)} re-keys that single entry
+ * to the probe column name for use by the connector.
+ *
+ * <p>Wire form: serialized as a bare {@code TupleDomain} (no {@code @kind} field)
+ * for back-compat with older coordinators; deserialized by {@link RuntimeFilterDeserializer}.
+ */
 public class DomainRuntimeFilter
         implements RuntimeFilter
 {
@@ -56,13 +68,12 @@ public class DomainRuntimeFilter
     @Override
     public TupleDomain<String> toTupleDomain(String column, Type type)
     {
-        if (column.isEmpty() || domain.isAll() || domain.isNone() || !domain.getDomains().isPresent()) {
+        if (column.isEmpty() || domain.isAll() || domain.isNone()) {
             return domain;
         }
         Map<String, Domain> domains = domain.getDomains().get();
-        if (domains.size() != 1) {
-            return domain;
-        }
+        checkArgument(domains.size() == 1,
+                "Expected single-column domain but got %s columns: %s", domains.size(), domains.keySet());
         Domain single = domains.values().iterator().next();
         return TupleDomain.withColumnDomains(ImmutableMap.of(column, single));
     }
@@ -82,7 +93,7 @@ public class DomainRuntimeFilter
     @Override
     public long estimatedRetainedSizeInBytes()
     {
-        if (domain.isNone() || domain.isAll() || !domain.getDomains().isPresent()) {
+        if (domain.isNone() || domain.isAll()) {
             return 0;
         }
         long totalSize = 0;

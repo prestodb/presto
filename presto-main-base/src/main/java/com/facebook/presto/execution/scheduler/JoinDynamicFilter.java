@@ -22,9 +22,9 @@ import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.connector.DynamicFilter;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,7 +52,26 @@ import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-// Does not implement DynamicFilter; the SPI-facing wrapper is TableScanDynamicFilter.
+/**
+ * Collects per-partition {@link RuntimeFilter} contributions from build-side tasks for a
+ * single join dynamic filter, merges them on completion, and exposes the result as a
+ * {@link TupleDomain} keyed by probe column name.
+ *
+ * <p>Each {@code JoinDynamicFilter} targets exactly one join column ({@code columnName})
+ * and one filter ID ({@code filterId}). It accumulates one {@link RuntimeFilter} per
+ * build partition via {@link #addPartitionByFilterId}. When all {@code expectedPartitions}
+ * have arrived, the contributions are union-merged and, if the result exceeds
+ * {@code maxSizeInBytes}, collapsed to a min/max range.
+ *
+ * <p>An adaptive timeout fires after {@code waitTimeout}; if new contributions arrived
+ * since the last tick, up to {@code maxWaitExtensions} additional cycles are granted.
+ * On expiry the future completes with {@code TupleDomain.all()} so the probe side
+ * can proceed without a filter.
+ *
+ * <p>This class does not implement {@link com.facebook.presto.spi.connector.DynamicFilter}
+ * directly. The SPI-facing wrapper is {@link TableScanDynamicFilter}, which intersects
+ * one or more {@code JoinDynamicFilter}s and exposes them to the connector split source.
+ */
 @ThreadSafe
 public class JoinDynamicFilter
 {
@@ -310,9 +329,9 @@ public class JoinDynamicFilter
             return;
         }
         Map<String, Domain> domains = tupleDomain.getDomains().get();
-        if (domains.size() != 1) {
-            return;
-        }
+        verify(domains.size() == 1,
+                "Expected single-column domain in maybeShortCircuit but got %s columns: %s",
+                domains.size(), domains.keySet());
         Domain filterDomain = domains.values().iterator().next();
         if (filterDomain.contains(probeColumnDomain)) {
             mergedConstraint = new DomainRuntimeFilter(TupleDomain.all());
@@ -391,7 +410,7 @@ public class JoinDynamicFilter
     {
         constraintByFilterIdFuture.whenComplete((filter, throwable) -> {
             if (fullyResolved && throwable == null) {
-                callback.accept(filterId, new DomainRuntimeFilter(getCurrentConstraintByColumnName()));
+                callback.accept(filterId, filter);
             }
         });
     }
