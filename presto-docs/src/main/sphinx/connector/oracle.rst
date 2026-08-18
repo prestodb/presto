@@ -170,9 +170,9 @@ that catalog name instead of ``oracle`` in the above examples.
 Type mapping
 ------------
 
-PrestoDB and Oracle each support types that the other does not. When reading from Oracle, Presto converts
-the data types from Oracle to equivalent Presto data types.
-Refer to the following section for type mapping in each direction.
+PrestoDB and Oracle each support types that the other does not. When reading from or writing to Oracle, Presto converts
+the data types from Oracle to equivalent Presto data types, and from Presto to equivalent Oracle data types.
+Refer to the following sections for type mapping in each direction.
 
 Oracle to PrestoDB type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -180,18 +180,63 @@ Oracle to PrestoDB type mapping
 The connector maps Oracle types to the corresponding PrestoDB types:
 
 .. list-table:: Oracle to PrestoDB type mapping
+  :widths: 50, 50
   :header-rows: 1
 
   * - Oracle type
     - PrestoDB type
+  * - ``SMALLINT``
+    - ``SMALLINT``
+  * - ``FLOAT``, ``DOUBLE``, ``BINARY_DOUBLE``
+    - ``DOUBLE``
+  * - ``REAL``, ``BINARY_FLOAT``
+    - ``REAL``
+  * - ``NUMERIC`` (scale 0)
+    - ``BIGINT``
+  * - ``NUMERIC`` (scale > 0)
+    - ``DECIMAL(p, s)``
+  * - ``VARCHAR``, ``LONGVARCHAR``, ``CLOB``, ``NCLOB``
+    - ``VARCHAR``
   * - ``BLOB``
     - ``VARBINARY``
-  * - ``BINARY_FLOAT``
-    - ``REAL``
+  * - ``DATE``, ``TIMESTAMP``
+    - ``TIMESTAMP``
+
+No other types are supported.
+
+PrestoDB to Oracle type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps PrestoDB types to the corresponding Oracle types:
+
+.. list-table:: PrestoDB to Oracle type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - PrestoDB type
+    - Oracle type
+  * - ``BOOLEAN``
+    - ``NUMBER(1)``
+  * - ``INTEGER``
+    - ``NUMBER(10)``
+  * - ``BIGINT``
+    - ``NUMBER(19)``
   * - ``REAL``
-    - ``REAL``
-  * - ``BINARY_DOUBLE``
-    - ``DOUBLE``
+    - ``BINARY_FLOAT``
+  * - ``DOUBLE``
+    - ``BINARY_DOUBLE``
+  * - ``DECIMAL(p, s)``
+    - ``NUMBER(p, s)``
+  * - ``CHAR(n)``
+    - ``CHAR(n)`` or ``CLOB``
+  * - ``VARCHAR(n)``
+    - ``VARCHAR2(n CHAR)`` or ``NCLOB``
+  * - ``DATE``
+    - ``DATE``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP``
+
+No other types are supported.
 
 Oracle Connector Limitations
 ----------------------------
