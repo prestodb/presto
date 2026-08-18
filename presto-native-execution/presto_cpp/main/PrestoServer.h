@@ -370,7 +370,8 @@ class PrestoServer {
   // 'update_gpu_status' task (updateGpuStatusCache) and read by
   // fetchNodeStatus(). This keeps the synchronous CUDA/NVML probes off the
   // heartbeat path: fetchNodeStatus() feeds the RM heartbeat, and a stalled
-  // probe there can get the worker declared dead. -1 = unavailable.
+  // probe there can get the worker declared dead. -1 = unavailable, which each
+  // sampling pass rewrites on probe failure rather than leaving a stale value.
   std::atomic<int64_t> gpuMemoryUsedBytes_{-1};
   std::atomic<int64_t> gpuMemoryCapacityBytes_{-1};
   std::atomic<int64_t> gpuUtilizationPercent_{-1};
