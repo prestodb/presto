@@ -45,7 +45,7 @@ import static java.util.Objects.requireNonNull;
 public class MapSelectiveStreamReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapSelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(MapSelectiveStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
     private final MapDirectSelectiveStreamReader directReader;

@@ -42,7 +42,7 @@ import static java.lang.String.format;
 public class Int128ArrayBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int128ArrayBlock.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Int128ArrayBlock.class).instanceSize();
     public static final int INT128_BYTES = Long.BYTES + Long.BYTES;
     public static final int SIZE_IN_BYTES_PER_POSITION = INT128_BYTES + Byte.BYTES;
 

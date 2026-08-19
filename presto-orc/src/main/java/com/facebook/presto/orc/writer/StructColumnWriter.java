@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public class StructColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructColumnWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(StructColumnWriter.class).instanceSize();
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
 
     private final int column;

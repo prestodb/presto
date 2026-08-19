@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 class ArrayOfRowsUnnester
         implements Unnester
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayOfRowsUnnester.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ArrayOfRowsUnnester.class).instanceSize();
 
     private final int fieldCount;
     private final UnnestBlockBuilder[] unnestBlockBuilders;

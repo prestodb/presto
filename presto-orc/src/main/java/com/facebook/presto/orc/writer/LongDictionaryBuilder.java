@@ -24,7 +24,7 @@ import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 
 public class LongDictionaryBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDictionaryBuilder.class).instanceSize() + ClassLayout.parseClass(LongArrayList.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongDictionaryBuilder.class).instanceSize() + ClassLayout.parseClass(LongArrayList.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
     private static final int EMPTY_SLOT = -1;
 
