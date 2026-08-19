@@ -307,6 +307,38 @@ velox::connector::hive::iceberg::IcebergFieldMetadata toIcebergFieldMetadata(
   }
   return metadata;
 }
+
+// Converts the protocol's existing-deletion-vector map (data-file path -> DV
+// descriptor) into the Velox handle's ExistingDeletionVector map so the
+// deletion-vector sink can seed a new DV with the prior DV's positions on a
+// repeated V3 mutation. Empty for INSERT and first-time mutations.
+std::unordered_map<
+    std::string,
+    velox::connector::hive::iceberg::IcebergInsertTableHandle::
+        ExistingDeletionVector>
+toExistingDeletionVectors(
+    const std::map<std::string, protocol::iceberg::DeleteFile>&
+        protocolDeletionVectors) {
+  std::unordered_map<
+      std::string,
+      velox::connector::hive::iceberg::IcebergInsertTableHandle::
+          ExistingDeletionVector>
+      result;
+  result.reserve(protocolDeletionVectors.size());
+  for (const auto& [dataFile, deleteFile] : protocolDeletionVectors) {
+    velox::connector::hive::iceberg::IcebergInsertTableHandle::
+        ExistingDeletionVector descriptor;
+    descriptor.puffinPath = deleteFile.path;
+    descriptor.contentOffset =
+        deleteFile.contentOffset ? *deleteFile.contentOffset : 0;
+    descriptor.contentLength =
+        deleteFile.contentSizeInBytes ? *deleteFile.contentSizeInBytes : 0;
+    descriptor.recordCount = deleteFile.recordCount;
+    descriptor.fileSizeInBytes = deleteFile.fileSizeInBytes;
+    result.emplace(dataFile, std::move(descriptor));
+  }
+  return result;
+}
 } // namespace
 
 std::unique_ptr<velox::connector::ConnectorSplit>
@@ -452,6 +484,8 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) const {
+  VELOX_CHECK_NOT_NULL(
+      tableHandle.connectorTableLayout, "Missing table layout");
   auto icebergLayout = std::dynamic_pointer_cast<
       const protocol::iceberg::IcebergTableLayoutHandle>(
       tableHandle.connectorTableLayout);
@@ -646,7 +680,11 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       std::optional(
           toFileCompressionKind(icebergDeleteTableHandle->compressionCodec)),
       /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
-      writeKind);
+      writeKind,
+      toExistingDeletionVectors(
+          icebergDeleteTableHandle->existingDeletionVectors
+              ? *icebergDeleteTableHandle->existingDeletionVectors
+              : std::map<std::string, protocol::iceberg::DeleteFile>{}));
 }
 
 std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
@@ -700,7 +738,8 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       std::optional(toFileCompressionKind(innerInsert.compressionCodec)),
       std::unordered_map<std::string, std::string>{},
       velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
-          kMerge);
+          kMerge,
+      toExistingDeletionVectors(innerInsert.existingDeletionVectors));
 }
 
 } // namespace facebook::presto

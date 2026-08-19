@@ -842,3 +842,37 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitTranslatesDeletionVectorDelete) {
   EXPECT_EQ(deleteFile.contentLength, 64);
   EXPECT_EQ(deleteFile.referencedDataFile, "/path/to/data/file.dwrf");
 }
+
+TEST_F(PrestoToVeloxConnectorTest, hiveTableHandleWithMissingLayout) {
+  auto hiveHandle = std::make_shared<protocol::hive::HiveTableHandle>();
+  hiveHandle->schemaName = "test_schema";
+  hiveHandle->tableName = "test_table";
+
+  protocol::TableHandle tableHandle;
+  tableHandle.connectorId = "hive";
+  tableHandle.connectorHandle = hiveHandle;
+  // 'connectorTableLayout' is deliberately left unset.
+
+  const HivePrestoToVeloxConnector hiveConnector("hive");
+  VELOX_ASSERT_THROW(
+      hiveConnector.toVeloxTableHandle(
+          tableHandle, *exprConverter_, *typeParser_),
+      "Missing table layout");
+}
+
+TEST_F(PrestoToVeloxConnectorTest, icebergTableHandleWithMissingLayout) {
+  auto icebergHandle =
+      std::make_shared<protocol::iceberg::IcebergTableHandle>();
+  icebergHandle->schemaName = "test_schema";
+
+  protocol::TableHandle tableHandle;
+  tableHandle.connectorId = "iceberg";
+  tableHandle.connectorHandle = icebergHandle;
+  // 'connectorTableLayout' is deliberately left unset.
+
+  const IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  VELOX_ASSERT_THROW(
+      icebergConnector.toVeloxTableHandle(
+          tableHandle, *exprConverter_, *typeParser_),
+      "Missing table layout");
+}

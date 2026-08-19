@@ -103,6 +103,19 @@ public class TestFunctionResolution
     }
 
     @Test
+    public void testIsWindowValueFunction()
+    {
+        assertTrue(functionResolution.isWindowValueFunction(functionResolution.lookupBuiltInFunction("lead", ImmutableList.of(BIGINT))));
+        assertTrue(functionResolution.isWindowValueFunction(functionResolution.lookupBuiltInFunction("lag", ImmutableList.of(BIGINT))));
+        assertTrue(functionResolution.isWindowValueFunction(functionResolution.lookupBuiltInFunction("first_value", ImmutableList.of(BIGINT))));
+        assertTrue(functionResolution.isWindowValueFunction(functionResolution.lookupBuiltInFunction("last_value", ImmutableList.of(BIGINT))));
+        assertTrue(functionResolution.isWindowValueFunction(functionResolution.lookupBuiltInFunction("nth_value", ImmutableList.of(BIGINT, BIGINT))));
+
+        assertFalse(functionResolution.isWindowValueFunction(functionResolution.lookupBuiltInFunction("rank", ImmutableList.of())));
+        assertFalse(functionResolution.isWindowValueFunction(functionResolution.lookupBuiltInFunction("sum", ImmutableList.of(BIGINT))));
+    }
+
+    @Test
     public void testLookupFunctionWithNonDefaultSchemaAndCatalog()
     {
         StandardFunctionResolution standardFunctionResolution = functionResolution;

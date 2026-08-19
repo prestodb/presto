@@ -61,7 +61,9 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.table.Argument;
@@ -120,6 +122,7 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
+import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
@@ -269,6 +272,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.CallTask.extractParameterValuesInOrder;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
@@ -403,6 +407,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
@@ -413,6 +418,14 @@ class StatementAnalyzer
 {
     private static final Logger log = Logger.get(StatementAnalyzer.class);
     private static final int UNION_DISTINCT_FIELDS_WARNING_THRESHOLD = 3;
+    // Time functions are deterministic within a query but vary across refreshes, so they are disallowed in MV definitions
+    private static final Set<QualifiedObjectName> SESSION_TIME_FUNCTIONS = ImmutableSet.of(
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "now"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "current_timestamp"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "current_date"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "current_time"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "localtime"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "localtimestamp"));
     private final Analysis analysis;
     private final Metadata metadata;
     private final FunctionAndTypeResolver functionAndTypeResolver;
@@ -614,7 +627,7 @@ class StatementAnalyzer
                     node = rows.get(0);
                     if (node instanceof Row) {
                         int columnIndex = Math.min(i, queryColumnTypes.size() - 1);
-                        node = ((Row) rows.get(0)).getItems().get(columnIndex);
+                        node = ((Row) rows.get(0)).getFields().get(columnIndex).getExpression();
                     }
                 }
                 if (i == expectedColumns.size()) {
@@ -896,7 +909,45 @@ class StatementAnalyzer
 
             validateBaseTables(analysis.getTableNodes(), node);
 
+            validateDeterministicFunctionsInMV(node);
+
             return createAndAssignScope(node, scope);
+        }
+
+        private void validateDeterministicFunctionsInMV(CreateMaterializedView node)
+        {
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+            // now()/current_timestamp() are FunctionCalls; CURRENT_TIMESTAMP/CURRENT_DATE parse as CurrentTime nodes
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitFunctionCall(FunctionCall functionCall, Void context)
+                {
+                    FunctionHandle functionHandle = analysis.getFunctionHandle(functionCall);
+                    if (functionHandle != null) {
+                        FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(functionHandle);
+                        if (!functionMetadata.isDeterministic() || SESSION_TIME_FUNCTIONS.contains(functionMetadata.getName())) {
+                            throw rejectNonDeterministicInMV(functionCall, functionCall.getName().toString());
+                        }
+                    }
+                    return super.visitFunctionCall(functionCall, context);
+                }
+
+                @Override
+                protected Void visitCurrentTime(CurrentTime currentTime, Void context)
+                {
+                    throw rejectNonDeterministicInMV(currentTime, currentTime.getFunction().getName());
+                }
+            }.process(node.getQuery(), null);
+        }
+
+        private SemanticException rejectNonDeterministicInMV(Node node, String functionName)
+        {
+            return new SemanticException(
+                    NOT_SUPPORTED,
+                    node,
+                    "Non-deterministic function '%s' is not allowed in a materialized view definition",
+                    functionName);
         }
 
         @Override
@@ -3983,13 +4034,16 @@ class StatementAnalyzer
         {
             checkState(node.getRows().size() >= 1);
 
-            List<List<Type>> rowTypes = node.getRows().stream()
+            List<Type> analyzedRowTypes = node.getRows().stream()
                     .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
+                    .collect(toImmutableList());
+
+            List<List<Type>> rowTypes = analyzedRowTypes.stream()
                     .map(type -> {
                         if (type instanceof RowType) {
                             return type.getTypeParameters();
                         }
-                        return ImmutableList.of(type);
+                        return ImmutableList.<Type>of(type);
                     })
                     .collect(toImmutableList());
 
@@ -4021,13 +4075,33 @@ class StatementAnalyzer
                 }
             }
 
+            // A field name declared consistently by every row becomes the relation's column name.
+            // Merged separately from the types so that the type merge stays a per-field scalar
+            // operation: merging whole RowTypes instead would build a RowType, and with it a
+            // TypeSignature, for every row of the VALUES.
+            List<Optional<String>> fieldNames = new ArrayList<>(nCopies(fieldTypes.size(), Optional.empty()));
+            boolean firstRow = true;
+            for (Type type : analyzedRowTypes) {
+                List<RowType.Field> rowFields = type instanceof RowType ? ((RowType) type).getFields() : null;
+                for (int i = 0; i < fieldTypes.size(); i++) {
+                    Optional<String> name = rowFields == null ? Optional.empty() : rowFields.get(i).getName();
+                    if (firstRow) {
+                        fieldNames.set(i, name);
+                    }
+                    else if (!fieldNames.get(i).equals(name)) {
+                        fieldNames.set(i, Optional.empty());
+                    }
+                }
+                firstRow = false;
+            }
+
             // add coercions for the rows
             for (Expression row : node.getRows()) {
                 if (row instanceof Row) {
-                    List<Expression> items = ((Row) row).getItems();
-                    for (int i = 0; i < items.size(); i++) {
+                    List<Row.Field> rowFields = ((Row) row).getFields();
+                    for (int i = 0; i < rowFields.size(); i++) {
                         Type expectedType = fieldTypes.get(i);
-                        Expression item = items.get(i);
+                        Expression item = rowFields.get(i).getExpression();
                         Type actualType = analysis.getType(item);
                         if (!actualType.equals(expectedType)) {
                             analysis.addCoercion(item, expectedType, functionAndTypeResolver.isTypeOnlyCoercion(actualType, expectedType));
@@ -4043,9 +4117,11 @@ class StatementAnalyzer
                 }
             }
 
-            List<Field> fields = fieldTypes.stream()
-                    .map(valueType -> Field.newUnqualified(node.getLocation(), Optional.empty(), valueType))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
+            for (int i = 0; i < fieldTypes.size(); i++) {
+                fieldsBuilder.add(Field.newUnqualified(node.getLocation(), fieldNames.get(i), fieldTypes.get(i)));
+            }
+            List<Field> fields = fieldsBuilder.build();
 
             return createAndAssignScope(node, scope, fields);
         }
@@ -5156,6 +5232,7 @@ class StatementAnalyzer
         {
             Session.SessionBuilder viewSessionBuilder = Session.builder(metadata.getSessionPropertyManager())
                     .setQueryId(session.getQueryId())
+                    .setRuntimeStats(session.getRuntimeStats())
                     .setTransactionId(session.getTransactionId().orElse(null))
                     .setIdentity(identity)
                     .setSource(session.getSource().orElse(null))

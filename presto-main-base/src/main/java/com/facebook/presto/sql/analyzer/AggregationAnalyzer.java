@@ -62,7 +62,6 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
-import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
@@ -279,13 +278,6 @@ class AggregationAnalyzer
         protected Boolean visitNullIfExpression(NullIfExpression node, Void context)
         {
             return process(node.getFirst(), context) && process(node.getSecond(), context);
-        }
-
-        @Override
-        protected Boolean visitTrim(Trim node, Void context)
-        {
-            return process(node.getTrimSource(), context)
-                    && (!node.getTrimCharacter().isPresent() || process(node.getTrimCharacter().get(), context));
         }
 
         @Override
@@ -676,8 +668,15 @@ class AggregationAnalyzer
         @Override
         public Boolean visitRow(Row node, final Void context)
         {
-            return node.getItems().stream()
-                    .allMatch(item -> process(item, context));
+            return node.getFields().stream()
+                    .allMatch(field -> process(field, context));
+        }
+
+        @Override
+        public Boolean visitRowField(Row.Field node, final Void context)
+        {
+            // A declared field name is not a reference, so only the value expression is checked.
+            return process(node.getExpression(), context);
         }
 
         @Override

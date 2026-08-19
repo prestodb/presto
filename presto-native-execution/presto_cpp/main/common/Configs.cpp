@@ -139,6 +139,7 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kPrestoVersion),
           NONE_PROP(kHttpServerHttpPort),
           BOOL_PROP(kHttpServerReusePort, false),
+          BOOL_PROP(kHttpServerReportBoundPortToFile, false),
           BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, false),
           NONE_PROP(kDiscoveryUri),
           NUM_PROP(kMaxDriversPerTask, hardwareConcurrency()),
@@ -243,12 +244,18 @@ SystemConfig::SystemConfig() {
           NUM_PROP(
               kExchangeMaterializationOutputBufferPerPartitionMaxBytes,
               130L * 1024),
+          NUM_PROP(kExchangeMaterializationOutputBufferHighWatermarkRatio, 0.9),
+          NUM_PROP(kExchangeMaterializationOutputBufferLowWatermarkRatio, 0.7),
+          NUM_PROP(
+              kExchangeMaterializationOutputBufferDrainChunkMultiplier, 2.0),
           NUM_PROP(kExchangeMaterializationReclaimDrainThresholdRatio, 0.67),
+          BOOL_PROP(kExchangeMaterializationUseZeroCopyCollect, true),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
           BOOL_PROP(kHttpEnableAccessLog, false),
           BOOL_PROP(kHttpEnableStatsFilter, false),
           BOOL_PROP(kHttpEnableEndpointLatencyFilter, false),
+          BOOL_PROP(kHttpEnableRequestSizeHistogram, false),
           NUM_PROP(kHttpMaxAllocateBytes, 65536),
           STR_PROP(kQueryMaxMemoryPerNode, "4GB"),
           BOOL_PROP(kEnableMemoryLeakCheck, true),
@@ -308,7 +315,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kTextReaderEnabled, true),
           BOOL_PROP(kCharNToVarcharImplicitCast, false),
           BOOL_PROP(kEnumTypesEnabled, true),
-          BOOL_PROP(kPlanConsistencyCheckEnabled, false),
+          BOOL_PROP(kPlanConsistencyCheckEnabled, true),
       };
 }
 
@@ -324,6 +331,10 @@ int SystemConfig::httpServerHttpPort() const {
 
 bool SystemConfig::httpServerReusePort() const {
   return optionalProperty<bool>(kHttpServerReusePort).value();
+}
+
+bool SystemConfig::httpServerReportBoundPortToFile() const {
+  return optionalProperty<bool>(kHttpServerReportBoundPortToFile).value();
 }
 
 bool SystemConfig::httpServerBindToNodeInternalAddressOnlyEnabled() const {
@@ -803,6 +814,27 @@ int64_t SystemConfig::exchangeMaterializationOutputBufferPerPartitionMaxBytes()
       .value_or(130L * 1024);
 }
 
+double SystemConfig::exchangeMaterializationOutputBufferHighWatermarkRatio()
+    const {
+  return optionalProperty<double>(
+             kExchangeMaterializationOutputBufferHighWatermarkRatio)
+      .value_or(0.9);
+}
+
+double SystemConfig::exchangeMaterializationOutputBufferLowWatermarkRatio()
+    const {
+  return optionalProperty<double>(
+             kExchangeMaterializationOutputBufferLowWatermarkRatio)
+      .value_or(0.7);
+}
+
+double SystemConfig::exchangeMaterializationOutputBufferDrainChunkMultiplier()
+    const {
+  return optionalProperty<double>(
+             kExchangeMaterializationOutputBufferDrainChunkMultiplier)
+      .value_or(2.0);
+}
+
 double SystemConfig::exchangeMaterializationReclaimDrainThresholdRatio() const {
   return optionalProperty<double>(
              kExchangeMaterializationReclaimDrainThresholdRatio)
@@ -819,6 +851,11 @@ bool SystemConfig::exchangeMaterializationReclaimWaitForWriterDrainEnabled()
 bool SystemConfig::exchangeMaterializationReclaimHighPriority() const {
   return optionalProperty<bool>(kExchangeMaterializationReclaimHighPriority)
       .value_or(false);
+}
+
+bool SystemConfig::exchangeMaterializationUseZeroCopyCollect() const {
+  return optionalProperty<bool>(kExchangeMaterializationUseZeroCopyCollect)
+      .value_or(true);
 }
 
 bool SystemConfig::enableSerializedPageChecksum() const {
@@ -990,6 +1027,10 @@ bool SystemConfig::enableHttpStatsFilter() const {
 
 bool SystemConfig::enableHttpEndpointLatencyFilter() const {
   return optionalProperty<bool>(kHttpEnableEndpointLatencyFilter).value();
+}
+
+bool SystemConfig::enableHttpRequestSizeHistogram() const {
+  return optionalProperty<bool>(kHttpEnableRequestSizeHistogram).value();
 }
 
 uint64_t SystemConfig::httpMaxAllocateBytes() const {

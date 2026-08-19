@@ -17,15 +17,6 @@ public abstract class DefaultTraversalVisitor<R, C>
         extends AstVisitor<R, C>
 {
     @Override
-    protected R visitTrim(Trim node, C context)
-    {
-        process(node.getTrimSource(), context);
-        node.getTrimCharacter().ifPresent(trimChar -> process(trimChar, context));
-
-        return null;
-    }
-
-    @Override
     protected R visitExtract(Extract node, C context)
     {
         return process(node.getExpression(), context);
@@ -382,7 +373,17 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitRow(Row node, C context)
     {
-        node.getItems().forEach(expression -> process(expression, context));
+        node.getFields().forEach(field -> process(field, context));
+        return null;
+    }
+
+    @Override
+    protected R visitRowField(Row.Field node, C context)
+    {
+        // Only the value expression is traversed. A declared field name is a declaration, not a
+        // reference, so visitors that collect identifiers (e.g. FreeLambdaReferenceExtractor,
+        // VariablesExtractor, SubqueryPlanner) must not mistake it for a column reference.
+        process(node.getExpression(), context);
         return null;
     }
 

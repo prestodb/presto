@@ -1088,6 +1088,29 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testRowWithDuplicateFieldNames()
+    {
+        // a row type with duplicate field names cannot be round-tripped through its TypeSignature,
+        // so it has to be rejected during analysis rather than surfacing later
+        assertFails(DUPLICATE_COLUMN_NAME, "SELECT ROW(1 AS a, 2 AS a)");
+        assertFails(DUPLICATE_COLUMN_NAME, "SELECT ROW(1 AS \"a\", 2 AS a)");
+        // undelimited names are folded to lower case, exactly as CAST(... AS ROW(a integer, A integer))
+        // is, so these collide too
+        assertFails(DUPLICATE_COLUMN_NAME, "SELECT ROW(1 AS a, 2 AS A)");
+        // duplicates need not be adjacent
+        assertFails(DUPLICATE_COLUMN_NAME, "SELECT ROW(1 AS a, 2 AS b, 3 AS a)");
+        // and are detected independently in a nested row
+        assertFails(DUPLICATE_COLUMN_NAME, "SELECT ROW(ROW(1 AS a, 2 AS a) AS r)");
+        // a name repeated across nesting levels is not a duplicate
+        analyze("SELECT ROW(ROW(1 AS a) AS a)");
+
+        // a delimited name is kept verbatim, so it does not collide with the folded one
+        analyze("SELECT ROW(1 AS a, 2 AS \"A\")");
+        analyze("SELECT ROW(1 AS a, 2)");
+        analyze("SELECT ROW(1, 2)");
+    }
+
+    @Test
     public void testCaseInsensitiveDuplicateWithQuery()
     {
         assertFails(DUPLICATE_RELATION,
@@ -2584,6 +2607,30 @@ public class TestAnalyzer
     public void testRefreshMaterializedViewRejectsNonLiteralInList()
     {
         assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a IN (a)");
+    }
+
+    @Test
+    public void testCreateMaterializedViewRejectsNonDeterministicFunction()
+    {
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, rand() r FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a FROM t1 WHERE rand() >= 0");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, sum(b * random()) s FROM t1 GROUP BY a");
+    }
+
+    @Test
+    public void testCreateMaterializedViewRejectsSessionTimeFunction()
+    {
+        // now()/current_timestamp() are function calls; CURRENT_TIMESTAMP/CURRENT_DATE are CurrentTime nodes
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, now() ts FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, current_timestamp ts FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, current_date d FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a FROM t1 WHERE current_timestamp IS NOT NULL");
+    }
+
+    @Test
+    public void testCreateMaterializedViewAllowsDeterministicFunction()
+    {
+        analyze("CREATE MATERIALIZED VIEW s1.mv_det AS SELECT a, abs(b) c FROM t1");
     }
 
     private Optional<String> refreshScopePredicate(String query)

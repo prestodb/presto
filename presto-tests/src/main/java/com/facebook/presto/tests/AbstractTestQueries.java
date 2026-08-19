@@ -726,6 +726,51 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowWithFieldNames()
+    {
+        // field names can be declared without repeating the field types
+        assertQuery("SELECT r.a, r.b FROM (SELECT ROW(1 AS a, 'x' AS b) AS r)", "SELECT 1, 'x'");
+
+        // the optional AS may be omitted, as in a SELECT list
+        assertQuery("SELECT r.a FROM (SELECT ROW(1 a) AS r)", "SELECT 1");
+
+        // equivalent to spelling the type out in a CAST
+        assertQuery("SELECT ROW(1 AS a, 2 AS b) = CAST(ROW(1, 2) AS ROW(a integer, b integer))", "SELECT true");
+
+        // rows may be partially named
+        assertQuery("SELECT r.a FROM (SELECT ROW(1 AS a, 2) AS r)", "SELECT 1");
+
+        // named and anonymous rows remain comparable
+        assertQuery("SELECT ROW(1 AS a) = ROW(1)", "SELECT true");
+
+        // field access stays case insensitive, matching CAST(... AS ROW(...))
+        assertQuery("SELECT r.A FROM (SELECT ROW(1 AS a) AS r)", "SELECT 1");
+
+        // declaring a name must produce exactly the same type as spelling it out in a cast:
+        // undelimited names fold to lower case, delimited names are kept verbatim
+        assertQuery("SELECT typeof(ROW(1 AS Abc)) = typeof(CAST(ROW(1) AS ROW(Abc integer)))", "SELECT true");
+        assertQuery("SELECT typeof(ROW(1 AS Abc))", "SELECT 'row(\"abc\" integer)'");
+        assertQuery("SELECT typeof(ROW(1 AS \"Abc\"))", "SELECT 'row(\"Abc\" integer)'");
+
+        // the same equivalence has to hold for the observable JSON rendering
+        assertQuery(
+                "SELECT CAST(ROW(1 AS Abc) AS JSON) = CAST(CAST(ROW(1) AS ROW(Abc integer)) AS JSON)",
+                "SELECT true");
+
+        // VALUES takes its column names from the row field names
+        assertQuery("SELECT a, b FROM (VALUES ROW(1 AS a, 'x' AS b))", "SELECT 1, 'x'");
+        assertQuery("SELECT a FROM (VALUES ROW(1 AS a), ROW(2 AS a))", "SELECT 1 UNION ALL SELECT 2");
+
+        // when rows disagree about a field name, the column stays unnamed.
+        // (?s) is required because some runners, notably Presto on Spark, put the stack trace in
+        // the message and assertQueryFails matches against the whole string.
+        assertQueryFails("SELECT a FROM (VALUES ROW(1 AS a), ROW(2 AS b))", "(?s).*'a' cannot be resolved.*");
+        // the column is still there, just not addressable by name. It cannot be selected as _col0
+        // either: that is only the output label, not an identifier that resolves.
+        assertQuery("SELECT * FROM (VALUES ROW(1 AS a), ROW(2 AS b))", "VALUES 1, 2");
+    }
+
+    @Test
     public void testPullRowLocalChainAboveExchange()
     {
         // Result-equality (enabled vs disabled) over CROSS JOIN UNNEST shapes where a repartitioning
@@ -1781,6 +1826,57 @@ public abstract class AbstractTestQueries
                         "RIGHT JOIN (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation GROUP BY regionkey, nationkey) b " +
                         "  ON r.regionkey = b.regionkey " +
                         "ORDER BY b.regionkey, b.nationkey",
+                // LEFT join, aggregation on the null-supplying (right) side. The filter leaves
+                // regions 2..4 without a match, so the null-extended rows exercise the COALESCE that
+                // keeps an unmatched row alive through the UNNEST.
+                "SELECT r.regionkey, r.name, b.nationkey, b.total " +
+                        "FROM region r " +
+                        "LEFT JOIN (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation " +
+                        "           WHERE regionkey < 2 GROUP BY regionkey, nationkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
+                // RIGHT join, aggregation on the null-supplying (left) side.
+                "SELECT r.regionkey, r.name, b.nationkey, b.total " +
+                        "FROM (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation " +
+                        "      WHERE regionkey < 2 GROUP BY regionkey, nationkey) b " +
+                        "RIGHT JOIN region r " +
+                        "  ON b.regionkey = r.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
+                // LEFT join over a larger source, with unmatched preserved rows and several packed
+                // columns, including one that is NULL for some matched rows.
+                "SELECT o.orderkey, o.custkey, b.shipmode, b.revenue, b.lines " +
+                        "FROM orders o " +
+                        "LEFT JOIN (SELECT orderkey, shipmode, sum(extendedprice) AS revenue, count(*) AS lines " +
+                        "           FROM lineitem WHERE orderkey % 3 = 0 GROUP BY orderkey, shipmode) b " +
+                        "  ON o.orderkey = b.orderkey " +
+                        "WHERE o.orderkey < 1000 " +
+                        "ORDER BY o.orderkey, b.shipmode",
+                // A UNION below the aggregation: PropertyDerivations does not cover UnionNode, so the
+                // union reports unknown properties while the grouping above it still reaches the join.
+                "SELECT r.regionkey, b.nationkey, b.total " +
+                        "FROM region r " +
+                        "JOIN (SELECT regionkey, nationkey, sum(nationkey) AS total " +
+                        "      FROM (SELECT regionkey, nationkey FROM nation WHERE regionkey < 3 " +
+                        "            UNION ALL SELECT regionkey, nationkey FROM nation WHERE regionkey >= 3) u " +
+                        "      GROUP BY regionkey, nationkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
+                // DISTINCT build side: the derived key (regionkey, nationkey) is a strict superset of
+                // the join key, a shape the side's own node type does not reveal.
+                "SELECT r.regionkey, r.name, b.nationkey " +
+                        "FROM region r " +
+                        "JOIN (SELECT DISTINCT regionkey, nationkey FROM nation) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
+                // Fan-out reported by the derived keys rather than by the shape of the collapsed side:
+                // the side is a TopN over an aggregation, and the key (regionkey, nationkey) carried
+                // up through the TopN is a strict superset of the join key regionkey.
+                "SELECT r.regionkey, r.name, b.nationkey, b.total " +
+                        "FROM region r " +
+                        "JOIN (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation " +
+                        "      GROUP BY regionkey, nationkey ORDER BY regionkey, nationkey LIMIT 20) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
                 // Multiple measures and an extra grouping key, larger source (orders/lineitem).
                 "SELECT o.orderkey, o.custkey, b.shipmode, b.revenue, b.lines " +
                         "FROM orders o " +
@@ -1795,13 +1891,14 @@ public abstract class AbstractTestQueries
                         "JOIN (SELECT regionkey, sum(nationkey) AS total FROM nation GROUP BY regionkey) b " +
                         "  ON r.regionkey = b.regionkey " +
                         "ORDER BY r.regionkey",
-                // Nested-join fan-out: the build side is itself an INNER join keyed on
-                // (regionkey, nationkey) — a strict superset of the outer join key (regionkey).
-                "SELECT r.regionkey, r.name, j.nationkey, j.nname " +
+                // The grouping of an aggregation reaches the outer join across an inner join, since an
+                // inner join propagates its probe's local properties.
+                "SELECT r.regionkey, r.name, j.nationkey, j.total " +
                         "FROM region r " +
-                        "JOIN (SELECT n1.regionkey AS regionkey, n1.nationkey AS nationkey, n2.name AS nname " +
-                        "      FROM nation n1 " +
-                        "      JOIN nation n2 ON n1.regionkey = n2.regionkey AND n1.nationkey = n2.nationkey) j " +
+                        "JOIN (SELECT b.regionkey AS regionkey, b.nationkey AS nationkey, b.total AS total " +
+                        "      FROM (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation " +
+                        "            GROUP BY regionkey, nationkey) b " +
+                        "      JOIN nation n2 ON b.regionkey = n2.regionkey AND b.nationkey = n2.nationkey) j " +
                         "  ON r.regionkey = j.regionkey " +
                         "ORDER BY r.regionkey, j.nationkey",
         };

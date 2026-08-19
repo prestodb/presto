@@ -13,7 +13,15 @@
  */
 package com.facebook.presto.lance;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import org.apache.arrow.memory.BufferAllocator;
+import org.lance.namespace.LanceNamespace;
+import org.lance.namespace.model.ListNamespacesRequest;
+import org.lance.namespace.model.ListNamespacesResponse;
+import org.lance.namespace.model.ListTablesRequest;
+import org.lance.namespace.model.ListTablesResponse;
 import org.testng.annotations.Test;
 
 import java.nio.file.Files;
@@ -270,6 +278,123 @@ public class TestLanceNamespaceHolder
         }
         finally {
             deleteRecursively(tempDir);
+        }
+    }
+
+    @Test
+    public void testListTablesFollowsPageTokens()
+    {
+        LanceConfig config = new LanceConfig()
+                .setImpl(PagingNamespace.class.getName())
+                .setSingleLevelNs(false);
+        LanceNamespaceHolder holder = new LanceNamespaceHolder(config, ImmutableMap.of());
+        try {
+            // The namespace serves three tables across two pages; a single unpaged call
+            // would silently return only the first page.
+            assertEquals(holder.listTables("my_schema"), ImmutableList.of("t1", "t2", "t3"));
+        }
+        finally {
+            holder.shutdown();
+        }
+    }
+
+    @Test
+    public void testListSchemaNamesFollowsPageTokens()
+    {
+        LanceConfig config = new LanceConfig()
+                .setImpl(PagingNamespace.class.getName())
+                .setSingleLevelNs(false);
+        LanceNamespaceHolder holder = new LanceNamespaceHolder(config, ImmutableMap.of());
+        try {
+            assertEquals(holder.listSchemaNames(), ImmutableList.of("ns1", "ns2", "ns3"));
+        }
+        finally {
+            holder.shutdown();
+        }
+    }
+
+    @Test(timeOut = 30_000)
+    public void testRepeatedPageTokenTerminates()
+    {
+        LanceConfig config = new LanceConfig()
+                .setImpl(StuckTokenNamespace.class.getName())
+                .setSingleLevelNs(false);
+        LanceNamespaceHolder holder = new LanceNamespaceHolder(config, ImmutableMap.of());
+        try {
+            // A server that keeps echoing the same token must not spin forever.
+            assertEquals(holder.listTables("my_schema"), ImmutableList.of("t1"));
+        }
+        finally {
+            holder.shutdown();
+        }
+    }
+
+    /**
+     * Serves tables and namespaces across two pages, keyed off the incoming page token.
+     */
+    public static class PagingNamespace
+            implements LanceNamespace
+    {
+        @Override
+        public void initialize(Map<String, String> properties, BufferAllocator allocator) {}
+
+        @Override
+        public String namespaceId()
+        {
+            return "paging";
+        }
+
+        @Override
+        public ListTablesResponse listTables(ListTablesRequest request)
+        {
+            ListTablesResponse response = new ListTablesResponse();
+            if (request.getPageToken() == null) {
+                response.setTables(ImmutableSet.of("t1", "t2"));
+                response.setPageToken("page2");
+            }
+            else {
+                response.setTables(ImmutableSet.of("t3"));
+            }
+            return response;
+        }
+
+        @Override
+        public ListNamespacesResponse listNamespaces(ListNamespacesRequest request)
+        {
+            ListNamespacesResponse response = new ListNamespacesResponse();
+            if (request.getPageToken() == null) {
+                response.setNamespaces(ImmutableSet.of("ns1", "ns2"));
+                response.setPageToken("page2");
+            }
+            else {
+                response.setNamespaces(ImmutableSet.of("ns3"));
+            }
+            return response;
+        }
+    }
+
+    /**
+     * Always returns the same page token, as a misbehaving server would.
+     */
+    public static class StuckTokenNamespace
+            implements LanceNamespace
+    {
+        @Override
+        public void initialize(Map<String, String> properties, BufferAllocator allocator) {}
+
+        @Override
+        public String namespaceId()
+        {
+            return "stuck";
+        }
+
+        @Override
+        public ListTablesResponse listTables(ListTablesRequest request)
+        {
+            ListTablesResponse response = new ListTablesResponse();
+            response.setTables(ImmutableSet.of("t1"));
+            response.setPageToken("always-the-same");
+            return response;
         }
     }
 

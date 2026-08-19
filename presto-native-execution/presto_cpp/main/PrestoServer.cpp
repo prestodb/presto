@@ -18,6 +18,10 @@
 #include <folly/system/HardwareConcurrency.h>
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
@@ -267,6 +271,37 @@ json::array_t getOptimizedExpressions(
     result.push_back(optimized);
   }
   return result;
+}
+
+// Atomically writes 'boundPort' to '<configDirectoryPath>/http-server.port'
+// via a tmp+rename so readers only ever see a fully-written, current value.
+// Logs and returns on any failure; never throws.
+void writeBoundHttpPortFile(
+    const std::string& configDirectoryPath,
+    uint16_t boundPort) {
+  const std::string portFilePath = configDirectoryPath + "/http-server.port";
+  const std::string tmpPortFilePath = portFilePath + ".tmp";
+  try {
+    {
+      std::ofstream out(tmpPortFilePath);
+      out.exceptions(std::ios::failbit | std::ios::badbit);
+      out << boundPort << std::endl;
+      out.flush();
+    }
+    if (std::rename(tmpPortFilePath.c_str(), portFilePath.c_str()) != 0) {
+      PRESTO_STARTUP_LOG(ERROR)
+          << "Failed to rename port file " << tmpPortFilePath << " -> "
+          << portFilePath << ": " << std::strerror(errno);
+      std::remove(tmpPortFilePath.c_str());
+      return;
+    }
+  } catch (const std::exception& e) {
+    PRESTO_STARTUP_LOG(ERROR)
+        << "Failed to write port file " << portFilePath << ": " << e.what();
+    std::remove(tmpPortFilePath.c_str());
+    return;
+  }
+  PRESTO_STARTUP_LOG(INFO) << "HTTP server bound to port " << boundPort;
 }
 
 } // namespace
@@ -766,6 +801,10 @@ void PrestoServer::startServer(const std::vector<std::string>& catalogNames) {
                 kTaskUriFormat, kHttp, address_, address.address.getPort());
           }
           taskManager_->setBaseUri(taskUri);
+          if (systemConfig->httpServerReportBoundPortToFile()) {
+            writeBoundHttpPortFile(
+                configDirectoryPath_, address.address.getPort());
+          }
           break;
         }
 
@@ -1646,7 +1685,8 @@ void PrestoServer::unregisterFileReadersAndWriters() {
 }
 
 void PrestoServer::registerStatsCounters() {
-  registerPrestoMetrics();
+  registerPrestoMetrics(
+      SystemConfig::instance()->enableHttpRequestSizeHistogram());
   velox::registerVeloxMetrics();
   velox::filesystems::registerS3Metrics();
 }
@@ -1721,6 +1761,19 @@ void PrestoServer::populateMemAndCPUInfo() {
   cpuMon_.update();
   checkOverload();
   **memoryInfo_.wlock() = std::move(memoryInfo);
+
+  // In-memory AsyncDataCache footprint (evictable/reclaimable); SSD-resident
+  // bytes are excluded as they do not contribute to RAM pressure. Computed here
+  // (this task runs periodically) rather than in fetchNodeStatus(), because
+  // refreshStats() walks the cache shards and fetchNodeStatus() serves every
+  // /v1/status poll on every worker. 0 when no cache instance exists.
+  int64_t asyncDataCacheBytes = 0;
+  if (auto* cache = velox::cache::AsyncDataCache::getInstance()) {
+    const auto cacheStats = cache->refreshStats();
+    asyncDataCacheBytes = cacheStats.tinySize + cacheStats.largeSize +
+        cacheStats.tinyPadding + cacheStats.largePadding;
+  }
+  asyncDataCacheBytes_.store(asyncDataCacheBytes, std::memory_order_relaxed);
 }
 
 void PrestoServer::checkOverload() {
@@ -1939,8 +1992,28 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
 
   const double cpuLoadPct{cpuMon_.getCPULoadPct()};
 
-  // TODO(spershin): As 'nonHeapUsed' we could export the cache memory.
-  const int64_t nonHeapUsed{0};
+  // 'nonHeapUsed' is a JVM/GC concept that does not apply to native workers.
+  // Kept at 0 to avoid breaking existing tooling that consumes this field; it
+  // could be changed to a not-applicable value (e.g. -1) in the future. Native
+  // memory is reported via the dedicated fields below.
+  const int64_t nonHeapUsed = 0;
+
+  // In-memory AsyncDataCache footprint (evictable/reclaimable), sampled off the
+  // serving path by populateMemAndCPUInfo() — read the cached value here so the
+  // refreshStats() cache-shard walk never runs on the /v1/status poll path.
+  const int64_t asyncDataCacheBytes =
+      asyncDataCacheBytes_.load(std::memory_order_relaxed);
+
+  // Query memory (non-evictable): sum of per-query pool reservations, already
+  // aggregated per memory pool in populateMemAndCPUInfo(). Reservations are
+  // rounded up to Velox's quantized reservation size, so this slightly
+  // over-reports live usage, and may include memory that is spillable under
+  // pressure. It excludes the evictable AsyncDataCache reported above.
+  const auto memoryInfo = **memoryInfo_.rlock();
+  int64_t queryMemoryBytes = 0;
+  for (const auto& pool : memoryInfo.pools) {
+    queryMemoryBytes += pool.second.reservedBytes;
+  }
 
   protocol::NodeStatus nodeStatus{
       nodeId_,
@@ -1950,13 +2023,15 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       getUptime(start_),
       address_,
       address_,
-      **memoryInfo_.rlock(),
+      memoryInfo,
       (int)folly::available_concurrency(),
       cpuLoadPct,
       cpuLoadPct,
       pool_ ? pool_->usedBytes() : 0,
       nodeMemoryGb * 1024 * 1024 * 1024,
-      nonHeapUsed};
+      nonHeapUsed,
+      asyncDataCacheBytes,
+      queryMemoryBytes};
 
   return nodeStatus;
 }

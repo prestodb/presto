@@ -721,7 +721,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                ImmutableSet.of(new CollapseFanoutJoinWithArrayAggUnnest(metadata.getFunctionAndTypeManager()))));
+                ImmutableSet.of(new CollapseFanoutJoinWithArrayAggUnnest(metadata))));
 
         // In RewriteIfOverAggregation, we can only optimize when the aggregation output is used in only one IF expression, and not used in any other expressions (excluding
         // identity assignments). Hence we need to simplify projection assignments to combine/inline expressions in assignments so as to identify the candidate IF expressions.

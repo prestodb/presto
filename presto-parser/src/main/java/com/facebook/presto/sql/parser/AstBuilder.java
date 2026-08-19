@@ -195,7 +195,6 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TransactionMode;
-import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.Union;
@@ -2089,7 +2088,20 @@ class AstBuilder
     @Override
     public Node visitRowConstructor(SqlBaseParser.RowConstructorContext context)
     {
-        return new Row(getLocation(context), visit(context.expression(), Expression.class));
+        // The parenthesized form -- (a, b) -- cannot declare field names.
+        if (context.fieldConstructor().isEmpty()) {
+            return Row.unnamed(getLocation(context), visit(context.expression(), Expression.class));
+        }
+        return new Row(getLocation(context), visit(context.fieldConstructor(), Row.Field.class));
+    }
+
+    @Override
+    public Node visitFieldConstructor(SqlBaseParser.FieldConstructorContext context)
+    {
+        return new Row.Field(
+                getLocation(context),
+                visitIfPresent(context.identifier(), Identifier.class),
+                (Expression) visit(context.expression()));
     }
 
     @Override
@@ -2135,36 +2147,6 @@ class AstBuilder
             throw parseError("Invalid EXTRACT field: " + fieldString, context);
         }
         return new Extract(getLocation(context), (Expression) visit(context.valueExpression()), field);
-    }
-
-    @Override
-    public Node visitTrim(SqlBaseParser.TrimContext context)
-    {
-        if (context.FROM() != null && context.trimsSpecification() == null && context.trimChar == null) {
-            throw parseError("The 'trim' function must have specification, char or both arguments when it takes FROM", context);
-        }
-
-        Trim.Specification specification = context.trimsSpecification() == null
-                ? Trim.Specification.BOTH
-                : toTrimSpecification((Token) context.trimsSpecification().getChild(0).getPayload());
-        return new Trim(
-                getLocation(context),
-                specification,
-                (Expression) visit(context.trimSource),
-                visitIfPresent(context.trimChar, Expression.class));
-    }
-
-    private static Trim.Specification toTrimSpecification(Token token)
-    {
-        switch (token.getType()) {
-            case SqlBaseLexer.BOTH:
-                return Trim.Specification.BOTH;
-            case SqlBaseLexer.LEADING:
-                return Trim.Specification.LEADING;
-            case SqlBaseLexer.TRAILING:
-                return Trim.Specification.TRAILING;
-        }
-        throw new IllegalArgumentException("Unsupported trim specification: " + token.getText());
     }
 
     @Override

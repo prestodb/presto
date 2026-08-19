@@ -52,12 +52,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -283,16 +285,17 @@ public class LanceNamespaceHolder
             return Collections.singletonList(DEFAULT_SCHEMA);
         }
 
-        ListNamespacesRequest request = new ListNamespacesRequest();
-        if (parentPrefix.isPresent()) {
-            request.setId(parentPrefix.get());
-        }
-        ListNamespacesResponse response = namespace.listNamespaces(request);
-        Set<String> namespaces = response.getNamespaces();
-        if (namespaces == null || namespaces.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return namespaces.stream().collect(toImmutableList());
+        return drainPages(
+                pageToken -> {
+                    ListNamespacesRequest request = new ListNamespacesRequest();
+                    parentPrefix.ifPresent(request::setId);
+                    if (pageToken != null) {
+                        request.setPageToken(pageToken);
+                    }
+                    return namespace.listNamespaces(request);
+                },
+                ListNamespacesResponse::getNamespaces,
+                ListNamespacesResponse::getPageToken);
     }
 
     /**
@@ -395,7 +398,7 @@ public class LanceNamespaceHolder
             }
         }
         catch (Exception e) {
-            log.debug("Failed to get storage options from describeTable for %s: %s", tableId, e.getMessage());
+            log.debug(e, "Failed to get storage options from describeTable for %s", tableId);
         }
 
         if (!namespaceStorageOptions.isEmpty()) {
@@ -419,15 +422,48 @@ public class LanceNamespaceHolder
     public List<String> listTables(String schemaName)
     {
         List<String> namespaceId = prestoSchemaToLanceNamespace(schemaName);
-        ListTablesRequest request = new ListTablesRequest();
-        request.setId(namespaceId);
+        return drainPages(
+                pageToken -> {
+                    ListTablesRequest request = new ListTablesRequest();
+                    request.setId(namespaceId);
+                    if (pageToken != null) {
+                        request.setPageToken(pageToken);
+                    }
+                    return namespace.listTables(request);
+                },
+                ListTablesResponse::getTables,
+                ListTablesResponse::getPageToken);
+    }
 
-        ListTablesResponse response = namespace.listTables(request);
-        Set<String> tables = response.getTables();
-        if (tables == null || tables.isEmpty()) {
-            return Collections.emptyList();
+    /**
+     * Drains a paginated listing, following page tokens until the server stops
+     * returning one. Results accumulate in encounter order, and entries repeated
+     * across pages collapse.
+     * <p>
+     * Paging also stops if the server echoes back the token that was just
+     * requested, so a misbehaving server cannot spin the coordinator in a hot loop.
+     *
+     * @param fetchPage fetches one page; receives null for the first request
+     */
+    private static <T> List<String> drainPages(
+            Function<String, T> fetchPage,
+            Function<T, Set<String>> getItems,
+            Function<T, String> getPageToken)
+    {
+        Set<String> items = new LinkedHashSet<>();
+        String requestedToken = null;
+        while (true) {
+            T page = fetchPage.apply(requestedToken);
+            Set<String> pageItems = getItems.apply(page);
+            if (pageItems != null) {
+                items.addAll(pageItems);
+            }
+            String responseToken = getPageToken.apply(page);
+            if (responseToken == null || responseToken.isEmpty() || responseToken.equals(requestedToken)) {
+                return items.stream().collect(toImmutableList());
+            }
+            requestedToken = responseToken;
         }
-        return tables.stream().collect(toImmutableList());
     }
 
     /**

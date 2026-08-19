@@ -93,6 +93,7 @@ public class MetadataExtractor
                     Statement viewStatement = sqlParser.createStatement(view.getOriginalSql(), createParsingOptions(session, warningCollector));
                     Session.SessionBuilder viewSessionBuilder = Session.builder(metadata.getSessionPropertyManager())
                             .setQueryId(session.getQueryId())
+                            .setRuntimeStats(session.getRuntimeStats())
                             .setTransactionId(session.getTransactionId().orElse(null))
                             .setIdentity(session.getIdentity())
                             .setSource(session.getSource().orElse(null))

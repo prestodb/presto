@@ -40,8 +40,6 @@ PeriodicHeartbeatManager::httpRequest() {
   request.setMethod(proxygen::HTTPMethod::PATCH);
   request.setURL("/v1/resource-manager/node/" + status.nodeId);
   request.getHeaders().set(
-      proxygen::HTTP_HEADER_HOST, fmt::format("{}:{}", address_, port_));
-  request.getHeaders().set(
       proxygen::HTTP_HEADER_CONTENT_TYPE, "application/json");
   request.getHeaders().set(
       proxygen::HTTP_HEADER_CONTENT_LENGTH, std::to_string(body.size()));

@@ -46,6 +46,7 @@ public class BasicStageExecutionStats
             0,
 
             0L,
+            0L,
             0,
 
             0.0,
@@ -77,6 +78,7 @@ public class BasicStageExecutionStats
     private final int runningSplits;
     private final int completedSplits;
     private final long rawInputDataSizeInBytes;
+    private final long scanRawInputDataSizeInBytes;
     private final long rawInputPositions;
     private final double cumulativeUserMemory;
     private final double cumulativeTotalMemory;
@@ -108,6 +110,7 @@ public class BasicStageExecutionStats
             int completedSplits,
 
             long rawInputDataSizeInBytes,
+            long scanRawInputDataSizeInBytes,
             long rawInputPositions,
 
             double cumulativeUserMemory,
@@ -140,6 +143,8 @@ public class BasicStageExecutionStats
         this.completedSplits = completedSplits;
         checkArgument(rawInputDataSizeInBytes >= 0, "rawInputDataSizeInBytes is negative");
         this.rawInputDataSizeInBytes = rawInputDataSizeInBytes;
+        checkArgument(scanRawInputDataSizeInBytes >= 0, "scanRawInputDataSizeInBytes is negative");
+        this.scanRawInputDataSizeInBytes = scanRawInputDataSizeInBytes;
         this.rawInputPositions = rawInputPositions;
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.cumulativeTotalMemory = cumulativeTotalMemory;
@@ -226,6 +231,11 @@ public class BasicStageExecutionStats
         return rawInputDataSizeInBytes;
     }
 
+    public long getScanRawInputDataSizeInBytes()
+    {
+        return scanRawInputDataSizeInBytes;
+    }
+
     public long getRawInputPositions()
     {
         return rawInputPositions;
@@ -307,6 +317,7 @@ public class BasicStageExecutionStats
         long totalCpuTime = 0;
 
         long rawInputDataSize = 0;
+        long scanRawInputDataSize = 0;
         long rawInputPositions = 0;
 
         boolean isScheduled = true;
@@ -348,6 +359,7 @@ public class BasicStageExecutionStats
             totalAllocation += stageStats.getTotalAllocationInBytes();
 
             rawInputDataSize += stageStats.getRawInputDataSizeInBytes();
+            scanRawInputDataSize += stageStats.getScanRawInputDataSizeInBytes();
             rawInputPositions += stageStats.getRawInputPositions();
         }
 
@@ -375,6 +387,7 @@ public class BasicStageExecutionStats
                 completedSplits,
 
                 rawInputDataSize,
+                scanRawInputDataSize,
                 rawInputPositions,
 
                 cumulativeUserMemory,

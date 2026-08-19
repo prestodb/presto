@@ -433,12 +433,21 @@ The corresponding configuration property is :ref:`admin/properties:\`\`optimizer
 * **Type:** ``boolean``
 * **Default value:** ``false``
 
-Collapse a fan-out equi-join whose preserved side is itself an aggregation grouped by, or an
-inner join keyed on, a strict superset of the join keys. The preserved side's non-key columns
-are packed with ``array_agg(row(...))`` so the join becomes ``N``-to-``1`` (unique on the join
-key), and a local ``UNNEST`` above the join re-expands them, reproducing the original rows.
-This moves the row multiplication out of the distributed join (smaller build, less shuffle of
-duplicated rows) into a streaming local ``UNNEST``.
+Collapse a fan-out equi-join, that is a join one of whose sides is not unique on the join keys
+but is unique on a strict superset of them. That side's non-key columns are packed with
+``array_agg(row(...))`` so the join becomes ``N``-to-``1`` (unique on the join key), and a local
+``UNNEST`` above the join re-expands them, reproducing the original rows. This moves the row
+multiplication out of the distributed join (smaller build, less shuffle of duplicated rows)
+into a streaming local ``UNNEST``.
+
+The fan-out is detected at the join node, from the grouping that the side reports through its derived
+properties: an aggregation (including ``DISTINCT``) advertises its grouping keys, and those carry
+up through intervening filters, projections, sorts and limits, and across an inner join from its
+probe. A side grouped on a strict superset of the join keys holds several rows per join key. This
+uses only property derivation and does not depend on ``exploit_constraints``. A side whose
+grouping keys are projected away before the join is not detected. Either side of an ``INNER``, ``LEFT``
+or ``RIGHT`` join can be collapsed, including the null-supplying side of an outer join;
+``FULL`` outer and cross joins are never collapsed.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-join-fan-out\`\``.
 
@@ -1202,6 +1211,24 @@ parallelism, so it is most beneficial for memory- or aggregation-bound workloads
 scan-throughput-bound queries. It is disabled by default.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`grouped-execution-when-capable-enabled\`\``.
+
+Presto on Spark Properties
+--------------------------
+
+``max_splits_count_per_spark_partition``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``2147483647``
+
+Maximum number of splits assigned to one Spark input partition. The default is
+effectively unbounded, so partition contents are bounded by data size alone. Set this
+property when a source table produces very many small splits, which can otherwise pack
+enough splits into one partition for its serialized task update request to exceed the
+2 GB limit of the underlying JSON serializer.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`spark.max-splits-count-per-partition\`\``.
 
 Geometry Properties
 -------------------

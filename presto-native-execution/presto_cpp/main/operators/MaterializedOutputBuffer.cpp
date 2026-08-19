@@ -16,6 +16,7 @@
 
 #include <fmt/format.h>
 #include <folly/ExceptionString.h>
+#include <folly/ScopeGuard.h>
 #include <glog/logging.h>
 #include <algorithm>
 #include <chrono>
@@ -25,6 +26,7 @@
 #include <thread>
 
 #include "presto_cpp/main/common/Configs.h"
+#include "velox/common/Casts.h"
 #include "velox/common/base/Exceptions.h"
 
 #define MATERIALIZED_BUFFER_LOG(logEvent, pool, fmt_str, ...)           \
@@ -82,56 +84,147 @@ struct TrackedBufInfo {
   size_t size;
 };
 
+namespace {
+bool exchangeMaterializationUseZeroCopyCollect() {
+  SystemConfig* config = SystemConfig::instance();
+  VELOX_CHECK_NOT_NULL(config);
+  return config->exchangeMaterializationUseZeroCopyCollect();
+}
+} // namespace
+
+int64_t MaterializedOutputBuffer::PartitionBuffer::drainAvailable(
+    std::deque<std::unique_ptr<folly::IOBuf>>& out) {
+  int64_t drainedBytes = 0;
+  std::unique_ptr<folly::IOBuf> item;
+  while (rowGroupsQueue_.try_dequeue(item)) {
+    drainedBytes += static_cast<int64_t>(item->computeChainDataLength());
+    out.push_back(std::move(item));
+  }
+  return drainedBytes;
+}
+
+int64_t MaterializedOutputBuffer::PartitionBuffer::drainAndFlush() {
+  // Drain all available RowGroups in bounded chunks to the writer.
+  int64_t totalDrainedBytes = 0;
+  std::deque<std::unique_ptr<folly::IOBuf>> chunks;
+  int64_t chunkBytes = 0;
+  const int64_t chunkThresholdBytes = buffer_->drainChunkThresholdBytes_;
+
+  // Flush the current chunk and update its buffered-byte accounting.
+  auto flushChunk = [&]() {
+    buffer_->flushToWriter(partition_, chunks);
+    bufferedBytes_ -= chunkBytes;
+    totalDrainedBytes += chunkBytes;
+    chunks.clear();
+    chunkBytes = 0;
+  };
+
+  std::unique_ptr<folly::IOBuf> item;
+  // Consume the queue without exceeding the per-collect size target.
+  while (rowGroupsQueue_.try_dequeue(item)) {
+    const int64_t itemBytes =
+        static_cast<int64_t>(item->computeChainDataLength());
+    // Roll over before exceeding the cap; send an oversized RowGroup alone.
+    if (chunkBytes > 0 && chunkBytes + itemBytes > chunkThresholdBytes) {
+      flushChunk();
+    }
+    chunks.push_back(std::move(item));
+    chunkBytes += itemBytes;
+  }
+  if (!chunks.empty()) {
+    flushChunk();
+  }
+  return totalDrainedBytes;
+}
+
+int64_t MaterializedOutputBuffer::PartitionBuffer::tryDrainPartition(
+    int64_t targetBytes) {
+  if (!tryAcquireFlushing()) {
+    // Another driver is already draining and it will pick up our data.
+    buffer_->concurrentAppendCount_ += 1;
+    return 0;
+  }
+  buffer_->flushAcquireCount_ += 1;
+
+  int64_t totalDrainedBytes = 0;
+  do {
+    {
+      // Never leave the partition wedged if flushing throws.
+      SCOPE_EXIT {
+        releaseFlushing();
+      };
+      totalDrainedBytes += drainAndFlush();
+    }
+    // Release before rechecking so a racing appender can become the flusher.
+  } while (bufferedBytes_ >= targetBytes && tryAcquireFlushing());
+  return totalDrainedBytes;
+}
+
+int64_t MaterializedOutputBuffer::PartitionBuffer::noMoreData() {
+  // Teardown is quiescent, so this acquire must be uncontended.
+  VELOX_CHECK(tryAcquireFlushing(), "unexpected concurrent flush at teardown");
+  SCOPE_EXIT {
+    releaseFlushing();
+  };
+  if (closed_.exchange(true)) {
+    return 0;
+  }
+  return drainAndFlush();
+}
+
 int64_t MaterializedOutputBuffer::PartitionBuffer::enqueue(
     int32_t partition,
     std::unique_ptr<folly::IOBuf> rowGroup) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  VELOX_DCHECK_EQ(partition, partition_);
   VELOX_CHECK(!closed_, "enqueue called on closed partition");
-  auto dataSize = static_cast<int64_t>(rowGroup->computeChainDataLength());
-  auto drain = [&]() {
-    std::deque<std::unique_ptr<folly::IOBuf>> toDrain;
-    toDrain.swap(rowGroups_);
-    auto drainedBytes = bufferedBytes_.load();
-    bufferedBytes_ = 0;
-
-    auto coalesced = buffer_->coalesceRowGroups(toDrain);
-    buffer_->flushToWriter(partition, std::move(coalesced));
-    return drainedBytes;
-  };
-
-  int64_t drainedBytes = 0;
-  if (!rowGroups_.empty() && bufferedBytes_ + dataSize > drainThreshold_) {
-    drainedBytes += drain();
+  const int64_t rowGroupBytes =
+      static_cast<int64_t>(rowGroup->computeChainDataLength());
+  rowGroupsQueue_.enqueue(std::move(rowGroup));
+  const int64_t newBytes = (bufferedBytes_ += rowGroupBytes);
+  if (newBytes >= drainThreshold_) {
+    return tryDrainPartition(drainThreshold_);
   }
-
-  rowGroups_.push_back(std::move(rowGroup));
-  bufferedBytes_ += dataSize;
-
-  if (bufferedBytes_ < drainThreshold_) {
-    return drainedBytes;
-  }
-
-  drainedBytes += drain();
-  return drainedBytes;
+  return 0;
 }
 
 void MaterializedOutputBuffer::initPartitionBuffers(int32_t numPartitions) {
   VELOX_CHECK_NOT_NULL(pool_, "MemoryPool must be non-null");
   VELOX_CHECK_NOT_NULL(writer_, "ShuffleWriter must be non-null");
   VELOX_CHECK_GT(numPartitions, 0, "Must have at least one partition");
+  // Watermark ordering (guards against a bad ratio config):
+  // 0 < low < high <= maxBufferedBytes.
+  VELOX_CHECK_GT(
+      lowWatermarkBytes_, 0, "backpressure low watermark must be positive");
+  VELOX_CHECK_LT(
+      lowWatermarkBytes_,
+      highWatermarkBytes_,
+      "backpressure low watermark must be below the high watermark");
+  VELOX_CHECK_LE(
+      highWatermarkBytes_,
+      maxBufferedBytes_,
+      "backpressure high watermark must not exceed the max buffer size");
+  // One producer must be able to drain below the wake watermark; otherwise all
+  // producers could park with no remaining waker.
+  VELOX_CHECK_LT(
+      numPartitions_ * reclaimDrainThresholdBytes_,
+      lowWatermarkBytes_,
+      "reclaim drain threshold too high vs the backpressure low watermark");
   partitionBuffers_.reserve(numPartitions);
   for (int32_t i = 0; i < numPartitions; ++i) {
     partitionBuffers_.push_back(
         std::make_unique<PartitionBuffer>(
-            partitionDrainThreshold_, writer_.get(), this));
+            i, partitionDrainThreshold_, writer_.get(), this));
   }
   LOG(INFO) << fmt::format(
       "MaterializedOutputBuffer: partitions={}, maxBufferedBytes={}, "
-      "drainThreshold={}, reclaimDrainThreshold={}, pool={}",
+      "drainThreshold={}, reclaimDrainThreshold={}, blockThreshold={}, "
+      "unblockThreshold={}, pool={}",
       numPartitions_,
       velox::succinctBytes(maxBufferedBytes_),
       velox::succinctBytes(partitionDrainThreshold_),
       velox::succinctBytes(reclaimDrainThresholdBytes_),
+      velox::succinctBytes(highWatermarkBytes_),
+      velox::succinctBytes(lowWatermarkBytes_),
       pool_->name());
 }
 
@@ -156,6 +249,22 @@ MaterializedOutputBuffer::MaterializedOutputBuffer(
               partitionDrainThreshold_ *
               SystemConfig::instance()
                   ->exchangeMaterializationReclaimDrainThresholdRatio())),
+      useZeroCopyCollect_(exchangeMaterializationUseZeroCopyCollect()),
+      drainChunkThresholdBytes_(
+          static_cast<int64_t>(
+              partitionDrainThreshold_ *
+              SystemConfig::instance()
+                  ->exchangeMaterializationOutputBufferDrainChunkMultiplier())),
+      highWatermarkBytes_(
+          static_cast<int64_t>(
+              maxBufferedBytes_ *
+              SystemConfig::instance()
+                  ->exchangeMaterializationOutputBufferHighWatermarkRatio())),
+      lowWatermarkBytes_(
+          static_cast<int64_t>(
+              maxBufferedBytes_ *
+              SystemConfig::instance()
+                  ->exchangeMaterializationOutputBufferLowWatermarkRatio())),
       pool_(pool->addLeafChild(
           fmt::format("materialized_output_buffer.{}", taskId),
           true,
@@ -177,6 +286,8 @@ MaterializedOutputBuffer::~MaterializedOutputBuffer() {
       LOG(ERROR) << "MaterializedOutputBuffer abort failed in destructor";
     }
   }
+  // MemoryPool teardown requires the drain-headroom reservation to be released.
+  pool_->release();
 }
 
 std::unique_ptr<folly::IOBuf> MaterializedOutputBuffer::allocateTrackedIOBuf(
@@ -230,18 +341,120 @@ void MaterializedOutputBuffer::enqueue(
           static_cast<int64_t>(drainCount_),
           velox::succinctBytes(bufferedBytes_));
     }
+    maybeWakeBlockedDrivers();
   }
 }
 
-void MaterializedOutputBuffer::flushToWriter(
-    int32_t partition,
-    std::unique_ptr<folly::IOBuf> data) {
-  auto dataSize = data->computeChainDataLength();
-  if (dataSize == 0) {
+void MaterializedOutputBuffer::addBlockedPromise(
+    velox::ContinueFuture* future) {
+  velox::ContinuePromise promise{"MaterializedOutputBuffer::addBlockedPromise"};
+  *future = promise.getSemiFuture();
+  backpressureBlockCount_ += 1;
+  blockedPromises_.withWLock(
+      [&](auto& promises) { promises.push_back(std::move(promise)); });
+  // Avoid missing a concurrent low-watermark crossing during registration.
+  maybeWakeBlockedDrivers();
+}
+
+void MaterializedOutputBuffer::tryDrainPartitions() {
+  while (bufferedBytes_ >= lowWatermarkBytes_) {
+    // Flush the fullest partitions this thread can acquire.
+    const uint64_t drainedBytes = tryDrainPartitionsInternal();
+    backpressureDrainedBytes_ += static_cast<int64_t>(drainedBytes);
+    if (drainedBytes == 0) {
+      // Nothing left this thread can drain (others are flushing the rest).
+      break;
+    }
+  }
+}
+
+velox::exec::BlockingReason MaterializedOutputBuffer::isBlocked(
+    velox::ContinueFuture* future) {
+  if (!isBufferFull()) {
+    return velox::exec::BlockingReason::kNotBlocked;
+  }
+
+  // Drain on the producer before parking.
+  tryDrainPartitions();
+
+  // Park until a drain crosses the low watermark.
+  if (isBufferFull() && reclaimableBufferedBytes() > 0) {
+    addBlockedPromise(future);
+    return velox::exec::BlockingReason::kWaitForConsumer;
+  }
+
+  // With nothing reclaimable, parking would have no waker.
+  if (isBufferFull()) {
+    LOG_EVERY_N(WARNING, 256)
+        << "MaterializedOutputBuffer: buffer full but nothing reclaimable; not "
+           "parking (bufferedBytes="
+        << bufferedBytes() << ")";
+  }
+  return velox::exec::BlockingReason::kNotBlocked;
+}
+
+void MaterializedOutputBuffer::ensureDrainMemoryHeadroom() {
+  // Reserve one drain's coalesce and compression allocations before entering
+  // the non-reclaimable flush window. Failure falls back to on-demand growth.
+  const int64_t headroom = 2 * partitionDrainThreshold_;
+  if (pool_->availableReservation() >= headroom) {
     return;
   }
-  std::string_view view(reinterpret_cast<const char*>(data->data()), dataSize);
-  writer_->collect(partition, /*key=*/"", view);
+  pool_->maybeReserve(headroom);
+}
+
+void MaterializedOutputBuffer::maybeWakeBlockedDrivers() {
+  if (bufferedBytes_ >= lowWatermarkBytes_) {
+    return;
+  }
+  std::vector<velox::ContinuePromise> toFulfill;
+  blockedPromises_.withWLock([&](auto& promises) { toFulfill.swap(promises); });
+  if (!toFulfill.empty()) {
+    backpressureWakeCount_ += static_cast<int64_t>(toFulfill.size());
+  }
+  for (auto& promise : toFulfill) {
+    promise.setValue();
+  }
+}
+
+namespace {
+// Link a deque of RowGroup IOBufs into a single chain without copying.
+std::unique_ptr<folly::IOBuf> chainRowGroups(
+    std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups) noexcept {
+  std::unique_ptr<folly::IOBuf> head;
+  for (auto& rowGroup : rowGroups) {
+    if (head == nullptr) {
+      head = std::move(rowGroup);
+    } else {
+      head->appendToChain(std::move(rowGroup));
+    }
+  }
+  return head;
+}
+} // namespace
+
+void MaterializedOutputBuffer::flushToWriter(
+    int32_t partition,
+    std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups) {
+  auto* writer = velox::checkedNotNull(writer_.get());
+  if (useZeroCopyCollect_) {
+    std::unique_ptr<folly::IOBuf> chain = chainRowGroups(rowGroups);
+    VELOX_CHECK_NOT_NULL(chain);
+    writer->collect(partition, /*key=*/"", std::move(chain));
+    ++zeroCopyCollectCount_;
+  } else {
+    std::unique_ptr<folly::IOBuf> coalesced = coalesceRowGroups(rowGroups);
+    auto* coalescedBuffer = velox::checkedNotNull(coalesced.get());
+    const size_t dataSize = coalescedBuffer->computeChainDataLength();
+    if (dataSize == 0) {
+      return;
+    }
+    writer->collect(
+        partition,
+        /*key=*/"",
+        std::string_view(
+            reinterpret_cast<const char*>(coalescedBuffer->data()), dataSize));
+  }
   ++collectCountPerPartition_[partition];
 }
 
@@ -254,12 +467,12 @@ void MaterializedOutputBuffer::updateDrainStats(int64_t drainedBytes) {
 std::unique_ptr<folly::IOBuf> MaterializedOutputBuffer::coalesceRowGroups(
     std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups) {
   size_t totalBytes = 0;
-  for (const auto& rg : rowGroups) {
-    totalBytes += rg->computeChainDataLength();
+  for (const auto& rowGroup : rowGroups) {
+    totalBytes += rowGroup->computeChainDataLength();
   }
   auto coalesced = allocateTrackedIOBuf(totalBytes);
-  for (auto& rg : rowGroups) {
-    for (const auto& range : *rg) {
+  for (auto& rowGroup : rowGroups) {
+    for (const auto& range : *rowGroup) {
       std::memcpy(coalesced->writableTail(), range.data(), range.size());
       coalesced->append(range.size());
     }
@@ -273,27 +486,18 @@ int64_t MaterializedOutputBuffer::drainPartition(
   VELOX_CHECK_GE(partition, 0);
   VELOX_CHECK_LT(partition, numPartitions_);
 
-  std::deque<std::unique_ptr<folly::IOBuf>> toDrain;
-  int64_t drainedBytes = 0;
-  {
-    std::unique_lock<std::mutex> lock(
-        partitionBuffers_[partition]->mutex_, std::defer_lock);
-    if (force) {
-      lock.lock();
-      partitionBuffers_[partition]->closed_ = true;
-    } else {
-      if (!lock.try_lock()) {
-        return 0;
-      }
-    }
-    toDrain.swap(partitionBuffers_[partition]->rowGroups_);
-    drainedBytes = partitionBuffers_[partition]->bufferedBytes_.exchange(0);
+  auto& partitionBuffer = *partitionBuffers_[partition];
+  int64_t drainedBytes;
+  if (force) {
+    drainedBytes = partitionBuffer.noMoreData();
+  } else {
+    drainedBytes =
+        partitionBuffer.tryDrainPartition(reclaimDrainThresholdBytes_);
   }
 
-  if (!toDrain.empty()) {
-    auto coalesced = coalesceRowGroups(toDrain);
-    flushToWriter(partition, std::move(coalesced));
+  if (drainedBytes > 0) {
     updateDrainStats(drainedBytes);
+    maybeWakeBlockedDrivers();
   }
 
   return drainedBytes;
@@ -310,7 +514,7 @@ uint64_t MaterializedOutputBuffer::reclaimableBufferedBytes() const {
   return reclaimableBytes;
 }
 
-uint64_t MaterializedOutputBuffer::tryDrainPartitions() {
+uint64_t MaterializedOutputBuffer::tryDrainPartitionsInternal() {
   std::vector<int32_t> orderedPartitions(numPartitions_);
   std::iota(orderedPartitions.begin(), orderedPartitions.end(), 0);
 
@@ -383,13 +587,8 @@ void MaterializedOutputBuffer::abort() {
     return;
   }
 
-  // Free partition buffers.
-  for (int32_t i = 0; i < numPartitions_; ++i) {
-    std::lock_guard<std::mutex> lock(partitionBuffers_[i]->mutex_);
-    partitionBuffers_[i]->rowGroups_.clear();
-    bufferedBytes_ -= partitionBuffers_[i]->bufferedBytes_;
-    partitionBuffers_[i]->bufferedBytes_ = 0;
-  }
+  // Unpark any producers blocked on backpressure so they observe kAborted.
+  maybeWakeBlockedDrivers();
 
   LOG(INFO)
       << "MaterializedOutputBuffer: calling writer noMoreData(false) [abort]";
@@ -426,6 +625,18 @@ MaterializedOutputBuffer::stats() const {
   result[std::string(kReclaimCount)] = velox::RuntimeMetric(reclaimCount_);
   result[std::string(kReclaimedBytes)] =
       velox::RuntimeMetric(reclaimedBytes_, Unit::kBytes);
+  result[std::string(kZeroCopyCollectCount)] =
+      velox::RuntimeMetric(zeroCopyCollectCount_);
+  result[std::string(kConcurrentAppendCount)] =
+      velox::RuntimeMetric(concurrentAppendCount_);
+  result[std::string(kFlushAcquireCount)] =
+      velox::RuntimeMetric(flushAcquireCount_);
+  result[std::string(kBackpressureBlockCount)] =
+      velox::RuntimeMetric(backpressureBlockCount_);
+  result[std::string(kBackpressureWakeCount)] =
+      velox::RuntimeMetric(backpressureWakeCount_);
+  result[std::string(kBackpressureDrainedBytes)] =
+      velox::RuntimeMetric(backpressureDrainedBytes_, Unit::kBytes);
   return result;
 }
 
@@ -448,7 +659,7 @@ bool MaterializedOutputBuffer::Reclaimer::reclaimableBytes(
 
 void MaterializedOutputBuffer::Reclaimer::tryReclaimPartitionBuffers(
     velox::memory::MemoryPool* pool) {
-  auto flushedBytes = partitionBuffer_->tryDrainPartitions();
+  auto flushedBytes = partitionBuffer_->tryDrainPartitionsInternal();
   MATERIALIZED_BUFFER_LOG(
       "FLUSH", pool, "flushedBytes={}", velox::succinctBytes(flushedBytes));
 }

@@ -296,8 +296,43 @@ public class TestIcebergRegisterAndUnregisterProcedure
         errorMessage = "path must not be null or empty";
         assertQueryFails("CALL system.register_table('" + TEST_SCHEMA + "', '" + TEST_TABLE_NAME + "', '')", errorMessage);
 
-        errorMessage = "line 1:1: Too many arguments for procedure";
+        errorMessage = ".*Cannot cast type varchar\\(0\\) to boolean";
         assertQueryFails("CALL system.register_table('" + TEST_SCHEMA + "', '" + TEST_TABLE_NAME + "', '/dummy/location', 'dummyfile.json', '')", errorMessage);
+
+        errorMessage = "line 1:1: Too many arguments for procedure";
+        assertQueryFails("CALL system.register_table('" + TEST_SCHEMA + "', '" + TEST_TABLE_NAME + "', '/dummy/location', 'dummyfile.json', true, 'extra')", errorMessage);
+    }
+
+    @Test
+    public void testRegisterWithDeleteDataOnDrop()
+    {
+        String tableName = "table_for_delete_data_on_drop";
+        String registerTableName = "register_for_delete_data_on_drop";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
+
+            String metadataLocation = getMetadataLocation(TEST_SCHEMA, tableName);
+
+            // Register with default (delete_data_on_drop = false): dropping the registered table should preserve the original
+            assertUpdate(format("CALL system.register_table(metadata_location => '%s', table_name => '%s', schema => '%s')",
+                    metadataLocation, registerTableName, TEST_SCHEMA));
+            assertQuery("SELECT * FROM " + registerTableName, "VALUES (1, 1)");
+
+            assertUpdate("DROP TABLE " + registerTableName);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1)");
+
+            // Register with delete_data_on_drop = true: dropping the registered table should delete the underlying data
+            assertUpdate(format("CALL system.register_table(metadata_location => '%s', table_name => '%s', schema => '%s', delete_data_on_drop => %s)",
+                    metadataLocation, registerTableName, TEST_SCHEMA, true));
+            assertQuery("SELECT * FROM " + registerTableName, "VALUES (1, 1)");
+
+            assertUpdate("DROP TABLE " + registerTableName);
+            assertQueryFails("SELECT * FROM " + tableName, "Failed to open input stream for file: .*");
+        }
+        finally {
+            dropTable(tableName);
+        }
     }
 
     @Test

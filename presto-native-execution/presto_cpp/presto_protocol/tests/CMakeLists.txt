@@ -23,6 +23,7 @@ add_executable(
   DurationTest.cpp
   LifespanTest.cpp
   MapWithIntegerKeysTest.cpp
+  MergeHandleTest.cpp
   OptionalTest.cpp
   RowExpressionTest.cpp
   TaskUpdateRequestTest.cpp

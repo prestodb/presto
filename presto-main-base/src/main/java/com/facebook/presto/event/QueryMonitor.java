@@ -256,7 +256,8 @@ public class QueryMonitor
                         0,
                         0,
                         true,
-                        new RuntimeStats()),
+                        new RuntimeStats(),
+                        0L),
                 createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
@@ -470,7 +471,8 @@ public class QueryMonitor
                 queryStats.getCumulativeTotalMemory(),
                 queryStats.getCompletedDrivers(),
                 queryInfo.isFinalQueryInfo(),
-                queryStats.getRuntimeStats());
+                queryStats.getRuntimeStats(),
+                queryStats.getRawInputDataSize().toBytes());
     }
 
     private QueryStatistics createQueryStatistics(BasicQueryInfo basicQueryInfo)
@@ -512,7 +514,8 @@ public class QueryMonitor
                 queryStats.getCumulativeTotalMemory(),
                 queryStats.getCompletedDrivers(),
                 false,
-                new RuntimeStats());
+                new RuntimeStats(),
+                queryStats.getScanRawInputDataSize().toBytes());
     }
 
     private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup)

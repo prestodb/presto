@@ -90,7 +90,6 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.util.Failures;
@@ -1204,15 +1203,20 @@ public class ExpressionInterpreter
         {
             RowType rowType = (RowType) type(node);
             List<Type> parameterTypes = rowType.getTypeParameters();
-            List<Expression> arguments = node.getItems();
+            List<Row.Field> fields = node.getFields();
 
-            int cardinality = arguments.size();
+            int cardinality = fields.size();
             List<Object> values = new ArrayList<>(cardinality);
-            for (Expression argument : arguments) {
-                values.add(process(argument, context));
+            for (Row.Field field : fields) {
+                values.add(process(field.getExpression(), context));
             }
             if (hasUnresolvedValue(values)) {
-                return new Row(toExpressions(values, parameterTypes));
+                List<Expression> expressions = toExpressions(values, parameterTypes);
+                ImmutableList.Builder<Row.Field> rewritten = ImmutableList.builder();
+                for (int i = 0; i < cardinality; i++) {
+                    rewritten.add(new Row.Field(fields.get(i).getLocation(), fields.get(i).getName(), expressions.get(i)));
+                }
+                return new Row(rewritten.build());
             }
             else {
                 BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
@@ -1257,18 +1261,6 @@ public class ExpressionInterpreter
 
             // Subscript on Array or Map is interpreted using operator.
             return invokeOperator(OperatorType.SUBSCRIPT, types(node.getBase(), node.getIndex()), ImmutableList.of(base, index));
-        }
-
-        @Override
-        protected Object visitTrim(Trim node, Object context)
-        {
-            ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
-            arguments.add(node.getTrimSource());
-            node.getTrimCharacter().ifPresent(arguments::add);
-
-            FunctionCall functionCall = new FunctionCall(QualifiedName.of(node.getSpecification().getFunctionName()), arguments.build());
-            addGeneratedExpressionType(functionCall, type(node));
-            return visitFunctionCall(functionCall, context);
         }
 
         @Override

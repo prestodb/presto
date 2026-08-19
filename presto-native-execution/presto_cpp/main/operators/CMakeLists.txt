@@ -24,6 +24,7 @@ add_library(
   LocalShuffle.cpp
   PartitionAndSerialize.cpp
   ShuffleExchangeSource.cpp
+  ShuffleInterface.cpp
   ShuffleRead.cpp
   ShuffleWrite.cpp
 )

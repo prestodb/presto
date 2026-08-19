@@ -42,6 +42,11 @@ public class TestStatementBuilder
         printStatement("explain (type distributed, format graphviz) select * from foo");
 
         printStatement("select * from foo /* end */");
+
+        printStatement("select row(1 as a, 2 as b)");
+        printStatement("select row(1 a, 2)");
+        printStatement("select row(1 as \"Mixed Case\")");
+        printStatement("values row(1 as a, 'x' as b)");
         printStatement("/* start */ select * from foo");
         printStatement("/* start */ select * /* middle */ from foo /* end */");
         printStatement("-- start\nselect * -- junk\n-- hi\nfrom foo -- done");

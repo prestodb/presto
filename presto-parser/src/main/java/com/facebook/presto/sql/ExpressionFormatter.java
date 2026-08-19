@@ -77,7 +77,6 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
-import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
@@ -146,9 +145,19 @@ public final class ExpressionFormatter
         @Override
         protected String visitRow(Row node, Void context)
         {
-            return "ROW (" + Joiner.on(", ").join(node.getItems().stream()
-                    .map((child) -> process(child, context))
+            return "ROW (" + Joiner.on(", ").join(node.getFields().stream()
+                    .map((field) -> process(field, context))
                     .collect(toList())) + ")";
+        }
+
+        @Override
+        protected String visitRowField(Row.Field node, Void context)
+        {
+            String expression = process(node.getExpression(), context);
+            if (node.getName().isPresent()) {
+                return expression + " AS " + process(node.getName().get(), context);
+            }
+            return expression;
         }
 
         @Override
@@ -186,16 +195,6 @@ public final class ExpressionFormatter
             }
 
             return builder.toString();
-        }
-
-        @Override
-        protected String visitTrim(Trim node, Void context)
-        {
-            if (!node.getTrimCharacter().isPresent()) {
-                return format("trim(%s FROM %s)", node.getSpecification(), process(node.getTrimSource(), context));
-            }
-
-            return format("trim(%s %s FROM %s)", node.getSpecification(), process(node.getTrimCharacter().get(), context), process(node.getTrimSource(), context));
         }
 
         @Override

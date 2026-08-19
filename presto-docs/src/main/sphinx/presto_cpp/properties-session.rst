@@ -319,6 +319,26 @@ If set to ``0``, buffering is disabled.
 
 Native Execution only. Enable topN row number spilling on native engine.
 
+``native_abandon_partial_topn_row_number_min_rows``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``100000``
+
+Native Execution only. Number of rows accumulated by the partial ``TopNRowNumber`` operator
+before checking whether to abandon it. Must be greater than ``0``.
+
+``native_abandon_partial_topn_row_number_min_pct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``80``
+
+Native Execution only. Percentage of accumulated input rows still retained by the partial
+``TopNRowNumber`` operator at or above which the operator is abandoned and degrades to
+pass-through. Only checked once ``native_abandon_partial_topn_row_number_min_rows`` rows
+have been accumulated. Must be between ``0`` and ``100``.
+
 ``native_window_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

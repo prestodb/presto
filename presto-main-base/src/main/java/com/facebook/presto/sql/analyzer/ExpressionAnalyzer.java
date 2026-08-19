@@ -109,7 +109,6 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
-import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
@@ -124,6 +123,7 @@ import io.airlift.slice.SliceUtf8;
 import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -167,6 +167,7 @@ import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessC
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.isTopMostReference;
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.isUnusedArgumentForAccessControl;
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.resolveSubfield;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDER_BY;
@@ -424,12 +425,31 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitRow(Row node, StackableAstVisitorContext<Context> context)
         {
-            List<Type> types = node.getItems().stream()
-                    .map((child) -> process(child, context))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
+            Set<String> declaredNames = new HashSet<>();
+            for (Row.Field field : node.getFields()) {
+                Type fieldType = process(field.getExpression(), context);
+                Optional<Identifier> name = field.getName();
+                if (!name.isPresent()) {
+                    fields.add(RowType.field(fieldType));
+                    continue;
+                }
+                // Fold the name the same way CAST(... AS ROW(...)) does. Cast.transformCase
+                // lowercases everything outside double quotes, so an undelimited name is folded to
+                // lower case and a delimited one is kept verbatim. Doing the same here keeps
+                // ROW(1 AS Abc) and CAST(ROW(1) AS ROW(Abc integer)) producing the same type.
+                // Note this is deliberately not getCanonicalValue(), which upper cases instead.
+                Identifier identifier = name.get();
+                String fieldName = identifier.isDelimited() ? identifier.getValue() : identifier.getValueLowerCase();
+                // Duplicates are rejected because a row type with repeated field names cannot be
+                // round-tripped through its TypeSignature, which the native worker relies on.
+                if (!declaredNames.add(fieldName)) {
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, node, "Duplicate field name '%s' in ROW", fieldName);
+                }
+                fields.add(RowType.field(fieldName, fieldType, identifier.isDelimited()));
+            }
 
-            Type type = RowType.anonymous(types);
-            return setExpressionType(node, type);
+            return setExpressionType(node, RowType.from(fields.build()));
         }
 
         @Override
@@ -1401,18 +1421,6 @@ public class ExpressionAnalyzer
 
             Type resultType = process(parameters.get(NodeRef.of(node)), context);
             return setExpressionType(node, resultType);
-        }
-
-        @Override
-        protected Type visitTrim(Trim node, StackableAstVisitorContext<Context> context)
-        {
-            ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
-            arguments.add(node.getTrimSource());
-            node.getTrimCharacter().ifPresent(arguments::add);
-
-            FunctionCall functionCall = new FunctionCall(QualifiedName.of(node.getSpecification().getFunctionName()), arguments.build());
-            Type type = process(functionCall, context);
-            return setExpressionType(node, type);
         }
 
         @Override

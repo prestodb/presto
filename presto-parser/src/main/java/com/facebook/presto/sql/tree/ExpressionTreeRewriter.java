@@ -95,10 +95,17 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            List<Expression> items = rewrite(node.getItems(), context);
+            ImmutableList.Builder<Row.Field> builder = ImmutableList.builder();
+            for (Row.Field field : node.getFields()) {
+                Expression expression = rewrite(field.getExpression(), context.get());
+                builder.add(field.getExpression() == expression
+                        ? field
+                        : new Row.Field(field.getLocation(), field.getName(), expression));
+            }
+            List<Row.Field> fields = builder.build();
 
-            if (!sameElements(node.getItems(), items)) {
-                return new Row(items);
+            if (!sameElements(node.getFields(), fields)) {
+                return new Row(fields);
             }
 
             return node;
@@ -806,27 +813,6 @@ public final class ExpressionTreeRewriter<C>
             Expression base = rewrite(node.getBase(), context.get());
             if (base != node.getBase()) {
                 return new DereferenceExpression(base, node.getField());
-            }
-
-            return node;
-        }
-
-        @Override
-        protected Expression visitTrim(Trim node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteTrim(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            Expression trimSource = rewrite(node.getTrimSource(), context.get());
-            Optional<Expression> trimChar = node.getTrimCharacter()
-                    .map(trimCharacter -> rewrite(trimCharacter, context.get()));
-
-            if (trimSource != node.getTrimSource() || !sameElements(trimChar, node.getTrimCharacter())) {
-                return new Trim(node.getSpecification(), trimSource, trimChar);
             }
 
             return node;

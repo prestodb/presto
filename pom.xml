@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.299-SNAPSHOT</version>
+    <version>0.300-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -44,9 +44,10 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.13.2</dep.antlr.version>
-        <dep.airlift.version>0.230</dep.airlift.version>
+        <dep.airlift.version>0.231</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
+        <dep.zero-allocation-hashing.version>0.27ea0</dep.zero-allocation-hashing.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
         <dep.aws-sdk.version>1.12.782</dep.aws-sdk.version>
         <dep.okhttp.version>5.3.2</dep.okhttp.version>
@@ -83,7 +84,7 @@
         <dep.avro.version>1.12.1</dep.avro.version>
         <dep.commons.compress.version>1.27.1</dep.commons.compress.version>
         <dep.protobuf-java.version>4.34.1</dep.protobuf-java.version>
-        <dep.jetty.version>12.0.34</dep.jetty.version>
+        <dep.jetty.version>12.0.38</dep.jetty.version>
         <dep.netty.version>4.2.16.Final</dep.netty.version>
         <dep.reactor-netty.version>1.3.6</dep.reactor-netty.version>
         <dep.snakeyaml.version>2.5</dep.snakeyaml.version>
@@ -1231,6 +1232,12 @@
             </dependency>
 
             <dependency>
+                <groupId>net.openhft</groupId>
+                <artifactId>zero-allocation-hashing</artifactId>
+                <version>${dep.zero-allocation-hashing.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>log</artifactId>
                 <version>${dep.airlift.version}</version>
@@ -1562,7 +1569,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.7.11</version>
+                <version>42.7.12</version>
             </dependency>
 
             <dependency>
@@ -1675,7 +1682,7 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.23.0</version>
+                <version>0.24.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.apache.httpcomponents</groupId>
