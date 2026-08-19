@@ -15,6 +15,7 @@
 package com.facebook.presto.hive.statistics;
 
 import com.facebook.presto.hive.HiveBasicStatistics;
+import com.facebook.presto.hive.metastore.BooleanStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +31,6 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
-import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
@@ -59,34 +59,42 @@ public class PartitionQuickStats
             return empty();
         }
 
+        long rowCount = partitionQuickStats.getRowCount();
+
         ImmutableMap.Builder<String, HiveColumnStatistics> hiveColumnStatisticsBuilder = ImmutableMap.builder();
         partitionQuickStats.getStats().forEach(columnQuickStats -> {
             long nullsCount = columnQuickStats.getNullsCount();
             Object minValue = columnQuickStats.getMinValue();
             Object maxValue = columnQuickStats.getMaxValue();
 
+            OptionalLong distinctValuesCount = columnQuickStats.getDistinctValuesCount(rowCount - nullsCount);
+
             HiveColumnStatistics hiveColumnStatistics;
             if (columnQuickStats.getStatType().equals(Integer.class)) {
                 hiveColumnStatistics = createIntegerColumnStatistics(OptionalLong.of((int) minValue), OptionalLong.of((int) maxValue),
-                        OptionalLong.of(nullsCount), OptionalLong.empty());
+                        OptionalLong.of(nullsCount), distinctValuesCount);
             }
             else if (columnQuickStats.getStatType().equals(Long.class)) {
                 hiveColumnStatistics = createIntegerColumnStatistics(OptionalLong.of((long) minValue), OptionalLong.of((long) maxValue),
-                        OptionalLong.of(nullsCount), OptionalLong.empty());
+                        OptionalLong.of(nullsCount), distinctValuesCount);
             }
             else if (columnQuickStats.getStatType().equals(Double.class)) {
                 hiveColumnStatistics = createDoubleColumnStatistics(OptionalDouble.of((double) minValue), OptionalDouble.of((double) maxValue),
-                        OptionalLong.of(nullsCount), OptionalLong.empty());
+                        OptionalLong.of(nullsCount), distinctValuesCount);
             }
             else if (columnQuickStats.getStatType().equals(Slice.class)) {
                 hiveColumnStatistics = createBinaryColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(nullsCount));
             }
             else if (columnQuickStats.getStatType().equals(Boolean.class)) {
-                hiveColumnStatistics = createBooleanColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(nullsCount));
+                hiveColumnStatistics = HiveColumnStatistics.builder()
+                        .setBooleanStatistics(new BooleanStatistics(OptionalLong.empty(), OptionalLong.empty()))
+                        .setNullsCount(OptionalLong.of(nullsCount))
+                        .setDistinctValuesCount(distinctValuesCount)
+                        .build();
             }
             else if (columnQuickStats.getStatType().equals(ChronoLocalDate.class)) {
                 hiveColumnStatistics = createDateColumnStatistics(Optional.of((LocalDate) minValue), Optional.of((LocalDate) maxValue),
-                        OptionalLong.of(nullsCount), OptionalLong.empty());
+                        OptionalLong.of(nullsCount), distinctValuesCount);
             }
             else {
                 hiveColumnStatistics = new HiveColumnStatistics(Optional.empty(),
@@ -115,6 +123,20 @@ public class PartitionQuickStats
     public long getRowCount()
     {
         return rowCount;
+    }
+
+    /**
+     * Drops the distinct-values count from every column.
+     */
+    public static PartitionStatistics withoutDistinctValuesCount(PartitionStatistics statistics)
+    {
+        if (statistics.getColumnStatistics().isEmpty()) {
+            return statistics;
+        }
+        ImmutableMap.Builder<String, HiveColumnStatistics> columns = ImmutableMap.builder();
+        statistics.getColumnStatistics().forEach((name, column) -> columns.put(name,
+                HiveColumnStatistics.builder(column).setDistinctValuesCount(OptionalLong.empty()).build()));
+        return new PartitionStatistics(statistics.getBasicStatistics(), columns.build());
     }
 
     public List<ColumnQuickStats<?>> getStats()

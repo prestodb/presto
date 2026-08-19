@@ -73,6 +73,7 @@ import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getQuickStatsBackgroundBuildTimeout;
 import static com.facebook.presto.hive.HiveSessionProperties.getQuickStatsInlineBuildTimeout;
 import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsEstimateNdvStat;
 import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
@@ -82,6 +83,7 @@ import static com.facebook.presto.hive.HiveUtil.readSymlinkPaths;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.RECURSE;
 import static com.facebook.presto.hive.metastore.PartitionStatistics.empty;
+import static com.facebook.presto.hive.statistics.PartitionQuickStats.withoutDistinctValuesCount;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
@@ -221,6 +223,15 @@ public class QuickStatsProvider
     public PartitionStatistics getQuickStats(ConnectorSession session, SchemaTableName table,
             MetastoreContext metastoreContext, String partitionId)
     {
+        // Entries are always built and cached with the NDV estimate, so one entry serves sessions
+        // with either value of the flag.
+        PartitionStatistics statistics = resolveQuickStats(session, table, metastoreContext, partitionId);
+        return isQuickStatsEstimateNdvStat(session) ? statistics : withoutDistinctValuesCount(statistics);
+    }
+
+    private PartitionStatistics resolveQuickStats(ConnectorSession session, SchemaTableName table,
+            MetastoreContext metastoreContext, String partitionId)
+    {
         if (!isQuickStatsEnabled(session)) {
             return empty();
         }
@@ -296,8 +307,8 @@ public class QuickStatsProvider
         }
         else {
             // The quick stats inline fetch was pre-empted by another thread
-            // We get the up-to-date value by calling getQuickStats again
-            return getQuickStats(session, table, metastoreContext, partitionId);
+            // We get the up-to-date value by calling resolveQuickStats again
+            return resolveQuickStats(session, table, metastoreContext, partitionId);
         }
     }
 

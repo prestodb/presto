@@ -55,6 +55,7 @@ import java.time.chrono.ChronoLocalDate;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -70,6 +71,7 @@ import static java.lang.System.exit;
 import static java.time.LocalDate.parse;
 import static java.util.stream.Collectors.toMap;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestParquetQuickStatsBuilder
 {
@@ -281,6 +283,12 @@ public class TestParquetQuickStatsBuilder
         // DECIMAL columns are stored as binary arrays in parquet
         assertEquals(columnQuickStatsMap.get("ss_wholesale_cost"), createBinaryStats("ss_wholesale_cost", 5369L));
 
+        // NDV is bounded by the [min, max] range where it is narrower than the non-null row count.
+        assertEquals(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("ss_sold_date_sk")), OptionalLong.of(1827L));
+        assertEquals(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("ss_promo_sk")), OptionalLong.of(3L));
+        assertEquals(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("ss_quantity")), OptionalLong.of(100L));
+        // No min/max is collected for DECIMAL, so it has no NDV.
+        assertFalse(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("ss_wholesale_cost")).isPresent());
         // Table : TPCH orders table; 100 rows
         hiveFileInfos = buildHiveFileInfos(resourceDir, "tpch_orders_100_rows", 1);
         partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
@@ -293,6 +301,10 @@ public class TestParquetQuickStatsBuilder
         assertEquals(columnQuickStatsMap.get("comment"), createBinaryStats("comment", 0L));
         assertEquals(columnQuickStatsMap.get("orderdate"), createDateStats("orderdate", 0L, parse("1992-01-29"), parse("1998-07-24")));
         assertEquals(columnQuickStatsMap.get("totalprice"), createDoubleStats("totalprice", 0L, 1373.4, 352797.28));
+
+        assertFalse(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("comment")).isPresent());
+        assertEquals(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("orderdate")), OptionalLong.of(100L));
+        assertEquals(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("totalprice")), OptionalLong.of(100L));
     }
 
     @Test
@@ -315,6 +327,11 @@ public class TestParquetQuickStatsBuilder
         assertEquals(partitionQuickStats.getRowCount(), 3L);
         ColumnQuickStats<?> idColumnQuickStats = partitionQuickStats.getStats().get(0);
         assertEquals(idColumnQuickStats, createLongStats("id", 0L, 1L, 3L));
+    }
+
+    private static OptionalLong estimateNdv(PartitionQuickStats partition, ColumnQuickStats<?> column)
+    {
+        return column.getDistinctValuesCount(partition.getRowCount() - column.getNullsCount());
     }
 
     public static class DelayingHdfsEnvironment

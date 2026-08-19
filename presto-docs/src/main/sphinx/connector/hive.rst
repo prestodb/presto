@@ -1213,6 +1213,14 @@ The following properties can be used to control how these quick stats are built:
       - ``false``
    -
 
+      - ``hive.quick-stats.estimate-ndv-stat``
+      - When enabled, estimate a conservative distinct-values-count (NDV)
+        bound computed from the min/max range of existing stats. Without this
+        set, NDV estimates are not set. Also toggleable through the
+        ``quick_stats_estimate_ndv_stat`` session property.
+      - ``false``
+   -
+
       - ``hive.quick-stats.max-concurrent-calls``
       - Quick stats are built for multiple partitions concurrently. This
         property sets the maximum number of concurrent builds that can
