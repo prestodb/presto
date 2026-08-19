@@ -208,6 +208,10 @@ public class Analysis
     private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
     private Optional<MergeAnalysis> mergeAnalysis = Optional.empty();
 
+    // The update/delete WHERE predicate (empty when there is no WHERE),
+    // carried to the connector at execution time so it can restrict the conflict detection scope.
+    private Optional<RowExpression> writePredicateScope = Optional.empty();
+
     // for describe input and describe output
     private final boolean isDescribe;
 
@@ -808,6 +812,16 @@ public class Analysis
     public Optional<List<ColumnMetadata>> getUpdatedColumns()
     {
         return updatedColumns;
+    }
+
+    public void setWritePredicateScope(Optional<RowExpression> writePredicateScope)
+    {
+        this.writePredicateScope = writePredicateScope;
+    }
+
+    public Optional<RowExpression> getWritePredicateScope()
+    {
+        return writePredicateScope;
     }
 
     public Optional<MergeAnalysis> getMergeAnalysis()
