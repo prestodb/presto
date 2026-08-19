@@ -127,7 +127,7 @@ Name                              Description
                                   extraCredentials is a list of key-value pairs. Example:
                                   ``foo:bar;abc:xyz`` will create credentials ``abc=xyz`` and ``foo=bar``
 ``sessionProperties``             Session properties to set for the connection. The
-                                  sessionProperties is a list of key-value pairs. Example:
+                                  ``sessionProperties`` parameter is a list of key-value pairs. Example:
                                   ``prop1:value1;prop2:value2`` will set the session properties
                                   ``prop1`` and ``prop2`` to ``value1`` and ``value2`` respectively.
 ``customHeaders``                 Custom headers to inject through JDBC driver. The
