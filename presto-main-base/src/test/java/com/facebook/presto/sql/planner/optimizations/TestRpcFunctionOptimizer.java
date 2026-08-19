@@ -114,17 +114,17 @@ public class TestRpcFunctionOptimizer
         };
     }
 
-    private RPCNode.StreamingMode invokeParseStreamingMode(CallExpression rpcCall) throws Exception
+    private RpcExecutionMode invokeParseStreamingMode(CallExpression rpcCall) throws Exception
     {
         return invokeParseStreamingMode(rpcCall, TestingSession.testSessionBuilder().build());
     }
 
-    private RPCNode.StreamingMode invokeParseStreamingMode(CallExpression rpcCall, Session session) throws Exception
+    private RpcExecutionMode invokeParseStreamingMode(CallExpression rpcCall, Session session) throws Exception
     {
         Object rewriter = createRewriter(session);
         Method method = rewriter.getClass().getDeclaredMethod("parseStreamingMode", CallExpression.class);
         method.setAccessible(true);
-        return (RPCNode.StreamingMode) method.invoke(rewriter, rpcCall);
+        return (RpcExecutionMode) method.invoke(rewriter, rpcCall);
     }
 
     private int invokeParseDispatchBatchSize(CallExpression rpcCall) throws Exception
@@ -167,7 +167,7 @@ public class TestRpcFunctionOptimizer
     {
         CallExpression rpcCall = createRpcCall(
                 varchar("{\"api_key\":\"test-key\",\"streaming_mode\":\"batch\"}"));
-        assertEquals(invokeParseStreamingMode(rpcCall), RPCNode.StreamingMode.BATCH);
+        assertEquals(invokeParseStreamingMode(rpcCall), RpcExecutionMode.BATCH);
     }
 
     @Test
@@ -175,7 +175,7 @@ public class TestRpcFunctionOptimizer
     {
         CallExpression rpcCall = createRpcCall(
                 varchar("{\"api_key\":\"test-key\"}"));
-        assertEquals(invokeParseStreamingMode(rpcCall), RPCNode.StreamingMode.PER_ROW);
+        assertEquals(invokeParseStreamingMode(rpcCall), RpcExecutionMode.PER_ROW);
     }
 
     @Test
@@ -183,7 +183,38 @@ public class TestRpcFunctionOptimizer
     {
         CallExpression rpcCall = createRpcCall(
                 varchar("{\"api_key\":\"test-key\",\"streaming_mode\":\"per_row\"}"));
-        assertEquals(invokeParseStreamingMode(rpcCall), RPCNode.StreamingMode.PER_ROW);
+        assertEquals(invokeParseStreamingMode(rpcCall), RpcExecutionMode.PER_ROW);
+    }
+
+    @Test
+    public void testParseStreamingModeConstantObjectives() throws Exception
+    {
+        // The full RpcExecutionMode enum parses from the JSON streaming_mode, including objectives.
+        assertEquals(invokeParseStreamingMode(createRpcCall(
+                varchar("{\"api_key\":\"test-key\",\"streaming_mode\":\"automatic\"}"))), RpcExecutionMode.AUTOMATIC);
+        assertEquals(invokeParseStreamingMode(createRpcCall(
+                varchar("{\"api_key\":\"test-key\",\"streaming_mode\":\"latency\"}"))), RpcExecutionMode.LATENCY);
+        assertEquals(invokeParseStreamingMode(createRpcCall(
+                varchar("{\"api_key\":\"test-key\",\"streaming_mode\":\"throughput\"}"))), RpcExecutionMode.THROUGHPUT);
+        assertEquals(invokeParseStreamingMode(createRpcCall(
+                varchar("{\"api_key\":\"test-key\",\"streaming_mode\":\"cost\"}"))), RpcExecutionMode.COST);
+    }
+
+    @Test
+    public void testParseStreamingModeUnknownValueThrows() throws Exception
+    {
+        // An unrecognized streaming_mode in JSON is a user error: fail fast rather
+        // than silently falling back to the session property.
+        CallExpression rpcCall = createRpcCall(
+                varchar("{\"api_key\":\"test-key\",\"streaming_mode\":\"bogus\"}"));
+        try {
+            invokeParseStreamingMode(rpcCall);
+            fail("Expected PrestoException for unknown streaming_mode");
+        }
+        catch (java.lang.reflect.InvocationTargetException e) {
+            assertTrue(e.getCause() instanceof PrestoException);
+            assertTrue(e.getCause().getMessage().contains("Invalid rpc streaming_mode 'bogus'"));
+        }
     }
 
     @Test
@@ -196,7 +227,7 @@ public class TestRpcFunctionOptimizer
                 new VariableReferenceExpression(Optional.empty(), "key_col", VARCHAR),
                 varchar("\"}"));
         CallExpression rpcCall = createRpcCall(concatOptions);
-        assertEquals(invokeParseStreamingMode(rpcCall), RPCNode.StreamingMode.PER_ROW);
+        assertEquals(invokeParseStreamingMode(rpcCall), RpcExecutionMode.PER_ROW);
     }
 
     @Test
@@ -211,7 +242,7 @@ public class TestRpcFunctionOptimizer
         Session batchSession = TestingSession.testSessionBuilder()
                 .setSystemProperty("rpc_streaming_mode", "BATCH")
                 .build();
-        assertEquals(invokeParseStreamingMode(rpcCall, batchSession), RPCNode.StreamingMode.BATCH);
+        assertEquals(invokeParseStreamingMode(rpcCall, batchSession), RpcExecutionMode.BATCH);
     }
 
     @Test
@@ -219,7 +250,7 @@ public class TestRpcFunctionOptimizer
     {
         CallExpression rpcCall = createRpcCall(
                 new VariableReferenceExpression(Optional.empty(), "options_col", VARCHAR));
-        assertEquals(invokeParseStreamingMode(rpcCall), RPCNode.StreamingMode.PER_ROW);
+        assertEquals(invokeParseStreamingMode(rpcCall), RpcExecutionMode.PER_ROW);
     }
 
     @Test
@@ -231,7 +262,7 @@ public class TestRpcFunctionOptimizer
                 handle,
                 VARCHAR,
                 ImmutableList.of(varchar("prompt"), varchar("model")));
-        assertEquals(invokeParseStreamingMode(rpcCall), RPCNode.StreamingMode.PER_ROW);
+        assertEquals(invokeParseStreamingMode(rpcCall), RpcExecutionMode.PER_ROW);
     }
 
     @Test
@@ -243,7 +274,7 @@ public class TestRpcFunctionOptimizer
         Session batchSession = TestingSession.testSessionBuilder()
                 .setSystemProperty("rpc_streaming_mode", "BATCH")
                 .build();
-        assertEquals(invokeParseStreamingMode(rpcCall, batchSession), RPCNode.StreamingMode.BATCH);
+        assertEquals(invokeParseStreamingMode(rpcCall, batchSession), RpcExecutionMode.BATCH);
     }
 
     @Test
@@ -906,7 +937,7 @@ public class TestRpcFunctionOptimizer
 
     // Runs a policy's translateIntent for the given requested mode + input stats and returns the
     // resolved streaming mode.
-    private static RPCNode.StreamingMode resolvedMode(RpcExecutionPolicy policy, RPCNode.StreamingMode requested, PlanNodeStatsEstimate stats, Session session)
+    private static RPCNode.StreamingMode resolvedMode(RpcExecutionPolicy policy, RpcExecutionMode requested, PlanNodeStatsEstimate stats, Session session)
     {
         RpcExecutionIntent intent = RpcExecutionIntent.builder()
                 .setRequestedMode(requested)
@@ -918,16 +949,20 @@ public class TestRpcFunctionOptimizer
     }
 
     @Test
-    public void testDefaultPolicyResolvesAutomaticToPerRow()
+    public void testDefaultPolicyResolvesModes()
     {
-        // OSS default carries no batching heuristic: AUTOMATIC -> PER_ROW; explicit modes pass through.
+        // OSS default (no cardinality heuristic): explicit PER_ROW/BATCH pass through; THROUGHPUT /
+        // COST -> BATCH; LATENCY and AUTOMATIC -> PER_ROW.
         DefaultRpcExecutionPolicy policy = new DefaultRpcExecutionPolicy();
         Session session = TestingSession.testSessionBuilder().build();
         PlanNodeStatsEstimate largeStats = PlanNodeStatsEstimate.builder().setOutputRowCount(1_000_000).build();
-        assertEquals(resolvedMode(policy, RPCNode.StreamingMode.AUTOMATIC, largeStats, session), RPCNode.StreamingMode.PER_ROW);
-        assertEquals(resolvedMode(policy, RPCNode.StreamingMode.AUTOMATIC, PlanNodeStatsEstimate.unknown(), session), RPCNode.StreamingMode.PER_ROW);
-        assertEquals(resolvedMode(policy, RPCNode.StreamingMode.BATCH, PlanNodeStatsEstimate.builder().setOutputRowCount(1).build(), session), RPCNode.StreamingMode.BATCH);
-        assertEquals(resolvedMode(policy, RPCNode.StreamingMode.PER_ROW, largeStats, session), RPCNode.StreamingMode.PER_ROW);
+        assertEquals(resolvedMode(policy, RpcExecutionMode.PER_ROW, largeStats, session), RPCNode.StreamingMode.PER_ROW);
+        assertEquals(resolvedMode(policy, RpcExecutionMode.BATCH, PlanNodeStatsEstimate.unknown(), session), RPCNode.StreamingMode.BATCH);
+        assertEquals(resolvedMode(policy, RpcExecutionMode.THROUGHPUT, largeStats, session), RPCNode.StreamingMode.BATCH);
+        assertEquals(resolvedMode(policy, RpcExecutionMode.COST, largeStats, session), RPCNode.StreamingMode.BATCH);
+        assertEquals(resolvedMode(policy, RpcExecutionMode.LATENCY, largeStats, session), RPCNode.StreamingMode.PER_ROW);
+        assertEquals(resolvedMode(policy, RpcExecutionMode.AUTOMATIC, largeStats, session), RPCNode.StreamingMode.PER_ROW);
+        assertEquals(resolvedMode(policy, RpcExecutionMode.AUTOMATIC, PlanNodeStatsEstimate.unknown(), session), RPCNode.StreamingMode.PER_ROW);
     }
 
     @Test
@@ -946,9 +981,9 @@ public class TestRpcFunctionOptimizer
         // The optimizer enforces the policy contract at plan time: a policy that returns
         // AUTOMATIC (e.g. by passing the requested mode through unchanged) must fail loudly
         // here rather than leak AUTOMATIC into the serialized RPCNode and fail at the worker.
-        RpcExecutionPolicy passthrough = intent -> RpcExecutionProperties.of(intent.getRequestedMode());
+        RpcExecutionPolicy returnsAutomatic = intent -> RpcExecutionProperties.of(RPCNode.StreamingMode.AUTOMATIC);
         try {
-            optimizeWithPolicy(streamingModeSession("AUTOMATIC"), passthrough);
+            optimizeWithPolicy(streamingModeSession("AUTOMATIC"), returnsAutomatic);
             fail("expected rejection when policy returns AUTOMATIC");
         }
         catch (IllegalArgumentException expected) {
