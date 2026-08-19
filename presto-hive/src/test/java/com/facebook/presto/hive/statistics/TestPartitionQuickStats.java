@@ -14,9 +14,12 @@
 
 package com.facebook.presto.hive.statistics;
 
+import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.OptionalLong;
@@ -25,6 +28,8 @@ import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBool
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertTrue;
 
 /**
@@ -152,6 +157,77 @@ public class TestPartitionQuickStats
         assertEquals(enabledStats.getDistinctValuesCount(), OptionalLong.of(2L));
         assertEquals(enabledStats.getNullsCount(), disabledStats.getNullsCount());
         assertEquals(enabledStats.getBooleanStatistics(), disabledStats.getBooleanStatistics());
+    }
+
+    /**
+     * The PROVABLY_EMPTY sentinel must convert to an explicit all-zero
+     * {@link com.facebook.presto.hive.HiveBasicStatistics}, not to {@link PartitionStatistics#empty()}
+     * (which is UNKNOWN, i.e. NaN by the time the CBO sees it).
+     */
+    @Test
+    public void testProvablyEmptyProducesZeroBasicStatistics()
+    {
+        for (boolean ndvEnabled : new boolean[] {true, false}) {
+            PartitionStatistics statistics = PartitionQuickStats.convertToPartitionStatistics(PartitionQuickStats.PROVABLY_EMPTY, ndvEnabled);
+
+            HiveBasicStatistics basicStatistics = statistics.getBasicStatistics();
+            assertEquals(basicStatistics.getRowCount(), OptionalLong.of(0));
+            assertEquals(basicStatistics.getFileCount(), OptionalLong.of(0));
+            assertEquals(basicStatistics.getInMemoryDataSizeInBytes(), OptionalLong.of(0));
+            assertEquals(basicStatistics.getOnDiskDataSizeInBytes(), OptionalLong.of(0));
+            // A provably empty partition carries no column statistics: there are no rows to describe,
+            // and StatsNormalizer derives the per-variable zeros from the row count.
+            assertTrue(statistics.getColumnStatistics().isEmpty());
+            assertNotEquals(statistics, PartitionStatistics.empty());
+        }
+    }
+
+    /**
+     * The EMPTY sentinel (and any stats-empty instance) keeps meaning UNKNOWN. This is
+     * the invariant that makes the two sentinels safe to distinguish by identity.
+     */
+    @Test
+    public void testEmptySentinelStillMeansUnknown()
+    {
+        for (boolean ndvEnabled : new boolean[] {true, false}) {
+            assertEquals(PartitionQuickStats.convertToPartitionStatistics(PartitionQuickStats.EMPTY, ndvEnabled), PartitionStatistics.empty());
+            // Any instance with no column stats also converts to UNKNOWN, unchanged from before.
+            assertEquals(
+                    PartitionQuickStats.convertToPartitionStatistics(new PartitionQuickStats("p1", ImmutableList.of(), 7), ndvEnabled),
+                    PartitionStatistics.empty());
+        }
+        assertNotSame(PartitionQuickStats.EMPTY, PartitionQuickStats.PROVABLY_EMPTY);
+    }
+
+    /**
+     * API test: both {@code convertToPartitionStatistics} overloads -- including the
+     * {@code @Deprecated} single-argument one -- must agree on the new third state.
+     */
+    @Test
+    public void testBothOverloadsAgreeOnProvablyEmpty()
+    {
+        @SuppressWarnings("deprecation")
+        PartitionStatistics viaDeprecatedOverload = PartitionQuickStats.convertToPartitionStatistics(PartitionQuickStats.PROVABLY_EMPTY);
+
+        assertEquals(viaDeprecatedOverload, PartitionQuickStats.convertToPartitionStatistics(PartitionQuickStats.PROVABLY_EMPTY, true));
+        assertEquals(viaDeprecatedOverload, PartitionQuickStats.convertToPartitionStatistics(PartitionQuickStats.PROVABLY_EMPTY, false));
+
+        @SuppressWarnings("deprecation")
+        PartitionStatistics emptyViaDeprecatedOverload = PartitionQuickStats.convertToPartitionStatistics(PartitionQuickStats.EMPTY);
+        assertEquals(emptyViaDeprecatedOverload, PartitionStatistics.empty());
+    }
+
+    /**
+     * Validation: the zero statistics the provable-zero path emits must pass
+     * {@code MetastoreHiveStatisticsProvider#validatePartitionStatistics}, which hard-fails a query
+     * with HIVE_CORRUPTED_COLUMN_STATISTICS on any inconsistency.
+     */
+    @Test
+    public void testProvablyEmptyStatisticsPassValidation()
+    {
+        MetastoreHiveStatisticsProvider.validatePartitionStatistics(
+                new SchemaTableName("schema", "table"),
+                ImmutableMap.of("p1", PartitionQuickStats.convertToPartitionStatistics(PartitionQuickStats.PROVABLY_EMPTY, true)));
     }
 
     @Test

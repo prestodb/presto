@@ -1186,10 +1186,35 @@ The following properties can be used to control how these quick stats are built:
         ``false`` to revert to the pre-fix behavior of leaving
         distinctValuesCount unset, without a rebuild, if a regression is
         observed. Also toggleable through the ``quick_stats_ndv_enabled``
-        session property. Note: quick stats are cached per partition and the
-        cache key does not include this flag, so toggling it at runtime does
-        not rebuild already-cached partitions until ``hive.quick-stats.cache-expiry``
-        elapses; apply via config + restart for a deterministic rollback.
+        session property. The per-partition quick stats cache key includes
+        this flag, so a session that changes it is served an entry built with
+        its own value rather than one cached for another session.
+      - ``true``
+   -
+
+      - ``hive.quick-stats.provable-empty-enabled``
+      - Emit a row count of ``0`` when quick stats can prove a partition is
+        empty -- either the directory listing found no files, or every file
+        read reported no row groups -- instead of reporting unknown
+        statistics. The proof is refused for formats where "no files" does
+        not imply "no rows" (transactional/ACID tables, Hudi), so those
+        continue to report unknown. This is a kill-switch: set to ``false``
+        to revert to the pre-fix behavior without a rebuild. Also toggleable
+        through the ``quick_stats_provable_empty_enabled`` session property.
+        As with ``hive.quick-stats.ndv-enabled``, the per-partition quick
+        stats cache key includes this flag. To discard entries cached before a
+        statistics change, use the ``invalidateQuickStatsCache`` JMX operation
+        on
+        ``com.facebook.presto.hive.statistics:type=QuickStatsProvider,name=<catalog>_QuickStatsProvider``
+        (or restart the coordinator).
+        Known interaction: enabling the
+        ``treat_low_confidence_zero_estimation_unknown_enabled`` system
+        property (``false`` by default) makes the cost-based optimizer treat a
+        zero row count carrying ``LOW`` confidence as unknown. A derived
+        estimate above a scan is not guaranteed to keep the connector's
+        ``HIGH`` confidence, so with that property enabled the plan changes
+        this proof enables may silently stop happening. The proof itself, and
+        query results, are unaffected.
       - ``true``
    -
 

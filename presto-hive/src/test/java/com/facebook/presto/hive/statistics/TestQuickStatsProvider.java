@@ -15,6 +15,7 @@ package com.facebook.presto.hive.statistics;
 
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.hive.DirectoryLister;
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HadoopDirectoryLister;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -65,6 +66,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
@@ -73,6 +75,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_BACKGRO
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_INLINE_BUILD_TIMEOUT;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_NDV_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_PROVABLE_EMPTY_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.SKIP_EMPTY_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.USE_LIST_DIRECTORY_CACHE;
 import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
@@ -154,6 +157,11 @@ public class TestQuickStatsProvider
                     SKIP_EMPTY_FILES,
                     "If it is required empty files will be skipped",
                     false,
+                    false),
+            booleanProperty(
+                    QUICK_STATS_PROVABLE_EMPTY_ENABLED,
+                    "Emit a row count of 0 when quick stats can prove a partition is empty",
+                    true,
                     false));
     public static final ConnectorSession SESSION = new TestingConnectorSession(quickStatsProperties);
     private final HiveClientConfig hiveClientConfig = new HiveClientConfig().setRecursiveDirWalkerEnabled(true);
@@ -179,6 +187,12 @@ public class TestQuickStatsProvider
     {
         return new TestingConnectorSession(quickStatsProperties, ImmutableMap.of(
                 QUICK_STATS_NDV_ENABLED, ndvEnabled));
+    }
+
+    private static ConnectorSession getSessionWithProvableEmptyEnabled(boolean provableEmptyEnabled)
+    {
+        return new TestingConnectorSession(quickStatsProperties, ImmutableMap.of(
+                QUICK_STATS_PROVABLE_EMPTY_ENABLED, provableEmptyEnabled));
     }
 
     @BeforeTest
@@ -299,6 +313,170 @@ public class TestQuickStatsProvider
         // enabled result with only the NDV slot cleared.
         assertEquals(disabledStats, convertToPartitionStatistics(mockPartitionQuickStats, false));
         assertEquals(enabledStats, convertToPartitionStatistics(mockPartitionQuickStats, true));
+    }
+
+    /**
+     * The strategy loop breaks on any non-EMPTY result, and PROVABLY_EMPTY is a
+     * distinct instance from EMPTY, so a strategy that proves emptiness stops the search rather than
+     * letting a later strategy overwrite the proof with UNKNOWN. Also pins that the converted zero
+     * (not {@code PartitionStatistics.empty()}) is what gets cached and returned.
+     */
+    @Test
+    public void testProvablyEmptyBreaksTheStrategyLoop()
+    {
+        AtomicInteger secondStrategyCalls = new AtomicInteger();
+        QuickStatsBuilder provesEmptiness = (session, metastore, table, metastoreContext, partitionId, files) -> PartitionQuickStats.PROVABLY_EMPTY;
+        QuickStatsBuilder mustNotRun = (session, metastore, table, metastoreContext, partitionId, files) -> {
+            secondStrategyCalls.incrementAndGet();
+            return mockPartitionQuickStats;
+        };
+
+        QuickStatsProvider quickStatsProvider = new QuickStatsProvider(metastoreMock, hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+                ImmutableList.of(provesEmptiness, mustNotRun));
+
+        PartitionStatistics stats = quickStatsProvider.getQuickStats(SESSION, new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, "provablyEmptyPartition");
+
+        assertEquals(secondStrategyCalls.get(), 0, "PROVABLY_EMPTY must stop the strategy loop");
+        assertEquals(stats, convertToPartitionStatistics(PartitionQuickStats.PROVABLY_EMPTY, true));
+        assertEquals(stats.getBasicStatistics().getRowCount().getAsLong(), 0L);
+        assertFalse(stats.equals(empty()), "A proven zero must not be indistinguishable from UNKNOWN");
+
+        // The zero round-trips through the cache unchanged.
+        PartitionStatistics cached = quickStatsProvider.getQuickStats(SESSION, new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, "provablyEmptyPartition");
+        assertEquals(cached, stats);
+    }
+
+    /**
+     * With the kill-switch off, the builder never produces PROVABLY_EMPTY, so every
+     * path reverts to {@code PartitionStatistics.empty()} -- byte-identical to the pre-change output.
+     * The switch is read by the builder, so this exercises it end to end through the real
+     * ParquetQuickStatsBuilder with an empty file listing.
+     */
+    @Test
+    public void testKillSwitchRestoresLegacyBehaviour()
+    {
+        QuickStatsBuilder parquetBuilder = new ParquetQuickStatsBuilder(new FileFormatDataSourceStats(), hdfsEnvironment, hiveClientConfig);
+        QuickStatsProvider enabledProvider = new QuickStatsProvider(metastoreMock, hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+                ImmutableList.of(parquetBuilder));
+        QuickStatsProvider disabledProvider = new QuickStatsProvider(metastoreMock, hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+                ImmutableList.of(parquetBuilder));
+
+        // directoryListerMock lists no files at all, i.e. exactly the case this change targets.
+        PartitionStatistics enabled = enabledProvider.getQuickStats(getSessionWithProvableEmptyEnabled(true),
+                new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, UNPARTITIONED_ID.getPartitionName());
+        PartitionStatistics disabled = disabledProvider.getQuickStats(getSessionWithProvableEmptyEnabled(false),
+                new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, UNPARTITIONED_ID.getPartitionName());
+
+        assertEquals(enabled, convertToPartitionStatistics(PartitionQuickStats.PROVABLY_EMPTY, true));
+        assertEquals(enabled.getBasicStatistics().getRowCount().getAsLong(), 0L);
+        assertEquals(disabled, empty(), "Kill-switch off must be byte-identical to the pre-change UNKNOWN output");
+    }
+
+    /**
+     * The emptiness proof needs two facts -- the storage format and the table-level transactional flag
+     * -- and for an unpartitioned table both come from the same {@link Table}, so it must be fetched
+     * once rather than once per fact. On a default deployment the difference is a real network call:
+     * {@code MetastoreClientConfig#hive.metastore.cache.ttl.default} is {@code 0s}, which disables the
+     * metastore cache.
+     * <p>
+     * Two calls are expected, not one: {@code buildQuickStats} already resolves the table
+     * unconditionally for the directory listing, and the proof adds exactly one lookup on top of that.
+     * Threading the caller's already-resolved table into {@link QuickStatsBuilder} would remove even
+     * that one, but it changes the builder interface and is better done separately.
+     * <p>
+     * This pins the round-trip count rather than a wall-clock duration deliberately: the cost is
+     * network-bound, so a timing assertion would measure the environment rather than this code, while
+     * the count is deterministic and regresses visibly in CI.
+     */
+    @Test
+    public void testProvableEmptinessAddsAtMostOneMetastoreRoundTrip()
+    {
+        AtomicInteger getTableCalls = new AtomicInteger();
+        TestingExtendedHiveMetastore countingMetastore = new TestingExtendedHiveMetastore()
+        {
+            @Override
+            public Optional<Table> getTable(MetastoreContext context, String databaseName, String tableName)
+            {
+                getTableCalls.incrementAndGet();
+                return super.getTable(context, databaseName, tableName);
+            }
+        };
+        Table registeredTable = metastoreMock.getTable(metastoreContext, TEST_SCHEMA, TEST_TABLE)
+                .orElseThrow(() -> new IllegalStateException("test table was not registered"));
+        countingMetastore.createTable(metastoreContext, registeredTable,
+                new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()), ImmutableList.of());
+        getTableCalls.set(0);
+
+        QuickStatsProvider provider = new QuickStatsProvider(countingMetastore, hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+                ImmutableList.of(new ParquetQuickStatsBuilder(new FileFormatDataSourceStats(), hdfsEnvironment, hiveClientConfig)));
+
+        // directoryListerMock lists no files, so this takes the emptiness-proof path.
+        PartitionStatistics stats = provider.getQuickStats(getSessionWithProvableEmptyEnabled(true),
+                new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, UNPARTITIONED_ID.getPartitionName());
+
+        assertEquals(stats.getBasicStatistics().getRowCount().getAsLong(), 0L, "expected the emptiness proof to fire");
+        assertEquals(getTableCalls.get(), 2, "the emptiness proof must add at most one table lookup beyond the one the listing already needs");
+    }
+
+    /**
+     * Both feature flags are read on the build path -- the NDV flag when converting to
+     * {@link PartitionStatistics}, the provable-empty flag inside the builder -- so their values are
+     * baked into the cached entry. The cache key must include them, otherwise the first session to
+     * trigger a build fixes the answer for every later session until the entry expires, and a session
+     * that turned a flag off is still served the other session's result.
+     */
+    @Test
+    public void testFlagValuesDoNotLeakAcrossSessionsThroughTheCache()
+    {
+        QuickStatsProvider provider = new QuickStatsProvider(metastoreMock, hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+                ImmutableList.of(new ParquetQuickStatsBuilder(new FileFormatDataSourceStats(), hdfsEnvironment, hiveClientConfig)));
+        SchemaTableName table = new SchemaTableName(TEST_SCHEMA, TEST_TABLE);
+
+        // The session with the flag on builds and caches first.
+        PartitionStatistics enabled = provider.getQuickStats(getSessionWithProvableEmptyEnabled(true),
+                table, metastoreContext, UNPARTITIONED_ID.getPartitionName());
+        assertEquals(enabled.getBasicStatistics().getRowCount().getAsLong(), 0L);
+
+        // A session with the flag off must get the legacy answer from its own entry, not the cached proof.
+        PartitionStatistics disabled = provider.getQuickStats(getSessionWithProvableEmptyEnabled(false),
+                table, metastoreContext, UNPARTITIONED_ID.getPartitionName());
+        assertEquals(disabled, empty(), "an entry built with the flag on must not be served to a session with it off");
+    }
+
+    /**
+     * The {@code @Managed} invalidation operation. buildQuickStats caches its result
+     * unconditionally -- including UNKNOWN -- for {@code hive.quick-stats.cache-expiry} (24 h by
+     * default), so a stale entry written before a statistics change would otherwise be served for a
+     * day. After invalidation the next request must rebuild.
+     */
+    @Test
+    public void testCacheInvalidationClearsStaleUnknown()
+    {
+        AtomicInteger builds = new AtomicInteger();
+        // First build returns UNKNOWN (the stale, pre-change answer); later builds return the proof.
+        QuickStatsBuilder builder = (session, metastore, table, metastoreContext, partitionId, files) ->
+                builds.incrementAndGet() == 1 ? PartitionQuickStats.EMPTY : PartitionQuickStats.PROVABLY_EMPTY;
+
+        QuickStatsProvider quickStatsProvider = new QuickStatsProvider(metastoreMock, hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+                ImmutableList.of(builder));
+        SchemaTableName table = new SchemaTableName(TEST_SCHEMA, TEST_TABLE);
+
+        assertEquals(quickStatsProvider.getQuickStats(SESSION, table, metastoreContext, "p1"), empty());
+        assertEquals(builds.get(), 1);
+        long resolvesFromProviderAfterFirstBuild = quickStatsProvider.getSuccesfulResolveFromProviderCount();
+
+        // Without invalidation the stale UNKNOWN is served from cache: no new build.
+        assertEquals(quickStatsProvider.getQuickStats(SESSION, table, metastoreContext, "p1"), empty());
+        assertEquals(builds.get(), 1);
+        assertEquals(quickStatsProvider.getSuccesfulResolveFromProviderCount(), resolvesFromProviderAfterFirstBuild);
+
+        quickStatsProvider.invalidateQuickStatsCache();
+
+        PartitionStatistics afterInvalidation = quickStatsProvider.getQuickStats(SESSION, table, metastoreContext, "p1");
+        assertEquals(builds.get(), 2, "Invalidation must force a rebuild rather than serving the prior entry");
+        assertEquals(quickStatsProvider.getSuccesfulResolveFromProviderCount(), resolvesFromProviderAfterFirstBuild + 1);
+        assertEquals(afterInvalidation, convertToPartitionStatistics(PartitionQuickStats.PROVABLY_EMPTY, true));
+        assertFalse(afterInvalidation.equals(empty()), "The stale UNKNOWN must not be served after invalidation");
     }
 
     @Test

@@ -40,7 +40,24 @@ import static java.util.Collections.emptyList;
 
 public class PartitionQuickStats
 {
+    /**
+     * Sentinel for "quick stats are unavailable for this partition" -- a non-Parquet serde, a footer
+     * that could not be read, or a format we deliberately refuse to reason about. Converts to
+     * {@link PartitionStatistics#empty()}, i.e. UNKNOWN.
+     */
     public static final PartitionQuickStats EMPTY = new PartitionQuickStats("emptyPartition", emptyList(), 0);
+
+    /**
+     * Sentinel for "this partition provably contains zero rows" -- either the directory listing found
+     * no files at all, or every file that was read reported zero row groups. Unlike {@link #EMPTY}
+     * this carries information, and converts to a row count of 0 rather than UNKNOWN.
+     * <p>
+     * Kept as a separate instance rather than a flag because callers compare against {@link #EMPTY}
+     * by identity (there is no {@code equals} override), notably the strategy loop in
+     * {@code QuickStatsProvider}, which must stop exploring further strategies once emptiness is
+     * proven.
+     */
+    public static final PartitionQuickStats PROVABLY_EMPTY = new PartitionQuickStats("provablyEmptyPartition", emptyList(), 0);
     private final String partitionId;
     private final List<ColumnQuickStats<?>> stats;
     private final int fileCount;
@@ -72,6 +89,15 @@ public class PartitionQuickStats
      */
     public static PartitionStatistics convertToPartitionStatistics(PartitionQuickStats partitionQuickStats, boolean ndvEnabled)
     {
+        if (partitionQuickStats == PROVABLY_EMPTY) {
+            // Zero rows is a fact here, not an estimate: either the listing found no files, or every
+            // file read reported no row groups. Emit it as such so the CBO can act on it, instead of
+            // discarding it into the same UNKNOWN bucket as "stats could not be read".
+            return new PartitionStatistics(
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0)),
+                    ImmutableMap.of());
+        }
+
         if (partitionQuickStats.equals(EMPTY) || partitionQuickStats.getStats().isEmpty()) {
             return empty();
         }

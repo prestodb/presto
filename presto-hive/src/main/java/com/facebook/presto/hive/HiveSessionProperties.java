@@ -130,6 +130,7 @@ public final class HiveSessionProperties
     public static final String PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED = "parallel_parsing_of_partition_values_enabled";
     public static final String QUICK_STATS_ENABLED = "quick_stats_enabled";
     public static final String QUICK_STATS_NDV_ENABLED = "quick_stats_ndv_enabled";
+    public static final String QUICK_STATS_PROVABLE_EMPTY_ENABLED = "quick_stats_provable_empty_enabled";
     public static final String QUICK_STATS_INLINE_BUILD_TIMEOUT = "quick_stats_inline_build_timeout";
     public static final String QUICK_STATS_BACKGROUND_BUILD_TIMEOUT = "quick_stats_background_build_timeout";
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
@@ -635,6 +636,12 @@ public final class HiveSessionProperties
                         "Emit a conservative distinctValuesCount (NDV) bound from quick stats. Kill-switch: " +
                                 "set to false to revert to the pre-fix behavior of leaving distinctValuesCount unset",
                         hiveClientConfig.isQuickStatsNdvEnabled(),
+                        false),
+                booleanProperty(
+                        QUICK_STATS_PROVABLE_EMPTY_ENABLED,
+                        "Emit a row count of 0 when quick stats can prove a partition is empty. Kill-switch: " +
+                                "set to false to revert to the pre-fix behavior of reporting unknown statistics",
+                        hiveClientConfig.isQuickStatsProvableEmptyEnabled(),
                         false),
                 booleanProperty(
                         SYMLINK_OPTIMIZED_READER_ENABLED,
@@ -1162,6 +1169,11 @@ public final class HiveSessionProperties
     public static boolean isQuickStatsNdvEnabled(ConnectorSession session)
     {
         return session.getProperty(QUICK_STATS_NDV_ENABLED, Boolean.class);
+    }
+
+    public static boolean isQuickStatsProvableEmptyEnabled(ConnectorSession session)
+    {
+        return session.getProperty(QUICK_STATS_PROVABLE_EMPTY_ENABLED, Boolean.class);
     }
 
     public static Duration getQuickStatsInlineBuildTimeout(ConnectorSession session)

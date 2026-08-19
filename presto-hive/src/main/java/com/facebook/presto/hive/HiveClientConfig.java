@@ -212,6 +212,10 @@ public class HiveClientConfig
     // Defaults to enabled; can be turned off without a rebuild if a regression is observed, falling
     // back to the pre-fix behavior of leaving distinctValuesCount unset.
     private boolean quickStatsNdvEnabled = true;
+    // Kill-switch for emitting a provable zero row count when quick stats can prove a partition is
+    // empty (no files, or files with no row groups). Defaults to enabled; set to false to revert to
+    // the pre-fix behavior of reporting UNKNOWN for those partitions.
+    private boolean quickStatsProvableEmptyEnabled = true;
     // Duration the initiator query of the quick stats fetch for a partition should wait for stats to be built, before failing and returning EMPTY PartitionStats
     private Duration quickStatsInlineBuildTimeout = new Duration(60, TimeUnit.SECONDS);
     // If an in-progress background build is already observed for a partition, this duration is what the current query will wait for the background build to finish
@@ -1619,6 +1623,20 @@ public class HiveClientConfig
     public boolean isQuickStatsEnabled()
     {
         return this.quickStatsEnabled;
+    }
+
+    public boolean isQuickStatsProvableEmptyEnabled()
+    {
+        return quickStatsProvableEmptyEnabled;
+    }
+
+    @Config("hive.quick-stats.provable-empty-enabled")
+    @ConfigDescription("Emit a row count of 0 when quick stats can prove a partition is empty. Kill-switch: " +
+            "set to false to revert to the pre-fix behavior of reporting unknown statistics for those partitions")
+    public HiveClientConfig setQuickStatsProvableEmptyEnabled(boolean quickStatsProvableEmptyEnabled)
+    {
+        this.quickStatsProvableEmptyEnabled = quickStatsProvableEmptyEnabled;
+        return this;
     }
 
     @Config("hive.quick-stats.ndv-enabled")
