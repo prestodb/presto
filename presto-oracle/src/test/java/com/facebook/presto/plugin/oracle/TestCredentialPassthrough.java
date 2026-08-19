@@ -57,20 +57,24 @@ public class TestCredentialPassthrough
     @Test
     public void testCredentialPassthrough()
     {
-        Session session = getSession(true);
+        Map<String, String> correctCredentials =
+                ImmutableMap.of("oracle.user", OracleServerTester.TEST_USER, "oracle.password", OracleServerTester.TEST_PASS);
+        Session session = getSession(correctCredentials);
         oracleQueryRunner.execute(session, "CREATE TABLE test_create (a bigint)");
         oracleQueryRunner.execute(session, "DROP TABLE test_create");
     }
 
     @Test(expectedExceptions = RuntimeException.class)
-    public void testCredentialPassthroughFailsWithoutExtraCredentials()
+    public void testCredentialPassthroughFailsWithWrongExtraCredentials()
     {
-        // Uses a separate catalog (registered fresh here, never previously authenticated) rather
-        // than the "oracle" catalog the positive test already used, so this can't accidentally pass
-        // by reusing an already-authenticated pooled connection instead of actually requiring
-        // extraCredentials.
-        oracleQueryRunner.createCatalog("oracle_negative", "oracle", catalogProperties(oracleServer));
-        oracleQueryRunner.execute(getSession("oracle_negative", false), "CREATE TABLE test_create_negative (a bigint)");
+        // Supplies a definitely-wrong password via extraCredentials, rather than omitting
+        // extraCredentials entirely: this directly proves the value actually passed through
+        // extraCredentials is what Oracle authenticates against (the mechanism the original bug
+        // broke), and must fail regardless of any connection reuse/caching, unlike an
+        // omitted-credentials case which could in principle succeed via some other fallback.
+        Map<String, String> wrongCredentials =
+                ImmutableMap.of("oracle.user", OracleServerTester.TEST_USER, "oracle.password", "definitely-wrong-password");
+        oracleQueryRunner.execute(getSession(wrongCredentials), "CREATE TABLE test_create_negative (a bigint)");
     }
 
     private static QueryRunner createQueryRunner(OracleServerTester oracleServer)
@@ -100,18 +104,10 @@ public class TestCredentialPassthrough
                 .build();
     }
 
-    private static Session getSession(boolean withExtraCredentials)
+    private static Session getSession(Map<String, String> extraCredentials)
     {
-        return getSession("oracle", withExtraCredentials);
-    }
-
-    private static Session getSession(String catalog, boolean withExtraCredentials)
-    {
-        Map<String, String> extraCredentials = withExtraCredentials
-                ? ImmutableMap.of("oracle.user", OracleServerTester.TEST_USER, "oracle.password", OracleServerTester.TEST_PASS)
-                : ImmutableMap.of();
         return testSessionBuilder()
-                .setCatalog(catalog)
+                .setCatalog("oracle")
                 .setSchema(OracleServerTester.TEST_SCHEMA)
                 .setIdentity(new Identity(
                         OracleServerTester.TEST_USER,
