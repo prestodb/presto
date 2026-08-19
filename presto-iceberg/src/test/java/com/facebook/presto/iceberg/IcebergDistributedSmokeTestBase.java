@@ -903,6 +903,69 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testAddNestedField()
+    {
+        testWithAllFileFormats(this::testAddNestedField);
+    }
+
+    private void testAddNestedField(Session session, FileFormat fileFormat)
+    {
+        String format = "\"write.format.default\" = '" + fileFormat + "'";
+
+        // --- Single-level struct: add a new field ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_field (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_add_field VALUES (1, ROW('alice', 30))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age FROM test_nested_add_field", "VALUES (1, 'alice', 30)");
+
+        // Add a new field to the struct
+        assertUpdate(session, "ALTER TABLE test_nested_add_field ADD COLUMN info.email VARCHAR");
+
+        // Old rows have NULL for the new field
+        assertQuery(session, "SELECT id, info.name, info.age, info.email FROM test_nested_add_field",
+                "VALUES (1, 'alice', 30, NULL)");
+
+        // New rows can populate the new field
+        assertUpdate(session, "INSERT INTO test_nested_add_field VALUES (2, ROW('bob', 25, 'bob@example.com'))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age, info.email FROM test_nested_add_field ORDER BY id",
+                "VALUES (1, 'alice', 30, NULL), (2, 'bob', 25, 'bob@example.com')");
+
+        dropTable(session, "test_nested_add_field");
+
+        // --- IF NOT EXISTS: silently skip if field already exists ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_field_ifne (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "ALTER TABLE test_nested_add_field_ifne ADD COLUMN info.score INTEGER");
+        // Second time with IF NOT EXISTS must not throw
+        assertUpdate(session, "ALTER TABLE test_nested_add_field_ifne ADD COLUMN IF NOT EXISTS info.score INTEGER");
+        dropTable(session, "test_nested_add_field_ifne");
+
+        // --- Multi-level nesting ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_deep (" +
+                "id BIGINT, " +
+                "outer_col ROW(inner_col ROW(value VARCHAR))" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_add_deep VALUES (1, ROW(ROW('hello')))", 1);
+        assertUpdate(session, "ALTER TABLE test_nested_add_deep ADD COLUMN outer_col.inner_col.extra BIGINT");
+        assertQuery(session, "SELECT outer_col.inner_col.value, outer_col.inner_col.extra FROM test_nested_add_deep",
+                "VALUES ('hello', NULL)");
+        dropTable(session, "test_nested_add_deep");
+
+        // --- Error: parent struct does not exist ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_bad (" +
+                "id BIGINT" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_bad ADD COLUMN nonexistent.new_field VARCHAR",
+                ".*Cannot find parent field.*|.*Failed to add field.*");
+        dropTable(session, "test_nested_add_bad");
+    }
+
+    @Test
     protected void testCreateTableLike()
     {
         Session session = getSession();

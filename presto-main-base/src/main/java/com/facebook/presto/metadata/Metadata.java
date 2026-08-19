@@ -249,6 +249,11 @@ public interface Metadata
     void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
 
     /**
+     * Add a field to a nested struct column.
+     */
+    void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting);
+
+    /**
      * Set the specified type to the column.
      */
     void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
