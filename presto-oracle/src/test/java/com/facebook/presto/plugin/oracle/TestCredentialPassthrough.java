@@ -65,7 +65,12 @@ public class TestCredentialPassthrough
     @Test(expectedExceptions = RuntimeException.class)
     public void testCredentialPassthroughFailsWithoutExtraCredentials()
     {
-        oracleQueryRunner.execute(getSession(false), "CREATE TABLE test_create_negative (a bigint)");
+        // Uses a separate catalog (registered fresh here, never previously authenticated) rather
+        // than the "oracle" catalog the positive test already used, so this can't accidentally pass
+        // by reusing an already-authenticated pooled connection instead of actually requiring
+        // extraCredentials.
+        oracleQueryRunner.createCatalog("oracle_negative", "oracle", catalogProperties(oracleServer));
+        oracleQueryRunner.execute(getSession("oracle_negative", false), "CREATE TABLE test_create_negative (a bigint)");
     }
 
     private static QueryRunner createQueryRunner(OracleServerTester oracleServer)
@@ -75,12 +80,7 @@ public class TestCredentialPassthrough
         try {
             queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
             queryRunner.installPlugin(new OraclePlugin());
-            Map<String, String> properties = ImmutableMap.<String, String>builder()
-                    .put("connection-url", oracleServer.getJdbcUrl())
-                    .put("user-credential-name", "oracle.user")
-                    .put("password-credential-name", "oracle.password")
-                    .build();
-            queryRunner.createCatalog("oracle", "oracle", properties);
+            queryRunner.createCatalog("oracle", "oracle", catalogProperties(oracleServer));
 
             return queryRunner;
         }
@@ -90,13 +90,28 @@ public class TestCredentialPassthrough
         }
     }
 
+    private static Map<String, String> catalogProperties(OracleServerTester oracleServer)
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("connection-url", oracleServer.getJdbcUrl())
+                .put("user-credential-name", "oracle.user")
+                .put("password-credential-name", "oracle.password")
+                .put("allow-drop-table", "true")
+                .build();
+    }
+
     private static Session getSession(boolean withExtraCredentials)
+    {
+        return getSession("oracle", withExtraCredentials);
+    }
+
+    private static Session getSession(String catalog, boolean withExtraCredentials)
     {
         Map<String, String> extraCredentials = withExtraCredentials
                 ? ImmutableMap.of("oracle.user", OracleServerTester.TEST_USER, "oracle.password", OracleServerTester.TEST_PASS)
                 : ImmutableMap.of();
         return testSessionBuilder()
-                .setCatalog("oracle")
+                .setCatalog(catalog)
                 .setSchema(OracleServerTester.TEST_SCHEMA)
                 .setIdentity(new Identity(
                         OracleServerTester.TEST_USER,
