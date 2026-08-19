@@ -55,6 +55,7 @@ import java.time.chrono.ChronoLocalDate;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -70,6 +71,8 @@ import static java.lang.System.exit;
 import static java.time.LocalDate.parse;
 import static java.util.stream.Collectors.toMap;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestParquetQuickStatsBuilder
 {
@@ -285,6 +288,22 @@ public class TestParquetQuickStatsBuilder
         // DECIMAL columns are stored as binary arrays in parquet
         assertEquals(columnQuickStatsMap.get("ss_wholesale_cost"), createBinaryStats("ss_wholesale_cost", 120527L, 5369L));
 
+        // NDV assertions: ss_sold_date_sk is a bigint surrogate key column, structurally identical
+        // to a join key like `order_id` -- min/max are known and the value range (1827) is much
+        // narrower than the non-null row count (115192), so the range bound should be emitted as a
+        // conservative, finite NDV instead of leaving distinctValuesCount unset (which previously
+        // surfaced as NaN to the cost-based optimizer and triggered a cross-join fallback).
+        assertEquals(columnQuickStatsMap.get("ss_sold_date_sk").getDistinctValuesCount(), OptionalLong.of(1827L));
+        assertEquals(columnQuickStatsMap.get("ss_promo_sk").getDistinctValuesCount(), OptionalLong.of(3L));
+        assertEquals(columnQuickStatsMap.get("ss_quantity").getDistinctValuesCount(), OptionalLong.of(100L));
+        // DECIMAL/binary columns have no min/max collected, so NDV remains unset (unchanged).
+        assertFalse(columnQuickStatsMap.get("ss_wholesale_cost").getDistinctValuesCount().isPresent());
+        for (ColumnQuickStats<?> columnQuickStats : columnQuickStatsMap.values()) {
+            OptionalLong distinctValuesCount = columnQuickStats.getDistinctValuesCount();
+            assertTrue(!distinctValuesCount.isPresent() || distinctValuesCount.getAsLong() >= 0);
+            assertTrue(!distinctValuesCount.isPresent() || distinctValuesCount.getAsLong() <= columnQuickStats.getRowCount());
+        }
+
         // Table : TPCH orders table; 100 rows
         hiveFileInfos = buildHiveFileInfos(resourceDir, "tpch_orders_100_rows", 1);
         partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
@@ -296,6 +315,27 @@ public class TestParquetQuickStatsBuilder
         assertEquals(columnQuickStatsMap.get("comment"), createBinaryStats("comment", 100L, 0L));
         assertEquals(columnQuickStatsMap.get("orderdate"), createDateStats("orderdate", 100L, 0L, parse("1992-01-29"), parse("1998-07-24")));
         assertEquals(columnQuickStatsMap.get("totalprice"), createDoubleStats("totalprice", 100L, 0L, 1373.4, 352797.28));
+
+        // VARCHAR (comment) has no min/max, so NDV remains unset (unchanged behavior).
+        assertFalse(columnQuickStatsMap.get("comment").getDistinctValuesCount().isPresent());
+        // DATE and DOUBLE columns get a conservative NDV bound instead of NaN.
+        assertEquals(columnQuickStatsMap.get("orderdate").getDistinctValuesCount(), OptionalLong.of(100L));
+        assertEquals(columnQuickStatsMap.get("totalprice").getDistinctValuesCount(), OptionalLong.of(100L));
+    }
+
+    @Test
+    public void testDistinctValuesCountForBigintJoinKeyLikeColumn()
+    {
+        // Reproduces the reported failure mode: a bigint join key (e.g. order_id) with real
+        // min/max but, prior to this fix, no distinctValuesCount -- which surfaced as NaN to the
+        // cost-based optimizer and forced a cross-join x default-selectivity fallback estimate.
+        ColumnQuickStats<Long> orderId = createLongStats("order_id", 559_000_000L, 0L, 314L, 98_319_154L);
+
+        OptionalLong distinctValuesCount = orderId.getDistinctValuesCount();
+        assertTrue(distinctValuesCount.isPresent(), "Expected a conservative NDV bound instead of an unset/NaN distinctValuesCount");
+        assertTrue(distinctValuesCount.getAsLong() >= 0);
+        assertTrue(distinctValuesCount.getAsLong() <= orderId.getRowCount());
+        assertEquals(distinctValuesCount, OptionalLong.of(98_319_154L - 314L + 1L));
     }
 
     @Test

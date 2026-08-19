@@ -207,6 +207,11 @@ public class HiveClientConfig
     private boolean parallelParsingOfPartitionValuesEnabled;
     private int maxParallelParsingConcurrency = 100;
     private boolean quickStatsEnabled;
+    // Kill-switch for the conservative distinctValuesCount (NDV) bound emitted by quick stats
+    // (see ColumnQuickStats#getDistinctValuesCount / PartitionQuickStats#convertToPartitionStatistics).
+    // Defaults to enabled; can be turned off without a rebuild if a regression is observed, falling
+    // back to the pre-fix behavior of leaving distinctValuesCount unset.
+    private boolean quickStatsNdvEnabled = true;
     // Duration the initiator query of the quick stats fetch for a partition should wait for stats to be built, before failing and returning EMPTY PartitionStats
     private Duration quickStatsInlineBuildTimeout = new Duration(60, TimeUnit.SECONDS);
     // If an in-progress background build is already observed for a partition, this duration is what the current query will wait for the background build to finish
@@ -1614,6 +1619,20 @@ public class HiveClientConfig
     public boolean isQuickStatsEnabled()
     {
         return this.quickStatsEnabled;
+    }
+
+    @Config("hive.quick-stats.ndv-enabled")
+    @ConfigDescription("Emit a conservative distinctValuesCount (NDV) bound from quick stats. Kill-switch: " +
+            "set to false to revert to the pre-fix behavior of leaving distinctValuesCount unset")
+    public HiveClientConfig setQuickStatsNdvEnabled(boolean quickStatsNdvEnabled)
+    {
+        this.quickStatsNdvEnabled = quickStatsNdvEnabled;
+        return this;
+    }
+
+    public boolean isQuickStatsNdvEnabled()
+    {
+        return this.quickStatsNdvEnabled;
     }
 
     @Config("hive.quick-stats.inline-build-timeout")

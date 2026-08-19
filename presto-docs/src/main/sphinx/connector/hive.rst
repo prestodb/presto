@@ -1180,6 +1180,19 @@ The following properties can be used to control how these quick stats are built:
       - ``false``
    -
 
+      - ``hive.quick-stats.ndv-enabled``
+      - Emit a conservative distinct-values-count (NDV) bound from quick
+        stats, instead of leaving it unset. This is a kill-switch: set to
+        ``false`` to revert to the pre-fix behavior of leaving
+        distinctValuesCount unset, without a rebuild, if a regression is
+        observed. Also toggleable through the ``quick_stats_ndv_enabled``
+        session property. Note: quick stats are cached per partition and the
+        cache key does not include this flag, so toggling it at runtime does
+        not rebuild already-cached partitions until ``hive.quick-stats.cache-expiry``
+        elapses; apply via config + restart for a deterministic rollback.
+      - ``true``
+   -
+
       - ``hive.quick-stats.max-concurrent-calls``
       - Quick stats are built for multiple partitions concurrently. This
         property sets the maximum number of concurrent builds that can

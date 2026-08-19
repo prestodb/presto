@@ -110,6 +110,12 @@ public class ParquetQuickStatsBuilder
         this.footerFetchExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
     }
 
+    // NDV (distinct-values-count) note: Parquet column-chunk statistics carry no distinct count
+    // (no getNumDistinct()), so we deliberately do not attempt any distinct-value estimation here
+    // (e.g. HLL) -- see ColumnQuickStats#getDistinctValuesCount() for the conservative NDV bound
+    // that is derived, once, from the min/max/rowCount/nullsCount rolled up below across all row
+    // groups and files for a given column+partition (NDV is not additive across row groups/files,
+    // so it must be derived from the final merged state rather than accumulated incrementally).
     private static void processColumnMetadata(ParquetMetadata parquetMetadata, Map<ColumnPath, ColumnQuickStats<?>> rolledUpColStats)
     {
         List<BlockMetaData> rowGroups = parquetMetadata.getBlocks();

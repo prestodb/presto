@@ -73,6 +73,7 @@ import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getQuickStatsBackgroundBuildTimeout;
 import static com.facebook.presto.hive.HiveSessionProperties.getQuickStatsInlineBuildTimeout;
 import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsNdvEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
@@ -407,7 +408,7 @@ public class QuickStatsProvider
         session.getRuntimeStats().addMetricValue("QuickStatsProvider/BuildTimeMS/" + partitionKey, RuntimeUnit.NONE, buildMillis);
         buildDuration.add(buildMillis, MILLISECONDS);
 
-        PartitionStatistics partitionStatistics = PartitionQuickStats.convertToPartitionStatistics(partitionQuickStats);
+        PartitionStatistics partitionStatistics = PartitionQuickStats.convertToPartitionStatistics(partitionQuickStats, isQuickStatsNdvEnabled(session));
 
         // Update the cache with the computed partition stats
         partitionToStatsCache.put(partitionKey, partitionStatistics);

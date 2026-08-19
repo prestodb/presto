@@ -26,6 +26,7 @@ import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.hive.TestingExtendedHiveMetastore;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
@@ -37,6 +38,7 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -70,6 +72,7 @@ import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_BACKGROUND_BUILD_TIMEOUT;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_INLINE_BUILD_TIMEOUT;
+import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_NDV_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.SKIP_EMPTY_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.USE_LIST_DIRECTORY_CACHE;
 import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
@@ -105,6 +108,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testcontainers.shaded.com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -116,6 +120,11 @@ public class TestQuickStatsProvider
     private static final List<PropertyMetadata<?>> quickStatsProperties = ImmutableList.of(booleanProperty(
                     QUICK_STATS_ENABLED,
                     "Use quick stats to resolve stats",
+                    true,
+                    false),
+            booleanProperty(
+                    QUICK_STATS_NDV_ENABLED,
+                    "Emit a conservative distinctValuesCount (NDV) bound from quick stats",
                     true,
                     false),
             new PropertyMetadata<>(
@@ -161,6 +170,15 @@ public class TestQuickStatsProvider
         return new TestingConnectorSession(quickStatsProperties, ImmutableMap.of(
                 QUICK_STATS_INLINE_BUILD_TIMEOUT, inlineBuildTimeout,
                 QUICK_STATS_BACKGROUND_BUILD_TIMEOUT, backgroundBuildTimeout));
+    }
+
+    // Note: boolean session property values must be passed as Boolean, not as a String --
+    // PropertyMetadata#booleanProperty decodes with Boolean.class::cast, so a String value throws
+    // ClassCastException when the property is read.
+    private static ConnectorSession getSessionWithNdvEnabled(boolean ndvEnabled)
+    {
+        return new TestingConnectorSession(quickStatsProperties, ImmutableMap.of(
+                QUICK_STATS_NDV_ENABLED, ndvEnabled));
     }
 
     @BeforeTest
@@ -228,6 +246,59 @@ public class TestQuickStatsProvider
         mockIntegerColumnStats.addToRowCount(4242L);
         mockPartitionQuickStats = new PartitionQuickStats("partitionId", ImmutableList.of(mockIntegerColumnStats), 42);
         expectedPartitionStats = convertToPartitionStatistics(mockPartitionQuickStats);
+    }
+
+    @Test
+    public void testQuickStatsPopulatesConservativeDistinctValuesCount()
+    {
+        // mockIntegerColumnStats: min=Integer.MIN_VALUE, max=Integer.MAX_VALUE, rowCount=4242,
+        // nullsCount=0. The value range vastly exceeds rowCount, so the conservative bound should
+        // collapse to the non-null row count (4242) rather than being left unset/NaN, which is
+        // what previously caused equi-joins on quick-stats-only columns to fall back to a
+        // cross-join x default-selectivity cartesian estimate.
+        HiveColumnStatistics columnStatistics = expectedPartitionStats.getColumnStatistics().get("column");
+        assertNotNull(columnStatistics);
+        assertTrue(columnStatistics.getDistinctValuesCount().isPresent(),
+                "Expected quick stats to populate a conservative distinctValuesCount instead of leaving it unset");
+        long distinctValuesCount = columnStatistics.getDistinctValuesCount().getAsLong();
+        assertTrue(distinctValuesCount >= 0);
+        assertTrue(distinctValuesCount <= mockIntegerColumnStats.getRowCount());
+        assertEquals(distinctValuesCount, mockIntegerColumnStats.getRowCount());
+
+        // End-to-end: MetastoreHiveStatisticsProvider must resolve this into a finite Estimate,
+        // not Estimate.unknown() (which surfaces as NaN to the cost-based optimizer).
+        Estimate estimate = MetastoreHiveStatisticsProvider.calculateDistinctValuesCount(ImmutableList.of(columnStatistics));
+        assertFalse(estimate.isUnknown(), "Expected a finite NDV estimate, not unknown()/NaN");
+        assertEquals(estimate.getValue(), (double) distinctValuesCount);
+    }
+
+    @Test
+    public void testQuickStatsNdvKillSwitchBothStatesEndToEnd()
+    {
+        // End-to-end through QuickStatsProvider.getQuickStats (i.e. via the session property, not
+        // by calling PartitionQuickStats.convertToPartitionStatistics directly), covering both
+        // states of the hive.quick-stats.ndv-enabled kill-switch (M2).
+        QuickStatsBuilder quickStatsBuilderMock = (session, metastore, table, metastoreContext, partitionId, files) -> mockPartitionQuickStats;
+        QuickStatsProvider ndvEnabledProvider = new QuickStatsProvider(metastoreMock, hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+                ImmutableList.of(quickStatsBuilderMock));
+        QuickStatsProvider ndvDisabledProvider = new QuickStatsProvider(metastoreMock, hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+                ImmutableList.of(quickStatsBuilderMock));
+
+        PartitionStatistics enabledStats = ndvEnabledProvider.getQuickStats(getSessionWithNdvEnabled(true),
+                new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, "partitionNdvEnabled");
+        PartitionStatistics disabledStats = ndvDisabledProvider.getQuickStats(getSessionWithNdvEnabled(false),
+                new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, "partitionNdvDisabled");
+
+        HiveColumnStatistics enabledColumnStats = enabledStats.getColumnStatistics().get("column");
+        HiveColumnStatistics disabledColumnStats = disabledStats.getColumnStatistics().get("column");
+
+        assertTrue(enabledColumnStats.getDistinctValuesCount().isPresent(), "NDV enabled: distinctValuesCount should be populated");
+        assertFalse(disabledColumnStats.getDistinctValuesCount().isPresent(), "NDV disabled: distinctValuesCount should remain unset (pre-fix behavior)");
+
+        // Disabling the flag must be byte-identical to the pre-fix output, i.e. equal to the
+        // enabled result with only the NDV slot cleared.
+        assertEquals(disabledStats, convertToPartitionStatistics(mockPartitionQuickStats, false));
+        assertEquals(enabledStats, convertToPartitionStatistics(mockPartitionQuickStats, true));
     }
 
     @Test
