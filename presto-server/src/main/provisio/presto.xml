@@ -392,7 +392,6 @@
     <artifactSet to="native-plugin/mysql">
         <artifact id="${project.groupId}:presto-mysql:zip:${project.version}">
             <unpack />
-            <exclude dir="mysql-connector-j-9.2.0.jar" />
         </artifact>
     </artifactSet>
 
