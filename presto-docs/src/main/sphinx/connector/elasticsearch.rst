@@ -149,7 +149,7 @@ This property controls the number of threads handling HTTP connections to Elasti
 This property is optional; the default is number of available processors.
 
 ``elasticsearch.content-compression-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This property controls whether the connector requests compressed HTTP responses from Elasticsearch.
 Compression reduces the bandwidth used by large responses, at the cost of some CPU on both the
