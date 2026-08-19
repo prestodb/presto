@@ -50,6 +50,13 @@ The above URL can be used as follows to create a connection:
     String url = "jdbc:presto://example.net:8080/hive/sales";
     Connection connection = DriverManager.getConnection(url, "test", null);
 
+Session properties can be set on the connection by specifying the
+``sessionProperties`` URL parameter as a list of key-value pairs:
+
+.. code-block:: none
+
+    jdbc:presto://example.net:8080?sessionProperties=prop1:value1;prop2:value2
+
 .. _jdbc-java-connection:
 
 Connection Parameters
@@ -119,6 +126,10 @@ Name                              Description
 ``extraCredentials``              Extra credentials for connecting to external services. The
                                   extraCredentials is a list of key-value pairs. Example:
                                   ``foo:bar;abc:xyz`` will create credentials ``abc=xyz`` and ``foo=bar``
+``sessionProperties``             Session properties to set for the connection. The
+                                  sessionProperties is a list of key-value pairs. Example:
+                                  ``prop1:value1;prop2:value2`` will set the session properties
+                                  ``prop1`` and ``prop2`` to ``value1`` and ``value2`` respectively.
 ``customHeaders``                 Custom headers to inject through JDBC driver. The
                                   customHeaders is a list of key-value pairs. Example:
                                   ``testHeaderKey:testHeaderValue`` will inject the header ``testHeaderKey``
