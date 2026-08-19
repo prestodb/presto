@@ -32,6 +32,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 
+import static com.facebook.presto.server.WebUiResource.LOGOUT_HTML_PATH;
+import static com.facebook.presto.server.WebUiResource.LOGOUT_PATH;
 import static com.facebook.presto.server.security.AuthenticationFilter.withPrincipal;
 import static com.facebook.presto.server.security.oauth2.OAuth2Authenticator.extractTokenFromCookie;
 import static com.facebook.presto.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
@@ -61,6 +63,10 @@ public class OAuth2WebUiAuthenticationManager
     public void handleRequest(HttpServletRequest request, HttpServletResponse response, FilterChain nextFilter)
             throws IOException, ServletException
     {
+        if (LOGOUT_PATH.equals(request.getPathInfo()) || LOGOUT_HTML_PATH.equals(request.getPathInfo())) {
+            nextFilter.doFilter(request, response);
+            return;
+        }
         try {
             Principal principal = this.oAuth2Authenticator.authenticate(request);
             nextFilter.doFilter(withPrincipal(request, principal), response);
