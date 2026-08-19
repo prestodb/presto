@@ -1261,7 +1261,7 @@ public class TestGeoFunctions
     {
         assertInvalidFunction("ST_GeometryFromText('xyz')", "Invalid WKT: Unknown geometry type: XYZ (line 1)");
         assertInvalidFunction("ST_GeometryFromText('LINESTRING (-71.3839245 42.3128124)')", "Invalid WKT: Invalid number of points in LineString (found 1 - must be 0 or >= 2)");
-        assertInvalidFunction("ST_GeometryFromText('POLYGON ((-13.719076 9.508430, -13.723493 9.510049, -13.719076 9.508430))')", "corrupted geometry");
+        assertInvalidFunction("ST_GeometryFromText('POLYGON ((-13.719076 9.508430, -13.723493 9.510049, -13.719076 9.508430))')", "Error constructing Polygon: shell is empty but holes are not");
         assertInvalidFunction("ST_GeometryFromText('POLYGON ((-13.637339 9.617113, -13.637339 9.617113))')", "Invalid WKT: Invalid number of points in LinearRing (found 2 - must be 0 or >= 3)");
         assertInvalidFunction("ST_GeometryFromText('POLYGON(0 0)')", INVALID_FUNCTION_ARGUMENT, "Invalid WKT: Expected EMPTY or ( but found '0' (line 1)");
         assertInvalidFunction("ST_GeometryFromText('POLYGON((0 0))')", INVALID_FUNCTION_ARGUMENT, "Invalid WKT: Invalid number of points in LineString (found 1 - must be 0 or >= 2)");
