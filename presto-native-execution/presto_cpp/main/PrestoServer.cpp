@@ -1816,7 +1816,12 @@ void PrestoServer::checkOverload() {
   const auto overloadedThresholdQueuedDrivers = hwConcurrency *
       systemConfig->workerOverloadedThresholdNumQueuedDriversHwMultiplier();
   if (overloadedThresholdCpuPct > 0 && overloadedThresholdQueuedDrivers > 0) {
-    const auto currentUsedCpuPct = cpuMon_.getCPULoadPct();
+    // Scoped to this worker's cgroup, so the threshold means 'this worker is
+    // using most of the CPU it was given'. The host-wide load would instead
+    // report how busy the machine is, which on a shared node can neither reach
+    // the threshold when this worker saturates its quota nor stay below it when
+    // a co-tenant is busy.
+    const auto currentUsedCpuPct = cpuMon_.getCgroupCPULoadPct();
     const auto currentQueuedDrivers = taskManager_->numQueuedDrivers();
     const bool cpuOverloaded =
         (currentUsedCpuPct > overloadedThresholdCpuPct) &&
@@ -1991,7 +1996,13 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
   auto systemConfig = SystemConfig::instance();
   const int64_t nodeMemoryGb = systemConfig->systemMemoryGb();
 
-  const double cpuLoadPct{cpuMon_.getCPULoadPct()};
+  // 'processCpuLoad' is scoped to this worker's cgroup and 'systemCpuLoad' to
+  // the whole machine, matching what the names mean on a Java worker. The two
+  // differ on any deployment that caps the worker's CPU: a worker saturating a
+  // 10-core quota on an 80-core node reports 100% process load and 12.5% system
+  // load. They are equal when no CPU limit applies.
+  const double processCpuLoadPct{cpuMon_.getCgroupCPULoadPct()};
+  const double systemCpuLoadPct{cpuMon_.getCPULoadPct()};
 
   // 'nonHeapUsed' is a JVM/GC concept that does not apply to native workers.
   // Kept at 0 to avoid breaking existing tooling that consumes this field; it
@@ -2026,8 +2037,8 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       address_,
       memoryInfo,
       (int)folly::available_concurrency(),
-      cpuLoadPct,
-      cpuLoadPct,
+      processCpuLoadPct,
+      systemCpuLoadPct,
       pool_ ? pool_->usedBytes() : 0,
       nodeMemoryGb * 1024 * 1024 * 1024,
       nonHeapUsed,
