@@ -13,6 +13,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <limits>
 #include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
@@ -249,6 +250,20 @@ protocol::Domain createSingleRangeDomain(
   auto rangeSet = std::make_shared<protocol::SortedRangeSet>();
   rangeSet->type = typeStr;
   rangeSet->ranges = {range};
+
+  protocol::Domain domain;
+  domain.values = rangeSet;
+  domain.nullAllowed = nullAllowed;
+  return domain;
+}
+
+protocol::Domain createMultiRangeDomain(
+    const std::string& typeStr,
+    protocol::List<protocol::Range> ranges,
+    bool nullAllowed) {
+  auto rangeSet = std::make_shared<protocol::SortedRangeSet>();
+  rangeSet->type = typeStr;
+  rangeSet->ranges = std::move(ranges);
 
   protocol::Domain domain;
   domain.values = rangeSet;
@@ -629,6 +644,44 @@ TEST_F(PrestoToVeloxConnectorTest, bigintOverflowWithNullAllowed) {
   EXPECT_FALSE(filter->testInt64(0));
   EXPECT_FALSE(filter->testInt64(std::numeric_limits<int64_t>::max()));
   EXPECT_TRUE(filter->testNull());
+}
+
+TEST_F(PrestoToVeloxConnectorTest, bigintSkipsEmptyRangeAboveMax) {
+  auto lowBlock = serializeToBlock(
+      BaseVector::createConstant(BIGINT(), variant(14'400), 1, pool_.get()),
+      pool_.get());
+  auto maxBlock = serializeToBlock(
+      BaseVector::createConstant(
+          BIGINT(),
+          variant(std::numeric_limits<int64_t>::max()),
+          1,
+          pool_.get()),
+      pool_.get());
+
+  protocol::Range validRange;
+  validRange.low.type = "bigint";
+  validRange.low.valueBlock = lowBlock;
+  validRange.low.bound = protocol::Bound::EXACTLY;
+  validRange.high.type = "bigint";
+  validRange.high.valueBlock = maxBlock;
+  validRange.high.bound = protocol::Bound::BELOW;
+
+  protocol::Range emptyRange;
+  emptyRange.low.type = "bigint";
+  emptyRange.low.valueBlock = maxBlock;
+  emptyRange.low.bound = protocol::Bound::ABOVE;
+  emptyRange.high.type = "bigint";
+  emptyRange.high.valueBlock = nullptr;
+  emptyRange.high.bound = protocol::Bound::BELOW;
+
+  auto domain = createMultiRangeDomain("bigint", {validRange, emptyRange});
+  auto filter = toFilter(domain, *exprConverter_, *typeParser_);
+  auto* range = dynamic_cast<common::BigintRange*>(filter.get());
+  ASSERT_NE(range, nullptr);
+  EXPECT_EQ(range->lower(), 14'400);
+  EXPECT_EQ(range->upper(), std::numeric_limits<int64_t>::max() - 1);
+  EXPECT_TRUE(range->testInt64(std::numeric_limits<int64_t>::max() - 1));
+  EXPECT_FALSE(range->testInt64(std::numeric_limits<int64_t>::max()));
 }
 
 TEST_F(PrestoToVeloxConnectorTest, dateOverflowLowAboveMax) {
