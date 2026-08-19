@@ -15,7 +15,7 @@ package com.facebook.presto.iceberg.procedure;
 
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.IcebergDistributedProcedureHandle;
-import com.facebook.presto.iceberg.IcebergProcedureContext;
+import com.facebook.presto.iceberg.procedure.IcebergProcedureContext;
 import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
@@ -218,7 +218,6 @@ public class MigrateTableBucketProcedure
         if (currentSnapshot == null) {
             return;
         }
-        long validationSnapshotId = currentSnapshot.snapshotId();
 
         TableScan tableScan = icebergTable.newScan().useSnapshot(currentSnapshot.snapshotId());
 
@@ -250,9 +249,11 @@ public class MigrateTableBucketProcedure
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        RewriteFiles rewrite = icebergContext.getTransaction().newRewrite().rewriteFiles(existingDataFiles, ImmutableSet.of(), newDataFiles, ImmutableSet.of());
-        rewrite.validateFromSnapshot(currentSnapshot.snapshotId());
-        Snapshot snapshot = icebergTable.currentSnapshot();
+        long validationSnapshotId = currentSnapshot.snapshotId();
+        RewriteFiles rewrite = icebergContext.getTransaction()
+        .newRewrite()
+        .rewriteFiles(existingDataFiles, ImmutableSet.of(), newDataFiles, ImmutableSet.of());
+        rewrite.validateFromSnapshot(validationSnapshotId);
         rewrite.commit();
     }
 
