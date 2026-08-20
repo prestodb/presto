@@ -838,8 +838,9 @@ void PrestoServer::stopAnnouncer() {
 void PrestoServer::joinExecutors() {
   // Join exchange HTTP CPU executor first. Exchange CPU threads run
   // PrestoExchangeSource::handleDataResponse which dispatches callbacks to
-  // driverExecutor_ (MonitoredExecutor) via ExchangeClient. We must drain
-  // these threads before destroying driverExecutor_ to avoid use-after-free.
+  // driverExecutor_ (MonitoredExecutor) via InMemoryExchangeClient. We must
+  // drain these threads before destroying driverExecutor_ to avoid
+  // use-after-free.
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Exchange Http CPU executor '"
       << exchangeHttpCpuExecutor_->getName()
