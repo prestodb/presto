@@ -111,7 +111,7 @@ public class Optimizer
                     throw new PrestoException(QUERY_PLANNING_TIMEOUT, String.format("The query optimizer exceeded the timeout of %s.", getQueryAnalyzerTimeout(session).toString()));
                 }
                 long start = System.nanoTime();
-                PlanOptimizerResult optimizerResult = optimizer.optimize(root, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                PlanOptimizerResult optimizerResult = optimizer.optimize(root, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector, false);
                 requireNonNull(optimizerResult, format("%s returned a null plan", optimizer.getClass().getName()));
                 if (enableVerboseRuntimeStats || trackOptimizerRuntime(session, optimizer)) {
                     session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", getOptimizerNameForLog(optimizer)), NANO, System.nanoTime() - start);
@@ -164,10 +164,13 @@ public class Optimizer
 
         String optimizerName = getOptimizerNameForLog(optimizer);
         boolean isTriggered = planOptimizerResult.isOptimizerTriggered();
+
+        // The `isApplicable` flag indicates that either the optimizer has been effectively invoked, or it has been skipped
+        // because of session properties configuration but possesses the ability to influence the optimization of the plan.
         boolean isApplicable =
                 isTriggered ||
-                        !optimizer.isEnabled(session) && isVerboseOptimizerInfoEnabled(session) &&
-                                optimizer.isApplicable(oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                        !optimizer.isEnabled(session, false) && isVerboseOptimizerInfoEnabled(session) &&
+                                isApplicable(optimizer, oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator);
         boolean isCostBased = isTriggered && optimizer.isCostBased(session);
         String statsSource = optimizer.getStatsSource();
 
@@ -180,6 +183,25 @@ public class Optimizer
             String oldNodeStr = PlannerUtils.getPlanString(oldNode, session, types, metadata, false);
             String newNodeStr = PlannerUtils.getPlanString(planOptimizerResult.getPlanNode(), session, types, metadata, false);
             session.getOptimizerResultCollector().addOptimizerResult(optimizerName, oldNodeStr, newNodeStr);
+        }
+    }
+
+    static boolean isApplicable(
+            PlanOptimizer optimizer,
+            PlanNode plan,
+            Session session,
+            TypeProvider types,
+            VariableAllocator variableAllocator,
+            PlanNodeIdAllocator idAllocator)
+    {
+        boolean isApplicable = false;
+        try {
+            // wrap in try/catch block in case optimization throws an error
+            PlanOptimizerResult optimizerResult = optimizer.optimize(plan, session, types, variableAllocator, idAllocator, WarningCollector.NOOP, true);
+            isApplicable = optimizerResult.isOptimizerTriggered();
+        }
+        finally {
+            return isApplicable;
         }
     }
 }

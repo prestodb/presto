@@ -49,7 +49,6 @@ public class SortedExchangeRule
         implements PlanOptimizer
 {
     private final boolean isPrestoSparkExecution;
-    private boolean isEnabledForTesting;
 
     /**
      * Constructor that accepts a flag indicating whether this is a Presto Spark execution environment.
@@ -62,15 +61,9 @@ public class SortedExchangeRule
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        isEnabledForTesting = isSet;
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return (isSortedExchangeEnabled(session) && isPrestoSparkExecution) || isEnabledForTesting;
+        return (isSortedExchangeEnabled(session) && isPrestoSparkExecution) || forceEnableOptimizer;
     }
 
     @Override
@@ -80,7 +73,8 @@ public class SortedExchangeRule
             TypeProvider types,
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean forceEnableOptimizer)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -89,7 +83,7 @@ public class SortedExchangeRule
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(warningCollector, "warningCollector is null");
 
-        if (isEnabled(session)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new Rewriter(idAllocator);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());

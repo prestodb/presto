@@ -149,7 +149,6 @@ public class RandomizeNullKeyInOuterJoin
 {
     private final FunctionAndTypeManager functionAndTypeManager;
     private final StatsCalculator statsCalculator;
-    private boolean isEnabledForTesting;
 
     public RandomizeNullKeyInOuterJoin(FunctionAndTypeManager functionAndTypeManager, StatsCalculator statsCalculator)
     {
@@ -158,15 +157,9 @@ public class RandomizeNullKeyInOuterJoin
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        isEnabledForTesting = isSet;
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || getJoinDistributionType(session).canPartition() && !getRandomizeOuterJoinNullKeyStrategy(session).equals(DISABLED);
+        return forceEnableOptimizer || getJoinDistributionType(session).canPartition() && !getRandomizeOuterJoinNullKeyStrategy(session).equals(DISABLED);
     }
 
     @Override
@@ -176,9 +169,10 @@ public class RandomizeNullKeyInOuterJoin
     }
 
     @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
-        if (isEnabled(session)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
             Rewriter rewriter = new Rewriter(session, functionAndTypeManager, idAllocator, variableAllocator, statsProvider);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new HashSet<>());

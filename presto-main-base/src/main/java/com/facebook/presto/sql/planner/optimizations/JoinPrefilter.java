@@ -82,7 +82,6 @@ public class JoinPrefilter
         implements PlanOptimizer
 {
     private final Metadata metadata;
-    private boolean isEnabledForTesting;
 
     public JoinPrefilter(Metadata metadata)
     {
@@ -90,21 +89,16 @@ public class JoinPrefilter
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        isEnabledForTesting = isSet;
+        return forceEnableOptimizer || isJoinPrefilterEnabled(session);
     }
 
     @Override
-    public boolean isEnabled(Session session)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
-        return isEnabledForTesting || isJoinPrefilterEnabled(session);
-    }
-
-    @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
-    {
-        if (isEnabled(session)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new Rewriter(session, metadata, idAllocator, variableAllocator, metadata.getFunctionAndTypeManager());
             PlanNode rewritten = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
             return PlanOptimizerResult.optimizerResult(rewritten, rewriter.isPlanChanged());
