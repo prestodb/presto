@@ -50,7 +50,7 @@ import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.PageBufferInfo;
 import com.facebook.presto.execution.scheduler.DynamicFilterService;
-import com.facebook.presto.execution.scheduler.DynamicFilterStats;
+import com.facebook.presto.execution.scheduler.DynamicFilterServiceStats;
 import com.facebook.presto.execution.scheduler.RuntimeFilter;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.HandleResolver;
@@ -300,7 +300,7 @@ public final class HttpRemoteTaskWithEventLoop
             DynamicFilterService dynamicFilterService,
             JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec,
             JsonCodec<DynamicFilterPushRequest> dynamicFilterPushRequestCodec,
-            DynamicFilterStats dynamicFilterStats)
+            DynamicFilterServiceStats dynamicFilterStats)
     {
         HttpRemoteTaskWithEventLoop task = new HttpRemoteTaskWithEventLoop(session,
                 taskId,
@@ -387,7 +387,7 @@ public final class HttpRemoteTaskWithEventLoop
             DynamicFilterService dynamicFilterService,
             JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec,
             JsonCodec<DynamicFilterPushRequest> dynamicFilterPushRequestCodec,
-            DynamicFilterStats dynamicFilterStats)
+            DynamicFilterServiceStats dynamicFilterStats)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");

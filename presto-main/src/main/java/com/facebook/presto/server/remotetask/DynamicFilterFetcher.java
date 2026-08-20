@@ -22,7 +22,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.scheduler.DomainRuntimeFilter;
 import com.facebook.presto.execution.scheduler.DynamicFilterService;
-import com.facebook.presto.execution.scheduler.DynamicFilterStats;
+import com.facebook.presto.execution.scheduler.DynamicFilterServiceStats;
 import com.facebook.presto.execution.scheduler.JoinDynamicFilter;
 import com.facebook.presto.execution.scheduler.RuntimeFilter;
 import com.facebook.presto.server.RequestErrorTracker;
@@ -81,7 +81,7 @@ public class DynamicFilterFetcher
     private final EventLoop taskEventLoop;
     private final JsonCodec<DynamicFilterResponse> filterCodec;
     private final RemoteTaskStats stats;
-    private final DynamicFilterStats dynamicFilterStats;
+    private final DynamicFilterServiceStats dynamicFilterStats;
     private final RequestErrorTracker errorTracker;
     private final DynamicFilterService dynamicFilterService;
     private final boolean extendedMetrics;
@@ -111,7 +111,7 @@ public class DynamicFilterFetcher
             JsonCodec<DynamicFilterResponse> filterCodec,
             DynamicFilterService dynamicFilterService,
             QueryId queryId,
-            DynamicFilterStats dynamicFilterStats,
+            DynamicFilterServiceStats dynamicFilterStats,
             boolean extendedMetrics,
             Consumer<Throwable> onFatal)
     {

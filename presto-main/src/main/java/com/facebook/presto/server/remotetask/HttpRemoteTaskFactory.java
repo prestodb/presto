@@ -39,7 +39,7 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.DynamicFilterService;
-import com.facebook.presto.execution.scheduler.DynamicFilterStats;
+import com.facebook.presto.execution.scheduler.DynamicFilterServiceStats;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNode;
@@ -109,7 +109,7 @@ public class HttpRemoteTaskFactory
     private final boolean taskUpdateSizeTrackingEnabled;
     private final Optional<SafeEventLoopGroup> eventLoopGroup;
     private final DynamicFilterService dynamicFilterService;
-    private final DynamicFilterStats dynamicFilterStats;
+    private final DynamicFilterServiceStats dynamicFilterStats;
     private final JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec;
     private final JsonCodec<DynamicFilterPushRequest> dynamicFilterPushRequestCodec;
 
@@ -136,7 +136,7 @@ public class HttpRemoteTaskFactory
             QueryManager queryManager,
             HandleResolver handleResolver,
             DynamicFilterService dynamicFilterService,
-            DynamicFilterStats dynamicFilterStats,
+            DynamicFilterServiceStats dynamicFilterStats,
             JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec,
             JsonCodec<DynamicFilterPushRequest> dynamicFilterPushRequestCodec)
     {

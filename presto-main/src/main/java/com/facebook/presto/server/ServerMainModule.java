@@ -78,7 +78,7 @@ import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.executor.MultilevelSplitQueue;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.DynamicFilterService;
-import com.facebook.presto.execution.scheduler.DynamicFilterStats;
+import com.facebook.presto.execution.scheduler.DynamicFilterServiceStats;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
@@ -452,8 +452,8 @@ public class ServerMainModule
         binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
         binder.bind(DynamicFilterService.class).in(Scopes.SINGLETON);
-        binder.bind(DynamicFilterStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(DynamicFilterStats.class).withGeneratedName();
+        binder.bind(DynamicFilterServiceStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DynamicFilterServiceStats.class).withGeneratedName();
 
         // network topology
         // TODO: move to CoordinatorModule when NodeScheduler is moved

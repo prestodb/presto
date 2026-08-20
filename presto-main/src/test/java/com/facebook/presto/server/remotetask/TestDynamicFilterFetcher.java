@@ -32,7 +32,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.scheduler.DomainRuntimeFilter;
 import com.facebook.presto.execution.scheduler.DynamicFilterService;
-import com.facebook.presto.execution.scheduler.DynamicFilterStats;
+import com.facebook.presto.execution.scheduler.DynamicFilterServiceStats;
 import com.facebook.presto.execution.scheduler.JoinDynamicFilter;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.QueryId;
@@ -159,7 +159,7 @@ public class TestDynamicFilterFetcher
 
         DynamicFilterService dynamicFilterService = new DynamicFilterService();
         JoinDynamicFilter joinFilter = new JoinDynamicFilter(
-                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterServiceStats(), new RuntimeStats(), false);
         joinFilter.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, filterId, joinFilter);
 
@@ -254,12 +254,12 @@ public class TestDynamicFilterFetcher
 
         DynamicFilterService dynamicFilterService = new DynamicFilterService();
         JoinDynamicFilter filterA = new JoinDynamicFilter(
-                filterIdA, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+                filterIdA, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterServiceStats(), new RuntimeStats(), false);
         filterA.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, filterIdA, filterA);
 
         JoinDynamicFilter filterB = new JoinDynamicFilter(
-                filterIdB, "col2", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+                filterIdB, "col2", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterServiceStats(), new RuntimeStats(), false);
         filterB.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, filterIdB, filterB);
 
@@ -299,7 +299,7 @@ public class TestDynamicFilterFetcher
 
         DynamicFilterService dynamicFilterService = new DynamicFilterService();
         JoinDynamicFilter joinFilter = new JoinDynamicFilter(
-                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterServiceStats(), new RuntimeStats(), false);
         joinFilter.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, filterId, joinFilter);
 
@@ -343,12 +343,12 @@ public class TestDynamicFilterFetcher
 
         DynamicFilterService dynamicFilterService = new DynamicFilterService();
         JoinDynamicFilter filterA = new JoinDynamicFilter(
-                filterIdA, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+                filterIdA, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterServiceStats(), new RuntimeStats(), false);
         filterA.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, filterIdA, filterA);
 
         JoinDynamicFilter filterB = new JoinDynamicFilter(
-                filterIdB, "col2", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+                filterIdB, "col2", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterServiceStats(), new RuntimeStats(), false);
         filterB.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, filterIdB, filterB);
 
@@ -397,7 +397,7 @@ public class TestDynamicFilterFetcher
 
         DynamicFilterService dynamicFilterService = new DynamicFilterService();
         JoinDynamicFilter joinFilter = new JoinDynamicFilter(
-                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterServiceStats(), new RuntimeStats(), false);
         joinFilter.setExpectedPartitions(2);
         dynamicFilterService.registerFilter(queryId, filterId, joinFilter);
 
@@ -461,7 +461,7 @@ public class TestDynamicFilterFetcher
 
         DynamicFilterService dynamicFilterService = new DynamicFilterService();
         JoinDynamicFilter joinFilter = new JoinDynamicFilter(
-                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterServiceStats(), new RuntimeStats(), false);
         joinFilter.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, filterId, joinFilter);
 
@@ -502,7 +502,7 @@ public class TestDynamicFilterFetcher
 
         DynamicFilterService dynamicFilterService = new DynamicFilterService();
         JoinDynamicFilter joinFilter = new JoinDynamicFilter(
-                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterServiceStats(), new RuntimeStats(), false);
         joinFilter.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, filterId, joinFilter);
 
@@ -553,7 +553,7 @@ public class TestDynamicFilterFetcher
 
         DynamicFilterService dynamicFilterService = new DynamicFilterService();
         JoinDynamicFilter joinFilter = new JoinDynamicFilter(
-                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterServiceStats(), new RuntimeStats(), false);
         joinFilter.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, filterId, joinFilter);
 
@@ -758,7 +758,7 @@ public class TestDynamicFilterFetcher
                 codec,
                 dynamicFilterService,
                 new QueryId("test"),
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 false,
                 throwable -> {});
         return fetcher;

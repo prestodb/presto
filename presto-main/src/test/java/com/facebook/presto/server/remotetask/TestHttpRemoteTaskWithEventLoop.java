@@ -51,7 +51,7 @@ import com.facebook.presto.execution.TestQueryManager;
 import com.facebook.presto.execution.TestSqlTaskManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.DynamicFilterService;
-import com.facebook.presto.execution.scheduler.DynamicFilterStats;
+import com.facebook.presto.execution.scheduler.DynamicFilterServiceStats;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -467,7 +467,7 @@ public class TestHttpRemoteTaskWithEventLoop
                                 new TestQueryManager(),
                                 new HandleResolver(),
                                 new DynamicFilterService(),
-                                new DynamicFilterStats(),
+                                new DynamicFilterServiceStats(),
                                 JsonCodec.jsonCodec(DynamicFilterResponse.class),
                                 JsonCodec.jsonCodec(DynamicFilterPushRequest.class));
                     }
