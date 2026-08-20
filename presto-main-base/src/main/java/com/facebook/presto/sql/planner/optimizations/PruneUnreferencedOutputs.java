@@ -225,6 +225,7 @@ public class PruneUnreferencedOutputs
                 rightInputsBuilder.add(node.getRightHashVariable().get());
             }
             rightInputsBuilder.addAll(expectedFilterInputs);
+            rightInputsBuilder.addAll(node.getDynamicFilters().values());
             Set<VariableReferenceExpression> rightInputs = rightInputsBuilder.build();
 
             PlanNode left = context.rewrite(node.getLeft(), leftInputs);
