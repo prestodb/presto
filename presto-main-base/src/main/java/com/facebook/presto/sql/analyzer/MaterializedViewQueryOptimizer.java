@@ -416,7 +416,10 @@ public class MaterializedViewQueryOptimizer
     {
         MaterializedViewDefinition materializedViewDefinition = metadataResolver.getMaterializedView(materializedViewName).orElseThrow(() ->
                 new IllegalStateException("Materialized view definition not present in metadata as expected."));
-        Table materializedViewTable = new Table(QualifiedName.of(materializedViewDefinition.getTable()));
+        Table materializedViewTable = new Table(QualifiedName.of(
+                materializedViewName.getCatalogName(),
+                materializedViewDefinition.getSchema(),
+                materializedViewDefinition.getTable()));
         Query materializedViewQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session));
 
         return new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery, materializedViewName).rewrite(originalQuerySpecification);
