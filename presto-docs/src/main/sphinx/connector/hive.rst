@@ -1210,6 +1210,7 @@ The following properties can be used to control how these quick stats are built:
         on
         ``com.facebook.presto.hive.statistics:type=QuickStatsProvider,name=<catalog>_QuickStatsProvider``
         (or restart the coordinator).
+
         Known interaction: enabling the
         ``treat_low_confidence_zero_estimation_unknown_enabled`` system
         property (``false`` by default) makes the cost-based optimizer treat a
