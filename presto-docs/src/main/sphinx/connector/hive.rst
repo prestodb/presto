@@ -1186,7 +1186,9 @@ The following properties can be used to control how these quick stats are built:
         ``false`` to revert to the pre-fix behavior of leaving
         distinctValuesCount unset, without a rebuild, if a regression is
         observed. Also toggleable through the ``quick_stats_ndv_enabled``
-        session property. The per-partition quick stats cache key includes
+        session property. 
+        
+        The per-partition quick stats cache key includes
         this flag, so a session that changes it is served an entry built with
         its own value rather than one cached for another session.
       - ``true``
