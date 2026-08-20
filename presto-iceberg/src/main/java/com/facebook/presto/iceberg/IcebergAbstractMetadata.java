@@ -37,6 +37,7 @@ import com.facebook.presto.hive.PartitionSet;
 import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
+import com.facebook.presto.iceberg.partitioning.IcebergPartitioningHandle;
 import com.facebook.presto.iceberg.procedure.context.IcebergCommonProcedureContext;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionContext;
@@ -51,6 +52,7 @@ import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -64,6 +66,7 @@ import com.facebook.presto.spi.MaterializedViewRefreshType;
 import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.spi.MaterializedViewStalenessConfig;
 import com.facebook.presto.spi.MaterializedViewStatus;
+import com.facebook.presto.spi.PartitionedTableWritePolicy;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
@@ -150,6 +153,7 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -166,6 +170,9 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import static com.facebook.presto.common.type.StandardTypes.ARRAY;
+import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
@@ -219,6 +226,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFil
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
@@ -256,6 +264,7 @@ import static com.facebook.presto.iceberg.IcebergWarningCode.SORT_COLUMN_TRANSFO
 import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
 import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName;
 import static com.facebook.presto.iceberg.PartitionFields.getTransformTerm;
+import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
@@ -348,6 +357,7 @@ public abstract class IcebergAbstractMetadata
     protected final IcebergTransactionContext transactionContext;
     protected final StatisticsFileCache statisticsFileCache;
     protected final IcebergTableProperties tableProperties;
+    private final ConnectorSystemConfig connectorSystemConfig;
     private final StandardFunctionResolution functionResolution;
     private static final JsonCodec<List<String>> STRING_LIST_CODEC = JsonCodec.listJsonCodec(String.class);
 
@@ -363,6 +373,7 @@ public abstract class IcebergAbstractMetadata
             FilterStatsCalculatorService filterStatsCalculatorService,
             StatisticsFileCache statisticsFileCache,
             IcebergTableProperties tableProperties,
+            ConnectorSystemConfig connectorSystemConfig,
             com.facebook.presto.spi.transaction.IsolationLevel isolationLevel,
             boolean autoCommitContext)
     {
@@ -377,6 +388,7 @@ public abstract class IcebergAbstractMetadata
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
         this.transactionContext = new IcebergTransactionContext(isolationLevel, autoCommitContext);
     }
 
@@ -687,6 +699,44 @@ public abstract class IcebergAbstractMetadata
         finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
     }
 
+    public static Schema schemaFromMetadata(List<ColumnMetadata> columns)
+    {
+        List<NestedField> icebergColumns = new ArrayList<>();
+        AtomicInteger subFieldIndex = new AtomicInteger(columns.size() + 1);
+        for (int index = 0; index < columns.size(); index++) {
+            ColumnMetadata column = columns.get(index);
+            String baseTypeName = column.getType().getTypeSignature().getBase();
+            org.apache.iceberg.types.Type type;
+            if (baseTypeName.equals(ROW) || baseTypeName.equals(MAP) || baseTypeName.equals(ARRAY)) {
+                type = Types.ListType.ofOptional(subFieldIndex.getAndIncrement(), Types.BooleanType.get());
+            }
+            else {
+                type = toIcebergType(column.getType());
+            }
+            NestedField field = NestedField.of(index + 1, column.isNullable(), column.getName(), type);
+            icebergColumns.add(field);
+        }
+        org.apache.iceberg.types.Type icebergSchema = Types.StructType.of(icebergColumns);
+        return new Schema(icebergSchema.asStructType().fields());
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        Schema schema = schemaFromMetadata(tableMetadata.getColumns());
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+        return createNewTableLayout(schema, partitionSpec);
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        Table icebergTable = getIcebergTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        Schema schema = icebergTable.schema();
+        PartitionSpec partitionSpec = icebergTable.spec();
+        return createNewTableLayout(schema, partitionSpec);
+    }
+
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
@@ -848,6 +898,29 @@ public abstract class IcebergAbstractMetadata
             default:
                 throw new UnsupportedOperationException("Unsupported task content: " + task.getContent());
         }
+    }
+
+    private Optional<ConnectorNewTableLayout> createNewTableLayout(Schema schema, PartitionSpec partitionSpec)
+    {
+        if (connectorSystemConfig.isNativeExecution() || partitionSpec.isUnpartitioned()) {
+            return Optional.empty();
+        }
+
+        List<String> partitioningColumnNames = partitionSpec.fields().stream()
+                .sorted(Comparator.comparingInt(PartitionField::sourceId))
+                .map(field -> {
+                    return schema.findColumnName(field.sourceId());
+                })
+                .distinct()
+                .collect(toImmutableList());
+
+        if (partitionSpec.fields().stream().allMatch(field -> field.transform().isIdentity())) {
+            // Use the default fixed hash distribution
+            return Optional.of(new ConnectorNewTableLayout(partitioningColumnNames));
+        }
+
+        IcebergPartitioningHandle partitioningHandle = IcebergPartitioningHandle.create(partitionSpec, typeManager);
+        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitioningColumnNames, PartitionedTableWritePolicy.SINGLE_WRITER_PER_PARTITION_REQUIRED));
     }
 
     private void handleFinishPositionDeletes(CommitTaskData task, PartitionSpec partitionSpec, Type[] partitionColumnTypes, RowDelta rowDelta, ImmutableSet.Builder<String> writtenFiles, ImmutableSet.Builder<String> referencedDataFiles)
