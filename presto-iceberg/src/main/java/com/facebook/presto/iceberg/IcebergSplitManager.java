@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.DynamicFilter;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.iceberg.DeleteFile;
@@ -75,6 +76,17 @@ public class IcebergSplitManager
             ConnectorSession session,
             ConnectorTableLayoutHandle layout,
             SplitSchedulingContext splitSchedulingContext)
+    {
+        return getSplits(transaction, session, layout, splitSchedulingContext, DynamicFilter.EMPTY);
+    }
+
+    @Override
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableLayoutHandle layout,
+            SplitSchedulingContext splitSchedulingContext,
+            DynamicFilter dynamicFilter)
     {
         IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) layout;
 
@@ -133,7 +145,8 @@ public class IcebergSplitManager
                     .orElseGet(() -> new IcebergSplitSource(
                             session,
                             tableScan,
-                            metadataColumnConstraints));
+                            metadataColumnConstraints,
+                            dynamicFilter));
         }
     }
 

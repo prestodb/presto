@@ -82,7 +82,10 @@ public class TestIcebergConfig
                 .setMaterializedViewMaxChangedPartitions(100)
                 .setMaterializedViewDefaultMaxSnapshotsPerRefresh(0)
                 .setAggregatePushDownEnabled(true)
-                .setTargetMaxFileSize(succinctDataSize(1, GIGABYTE)));
+                .setTargetMaxFileSize(succinctDataSize(1, GIGABYTE))
+                .setDynamicFilterExtendedMetrics(false)
+                .setDynamicFilterWarmupEnabled(true)
+                .setDynamicFilterWarmupWeightPerTask(Runtime.getRuntime().availableProcessors()));
     }
 
     @Test
@@ -125,6 +128,9 @@ public class TestIcebergConfig
                 .put("iceberg.materialized-view-default-max-snapshots-per-refresh", "10")
                 .put("iceberg.aggregate-push-down-enabled", "false")
                 .put("iceberg.target-max-file-size", "512MB")
+                .put("iceberg.dynamic-filter-extended-metrics", "true")
+                .put("iceberg.dynamic-filter-warmup-enabled", "false")
+                .put("iceberg.dynamic-filter-warmup-weight-per-task", "2.0")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -163,7 +169,10 @@ public class TestIcebergConfig
                 .setMaterializedViewMaxChangedPartitions(2000)
                 .setMaterializedViewDefaultMaxSnapshotsPerRefresh(10)
                 .setAggregatePushDownEnabled(false)
-                .setTargetMaxFileSize(succinctDataSize(512, MEGABYTE));
+                .setTargetMaxFileSize(succinctDataSize(512, MEGABYTE))
+                .setDynamicFilterExtendedMetrics(true)
+                .setDynamicFilterWarmupEnabled(false)
+                .setDynamicFilterWarmupWeightPerTask(2.0);
 
         assertFullMapping(properties, expected);
     }
