@@ -214,7 +214,12 @@ public class ReplaceConstantVariableReferencesWithConstants
             FilterNode newFilterNode = node;
             if (!rewrittenChild.getConstantExpressionMap().isEmpty()) {
                 predicate = predicate.accept(new ExpressionRewriter(rewrittenChild.getConstantExpressionMap()), null);
-                newFilterNode = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), node.getSource(), predicate);
+                newFilterNode = new FilterNode(node.getSourceLocation(),
+                        idAllocator.getNextId(),
+                        node.getStatsEquivalentPlanNode(),
+                        node.getSource(),
+                        predicate,
+                        node.isDoNotMerge());
             }
 
             return new PlanNodeWithConstant(replaceChildren(newFilterNode, ImmutableList.of(rewrittenChild.getPlanNode())), newConstantMap);

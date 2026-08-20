@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -21,6 +23,8 @@ import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -49,6 +53,63 @@ public class TestMergeFilters
                         p.filter(sqlToRowExpression("b > 44"),
                                 p.filter(sqlToRowExpression("a < 42"),
                                         p.values(p.variable("a"), p.variable("b")))))
+                .matches(filter("(a < 42) AND (b > 44)", values(ImmutableMap.of("a", 0, "b", 1))));
+    }
+
+    @Test
+    public void testSkipMergeWhenChildIsDoNotMerge()
+    {
+        tester().assertThat(new MergeFilters(getFunctionManager()))
+                .on(p -> {
+                    FilterNode child = new FilterNode(
+                            Optional.empty(),
+                            new PlanNodeId("guard-filter"),
+                            Optional.empty(),
+                            p.values(p.variable("a"), p.variable("b")),
+                            sqlToRowExpression("a < 42"),
+                            true);
+                    return p.filter(sqlToRowExpression("b > 44"), child);
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testSkipMergeWhenParentIsDoNotMerge()
+    {
+        tester().assertThat(new MergeFilters(getFunctionManager()))
+                .on(p -> {
+                    FilterNode child = new FilterNode(
+                            Optional.empty(),
+                            new PlanNodeId("normal-filter"),
+                            Optional.empty(),
+                            p.values(p.variable("a"), p.variable("b")),
+                            sqlToRowExpression("a < 42"),
+                            false);
+                    return new FilterNode(
+                            Optional.empty(),
+                            new PlanNodeId("guard-filter"),
+                            Optional.empty(),
+                            child,
+                            sqlToRowExpression("b > 44"),
+                            true);
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testMergeWhenNeitherIsDoNotMerge()
+    {
+        tester().assertThat(new MergeFilters(getFunctionManager()))
+                .on(p -> {
+                    FilterNode child = new FilterNode(
+                            Optional.empty(),
+                            new PlanNodeId("normal-filter"),
+                            Optional.empty(),
+                            p.values(p.variable("a"), p.variable("b")),
+                            sqlToRowExpression("a < 42"),
+                            false);
+                    return p.filter(sqlToRowExpression("b > 44"), child);
+                })
                 .matches(filter("(a < 42) AND (b > 44)", values(ImmutableMap.of("a", 0, "b", 1))));
     }
 
