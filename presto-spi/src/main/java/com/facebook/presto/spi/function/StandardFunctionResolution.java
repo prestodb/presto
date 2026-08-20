@@ -98,6 +98,8 @@ public interface StandardFunctionResolution
 
     FunctionHandle lookupBuiltInFunction(String functionName, List<Type> inputTypes);
 
+    FunctionHandle lookupJavaBuiltInFunction(String functionName, List<Type> inputTypes);
+
     FunctionHandle lookupFunction(String catalog, String schema, String functionName, List<Type> inputTypes);
 
     boolean isArrayConstructor(FunctionHandle functionHandle);
