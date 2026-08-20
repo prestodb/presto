@@ -41,7 +41,7 @@ import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.Option;
-import org.apache.hudi.storage.StoragePath;
+import org.apache.hudi.hadoop.fs.HadoopFSUtils;
 import org.apache.hudi.storage.StoragePathInfo;
 import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 
@@ -71,6 +71,7 @@ public class HudiDirectoryLister
     private final boolean metadataEnabled;
     private final String latestInstant;
     private final boolean shouldUseMergedView;
+    private final HadoopStorageConfiguration storageConfiguration;
 
     public HudiDirectoryLister(Configuration conf, ConnectorSession session, Table table)
     {
@@ -85,8 +86,10 @@ public class HudiDirectoryLister
         if (actualConfig instanceof CopyOnFirstWriteConfiguration) {
             actualConfig = ((CopyOnFirstWriteConfiguration) actualConfig).getConfig();
         }
+        // Create HadoopStorageConfiguration once and reuse it
+        this.storageConfiguration = new HadoopStorageConfiguration(actualConfig);
         this.metaClient = HoodieTableMetaClient.builder()
-                .setConf(new HadoopStorageConfiguration(actualConfig))
+                .setConf(storageConfiguration)
                 .setBasePath(table.getStorage().getLocation())
                 .build();
         this.latestInstant = metaClient.getActiveTimeline()
@@ -99,7 +102,7 @@ public class HudiDirectoryLister
                         .filterCompletedInstants()
                         .lastInstant()
                         .map(HoodieInstant::requestedTime).orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No active instant found in Hudi table")));
-        HoodieEngineContext engineContext = new HoodieLocalEngineContext(new HadoopStorageConfiguration(actualConfig));
+        HoodieEngineContext engineContext = new HoodieLocalEngineContext(storageConfiguration);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)
                 .build();
@@ -150,11 +153,14 @@ public class HudiDirectoryLister
                 String latestInstant,
                 boolean shouldUseMergedView)
         {
-            String partition = FSUtils.getRelativePartitionPath(new StoragePath(tablePath), new StoragePath(directory.toString()));
+            String partition = FSUtils.getRelativePartitionPath(
+                    HadoopFSUtils.convertToStoragePath(new Path(tablePath)),
+                    HadoopFSUtils.convertToStoragePath(directory));
+
+            // Always add files to the view if metadata is disabled (fileStatuses present)
             if (fileStatuses.isPresent()) {
                 List<StoragePathInfo> pathInfos = Arrays.stream(fileStatuses.get())
-                        .map(fs -> new StoragePathInfo(new StoragePath(fs.getPath().toString()), fs.getLen(), fs.isDirectory(),
-                                fs.getReplication(), fs.getBlockSize(), fs.getModificationTime()))
+                        .map(HadoopFSUtils::convertToStoragePathInfo)
                         .collect(toImmutableList());
                 fileSystemView.addFilesToView(pathInfos);
                 this.hoodieBaseFileIterator = fileSystemView.fetchLatestBaseFiles(partition).iterator();
@@ -183,14 +189,7 @@ public class HudiDirectoryLister
                 throws IOException
         {
             HoodieBaseFile baseFile = hoodieBaseFileIterator.next();
-            StoragePathInfo pathInfo = baseFile.getPathInfo();
-            FileStatus fileStatus = new FileStatus(
-                    pathInfo.getLength(),
-                    pathInfo.isDirectory(),
-                    pathInfo.getBlockReplication(),
-                    pathInfo.getBlockSize(),
-                    pathInfo.getModificationTime(),
-                    new Path(pathInfo.getPath().toString()));
+            FileStatus fileStatus = HadoopFSUtils.convertToHadoopFileStatus(baseFile.getPathInfo());
             String[] name = {"localhost:" + DFS_DATANODE_DEFAULT_PORT};
             String[] host = {"localhost"};
             LocatedFileStatus hoodieFileStatus = new LocatedFileStatus(fileStatus,

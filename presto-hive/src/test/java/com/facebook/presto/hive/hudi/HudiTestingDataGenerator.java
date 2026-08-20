@@ -61,6 +61,8 @@ import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Collections.emptyList;
@@ -150,6 +152,55 @@ public class HudiTestingDataGenerator
         createTable(MERGE_ON_READ, "stock_ticks_morn_rt", dataDirectory.resolve("stock_ticks_morn").toString(), false);
         createTable(COPY_ON_WRITE, "stock_ticks_morn_only_log_ro", dataDirectory.resolve("stock_ticks_morn_only_log").toString(), false);
         createTable(MERGE_ON_READ, "stock_ticks_morn_only_log_rt", dataDirectory.resolve("stock_ticks_morn_only_log").toString(), false);
+    }
+
+    /**
+     * Generate Hudi 1.x test data to verify backward compatibility.
+     * This data was generated using Hudi 1.1.0 with Spark 3.5.
+     */
+    public void generate1xData()
+    {
+        try {
+            Path hudi1xDir = dataDirectory.resolve("hudi-data-1x");
+            if (Files.exists(hudi1xDir)) {
+                deleteRecursively(hudi1xDir, ALLOW_INSECURE);
+            }
+            Files.createDirectories(hudi1xDir);
+            try (InputStream stream = Resources.getResource("hudi-testing-data-1x.zip").openStream()) {
+                unzip(stream, dataDirectory); // zip's internal hudi-data-1x/ wrapper lands inside dataDirectory correctly
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * Generate metadata for Hudi 1.x test tables.
+     * Includes both partitioned and non-partitioned tables for COW and MOR types.
+     */
+    public void generate1xMetadata()
+    {
+        // Partitioned COPY_ON_WRITE table
+        createTable(COPY_ON_WRITE, "stock_ticks_cow_1x", "hudi-data-1x/stock_ticks_cow", true);
+        addPartition(COPY_ON_WRITE, "stock_ticks_cow_1x", ImmutableList.of("dt=2018-08-31"), "hudi-data-1x/stock_ticks_cow/dt=2018-08-31");
+
+        // Partitioned MERGE_ON_READ table (read-optimized view)
+        createTable(COPY_ON_WRITE, "stock_ticks_mor_ro_1x", "hudi-data-1x/stock_ticks_mor", true);
+        addPartition(COPY_ON_WRITE, "stock_ticks_mor_ro_1x", ImmutableList.of("dt=2018-08-31"), "hudi-data-1x/stock_ticks_mor/dt=2018-08-31");
+
+        // Partitioned MERGE_ON_READ table (realtime view)
+        createTable(MERGE_ON_READ, "stock_ticks_mor_rt_1x", "hudi-data-1x/stock_ticks_mor", true);
+        addPartition(MERGE_ON_READ, "stock_ticks_mor_rt_1x", ImmutableList.of("dt=2018-08-31"), "hudi-data-1x/stock_ticks_mor/dt=2018-08-31");
+
+        // Non-partitioned COPY_ON_WRITE table
+        createTable(COPY_ON_WRITE, "stock_ticks_cown_1x", dataDirectory.resolve("hudi-data-1x/stock_ticks_cown").toString(), false);
+
+        // Non-partitioned MERGE_ON_READ table (read-optimized view)
+        createTable(COPY_ON_WRITE, "stock_ticks_morn_ro_1x", dataDirectory.resolve("hudi-data-1x/stock_ticks_morn").toString(), false);
+
+        // Non-partitioned MERGE_ON_READ table (realtime view)
+        createTable(MERGE_ON_READ, "stock_ticks_morn_rt_1x", dataDirectory.resolve("hudi-data-1x/stock_ticks_morn").toString(), false);
     }
 
     private void createTable(HoodieTableType type, String name, String relativePath, boolean partitioned)

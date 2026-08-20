@@ -27,10 +27,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveUtil.CUSTOM_FILE_SPLIT_CLASS_KEY;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Long.parseLong;
 import static java.util.Objects.requireNonNull;
 
@@ -72,7 +72,7 @@ public class HudiRealtimeBootstrapBaseFileSplitConverter
         if (!isNullOrEmpty(customFileSplitClass) && HoodieRealtimeBootstrapBaseFileSplit.class.getName().equals(customFileSplitClass)) {
             String deltaFilePaths = customSplitInfo.get(DELTA_FILE_PATHS_KEY);
             List<String> deltaLogPaths = isNullOrEmpty(deltaFilePaths) ? Collections.emptyList() : Arrays.asList(deltaFilePaths.split(","));
-            List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new StoragePath(p))).collect(Collectors.toList());
+            List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new StoragePath(p))).collect(toImmutableList());
             FileSplit bootstrapFileSplit = new FileSplit(
                     new Path(customSplitInfo.get(BOOTSTRAP_FILE_SPLIT_PATH)),
                     parseLong(customSplitInfo.get(BOOTSTRAP_FILE_SPLIT_START)),

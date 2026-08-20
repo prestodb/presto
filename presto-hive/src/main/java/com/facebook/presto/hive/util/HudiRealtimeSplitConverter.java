@@ -25,9 +25,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveUtil.CUSTOM_FILE_SPLIT_CLASS_KEY;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -46,6 +46,10 @@ public class HudiRealtimeSplitConverter
     @Override
     public Optional<Map<String, String>> extractCustomSplitInfo(FileSplit split)
     {
+        System.err.println("DEBUG_INSTANCEOF splitClass=" + split.getClass().getName()
+                + " splitClassLoader=" + split.getClass().getClassLoader()
+                + " expectedClassLoader=" + HoodieRealtimeFileSplit.class.getClassLoader()
+                + " isInstance=" + (split instanceof HoodieRealtimeFileSplit));
         if (split instanceof HoodieRealtimeFileSplit) {
             HoodieRealtimeFileSplit hudiSplit = (HoodieRealtimeFileSplit) split;
             Map<String, String> customSplitInfo = ImmutableMap.<String, String>builder()
@@ -67,7 +71,9 @@ public class HudiRealtimeSplitConverter
         if (HoodieRealtimeFileSplit.class.getName().equals(customSplitClass)) {
             requireNonNull(customSplitInfo.get(HUDI_DELTA_FILEPATHS_KEY), "HUDI_DELTA_FILEPATHS_KEY is missing");
             List<String> deltaLogPaths = SPLITTER.splitToList(customSplitInfo.get(HUDI_DELTA_FILEPATHS_KEY));
-            List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new StoragePath(p))).collect(Collectors.toList());
+            List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream()
+                    .map(p -> new HoodieLogFile(new StoragePath(p)))
+                    .collect(toImmutableList());
             return Optional.of(new HoodieRealtimeFileSplit(
                     split,
                     requireNonNull(customSplitInfo.get(HUDI_BASEPATH_KEY), "HUDI_BASEPATH_KEY is missing"),

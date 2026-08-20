@@ -1733,6 +1733,10 @@
                         <groupId>org.objenesis</groupId>
                         <artifactId>objenesis</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.hive</groupId>
+                        <artifactId>hive-storage-api</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
             <!-- End dependencies for querying Hudi table-->

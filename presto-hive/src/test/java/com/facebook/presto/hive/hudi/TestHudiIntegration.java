@@ -58,11 +58,17 @@ public class TestHudiIntegration
         assertQuery("show tables",
                 "SELECT * FROM VALUES " +
                         "('stock_ticks_cow'), " +
+                        "('stock_ticks_cow_1x'), " +
                         "('stock_ticks_cown'), " +
+                        "('stock_ticks_cown_1x'), " +
                         "('stock_ticks_mor_ro'), " +
+                        "('stock_ticks_mor_ro_1x'), " +
                         "('stock_ticks_mor_rt')," +
+                        "('stock_ticks_mor_rt_1x')," +
                         "('stock_ticks_morn_ro')," +
+                        "('stock_ticks_morn_ro_1x')," +
                         "('stock_ticks_morn_rt')," +
+                        "('stock_ticks_morn_rt_1x')," +
                         "('stock_ticks_morn_only_log_ro')," +
                         "('stock_ticks_morn_only_log_rt')");
 
@@ -147,6 +153,100 @@ public class TestHudiIntegration
         assertQuery(format(sqlTemplate, "stock_ticks_cow"), sqlResult);
         assertQuery(format(sqlTemplate, "stock_ticks_mor_ro"), sqlResult);
         assertQuery(format(sqlTemplate, "stock_ticks_mor_rt"), sqlResult);
+    }
+
+    // ========== Hudi 1.x Backward Compatibility Tests ==========
+
+    @Test
+    public void testHudi1xCopyOnWritePartitionedTable()
+    {
+        @Language("SQL") String sqlCount = "SELECT COUNT(*) FROM stock_ticks_cow_1x";
+        @Language("SQL") String sqlResultCount = "VALUES 2";
+
+        @Language("SQL") String sqlMaxTs = "SELECT symbol, max(ts) FROM stock_ticks_cow_1x GROUP BY symbol HAVING symbol = 'GOOG'";
+        @Language("SQL") String sqlResultMaxTs = "SELECT 'GOOG', '2018-08-31 10:59:00'";
+
+        @Language("SQL") String sqlPartition = "SELECT symbol, ts, dt FROM stock_ticks_cow_1x WHERE symbol = 'GOOG' AND dt = '2018-08-31'";
+        @Language("SQL") String sqlResultPartition = "SELECT * FROM VALUES " +
+                "('GOOG', '2018-08-31 09:59:00', '2018-08-31'), " +
+                "('GOOG', '2018-08-31 10:59:00', '2018-08-31')";
+
+        assertQuery(sqlCount, sqlResultCount);
+        assertQuery(sqlMaxTs, sqlResultMaxTs);
+        assertQuery(sqlPartition, sqlResultPartition);
+    }
+
+    @Test
+    public void testHudi1xMergeOnReadPartitionedTableRealtimeView()
+    {
+        @Language("SQL") String sqlCount = "SELECT COUNT(*) FROM stock_ticks_mor_rt_1x";
+        @Language("SQL") String sqlResultCount = "VALUES 2";
+
+        @Language("SQL") String sqlMaxTs = "SELECT symbol, max(ts) FROM stock_ticks_mor_rt_1x GROUP BY symbol HAVING symbol = 'GOOG'";
+        @Language("SQL") String sqlResultMaxTs = "SELECT 'GOOG', '2018-08-31 10:59:00'";
+
+        @Language("SQL") String sqlVolume = "SELECT volume FROM stock_ticks_mor_rt_1x WHERE ts = '2018-08-31 10:59:00'";
+        @Language("SQL") String sqlResultVolume = "VALUES 9021";
+
+        assertQuery(sqlCount, sqlResultCount);
+        assertQuery(sqlMaxTs, sqlResultMaxTs);
+        assertQuery(sqlVolume, sqlResultVolume);
+    }
+
+    @Test
+    public void testHudi1xMergeOnReadPartitionedTableReadOptimizedView()
+    {
+        @Language("SQL") String sqlCount = "SELECT COUNT(*) FROM stock_ticks_mor_ro_1x";
+        @Language("SQL") String sqlResultCount = "VALUES 2";
+
+        @Language("SQL") String sqlVolume = "SELECT volume FROM stock_ticks_mor_ro_1x WHERE key = 'key1'";
+        @Language("SQL") String sqlResultVolume = "VALUES 100";
+
+        assertQuery(sqlCount, sqlResultCount);
+        assertQuery(sqlVolume, sqlResultVolume);
+    }
+
+    @Test
+    public void testHudi1xCopyOnWriteNonPartitionedTable()
+    {
+        @Language("SQL") String sqlCount = "SELECT COUNT(*) FROM stock_ticks_cown_1x";
+        @Language("SQL") String sqlResultCount = "VALUES 2";
+
+        @Language("SQL") String sqlMaxTs = "SELECT symbol, max(ts) FROM stock_ticks_cown_1x GROUP BY symbol HAVING symbol = 'GOOG'";
+        @Language("SQL") String sqlResultMaxTs = "SELECT 'GOOG', '2018-08-31 10:59:00'";
+
+        assertQuery(sqlCount, sqlResultCount);
+        assertQuery(sqlMaxTs, sqlResultMaxTs);
+    }
+
+    @Test
+    public void testHudi1xMergeOnReadNonPartitionedTableRealtimeView()
+    {
+        @Language("SQL") String sqlCount = "SELECT COUNT(*) FROM stock_ticks_morn_rt_1x";
+        @Language("SQL") String sqlResultCount = "VALUES 2";
+
+        @Language("SQL") String sqlMaxTs = "SELECT symbol, max(ts) FROM stock_ticks_morn_rt_1x GROUP BY symbol HAVING symbol = 'GOOG'";
+        @Language("SQL") String sqlResultMaxTs = "SELECT 'GOOG', '2018-08-31 10:59:00'";
+
+        @Language("SQL") String sqlVolume = "SELECT volume FROM stock_ticks_morn_rt_1x WHERE key = 'key1'";
+        @Language("SQL") String sqlResultVolume = "VALUES 9021";
+
+        assertQuery(sqlCount, sqlResultCount);
+        assertQuery(sqlMaxTs, sqlResultMaxTs);
+        assertQuery(sqlVolume, sqlResultVolume);
+    }
+
+    @Test
+    public void testHudi1xMergeOnReadNonPartitionedTableReadOptimizedView()
+    {
+        @Language("SQL") String sqlCount = "SELECT COUNT(*) FROM stock_ticks_morn_ro_1x";
+        @Language("SQL") String sqlResultCount = "VALUES 2";
+
+        @Language("SQL") String sqlVolume = "SELECT volume FROM stock_ticks_morn_ro_1x WHERE key = 'key1'";
+        @Language("SQL") String sqlResultVolume = "VALUES 100";
+
+        assertQuery(sqlCount, sqlResultCount);
+        assertQuery(sqlVolume, sqlResultVolume);
     }
 
     private static String generateDescribeIdenticalQuery(TypeManager typeManager, List<Column> metaColumns, List<Column> dataColumns, List<Column> partitionColumns)

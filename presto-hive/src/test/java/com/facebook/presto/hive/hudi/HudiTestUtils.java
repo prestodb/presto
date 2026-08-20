@@ -53,7 +53,11 @@ public class HudiTestUtils
             String defaultSchema)
             throws Exception
     {
-        Session session = testSessionBuilder().setCatalog(catalogName).setSchema(defaultSchema).build();
+        Session session = testSessionBuilder()
+                .setCatalog(catalogName)
+                .setSchema(defaultSchema)
+                .setCatalogSessionProperty(catalogName, "parquet_use_column_names", "true")
+                .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).setExtraProperties(serverConfig).build();
 
         // setup file metastore
@@ -65,6 +69,10 @@ public class HudiTestUtils
         HudiTestingDataGenerator generator = new HudiTestingDataGenerator(metastore, defaultSchema, testingDataDirectory);
         generator.generateData();
         generator.generateMetadata();
+
+        // prepare Hudi 1.x testing data
+        generator.generate1xData();
+        generator.generate1xMetadata();
 
         queryRunner.installPlugin(connectorPluginFactory.apply(Optional.of(metastore)));
         queryRunner.createCatalog(catalogName, connectorName, connectorConfig);
