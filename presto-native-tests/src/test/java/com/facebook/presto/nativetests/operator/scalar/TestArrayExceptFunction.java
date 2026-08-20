@@ -16,22 +16,21 @@ package com.facebook.presto.nativetests.operator.scalar;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.tests.operator.scalar.AbstractTestArrayExcept;
 import com.google.common.collect.ImmutableList;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static java.util.Collections.singletonList;
 
 public class TestArrayExceptFunction
         extends AbstractTestNativeFunctions
         implements AbstractTestArrayExcept
 {
-    @Language("RegExp") private static final String unknownTypeError = ".*not a known type kind: UNKNOWN.*";
-
     @Test
     public void testEmpty()
     {
-        assertNotSupported("array_except(ARRAY[], ARRAY[])", unknownTypeError);
+        assertFunction("array_except(ARRAY[], ARRAY[])", new ArrayType(UNKNOWN), ImmutableList.of());
         assertFunction("array_except(ARRAY[], ARRAY[1, 3])", new ArrayType(INTEGER), ImmutableList.of());
         assertFunction("array_except(ARRAY[CAST('abc' as VARCHAR)], ARRAY[])", new ArrayType(VARCHAR), ImmutableList.of("abc"));
     }
@@ -39,11 +38,11 @@ public class TestArrayExceptFunction
     @Test
     public void testNull()
     {
-        assertNotSupported("array_except(ARRAY[NULL], NULL)", unknownTypeError);
-        assertNotSupported("array_except(NULL, NULL)", unknownTypeError);
-        assertNotSupported("array_except(NULL, ARRAY[NULL])", unknownTypeError);
-        assertNotSupported("array_except(ARRAY[NULL], ARRAY[NULL])", unknownTypeError);
-        assertNotSupported("array_except(ARRAY[], ARRAY[NULL])", unknownTypeError);
-        assertNotSupported("array_except(ARRAY[NULL], ARRAY[])", unknownTypeError);
+        assertFunction("array_except(ARRAY[NULL], NULL)", new ArrayType(UNKNOWN), null);
+        assertFunction("array_except(NULL, NULL)", new ArrayType(UNKNOWN), null);
+        assertFunction("array_except(NULL, ARRAY[NULL])", new ArrayType(UNKNOWN), null);
+        assertFunction("array_except(ARRAY[NULL], ARRAY[NULL])", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertFunction("array_except(ARRAY[], ARRAY[NULL])", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertFunction("array_except(ARRAY[NULL], ARRAY[])", new ArrayType(UNKNOWN), singletonList(null));
     }
 }
