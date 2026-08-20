@@ -1114,6 +1114,7 @@ TEST_P(TaskManagerTest, tableScanMultipleTasks) {
   TaskIdGenerator taskIdGenerator("scan");
 
   std::vector<std::string> tasks;
+  std::vector<protocol::TaskId> taskIds;
   long splitSequenceId{0};
   for (int i = 0; i < filePaths.size(); i++) {
     const auto taskId = taskIdGenerator.makeTaskId(0, i);
@@ -1121,6 +1122,7 @@ TEST_P(TaskManagerTest, tableScanMultipleTasks) {
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(source);
     auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
+    taskIds.emplace_back(taskId);
     tasks.emplace_back(taskInfo->taskStatus.self);
   }
 
@@ -1128,6 +1130,12 @@ TEST_P(TaskManagerTest, tableScanMultipleTasks) {
       tasks, planFragment.planNode->outputType(), splitSequenceId);
   assertResults(
       outputTaskInfo->taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 1");
+
+  taskManager_->deleteTask(outputTaskInfo->taskId, true, true);
+  for (const auto& taskId : taskIds) {
+    taskManager_->deleteTask(taskId, true, true);
+  }
+  waitForAllOldTasksToBeCleaned(taskManager_.get(), 3'000'000);
 }
 
 TEST_P(TaskManagerTest, countAggregation) {
