@@ -34,14 +34,14 @@ public class DynamicFilterService
 {
     private final ConcurrentMap<QueryId, ConcurrentMap<String, JoinDynamicFilter>> filters = new ConcurrentHashMap<>();
     private final ConcurrentMap<QueryId, ConcurrentMap<PlanNodeId, Set<String>>> scanToFilterIds = new ConcurrentHashMap<>();
-    private final DynamicFilterStats stats;
+    private final DynamicFilterServiceStats stats;
 
     public DynamicFilterService()
     {
-        this(new DynamicFilterStats());
+        this(new DynamicFilterServiceStats());
     }
 
-    public DynamicFilterService(DynamicFilterStats stats)
+    public DynamicFilterService(DynamicFilterServiceStats stats)
     {
         this.stats = requireNonNull(stats, "stats is null");
     }
@@ -126,7 +126,7 @@ public class DynamicFilterService
         return ImmutableMap.copyOf(queryFilters);
     }
 
-    public DynamicFilterStats getStats()
+    public DynamicFilterServiceStats getStats()
     {
         return stats;
     }

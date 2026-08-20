@@ -296,7 +296,7 @@ public class TestDynamicFilterService
                 "",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 new RuntimeStats(),
                 false);
     }
@@ -308,7 +308,7 @@ public class TestDynamicFilterService
                 "column_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 new RuntimeStats(),
                 false);
     }

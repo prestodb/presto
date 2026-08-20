@@ -17,7 +17,7 @@ import com.facebook.airlift.stats.CounterStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-public class DynamicFilterStats
+public class DynamicFilterServiceStats
 {
     /**
      * Simple running average: tracks count and sum to expose a rolling mean.

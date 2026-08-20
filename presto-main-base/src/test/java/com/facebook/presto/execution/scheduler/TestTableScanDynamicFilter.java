@@ -705,7 +705,7 @@ public class TestTableScanDynamicFilter
                 columnName,
                 timeout,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 new RuntimeStats(),
                 false);
     }

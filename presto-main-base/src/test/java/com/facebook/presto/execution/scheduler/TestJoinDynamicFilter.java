@@ -67,7 +67,7 @@ public class TestJoinDynamicFilter
                 "column_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 true);
         filter.setExpectedPartitions(2);
@@ -111,7 +111,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
         filter.setExpectedPartitions(3);
@@ -156,7 +156,7 @@ public class TestJoinDynamicFilter
                 new Duration(100, TimeUnit.MILLISECONDS),
                 0,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false,
                 scheduler);
@@ -184,7 +184,7 @@ public class TestJoinDynamicFilter
                 "",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
         filter.setExpectedPartitions(1);
@@ -208,7 +208,7 @@ public class TestJoinDynamicFilter
                 "",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 new RuntimeStats(),
                 false);
         assertEquals(defaultFilter.getFilterId(), "");
@@ -219,7 +219,7 @@ public class TestJoinDynamicFilter
                 "column_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
         assertEquals(namedFilter.getFilterId(), "549");
@@ -235,7 +235,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
         filter.setExpectedPartitions(1);
@@ -259,7 +259,7 @@ public class TestJoinDynamicFilter
                 "",
                 timeout,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 new RuntimeStats(),
                 false);
 
@@ -274,26 +274,28 @@ public class TestJoinDynamicFilter
 
     @Test
     public void testTimeoutEmitsMetric()
-            throws Exception
     {
         RuntimeStats runtimeStats = new RuntimeStats();
-        DynamicFilterStats stats = new DynamicFilterStats();
+        DynamicFilterServiceStats stats = new DynamicFilterServiceStats();
+        ManualScheduler scheduler = new ManualScheduler();
 
         JoinDynamicFilter filter = new JoinDynamicFilter(
                 "549",
                 "col_a",
                 new Duration(100, TimeUnit.MILLISECONDS),
+                0,
                 DEFAULT_MAX_SIZE_BYTES,
                 stats,
                 runtimeStats,
-                true);
+                true,
+                scheduler);
         filter.setExpectedPartitions(2);
 
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
                 ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
 
         filter.startTimeout();
-        Thread.sleep(300);
+        scheduler.tick();
 
         assertFalse(filter.isComplete(), "Timeout should not mark filter as complete");
 
@@ -321,7 +323,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 true);
         filter.setExpectedPartitions(1);
@@ -346,7 +348,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 true);
         filter.setExpectedPartitions(1);
@@ -389,7 +391,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 1_048_576L,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
         filter.setExpectedPartitions(1);
@@ -434,7 +436,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
         filter.setExpectedPartitions(1);
@@ -464,7 +466,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
 
@@ -494,7 +496,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
 
@@ -523,7 +525,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
 
@@ -558,7 +560,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
 
@@ -590,7 +592,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
 
@@ -619,7 +621,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
 
@@ -646,7 +648,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
 
@@ -677,7 +679,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 1L, // force range fallback
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
         filter.setExpectedPartitions(1);
@@ -707,7 +709,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 1L,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
         filter.setExpectedPartitions(1);
@@ -733,7 +735,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 1L,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false);
 
@@ -778,7 +780,7 @@ public class TestJoinDynamicFilter
         RuntimeStats runtimeStats = new RuntimeStats();
         JoinDynamicFilter filter = new JoinDynamicFilter(
                 "549", "col_a", DEFAULT_TIMEOUT, DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(), runtimeStats, false);
+                new DynamicFilterServiceStats(), runtimeStats, false);
         filter.setExpectedPartitions(3);
 
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
@@ -807,7 +809,7 @@ public class TestJoinDynamicFilter
         RuntimeStats runtimeStats = new RuntimeStats();
         JoinDynamicFilter filter = new JoinDynamicFilter(
                 "549", "col_a", DEFAULT_TIMEOUT, 1L /* force range */,
-                new DynamicFilterStats(), runtimeStats, false);
+                new DynamicFilterServiceStats(), runtimeStats, false);
         filter.setExpectedPartitions(2);
 
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(ImmutableMap.of("549",
@@ -835,7 +837,7 @@ public class TestJoinDynamicFilter
         RuntimeStats runtimeStats = new RuntimeStats();
         JoinDynamicFilter filter = new JoinDynamicFilter(
                 "549", "col_a", DEFAULT_TIMEOUT, DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(), runtimeStats, false);
+                new DynamicFilterServiceStats(), runtimeStats, false);
         filter.setExpectedPartitions(1);
 
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(ImmutableMap.of("549",
@@ -868,7 +870,7 @@ public class TestJoinDynamicFilter
                 new Duration(500, TimeUnit.MILLISECONDS),
                 2,  // maxWaitExtensions
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 true,
                 scheduler);
@@ -911,7 +913,7 @@ public class TestJoinDynamicFilter
                 new Duration(500, TimeUnit.MILLISECONDS),
                 3,  // maxWaitExtensions — should NOT be consumed when no progress
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 true,
                 scheduler);
@@ -946,7 +948,7 @@ public class TestJoinDynamicFilter
                 new Duration(500, TimeUnit.MILLISECONDS),
                 2,  // maxWaitExtensions
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 true,
                 scheduler);
@@ -981,7 +983,7 @@ public class TestJoinDynamicFilter
                 new Duration(500, TimeUnit.MILLISECONDS),
                 3,  // maxWaitExtensions
                 DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(),
+                new DynamicFilterServiceStats(),
                 runtimeStats,
                 false,  // extendedMetrics off — exercise the non-diagnostic path
                 scheduler);

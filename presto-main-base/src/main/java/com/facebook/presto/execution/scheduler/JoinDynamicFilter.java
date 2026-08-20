@@ -26,8 +26,6 @@ import com.google.errorprone.annotations.ThreadSafe;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -48,6 +46,7 @@ import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.spi.connector.DynamicFilter.NOT_BLOCKED;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -85,12 +84,15 @@ public class JoinDynamicFilter
     private final Duration waitTimeout;
     private final int maxWaitExtensions;
     private final long maxSizeInBytes;
-    private final DynamicFilterStats stats;
+    private final DynamicFilterServiceStats stats;
     private final RuntimeStats runtimeStats;
     private final boolean extendedMetrics;
 
+    // Partitions are merged incrementally on arrival; no list is retained.
     @GuardedBy("this")
-    private final List<RuntimeFilter> partitionsByFilterId = new ArrayList<>();
+    private RuntimeFilter runningUnion;
+    @GuardedBy("this")
+    private int partitionsReceived;
     private final CompletableFuture<RuntimeFilter> constraintByFilterIdFuture;
 
     private final AtomicBoolean timeoutStarted = new AtomicBoolean(false);
@@ -122,7 +124,7 @@ public class JoinDynamicFilter
             String columnName,
             Duration waitTimeout,
             long maxSizeInBytes,
-            DynamicFilterStats stats,
+            DynamicFilterServiceStats stats,
             RuntimeStats runtimeStats,
             boolean extendedMetrics)
     {
@@ -135,7 +137,7 @@ public class JoinDynamicFilter
             Duration waitTimeout,
             int maxWaitExtensions,
             long maxSizeInBytes,
-            DynamicFilterStats stats,
+            DynamicFilterServiceStats stats,
             RuntimeStats runtimeStats,
             boolean extendedMetrics)
     {
@@ -149,7 +151,7 @@ public class JoinDynamicFilter
             Duration waitTimeout,
             int maxWaitExtensions,
             long maxSizeInBytes,
-            DynamicFilterStats stats,
+            DynamicFilterServiceStats stats,
             RuntimeStats runtimeStats,
             boolean extendedMetrics,
             ScheduledExecutorService timeoutScheduler)
@@ -157,7 +159,7 @@ public class JoinDynamicFilter
         this.filterId = requireNonNull(filterId, "filterId is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.waitTimeout = requireNonNull(waitTimeout, "waitTimeout is null");
-        verify(maxWaitExtensions >= 0, "maxWaitExtensions must be non-negative");
+        checkArgument(maxWaitExtensions >= 0, "maxWaitExtensions must be non-negative");
         this.maxWaitExtensions = maxWaitExtensions;
         this.maxSizeInBytes = maxSizeInBytes;
         this.expectedPartitions = Integer.MAX_VALUE;
@@ -200,7 +202,7 @@ public class JoinDynamicFilter
             if (timeoutMs > 0) {
                 // Baseline so pre-startTimeout contributions aren't credited as new progress on the first tick.
                 synchronized (this) {
-                    lastTickPartitionCount = partitionsByFilterId.size();
+                    lastTickPartitionCount = partitionsReceived;
                 }
                 scheduleTick(timeoutMs);
             }
@@ -250,7 +252,9 @@ public class JoinDynamicFilter
                 collectionStarted = true;
             }
 
-            partitionsByFilterId.add(filter);
+            // Merge incrementally on arrival to avoid re-scanning the full list at completion.
+            runningUnion = (runningUnion == null) ? filter : runningUnion.mergeWith(filter);
+            partitionsReceived++;
 
             runtimeStats.addMetricValue(DYNAMIC_FILTER_PARTITIONS_RECEIVED, NONE, 1);
             if (!filterId.isEmpty()) {
@@ -268,15 +272,11 @@ public class JoinDynamicFilter
     @GuardedBy("this")
     private RuntimeFilter tryCompleteResolution()
     {
-        if (constraintByFilterIdFuture.isDone() || partitionsByFilterId.size() < expectedPartitions) {
+        if (constraintByFilterIdFuture.isDone() || partitionsReceived < expectedPartitions) {
             return null;
         }
 
-        RuntimeFilter union = partitionsByFilterId.get(0);
-        for (int i = 1; i < partitionsByFilterId.size(); i++) {
-            union = union.mergeWith(partitionsByFilterId.get(i));
-        }
-        mergedConstraint = collapseIfOversized(union);
+        mergedConstraint = collapseIfOversized(runningUnion);
         maybeShortCircuit();
         fullyResolved = true;
         recordCollectionCompleted();
@@ -401,7 +401,9 @@ public class JoinDynamicFilter
         if (!fullyResolved || mergedConstraint == null) {
             return TupleDomain.all();
         }
-        Type type = probeColumnDomain != null ? probeColumnDomain.getType() : null;
+        // type may be null when no probe-column domain has been set; implementations
+        // that need it (e.g. future BloomRuntimeFilter) should handle null gracefully.
+        @javax.annotation.Nullable Type type = probeColumnDomain != null ? probeColumnDomain.getType() : null;
         return mergedConstraint.toTupleDomain(columnName, type);
     }
 
@@ -417,7 +419,7 @@ public class JoinDynamicFilter
 
     public synchronized boolean hasData()
     {
-        return !partitionsByFilterId.isEmpty();
+        return partitionsReceived > 0;
     }
 
     public static DynamicFilter createDisabled()
@@ -433,7 +435,7 @@ public class JoinDynamicFilter
                 .add("columnName", columnName)
                 .add("waitTimeout", waitTimeout)
                 .add("expectedPartitions", expectedPartitions)
-                .add("receivedPartitions", partitionsByFilterId.size())
+                .add("receivedPartitions", partitionsReceived)
                 .add("complete", fullyResolved)
                 .toString();
     }
@@ -446,11 +448,12 @@ public class JoinDynamicFilter
     private void onTick()
     {
         boolean reschedule;
+        RuntimeFilter timedOut = null;
         synchronized (this) {
             if (constraintByFilterIdFuture.isDone()) {
                 return;
             }
-            int currentReceived = partitionsByFilterId.size();
+            int currentReceived = partitionsReceived;
             boolean progress = currentReceived > lastTickPartitionCount;
             lastTickPartitionCount = currentReceived;
             if (progress && extensionsUsed < maxWaitExtensions) {
@@ -458,13 +461,15 @@ public class JoinDynamicFilter
                 reschedule = true;
             }
             else {
-                // Finalize inside the monitor so a concurrent addPartitionByFilterId either
-                // resolves the filter first (and this tick observes isDone) or sees the
-                // future already completed and bails — partial state is never exposed.
-                constraintByFilterIdFuture.complete(new DomainRuntimeFilter(TupleDomain.all()));
+                timedOut = new DomainRuntimeFilter(TupleDomain.all());
                 onTimeout();
                 reschedule = false;
             }
+        }
+        // Complete the future outside the monitor, following the setExpectedPartitions pattern,
+        // so CompletableFuture callbacks cannot deadlock against the class monitor.
+        if (timedOut != null) {
+            constraintByFilterIdFuture.complete(timedOut);
         }
         if (reschedule) {
             scheduleTick(waitTimeout.toMillis());
