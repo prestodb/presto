@@ -2016,4 +2016,29 @@ public class TestIcebergMaterializedViewOptimizer
             assertUpdate("DROP TABLE IF EXISTS " + base);
         }
     }
+
+    @Test
+    public void testBaseTableQueryRewrite()
+    {
+        String base = "base_table_rewrite_test";
+        String mv = "mv_rewrite_test";
+        Session sessionWithMvRewrite = Session.builder(getSession())
+                .setSystemProperty("query_optimization_with_materialized_view_enabled", "true")
+                .build();
+        try {
+            assertUpdate("CREATE TABLE " + base + " (id BIGINT, value BIGINT)");
+            assertUpdate("INSERT INTO " + base + " VALUES (1, 100), (2, 200)", 2);
+
+            assertUpdate("CREATE MATERIALIZED VIEW " + mv + " AS SELECT id, value FROM " + base);
+            getQueryRunner().execute("REFRESH MATERIALIZED VIEW " + mv);
+
+            // Querying the base table with MV query optimization enabled should rewrite to scan the MV storage table
+            assertPlan(sessionWithMvRewrite, "SELECT id, value FROM " + base,
+                    anyTree(tableScan("__mv_storage__" + mv)));
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + mv);
+            assertUpdate("DROP TABLE IF EXISTS " + base);
+        }
+    }
 }
