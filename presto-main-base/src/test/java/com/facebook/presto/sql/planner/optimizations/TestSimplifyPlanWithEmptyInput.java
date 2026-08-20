@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_SEMI_JOIN_AGAINST_VALUES_TO_FILTER_MAX_SIZE;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -162,8 +163,12 @@ public class TestSimplifyPlanWithEmptyInput
     @Test
     public void testSemiJoinEmptyFilterSource()
     {
+        // Keep the values-to-filter rewrite from racing the empty-input simplification under test.
+        Session session = Session.builder(enableOptimization())
+                .setSystemProperty(REWRITE_SEMI_JOIN_AGAINST_VALUES_TO_FILTER_MAX_SIZE, "0")
+                .build();
         assertPlan("select orderkey, partkey from lineitem where orderkey in (select orderkey from orders where false)",
-                enableOptimization(),
+                session,
                 output(
                         ImmutableList.of("orderkey", "partkey"),
                         filter(

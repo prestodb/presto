@@ -358,6 +358,7 @@ public final class SystemSessionProperties
     public static final String REWRITE_CROSS_JOIN_ARRAY_NOT_CONTAINS_TO_ANTI_JOIN = "rewrite_cross_join_array_not_contains_to_anti_join";
     public static final String REWRITE_LEFT_JOIN_ARRAY_CONTAINS_TO_EQUI_JOIN = "rewrite_left_join_array_contains_to_equi_join";
     public static final String REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN = "rewrite_left_join_null_filter_to_semi_join";
+    public static final String REWRITE_SEMI_JOIN_AGAINST_VALUES_TO_FILTER_MAX_SIZE = "rewrite_semi_join_against_values_to_filter_max_size";
     public static final String USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN = "use_broadcast_when_buildsize_small_probeside_unknown";
     public static final String ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT = "add_partial_node_for_row_number_with_limit";
     public static final String REWRITE_CASE_TO_MAP_ENABLED = "rewrite_case_to_map_enabled";
@@ -2165,6 +2166,11 @@ public final class SystemSessionProperties
                         "Rewrite left join with is null check to semi join",
                         featuresConfig.isLeftJoinNullFilterToSemiJoin(),
                         false),
+                integerProperty(
+                        REWRITE_SEMI_JOIN_AGAINST_VALUES_TO_FILTER_MAX_SIZE,
+                        "Rewrite a semi/anti join against an inline literal VALUES list of at most this many rows into an IN / NOT IN filter on the source; 0 disables the rewrite",
+                        featuresConfig.getRewriteSemiJoinAgainstValuesToFilterMaxSize(),
+                        false),
                 booleanProperty(
                         USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN,
                         "Experimental: When probe side size is unknown but build size is within broadcast limit, choose broadcast join",
@@ -3919,6 +3925,11 @@ public final class SystemSessionProperties
     public static boolean isRewriteLeftJoinNullFilterToSemiJoinEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN, Boolean.class);
+    }
+
+    public static int getRewriteSemiJoinAgainstValuesToFilterMaxSize(Session session)
+    {
+        return session.getSystemProperty(REWRITE_SEMI_JOIN_AGAINST_VALUES_TO_FILTER_MAX_SIZE, Integer.class);
     }
 
     public static boolean isUseBroadcastJoinWhenBuildSizeSmallProbeSizeUnknownEnabled(Session session)
