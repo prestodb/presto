@@ -1203,6 +1203,7 @@ The following properties can be used to control how these quick stats are built:
         continue to report unknown. Set to ``false``
         to revert to the pre-fix behavior without a rebuild. Also toggleable
         through the ``quick_stats_provable_empty_enabled`` session property.
+
         As with ``hive.quick-stats.ndv-enabled``, the per-partition quick
         stats cache key includes this flag. To discard entries cached before a
         statistics change, use the ``invalidateQuickStatsCache`` JMX operation
