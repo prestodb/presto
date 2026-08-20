@@ -158,6 +158,18 @@ public class OrcBatchPageSource
     }
 
     @Override
+    public long getDecompressedBytes()
+    {
+        return orcDataSource.getReadBytes();
+    }
+
+    @Override
+    public long getDecompressedPositions()
+    {
+        return completedPositions;
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return orcDataSource.getReadTimeNanos();
@@ -199,7 +211,8 @@ public class OrcBatchPageSource
                     blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId]));
                 }
             }
-            return new Page(batchSize, blocks);
+            Page page = new Page(batchSize, blocks);
+            return page;
         }
         catch (PrestoException e) {
             closeWithSuppression(e);
