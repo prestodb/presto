@@ -29,6 +29,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
+import com.facebook.presto.hive.functions.ReadFilesFunction;
+import com.facebook.presto.hive.functions.ReadFilesHandle;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
@@ -81,9 +83,11 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -682,7 +686,8 @@ public class HiveMetadata
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        Optional<Table> table = metastore.getTable(metastoreContext, hiveTableHandle);
+        Optional<Table> table = hiveTableHandle.getSyntheticTable().map(Optional::of)
+                .orElseGet(() -> metastore.getTable(metastoreContext, hiveTableHandle));
         return getTableMetadata(table, hiveTableHandle.getSchemaTableName(), metastoreContext, session);
     }
 
@@ -915,6 +920,10 @@ public class HiveMetadata
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
         if (!isStatisticsEnabled(session)) {
+            return TableStatistics.empty();
+        }
+
+        if (((HiveTableHandle) tableHandle).getSyntheticTable().isPresent()) {
             return TableStatistics.empty();
         }
 
@@ -2874,8 +2883,9 @@ public class HiveMetadata
         }
 
         TupleDomain<Subfield> domainPredicate = hivePartitionResult.getEffectivePredicate().transform(HiveMetadata::toSubfield);
-        Table table = metastore.getTable(getMetastoreContext(session), handle)
-                .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
+        Table table = handle.getSyntheticTable().orElseGet(() ->
+                metastore.getTable(getMetastoreContext(session), handle)
+                        .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName())));
 
         String layoutString = createTableLayoutString(session, handle.getSchemaTableName(), hivePartitionResult.getBucketHandle(), hivePartitionResult.getBucketFilter(), TRUE_CONSTANT, domainPredicate);
         Optional<Set<HiveColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (HiveColumnHandle) column).collect(toImmutableSet()));
@@ -3965,6 +3975,69 @@ public class HiveMetadata
         MetastoreContext metastoreContext = getMetastoreContext(session);
         metastore.addConstraint(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), tableConstraint);
     }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (handle instanceof ReadFilesHandle) {
+            return Optional.of(buildReadFilesTableFunctionResult(session, (ReadFilesHandle) handle));
+        }
+        return Optional.empty();
+    }
+
+    private TableFunctionApplicationResult<ConnectorTableHandle> buildReadFilesTableFunctionResult(ConnectorSession session, ReadFilesHandle handle)
+    {
+        ImmutableList.Builder<Column> dataColumns = ImmutableList.builder();
+        ImmutableList.Builder<ColumnHandle> columnHandles = ImmutableList.builder();
+        List<ColumnMetadata> columns = handle.getColumns();
+        for (int ordinal = 0; ordinal < columns.size(); ordinal++) {
+            ColumnMetadata column = columns.get(ordinal);
+            HiveType hiveType = toHiveType(typeTranslator, column.getType());
+            dataColumns.add(new Column(column.getName(), hiveType, Optional.empty(), Optional.empty()));
+            columnHandles.add(new HiveColumnHandle(
+                    column.getName(),
+                    hiveType,
+                    column.getType().getTypeSignature(),
+                    ordinal,
+                    REGULAR,
+                    Optional.empty(),
+                    Optional.empty()));
+        }
+
+        Storage storage = new Storage(
+                fromHiveStorageFormat(handle.getFormat()),
+                handle.getLocation(),
+                Optional.empty(),
+                false,
+                ImmutableMap.of(),
+                ImmutableMap.of());
+
+        String syntheticTableName = ReadFilesFunction.NAME + "_" + session.getQueryId().replace('-', '_');
+        Table syntheticTable = new Table(
+                Optional.empty(),
+                ReadFilesFunction.SCHEMA_NAME,
+                syntheticTableName,
+                session.getUser(),
+                PrestoTableType.EXTERNAL_TABLE,
+                storage,
+                dataColumns.build(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty());
+
+        ImmutableList.Builder<SyntheticHiveFileInfo> fileInfos = ImmutableList.builder();
+        for (ReadFilesHandle.FileEntry file : handle.getFiles()) {
+            fileInfos.add(new SyntheticHiveFileInfo(file.getPath(), file.getLength(), file.getModificationTime()));
+        }
+
+        HiveTableHandle tableHandle = new HiveTableHandle(ReadFilesFunction.SCHEMA_NAME, syntheticTableName)
+                .withSyntheticTable(syntheticTable)
+                .withSyntheticFiles(fileInfos.build());
+
+        return new TableFunctionApplicationResult<>(tableHandle, columnHandles.build());
+    }
+
 
     private enum SystemTableHandler
     {
