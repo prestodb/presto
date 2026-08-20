@@ -383,6 +383,7 @@ public class HiveWriterFactory
         if (hiveFileWriter == null) {
             hiveFileWriter = new RecordFileWriter(
                     path,
+                    hdfsEnvironment,
                     dataColumns.stream()
                             .map(DataColumn::getName)
                             .collect(toList()),
