@@ -1182,7 +1182,7 @@ The following properties can be used to control how these quick stats are built:
 
       - ``hive.quick-stats.ndv-enabled``
       - Emit a conservative distinct-values-count (NDV) bound from quick
-        stats, instead of leaving it unset. This is a kill-switch: set to
+        stats, instead of leaving it unset. Set to
         ``false`` to revert to the pre-fix behavior of leaving
         distinctValuesCount unset, without a rebuild, if a regression is
         observed. Also toggleable through the ``quick_stats_ndv_enabled``
