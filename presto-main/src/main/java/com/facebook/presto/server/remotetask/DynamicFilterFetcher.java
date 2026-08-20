@@ -243,7 +243,7 @@ public class DynamicFilterFetcher
             }
         }
 
-        if (response.isOperatorCompleted()) {
+        if (response.isOperatorCompleted() || isFinalFetch) {
             dynamicFilterStats.getFilterFlushes().update(1);
             stop();
             return;
@@ -266,15 +266,14 @@ public class DynamicFilterFetcher
 
     private void scheduleNextPoll()
     {
-        if (!running.get()) {
+        verify(taskEventLoop.inEventLoop());
+        if (!running.get() || isFinalFetch) {
             return;
         }
-
-        taskEventLoop.execute(() -> {
-            if (running.get()) {
-                sendFetchRequest();
-            }
-        });
+        // Already on the event loop — call directly rather than re-enqueuing, so
+        // stopAfterFinalFetch() (enqueued externally) cannot slip in between the
+        // scheduleNextPoll call and the actual sendFetchRequest execution.
+        sendFetchRequest();
     }
 
     @Override
@@ -327,11 +326,19 @@ public class DynamicFilterFetcher
     public void stopAfterFinalFetch()
     {
         verify(taskEventLoop.inEventLoop());
+        // Set isFinalFetch before running=false so that any scheduleNextPoll task
+        // already enqueued on the event loop sees isFinalFetch=true and bails out.
+        isFinalFetch = true;
         if (running.compareAndSet(true, false)) {
             if (extendedMetrics) {
                 emitExtendedMetric(format("%s[%s]", DYNAMIC_FILTER_FETCHER_STOPPED_BY_CLEANUP, taskSuffix), 1);
             }
-            isFinalFetch = true;
+            // Cancel any in-flight regular poll so its success() callback does not
+            // call scheduleNextPoll and fire another request before the final fetch lands.
+            ListenableFuture<BaseResponse<DynamicFilterResponse>> inflight = future;
+            if (inflight != null && !inflight.isDone()) {
+                inflight.cancel(false);
+            }
             sendFinalFetchRequest();
         }
     }

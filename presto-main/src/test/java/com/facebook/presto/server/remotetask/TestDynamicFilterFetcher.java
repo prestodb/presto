@@ -188,7 +188,10 @@ public class TestDynamicFilterFetcher
 
         poll(() -> joinFilter.hasData());
 
-        // Polling must stop after the single final fetch
+        // Wait for the event loop to drain all in-flight callbacks before snapshotting.
+        // This ensures stopAfterFinalFetch and its final-fetch success() have both
+        // executed before we assert that polling has stopped.
+        Thread.sleep(300);
         int countAfterStop = fetchCount.get();
         Thread.sleep(300);
         assertEquals(fetchCount.get(), countAfterStop,
