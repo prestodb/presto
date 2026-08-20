@@ -1200,7 +1200,7 @@ The following properties can be used to control how these quick stats are built:
         read reported no row groups -- instead of reporting unknown
         statistics. The proof is refused for formats where "no files" does
         not imply "no rows" (transactional/ACID tables, Hudi), so those
-        continue to report unknown. This is a kill-switch: set to ``false``
+        continue to report unknown. Set to ``false``
         to revert to the pre-fix behavior without a rebuild. Also toggleable
         through the ``quick_stats_provable_empty_enabled`` session property.
         As with ``hive.quick-stats.ndv-enabled``, the per-partition quick
