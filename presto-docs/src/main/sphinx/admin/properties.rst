@@ -939,6 +939,19 @@ to make the query plan easier to read.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`optimize_hash_generation\`\``.
 
+``optimizer.rewrite-approx-distinct-if-to-mask``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Move an ``IF`` condition inside an :func:`!approx_distinct` argument onto the aggregation as a
+mask, rewriting ``approx_distinct(IF(p, e))`` to ``approx_distinct(e)`` masked by ``p``. Results
+are unchanged, since ``IF(p, e)`` is NULL where ``p`` is false and :func:`!approx_distinct` does
+not count NULLs.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`rewrite_approx_distinct_if_to_mask\`\``.
+
 ``optimizer.optimize-join-fan-out``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
