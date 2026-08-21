@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.flightshim;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.arrow.flight.ErrorFlightMetadata;
 import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
@@ -28,11 +33,16 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.CancellationException;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static com.facebook.presto.flightshim.FlightShimProducer.METADATA_KEY_ARROW_STATUS_BIN;
+import static com.facebook.presto.flightshim.FlightShimProducer.METADATA_KEY_ARROW_STATUS_CODE;
 import static com.facebook.presto.flightshim.TestFlightShimRequest.REQUEST_JSON_CODEC;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 @Test(singleThreaded = true)
 public class TestFlightShimTpchPlugin
@@ -157,6 +167,33 @@ public class TestFlightShimTpchPlugin
     public void testReadFromMultipleSplits()
     {
         assertSelectQueryFromColumns(ImmutableList.of(ORDERKEY_COLUMN, LINENUMBER_COLUMN, SHIPINSTRUCT_COLUMN));
+    }
+
+    @Test
+    public void testExecutionFailureInfo() throws Exception
+    {
+        JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec = jsonCodec(ExecutionFailureInfo.class);
+
+        try (BufferAllocator bufferAllocator = allocator.newChildAllocator("connector-test-client", 0, Long.MAX_VALUE);
+                FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
+            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchTableRequest("invalid_table", 0, 1, ImmutableList.of(getOrderKeyColumn()))));
+
+            FlightRuntimeException e = expectThrows(FlightRuntimeException.class, () -> {
+                try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
+                    stream.next();
+                }
+            });
+
+            ErrorFlightMetadata metadata = e.status().metadata();
+            assertTrue(metadata.containsKey(METADATA_KEY_ARROW_STATUS_CODE));
+            assertEquals(Integer.parseInt(metadata.get(METADATA_KEY_ARROW_STATUS_CODE)), io.grpc.Status.Code.INTERNAL.value());
+            assertTrue(metadata.containsKey(METADATA_KEY_ARROW_STATUS_BIN));
+            byte[] failureInfoBytes = metadata.getByte(METADATA_KEY_ARROW_STATUS_BIN);
+            ExecutionFailureInfo failureInfo = executionFailureInfoCodec.fromJson(failureInfoBytes);
+            assertEquals(failureInfo.getMessage(), "Table invalid_table not found");
+            assertEquals(failureInfo.getType(), "java.lang.IllegalArgumentException");
+            assertEquals(failureInfo.getErrorCode(), StandardErrorCode.GENERIC_INTERNAL_ERROR.toErrorCode());
+        }
     }
 
     private static class TestLocalQueryRunner

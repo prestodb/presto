@@ -33,6 +33,7 @@ import com.facebook.presto.connector.ConnectorCodecManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.cost.StatsCalculatorModule;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
@@ -155,6 +156,7 @@ public class FlightShimModule
         // json codecs
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
         jsonCodecBinder(binder).bindJsonCodec(RowExpression.class);
+        jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
 
         // Determine the NodeVersion - required by ConnectorManager
         NodeVersion nodeVersion = new NodeVersion("1");

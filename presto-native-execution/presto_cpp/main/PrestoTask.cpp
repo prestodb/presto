@@ -120,6 +120,8 @@ protocol::TaskState toProtocolTaskState(PrestoTaskState state) {
 protocol::ExecutionFailureInfo toPrestoError(std::exception_ptr ex) {
   try {
     rethrow_exception(ex);
+  } catch (const ExecutionFailureException& e) {
+    return e.getFailureInfo();
   } catch (const VeloxException& e) {
     return translateToPrestoException(e);
   } catch (const std::exception& e) {
