@@ -15,6 +15,7 @@ package com.facebook.presto.mongodb;
 
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -31,6 +32,7 @@ import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
@@ -71,6 +73,19 @@ public class ObjectIdFunctions
     public static Boolean equal(@SqlType("ObjectId") Slice left, @SqlType("ObjectId") Slice right)
     {
         return left.equals(right);
+    }
+
+    @ScalarOperator(IS_DISTINCT_FROM)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isDistinctFrom(@SqlType("ObjectId") Slice left, @IsNull boolean leftNull, @SqlType("ObjectId") Slice right, @IsNull boolean rightNull)
+    {
+        if (leftNull != rightNull) {
+            return true;
+        }
+        if (leftNull) {
+            return false;
+        }
+        return notEqual(left, right);
     }
 
     @ScalarOperator(NOT_EQUAL)
