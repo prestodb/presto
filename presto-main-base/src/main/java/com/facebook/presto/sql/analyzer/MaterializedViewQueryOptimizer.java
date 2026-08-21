@@ -106,7 +106,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
 import static com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
-import static com.facebook.presto.sql.ExpressionUtils.removeExpressionPrefix;
+import static com.facebook.presto.sql.ExpressionUtils.deepRemoveExpressionPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeGroupingElementPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeSingleColumnPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeSortItemPrefix;
@@ -525,7 +525,7 @@ public class MaterializedViewQueryOptimizer
                     if (groupByOfMaterializedView.isPresent()) {
                         for (Expression expression : element.getExpressions()) {
                             // Resolve ordinal references (e.g. GROUP BY 1) to the corresponding SELECT expression
-                            Expression resolved = expression;
+                            Expression resolved = deepRemoveExpressionPrefix(expression, removablePrefix);
                             if (expression instanceof LongLiteral) {
                                 int ordinal = toIntExact(((LongLiteral) expression).getValue());
                                 if (ordinal < 1 || ordinal > selectItems.size()) {
@@ -533,7 +533,7 @@ public class MaterializedViewQueryOptimizer
                                 }
                                 SelectItem selectItem = selectItems.get(ordinal - 1);
                                 if (selectItem instanceof SingleColumn) {
-                                    resolved = removeExpressionPrefix(((SingleColumn) selectItem).getExpression(), removablePrefix);
+                                    resolved = deepRemoveExpressionPrefix(((SingleColumn) selectItem).getExpression(), removablePrefix);
                                 }
                                 else {
                                     throw new IllegalStateException("GROUP BY ordinal references non-single-column select item");
@@ -616,7 +616,7 @@ public class MaterializedViewQueryOptimizer
             // For relations other than single table, it needs to be reserved to differentiate columns from different tables.
             // One way to do so is to process the prefix within `visitDereferenceExpression()` since the prefix information is saved as `base` in `DereferenceExpression` node.
             node = removeSingleColumnPrefix(node, removablePrefix);
-            Expression expression = node.getExpression();
+            Expression expression = deepRemoveExpressionPrefix(node.getExpression(), removablePrefix);
             Optional<Set<Expression>> groupByOfMaterializedView = materializedViewInfo.getGroupBy();
             // TODO: Replace this logic with rule-based validation framework.
             if (groupByOfMaterializedView.isPresent() &&
@@ -625,12 +625,28 @@ public class MaterializedViewQueryOptimizer
                 throw new IllegalStateException("Query a column presents in materialized view group by: " + expression.toString());
             }
 
-            Expression processedColumn = (Expression) process(expression, context);
+            Expression processedColumn;
+            // A non-aggregate expression that is a grouping key stored as an MV column maps directly to that column.
+            // Aggregate function calls must still go through process() so they are rolled up (e.g. SUM -> SUM(partial)).
+            boolean scalarGroupingKey = expression instanceof FunctionCall
+                    && expressionRewriter.isScalarFunction((FunctionCall) expression)
+                    && expressionsInGroupBy.isPresent()
+                    && expressionsInGroupBy.get().contains(expression);
+            if (!(expression instanceof Identifier)
+                    && (!(expression instanceof FunctionCall) || scalarGroupingKey)
+                    && materializedViewInfo.getBaseToViewColumnMap().containsKey(expression)) {
+                processedColumn = materializedViewInfo.getBaseToViewColumnMap().get(expression);
+            }
+            else {
+                processedColumn = (Expression) process(expression, context);
+            }
             Optional<Identifier> alias = node.getAlias();
 
             // If a column name was rewritten, make sure we re-alias to same name as base query
             if (!alias.isPresent() && processedColumn instanceof Identifier && !processedColumn.equals(node.getExpression())) {
-                alias = Optional.of((Identifier) node.getExpression());
+                if (node.getExpression() instanceof Identifier) {
+                    alias = Optional.of((Identifier) node.getExpression());
+                }
             }
             return new SingleColumn(processedColumn, alias);
         }
@@ -659,7 +675,7 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitExpression(Expression node, Void context)
         {
-            Expression stripped = removeExpressionPrefix(node, removablePrefix);
+            Expression stripped = deepRemoveExpressionPrefix(node, removablePrefix);
             if (stripped != node) {
                 return process(stripped, context);
             }
@@ -809,7 +825,13 @@ public class MaterializedViewQueryOptimizer
             for (GroupingElement element : node.getGroupingElements()) {
                 rewrittenGroupBy.add(MaterializedViewUtils.rewriteGroupingElement(
                         removeGroupingElementPrefix(element, removablePrefix),
-                        expr -> (Expression) process(removeExpressionPrefix(expr, removablePrefix), context)));
+                        expr -> {
+                            Expression stripped = deepRemoveExpressionPrefix(expr, removablePrefix);
+                            if (materializedViewInfo.getBaseToViewColumnMap().containsKey(stripped)) {
+                                return materializedViewInfo.getBaseToViewColumnMap().get(stripped);
+                            }
+                            return (Expression) process(stripped, context);
+                        }));
             }
             return new GroupBy(node.isDistinct(), rewrittenGroupBy.build());
         }
