@@ -32,8 +32,8 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/Exchange.h"
-#include "velox/exec/ExchangeClient.h"
 #include "velox/exec/HashPartitionFunction.h"
+#include "velox/exec/InMemoryExchangeClient.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
