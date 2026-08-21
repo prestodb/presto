@@ -550,6 +550,7 @@ void MaterializedOutputBuffer::noMoreData() {
   if (!state_.compare_exchange_strong(expected, State::kDraining)) {
     return;
   }
+  auto releaseGuard = folly::makeGuard([this]() { pool_->release(); });
   LOG(INFO) << fmt::format(
       "MaterializedOutputBuffer noMoreData: draining, bufferedBytes={}",
       velox::succinctBytes(bufferedBytes_));
@@ -586,6 +587,7 @@ void MaterializedOutputBuffer::abort() {
   if (!state_.compare_exchange_strong(expected, State::kAborted)) {
     return;
   }
+  auto releaseGuard = folly::makeGuard([this]() { pool_->release(); });
 
   // Unpark any producers blocked on backpressure so they observe kAborted.
   maybeWakeBlockedDrivers();
