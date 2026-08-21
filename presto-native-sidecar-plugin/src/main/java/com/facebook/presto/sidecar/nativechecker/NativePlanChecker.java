@@ -32,6 +32,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanChecker;
@@ -296,6 +297,33 @@ public final class NativePlanChecker
             return new ProjectNode(
                     callProcedure.getId(),
                     callProcedure.getSource(),
+                    Assignments.builder().putAll(assignmentsMap).build());
+        }
+
+        @Override
+        public PlanNode visitDelete(DeleteNode deleteNode, Void context)
+        {
+            // DeleteNode has no named rowCount/fragment/commitContext accessors; its
+            // outputVariables list is [partialrows:BIGINT, fragment:VARBINARY, commitcontext:VARBINARY]
+            // on the native path.  Map every output to a dummy constant following the
+            // same pattern as visitCallDistributedProcedure() so the native plan checker
+            // receives a structurally valid ProjectNode instead of a DeleteNode whose
+            // writerTarget is absent during the plan-check phase.
+            Map<VariableReferenceExpression, RowExpression> assignmentsMap = new HashMap<>();
+            List<VariableReferenceExpression> outputs = deleteNode.getOutputVariables();
+            for (int i = 0; i < outputs.size(); i++) {
+                VariableReferenceExpression output = outputs.get(i);
+                // Index 0 is the row-count (BIGINT); all others are VARBINARY slices.
+                RowExpression dummy = (i == 0)
+                        ? new ConstantExpression(0L, BIGINT)
+                        : new ConstantExpression(utf8Slice(""), VARCHAR);
+                assignmentsMap.put(output, dummy);
+            }
+
+            // Replace DeleteNode with a ProjectNode wrapping its scan/filter source.
+            return new ProjectNode(
+                    deleteNode.getId(),
+                    deleteNode.getSource(),
                     Assignments.builder().putAll(assignmentsMap).build());
         }
 
