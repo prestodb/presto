@@ -11,7 +11,8 @@
 # limitations under the License.
 
 add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
-target_link_libraries(presto_function_metadata presto_common velox)
+
+target_link_libraries(presto_function_metadata presto_common presto_tvf_spi presto_types velox)
 
 add_subdirectory(dynamic_registry)
 add_subdirectory(theta_sketch)
