@@ -28,6 +28,9 @@ public class JdbcMetadataConfig
     private Duration metadataCacheTtl = new Duration(0, TimeUnit.SECONDS);
     private Duration metadataCacheRefreshInterval = new Duration(0, TimeUnit.SECONDS);
     private long metadataCacheMaximumSize = 10000;
+    private Duration tableStatisticsCacheTtl = new Duration(0, TimeUnit.SECONDS);
+    private Duration tableStatisticsCacheRefreshInterval = new Duration(0, TimeUnit.SECONDS);
+    private long tableStatisticsCacheMaximumSize = 10000;
 
     public boolean isAllowDropTable()
     {
@@ -80,6 +83,50 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setMetadataCacheMaximumSize(long metadataCacheMaximumSize)
     {
         this.metadataCacheMaximumSize = metadataCacheMaximumSize;
+        return this;
+    }
+
+    @NotNull
+    public Duration getTableStatisticsCacheTtl()
+    {
+        return tableStatisticsCacheTtl;
+    }
+
+    @MinDuration("0ms")
+    @Config("table-statistics-cache-ttl")
+    @ConfigDescription("Duration for which table statistics are cached, 0 disables caching")
+    public JdbcMetadataConfig setTableStatisticsCacheTtl(Duration tableStatisticsCacheTtl)
+    {
+        this.tableStatisticsCacheTtl = tableStatisticsCacheTtl;
+        return this;
+    }
+
+    @NotNull
+    public Duration getTableStatisticsCacheRefreshInterval()
+    {
+        return tableStatisticsCacheRefreshInterval;
+    }
+
+    @MinDuration("0ms")
+    @Config("table-statistics-cache-refresh-interval")
+    @ConfigDescription("Background refresh interval for cached statistics, must be less than table-statistics-cache-ttl to take effect")
+    public JdbcMetadataConfig setTableStatisticsCacheRefreshInterval(Duration tableStatisticsCacheRefreshInterval)
+    {
+        this.tableStatisticsCacheRefreshInterval = tableStatisticsCacheRefreshInterval;
+        return this;
+    }
+
+    public long getTableStatisticsCacheMaximumSize()
+    {
+        return tableStatisticsCacheMaximumSize;
+    }
+
+    @Min(1)
+    @Config("table-statistics-cache-maximum-size")
+    @ConfigDescription("Maximum number of table statistics entries held in memory")
+    public JdbcMetadataConfig setTableStatisticsCacheMaximumSize(long tableStatisticsCacheMaximumSize)
+    {
+        this.tableStatisticsCacheMaximumSize = tableStatisticsCacheMaximumSize;
         return this;
     }
 }

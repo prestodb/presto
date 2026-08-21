@@ -173,18 +173,28 @@ public class OracleClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, List<JdbcColumnHandle> columnHandles, TupleDomain<ColumnHandle> tupleDomain)
     {
-        try {
-            requireNonNull(handle.getSchemaName(), "schema name is null");
-            requireNonNull(handle.getTableName(), "table name is null");
+        requireNonNull(handle.getSchemaName(), "schema name is null");
+        requireNonNull(handle.getTableName(), "table name is null");
+
+        String schema = handle.getSchemaName();
+        String table = handle.getTableName();
+
+        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
+            DatabaseMetaData metadata = connection.getMetaData();
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
+                schema = schema.toUpperCase(ENGLISH);
+                table = table.toUpperCase(ENGLISH);
+            }
+
             String sql = format(
                     "SELECT NUM_ROWS, AVG_ROW_LEN, LAST_ANALYZED\n" +
                             "FROM   ALL_TAB_STATISTICS\n" +
                             "WHERE  OWNER='%s'\n" +
                             "AND    TABLE_NAME='%s'",
-                    handle.getSchemaName().toUpperCase(), handle.getTableName().toUpperCase());
-            try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session));
-                    PreparedStatement preparedStatement = getPreparedStatement(session, connection, sql);
-                    PreparedStatement preparedStatementCol = getPreparedStatement(session, connection, getColumnStaticsSql(handle));
+                    schema, table);
+
+            try (PreparedStatement preparedStatement = getPreparedStatement(session, connection, sql);
+                    PreparedStatement preparedStatementCol = getPreparedStatement(session, connection, getColumnStatisticsSql(schema, table));
                     ResultSet resultSet = preparedStatement.executeQuery();
                     ResultSet resultSetColumnStats = preparedStatementCol.executeQuery()) {
                 if (!resultSet.next()) {
@@ -195,10 +205,31 @@ public class OracleClient
                 // double avgRowLen = resultSet.getDouble("AVG_ROW_LEN");
                 Date lastAnalyzed = resultSet.getDate("LAST_ANALYZED");
 
+                // Empty columnHandles means "return stats for all columns".
+                // Non-empty means the caller supplied a specific projection, skip unlisted columns.
                 Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new HashMap<>();
-                Map<String, JdbcColumnHandle> columnHandleMap = Maps.uniqueIndex(columnHandles, JdbcColumnHandle::getColumnName);
+                boolean allColumnsRequested = columnHandles.isEmpty();
+                Map<String, JdbcColumnHandle> columnHandleMap = allColumnsRequested
+                        ? null
+                        : Maps.uniqueIndex(columnHandles, JdbcColumnHandle::getColumnName);
                 while (resultSetColumnStats.next() && numRows > 0) {
                     String columnName = resultSetColumnStats.getString("COLUMN_NAME");
+                    JdbcColumnHandle targetHandle;
+                    if (allColumnsRequested) {
+                        targetHandle = new JdbcColumnHandle(
+                                connectorId,
+                                columnName,
+                                new JdbcTypeHandle(Types.OTHER, "UNKNOWN", 0, 0),
+                                createUnboundedVarcharType(),
+                                true,
+                                Optional.empty());
+                    }
+                    else {
+                        targetHandle = columnHandleMap.get(columnName);
+                        if (targetHandle == null) {
+                            continue;
+                        }
+                    }
                     double nullsCount = resultSetColumnStats.getDouble("NUM_NULLS");
                     double ndv = resultSetColumnStats.getDouble("NUM_DISTINCT");
                     // Oracle stores low and high values as RAW(1000) i.e. a byte array. No way to unwrap it, without a clue about the underlying type
@@ -208,18 +239,18 @@ public class OracleClient
                     ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder()
                             .setNullsFraction(Estimate.estimateFromDouble(nullsCount / numRows))
                             .setDistinctValuesCount(Estimate.estimateFromDouble(ndv));
-                    if (resultSetColumnStats.getString("DATA_TYPE").startsWith("VARCHAR") ||
-                            resultSetColumnStats.getString("DATA_TYPE").startsWith("CHAR")) {
+                    String dataType = resultSetColumnStats.getString("DATA_TYPE");
+                    if (dataType != null && (dataType.startsWith("VARCHAR") || dataType.startsWith("CHAR"))) {
                         columnStatisticsBuilder.setDataSize(Estimate.estimateFromDouble(resultSetColumnStats.getDouble("DATA_LENGTH")));
                     }
                     ColumnStatistics columnStatistics = columnStatisticsBuilder.build();
                     if (Double.isFinite(lowValue) && Double.isFinite(highValue)) {
                         columnStatistics = columnStatisticsBuilder.setRange(new DoubleRange(lowValue, highValue)).build();
                     }
-                    columnStatisticsMap.put(columnHandleMap.get(columnName), columnStatistics);
+                    columnStatisticsMap.put(targetHandle, columnStatistics);
                 }
-                LOG.info("getTableStatics for table: %s.%s.%s with last analyzed: %s",
-                        handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), lastAnalyzed);
+                LOG.debug("Fetching statistics for table %s.%s.%s (last analyzed: %s, row count: %.0f)",
+                        handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), lastAnalyzed, numRows);
                 return TableStatistics.builder()
                         .setColumnStatistics(columnStatisticsMap)
                         .setRowCount(Estimate.estimateFromDouble(numRows)).build();
@@ -230,7 +261,7 @@ public class OracleClient
         }
     }
 
-    private String getColumnStaticsSql(JdbcTableHandle handle)
+    private String getColumnStatisticsSql(String schema, String table)
     {
         // UTL_RAW.CAST_TO_BINARY_X does not render correctly so those types are not supported.
         return format(
@@ -250,7 +281,7 @@ public class OracleClient
                         "END AS HIGH_VALUE\n" +
                         "FROM ALL_TAB_COLUMNS\n" +
                         "WHERE OWNER = '%s'\n" +
-                        "  AND TABLE_NAME = '%s'", handle.getSchemaName().toUpperCase(), handle.getTableName().toUpperCase());
+                        "  AND TABLE_NAME = '%s'", schema, table);
     }
 
     private double toDouble(String number)
