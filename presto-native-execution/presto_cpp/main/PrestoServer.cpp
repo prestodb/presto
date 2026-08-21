@@ -445,18 +445,28 @@ void PrestoServer::initializeConfigs() {
       }
       keyPath_ = optionalKeyPath.value();
 
-      auto optionalClientCertPath = systemConfig->httpsClientCertAndKeyPath();
-      if (!optionalClientCertPath.has_value()) {
-        // This config is not used in server but validated here, otherwise, it
-        // will fail later in the HttpClient during query execution.
-        VELOX_USER_FAIL(
-            "Https Client Certificates are not configured correctly");
-      }
+      // The internal client SSL context is only needed when intra-cluster
+      // communication requires HTTPS. When
+      // internal-communication.https.required is false the coordinator hands
+      // out plaintext http:// peer URIs, and the announcer/heartbeat/exchange
+      // clients must speak plaintext to match -- leaving sslContext_ null
+      // selects HTTP for all internal clients. The HTTPS server listener
+      // (certPath_/keyPath_) is independent and stays up for external client
+      // connections regardless.
+      if (systemConfig->internalCommunicationHttpsRequired()) {
+        auto optionalClientCertPath = systemConfig->httpsClientCertAndKeyPath();
+        if (!optionalClientCertPath.has_value()) {
+          // This config is not used in server but validated here, otherwise, it
+          // will fail later in the HttpClient during query execution.
+          VELOX_USER_FAIL(
+              "Https Client Certificates are not configured correctly");
+        }
 
-      sslContext_ = util::createSSLContext(
-          optionalClientCertPath.value(),
-          ciphers_,
-          systemConfig->httpClientHttp2Enabled());
+        sslContext_ = util::createSSLContext(
+            optionalClientCertPath.value(),
+            ciphers_,
+            systemConfig->httpClientHttp2Enabled());
+      }
     }
 
     if (systemConfig->internalCommunicationJwtEnabled()) {
@@ -765,6 +775,8 @@ void PrestoServer::startServer(const std::vector<std::string>& catalogNames) {
                 address_,
                 httpsPort_.has_value(),
                 address.address.getPort(),
+                httpsPort_.has_value() ? std::optional<int>(httpPort_)
+                                       : std::nullopt,
                 coordinatorDiscoverer_,
                 nodeVersion_,
                 environment_,
