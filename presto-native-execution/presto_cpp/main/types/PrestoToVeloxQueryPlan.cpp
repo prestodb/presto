@@ -389,6 +389,22 @@ std::string toVeloxSerdeKind(protocol::ExchangeEncoding encoding) {
   VELOX_UNSUPPORTED("Unsupported encoding: {}.", fmt::underlying(encoding));
 }
 
+// The coordinator sends ANY when the worker supports UCX transport.
+// In practice ANY means "use the fastest available transport" which is UCX.
+std::string_view toVeloxTransportType(
+    const std::shared_ptr<protocol::TransportType>& t) {
+  if (!t) {
+    return core::TransportKind::kHttp;
+  }
+  switch (*t) {
+    case protocol::TransportType::HTTP:
+      return core::TransportKind::kHttp;
+    case protocol::TransportType::ANY:
+      return core::TransportKind::kUcx;
+  }
+  VELOX_UNSUPPORTED("Unsupported transport type: {}.", fmt::underlying(*t));
+}
+
 std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     const std::shared_ptr<const protocol::ExchangeNode>& node,
     core::LocalPartitionNode::Type type,
@@ -2723,6 +2739,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
   core::PlanFragment planFragment;
+  planFragment_ = &planFragment;
 
   // Convert the fragment info first.
   const auto& descriptor = fragment.stageExecutionDescriptor;
@@ -2777,6 +2794,8 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   auto outputType = toRowType(partitioningScheme.outputLayout, typeParser_);
   const auto partitionedOutputNodeId =
       toPartitionedOutputNodeId(fragment.root->id);
+  planFragment.outputTransportTypes[partitionedOutputNodeId] =
+      toVeloxTransportType(fragment.outputTransportType);
 
   if (auto systemPartitioningHandle =
           std::dynamic_pointer_cast<protocol::SystemPartitioningHandle>(
@@ -2928,6 +2947,8 @@ core::PlanNodePtr VeloxInteractiveQueryPlanConverter::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::RemoteSourceNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& /*tableWriteInfo*/,
     const protocol::TaskId& taskId) {
+  planFragment_->inputTransportTypes[node->id] =
+      toVeloxTransportType(node->transportType);
   auto rowType = toRowType(node->outputVariables, typeParser_);
   if (node->orderingScheme) {
     std::vector<core::FieldAccessTypedExprPtr> sortingKeys;
@@ -3085,6 +3106,8 @@ core::PlanNodePtr VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::RemoteSourceNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& /* tableWriteInfo */,
     const protocol::TaskId& taskId) {
+  planFragment_->inputTransportTypes[node->id] =
+      toVeloxTransportType(node->transportType);
   auto rowType = toRowType(node->outputVariables, typeParser_);
   // Broadcast exchange source.
   if (node->exchangeType == protocol::ExchangeNodeType::REPLICATE) {
