@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.GenericInternalException;
@@ -53,6 +54,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpecList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -162,6 +165,7 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.isMetadataColumn
 import static com.facebook.presto.iceberg.IcebergPartitionType.IDENTITY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMN_EXPRESSION_SPEC;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getWriteDataLocation;
 import static com.facebook.presto.iceberg.IcebergTableProperties.isHiveLocksEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
@@ -170,6 +174,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -255,6 +260,8 @@ public final class IcebergUtil
     public static final int REAL_NEGATIVE_INFINITE = 0xff800000;
 
     protected static final String VIEW_OWNER = "view_owner";
+    public static final JsonCodec<DerivedColumnSpecList> DERIVED_COLUMN_SPEC_JSON_CODEC = JsonCodec.jsonCodec(DerivedColumnSpecList.class);
+    public static final String DERIVED_COL_EMPTY_SPEC = DERIVED_COLUMN_SPEC_JSON_CODEC.toJson(new DerivedColumnSpecList(ImmutableList.of()));
 
     public static final int DEFAULT_MIN_INPUT_FILES = 5;
 
@@ -1373,10 +1380,30 @@ public final class IcebergUtil
         }
     }
 
-    public static Map<String, String> populateTableProperties(IcebergAbstractMetadata metadata, ConnectorTableMetadata tableMetadata, IcebergTableProperties tableProperties, FileFormat fileFormat, ConnectorSession session)
+    public static Map<String, String> populateTableProperties(
+            IcebergAbstractMetadata metadata,
+            ConnectorTableMetadata tableMetadata,
+            IcebergTableProperties tableProperties,
+            FileFormat fileFormat,
+            ConnectorSession session,
+            Schema schema)
     {
-        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(5);
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(10);
+        checkArgument(IcebergTableProperties.getDerivedColumnSpec(tableMetadata.getProperties()).getDerivedColumnSpecs().isEmpty(),
+                "property %s is not user configurable", DERIVED_COLUMN_EXPRESSION_SPEC);
+        List<DerivedColumnSpec> derivedColumnSpecs = tableMetadata.getColumns().stream()
+                .filter(columnMetadata -> columnMetadata.getDerivedColumnSpec().isPresent())
+                .map(columnMetadata -> columnMetadata.getDerivedColumnSpec().get())
+                .map(derivedColumnSpec ->
+                        DerivedColumnSpec.buildFrom(derivedColumnSpec).setDerivedColumnFieldId(schema.findField(derivedColumnSpec.getDerivedColumnName()).fieldId()).build())
+                .collect(toImmutableList());
 
+        DerivedColumnSpecList derivedColumnSpecList = new DerivedColumnSpecList(derivedColumnSpecs);
+        checkState(derivedColumnSpecList.validateFieldIds(), format("derived column spec has invalid fieldIds. %s", DERIVED_COLUMN_SPEC_JSON_CODEC.toJson(derivedColumnSpecList)));
+        if (!derivedColumnSpecList.getDerivedColumnSpecs().isEmpty()) {
+            // Following property is updated automatically via create/alter table, user overrides are not permitted.
+            propertiesBuilder.put(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COLUMN_SPEC_JSON_CODEC.toJson(derivedColumnSpecList));
+        }
         String writeDataLocation = getWriteDataLocation(tableMetadata.getProperties());
         if (!isNullOrEmpty(writeDataLocation)) {
             propertiesBuilder.put(WRITE_DATA_LOCATION, writeDataLocation);
@@ -1461,6 +1488,11 @@ public final class IcebergUtil
         return RowLevelOperationMode.fromName(table.properties()
                 .getOrDefault(DELETE_MODE, DELETE_MODE_DEFAULT)
                 .toUpperCase(Locale.ENGLISH));
+    }
+
+    public static DerivedColumnSpecList getDerivedColumnSpec(Table table)
+    {
+        return DERIVED_COLUMN_SPEC_JSON_CODEC.fromJson(table.properties().getOrDefault(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COL_EMPTY_SPEC));
     }
 
     public static RowLevelOperationMode getUpdateMode(Table table)

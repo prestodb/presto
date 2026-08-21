@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -28,6 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class ColumnMetadata
 {
     public static final String DEFAULT_VALUE_PROPERTY = "default_value";
+
     private final String name;
     private final Type type;
     private final boolean nullable;
@@ -35,8 +37,17 @@ public class ColumnMetadata
     private final String extraInfo;
     private final boolean hidden;
     private final Map<String, Object> properties;
+    private final Optional<DerivedColumnSpec> derivedColumnSpec;
 
-    private ColumnMetadata(String name, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
+    private ColumnMetadata(
+            String name,
+            Type type,
+            boolean nullable,
+            String comment,
+            String extraInfo,
+            boolean hidden,
+            Map<String, Object> properties,
+            Optional<DerivedColumnSpec> derivedColumnSpec)
     {
         checkNotEmpty(name, "name");
         requireNonNull(type, "type is null");
@@ -49,11 +60,19 @@ public class ColumnMetadata
         this.extraInfo = extraInfo;
         this.hidden = hidden;
         this.properties = properties.isEmpty() ? emptyMap() : unmodifiableMap(new LinkedHashMap<>(properties));
+        this.derivedColumnSpec = derivedColumnSpec;
     }
 
     protected ColumnMetadata(Builder builder)
     {
-        this(builder.name, builder.type, builder.nullable, builder.comment.orElse(null), builder.extraInfo.orElse(null), builder.hidden, builder.properties);
+        this(builder.name,
+                builder.type,
+                builder.nullable,
+                builder.comment.orElse(null),
+                builder.extraInfo.orElse(null),
+                builder.hidden,
+                builder.properties,
+                builder.derivedColumnSpec);
     }
 
     public String getName()
@@ -96,6 +115,11 @@ public class ColumnMetadata
         return Optional.ofNullable(properties.get(DEFAULT_VALUE_PROPERTY));
     }
 
+    public Optional<DerivedColumnSpec> getDerivedColumnSpec()
+    {
+        return derivedColumnSpec;
+    }
+
     public Builder toBuilder()
     {
         return ColumnMetadata.builder()
@@ -105,6 +129,7 @@ public class ColumnMetadata
                 .setComment(getComment().orElse(null))
                 .setExtraInfo(getExtraInfo().orElse(null))
                 .setHidden(isHidden())
+                .setDerivedColumnSpec(derivedColumnSpec)
                 .setProperties(getProperties());
     }
 
@@ -127,6 +152,9 @@ public class ColumnMetadata
         if (!properties.isEmpty()) {
             sb.append(", properties=").append(properties);
         }
+        if (derivedColumnSpec != null) {
+            sb.append(", derivedColumnSpec=").append(derivedColumnSpec);
+        }
         sb.append('}');
         return sb.toString();
     }
@@ -134,7 +162,7 @@ public class ColumnMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, nullable, comment, extraInfo, hidden);
+        return Objects.hash(name, type, nullable, comment, extraInfo, hidden, derivedColumnSpec);
     }
 
     @Override
@@ -152,7 +180,8 @@ public class ColumnMetadata
                 Objects.equals(this.nullable, other.nullable) &&
                 Objects.equals(this.comment, other.comment) &&
                 Objects.equals(this.extraInfo, other.extraInfo) &&
-                Objects.equals(this.hidden, other.hidden);
+                Objects.equals(this.hidden, other.hidden) &&
+                Objects.equals(this.derivedColumnSpec, other.derivedColumnSpec);
     }
 
     public static Builder builder()
@@ -169,6 +198,7 @@ public class ColumnMetadata
         private Optional<String> extraInfo = Optional.empty();
         private boolean hidden;
         private Map<String, Object> properties = emptyMap();
+        private Optional<DerivedColumnSpec> derivedColumnSpec = Optional.empty();
 
         private Builder() {}
 
@@ -211,6 +241,12 @@ public class ColumnMetadata
         public Builder setProperties(Map<String, Object> properties)
         {
             this.properties = requireNonNull(properties, "properties is null");
+            return this;
+        }
+
+        public Builder setDerivedColumnSpec(Optional<DerivedColumnSpec> derivedColumnSpec)
+        {
+            this.derivedColumnSpec = derivedColumnSpec;
             return this;
         }
 
