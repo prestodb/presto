@@ -40,6 +40,7 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.api.Experimental;
+import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
@@ -244,9 +245,9 @@ public interface Metadata
     void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue);
 
     /**
-     * Add the specified column to the table.
+     * Add the specified column to the table at the specified position.
      */
-    void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
+    void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position);
 
     /**
      * Set the specified type to the column.
