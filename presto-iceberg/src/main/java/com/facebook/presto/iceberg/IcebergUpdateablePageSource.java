@@ -13,12 +13,21 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.ArrayBlock;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ColumnarArray;
+import com.facebook.presto.common.block.ColumnarMap;
 import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.block.RowBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.iceberg.delete.DeleteFilter;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
@@ -35,6 +44,8 @@ import org.apache.iceberg.util.Pair;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -49,10 +60,13 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
+import static com.facebook.presto.common.block.ColumnarMap.toColumnarMap;
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUMN;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -108,6 +122,8 @@ public class IcebergUpdateablePageSource
     private final int lastUpdatedSeqOutputIndex;
     // The data sequence number of the file for _last_updated_sequence_number fallback
     private final long dataSequenceNumber;
+    // Columns with types requiring data transform
+    private final List<Integer> transformColumns = new ArrayList<Integer>();
 
     public IcebergUpdateablePageSource(
             Schema tableSchema,
@@ -208,6 +224,40 @@ public class IcebergUpdateablePageSource
 
         this.isDeletedColumnId = getDelegateColumnId(IcebergColumnHandle::isDeletedColumn);
         this.deleteFilePathColumnId = getDelegateColumnId(IcebergColumnHandle::isDeleteFilePathColumn);
+
+        // Add all columns with types needing transformation
+        for (int i = 0; i < delegateColumns.size(); i++) {
+            if (needDataTransform(delegateColumns.get(i).getType())) {
+                transformColumns.add(i);
+            }
+        }
+    }
+
+    private Boolean needDataTransform(Type type)
+    {
+        if (type == GEOMETRY) {
+            return true;
+        }
+        else if (type.getClass() == ArrayType.class) {
+            ArrayType arrayType = (ArrayType) type;
+            return needDataTransform(arrayType.getElementType());
+        }
+        else if (type.getClass() == MapType.class) {
+            MapType mapType = (MapType) type;
+            return needDataTransform(mapType.getKeyType()) || needDataTransform(mapType.getValueType());
+        }
+        else if (type.getClass() == RowType.class) {
+            RowType rowType = (RowType) type;
+            for (RowType.Field field : rowType.getFields()) {
+                if (needDataTransform(field.getType())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        else {
+            return false;
+        }
     }
 
     @Override
@@ -253,6 +303,7 @@ public class IcebergUpdateablePageSource
                 return null;
             }
 
+            dataPage = transformIfNecessary(dataPage);
             Optional<RowPredicate> deleteFilterPredicate = deletePredicate.get();
             if (isDeletedColumnId != -1 || deleteFilePathColumnId != -1) {
                 if (isDeletedColumnId != -1) {
@@ -359,6 +410,151 @@ public class IcebergUpdateablePageSource
         if (updatedRowPageSink != null) {
             updatedRowPageSink.abort();
         }
+    }
+
+    private Page transformIfNecessary(Page page)
+    {
+        if (transformColumns.size() <= 0) {
+            return page;
+        }
+        Block[] fullPage = new Block[delegateColumns.size()];
+        // Copy all columns
+        for (int channel = 0; channel < delegateColumns.size(); channel++) {
+            fullPage[channel] = page.getBlock(channel);
+        }
+        // Apply transform to columns
+        for (int currentColumn : transformColumns) {
+            Type columnType = delegateColumns.get(currentColumn).getType();
+            fullPage[currentColumn] = transformBlock(fullPage[currentColumn], columnType);
+        }
+        return new Page(page.getPositionCount(), fullPage);
+    }
+
+    private Block transformBlock(Block block, Type type)
+    {
+        if (type == GEOMETRY) {
+            return transformGeometryBlock(block, type);
+        }
+        else if (type.getClass() == ArrayType.class) {
+            return transformArrayBlock(block, (ArrayType) type);
+        }
+        else if (type.getClass() == MapType.class) {
+            return transformMapBlock(block, (MapType) type);
+        }
+        else if (type.getClass() == RowType.class) {
+            return transformRowBlock(block, (RowType) type);
+        }
+        else {
+            return block;
+        }
+    }
+
+    private Block transformGeometryBlock(Block block, Type type)
+    {
+        block = block.getLoadedBlock();
+        int positionCount = block.getPositionCount();
+        BlockBuilder builder = type.createBlockBuilder(null, positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            if (block.isNull(position)) {
+                builder.appendNull();
+            }
+            else {
+                try {
+                    OGCGeometry geometry = OGCGeometry.fromBinary(ByteBuffer.wrap(type.getSlice(block, position).getBytes()));
+                    geometry.setSpatialReference(null);
+                    type.writeSlice(builder, EsriGeometrySerde.serialize(geometry));
+                }
+                catch (Exception e) {
+                    throw new PrestoException(ICEBERG_BAD_DATA, format("Failed to parse WKB geometry at position %d", position), e);
+                }
+            }
+        }
+        return builder.build();
+    }
+
+    private Block transformArrayBlock(Block block, ArrayType type)
+    {
+        block = block.getLoadedBlock();
+        Type elementType = type.getElementType();
+        ColumnarArray columnarArray = toColumnarArray(block);
+
+        Block transformedElements;
+        if (needDataTransform(elementType)) {
+            transformedElements = transformBlock(columnarArray.getElementsBlock(), elementType);
+        }
+        else {
+            return block;
+        }
+
+        int positionCount = columnarArray.getPositionCount();
+        boolean[] valueIsNull = new boolean[positionCount];
+        int[] offsets = new int[positionCount + 1];
+        for (int position = 0; position < positionCount; position++) {
+            valueIsNull[position] = columnarArray.isNull(position);
+        }
+        for (int position = 0; position <= positionCount; position++) {
+            offsets[position] = columnarArray.getOffset(position);
+        }
+
+        return ArrayBlock.fromElementBlock(positionCount, Optional.of(valueIsNull), offsets, transformedElements);
+    }
+
+    private Block transformMapBlock(Block block, MapType type)
+    {
+        block = block.getLoadedBlock();
+        ColumnarMap columnarMap = toColumnarMap(block);
+
+        Block keysBlock;
+        if (needDataTransform(type.getKeyType())) {
+            keysBlock = transformBlock(columnarMap.getKeysBlock(), type.getKeyType());
+        }
+        else {
+            keysBlock = columnarMap.getKeysBlock();
+        }
+
+        Block valuesBlock;
+        if (needDataTransform(type.getValueType())) {
+            valuesBlock = transformBlock(columnarMap.getValuesBlock(), type.getValueType());
+        }
+        else {
+            valuesBlock = columnarMap.getValuesBlock();
+        }
+
+        int positionCount = columnarMap.getPositionCount();
+        boolean[] valueIsNull = new boolean[positionCount];
+        int[] offsets = new int[positionCount + 1];
+        for (int position = 0; position < positionCount; position++) {
+            valueIsNull[position] = columnarMap.isNull(position);
+        }
+        for (int position = 0; position <= positionCount; position++) {
+            offsets[position] = columnarMap.getOffset(position);
+        }
+
+        return type.createBlockFromKeyValue(positionCount, Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
+    }
+
+    private Block transformRowBlock(Block block, RowType type)
+    {
+        block = block.getLoadedBlock();
+        ColumnarRow columnarRow = toColumnarRow(block);
+        List<RowType.Field> fields = type.getFields();
+        Block[] fieldBlocks = new Block[fields.size()];
+        for (int i = 0; i < fields.size(); i++) {
+            if (needDataTransform(fields.get(i).getType())) {
+                fieldBlocks[i] = transformBlock(columnarRow.getField(i), fields.get(i).getType());
+            }
+            else {
+                fieldBlocks[i] = columnarRow.getField(i);
+            }
+        }
+
+        int positionCount = columnarRow.getPositionCount();
+        boolean[] valueIsNull = new boolean[positionCount];
+        for (int position = 0; position < positionCount; position++) {
+            valueIsNull[position] = columnarRow.isNull(position);
+        }
+
+        return RowBlock.fromFieldBlocks(positionCount, Optional.of(valueIsNull), fieldBlocks);
     }
 
     /**
