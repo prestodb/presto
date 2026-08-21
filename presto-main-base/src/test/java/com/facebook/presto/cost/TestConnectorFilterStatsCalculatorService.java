@@ -36,6 +36,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
@@ -122,16 +124,67 @@ public class TestConnectorFilterStatsCalculatorService
         assertPredicate("x < 0", originalTableStatisticsWithoutTotalSize, filteredStatisticsWithoutTotalSize);
     }
 
-    private void assertPredicate(String filterExpression, TableStatistics tableStatistics, TableStatistics expectedStatistics)
+    /**
+     * Filtering zero rows provably yields zero rows, so there is no estimation
+     * uncertainty to downgrade. A known-zero input row count must keep its incoming confidence
+     * instead of being forced to LOW -- otherwise a deployment that enables
+     * {@code treat_low_confidence_zero_estimation_unknown_enabled} silently discards the proof
+     * (DetermineJoinDistributionType#isLowConfidenceZero is confidence LOW && rowCount 0).
+     */
+    @Test
+    public void testZeroRowCountPreservesConfidence()
     {
-        assertPredicate(expression(filterExpression), tableStatistics, expectedStatistics);
+        assertEquals(assertPredicate("true", zeroTableStatistics, zeroTableStatistics).getConfidence(), HIGH);
+        assertEquals(assertPredicate("x < 3e0", zeroTableStatistics, zeroTableStatistics).getConfidence(), HIGH);
+        assertEquals(assertPredicate("false", zeroTableStatistics, zeroTableStatistics).getConfidence(), HIGH);
+
+        // The rule preserves the incoming confidence; it never upgrades it.
+        TableStatistics zeroWithLowConfidence = TableStatistics.builder()
+                .setRowCount(Estimate.zero())
+                .setTotalSize(Estimate.zero())
+                .setConfidenceLevel(LOW)
+                .build();
+        assertEquals(assertPredicate("true", zeroWithLowConfidence, zeroTableStatistics).getConfidence(), LOW);
     }
 
-    private void assertPredicate(Expression filterExpression, TableStatistics tableStatistics, TableStatistics expectedStatistics)
+    /**
+     * A non-zero or unknown input row count still downgrades to LOW, i.e. the change
+     * is confined to the provable case.
+     */
+    @Test
+    public void testNonZeroRowCountStillDowngradesConfidence()
+    {
+        TableStatistics filteredStatistics = TableStatistics.builder()
+                .setRowCount(Estimate.of(37.5))
+                .setTotalSize(Estimate.of(300))
+                .setColumnStatistics(xColumn, new ColumnStatistics(Estimate.zero(), Estimate.of(20), Estimate.unknown(), Optional.of(new DoubleRange(-10, 0)), Optional.empty(), Optional.empty()))
+                .build();
+        assertEquals(assertPredicate("x < 0", originalTableStatistics, filteredStatistics).getConfidence(), LOW);
+
+        // A filter that reduces a non-zero input to zero rows is an estimate, not a proof, so it
+        // keeps the LOW downgrade.
+        TableStatistics filteredToZeroStatistics = TableStatistics.builder()
+                .setRowCount(Estimate.zero())
+                .setTotalSize(Estimate.zero())
+                .setColumnStatistics(xColumn, new ColumnStatistics(Estimate.of(1.0), Estimate.zero(), Estimate.zero(), Optional.empty(), Optional.empty(), Optional.empty()))
+                .build();
+        assertEquals(assertPredicate("false", originalTableStatistics, filteredToZeroStatistics).getConfidence(), LOW);
+
+        // Unknown input row count: unchanged from before.
+        assertEquals(assertPredicate("true", TableStatistics.empty(), TableStatistics.empty()).getConfidence(), LOW);
+    }
+
+    private TableStatistics assertPredicate(String filterExpression, TableStatistics tableStatistics, TableStatistics expectedStatistics)
+    {
+        return assertPredicate(expression(filterExpression), tableStatistics, expectedStatistics);
+    }
+
+    private TableStatistics assertPredicate(Expression filterExpression, TableStatistics tableStatistics, TableStatistics expectedStatistics)
     {
         RowExpression predicate = translator.translateAndOptimize(filterExpression, standardTypes);
         TableStatistics filteredStatistics = statsCalculatorService.filterStats(tableStatistics, predicate, session.toConnectorSession(),
                 ImmutableMap.of(xColumn, "x"), ImmutableMap.of("x", DOUBLE));
         assertEquals(filteredStatistics, expectedStatistics);
+        return filteredStatistics;
     }
 }

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -40,6 +41,7 @@ import static com.facebook.presto.spi.plan.JoinType.FULL;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
@@ -465,6 +467,140 @@ public class TestJoinStatsRule
         }).withSourceStats(0, leftStats)
                 .withSourceStats(1, rightStats)
                 .check(JOIN_STATS_RULE, stats -> stats.equalTo(resultStats));
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // provable-zero statistics: does a provable zero on one side of a join survive statistical
+    // derivation, or is it discarded into unknown() before any rule can act on it?
+    //
+    // The risk this guards: computeInnerJoinStats starts from crossJoinStats and then calls
+    // filterByEquiJoinClauses; if that yields an unknown row count and
+    // default_join_selectivity_coefficient sits at its DISABLED sentinel, JoinStatsRule returns
+    // PlanNodeStatsEstimate.unknown() outright. If that happened for its output shape, the zero would
+    // never reach DetermineJoinDistributionType and the change would be inert.
+    //
+    // The provable-zero path emits rowCount = 0 with an EMPTY per-column statistics map ("V1"). An
+    // alternative shape would emit per-column zeros as well ("V2"). Both are asserted here: the
+    // equivalence is what justifies not routing the zero through createZeroStatistics, so it is worth
+    // pinning rather than re-deriving. The build side mirrors a real exploding join result:
+    // 17,304,050,169 rows over 172,183 distinct keys.
+    // ------------------------------------------------------------------------------------------------
+
+    private static final double EXPLODING_BUILD_ROWS = 17_304_050_169d;
+    private static final int EXPLODING_BUILD_NDV = 172_183;
+
+    /** V1 -- exactly what the provable-zero path emits: a known zero row count and no per-column statistics at all. */
+    private static PlanNodeStatsEstimate zeroRowsWithoutColumnStats()
+    {
+        return PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(0)
+                .setConfidence(HIGH)
+                .build();
+    }
+
+    /** V2 -- the {@code createZeroStatistics} shape: a known zero plus per-column zeros. */
+    private static PlanNodeStatsEstimate zeroRowsWithZeroColumnStats(VariableReferenceExpression joinColumn, VariableReferenceExpression otherColumn)
+    {
+        VariableStatsEstimate zero = VariableStatsEstimate.builder()
+                .setNullsFraction(0)
+                .setDistinctValuesCount(0)
+                .setAverageRowSize(0)
+                .build();
+        return PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(0)
+                .setConfidence(HIGH)
+                .addVariableStatistics(ImmutableMap.of(joinColumn, zero, otherColumn, zero))
+                .build();
+    }
+
+    private static PlanNodeStatsEstimate explodingBuildStats()
+    {
+        VariableStatsEstimate stats = VariableStatsEstimate.builder()
+                .setLowValue(1)
+                .setHighValue(1_000_000)
+                .setNullsFraction(0)
+                .setDistinctValuesCount(EXPLODING_BUILD_NDV)
+                .setAverageRowSize(8)
+                .build();
+        return PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(EXPLODING_BUILD_ROWS)
+                .setConfidence(HIGH)
+                .addVariableStatistics(ImmutableMap.of(RIGHT_JOIN_COLUMN, stats, RIGHT_OTHER_COLUMN, stats))
+                .build();
+    }
+
+    private void assertZeroSurvivesDerivation(JoinType joinType, PlanNodeStatsEstimate zeroSideStats, StatsCalculatorTester tester)
+    {
+        tester.assertStatsFor(pb -> {
+            VariableReferenceExpression leftJoinColumnVariable = pb.variable(LEFT_JOIN_COLUMN);
+            VariableReferenceExpression leftOtherColumnVariable = pb.variable(LEFT_OTHER_COLUMN);
+            VariableReferenceExpression rightJoinColumnVariable = pb.variable(RIGHT_JOIN_COLUMN);
+            VariableReferenceExpression rightOtherColumnVariable = pb.variable(RIGHT_OTHER_COLUMN);
+            return pb.join(
+                    joinType,
+                    pb.values(leftJoinColumnVariable, leftOtherColumnVariable),
+                    pb.values(rightJoinColumnVariable, rightOtherColumnVariable),
+                    new EquiJoinClause(leftJoinColumnVariable, rightJoinColumnVariable));
+        }).withSourceStats(0, zeroSideStats)
+                .withSourceStats(1, explodingBuildStats())
+                .check(JOIN_STATS_RULE, stats -> stats.outputRowsCount(0));
+    }
+
+    /**
+     * A known-zero input with no per-column statistics (its actual output shape) derives
+     * a row count of exactly 0 -- never unknown -- for INNER and LEFT, under both settings of
+     * {@code default_join_selectivity_coefficient}. The coefficient being irrelevant here is itself the
+     * point: the {@code unknown()} bail is not reached for a known-zero input.
+     */
+    @Test
+    public void testZeroSurvivesJoinDerivationWithoutColumnStats()
+    {
+        assertZeroSurvivesDerivation(INNER, zeroRowsWithoutColumnStats(), tester());
+        assertZeroSurvivesDerivation(LEFT, zeroRowsWithoutColumnStats(), tester());
+        assertZeroSurvivesDerivation(INNER, zeroRowsWithoutColumnStats(), defaultJoinSelectivityEnabledTester);
+        assertZeroSurvivesDerivation(LEFT, zeroRowsWithoutColumnStats(), defaultJoinSelectivityEnabledTester);
+    }
+
+    /**
+     * Documented equivalence case: adding per-column zeros changes nothing at this layer.
+     * This is the evidence that this change does not need to route its zero through
+     * {@code MetastoreHiveStatisticsProvider.createZeroStatistics}; if this ever diverges from the test
+     * above, that decision needs revisiting.
+     */
+    @Test
+    public void testPerColumnZerosAreEquivalentAtThisLayer()
+    {
+        PlanNodeStatsEstimate withZeros = zeroRowsWithZeroColumnStats(LEFT_JOIN_COLUMN, LEFT_OTHER_COLUMN);
+        assertZeroSurvivesDerivation(INNER, withZeros, tester());
+        assertZeroSurvivesDerivation(LEFT, withZeros, tester());
+        assertZeroSurvivesDerivation(INNER, withZeros, defaultJoinSelectivityEnabledTester);
+        assertZeroSurvivesDerivation(LEFT, withZeros, defaultJoinSelectivityEnabledTester);
+    }
+
+    /**
+     * Attributability control: the same shapes with an <b>unknown</b> row count on the
+     * left must NOT derive 0. Without this, the tests above would still pass if {@code outputRowsCount}
+     * were somehow satisfied by an unrelated path, and there would be nothing distinguishing "the zero
+     * survived" from "any input derives zero here".
+     */
+    @Test
+    public void testUnknownInputDoesNotDeriveZero()
+    {
+        for (JoinType joinType : ImmutableList.of(INNER, LEFT)) {
+            tester().assertStatsFor(pb -> {
+                VariableReferenceExpression leftJoinColumnVariable = pb.variable(LEFT_JOIN_COLUMN);
+                VariableReferenceExpression leftOtherColumnVariable = pb.variable(LEFT_OTHER_COLUMN);
+                VariableReferenceExpression rightJoinColumnVariable = pb.variable(RIGHT_JOIN_COLUMN);
+                VariableReferenceExpression rightOtherColumnVariable = pb.variable(RIGHT_OTHER_COLUMN);
+                return pb.join(
+                        joinType,
+                        pb.values(leftJoinColumnVariable, leftOtherColumnVariable),
+                        pb.values(rightJoinColumnVariable, rightOtherColumnVariable),
+                        new EquiJoinClause(leftJoinColumnVariable, rightJoinColumnVariable));
+            }).withSourceStats(0, PlanNodeStatsEstimate.unknown())
+                    .withSourceStats(1, explodingBuildStats())
+                    .check(JOIN_STATS_RULE, stats -> stats.outputRowsCountUnknown());
+        }
     }
 
     private static PlanNodeStatsEstimate planNodeStats(double rowCount, VariableStatistics... variableStatistics)
