@@ -286,7 +286,7 @@ public class OpenLineageEventListener
                 .namespace(this.jobNamespace)
                 .name(interpolator.interpolate(new OpenLineageJobContext(queryContext, queryMetadata)))
                 .facets(openLineage.newJobFacetsBuilder()
-                        .jobType(openLineage.newJobTypeJobFacet("BATCH", "PRESTO", "QUERY"))
+                        .jobType(openLineage.newJobTypeJobFacet("BATCH", "PRESTO", "QUERY", null))
                         .sql(openLineage.newSQLJobFacet(queryMetadata.getQuery(), "presto"))
                         .build());
     }
