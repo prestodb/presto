@@ -234,13 +234,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        modules:
-          - :presto-base-arrow-flight
-          - :presto-flight-shim
+        include:
+          - modules: :presto-base-arrow-flight
+            testArgs: -Dtest="TestArrowFlightNativeQueries*"
+            connectorType: base
+          - modules: :presto-flight-shim
+            testArgs: -P jdbc-connectors
+            connectorType: jdbc
+          - modules: :presto-flight-shim
+            testArgs: -P non-jdbc-connectors
+            connectorType: non-jdbc
 
     timeout-minutes: 80
     concurrency:
-      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ matrix.connectorType }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
 
     steps:
@@ -321,7 +328,7 @@ jobs:
           mvn test \
             ${MAVEN_TEST} \
             -pl ${{ matrix.modules }} \
-            -Dtest="TestArrowFlightNativeQueries*,TestArrowFederationNativeQueries*" \
+            ${{ matrix.testArgs }} \
             -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
             -DDATA_DIR=${RUNNER_TEMP} \
             -Duser.timezone=America/Bahia_Banderas \

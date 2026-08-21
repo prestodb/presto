@@ -16,8 +16,12 @@ package com.facebook.presto.flightshim;
 import com.facebook.presto.Session;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Multimaps;
 import com.google.inject.Injector;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.memory.BufferAllocator;
@@ -27,12 +31,25 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.EXPRESSION_OPTIMIZER_NAME;
+import static com.facebook.presto.SystemSessionProperties.JOIN_PREFILTER_BUILD_SIDE;
 import static com.facebook.presto.SystemSessionProperties.MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_MIN_MAX_BY_TO_TOP_N;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.getFlightServerShimConfig;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 // todo: Remove test cases from this file and inherit from AbstractTestQueriesNative when https://github.com/prestodb/presto/pull/27849 goes in
 @Test(singleThreaded = true)
@@ -421,7 +438,7 @@ public abstract class AbstractTestArrowFederationNativeQueries
     @Test
     public void testReduceAggWithNulls()
     {
-        @Language("RegExp") String reduceAggInvalidInitialStateError = ".*REDUCE_AGG only supports non-NULL literal as the initial value.*";
+        @Language("RegExp") String reduceAggInvalidInitialStateError = ".*Initial value in reduce_agg cannot be null.*";
         assertQueryFails("select reduce_agg(x, null, (x,y)->try(x+y), (x,y)->try(x+y)) from (select 1 union all select 10) T(x)", reduceAggInvalidInitialStateError);
         assertQueryFails("select reduce_agg(x, cast(null as bigint), (x,y)->coalesce(x, 0)+coalesce(y, 0), (x,y)->coalesce(x, 0)+coalesce(y, 0)) from (values cast(10 as bigint),10)T(x)", reduceAggInvalidInitialStateError);
 
@@ -747,5 +764,411 @@ public abstract class AbstractTestArrowFederationNativeQueries
         String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 5";
         MaterializedResult expected = computeExpected(sql, actual.getTypes());
         assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    /// TODO: Map union sum should support maps with decimal values, see issue:
+    /// https://github.com/prestodb/presto/issues/26659.
+    @Override
+    @Test
+    public void testInvalidMapUnionSum()
+    {
+        assertQueryFails(
+                "SELECT map_union_sum(x) from (select cast(MAP() as map<varchar, varchar>) x)",
+                ".*line 1:8: Unexpected parameters \\(map\\(varchar,varchar\\)\\) for function native.default.map_union_sum. Expected.*");
+        assertQuerySucceeds("SELECT map_union_sum(x) from (select cast(MAP() as map<varchar, decimal(10,2)>) x)");
+    }
+
+    /// TODO: Velox does not support function signature: at_timezone(timestamp with time zone, interval day to second).
+    /// See issue: https://github.com/prestodb/presto/issues/26666.
+    @Override
+    @Test
+    public void testAtTimeZoneWithInterval()
+    {
+        @Language("RegExp") String atTimezoneFunctionSignatureUnsupportedError = ".*Unexpected parameters \\(timestamp with time zone, interval day to second\\) for function native.default.at_timezone.*";
+        assertQueryFails("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE INTERVAL '07:09' hour to minute", atTimezoneFunctionSignatureUnsupportedError);
+    }
+
+    /// Color functions are not supported in Presto C++.
+    @Override
+    @Test
+    public void testFunctionArgumentTypeConstraint()
+    {
+        @Language("RegExp") String errorMessage = ".*Function native.default.rgb not registered.*";
+        assertQueryFails("SELECT greatest(rgb(255, 0, 0))", errorMessage);
+    }
+
+    @Override
+    @Test
+    public void testJoinPrefilter()
+    {
+        {
+            // Orig
+            String testQuery = "SELECT 1 from region join nation using(regionkey)";
+            MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+            assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            result = computeActual(testQuery);
+            assertEquals(result.getRowCount(), 25);
+
+            // With feature
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
+                    .build();
+            result = computeActual(session, "explain(type distributed) " + testQuery);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            result = computeActual(session, testQuery);
+            assertEquals(result.getRowCount(), 25);
+        }
+
+        {
+            // Orig
+            @Language("SQL") String testQuery = "SELECT 1 from region r join nation n on cast(r.regionkey as varchar) = cast(n.regionkey as varchar)";
+            MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+            assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            result = computeActual(testQuery);
+            assertEquals(result.getRowCount(), 25);
+
+            // With feature
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
+                    .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, String.valueOf(false))
+                    .build();
+            result = computeActual(session, "explain(type distributed) " + testQuery);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("XX_HASH_64"), -1);
+            result = computeActual(session, testQuery);
+            assertEquals(result.getRowCount(), 25);
+        }
+
+        {
+            // Orig
+            String testQuery = "SELECT 1 from lineitem l join orders o on l.orderkey = o.orderkey and l.suppkey = o.custkey";
+            MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+            assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            result = computeActual(testQuery);
+            assertEquals(result.getRowCount(), 37);
+
+            // With feature
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
+                    .build();
+
+            @Language("RegExp") String combineHashFunctionUnsupportedError = ".*Function native.default.combine_hash not registered.*";
+            assertQueryFails(session, "explain(type distributed) " + testQuery, combineHashFunctionUnsupportedError);
+            assertQueryFails(session, testQuery, combineHashFunctionUnsupportedError);
+        }
+    }
+
+    /// Overridden so the min_by/max_by to TopNRowNumber rewrite (REWRITE_MIN_MAX_BY_TO_TOP_N) is exercised under the
+    /// native expression optimizer when the coordinator sidecar is enabled. The base test only toggles the rewrite and
+    /// leaves EXPRESSION_OPTIMIZER_NAME at its default; with the sidecar the rewrite must run with the native optimizer
+    /// (not yet enabled by default under sidecar, see testValuesWithTimestamp), so we set EXPRESSION_OPTIMIZER_NAME to
+    /// native on both the rewrite-enabled and rewrite-disabled sessions. Without the sidecar the base test passes
+    /// as-is, so we delegate to super.
+    @Override
+    @Test
+    public void testMinMaxByToWindowFunction()
+    {
+        // Native expression rewriting is applied during distributed fragment planning.
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(REWRITE_MIN_MAX_BY_TO_TOP_N, "true")
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(REWRITE_MIN_MAX_BY_TO_TOP_N, "false")
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .build();
+        @Language("SQL") String sql = "with t as (SELECT * FROM ( VALUES (3, '2025-01-08', MAP(ARRAY[2, 1], ARRAY[0.34, 0.92])), (1, '2025-01-02', MAP(ARRAY[1, 3], ARRAY[0.23, 0.5])), " +
+                "(7, '2025-01-17', MAP(ARRAY[6, 8], ARRAY[0.60, 0.70])), (2, '2025-01-06', MAP(ARRAY[2, 3, 5, 7], ARRAY[0.75, 0.32, 0.19, 0.46])), " +
+                "(5, '2025-01-14', MAP(ARRAY[8, 4, 6], ARRAY[0.88, 0.99, 0.00])), (4, '2025-01-12', MAP(ARRAY[7, 3, 2], ARRAY[0.33, 0.44, 0.55])), " +
+                "(8, '2025-01-20', MAP(ARRAY[1, 7, 6], ARRAY[0.35, 0.45, 0.55])), (6, '2025-01-16', MAP(ARRAY[9, 1, 3], ARRAY[0.30, 0.40, 0.50])), " +
+                "(2, '2025-01-05', MAP(ARRAY[3, 4], ARRAY[0.98, 0.21])), (1, '2025-01-04', MAP(ARRAY[1, 2], ARRAY[0.45, 0.67])), (7, '2025-01-18', MAP(ARRAY[4, 2, 9], ARRAY[0.80, 0.90, 0.10])), " +
+                "(3, '2025-01-10', MAP(ARRAY[4, 1, 8, 6], ARRAY[0.85, 0.13, 0.42, 0.91])), (8, '2025-01-19', MAP(ARRAY[3, 5], ARRAY[0.15, 0.25])), " +
+                "(4, '2025-01-11', MAP(ARRAY[5, 6], ARRAY[0.11, 0.22])), (5, '2025-01-13', MAP(ARRAY[1, 9], ARRAY[0.66, 0.77])), (6, '2025-01-15', MAP(ARRAY[2, 5], ARRAY[0.10, 0.20])) ) " +
+                "t(id, ds, feature)) select id, max_by(feature, ds), max(ds) from t group by id";
+
+        MaterializedResult result = computeActual(enabled, "explain(type distributed) " + sql);
+        assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("TopNRowNumber"), -1);
+
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+
+        sql = "with t as (SELECT * FROM ( VALUES (3, '2025-01-08', MAP(ARRAY[2, 1], ARRAY[0.34, 0.92]), MAP(ARRAY['a', 'b'], ARRAY[0.12, 0.88])), " +
+                "(1, '2025-01-02', MAP(ARRAY[1, 3], ARRAY[0.23, 0.5]), MAP(ARRAY['x', 'y'], ARRAY[0.45, 0.55])), (7, '2025-01-17', MAP(ARRAY[6, 8], ARRAY[0.60, 0.70]), MAP(ARRAY['m', 'n'], ARRAY[0.21, 0.79])), " +
+                "(2, '2025-01-06', MAP(ARRAY[2, 3, 5, 7], ARRAY[0.75, 0.32, 0.19, 0.46]), MAP(ARRAY['p', 'q', 'r'], ARRAY[0.11, 0.22, 0.67])), (5, '2025-01-14', MAP(ARRAY[8, 4, 6], ARRAY[0.88, 0.99, 0.00]), MAP(ARRAY['s', 't', 'u'], ARRAY[0.33, 0.44, 0.23])), " +
+                "(4, '2025-01-12', MAP(ARRAY[7, 3, 2], ARRAY[0.33, 0.44, 0.55]), MAP(ARRAY['v', 'w'], ARRAY[0.66, 0.34])), (8, '2025-01-20', MAP(ARRAY[1, 7, 6], ARRAY[0.35, 0.45, 0.55]), MAP(ARRAY['i', 'j', 'k'], ARRAY[0.78, 0.89, 0.12])), " +
+                "(6, '2025-01-16', MAP(ARRAY[9, 1, 3], ARRAY[0.30, 0.40, 0.50]), MAP(ARRAY['c', 'd'], ARRAY[0.90, 0.10])), (2, '2025-01-05', MAP(ARRAY[3, 4], ARRAY[0.98, 0.21]), MAP(ARRAY['e', 'f'], ARRAY[0.56, 0.44])), " +
+                "(1, '2025-01-04', MAP(ARRAY[1, 2], ARRAY[0.45, 0.67]), MAP(ARRAY['g', 'h'], ARRAY[0.23, 0.77])) ) t(id, ds, feature, extra_feature)) " +
+                "select id, max(ds), max_by(feature, ds), max_by(extra_feature, ds) from t group by id";
+
+        result = computeActual(enabled, "explain(type distributed) " + sql);
+        assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("TopNRowNumber"), -1);
+
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+
+        sql = "with t as (SELECT * FROM ( VALUES (3, '2025-01-08', MAP(ARRAY[2, 1], ARRAY[0.34, 0.92])), (1, '2025-01-02', MAP(ARRAY[1, 3], ARRAY[0.23, 0.5])), " +
+                "(7, '2025-01-17', MAP(ARRAY[6, 8], ARRAY[0.60, 0.70])), (2, '2025-01-06', MAP(ARRAY[2, 3, 5, 7], ARRAY[0.75, 0.32, 0.19, 0.46])), " +
+                "(5, '2025-01-14', MAP(ARRAY[8, 4, 6], ARRAY[0.88, 0.99, 0.00])), (4, '2025-01-12', MAP(ARRAY[7, 3, 2], ARRAY[0.33, 0.44, 0.55])), " +
+                "(8, '2025-01-20', MAP(ARRAY[1, 7, 6], ARRAY[0.35, 0.45, 0.55])), (6, '2025-01-16', MAP(ARRAY[9, 1, 3], ARRAY[0.30, 0.40, 0.50])), " +
+                "(2, '2025-01-05', MAP(ARRAY[3, 4], ARRAY[0.98, 0.21])), (1, '2025-01-04', MAP(ARRAY[1, 2], ARRAY[0.45, 0.67])), (7, '2025-01-18', MAP(ARRAY[4, 2, 9], ARRAY[0.80, 0.90, 0.10])), " +
+                "(3, '2025-01-10', MAP(ARRAY[4, 1, 8, 6], ARRAY[0.85, 0.13, 0.42, 0.91])), (8, '2025-01-19', MAP(ARRAY[3, 5], ARRAY[0.15, 0.25])), " +
+                "(4, '2025-01-11', MAP(ARRAY[5, 6], ARRAY[0.11, 0.22])), (5, '2025-01-13', MAP(ARRAY[1, 9], ARRAY[0.66, 0.77])), (6, '2025-01-15', MAP(ARRAY[2, 5], ARRAY[0.10, 0.20])) ) " +
+                "t(id, ds, feature)) select id, min_by(feature, ds), min(ds) from t group by id";
+
+        result = computeActual(enabled, "explain(type distributed) " + sql);
+        assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("TopNRowNumber"), -1);
+
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+
+        sql = "with t as (SELECT * FROM ( VALUES (3, '2025-01-08', MAP(ARRAY[2, 1], ARRAY[0.34, 0.92]), MAP(ARRAY['a', 'b'], ARRAY[0.12, 0.88])), " +
+                "(1, '2025-01-02', MAP(ARRAY[1, 3], ARRAY[0.23, 0.5]), MAP(ARRAY['x', 'y'], ARRAY[0.45, 0.55])), (7, '2025-01-17', MAP(ARRAY[6, 8], ARRAY[0.60, 0.70]), MAP(ARRAY['m', 'n'], ARRAY[0.21, 0.79])), " +
+                "(2, '2025-01-06', MAP(ARRAY[2, 3, 5, 7], ARRAY[0.75, 0.32, 0.19, 0.46]), MAP(ARRAY['p', 'q', 'r'], ARRAY[0.11, 0.22, 0.67])), (5, '2025-01-14', MAP(ARRAY[8, 4, 6], ARRAY[0.88, 0.99, 0.00]), MAP(ARRAY['s', 't', 'u'], ARRAY[0.33, 0.44, 0.23])), " +
+                "(4, '2025-01-12', MAP(ARRAY[7, 3, 2], ARRAY[0.33, 0.44, 0.55]), MAP(ARRAY['v', 'w'], ARRAY[0.66, 0.34])), (8, '2025-01-20', MAP(ARRAY[1, 7, 6], ARRAY[0.35, 0.45, 0.55]), MAP(ARRAY['i', 'j', 'k'], ARRAY[0.78, 0.89, 0.12])), " +
+                "(6, '2025-01-16', MAP(ARRAY[9, 1, 3], ARRAY[0.30, 0.40, 0.50]), MAP(ARRAY['c', 'd'], ARRAY[0.90, 0.10])), (2, '2025-01-05', MAP(ARRAY[3, 4], ARRAY[0.98, 0.21]), MAP(ARRAY['e', 'f'], ARRAY[0.56, 0.44])), " +
+                "(1, '2025-01-04', MAP(ARRAY[1, 2], ARRAY[0.45, 0.67]), MAP(ARRAY['g', 'h'], ARRAY[0.23, 0.77])) ) t(id, ds, feature, extra_feature)) " +
+                "select id, min(ds), min_by(feature, ds), min_by(extra_feature, ds) from t group by id";
+
+        result = computeActual(enabled, "explain(type distributed) " + sql);
+        assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("TopNRowNumber"), -1);
+
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+
+        sql = "with t as (SELECT * FROM ( VALUES (3, 100, '2025-01-08', MAP(ARRAY[2, 1], ARRAY[0.34, 0.92]), MAP(ARRAY['a', 'b'], ARRAY[0.12, 0.88])), " +
+                "(1, 20, '2025-01-02', MAP(ARRAY[1, 3], ARRAY[0.23, 0.5]), MAP(ARRAY['x', 'y'], ARRAY[0.45, 0.55])), (7, 90, '2025-01-17', MAP(ARRAY[6, 8], ARRAY[0.60, 0.70]), MAP(ARRAY['m', 'n'], ARRAY[0.21, 0.79])), " +
+                "(2, 10, '2025-01-06', MAP(ARRAY[2, 3, 5, 7], ARRAY[0.75, 0.32, 0.19, 0.46]), MAP(ARRAY['p', 'q', 'r'], ARRAY[0.11, 0.22, 0.67])), (5, 65, '2025-01-14', MAP(ARRAY[8, 4, 6], ARRAY[0.88, 0.99, 0.00]), MAP(ARRAY['s', 't', 'u'], ARRAY[0.33, 0.44, 0.23])), " +
+                "(4, 40, '2025-01-12', MAP(ARRAY[7, 3, 2], ARRAY[0.33, 0.44, 0.55]), MAP(ARRAY['v', 'w'], ARRAY[0.66, 0.34])), (8, 68, '2025-01-20', MAP(ARRAY[1, 7, 6], ARRAY[0.35, 0.45, 0.55]), MAP(ARRAY['i', 'j', 'k'], ARRAY[0.78, 0.89, 0.12])), " +
+                "(6, 101, '2025-01-16', MAP(ARRAY[9, 1, 3], ARRAY[0.30, 0.40, 0.50]), MAP(ARRAY['c', 'd'], ARRAY[0.90, 0.10])), (2, 35, '2025-01-05', MAP(ARRAY[3, 4], ARRAY[0.98, 0.21]), MAP(ARRAY['e', 'f'], ARRAY[0.56, 0.44])), " +
+                "(1, 25, '2025-01-04', MAP(ARRAY[1, 2], ARRAY[0.45, 0.67]), MAP(ARRAY['g', 'h'], ARRAY[0.23, 0.77])) ) t(id, key, ds, feature, extra_feature)) " +
+                "select id, min(ds), min_by(feature, ds), min_by(extra_feature, ds), min_by(key, ds) from t group by id";
+
+        result = computeActual(enabled, "explain(type distributed) " + sql);
+        assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("TopNRowNumber"), -1);
+
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+    }
+
+    /// The functions are fetched from sidecar when it is enabled so the output of SHOW FUNCTIONS and the order of
+    /// functions differ.
+    @Override
+    @Test
+    public void testShowFunctions()
+    {
+        MaterializedResult result = computeActual("SHOW FUNCTIONS");
+        ImmutableMultimap<String, MaterializedRow> functions = Multimaps.index(result.getMaterializedRows(), input -> {
+            assertEquals(input.getFieldCount(), 10);
+            return (String) input.getField(0);
+        });
+
+        assertTrue(functions.containsKey("avg"), "Expected function names " + functions + " to contain 'avg'");
+        List<MaterializedRow> avgFunctions = functions.get("avg").asList();
+        assertEquals(avgFunctions.size(), 7);
+        assertContainsFunctionSignature(avgFunctions, "decimal(a_precision,a_scale)", "decimal(a_precision,a_scale)", "aggregate");
+        assertContainsFunctionSignature(avgFunctions, "double", "bigint", "aggregate");
+        assertContainsFunctionSignature(avgFunctions, "double", "double", "aggregate");
+        assertContainsFunctionSignature(avgFunctions, "double", "integer", "aggregate");
+        assertContainsFunctionSignature(avgFunctions, "double", "smallint", "aggregate");
+        assertContainsFunctionSignature(avgFunctions, "interval day to second", "interval day to second", "aggregate");
+        assertContainsFunctionSignature(avgFunctions, "real", "real", "aggregate");
+
+        assertTrue(functions.containsKey("abs"), "Expected function names " + functions + " to contain 'abs'");
+        assertEquals(functions.get("abs").asList().get(0).getField(3), "scalar");
+        assertEquals(functions.get("abs").asList().get(0).getField(4), true);
+        assertEquals(functions.get("abs").asList().get(0).getField(6), false);
+        assertEquals(functions.get("abs").asList().get(0).getField(7), false);
+        assertEquals(functions.get("abs").asList().get(0).getField(8), false);
+        assertEquals(functions.get("abs").asList().get(0).getField(9), "cpp");
+
+        assertTrue(functions.containsKey("rand"), "Expected function names " + functions + " to contain 'rand'");
+        assertEquals(functions.get("rand").asList().get(0).getField(3), "scalar");
+        assertEquals(functions.get("rand").asList().get(0).getField(4), false);
+        assertEquals(functions.get("rand").asList().get(0).getField(6), false);
+        assertEquals(functions.get("rand").asList().get(0).getField(7), false);
+        assertEquals(functions.get("rand").asList().get(0).getField(8), false);
+        assertEquals(functions.get("rand").asList().get(0).getField(9), "cpp");
+
+        assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'rank'");
+        assertEquals(functions.get("rank").asList().get(0).getField(3), "window");
+        assertEquals(functions.get("rank").asList().get(0).getField(4), true);
+        assertEquals(functions.get("rank").asList().get(0).getField(6), false);
+        assertEquals(functions.get("rank").asList().get(0).getField(7), false);
+        assertEquals(functions.get("rank").asList().get(0).getField(8), false);
+        assertEquals(functions.get("rank").asList().get(0).getField(9), "cpp");
+
+        assertTrue(functions.containsKey("greatest"), "Expected function names " + functions + " to contain 'greatest'");
+        assertEquals(functions.get("greatest").asList().get(0).getField(3), "scalar");
+        assertEquals(functions.get("greatest").asList().get(0).getField(4), true);
+        assertEquals(functions.get("greatest").asList().get(0).getField(6), true);
+        assertEquals(functions.get("greatest").asList().get(0).getField(7), false);
+        assertEquals(functions.get("greatest").asList().get(0).getField(8), false);
+        assertEquals(functions.get("greatest").asList().get(0).getField(9), "cpp");
+
+        assertTrue(functions.containsKey("split_part"), "Expected function names " + functions + " to contain 'split_part'");
+        assertEquals(functions.get("split_part").asList().get(0).getField(1), "varchar");
+        assertEquals(functions.get("split_part").asList().get(0).getField(2), "varchar, varchar, bigint");
+        assertEquals(functions.get("split_part").asList().get(0).getField(3), "scalar");
+        assertEquals(functions.get("split_part").asList().get(0).getField(4), true);
+        assertEquals(functions.get("split_part").asList().get(0).getField(6), false);
+        assertEquals(functions.get("split_part").asList().get(0).getField(7), false);
+        assertEquals(functions.get("split_part").asList().get(0).getField(8), false);
+        assertEquals(functions.get("split_part").asList().get(0).getField(9), "cpp");
+
+        assertTrue(functions.containsKey("like"), "Expected function names " + functions + " to contain 'like'");
+    }
+
+    /// Custom session properties and catalog properties are not supported by native sidecar. Native execution only
+    /// system session properties should also be excluded from the result of SHOW SESSION when sidecar is enabled.
+    @Override
+    @Test
+    public void testShowSession()
+    {
+        Session session = new Session(
+                getSession().getQueryId(),
+                java.util.Optional.empty(),
+                getSession().isClientTransactionSupport(),
+                getSession().getIdentity(),
+                getSession().getSource(),
+                getSession().getCatalog(),
+                getSession().getSchema(),
+                getSession().getTraceToken(),
+                getSession().getTimeZoneKey(),
+                getSession().getLocale(),
+                getSession().getRemoteUserAddress(),
+                getSession().getUserAgent(),
+                getSession().getClientInfo(),
+                getSession().getClientTags(),
+                getSession().getResourceEstimates(),
+                getSession().getStartTime(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                getQueryRunner().getMetadata().getSessionPropertyManager(),
+                getSession().getPreparedStatements(),
+                ImmutableMap.of(),
+                getSession().getTracer(),
+                getSession().getWarningCollector(),
+                getSession().getRuntimeStats(),
+                getSession().getQueryType());
+
+        String nativeSystemPropertiesRegex = "Native Execution only.*";
+        MaterializedResult result = computeActual(session, "SHOW SESSION");
+        List<MaterializedRow> actualRows = result.getMaterializedRows();
+
+        // Ensure there are no duplicates in the native system session properties reported by the sidecar.
+        List<MaterializedRow> filteredRows = actualRows.stream()
+                .filter(row -> Pattern.matches(nativeSystemPropertiesRegex, row.getFields().get(4).toString()))
+                .collect(Collectors.toList());
+        ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(filteredRows, input -> {
+            assertEquals(input.getFieldCount(), 5);
+            return (String) input.getField(0);
+        });
+        assertEquals(properties.size(), filteredRows.size(), "Duplicate native system session properties found.");
+
+        try {
+            computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE ''");
+            fail();
+        }
+        catch (Exception e) {
+            assertTrue(e.getMessage().contains("Escape string must be a single character"));
+        }
+
+        try {
+            computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE '$$'");
+            fail();
+        }
+        catch (Exception e) {
+            assertTrue(e.getMessage().contains("Escape string must be a single character"));
+        }
+    }
+
+    // TODO: Native expression optimizer should be enabled for the following tests with sidecar enabled. Once
+
+    ///  parameterized Varchar type is supported in Velox, native expression optimizer will be enabled by default with
+    ///  sidecar for all tests.
+    @Override
+    @Test
+    public void testValuesWithTimestamp()
+    {
+        // Plan validation with NativePlanChecker fails when sidecar is used without native expression optimizer
+        // as the session timezone expected by `now()` will not be passed to the sidecar.
+        Session session = Session.builder(getSession())
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .build();
+        MaterializedResult actual = computeActual(session, "VALUES (current_timestamp, now())");
+
+        List<MaterializedRow> rows = actual.getMaterializedRows();
+        assertEquals(rows.size(), 1);
+
+        MaterializedRow row = rows.get(0);
+        assertEquals(row.getField(0), row.getField(1));
+    }
+
+    /// TODO: The decimal coercion queries are flaky in Presto C++.
+    @Override
+    @Test(enabled = false)
+    public void testCoercions() {}
+
+    @Override
+    @Test
+    public void testInUncorrelatedSubquery()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .build();
+        assertQuery(
+                session,
+                "SELECT CASE WHEN false THEN 1 IN (VALUES 2) END",
+                "SELECT NULL");
+        assertQuery(
+                session,
+                "SELECT x FROM (VALUES 2) t(x) WHERE MAP(ARRAY[8589934592], ARRAY[x]) IN (VALUES MAP(ARRAY[8589934592],ARRAY[2]))",
+                "SELECT 2");
+        assertQuery(
+                session,
+                "SELECT a IN (VALUES 2), a FROM (VALUES (2)) t(a)",
+                "SELECT TRUE, 2");
+    }
+
+    // todo: Enable this when https://github.com/prestodb/presto/pull/28247 goes in
+    // Planning-time constant folding still uses the hardcoded Java RowExpressionInterpreter, leading to `Expression interpreter returned an unresolved expression`
+    @Override
+    @Test(enabled = false)
+    public void testSetSession() {}
+
+    @Override
+    @Test
+    public void testShowTablesLikeWithEscape()
+    {
+        assertQueryFails("SHOW TABLES IN a LIKE '%$_%' ESCAPE", ".*line 1:36: mismatched input '<EOF>'. Expecting: <string>.*");
+        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE ''", ".*Escape string must be a single character.*");
+        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE '$$'", ".*Escape string must be a single character.*");
+
+        Set<Object> allTables = computeActual("SHOW TABLES FROM information_schema").getOnlyColumnAsSet();
+        assertEquals(allTables, computeActual("SHOW TABLES FROM information_schema LIKE '%_%'").getOnlyColumnAsSet());
+        Set<Object> result = computeActual("SHOW TABLES FROM information_schema LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
+        assertNotEquals(allTables, result);
+        assertThat(result).contains("table_privileges").allMatch(schemaName -> ((String) schemaName).contains("_"));
+    }
+
+    @Override
+    @Test
+    public void testShowSchemasLikeWithEscape()
+    {
+        assertQueryFails("SHOW SCHEMAS IN foo LIKE '%$_%' ESCAPE", ".*line 1:39: mismatched input '<EOF>'. Expecting: <string>.*");
+        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE ''", ".*Escape string must be a single character.*");
+        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE '$$'", ".*Escape string must be a single character.*");
+
+        Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
+        assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
+        Set<Object> result = computeActual("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
+        assertNotEquals(allSchemas, result);
+        assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
+    }
+
+    private static void assertContainsFunctionSignature(List<MaterializedRow> functions, String returnType, String argumentTypes, String functionType)
+    {
+        assertTrue(
+                functions.stream()
+                        .anyMatch(row -> row.getField(1).equals(returnType) &&
+                                row.getField(2).equals(argumentTypes) &&
+                                row.getField(3).equals(functionType)),
+                "Expected functions " + functions + " to contain signature [" + returnType + ", " + argumentTypes + ", " + functionType + "]");
     }
 }
