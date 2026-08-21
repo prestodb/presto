@@ -51,6 +51,11 @@ public class NodeStatus
     // (reported separately in asyncDataCacheBytes) but may include memory that
     // is spillable under pressure.
     private final long queryMemoryBytes;
+    private final long gpuMemoryUsedBytes;
+    private final long gpuMemoryCapacityBytes;
+    private final long gpuUtilizationPercent;
+    private final long gpuMemoryBandwidthPercent;
+    private final long gpuPoolAllocatedBytes;
 
     @ThriftConstructor
     @JsonCreator
@@ -70,7 +75,12 @@ public class NodeStatus
             @JsonProperty("heapAvailable") long heapAvailable,
             @JsonProperty("nonHeapUsed") long nonHeapUsed,
             @JsonProperty("asyncDataCacheBytes") long asyncDataCacheBytes,
-            @JsonProperty("queryMemoryBytes") long queryMemoryBytes)
+            @JsonProperty("queryMemoryBytes") long queryMemoryBytes,
+            @JsonProperty("gpuMemoryUsedBytes") long gpuMemoryUsedBytes,
+            @JsonProperty("gpuMemoryCapacityBytes") long gpuMemoryCapacityBytes,
+            @JsonProperty("gpuUtilizationPercent") long gpuUtilizationPercent,
+            @JsonProperty("gpuMemoryBandwidthPercent") long gpuMemoryBandwidthPercent,
+            @JsonProperty("gpuPoolAllocatedBytes") long gpuPoolAllocatedBytes)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
@@ -88,6 +98,11 @@ public class NodeStatus
         this.nonHeapUsed = nonHeapUsed;
         this.asyncDataCacheBytes = asyncDataCacheBytes;
         this.queryMemoryBytes = queryMemoryBytes;
+        this.gpuMemoryUsedBytes = gpuMemoryUsedBytes;
+        this.gpuMemoryCapacityBytes = gpuMemoryCapacityBytes;
+        this.gpuUtilizationPercent = gpuUtilizationPercent;
+        this.gpuMemoryBandwidthPercent = gpuMemoryBandwidthPercent;
+        this.gpuPoolAllocatedBytes = gpuPoolAllocatedBytes;
     }
 
     @ThriftField(1)
@@ -200,5 +215,40 @@ public class NodeStatus
     public long getQueryMemoryBytes()
     {
         return queryMemoryBytes;
+    }
+
+    @ThriftField(17)
+    @JsonProperty
+    public long getGpuMemoryUsedBytes()
+    {
+        return gpuMemoryUsedBytes;
+    }
+
+    @ThriftField(18)
+    @JsonProperty
+    public long getGpuMemoryCapacityBytes()
+    {
+        return gpuMemoryCapacityBytes;
+    }
+
+    @ThriftField(19)
+    @JsonProperty
+    public long getGpuUtilizationPercent()
+    {
+        return gpuUtilizationPercent;
+    }
+
+    @ThriftField(20)
+    @JsonProperty
+    public long getGpuMemoryBandwidthPercent()
+    {
+        return gpuMemoryBandwidthPercent;
+    }
+
+    @ThriftField(21)
+    @JsonProperty
+    public long getGpuPoolAllocatedBytes()
+    {
+        return gpuPoolAllocatedBytes;
     }
 }
