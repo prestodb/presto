@@ -52,12 +52,34 @@ public final class LocalMemoryManager
     @VisibleForTesting
     public LocalMemoryManager(NodeMemoryConfig config, long availableMemory)
     {
-        requireNonNull(config, "config is null");
-        configureMemoryPools(config, availableMemory);
+        this(config, availableMemory, false);
     }
 
-    private void configureMemoryPools(NodeMemoryConfig config, long availableMemory)
+    /**
+     * Constructor for coordinator-only mode. When {@code useCoordinatorOnlyValidation} is true,
+     * only heap headroom is validated against available memory; query.max-memory-per-node and
+     * query.max-total-memory-per-node are not required to fit in this node's heap. This allows
+     * a coordinator with a small JVM heap to start when node-scheduler.include-coordinator=false
+     * and workers use larger per-node limits. The coordinator's pools are sized to (heap - headroom)
+     * and no reserved pool is used.
+     */
+    @VisibleForTesting
+    public LocalMemoryManager(NodeMemoryConfig config, long availableMemory, boolean useCoordinatorOnlyValidation)
     {
+        requireNonNull(config, "config is null");
+        configureMemoryPools(config, availableMemory, useCoordinatorOnlyValidation);
+    }
+
+    private void configureMemoryPools(NodeMemoryConfig config, long availableMemory, boolean useCoordinatorOnlyValidation)
+    {
+        if (useCoordinatorOnlyValidation) {
+            validateCoordinatorHeapHeadroom(config, availableMemory);
+            maxMemory = new DataSize(availableMemory - config.getHeapHeadroom().toBytes(), BYTE);
+            verify(maxMemory.toBytes() > 0, "general memory pool size is 0 after headroom");
+            this.pools = ImmutableMap.of(GENERAL_POOL, new MemoryPool(GENERAL_POOL, maxMemory));
+            return;
+        }
+
         validateHeapHeadroom(config, availableMemory);
         maxMemory = new DataSize(availableMemory - config.getHeapHeadroom().toBytes(), BYTE);
         checkArgument(
@@ -97,6 +119,23 @@ public final class LocalMemoryManager
             throw new IllegalArgumentException(
                     format("Invalid memory configuration. The sum of max total query memory per node (%s) and heap headroom (%s) cannot be larger than the available heap memory (%s)",
                             maxQueryTotalMemoryPerNode,
+                            heapHeadroom,
+                            availableMemory));
+        }
+    }
+
+    /**
+     * Validation for coordinator-only mode: only requires that heap headroom fits in available memory.
+     * Used when node-scheduler.include-coordinator=false so the coordinator does not run tasks and
+     * does not need query.max-memory-per-node / query.max-total-memory-per-node to fit in its heap.
+     */
+    @VisibleForTesting
+    static void validateCoordinatorHeapHeadroom(NodeMemoryConfig config, long availableMemory)
+    {
+        long heapHeadroom = config.getHeapHeadroom().toBytes();
+        if (heapHeadroom < 0 || heapHeadroom >= availableMemory) {
+            throw new IllegalArgumentException(
+                    format("Invalid memory configuration for coordinator. Heap headroom (%s) must be non-negative and less than available heap memory (%s)",
                             heapHeadroom,
                             availableMemory));
         }
