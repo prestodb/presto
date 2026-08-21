@@ -19,7 +19,8 @@ ARG BUILD_TYPE=Release
 ARG PRESTO_OPTIONAL_FEATURES=''
 ARG EXTRA_CMAKE_FLAGS=''
 ARG NUM_THREADS=8
-ARG CUDA_ARCHITECTURES=70
+ARG CUDA_ARCHITECTURES=""
+ENV CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}
 
 ENV PROMPT_ALWAYS_RESPOND=n
 ENV BUILD_BASE_DIR=_build
@@ -33,8 +34,11 @@ RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
     EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS} \
     NUM_THREADS=${NUM_THREADS} make --directory="/prestissimo/" cmake-and-build BUILD_TYPE=${BUILD_TYPE} BUILD_DIR=${BUILD_DIR} BUILD_BASE_DIR=${BUILD_BASE_DIR} && \
     ccache -sz -v'
-RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server  | grep "not found") && \
+RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | grep "not found" | grep -v libcuda) && \
     LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | awk 'NF == 4 { system("cp " $3 " /runtime-libraries") }'
+
+RUN cp -rf /usr/local/lib/ucx /runtime-libraries/ucx
+RUN echo "${CUDA_VERSION}" > /cuda_version
 
 #/////////////////////////////////////////////
 #          prestissimo-runtime
@@ -45,10 +49,26 @@ FROM ${BASE_IMAGE}
 ENV BUILD_BASE_DIR=_build
 ENV BUILD_DIR=""
 
+# Copy scripts and CUDA version from build stage
+COPY --from=prestissimo-image /prestissimo/velox/scripts/ /tmp/scripts/
+COPY --from=prestissimo-image /cuda_version /tmp/
+
+# Install CUDA runtime packages and RDMA libraries
+RUN CUDA_VERSION=$(cat /tmp/cuda_version) && \
+    source /tmp/scripts/setup-centos-adapters.sh && \
+    install_cuda_runtime "${CUDA_VERSION}" && \
+    dnf install -y librdmacm libibverbs && \
+    dnf clean all && \
+    rm -rf /var/cache/dnf /tmp/scripts /tmp/cuda_version
+
 COPY --chmod=0775 --from=prestissimo-image /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server /usr/bin/
 COPY --chmod=0775 --from=prestissimo-image /runtime-libraries/* /usr/lib64/prestissimo-libs/
+COPY --chmod=0775 --from=prestissimo-image /runtime-libraries/ucx /usr/lib64/prestissimo-libs/ucx
 COPY --chmod=0755 ./etc /opt/presto-server/etc
 COPY --chmod=0775 ./entrypoint.sh /opt/entrypoint.sh
-RUN echo "/usr/lib64/prestissimo-libs" > /etc/ld.so.conf.d/prestissimo.conf && ldconfig
+RUN echo "/usr/lib64/prestissimo-libs" > /etc/ld.so.conf.d/prestissimo.conf && \
+    echo "/usr/lib64/prestissimo-libs/ucx" >> /etc/ld.so.conf.d/prestissimo.conf && \
+    echo "/usr/local/cuda/lib64" > /etc/ld.so.conf.d/cuda.conf && \
+    ldconfig
 
 ENTRYPOINT ["/opt/entrypoint.sh"]
