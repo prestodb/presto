@@ -8316,6 +8316,34 @@ void to_json(json& j, const NodeStatus& p) {
       "NodeStatus",
       "int64_t",
       "queryMemoryBytes");
+  to_json_key(
+      j,
+      "gpuMemoryUsedBytes",
+      p.gpuMemoryUsedBytes,
+      "NodeStatus",
+      "int64_t",
+      "gpuMemoryUsedBytes");
+  to_json_key(
+      j,
+      "gpuMemoryCapacityBytes",
+      p.gpuMemoryCapacityBytes,
+      "NodeStatus",
+      "int64_t",
+      "gpuMemoryCapacityBytes");
+  to_json_key(
+      j,
+      "gpuUtilizationPercent",
+      p.gpuUtilizationPercent,
+      "NodeStatus",
+      "int64_t",
+      "gpuUtilizationPercent");
+  to_json_key(
+      j,
+      "gpuMemoryBandwidthPercent",
+      p.gpuMemoryBandwidthPercent,
+      "NodeStatus",
+      "int64_t",
+      "gpuMemoryBandwidthPercent");
 }
 
 void from_json(const json& j, NodeStatus& p) {
@@ -8391,6 +8419,44 @@ void from_json(const json& j, NodeStatus& p) {
         "NodeStatus",
         "int64_t",
         "queryMemoryBytes");
+  }
+  if (j.count("gpuMemoryUsedBytes")) {
+    from_json_key(
+        j,
+        "gpuMemoryUsedBytes",
+        p.gpuMemoryUsedBytes,
+        "NodeStatus",
+        "int64_t",
+        "gpuMemoryUsedBytes");
+  }
+  if (j.count("gpuMemoryCapacityBytes")) {
+    from_json_key(
+        j,
+        "gpuMemoryCapacityBytes",
+        p.gpuMemoryCapacityBytes,
+        "NodeStatus",
+        "int64_t",
+        "gpuMemoryCapacityBytes");
+  }
+  // Backward compatible: guard with j.count() so payloads from older workers
+  // that lack this field still deserialize (defaults to 0 via the struct).
+  if (j.count("gpuUtilizationPercent")) {
+    from_json_key(
+        j,
+        "gpuUtilizationPercent",
+        p.gpuUtilizationPercent,
+        "NodeStatus",
+        "int64_t",
+        "gpuUtilizationPercent");
+  }
+  if (j.count("gpuMemoryBandwidthPercent")) {
+    from_json_key(
+        j,
+        "gpuMemoryBandwidthPercent",
+        p.gpuMemoryBandwidthPercent,
+        "NodeStatus",
+        "int64_t",
+        "gpuMemoryBandwidthPercent");
   }
 }
 } // namespace facebook::presto::protocol
