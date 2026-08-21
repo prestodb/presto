@@ -87,8 +87,8 @@ TEST_F(TaskInfoTest, operatorStatsEmptyBlockedReason) {
   thrift::toThrift(operatorStats, thriftOperatorStats);
 
   ASSERT_EQ(thriftOperatorStats.blockedReason().has_value(), false);
-  ASSERT_EQ(thriftOperatorStats.blockedWall(), 80);
-  ASSERT_EQ(thriftOperatorStats.finishCpu(), 1000);
+  ASSERT_EQ(thriftOperatorStats.blockedWallInNanos(), 80);
+  ASSERT_EQ(thriftOperatorStats.finishCpuInNanos(), 1000);
 }
 
 TEST_F(TaskInfoTest, operatorStats) {
