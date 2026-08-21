@@ -2,6 +2,9 @@
 Function Plugin
 ===============
 
+This page covers dynamically loaded scalar UDFs. For Presto C++ table value
+function development, see :doc:`/presto_cpp/functions/table-functions`.
+
 Creating a Shared Library for UDFs
 ----------------------------------
 User defined functions (UDFs) allow users to create custom functions without the need to rebuild the executable. 
@@ -47,4 +50,4 @@ There are many benefits to UDFs, such as:
       add_library(name_of_dynamic_fn SHARED ExampleFunction.cpp)
       target_link_libraries(name_of_dynamic_fn PRIVATE presto_dynamic_function_registrar fmt::fmt gflags::gflags xsimd)
 
-3. Place your shared libraries in the ``plugin`` directory. The path to this directory defaults to the ``plugin`` directory relative to the directory in which the process is being run but it is configurable in the ``plugin.dir`` property set in :doc:`../plugin`. 
+3. Place your shared libraries in the ``plugin`` directory. The path to this directory defaults to the ``plugin`` directory relative to the directory in which the process is being run but it is configurable in the ``plugin.dir`` property set in :doc:`../plugin`.
