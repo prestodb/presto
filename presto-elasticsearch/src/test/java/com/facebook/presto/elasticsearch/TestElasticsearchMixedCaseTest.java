@@ -23,6 +23,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.tpch.TpchTable;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
 import org.apache.hc.core5.http.HttpHost;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -51,7 +52,11 @@ public class TestElasticsearchMixedCaseTest
         elasticsearch = new ElasticsearchServer(elasticsearchServer, ImmutableMap.of(), ImmutableMap.of(
                 "xpack.security.enabled", "false"));
         HostAndPort address = elasticsearch.getAddress();
-        Rest5Client restClient = Rest5Client.builder(new HttpHost(address.getHost(), address.getPort())).build();
+        Rest5Client restClient = Rest5Client.builder(new HttpHost(address.getHost(), address.getPort()))
+                .setHttpClient(HttpAsyncClientBuilder.create()
+                        .disableContentCompression()
+                        .build())
+                .build();
         Rest5ClientTransport transport = new Rest5ClientTransport(restClient, new JacksonJsonpMapper());
         client = new ElasticsearchClient(transport);
 

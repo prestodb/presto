@@ -51,6 +51,7 @@ Property Name                                 Description
 ``elasticsearch.node-refresh-interval``       How often to refresh the list of available Elasticsearch nodes.
 ``elasticsearch.max-http-connections``        Maximum number of persistent HTTP connections to Elasticsearch.
 ``elasticsearch.http-thread-count``           Number of threads handling HTTP connections to Elasticsearch.
+``elasticsearch.content-compression-enabled`` Whether to request compressed HTTP responses from Elasticsearch.
 ``elasticsearch.ignore-publish-address``      Whether to ignore the published address and use the configured address.
 ``case-sensitive-name-matching``              Enable case sensitive identifier support for schema and column names for the connector.
                                               When disabled, names are matched case-insensitively using lowercase normalization.
@@ -146,6 +147,20 @@ This property is optional; the default is ``25``.
 This property controls the number of threads handling HTTP connections to Elasticsearch.
 
 This property is optional; the default is number of available processors.
+
+``elasticsearch.content-compression-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This property controls whether the connector requests compressed HTTP responses from Elasticsearch.
+Compression reduces the bandwidth used by large responses, at the cost of some CPU on both the
+Elasticsearch node and the Presto worker.
+
+Compression is disabled by default because Elasticsearch 9.x can return responses carrying a
+``Content-Encoding: gzip`` header that are not actually GZIP encoded, which makes the response
+body unreadable. Enable this property only against Elasticsearch versions that frame compressed
+responses correctly.
+
+This property is optional; the default is ``false``.
 
 ``elasticsearch.ignore-publish-address``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

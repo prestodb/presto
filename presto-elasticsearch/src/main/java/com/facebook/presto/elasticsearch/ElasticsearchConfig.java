@@ -47,6 +47,7 @@ public class ElasticsearchConfig
     private Duration nodeRefreshInterval = new Duration(1, MINUTES);
     private int maxHttpConnections = 25;
     private int httpThreadCount = Runtime.getRuntime().availableProcessors();
+    private boolean contentCompressionEnabled;
 
     private boolean tlsEnabled;
     private File keystorePath;
@@ -224,6 +225,20 @@ public class ElasticsearchConfig
     public int getHttpThreadCount()
     {
         return httpThreadCount;
+    }
+
+    public boolean isContentCompressionEnabled()
+    {
+        return contentCompressionEnabled;
+    }
+
+    @Config("elasticsearch.content-compression-enabled")
+    @ConfigDescription("Request compressed HTTP responses from Elasticsearch. Disabled by default because Elasticsearch 9.x " +
+            "can return a Content-Encoding: gzip header on responses that are not actually GZIP encoded")
+    public ElasticsearchConfig setContentCompressionEnabled(boolean contentCompressionEnabled)
+    {
+        this.contentCompressionEnabled = contentCompressionEnabled;
+        return this;
     }
 
     public boolean isTlsEnabled()
