@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.parquet.batchreader.decoders.rle;
 
-import org.apache.parquet.column.values.bitpacking.BytePacker;
-import org.apache.parquet.column.values.bitpacking.Packer;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -22,17 +21,17 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-import static com.facebook.presto.parquet.batchreader.decoders.rle.BaseRLEBitPackedDecoder.Mode.PACKED;
-import static com.facebook.presto.parquet.batchreader.decoders.rle.BaseRLEBitPackedDecoder.Mode.RLE;
+import static com.facebook.presto.parquet.batchreader.decoders.rle.GenericRLEDictionaryValuesDecoder.Mode.PACKED;
+import static com.facebook.presto.parquet.batchreader.decoders.rle.GenericRLEDictionaryValuesDecoder.Mode.RLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.ceil;
 import static org.apache.parquet.bytes.BytesUtils.readIntLittleEndianPaddedOnBitWidth;
 import static org.apache.parquet.bytes.BytesUtils.readUnsignedVarInt;
 
-public abstract class BaseRLEBitPackedDecoder
+public abstract class GenericRLEDictionaryValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BaseRLEBitPackedDecoder.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GenericRLEDictionaryValuesDecoder.class).instanceSize();
 
     private final boolean rleOnlyMode;
     private final int bitWidth;
@@ -44,7 +43,7 @@ public abstract class BaseRLEBitPackedDecoder
     protected int currentValue;
     protected int[] currentBuffer;
 
-    public BaseRLEBitPackedDecoder(int valueCount, int bitWidth, InputStream inputStream)
+    public GenericRLEDictionaryValuesDecoder(int valueCount, int bitWidth, InputStream inputStream)
     {
         checkArgument(bitWidth >= 0 && bitWidth <= 32, "bitWidth must be >= 0 and <= 32");
         this.bitWidth = bitWidth;
@@ -63,7 +62,7 @@ public abstract class BaseRLEBitPackedDecoder
         }
     }
 
-    public BaseRLEBitPackedDecoder(int rleValue, int rleValueCount)
+    public GenericRLEDictionaryValuesDecoder(int rleValue, int rleValueCount)
     {
         this.rleOnlyMode = true;
         this.bitWidth = 0;
@@ -79,9 +78,22 @@ public abstract class BaseRLEBitPackedDecoder
         return INSTANCE_SIZE + sizeOf(currentBuffer);
     }
 
-    protected boolean decode()
-            throws IOException
+    protected boolean decode() throws IOException
     {
+        if (this instanceof BooleanRLEValuesDecoder) {
+            // Boolean RLE specific logic
+            if (inputStream.available() <= 0) {
+                currentCount = 0;
+                return false;
+            }
+
+            int header = readUnsignedVarInt(inputStream);
+            mode = RLE; // Boolean RLE is always RLE
+            currentValue = (header & 1) == 1 ? 1 : 0;
+            currentCount = header >>> 1;
+            return true;
+        }
+
         if (rleOnlyMode) {
             // for RLE only mode there is nothing more to read
             return false;
@@ -120,9 +132,71 @@ public abstract class BaseRLEBitPackedDecoder
         }
     }
 
-    public enum Mode
+    public int[] getDecodedInts()
     {
-        RLE,
-        PACKED
+        return currentBuffer;
+    }
+
+    public int getDecodedInt()
+    {
+        return currentValue;
+    }
+
+    public Mode getCurrentMode()
+    {
+        return mode;
+    }
+
+    public int getCurrentCount()
+    {
+        return currentCount;
+    }
+
+    public void decrementCurrentCount(int amount)
+    {
+        currentCount -= amount;
+    }
+
+    public interface BytePacker
+    {
+        void unpack8Values(byte[] input, int inputOffset, int[] output, int outputOffset);
+    }
+
+    public enum Packer {
+        LITTLE_ENDIAN;
+
+        public BytePacker newBytePacker(int bitWidth)
+        {
+            return new LittleEndianPacker(bitWidth);
+        }
+    }
+
+    private static class LittleEndianPacker
+            implements BytePacker
+    {
+        private final int bitWidth;
+
+        LittleEndianPacker(int bitWidth)
+        {
+            this.bitWidth = bitWidth;
+        }
+
+        @Override
+        public void unpack8Values(byte[] input, int inputOffset, int[] output, int outputOffset)
+        {
+            long packed = 0;
+            for (int i = 0; i < bitWidth; i += 8) {
+                packed |= ((long) input[inputOffset + (i / 8)]) << i;
+            }
+            long mask = (1L << bitWidth) - 1;
+            for (int i = 0; i < 8; i++) {
+                output[outputOffset + i] = (int) (packed & mask);
+                packed >>>= bitWidth;
+            }
+        }
+    }
+
+    public enum Mode {
+        RLE, PACKED
     }
 }
