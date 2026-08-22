@@ -131,6 +131,8 @@ public class FeaturesConfig
     private boolean enableParallelizeChainedAggregations;
     private boolean optimizeCaseExpressionPredicate;
     private boolean pushTableWriteThroughUnion = true;
+    private CompressionCodec resultCompressionCodec = CompressionCodec.NONE;
+    private boolean resultChecksumEnabled;
     private CompressionCodec exchangeCompressionCodec = CompressionCodec.NONE;
     private boolean exchangeChecksumEnabled;
     private boolean optimizeMixedDistinctAggregations;
@@ -1780,6 +1782,30 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeMixedDistinctAggregations(boolean value)
     {
         this.optimizeMixedDistinctAggregations = value;
+        return this;
+    }
+
+    public CompressionCodec getResultCompressionCodec()
+    {
+        return resultCompressionCodec;
+    }
+
+    public boolean isResultChecksumEnabled()
+    {
+        return resultChecksumEnabled;
+    }
+
+    @Config("result.compression-codec")
+    public FeaturesConfig setResultCompressionCodec(CompressionCodec resultCompressionCodec)
+    {
+        this.resultCompressionCodec = resultCompressionCodec;
+        return this;
+    }
+
+    @Config("result.checksum-enabled")
+    public FeaturesConfig setResultChecksumEnabled(boolean resultChecksumEnabled)
+    {
+        this.resultChecksumEnabled = resultChecksumEnabled;
         return this;
     }
 
