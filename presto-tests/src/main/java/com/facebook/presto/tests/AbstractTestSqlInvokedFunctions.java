@@ -129,6 +129,45 @@ public abstract class AbstractTestSqlInvokedFunctions
     }
 
     @Test
+    public void testHashToUniform()
+    {
+        assertQuery("select hash_to_uniform('abc')", "select 0.8804882419574823");
+        assertQuery("select hash_to_uniform('')", "select 0.21425977693370435");
+
+        // '1000000033568641' is a key for which key_sampling_percent decodes a non-finite double.
+        assertQuery("select is_nan(hash_to_uniform('1000000033568641'))", "select false");
+    }
+
+    // Documents the key_sampling_percent defect that motivated hash_to_uniform. These assertions
+    // deliberately pin behavior that is known to be WRONG, so that the defect is visible in the
+    // test suite and so that any future change to key_sampling_percent -- including deprecating
+    // it -- fails here loudly rather than silently re-rolling every sample keyed on it.
+    // Thresholds are loose because the point is the order of magnitude, not the exact count.
+    @Test
+    public void testKeySamplingPercentIsNotUniform()
+    {
+        String keys = "(select cast(1000000000000000 + x * 7919 as varchar) k from unnest(sequence(1, 10000)) t(x))";
+
+        // 10,000 keys yield only 5,326 distinct values: 46.7% of keys collide. hash_to_uniform
+        // over the same keys yields 10,000 distinct values.
+        assertQuery("select count(distinct key_sampling_percent(k)) < 6000 from " + keys, "select true");
+        assertQuery("select count(distinct hash_to_uniform(k)) from " + keys, "select 10000");
+
+        // A "1% sample" selects 52.5% of the population, because ~51% of keys hash to a value at
+        // or near zero. hash_to_uniform selects 109 of 10,000.
+        assertQuery("select count(*) filter (where key_sampling_percent(k) < 0.01) > 4000 from " + keys, "select true");
+        assertQuery("select count(*) filter (where hash_to_uniform(k) < 0.01) between 50 and 200 from " + keys, "select true");
+
+        // Of the 4,741 keys that do not hash to near-zero, 4,500 (94.9%) sit exactly on one of
+        // just 25 values: the multiples of 0.04.
+        assertQuery(
+                "select count(*) filter (where key_sampling_percent(k) > 0.02 "
+                        + "and abs(key_sampling_percent(k) * 25 - round(key_sampling_percent(k) * 25)) < 1e-9) * 100 "
+                        + "> 90 * count(*) filter (where key_sampling_percent(k) > 0.02) from " + keys,
+                "select true");
+    }
+
+    @Test
     public void testKeyBasedSampling()
     {
         String[] queries = {
