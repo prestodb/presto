@@ -34,17 +34,17 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 

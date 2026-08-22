@@ -36,7 +36,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 
@@ -74,7 +74,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.auden-woolfson.airlift</groupId>
             <artifactId>stats</artifactId>
             <scope>test</scope>
         </dependency>
@@ -89,7 +89,7 @@
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
-                            <groupId>com.facebook.airlift.drift</groupId>
+                            <groupId>com.github.auden-woolfson.airlift</groupId>
                             <artifactId>drift-javadoc</artifactId>
                             <version>${dep.drift.version}</version>
                         </path>
