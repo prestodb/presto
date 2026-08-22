@@ -43,6 +43,7 @@ import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils
 import static com.facebook.presto.redis.RedisQueryRunner.createTpchTableDescriptions;
 import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
 import static com.facebook.presto.redis.util.RedisTestUtils.createEmptyTableDescriptions;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 
@@ -123,6 +124,7 @@ public class TestArrowFederationNativeQueriesRedis
                 (DistributedQueryRunner) createNativeQueryRunner(ImmutableList.of(CONNECTOR_ID), server.getPort());
         installRedisPlugin(embeddedRedis, queryRunner,
                 createTpchTableDescriptions(queryRunner.getCoordinator().getMetadata(), TpchTable.getTables(), "string"));
+        setupNativeSidecarPlugin(queryRunner);
         return queryRunner;
     }
 

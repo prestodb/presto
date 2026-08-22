@@ -38,7 +38,6 @@ import static com.facebook.plugin.arrow.ArrowFlightQueryRunner.findUnusedPort;
 import static com.facebook.plugin.arrow.ArrowFlightQueryRunner.getProperty;
 import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -73,11 +72,13 @@ public class NativeArrowFederationConnectorUtils
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("regex-library", "RE2J")
                 .put("offset-clause-enabled", "true")
-                // By default, Presto will expand some functions into its SQL equivalent (e.g. array_duplicates()).
-                // With Velox, we do not want Presto to replace the function with its SQL equivalent.
-                // To achieve that, we set inline-sql-functions to false.
-                .put("inline-sql-functions", "false")
                 .put("use-alternative-function-signatures", "true")
+                // Sidecar configs
+                .put("coordinator-sidecar-enabled", "true")
+                .put("exclude-invalid-worker-session-properties", "true")
+                .put("presto.default-namespace", "native.default")
+                // inline-sql-functions is overridden to be true in sidecar enabled native clusters.
+                .put("inline-sql-functions", "true")
                 .build();
     }
 
@@ -96,7 +97,9 @@ public class NativeArrowFederationConnectorUtils
                 String configProperties = format("discovery.uri=%s%n" +
                         "presto.version=testversion%n" +
                         "system-memory-gb=4%n" +
-                        "http-server.http.port=0%n", discoveryUri);
+                        "http-server.http.port=0%n" +
+                        "native-sidecar=true%n" +
+                        "presto.default-namespace=native.default%n", discoveryUri);
 
                 Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
                 Files.write(tempDirectoryPath.resolve("node.properties"),
@@ -222,16 +225,5 @@ public class NativeArrowFederationConnectorUtils
         connectorProperties.putIfAbsent("connection-password", "testpass");
         connectorProperties.putIfAbsent("allow-drop-table", "true");
         return ImmutableMap.copyOf(connectorProperties);
-    }
-
-    public static Map<String, Map<String, String>> buildCatalogsMap(Map<String, Map<String, String>> catalogProperties)
-    {
-        return catalogProperties.entrySet().stream()
-                .collect(toImmutableMap(
-                        Map.Entry::getKey,
-                        entry -> ImmutableMap.<String, String>builder()
-                                .put("connector.name", entry.getKey())
-                                .putAll(entry.getValue())
-                                .build()));
     }
 }

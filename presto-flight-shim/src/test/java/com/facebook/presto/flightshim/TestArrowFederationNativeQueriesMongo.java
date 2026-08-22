@@ -28,6 +28,7 @@ import java.util.Map;
 
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createNativeQueryRunner;
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class TestArrowFederationNativeQueriesMongo
@@ -89,6 +90,7 @@ public class TestArrowFederationNativeQueriesMongo
     {
         QueryRunner queryRunner =
                 createNativeQueryRunner(ImmutableList.of(CONNECTOR_ID), server.getPort());
+        setupNativeSidecarPlugin(queryRunner);
         queryRunner.installPlugin(new MongoPlugin());
         queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties());
         return queryRunner;
