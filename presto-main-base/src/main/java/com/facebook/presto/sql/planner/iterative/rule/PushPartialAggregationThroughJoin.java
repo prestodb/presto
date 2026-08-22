@@ -17,6 +17,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinNode;
@@ -30,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +42,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isPushAggregationThroughJoin;
+import static com.facebook.presto.SystemSessionProperties.isPushPartialAggregationThroughOuterJoin;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
@@ -46,11 +53,19 @@ import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static java.util.Objects.requireNonNull;
 
 public class PushPartialAggregationThroughJoin
         implements Rule<AggregationNode>
 {
     private static final Capture<JoinNode> JOIN_NODE = Capture.newCapture();
+
+    private final FunctionAndTypeManager functionAndTypeManager;
+
+    public PushPartialAggregationThroughJoin(FunctionAndTypeManager functionAndTypeManager)
+    {
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+    }
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(PushPartialAggregationThroughJoin::isSupportedAggregationNode)
@@ -87,21 +102,71 @@ public class PushPartialAggregationThroughJoin
     {
         JoinNode joinNode = captures.get(JOIN_NODE);
 
-        if (joinNode.getType() != JoinType.INNER) {
+        JoinType joinType = joinNode.getType();
+        if (joinType != JoinType.INNER && joinType != JoinType.LEFT && joinType != JoinType.RIGHT && joinType != JoinType.FULL) {
+            return Result.empty();
+        }
+        if (joinType != JoinType.INNER && !isPushPartialAggregationThroughOuterJoin(context.getSession())) {
             return Result.empty();
         }
 
-        // TODO: leave partial aggregation above Join?
-        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputVariables(), TypeProvider.viewOf(context.getVariableAllocator().getVariables()))) {
+        TypeProvider types = TypeProvider.viewOf(context.getVariableAllocator().getVariables());
+
+        // A join input whose rows the join preserves exactly (both inputs of an INNER join, the
+        // left input of a LEFT join, the right input of a RIGHT join) can accept any partial
+        // aggregation. A null-extended input (the right input of a LEFT join, the left input of a
+        // RIGHT join, both inputs of a FULL join) can only accept aggregations that ignore rows
+        // whose inputs are null: for those, the null intermediate state carried by a null-extended
+        // row contributes exactly what the original null arguments would have — nothing. Anything
+        // else (e.g. count(*), which counts null-extended rows) would produce wrong results.
+        boolean leftIsNullExtended = joinType == JoinType.RIGHT || joinType == JoinType.FULL;
+        boolean rightIsNullExtended = joinType == JoinType.LEFT || joinType == JoinType.FULL;
+
+        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputVariables(), types)
+                && (!leftIsNullExtended || allAggregationsIgnoreNullInputs(aggregationNode.getAggregations().values()))) {
             return Result.ofPlanNode(pushPartialToLeftChild(aggregationNode, joinNode, context));
         }
-        else {
-            if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputVariables(), TypeProvider.viewOf(context.getVariableAllocator().getVariables()))) {
-                return Result.ofPlanNode(pushPartialToRightChild(aggregationNode, joinNode, context));
-            }
+        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputVariables(), types)
+                && (!rightIsNullExtended || allAggregationsIgnoreNullInputs(aggregationNode.getAggregations().values()))) {
+            return Result.ofPlanNode(pushPartialToRightChild(aggregationNode, joinNode, context));
         }
 
         return Result.empty();
+    }
+
+    /**
+     * Determines whether every aggregation contributes nothing for a null-extended join row.
+     * That requires the function to skip rows with null inputs (e.g. min, max, sum, count(col),
+     * avg) and every argument to be a column reference, so that a null-extended row implies null
+     * arguments. count(*) fails the argument-count check, count(1) and sum(col + 1) fail the
+     * column-reference check, and functions like array_agg (which aggregates nulls) or checksum
+     * (which folds nulls into the hash) fail the null-input check.
+     */
+    private boolean allAggregationsIgnoreNullInputs(Collection<AggregationNode.Aggregation> aggregations)
+    {
+        return aggregations.stream().allMatch(aggregation ->
+                !aggregation.getArguments().isEmpty()
+                        && aggregation.getArguments().stream().allMatch(VariableReferenceExpression.class::isInstance)
+                        && ignoresNullInputs(aggregation.getFunctionHandle()));
+    }
+
+    /**
+     * FunctionMetadata#isCalledOnNullInput cannot be used here: for many built-in aggregations,
+     * SqlAggregationFunction inherits BuiltInFunction#isCalledOnNullInput (always false), regardless
+     * of the accumulator's actual null handling. The accumulator's parameter metadata is the
+     * authoritative source: input functions only observe null rows through a
+     * NULLABLE_BLOCK_INPUT_CHANNEL parameter. Implementations we cannot introspect are
+     * conservatively assumed to process nulls.
+     */
+    private boolean ignoresNullInputs(FunctionHandle functionHandle)
+    {
+        AggregationFunctionImplementation implementation = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
+        if (!(implementation instanceof BuiltInAggregationFunctionImplementation)) {
+            return false;
+        }
+        return ((BuiltInAggregationFunctionImplementation) implementation).getAggregationMetadata()
+                .getValueInputMetadata().stream()
+                .noneMatch(parameterMetadata -> parameterMetadata.getParameterType() == NULLABLE_BLOCK_INPUT_CHANNEL);
     }
 
     private boolean allAggregationsOn(Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregations, List<VariableReferenceExpression> variables, TypeProvider types)
