@@ -125,8 +125,8 @@ public class TestDruidPlanOptimizer
                         sumColumn,
                         ImmutableList.of(Iterables.getOnlyElement(aggregationOne.getAggregations().keySet()), Iterables.getOnlyElement(aggregationTwo.getAggregations().keySet()))));
         PlanNode optimizedPlan = getOptimizedPlan(planBuilder, originalPlan);
-        PlanMatchPattern tableScanMatcherOne = DruidTableScanMatcher.match(druidTableOne.getTableName(), "SELECT \"city\", sum(fare) FROM \"realtimeOnly\" GROUP BY \"city\"");
-        PlanMatchPattern tableScanMatcherTwo = DruidTableScanMatcher.match(druidTableTwo.getTableName(), "SELECT \"city\", sum(fare) FROM \"hybrid\" GROUP BY \"city\"");
+        PlanMatchPattern tableScanMatcherOne = DruidTableScanMatcher.match(druidTableOne.getTableName(), "SELECT \"city\", sum(fare) AS \"sum\" FROM \"realtimeOnly\" GROUP BY \"city\"");
+        PlanMatchPattern tableScanMatcherTwo = DruidTableScanMatcher.match(druidTableTwo.getTableName(), "SELECT \"city\", sum(fare) AS \"sum_0\" FROM \"hybrid\" GROUP BY \"city\"");
         assertPlanMatch(optimizedPlan, PlanMatchPattern.union(tableScanMatcherOne, tableScanMatcherTwo), typeProvider);
     }
 
