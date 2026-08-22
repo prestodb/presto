@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.mysql.MySQLContainer;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -34,6 +35,8 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.MYSQL_CATALOG;
+import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.MYSQL_PASSTHROUGH_CATALOG;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.removeDatabaseFromJdbcUrl;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -73,9 +76,26 @@ public class TestMySqlIntegrationSmokeTest
         return createMySqlQueryRunner(mysqlContainer.getJdbcUrl(), ImmutableMap.of(), ImmutableList.of(ORDERS));
     }
 
+    @BeforeClass
+    public void setUpViews()
+            throws SQLException
+    {
+        // VIEW 1: uses IFNULL() — MySQL built-in, unknown to Presto analyzer
+        execute("CREATE OR REPLACE VIEW tpch.v_now AS " +
+                "SELECT orderkey, IFNULL(comment, 'none') AS safe_comment FROM tpch.orders");
+
+        // VIEW 2: standard view — no MySQL-native functions
+        // Should work correctly in BOTH managed and passthrough modes
+        execute("CREATE OR REPLACE VIEW tpch.v_standard AS " +
+                "SELECT orderkey, custkey, orderstatus FROM tpch.orders");
+    }
+
     @AfterClass(alwaysRun = true)
     public final void destroy()
+            throws SQLException
     {
+        execute("DROP VIEW IF EXISTS tpch.v_now");
+        execute("DROP VIEW IF EXISTS tpch.v_standard");
         mysqlContainer.stop();
     }
 
@@ -424,6 +444,81 @@ public class TestMySqlIntegrationSmokeTest
     {
         assertQueryFails("CALL system.execute('SELECT 1')", "(?s)Failed to execute query.*");
         assertQueryFails("CALL system.execute('invalid')", "(?s)Failed to execute query.*");
+    }
+
+    // PASSTHROUGH MODE (enable-datasource-managed-views=true)
+    // MySQL resolves all view SQL natively — IFNULL() and other MySQL-only built-ins work correctly
+    @Test
+    public void testPassthroughNowViewQueryable()
+            throws SQLException
+    {
+        // IFNULL() resolved natively by MySQL — Presto never analyzes the view SQL
+        assertQuerySucceeds("SELECT * FROM " + MYSQL_PASSTHROUGH_CATALOG + ".tpch.v_now");
+    }
+
+    @Test
+    public void testPassthroughStandardViewQueryable()
+    {
+        // Standard view works in passthrough mode
+        assertQuerySucceeds("SELECT * FROM " + MYSQL_PASSTHROUGH_CATALOG + ".tpch.v_standard");
+    }
+
+    @Test
+    public void testPassthroughViewNotExposedAsPrestoView()
+    {
+        // With flag=true, views surface as tables — not listed in information_schema.views
+        MaterializedResult result = computeActual(
+                "SELECT table_name FROM " + MYSQL_PASSTHROUGH_CATALOG + ".information_schema.views " +
+                        "WHERE table_schema = 'tpch'");
+        assertTrue(result.getMaterializedRows().isEmpty(),
+                "Views should not be exposed as Presto views when datasource-managed-views is enabled");
+    }
+
+    // MANAGED MODE (enable-datasource-managed-views=false)
+    // Presto fetches and analyzes view SQL — fails on MySQL-native functions unknown to Presto
+    @Test
+    public void testManagedNowViewFails()
+    {
+        // IFNULL() is MySQL-specific and not registered in Presto's function registry —
+        // the analyzer throws FUNCTION_NOT_FOUND, so the query must fail
+        assertQueryFails("SELECT * FROM " + MYSQL_CATALOG + ".tpch.v_now",
+                "(?s).*");
+    }
+
+    @Test
+    public void testManagedStandardViewQueryable()
+    {
+        // Standard view with no MySQL-native functions works in managed mode
+        assertQuerySucceeds("SELECT * FROM " + MYSQL_CATALOG + ".tpch.v_standard");
+    }
+
+    @Test
+    public void testManagedViewExposedAsPrestoView()
+    {
+        // With flag=false, views are listed in information_schema.views
+        MaterializedResult result = computeActual(
+                "SELECT table_name FROM " + MYSQL_CATALOG + ".information_schema.views " +
+                        "WHERE table_schema = 'tpch'");
+        assertFalse(result.getMaterializedRows().isEmpty(),
+                "Views should be exposed as Presto views when datasource-managed-views is disabled");
+    }
+
+    // CROSS-MODE: same MySQL view, different behavior per catalog
+    @Test
+    public void testStandardViewWorksInBothModes()
+    {
+        // Standard view with no MySQL-native functions should work in both modes
+        assertQuerySucceeds("SELECT * FROM " + MYSQL_CATALOG + ".tpch.v_standard");
+        assertQuerySucceeds("SELECT * FROM " + MYSQL_PASSTHROUGH_CATALOG + ".tpch.v_standard");
+    }
+
+    @Test
+    public void testResultsConsistentAcrossModes()
+    {
+        // Standard view results should be identical in both modes
+        MaterializedResult managed = computeActual("SELECT orderkey, custkey FROM " + MYSQL_CATALOG + ".tpch.v_standard ORDER BY orderkey");
+        MaterializedResult passthrough = computeActual("SELECT orderkey, custkey FROM " + MYSQL_PASSTHROUGH_CATALOG + ".tpch.v_standard ORDER BY orderkey");
+        assertEquals(managed.getMaterializedRows(), passthrough.getMaterializedRows());
     }
 
     private void execute(String sql)
