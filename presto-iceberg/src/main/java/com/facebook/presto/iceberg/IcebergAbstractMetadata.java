@@ -2002,6 +2002,18 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
+    {
+        List<SchemaTableName> referencingViews = listMaterializedViews(session, tableName.getSchemaName())
+                .stream()
+                .filter(mvName -> getMaterializedView(session, mvName)
+                        .map(def -> def.getBaseTables().contains(tableName))
+                        .orElse(false))
+                .collect(toImmutableList());
+        return referencingViews.isEmpty() ? Optional.empty() : Optional.of(referencingViews);
+    }
+
+    @Override
     public Optional<MaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         Optional<IcebergViewMetadata> viewMetadata = getViewMetadata(session, viewName);
