@@ -503,6 +503,16 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitSetColumnPosition(SetColumnPosition node, C context)
+    {
+        process(node.getColumn(), context);
+        if (node.getPosition() instanceof ColumnPosition.After) {
+            process(((ColumnPosition.After) node.getPosition()).getColumn(), context);
+        }
+        return null;
+    }
+
+    @Override
     protected R visitMerge(Merge node, C context)
     {
         process(node.getTarget(), context);
@@ -603,6 +613,9 @@ public abstract class DefaultTraversalVisitor<R, C>
     protected R visitAddColumn(AddColumn node, C context)
     {
         process(node.getColumn(), context);
+        node.getPosition()
+                .filter(position -> position instanceof ColumnPosition.After)
+                .ifPresent(position -> process(((ColumnPosition.After) position).getColumn(), context));
 
         return null;
     }

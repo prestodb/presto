@@ -3327,8 +3327,30 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN b bigint COMMENT 'test comment BBB'");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN a varchar", ".* Column 'a' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bad_type", ".* Unknown type 'bad_type' for column 'c'");
-        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA', 19, NULL, NULL), ('b', 'bigint', '', 'test comment BBB', 19, NULL, NULL)");
+        // Hive does not implement the position-aware addColumn, so a position clause must be rejected outright
+        // rather than silently appending the column somewhere the user did not ask for
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bigint FIRST", ".*This connector does not support adding columns with FIRST clause");
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bigint AFTER a", ".*This connector does not support adding columns with AFTER clause");
+        // Omitting the clause appends, which is the connector's existing behavior
+        assertUpdate("ALTER TABLE test_add_column ADD COLUMN c bigint COMMENT 'test comment CCC'");
+        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA', 19, NULL, NULL), ('b', 'bigint', '', 'test comment BBB', 19, NULL, NULL), ('c', 'bigint', '', 'test comment CCC', 19, NULL, NULL)");
         assertUpdate("DROP TABLE test_add_column");
+    }
+
+    @Test
+    public void testSetColumnPosition()
+    {
+        assertUpdate("CREATE TABLE test_set_column_position (a bigint, b bigint)");
+        // Hive cannot reorder the columns of an existing table, so every position has to be rejected. Unlike
+        // ADD COLUMN, there is no position the connector can honor for free by leaving the table alone
+        assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN b FIRST", ".*This connector does not support moving columns");
+        assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN a AFTER b", ".*This connector does not support moving columns");
+        // The engine rejects a column that does not exist before reaching the connector
+        assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN missing FIRST", ".*Column 'missing' does not exist");
+        assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN a AFTER missing", ".*Column 'missing' does not exist");
+        assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN a AFTER a", ".*Column 'a' cannot be moved after itself");
+        assertQuery("SHOW COLUMNS FROM test_set_column_position", "VALUES ('a', 'bigint', '', '', 19, NULL, NULL), ('b', 'bigint', '', '', 19, NULL, NULL)");
+        assertUpdate("DROP TABLE test_set_column_position");
     }
 
     @Test

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -138,8 +139,28 @@ public class AddColumnTask
                 .setProperties(columnProperties)
                 .build();
 
-        metadata.addColumn(session, tableHandle.get(), column);
+        ColumnPosition position = toConnectorColumnPosition(statement, metadata, session, tableName.getCatalogName(), tableHandle.get(), columnHandles);
+
+        metadata.addColumn(session, tableHandle.get(), column, position);
 
         return immediateFuture(null);
+    }
+
+    /**
+     * Converts the optional {@code FIRST | AFTER <column>} clause of the statement into the connector
+     * representation. An absent clause becomes {@link ColumnPosition.Last}, so the column is appended,
+     * which is the pre-existing behavior.
+     */
+    private static ColumnPosition toConnectorColumnPosition(
+            AddColumn statement,
+            Metadata metadata,
+            Session session,
+            String catalogName,
+            TableHandle tableHandle,
+            Map<String, ColumnHandle> columnHandles)
+    {
+        return statement.getPosition()
+                .map(position -> ColumnPositionUtil.toConnectorColumnPosition(position, statement, metadata, session, catalogName, tableHandle, columnHandles))
+                .orElseGet(ColumnPosition.Last::new);
     }
 }

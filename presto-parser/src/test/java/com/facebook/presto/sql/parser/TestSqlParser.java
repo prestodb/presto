@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.ColumnPosition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
@@ -135,6 +136,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetColumnDefault;
+import com.facebook.presto.sql.tree.SetColumnPosition;
 import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
@@ -2131,6 +2133,105 @@ public class TestSqlParser
     }
 
     @Test
+    public void testAddColumnWithPosition()
+    {
+        // No clause at all leaves the position absent, so connectors keep the pre-existing append behavior
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"),
+                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), Optional.empty(), false, false));
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint FIRST", new AddColumn(QualifiedName.of("foo", "t"),
+                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.First()), false, false));
+
+        assertInvalidStatement("ALTER TABLE foo.t ADD COLUMN c bigint LAST", ".*mismatched input 'LAST'.*");
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint AFTER b", new AddColumn(QualifiedName.of("foo", "t"),
+                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.After(identifier("b"))), false, false));
+
+        // The clause composes with every other modifier of ADD COLUMN
+        assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN IF NOT EXISTS c bigint NOT NULL AFTER b",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("c"), "bigint", false, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.After(identifier("b"))), true, true));
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN country varchar DEFAULT 'IN' FIRST",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("IN"))),
+                        Optional.of(new ColumnPosition.First()), false, false));
+
+        // AFTER remains usable as an identifier, both as the new column name and as the target
+        assertStatement("ALTER TABLE foo.t ADD COLUMN after bigint AFTER after", new AddColumn(QualifiedName.of("foo", "t"),
+                new ColumnDefinition(identifier("after"), "bigint", true, emptyList(), Optional.empty()),
+                Optional.of(new ColumnPosition.After(identifier("after"))), false, false));
+
+        // A delimited target keeps its case
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint AFTER \"MixedCase\"", new AddColumn(QualifiedName.of("foo", "t"),
+                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()),
+                Optional.of(new ColumnPosition.After(new Identifier("MixedCase", true))), false, false));
+    }
+
+    @Test
+    public void testSetColumnPosition()
+    {
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN c FIRST", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("c"),
+                new ColumnPosition.First(),
+                false));
+
+        // There is no LAST keyword, as there is none for ADD COLUMN; a column is moved to the end by naming
+        // the column that is currently last
+        assertInvalidStatement("ALTER TABLE foo.t ALTER COLUMN c LAST", ".*mismatched input 'LAST'.*");
+
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN c AFTER b", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("c"),
+                new ColumnPosition.After(identifier("b")),
+                false));
+
+        // The COLUMN keyword is optional, matching the other ALTER COLUMN statements
+        assertStatement("ALTER TABLE foo.t ALTER c AFTER b", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("c"),
+                new ColumnPosition.After(identifier("b")),
+                false));
+
+        assertStatement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN c FIRST", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("c"),
+                new ColumnPosition.First(),
+                true));
+
+        // AFTER, FIRST and LAST remain usable as identifiers, both as the moved column and as the target
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN first AFTER last", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("first"),
+                new ColumnPosition.After(identifier("last")),
+                false));
+
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN after AFTER after", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("after"),
+                new ColumnPosition.After(identifier("after")),
+                false));
+
+        // Delimited names keep their case
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN \"MixedCase\" AFTER \"OtherCase\"", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                new Identifier("MixedCase", true),
+                new ColumnPosition.After(new Identifier("OtherCase", true)),
+                false));
+
+        // The position is required, since moving a column is the only thing the statement does
+        assertInvalidStatement("ALTER TABLE foo.t ALTER COLUMN c", "mismatched input '<EOF>'.*");
+    }
+
+    @Test
     public void testAlterColumnSetDataType()
     {
         assertStatement("ALTER TABLE foo.t ALTER COLUMN c SET DATA TYPE BIGINT", new SetColumnType(
@@ -2788,12 +2889,19 @@ public class TestSqlParser
                                 new DereferenceExpression(new Identifier("t"), new Identifier("current_role"))),
                         table(QualifiedName.of("t"))));
 
+        // AFTER is a keyword only inside the ADD COLUMN position clause
+        assertStatement("SELECT after FROM t",
+                simpleQuery(
+                        selectList(new Identifier("after")),
+                        table(QualifiedName.of("t"))));
+
         assertExpression("stats", new Identifier("stats"));
         assertExpression("nfd", new Identifier("nfd"));
         assertExpression("nfc", new Identifier("nfc"));
         assertExpression("nfkd", new Identifier("nfkd"));
         assertExpression("nfkc", new Identifier("nfkc"));
         assertExpression("current_role", new Identifier("current_role"));
+        assertExpression("after", new Identifier("after"));
     }
 
     @Test
