@@ -20,6 +20,8 @@ _______________
 * Fix incorrect epoch-second and nanosecond decomposition for pre-1970 (negative) timestamps in TimestampType; getEpochSecond and getNanos now use floor division instead of truncation toward zero. `#27935 <https://github.com/prestodb/presto/pull/27935>`_
 * Fix the ``optimize_row_in_predicate`` optimization so it applies to constant-folded ``ROW(...) IN (...)`` predicates, enabling per-column predicate derivation and partition pruning that previously did not occur. `#27942 <https://github.com/prestodb/presto/pull/27942>`_
 * Fix timestamp operations to match the SQL specification. The value of a ``TIMESTAMP`` type is not affected by the session time zone. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
+* Fix incorrect results when reading from a partially materialized view, where partitions recomputed from the base tables could also be read from the view and counted twice. `#27944 <https://github.com/prestodb/presto/pull/27944>`_
+* Fix a query failure (Field not found) when multiple remote function calls wrapped in ``TRY()`` appear in the same SELECT. `#28232 <https://github.com/prestodb/presto/pull/28232>`_
 * Improve outer joins on skewed ``NULL`` join keys by spreading the null keys across partitions in their native type. This is controlled by the existing ``randomize_outer_join_null_key`` session property. `#28153 <https://github.com/prestodb/presto/pull/28153>`_
 * Improve the ``optimize_cascading_filters_and_projections`` optimization to avoid duplicating multiply-referenced non-trivial expressions when coalescing cascading projections. `#28216 <https://github.com/prestodb/presto/pull/28216>`_
 * Add ``JOIN`` support to the materialized view query optimizer. Queries that join a base table covered by a materialized view with another table can now be rewritten to scan the materialized view in place of the base table, subject to safety guards (matching ``GROUP BY``, no aggregates over non-swapped tables, supported join types). `#27733 <https://github.com/prestodb/presto/pull/27733>`_
@@ -27,6 +29,7 @@ _______________
 * Add ``scanRawInputDataSize`` to basic query statistics. `#28222 <https://github.com/prestodb/presto/pull/28222>`_
 * Add ``native_exchange_materialization_enabled`` session property (Presto on Spark native codepath only) to control whether Velox native workers use MaterializedOutput/MaterializedExchange operators. When set to ``true``, enables materialized exchange; when ``false`` (default), falls back to PartitionAndSerialize + ShuffleWrite.
 * Add a driver-side metadata sidecar that registers native-only Velox functions into the Java planner at driver bootstrap. `#27698 <https://github.com/prestodb/presto/pull/27698>`_
+* Add column-level lineage for derived expression and aggregation columns in materialized view definitions, and emit a warning when a materialized view column has no base-table lineage. `#28176 <https://github.com/prestodb/presto/pull/28176>`_
 * Add configuration and session properties for legacy ``ST_Equals`` behavior. `#27015 <https://github.com/prestodb/presto/pull/27015>`_
 * Add configuration property ``server.startup-complete-required-for-active`` to report a node as not ready (``/v1/info`` ``starting`` and ``/v1/info/state``) until server startup has fully completed. Defaults to ``false``. `#28193 <https://github.com/prestodb/presto/pull/28193>`_
 * Add createTimestampType(int precision) factory supporting ``TIMESTAMP`` precisions p=0–12, with instance interning and semantic helpers toEpochMillis, toEpochMicros, and fromEpochComponents. Part of parameterized ``TIMESTAMP(p)`` support in #27934. `#27935 <https://github.com/prestodb/presto/pull/27935>`_
@@ -46,6 +49,7 @@ _______________
 * Add the materialized view query optimizer to the inner query of ``CREATE TABLE AS`` and ``INSERT`` statements, not just bare ``SELECT``. `#27917 <https://github.com/prestodb/presto/pull/27917>`_
 * Add validation to reject non-deterministic and session-time functions in ``CREATE MATERIALIZED VIEW`` definitions. `#28220 <https://github.com/prestodb/presto/pull/28220>`_
 * Add optimizer rule ``parallelize_chained_aggregation`` (default: false) that inserts a local round-robin exchange to parallelize the outer PARTIAL in chained aggregations. `#27884 <https://github.com/prestodb/presto/pull/27884>`_
+* Add the ``AUTOMATIC`` value for the ``rpc_streaming_mode`` session property, the ``rpc_batch_min_rows`` session property, and a pluggable ``RpcExecutionPolicy`` so deployments can resolve per-row vs batch RPC dispatch from the estimated input stats. `#27984 <https://github/com/prestodb/presto/pull/27984>`_
 * Update ST_Equals function for empty geometries to return true regardless of geometry types. `#27015 <https://github.com/prestodb/presto/pull/27015>`_
 * Update default value of ``deprecated.legacy-timestamp`` to false. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
 * Update the driver-side metadata sidecar registration of worker functions into the Airlift bootstrap. `#27699 <https://github.com/prestodb/presto/pull/27699>`_
@@ -56,7 +60,12 @@ ______________________________________
 * Add an Arrow federation connector to run federated queries. `#26404 <https://github.com/prestodb/presto/pull/26404>`_
 * Add registration for Presto-specific cuDF functions when cuDF is enabled in Presto native. `#28093 <https://github.com/prestodb/presto/pull/28093>`_
 * Add support for setting gflags via ``config.properties`` using the ``gflag.`` prefix. Property names use hyphens in place of underscores, such as ``gflag.velox-memory-num-shared-leaf-pools=64``. Command-line flags take precedence over config values. See :doc:`/presto_cpp/properties` for the full list of supported gflag properties. `#28127 <https://github.com/prestodb/presto/pull/28127>`_
+* Add session properties to tune the adaptive RPC rate limiter and congestion window (``native_rpc_ratelimiter_adaptive_enabled``, ``native_rpc_ratelimiter_min_limit``, ``native_rpc_ratelimiter_decrease_factor``, ``native_rpc_ratelimiter_max_limit``, ``native_rpc_congestion_max_window``). `#28115 <https://github.com/prestodb/presto/pull/28115>`_
 * Deprecate individual feature environment variables such as ``PRESTO_ENABLE_S3`` in favor of ``PRESTO_OPTIONAL_FEATURES``. `#28108 <https://github.com/prestodb/presto/pull/28108>`_
+* Fix runtime type-mismatch crashes at exchange operators in Prestissimo when aggregation variable names sort differently from their Java allocation order. `#27903 <https://github.com/prestodb/presto/pull/27903>`_
+* Fix LIKE, regexp, and json_extract queries applied to the result of a remote function (for example ``meta.ai.*`` outputs), which previously failed native query plan conversion. `#28118 <https://github.com/prestodb/presto/pull/28118>`_
+* Update ``native_exchange_materialization_enabled`` session property default to true to enable MaterizliedOutput and MaterializedExchange operators in Velox by default. `#27980 <https://github.com/prestodb/presto/pull/27980>`_
+* Add a two-phase memory reclaim for MaterializedOutputBuffer, integrated with the Velox memory arbitrator. `#27875 <https://github.com/prestodb/presto/pull/27875>`_
 
 Security Changes
 ________________
@@ -71,6 +80,8 @@ ________________
 * Upgrade lz4-java to 1.11.1 to address `CVE-2026-59949 <https://github.com/advisories/GHSA-xx22-p4ch-683r>`_. `#28244 <https://github.com/prestodb/presto/pull/28244>`_
 * Upgrade minimum Elasticsearch version from 6 to 9 (breaking) in response to `CVE-2024-52980 <https://github.com/advisories/GHSA-ghfh-p92w-j4mg>`_. `#25320 <https://github.com/prestodb/presto/pull/25320>`_
 * Upgrade org.apache.logging.log4j to 2.25.5  to address `CVE-2026-49844 <https://github.com/advisories/GHSA-qv9r-c865-cp47>`_. `#28186 <https://github.com/prestodb/presto/pull/28186>`_
+* Upgrade async-http-client to 3.0.10 in response to `CVE-2026-45300  <https://github.com/advisories/GHSA-fmxf-pm6p-7xgm>`_. `27863 <https://github.com/prestodb/presto/pull/27863>`_
+* Upgrade commons-configuration2 in response to `CVE-2026-45205  <https://github.com/advisories/GHSA-337m-mw94-2v6g>`_. `#27862 <https://github.com/prestodb/presto/pull/27862>`_
 
 Cassandra Connector Changes
 ___________________________
@@ -85,6 +96,7 @@ Hive Connector Changes
 ______________________
 * Fix Parquet RLE and PLAIN dictionary decoding for decimals backed by byte arrays. `#28086 <https://github.com/prestodb/presto/pull/28086>`_
 * Fix partition filter cache metrics association. **BREAKING**: Metric names changed from `partitionnamescache*` to `partitionfiltercache*`. Users monitoring these JMX metrics must update their dashboards, alerts, and scripts to use the new metric names. The old metrics tracked the partition filter cache (filtered partition queries), not the partition names cache, as the name suggested. `#27960 <https://github.com/prestodb/presto/pull/27960>`_
+* Fix to allow creating partitioned tables using AVRO format and ``avro_schema_url`` property. `#27490 <https://github.com/prestodb/presto/pull/27490>`_
 * Add Azure filesystem impl registration for ABFSS and WASB/S schemes. `#28054 <https://github.com/prestodb/presto/pull/28054>`_
 * Add comprehensive cache metrics for all metastore caches. `#27960 <https://github.com/prestodb/presto/pull/27960>`_
 * Add support for AWS Glue Table and Column Statistics. `#27112 <https://github.com/prestodb/presto/pull/27112>`_
@@ -93,6 +105,8 @@ ______________________
 
 Iceberg Connector Changes
 _________________________
+* Add support for Iceberg V3 field-id protocol in Presto Native `#28116 <https://github.com/prestodb/presto/pull/28116>`_
+* Add support for Iceberg V3 deletion vectors and UPDATE/MERGE statements in Presto Native. `#28058 <https://github.com/prestodb/presto/pull28058>`_
 * Fix ``DROP TABLE`` for Hive-backed Iceberg tables to properly delete all data and metadata files on S3 using Iceberg's CatalogUtil instead of relying on Hive metastore directory deletion. `#27938 <https://github.com/prestodb/presto/pull/27938>`_
 * Fix timestamp-to-micros conversion and legacy-timezone adjustment in IcebergPageSink for pre-epoch timestamps, using the corrected TimestampType epoch helpers. `#27935 <https://github.com/prestodb/presto/pull/27935>`_
 * Improve Iceberg table statistics computation by using snapshot-level total record counts instead of re-scanning manifests. `#28248 <https://github.com/prestodb/presto/pull/28248>`_
@@ -122,8 +136,10 @@ SPI Changes
 ___________
 * Add ``OutputColumnMetadata.getColumnLineage()`` returning a unified ``Set<ColumnLineageEntry>`` that covers both DIRECT and INDIRECT lineage from :pr:`27695`, with direct entries carrying ``IDENTITY``, ``TRANSFORMATION``, or ``AGGREGATION`` subtypes derived from the SELECT-list expression. ``getSourceColumns()`` and ``getIndirectSourceColumns()`` are retained as derived views and marked ``@Deprecated``; existing event listeners and JSON consumers are unaffected. `#27995 <https://github.com/prestodb/presto/pull/27995>`_
 * Add ``getScanRawInputBytes`` to ``QueryStatistics``. Note: this adds a required constructor argument; plugins that construct ``QueryStatistics`` directly must be updated. `#28222 <https://github.com/prestodb/presto/pull/28222>`_
+* Add a ``ConnectorMetadata.beginRefreshMaterializedView``` overload that carries the materialized view refresh predicate (refresh scope) to connectors. `#27949 <https://github.com/prestodb/presto/pull/27949>`_
+* Add ``getMaterializedViewRewrittenQuery`` to ``QueryCompletedEvent``, exposing the query produced when a materialized view rewrite is applied. `#27919 <https://github.com/prestodb/presto/pull/27919>`_
 
-**Credits**
+**Credits*** Upgrade commons-configuration2 in response to `CVE-2026-45205  <https://github.com/advisories/GHSA-337m-mw94-2v6g>`_.
 ===========
 
 Aditi Pandit, Ajay Kharat, Allen Shen, Amit Dutta, Andrii Rosa, Apurva Kumar, Auden Woolfson, Ayasaz, Bryan Cutler, Chandrakant Vankayalapati, ChenXing Yang, Christian Zentgraf, Deepak Majeti, Deepak Mehra, Denis Krivenko, Denodo Research Labs, Dilli Babu Godari, Dong Wang, Henry Dikeman, Hongtao Yang, Jack Luo, Jalpreet Singh Nanda, Jianjian Xie, Joe Abraham, Kevin Tang, Madhavan, Maria Basmanova, Matt Gara, Miguel Blanco Godón, Natasha Sehgal, Neerad Somanchi, Nidhin Varghese, Nishitha K Bhaskaran, Nivin C S, Patrick Sullivan, Pramod Satya, Pratik Joseph Dabre, Reetika Agrawal, Sayari Mukherjee, Shahim Sharafudeen, Shakyan Kushwaha, Shreya, Shrinidhi Joshi, Sreeni Viswanadha, Steve Burnett, Timothy Meehan, Tirumala Saiteja Goruganthu, Vyacheslav Andreykiv, Yihong Wang, Ying, Zac, Zac Blanco, bcam-meta, bibith4, deepthibose01, dependabot[bot], feilong-liu, jkhaliqi, mohsaka, sumi-mathew, zhichenxu-meta
