@@ -1,0 +1,3 @@
+# Steps to generate this file: https://prometheus.io/docs/guides/basic-auth/
+basic_auth_users:
+  admin: $2b$12$4rM8ksUG5lzoe9mcfqlfWO2iD4e4wtWf/a/KEepDcd0nfqI6nsLlG
