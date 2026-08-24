@@ -233,8 +233,8 @@ public class ElasticsearchConfig
     }
 
     @Config("elasticsearch.content-compression-enabled")
-    @ConfigDescription("Request compressed HTTP responses from Elasticsearch. Disabled by default because Elasticsearch 9.x " +
-            "can return a Content-Encoding: gzip header on responses that are not actually GZIP encoded")
+    @ConfigDescription("Request compressed HTTP responses from Elasticsearch. Disabled by default to match the behavior of " +
+            "earlier releases; enable it to save bandwidth on large result sets")
     public ElasticsearchConfig setContentCompressionEnabled(boolean contentCompressionEnabled)
     {
         this.contentCompressionEnabled = contentCompressionEnabled;

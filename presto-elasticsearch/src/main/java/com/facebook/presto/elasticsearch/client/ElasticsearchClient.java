@@ -250,11 +250,14 @@ public class ElasticsearchClient
         PoolingAsyncClientConnectionManager poolingAsyncClientConnectionManager = new PoolingAsyncClientConnectionManager(tlsStrategyRegistryBuilder.build());
         poolingAsyncClientConnectionManager.setMaxTotal(config.getMaxHttpConnections());
         clientBuilder.setConnectionManager(poolingAsyncClientConnectionManager);
-        // Compression is off by default: ES 9.x may send gzip-framed responses even without the client
-        // requesting compression, and disabling it on the client side prevents ambiguous Content-Encoding
-        // headers. Enable it against servers that frame responses correctly, where it saves bandwidth on
-        // large result sets.
-        if (!config.isContentCompressionEnabled()) {
+        // httpclient5 5.6 negotiates content encodings on the async transport by default, so responses
+        // would arrive gzip-encoded unless we opt out. Compression is off by default here, which keeps the
+        // behavior of releases built against httpclient5 5.2.x. When it is on, the interceptor below repairs
+        // the stale Content-Encoding header that otherwise makes elasticsearch-java decode the body twice.
+        if (config.isContentCompressionEnabled()) {
+            clientBuilder.addExecInterceptorFirst("strip-stale-content-encoding", new StripStaleContentEncodingExec());
+        }
+        else {
             clientBuilder.disableContentCompression();
         }
 

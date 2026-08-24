@@ -155,10 +155,9 @@ This property controls whether the connector requests compressed HTTP responses 
 Compression reduces the bandwidth used by large responses, at the cost of some CPU on both the
 Elasticsearch node and the Presto worker.
 
-Compression is disabled by default because Elasticsearch 9.x can return responses carrying a
-``Content-Encoding: gzip`` header that are not actually GZIP encoded, which makes the response
-body unreadable. Enable this property only against Elasticsearch versions that frame compressed
-responses correctly.
+Compression is disabled by default, which matches the behavior of earlier Presto releases. Enable
+it when response bandwidth between the Presto workers and the Elasticsearch cluster is the
+bottleneck.
 
 This property is optional; the default is ``false``.
 

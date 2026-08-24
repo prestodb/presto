@@ -52,6 +52,10 @@ public class TestElasticsearchMixedCaseTest
         elasticsearch = new ElasticsearchServer(elasticsearchServer, ImmutableMap.of(), ImmutableMap.of(
                 "xpack.security.enabled", "false"));
         HostAndPort address = elasticsearch.getAddress();
+        // This test drives Elasticsearch directly rather than through ElasticsearchClient, so it has to opt
+        // out of httpclient5 5.6's default content encoding negotiation itself. Without this, the stale
+        // Content-Encoding header left on decoded responses makes elasticsearch-java decode them a second
+        // time and indexing fails with "Not in GZIP format".
         Rest5Client restClient = Rest5Client.builder(new HttpHost(address.getHost(), address.getPort()))
                 .setHttpClient(HttpAsyncClientBuilder.create()
                         .disableContentCompression()
