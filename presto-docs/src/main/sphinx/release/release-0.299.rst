@@ -4,9 +4,9 @@ Release 0.299
 
 **Breaking Changes**
 ====================
-* Fix partition filter cache metrics association. BREAKING: Metric names changed from `partitionnamescache*` to `partitionfiltercache*`. Users monitoring these JMX metrics must update their dashboards, alerts, and scripts to use the new metric names. The old metrics tracked the partition filter cache (filtered partition queries), not the partition names cache, as the name suggested. #27960 <https://github.com/prestodb/presto/pull/27960>_
-* Add explicit strategy parameter to rewrite_data_files procedure with binpack and sort strategies. Breaking change: Default behavior changed from sort to binpack for faster rewrites. Existing queries that rely on data ordering must add strategy => 'sort' to maintain previous behavior. Queries using sorted_by must now explicitly specify strategy => 'sort'. #28092 <https://github.com/prestodb/presto/pull/28092>_
-* Upgrade minimum Elasticsearch version from 6 to 9 (breaking) in response to CVE-2024-52980. #25320
+* Fix partition filter cache metrics association. BREAKING: Metric names changed from `partitionnamescache*` to `partitionfiltercache*`. Users monitoring these JMX metrics must update their dashboards, alerts, and scripts to use the new metric names. The old metrics tracked the partition filter cache (filtered partition queries), not the partition names cache, as the name suggested. `#27960 <https://github.com/prestodb/presto/pull/27960>`_
+* Add explicit strategy parameter to rewrite_data_files procedure with binpack and sort strategies. Breaking change: Default behavior changed from sort to binpack for faster rewrites. Existing queries that rely on data ordering must add strategy => 'sort' to maintain previous behavior. Queries using sorted_by must now explicitly specify strategy => 'sort'. `#28092 <https://github.com/prestodb/presto/pull/28092>`_
+* Upgrade minimum Elasticsearch version from 6 to 9 (breaking) in response to CVE-2024-52980. `#25320 <https://github.com/prestodb/presto/pull/25320>`_
 
 **Highlights**
 ==============
@@ -49,7 +49,7 @@ _______________
 * Add the materialized view query optimizer to the inner query of ``CREATE TABLE AS`` and ``INSERT`` statements, not just bare ``SELECT``. `#27917 <https://github.com/prestodb/presto/pull/27917>`_
 * Add validation to reject non-deterministic and session-time functions in ``CREATE MATERIALIZED VIEW`` definitions. `#28220 <https://github.com/prestodb/presto/pull/28220>`_
 * Add optimizer rule ``parallelize_chained_aggregation`` (default: false) that inserts a local round-robin exchange to parallelize the outer PARTIAL in chained aggregations. `#27884 <https://github.com/prestodb/presto/pull/27884>`_
-* Add the ``AUTOMATIC`` value for the ``rpc_streaming_mode`` session property, the ``rpc_batch_min_rows`` session property, and a pluggable ``RpcExecutionPolicy`` so deployments can resolve per-row vs batch RPC dispatch from the estimated input stats. `#27984 <https://github/com/prestodb/presto/pull/27984>`_
+* Add the ``AUTOMATIC`` value for the ``rpc_streaming_mode`` session property, the ``rpc_batch_min_rows`` session property, and a pluggable ``RpcExecutionPolicy`` so deployments can resolve per-row versus batch RPC dispatch from the estimated input stats. `#27984 <https://github/com/prestodb/presto/pull/27984>`_
 * Update ST_Equals function for empty geometries to return true regardless of geometry types. `#27015 <https://github.com/prestodb/presto/pull/27015>`_
 * Update default value of ``deprecated.legacy-timestamp`` to false. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
 * Update the driver-side metadata sidecar registration of worker functions into the Airlift bootstrap. `#27699 <https://github.com/prestodb/presto/pull/27699>`_
@@ -63,8 +63,8 @@ ______________________________________
 * Add session properties to tune the adaptive RPC rate limiter and congestion window (``native_rpc_ratelimiter_adaptive_enabled``, ``native_rpc_ratelimiter_min_limit``, ``native_rpc_ratelimiter_decrease_factor``, ``native_rpc_ratelimiter_max_limit``, ``native_rpc_congestion_max_window``). `#28115 <https://github.com/prestodb/presto/pull/28115>`_
 * Deprecate individual feature environment variables such as ``PRESTO_ENABLE_S3`` in favor of ``PRESTO_OPTIONAL_FEATURES``. `#28108 <https://github.com/prestodb/presto/pull/28108>`_
 * Fix runtime type-mismatch crashes at exchange operators in Prestissimo when aggregation variable names sort differently from their Java allocation order. `#27903 <https://github.com/prestodb/presto/pull/27903>`_
-* Fix LIKE, regexp, and json_extract queries applied to the result of a remote function (for example ``meta.ai.*`` outputs), which previously failed native query plan conversion. `#28118 <https://github.com/prestodb/presto/pull/28118>`_
-* Update ``native_exchange_materialization_enabled`` session property default to true to enable MaterizliedOutput and MaterializedExchange operators in Velox by default. `#27980 <https://github.com/prestodb/presto/pull/27980>`_
+* Fix ``LIKE``, regexp, and json_extract queries applied to the result of a remote function (for example ``meta.ai.*`` outputs), which previously failed native query plan conversion. `#28118 <https://github.com/prestodb/presto/pull/28118>`_
+* Update ``native_exchange_materialization_enabled`` session property default to ``true`` to enable MaterizliedOutput and MaterializedExchange operators in Velox by default. `#27980 <https://github.com/prestodb/presto/pull/27980>`_
 * Add a two-phase memory reclaim for MaterializedOutputBuffer, integrated with the Velox memory arbitrator. `#27875 <https://github.com/prestodb/presto/pull/27875>`_
 
 Security Changes
@@ -80,7 +80,7 @@ ________________
 * Upgrade lz4-java to 1.11.1 to address `CVE-2026-59949 <https://github.com/advisories/GHSA-xx22-p4ch-683r>`_. `#28244 <https://github.com/prestodb/presto/pull/28244>`_
 * Upgrade minimum Elasticsearch version from 6 to 9 (breaking) in response to `CVE-2024-52980 <https://github.com/advisories/GHSA-ghfh-p92w-j4mg>`_. `#25320 <https://github.com/prestodb/presto/pull/25320>`_
 * Upgrade org.apache.logging.log4j to 2.25.5  to address `CVE-2026-49844 <https://github.com/advisories/GHSA-qv9r-c865-cp47>`_. `#28186 <https://github.com/prestodb/presto/pull/28186>`_
-* Upgrade async-http-client to 3.0.10 in response to `CVE-2026-45300  <https://github.com/advisories/GHSA-fmxf-pm6p-7xgm>`_. `27863 <https://github.com/prestodb/presto/pull/27863>`_
+* Upgrade async-http-client to 3.0.10 in response to `CVE-2026-45300  <https://github.com/advisories/GHSA-fmxf-pm6p-7xgm>`_. `#27863 <https://github.com/prestodb/presto/pull/27863>`_
 * Upgrade commons-configuration2 in response to `CVE-2026-45205  <https://github.com/advisories/GHSA-337m-mw94-2v6g>`_. `#27862 <https://github.com/prestodb/presto/pull/27862>`_
 
 Cassandra Connector Changes
@@ -105,8 +105,8 @@ ______________________
 
 Iceberg Connector Changes
 _________________________
-* Add support for Iceberg V3 field-id protocol in Presto Native `#28116 <https://github.com/prestodb/presto/pull/28116>`_
-* Add support for Iceberg V3 deletion vectors and UPDATE/MERGE statements in Presto Native. `#28058 <https://github.com/prestodb/presto/pull28058>`_
+* Add support for Iceberg V3 field-id protocol in Presto Native. `#28116 <https://github.com/prestodb/presto/pull/28116>`_
+* Add support for Iceberg V3 deletion vectors and ``UPDATE`` / ``MERGE`` statements in Presto Native. `#28058 <https://github.com/prestodb/presto/pull28058>`_
 * Fix ``DROP TABLE`` for Hive-backed Iceberg tables to properly delete all data and metadata files on S3 using Iceberg's CatalogUtil instead of relying on Hive metastore directory deletion. `#27938 <https://github.com/prestodb/presto/pull/27938>`_
 * Fix timestamp-to-micros conversion and legacy-timezone adjustment in IcebergPageSink for pre-epoch timestamps, using the corrected TimestampType epoch helpers. `#27935 <https://github.com/prestodb/presto/pull/27935>`_
 * Improve Iceberg table statistics computation by using snapshot-level total record counts instead of re-scanning manifests. `#28248 <https://github.com/prestodb/presto/pull/28248>`_
