@@ -139,7 +139,7 @@ ___________
 * Add a ``ConnectorMetadata.beginRefreshMaterializedView``` overload that carries the materialized view refresh predicate (refresh scope) to connectors. `#27949 <https://github.com/prestodb/presto/pull/27949>`_
 * Add ``getMaterializedViewRewrittenQuery`` to ``QueryCompletedEvent``, exposing the query produced when a materialized view rewrite is applied. `#27919 <https://github.com/prestodb/presto/pull/27919>`_
 
-**Credits*** Upgrade commons-configuration2 in response to `CVE-2026-45205  <https://github.com/advisories/GHSA-337m-mw94-2v6g>`_.
+**Credits**
 ===========
 
 Aditi Pandit, Ajay Kharat, Allen Shen, Amit Dutta, Andrii Rosa, Apurva Kumar, Auden Woolfson, Ayasaz, Bryan Cutler, Chandrakant Vankayalapati, ChenXing Yang, Christian Zentgraf, Deepak Majeti, Deepak Mehra, Denis Krivenko, Denodo Research Labs, Dilli Babu Godari, Dong Wang, Henry Dikeman, Hongtao Yang, Jack Luo, Jalpreet Singh Nanda, Jianjian Xie, Joe Abraham, Kevin Tang, Madhavan, Maria Basmanova, Matt Gara, Miguel Blanco Godón, Natasha Sehgal, Neerad Somanchi, Nidhin Varghese, Nishitha K Bhaskaran, Nivin C S, Patrick Sullivan, Pramod Satya, Pratik Joseph Dabre, Reetika Agrawal, Sayari Mukherjee, Shahim Sharafudeen, Shakyan Kushwaha, Shreya, Shrinidhi Joshi, Sreeni Viswanadha, Steve Burnett, Timothy Meehan, Tirumala Saiteja Goruganthu, Vyacheslav Andreykiv, Yihong Wang, Ying, Zac, Zac Blanco, bcam-meta, bibith4, deepthibose01, dependabot[bot], feilong-liu, jkhaliqi, mohsaka, sumi-mathew, zhichenxu-meta
