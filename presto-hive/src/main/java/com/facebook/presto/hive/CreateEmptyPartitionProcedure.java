@@ -41,6 +41,7 @@ import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedPartitionUpdateSerializationEnabled;
 import static com.facebook.presto.hive.HiveUtil.serializeZstdCompressed;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
@@ -116,7 +117,7 @@ public class CreateEmptyPartitionProcedure
         }
 
         List<String> partitionStringValues = partitionValues.stream()
-                .map(String.class::cast)
+                .map(value -> value == null ? HIVE_DEFAULT_DYNAMIC_PARTITION : String.class.cast(value))
                 .collect(toImmutableList());
 
         if (metastore.getPartition(new MetastoreContext(
