@@ -27,18 +27,18 @@ _______________
 * Add ``JOIN`` support to the materialized view query optimizer. Queries that join a base table covered by a materialized view with another table can now be rewritten to scan the materialized view in place of the base table, subject to safety guards (matching ``GROUP BY``, no aggregates over non-swapped tables, supported join types). `#27733 <https://github.com/prestodb/presto/pull/27733>`_
 * Add ``scanRawInputDataSizeInBytes`` to task statistics, reporting the raw input data size read by table scan operators. `#28222 <https://github.com/prestodb/presto/pull/28222>`_
 * Add ``scanRawInputDataSize`` to basic query statistics. `#28222 <https://github.com/prestodb/presto/pull/28222>`_
-* Add ``native_exchange_materialization_enabled`` session property (Presto on Spark native codepath only) to control whether Velox native workers use MaterializedOutput/MaterializedExchange operators. When set to ``true``, enables materialized exchange; when ``false`` (default), falls back to PartitionAndSerialize + ShuffleWrite.
+* Add ``native_exchange_materialization_enabled`` session property (Presto on Spark native codepath only) to control whether Velox native workers use MaterializedOutput/MaterializedExchange operators. When set to ``true``, enables materialized exchange; when ``false`` (default), falls back to PartitionAndSerialize + ShuffleWrite. `#27881 <https://github.com/prestodb/presto/pull/27881>`_
 * Add a driver-side metadata sidecar that registers native-only Velox functions into the Java planner at driver bootstrap. `#27698 <https://github.com/prestodb/presto/pull/27698>`_
 * Add column-level lineage for derived expression and aggregation columns in materialized view definitions, and emit a warning when a materialized view column has no base-table lineage. `#28176 <https://github.com/prestodb/presto/pull/28176>`_
 * Add configuration and session properties for legacy ``ST_Equals`` behavior. `#27015 <https://github.com/prestodb/presto/pull/27015>`_
 * Add configuration property ``server.startup-complete-required-for-active`` to report a node as not ready (``/v1/info`` ``starting`` and ``/v1/info/state``) until server startup has fully completed. Defaults to ``false``. `#28193 <https://github.com/prestodb/presto/pull/28193>`_
-* Add createTimestampType(int precision) factory supporting ``TIMESTAMP`` precisions p=0–12, with instance interning and semantic helpers toEpochMillis, toEpochMicros, and fromEpochComponents. Part of parameterized ``TIMESTAMP(p)`` support in #27934. `#27935 <https://github.com/prestodb/presto/pull/27935>`_
+* Add createTimestampType(int precision) factory supporting ``TIMESTAMP`` precisions p=0–12, with instance interning and semantic helpers toEpochMillis, toEpochMicros, and fromEpochComponents. Part of parameterized ``TIMESTAMP(p)`` support in `#27934 <https://github.com/prestodb/presto/pull/27934>`_. `#27935 <https://github.com/prestodb/presto/pull/27935>`_
 * Add indirect column lineage (``JOIN``, ``WHERE``/``HAVING``, ``GROUP BY``, ``ORDER BY``, window, and conditional expressions from :pr:`27695`) to the OpenLineage event listener's ``columnLineage`` dataset facet, exposing it through ``InputField.transformations``. Direct-lineage emission is unchanged. See :doc:`/develop/openlineage-event-listener`. `#27994 <https://github.com/prestodb/presto/pull/27994>`_
 * Add indirect column lineage tracking (``JOIN``, ``FILTER``, ``GROUP BY``, ``ORDER BY``, ``CONDITIONAL``) to query analysis, building on the direct column lineage added in #25913. Indirect relationships are exposed to event listeners with a new relationship-metadata field on ``OutputColumnMetadata``; existing direct-lineage consumers are unaffected. `#27695 <https://github.com/prestodb/presto/pull/27695>`_
 * Add multi-arch (amd64 + arm64) support for presto-native and presto-native-dependency release Docker images, with the arm64 build using a portable -march=armv8-a+crc+crypto baseline for broad ARM CPU compatibility. `#28046 <https://github.com/prestodb/presto/pull/28046>`_
 * Add session property ``grouped_execution_when_capable`` (default disabled) that, together with ``grouped_execution``, runs grouped execution for any bucketed grouped-execution-capable fragment even when no downstream operator makes grouping individually beneficial (for example a bucketed scan feeding a shuffle, or a bucketed-to-bucketed table write). This avoids re-partitioning already-bucketed data and bounds per-lifespan memory to a single bucket. `#28097 <https://github.com/prestodb/presto/pull/28097>`_
 * Add session property ``pull_constant_projection_above_exchange`` (disabled by default) that pulls constant projection assignments above remote exchanges, avoiding serialization and shuffling of constant values across the network. :pr:`27499`. `#27499 <https://github.com/prestodb/presto/pull/27499>`_
-* Add session property ``pull_row_local_chain_above_exchange_strategy`` (default ``DISABLED``) that pulls a chain of row-local operators (``UNNEST`` and deterministic projections) above a repartitioning remote exchange so the exchange shuffles the smaller pre-expansion input, reducing network shuffle. :pr:`28079`. `#28079 <https://github.com/prestodb/presto/pull/28079>`_
+* Add session property ``pull_row_local_chain_above_exchange_strategy`` (default ``DISABLED``) that pulls a chain of row-local operators (``UNNEST`` and deterministic projections) above a repartitioning remote exchange so the exchange shuffles the smaller pre-expansion input, reducing network shuffle. `#28079 <https://github.com/prestodb/presto/pull/28079>`_
 * Add support for ANSI SQL syntax in trim function. `#28190 <https://github.com/prestodb/presto/pull/28190>`_
 * Add support for additional predicates on ``WHEN`` clauses in ``MERGE`` (``WHEN MATCHED AND <condition>``, ``WHEN NOT MATCHED AND <condition>``). `#27855 <https://github.com/prestodb/presto/pull/27855>`_
 * Add support for an any-typed variadic tail in JSON-file-based function definitions. `#28207 <https://github.com/prestodb/presto/pull/28207>`_
@@ -61,11 +61,11 @@ ______________________________________
 * Add registration for Presto-specific cuDF functions when cuDF is enabled in Presto native. `#28093 <https://github.com/prestodb/presto/pull/28093>`_
 * Add support for setting gflags via ``config.properties`` using the ``gflag.`` prefix. Property names use hyphens in place of underscores, such as ``gflag.velox-memory-num-shared-leaf-pools=64``. Command-line flags take precedence over config values. See :doc:`/presto_cpp/properties` for the full list of supported gflag properties. `#28127 <https://github.com/prestodb/presto/pull/28127>`_
 * Add session properties to tune the adaptive RPC rate limiter and congestion window (``native_rpc_ratelimiter_adaptive_enabled``, ``native_rpc_ratelimiter_min_limit``, ``native_rpc_ratelimiter_decrease_factor``, ``native_rpc_ratelimiter_max_limit``, ``native_rpc_congestion_max_window``). `#28115 <https://github.com/prestodb/presto/pull/28115>`_
+* Add a two-phase memory reclaim for MaterializedOutputBuffer, integrated with the Velox memory arbitrator. `#27875 <https://github.com/prestodb/presto/pull/27875>`_
 * Deprecate individual feature environment variables such as ``PRESTO_ENABLE_S3`` in favor of ``PRESTO_OPTIONAL_FEATURES``. `#28108 <https://github.com/prestodb/presto/pull/28108>`_
 * Fix runtime type-mismatch crashes at exchange operators in Prestissimo when aggregation variable names sort differently from their Java allocation order. `#27903 <https://github.com/prestodb/presto/pull/27903>`_
 * Fix ``LIKE``, regexp, and json_extract queries applied to the result of a remote function (for example ``meta.ai.*`` outputs), which previously failed native query plan conversion. `#28118 <https://github.com/prestodb/presto/pull/28118>`_
 * Update ``native_exchange_materialization_enabled`` session property default to ``true`` to enable MaterizliedOutput and MaterializedExchange operators in Velox by default. `#27980 <https://github.com/prestodb/presto/pull/27980>`_
-* Add a two-phase memory reclaim for MaterializedOutputBuffer, integrated with the Velox memory arbitrator. `#27875 <https://github.com/prestodb/presto/pull/27875>`_
 
 Security Changes
 ________________
@@ -105,8 +105,6 @@ ______________________
 
 Iceberg Connector Changes
 _________________________
-* Add support for Iceberg V3 field-id protocol in Presto Native. `#28116 <https://github.com/prestodb/presto/pull/28116>`_
-* Add support for Iceberg V3 deletion vectors and ``UPDATE`` / ``MERGE`` statements in Presto Native. `#28058 <https://github.com/prestodb/presto/pull28058>`_
 * Fix ``DROP TABLE`` for Hive-backed Iceberg tables to properly delete all data and metadata files on S3 using Iceberg's CatalogUtil instead of relying on Hive metastore directory deletion. `#27938 <https://github.com/prestodb/presto/pull/27938>`_
 * Fix timestamp-to-micros conversion and legacy-timezone adjustment in IcebergPageSink for pre-epoch timestamps, using the corrected TimestampType epoch helpers. `#27935 <https://github.com/prestodb/presto/pull/27935>`_
 * Improve Iceberg table statistics computation by using snapshot-level total record counts instead of re-scanning manifests. `#28248 <https://github.com/prestodb/presto/pull/28248>`_
@@ -119,6 +117,8 @@ _________________________
 * Add support for iceberg write-default. `#27912 <https://github.com/prestodb/presto/pull/27912>`_
 * Add support to enable TLS for REST catalog communication. `#28103 <https://github.com/prestodb/presto/pull/28103>`_
 * Add read support for row lineage columns as per Iceberg V3 spec. `#27743 <https://github.com/prestodb/presto/pull/27743>`_
+* Add support for Iceberg V3 field-id protocol in Presto Native. `#28116 <https://github.com/prestodb/presto/pull/28116>`_
+* Add support for Iceberg V3 deletion vectors and ``UPDATE`` / ``MERGE`` statements in Presto Native. `#28058 <https://github.com/prestodb/presto/pull28058>`_
 
 Lance Connector Changes
 _______________________
