@@ -155,6 +155,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
+import static com.facebook.presto.sql.ExpressionFormatter.formatIdentifier;
 import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
@@ -1635,7 +1636,7 @@ public final class SqlFormatter
         protected Void visitCallArgument(CallArgument node, Integer indent)
         {
             if (node.getName().isPresent()) {
-                builder.append(node.getName().get())
+                builder.append(formatIdentifier(node.getName().get()))
                         .append(" => ");
             }
             builder.append(formatExpression(node.getValue(), parameters));

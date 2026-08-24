@@ -2856,6 +2856,9 @@ public class TestSqlParser
                 new CallArgument("a", new LongLiteral("1")),
                 new CallArgument("b", new StringLiteral("go")),
                 new CallArgument(new LongLiteral("456")))));
+        assertStatement("CALL foo(UPPER => 1, \"Mixed\" => 2)", new Call(QualifiedName.of("foo"), ImmutableList.of(
+                new CallArgument("upper", new LongLiteral("1")),
+                new CallArgument("Mixed", new LongLiteral("2")))));
     }
 
     @Test
