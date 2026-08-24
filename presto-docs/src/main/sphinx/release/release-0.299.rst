@@ -21,7 +21,7 @@ _______________
 * Fix the ``optimize_row_in_predicate`` optimization so it applies to constant-folded ``ROW(...) IN (...)`` predicates, enabling per-column predicate derivation and partition pruning that previously did not occur. `#27942 <https://github.com/prestodb/presto/pull/27942>`_
 * Fix timestamp operations to match the SQL specification. The value of a ``TIMESTAMP`` type is not affected by the session time zone. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
 * Fix incorrect results when reading from a partially materialized view, where partitions recomputed from the base tables could also be read from the view and counted twice. `#27944 <https://github.com/prestodb/presto/pull/27944>`_
-* Fix a query failure (Field not found) when multiple remote function calls wrapped in ``TRY()`` appear in the same SELECT. `#28232 <https://github.com/prestodb/presto/pull/28232>`_
+* Fix a query failure (Field not found) when multiple remote function calls wrapped in ``TRY()`` appear in the same ``SELECT``. `#28232 <https://github.com/prestodb/presto/pull/28232>`_
 * Improve outer joins on skewed ``NULL`` join keys by spreading the null keys across partitions in their native type. This is controlled by the existing ``randomize_outer_join_null_key`` session property. `#28153 <https://github.com/prestodb/presto/pull/28153>`_
 * Improve the ``optimize_cascading_filters_and_projections`` optimization to avoid duplicating multiply-referenced non-trivial expressions when coalescing cascading projections. `#28216 <https://github.com/prestodb/presto/pull/28216>`_
 * Add ``JOIN`` support to the materialized view query optimizer. Queries that join a base table covered by a materialized view with another table can now be rewritten to scan the materialized view in place of the base table, subject to safety guards (matching ``GROUP BY``, no aggregates over non-swapped tables, supported join types). `#27733 <https://github.com/prestodb/presto/pull/27733>`_
@@ -56,6 +56,8 @@ _______________
 
 Prestissimo (Native Execution) Changes
 ______________________________________
+* Fix runtime type-mismatch crashes at exchange operators in Prestissimo when aggregation variable names sort differently from their Java allocation order. `#27903 <https://github.com/prestodb/presto/pull/27903>`_
+* Fix ``LIKE``, regexp, and json_extract queries applied to the result of a remote function (for example ``meta.ai.*`` outputs), which previously failed native query plan conversion. `#28118 <https://github.com/prestodb/presto/pull/28118>`_
 * Add ``PRESTO_OPTIONAL_FEATURES`` build variable to enable or disable optional features using a comma-separated list (such as ``PRESTO_OPTIONAL_FEATURES="s3,hdfs,jwt,no-parquet" make release``). Default-ON features (``parquet``, ``spatial``) can be disabled with the ``no-`` prefix. Invalid feature names cause an immediate build error. `#28108 <https://github.com/prestodb/presto/pull/28108>`_
 * Add an Arrow federation connector to run federated queries. `#26404 <https://github.com/prestodb/presto/pull/26404>`_
 * Add registration for Presto-specific cuDF functions when cuDF is enabled in Presto native. `#28093 <https://github.com/prestodb/presto/pull/28093>`_
@@ -63,8 +65,6 @@ ______________________________________
 * Add session properties to tune the adaptive RPC rate limiter and congestion window (``native_rpc_ratelimiter_adaptive_enabled``, ``native_rpc_ratelimiter_min_limit``, ``native_rpc_ratelimiter_decrease_factor``, ``native_rpc_ratelimiter_max_limit``, ``native_rpc_congestion_max_window``). `#28115 <https://github.com/prestodb/presto/pull/28115>`_
 * Add a two-phase memory reclaim for MaterializedOutputBuffer, integrated with the Velox memory arbitrator. `#27875 <https://github.com/prestodb/presto/pull/27875>`_
 * Deprecate individual feature environment variables such as ``PRESTO_ENABLE_S3`` in favor of ``PRESTO_OPTIONAL_FEATURES``. `#28108 <https://github.com/prestodb/presto/pull/28108>`_
-* Fix runtime type-mismatch crashes at exchange operators in Prestissimo when aggregation variable names sort differently from their Java allocation order. `#27903 <https://github.com/prestodb/presto/pull/27903>`_
-* Fix ``LIKE``, regexp, and json_extract queries applied to the result of a remote function (for example ``meta.ai.*`` outputs), which previously failed native query plan conversion. `#28118 <https://github.com/prestodb/presto/pull/28118>`_
 * Update ``native_exchange_materialization_enabled`` session property default to ``true`` to enable MaterizliedOutput and MaterializedExchange operators in Velox by default. `#27980 <https://github.com/prestodb/presto/pull/27980>`_
 
 Security Changes
