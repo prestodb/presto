@@ -97,7 +97,6 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.io.LocationProvider;
-import org.apache.iceberg.parquet.ParquetSchemaUtil;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
@@ -161,7 +160,6 @@ import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTable;
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
 import static com.facebook.presto.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -396,13 +394,7 @@ public class IcebergPageSourceProvider
                                 .ifPresent(value -> defaultValues.put(column.getId(), value));
                     }
                     else {
-                        Type type = column.getType();
-                        if (!parquetField.get().isPrimitive()) {
-                            MessageType parquetMessageType = new MessageType("", parquetField.get());
-                            Schema icebergSchema = ParquetSchemaUtil.convert(parquetMessageType);
-                            type = toPrestoType(icebergSchema.columns().get(0).type(), typeManager);
-                        }
-                        internalFields.add(constructField(type, lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
+                        internalFields.add(constructField(column.getType(), lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
                     }
                 }
                 if (column.isRowPositionColumn()) {
