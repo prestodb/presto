@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/types/KllSketchType.h"
+#include <folly/hash/Hash.h>
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto {
@@ -30,6 +31,12 @@ std::shared_ptr<const KllSketchType> KllSketchType::get(
 
   return std::make_shared<const KllSketchType>(
       KllSketchType::PrivateTag{}, dataType);
+}
+
+size_t KllSketchType::hash() const noexcept {
+  return folly::hash::hash_combine(
+      std::hash<std::type_index>{}(std::type_index(typeid(*this))),
+      parameter_.type->hash());
 }
 
 } // namespace facebook::presto

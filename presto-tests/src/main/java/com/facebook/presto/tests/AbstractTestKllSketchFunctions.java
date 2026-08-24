@@ -183,6 +183,35 @@ public abstract class AbstractTestKllSketchFunctions
     }
 
     @Test
+    public void testKllSketchWithKNullK()
+    {
+        // NULL k rows are silently skipped — Java never invokes @InputFunction for NULL args.
+        // All rows have null k, so the result is NULL.
+        assertQuery("SELECT sketch_kll_with_k(CAST(x AS DOUBLE), CAST(null AS BIGINT)) IS NULL " +
+                        "FROM (VALUES 1, 2, 3) AS t(x)",
+                "SELECT true");
+
+        // Mixed: some rows have null k, non-null-k rows contribute to the sketch.
+        assertQuery("SELECT sketch_kll_quantile(sketch_kll_with_k(CAST(x AS DOUBLE), k), 0.5) BETWEEN 2.0 AND 4.0 " +
+                        "FROM (VALUES (1, CAST(200 AS BIGINT)), (2, null), (3, CAST(200 AS BIGINT)), " +
+                        "(4, null), (5, CAST(200 AS BIGINT))) AS t(x, k)",
+                "SELECT true");
+    }
+
+    @Test
+    public void testKllSketchWithKVaryingK()
+    {
+        // Varying k within a group is tolerated: the first k seen initialises the sketch,
+        // subsequent differing k values are ignored (Java initializeSketch early-returns).
+        assertQuery("SELECT sketch_kll_quantile(sketch_kll_with_k(CAST(x AS BIGINT), k), 0.5) " +
+                        "BETWEEN CAST(45 AS BIGINT) AND CAST(55 AS BIGINT) " +
+                        "FROM (SELECT x, CASE WHEN x <= 50 THEN CAST(200 AS BIGINT) " +
+                        "ELSE CAST(400 AS BIGINT) END AS k " +
+                        "FROM (SELECT x FROM UNNEST(sequence(1, 100)) AS t(x)))",
+                "SELECT true");
+    }
+
+    @Test
     public void testKllSketchInvalidRank()
     {
         // Test invalid rank values
@@ -411,6 +440,12 @@ public abstract class AbstractTestKllSketchFunctions
      * Verifies Java-serialized KLL sketch bytes are correctly consumed by the worker (native or Java).
      * When run via presto-native-tests, the CAST is constant-folded by the Java coordinator
      * and the scalar functions execute natively, exercising the Java→native byte boundary.
+     *
+     * The hex strings here are also embedded in:
+     *   - KllSketchTest.cpp (kJava*GoldenHex constants)
+     *   - TestKllSketchFunctions.java (NATIVE_*_GOLDEN_HEX constants)
+     * If the serialization format changes (datasketches-java or datasketches-cpp
+     * version bump), all three locations must be updated together.
      */
     @Test
     public void testKllSketchCrossEngineConstantFold()

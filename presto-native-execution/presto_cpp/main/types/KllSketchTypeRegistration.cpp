@@ -42,8 +42,25 @@ class KllSketchTypeFactory : public velox::CustomTypeFactory {
 } // namespace
 
 void registerKllSketchType() {
-  velox::registerCustomType(
-      "kllsketch", std::make_unique<const KllSketchTypeFactory>());
+  if (velox::customTypeExists("kllsketch")) {
+    // Something is already registered under "kllsketch". Verify it is our
+    // factory by asking it to produce a type and checking the concrete class.
+    // If a different, conflicting factory got there first we must fail loudly
+    // rather than silently use the wrong type.
+    auto existing = velox::getCustomType(
+        "kllsketch", {velox::TypeParameter{velox::BIGINT()}});
+    VELOX_CHECK(
+        isKllSketchType(existing),
+        "A type named 'kllsketch' is already registered but is not a "
+        "KllSketchType. There is a conflicting registration from another "
+        "module.");
+    return;
+  }
+  VELOX_CHECK(
+      velox::registerCustomType(
+          "kllsketch", std::make_unique<const KllSketchTypeFactory>()),
+      "Failed to register kllsketch custom type despite it not existing. "
+      "This is an unexpected internal error.");
 }
 
 } // namespace facebook::presto::functions

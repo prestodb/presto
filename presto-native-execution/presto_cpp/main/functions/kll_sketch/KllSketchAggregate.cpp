@@ -69,6 +69,7 @@ struct KllSketchAggregateBase {
   using SketchType = typename SketchTypeMapper<T>::type;
 
   static constexpr bool default_null_behavior_ = false;
+  static constexpr bool use_external_memory_ = true;
 
   struct AccumulatorType {
     std::unique_ptr<datasketches::kll_sketch<SketchType>> sketch;
@@ -108,25 +109,12 @@ struct KllSketchAggregateBase {
         velox::HashStringAllocator* /*allocator*/,
         velox::exec::optional_arg_type<velox::Varbinary> other) {
       if (other.has_value() && other->size() > 0) {
-        datasketches::kll_sketch<SketchType> otherSketch = [&] {
-          if constexpr (std::is_same_v<SketchType, bool>) {
-            return kll_sketch::deserializeBoolSketch(
+        datasketches::kll_sketch<SketchType> otherSketch =
+            kll_sketch::deserializeSketch<SketchType>(
                 other->data(), other->size());
-          } else {
-            return datasketches::kll_sketch<SketchType>::deserialize(
-                other->data(), other->size());
-          }
-        }();
         if (!sketch) {
           setK(otherSketch.get_k());
           sketch = std::make_unique<datasketches::kll_sketch<SketchType>>(
-              otherSketch.get_k());
-        } else {
-          VELOX_USER_CHECK(
-              otherSketch.get_k() == sketch->get_k(),
-              "Cannot merge KLL sketches with different k values. "
-              "Expected k={}, got k={}",
-              sketch->get_k(),
               otherSketch.get_k());
         }
         sketch->merge(otherSketch);
@@ -256,13 +244,10 @@ struct KllSketchWithKAggregate : KllSketchAggregateBase<T, true> {
         velox::HashStringAllocator* /*allocator*/,
         velox::exec::optional_arg_type<T> data,
         velox::exec::optional_arg_type<int64_t> kValue) {
-      if (!data.has_value()) {
+      // Silently skip rows where data or k is NULL, matching Java behaviour
+      if (!data.has_value() || !kValue.has_value()) {
         return true;
       }
-
-      VELOX_USER_CHECK(
-          kValue.has_value(),
-          "k parameter cannot be NULL for sketch_kll_with_k");
 
       int64_t kInt = kValue.value();
 
@@ -275,12 +260,6 @@ struct KllSketchWithKAggregate : KllSketchAggregateBase<T, true> {
         this->setK(static_cast<int>(kInt));
         this->sketch = std::make_unique<datasketches::kll_sketch<SketchType>>(
             this->getK());
-      } else {
-        VELOX_USER_CHECK(
-            kInt == this->getK(),
-            "k parameter must be constant within a group. Expected {}, got {}",
-            this->getK(),
-            kInt);
       }
 
       this->sketch->update(
@@ -347,13 +326,13 @@ velox::exec::AggregateRegistrationResult registerKllSketchAggregate(
           }
         } else {
           auto kllType =
-              std::dynamic_pointer_cast<const velox::RowType>(resultType);
+              std::dynamic_pointer_cast<const KllSketchType>(resultType);
           VELOX_USER_CHECK_NOT_NULL(kllType, "Result type must be kllsketch");
           VELOX_USER_CHECK_EQ(
-              kllType->size(),
+              kllType->parameters().size(),
               1,
               "kllsketch must have exactly one type parameter");
-          auto elementType = kllType->childAt(0);
+          auto elementType = kllType->parameters()[0].type;
 
           switch (elementType->kind()) {
             case velox::TypeKind::BIGINT:
@@ -438,13 +417,13 @@ velox::exec::AggregateRegistrationResult registerKllSketchWithKAggregate(
           }
         } else {
           auto kllType =
-              std::dynamic_pointer_cast<const velox::RowType>(resultType);
+              std::dynamic_pointer_cast<const KllSketchType>(resultType);
           VELOX_USER_CHECK_NOT_NULL(kllType, "Result type must be kllsketch");
           VELOX_USER_CHECK_EQ(
-              kllType->size(),
+              kllType->parameters().size(),
               1,
               "kllsketch must have exactly one type parameter");
-          auto elementType = kllType->childAt(0);
+          auto elementType = kllType->parameters()[0].type;
 
           switch (elementType->kind()) {
             case velox::TypeKind::BIGINT:

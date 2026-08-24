@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 #include "DataSketches/kll_sketch.hpp"
+#include "velox/common/base/Exceptions.h"
 #include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/StringView.h"
 
@@ -187,5 +188,30 @@ struct SketchTypeMapper<velox::Varchar> {
     return detail::stringViewToString(value);
   }
 };
+
+// Deserializes a KLL sketch, translating std::exception from DataSketches or
+// bool transcoding into VELOX_USER_FAIL so corrupt user bytes surface as user
+// errors.
+template <typename SketchType>
+inline datasketches::kll_sketch<SketchType> deserializeSketch(
+    const void* data,
+    size_t size) {
+  try {
+    if constexpr (std::is_same_v<SketchType, bool>) {
+      return deserializeBoolSketch(data, size);
+    } else {
+      return datasketches::kll_sketch<SketchType>::deserialize(data, size);
+    }
+  } catch (const std::out_of_range& e) {
+    VELOX_USER_FAIL(
+        "Invalid KLL sketch data - buffer out of range: {}", e.what());
+  } catch (const std::logic_error& e) {
+    VELOX_USER_FAIL(
+        "Failed to deserialize KLL sketch - corrupted data or logic error: {}",
+        e.what());
+  } catch (const std::exception& e) {
+    VELOX_USER_FAIL("Failed to deserialize KLL sketch: {}", e.what());
+  }
+}
 
 } // namespace facebook::presto::functions::kll_sketch

@@ -102,7 +102,14 @@ public class TestKllSketchFunctions
 
     // -------------------------------------------------------------------------
     // Java → Native: print hex for embedding in KllSketchTest.cpp as kJava*GoldenHex.
-    // Re-run after a datasketches-java version bump and copy output to KllSketchTest.cpp.
+    // The same hex strings are also embedded in:
+    //   - KllSketchTest.cpp (kJava*GoldenHex constants)
+    //   - AbstractTestKllSketchFunctions.java (testKllSketchCrossEngineConstantFold)
+    // If the serialization format changes (datasketches-java or datasketches-cpp
+    // version bump), all three locations must be updated together.
+    // To regenerate:
+    //   Java → C++: Enable the tests then run ./mvnw -pl presto-main-base -Dtest='TestKllSketchFunctions#printGolden*' test
+    //   C++ → Java: run <path/to/presto_kll_sketch_test> --gtest_also_run_disabled_tests --gtest_filter="*printNative*"
     // -------------------------------------------------------------------------
 
     @Test (enabled = false)
@@ -139,10 +146,7 @@ public class TestKllSketchFunctions
         System.out.println("JAVA_BOOLEAN_GOLDEN_HEX: " + toHex(sketch.toByteArray()));
     }
 
-    // -------------------------------------------------------------------------
     // Native→Java round-trip tests. Hex bytes produced by KllSketchCrossEngineTest.DISABLED_print* (C++).
-    // To regenerate: run KllSketchTest with --gtest_also_run_disabled_tests --gtest_filter="*printNative*"
-    // -------------------------------------------------------------------------
 
     // BIGINT, values 0..99, k=200
     // CHECKSTYLE:OFF: LineLength

@@ -55,6 +55,11 @@ about the KLL sketch, see the Apache Datasketches `KLL Sketch documentation`_.
     information on the ``k`` parameter, refer to the `KLL Sketch documentation`_. The serialized
     form of the sketch returned by this function is the same as the `sketch_kll` function.
 
+    .. note::
+            The native (Presto C++) implementation declares ``k`` as ``bigint``.
+            The Java implementation declares ``k`` as ``int``. Both accept the same
+            valid range [8..65535], so queries are compatible across engines.
+
 .. function:: sketch_kll_quantile[T](sketch: kllsketch[T], rank: double[, inclusivity: boolean]) -> T
 
     Computes the value in the sketch that occurs at a particular quantile. The
