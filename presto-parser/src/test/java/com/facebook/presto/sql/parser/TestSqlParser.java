@@ -2856,9 +2856,18 @@ public class TestSqlParser
                 new CallArgument("a", new LongLiteral("1")),
                 new CallArgument("b", new StringLiteral("go")),
                 new CallArgument(new LongLiteral("456")))));
-        assertStatement("CALL foo(UPPER => 1, \"Mixed\" => 2)", new Call(QualifiedName.of("foo"), ImmutableList.of(
-                new CallArgument("upper", new LongLiteral("1")),
-                new CallArgument("Mixed", new LongLiteral("2")))));
+        Call call = (Call) SQL_PARSER.createStatement("CALL foo(UPPER => 1, \"Mixed\" => 2)");
+        assertEquals(call, new Call(QualifiedName.of("foo"), ImmutableList.of(
+                new CallArgument(new Identifier("UPPER", false), new LongLiteral("1")),
+                new CallArgument(new Identifier("Mixed", true), new LongLiteral("2")))));
+        assertFalse(call.getArguments().get(0).getNameIdentifier().orElseThrow(AssertionError::new).isDelimited());
+        assertTrue(call.getArguments().get(1).getNameIdentifier().orElseThrow(AssertionError::new).isDelimited());
+
+        String formatted = formatSql(call, Optional.empty());
+        assertEquals(formatted, "CALL foo(UPPER => 1, \"Mixed\" => 2)");
+        Call reparsed = (Call) SQL_PARSER.createStatement(formatted);
+        assertFalse(reparsed.getArguments().get(0).getNameIdentifier().orElseThrow(AssertionError::new).isDelimited());
+        assertTrue(reparsed.getArguments().get(1).getNameIdentifier().orElseThrow(AssertionError::new).isDelimited());
     }
 
     @Test

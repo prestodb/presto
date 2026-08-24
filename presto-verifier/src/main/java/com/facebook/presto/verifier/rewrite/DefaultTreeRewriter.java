@@ -156,7 +156,7 @@ public class DefaultTreeRewriter<C>
             return node;
         }
 
-        return node.getName().isPresent() ? new CallArgument(node.getName().get(), (Expression) value) : new CallArgument((Expression) value);
+        return node.getNameIdentifier().isPresent() ? new CallArgument(node.getNameIdentifier().get(), (Expression) value) : new CallArgument((Expression) value);
     }
 
     @Override

@@ -41,23 +41,63 @@ public class TestCallTask
     private static final Map<NodeRef<Parameter>, Expression> NO_PARAMETERS = ImmutableMap.of();
 
     @Test
-    public void testCanonicalArgumentNamesMatchProcedure()
+    public void testJdbcExecuteProcedureNamedArgument()
     {
-        Call call = (Call) SQL_PARSER.createStatement("CALL foo(UPPER => 1, \"Mixed\" => 2)");
+        Call call = (Call) SQL_PARSER.createStatement("CALL system.execute(QUERY => 'SELECT 1')");
         Procedure procedure = new Procedure(
-                "schema",
-                "foo",
-                ImmutableList.of(
-                        new Procedure.Argument("upper", "bigint"),
-                        new Procedure.Argument("Mixed", "bigint")));
+                "system",
+                "execute",
+                ImmutableList.of(new Procedure.Argument("QUERY", "varchar")));
 
         assertEquals(
                 CallTask.extractParameterValuesInOrder(call, procedure, METADATA, SESSION, NO_PARAMETERS),
-                new Object[] {1L, 2L});
+                new Object[] {"SELECT 1"});
     }
 
     @Test
-    public void testDuplicateArgumentNamesUseCanonicalIdentity()
+    public void testUnquotedArgumentMatchesProcedureDeclarationCaseInsensitively()
+    {
+        Call lowercaseCall = (Call) SQL_PARSER.createStatement("CALL foo(lower => 1)");
+        Procedure uppercaseProcedure = new Procedure(
+                "schema",
+                "foo",
+                ImmutableList.of(new Procedure.Argument("LOWER", "bigint")));
+        assertEquals(
+                CallTask.extractParameterValuesInOrder(lowercaseCall, uppercaseProcedure, METADATA, SESSION, NO_PARAMETERS),
+                new Object[] {1L});
+
+        Call uppercaseCall = (Call) SQL_PARSER.createStatement("CALL foo(UPPER => 2)");
+        Procedure lowercaseProcedure = new Procedure(
+                "schema",
+                "foo",
+                ImmutableList.of(new Procedure.Argument("upper", "bigint")));
+        assertEquals(
+                CallTask.extractParameterValuesInOrder(uppercaseCall, lowercaseProcedure, METADATA, SESSION, NO_PARAMETERS),
+                new Object[] {2L});
+    }
+
+    @Test
+    public void testDelimitedArgumentMatchesExactly()
+    {
+        Procedure procedure = new Procedure(
+                "schema",
+                "foo",
+                ImmutableList.of(new Procedure.Argument("Mixed", "bigint")));
+
+        Call exactCall = (Call) SQL_PARSER.createStatement("CALL foo(\"Mixed\" => 1)");
+        assertEquals(
+                CallTask.extractParameterValuesInOrder(exactCall, procedure, METADATA, SESSION, NO_PARAMETERS),
+                new Object[] {1L});
+
+        Call mismatchedCall = (Call) SQL_PARSER.createStatement("CALL foo(\"mixed\" => 1)");
+        SemanticException exception = expectThrows(
+                SemanticException.class,
+                () -> CallTask.extractParameterValuesInOrder(mismatchedCall, procedure, METADATA, SESSION, NO_PARAMETERS));
+        assertEquals(exception.getMessage(), "line 1:10: Unknown argument name: mixed");
+    }
+
+    @Test
+    public void testDuplicateUnquotedArgumentNamesUseCanonicalIdentity()
     {
         Call call = (Call) SQL_PARSER.createStatement("CALL foo(UPPER => 1, upper => 2)");
         Procedure procedure = new Procedure(
@@ -70,5 +110,66 @@ public class TestCallTask
                 () -> CallTask.extractParameterValuesInOrder(call, procedure, METADATA, SESSION, NO_PARAMETERS));
 
         assertEquals(exception.getMessage(), "line 1:22: Duplicate procedure argument: upper");
+    }
+
+    @Test
+    public void testQuotedAndUnquotedArgumentCanonicalIdentity()
+    {
+        Procedure procedure = new Procedure(
+                "schema",
+                "foo",
+                ImmutableList.of(new Procedure.Argument("foo", "bigint")));
+
+        Call sameCanonicalName = (Call) SQL_PARSER.createStatement("CALL foo(foo => 1, \"FOO\" => 2)");
+        SemanticException sameCanonicalNameException = expectThrows(
+                SemanticException.class,
+                () -> CallTask.extractParameterValuesInOrder(sameCanonicalName, procedure, METADATA, SESSION, NO_PARAMETERS));
+        assertEquals(sameCanonicalNameException.getMessage(), "line 1:20: Duplicate procedure argument: FOO");
+
+        Call differentCanonicalName = (Call) SQL_PARSER.createStatement("CALL foo(foo => 1, \"foo\" => 2)");
+        SemanticException differentCanonicalNameException = expectThrows(
+                SemanticException.class,
+                () -> CallTask.extractParameterValuesInOrder(differentCanonicalName, procedure, METADATA, SESSION, NO_PARAMETERS));
+        assertEquals(differentCanonicalNameException.getMessage(), "line 1:20: Duplicate procedure argument: foo");
+    }
+
+    @Test
+    public void testDelimitedArgumentsDisambiguateDeclarationCase()
+    {
+        Procedure procedure = new Procedure(
+                "schema",
+                "foo",
+                ImmutableList.of(
+                        new Procedure.Argument("foo", "bigint"),
+                        new Procedure.Argument("FOO", "bigint")));
+
+        Call delimitedCall = (Call) SQL_PARSER.createStatement("CALL foo(\"foo\" => 1, \"FOO\" => 2)");
+        assertEquals(
+                CallTask.extractParameterValuesInOrder(delimitedCall, procedure, METADATA, SESSION, NO_PARAMETERS),
+                new Object[] {1L, 2L});
+
+        Call unquotedCall = (Call) SQL_PARSER.createStatement("CALL foo(foo => 1)");
+        SemanticException exception = expectThrows(
+                SemanticException.class,
+                () -> CallTask.extractParameterValuesInOrder(unquotedCall, procedure, METADATA, SESSION, NO_PARAMETERS));
+        assertEquals(exception.getMessage(), "line 1:10: Ambiguous argument name: foo");
+    }
+
+    @Test
+    public void testNamedAndPositionalArgumentsCannotBeMixed()
+    {
+        Call call = (Call) SQL_PARSER.createStatement("CALL foo(1, second => 2)");
+        Procedure procedure = new Procedure(
+                "schema",
+                "foo",
+                ImmutableList.of(
+                        new Procedure.Argument("first", "bigint"),
+                        new Procedure.Argument("second", "bigint")));
+
+        SemanticException exception = expectThrows(
+                SemanticException.class,
+                () -> CallTask.extractParameterValuesInOrder(call, procedure, METADATA, SESSION, NO_PARAMETERS));
+
+        assertEquals(exception.getMessage(), "line 1:1: Named and positional arguments cannot be mixed");
     }
 }

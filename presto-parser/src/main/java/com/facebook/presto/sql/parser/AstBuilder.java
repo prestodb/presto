@@ -2591,7 +2591,7 @@ class AstBuilder
     public Node visitNamedArgument(SqlBaseParser.NamedArgumentContext context)
     {
         Identifier name = (Identifier) visit(context.identifier());
-        return new CallArgument(getLocation(context), name.isDelimited() ? name.getValue() : name.getValueLowerCase(), (Expression) visit(context.expression()));
+        return new CallArgument(getLocation(context), name, (Expression) visit(context.expression()));
     }
 
     // ***************** helpers *****************
