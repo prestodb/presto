@@ -87,6 +87,7 @@ import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRE
 import static com.facebook.presto.SystemSessionProperties.PUSH_FILTER_THROUGH_SELECTING_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.PUSH_PROJECTION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
+import static com.facebook.presto.SystemSessionProperties.PUSH_SEMI_JOIN_THROUGH_UNION;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_NULL_SOURCE_KEY_IN_SEMI_JOIN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
@@ -812,6 +813,56 @@ public abstract class AbstractTestQueries
                 "  CROSS JOIN UNNEST(sequence(1, (o.orderkey % 5) + 1)) WITH ORDINALITY AS t(elem, ord)" +
                 "  GROUP BY o.custkey)";
         assertQueryWithSameQueryRunner(enabled, withOrdinality, disabled);
+    }
+
+    @Test
+    public void testPushSemiJoinThroughUnion()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_SEMI_JOIN_THROUGH_UNION, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_SEMI_JOIN_THROUGH_UNION, "false")
+                .build();
+
+        // The semi join is pushed into both union branches, so the filtering source ends up in the plan
+        // twice and has to be copied with fresh plan node ids.
+        @Language("SQL") String semiJoinOverUnion =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT orderkey FROM orders WHERE orderkey % 3 = 0" +
+                "  UNION ALL" +
+                "  SELECT orderkey FROM lineitem WHERE partkey % 7 = 0) t" +
+                " WHERE orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)";
+        assertQueryWithSameQueryRunner(enabled, semiJoinOverUnion, disabled);
+
+        // Aggregation in the filtering source: every node below the aggregation is copied as well.
+        @Language("SQL") String aggregatedFilteringSource =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT orderkey FROM orders" +
+                "  UNION ALL" +
+                "  SELECT orderkey FROM lineitem) t" +
+                " WHERE orderkey IN (SELECT DISTINCT orderkey FROM orders WHERE custkey % 5 = 0)";
+        assertQueryWithSameQueryRunner(enabled, aggregatedFilteringSource, disabled);
+
+        // Three branches, with a projection between the semi join and the union.
+        @Language("SQL") String projectOverUnion =
+                "SELECT to_hex(checksum(k)) FROM (" +
+                "  SELECT orderkey * 2 AS k FROM orders" +
+                "  UNION ALL" +
+                "  SELECT orderkey * 2 AS k FROM lineitem" +
+                "  UNION ALL" +
+                "  SELECT custkey * 2 AS k FROM customer) t" +
+                " WHERE k IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)";
+        assertQueryWithSameQueryRunner(enabled, projectOverUnion, disabled);
+
+        // NOT IN, so the semi join output is consumed by a negated filter.
+        @Language("SQL") String notInOverUnion =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT orderkey FROM orders WHERE orderkey % 3 = 0" +
+                "  UNION ALL" +
+                "  SELECT orderkey FROM lineitem WHERE partkey % 7 = 0) t" +
+                " WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)";
+        assertQueryWithSameQueryRunner(enabled, notInOverUnion, disabled);
     }
 
     @Test

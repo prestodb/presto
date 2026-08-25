@@ -13,14 +13,20 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.PUSH_SEMI_JOIN_THROUGH_UNION;
@@ -35,6 +41,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static org.testng.Assert.assertEquals;
 
 public class TestPushSemiJoinThroughUnion
         extends BaseRuleTest
@@ -257,5 +264,84 @@ public class TestPushSemiJoinThroughUnion
                             p.values(filterJoinVar));
                 })
                 .doesNotFire();
+    }
+
+    @Test
+    public void testFilteringSourceIsCopiedWithNewPlanNodeIds()
+    {
+        PlanNode plan = tester().assertThat(new PushSemiJoinThroughUnion())
+                .setSystemProperty(PUSH_SEMI_JOIN_THROUGH_UNION, "true")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression c = p.variable("c");
+                    VariableReferenceExpression filterJoinVar = p.variable("filterJoinVar");
+                    VariableReferenceExpression semiJoinOutput = p.variable("semiJoinOutput", BOOLEAN);
+                    return p.semiJoin(
+                            c,
+                            filterJoinVar,
+                            semiJoinOutput,
+                            Optional.empty(),
+                            Optional.empty(),
+                            p.union(
+                                    ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                                            .put(c, a)
+                                            .put(c, b)
+                                            .build(),
+                                    ImmutableList.of(
+                                            p.values(a),
+                                            p.values(b))),
+                            p.values(filterJoinVar));
+                })
+                .get();
+
+        List<PlanNodeId> planNodeIds = new ArrayList<>();
+        collectPlanNodeIds(plan, planNodeIds);
+        assertEquals(
+                planNodeIds.size(),
+                ImmutableSet.copyOf(planNodeIds).size(),
+                "Rewritten plan contains duplicated plan node ids: " + planNodeIds);
+    }
+
+    @Test
+    public void testDoesNotFireWhenFilteringSourceCannotBeCopied()
+    {
+        tester().assertThat(new PushSemiJoinThroughUnion())
+                .setSystemProperty(PUSH_SEMI_JOIN_THROUGH_UNION, "true")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression c = p.variable("c");
+                    VariableReferenceExpression filterJoinVar = p.variable("filterJoinVar");
+                    VariableReferenceExpression semiJoinOutput = p.variable("semiJoinOutput", BOOLEAN);
+                    return p.semiJoin(
+                            c,
+                            filterJoinVar,
+                            semiJoinOutput,
+                            Optional.empty(),
+                            Optional.empty(),
+                            p.union(
+                                    ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                                            .put(c, a)
+                                            .put(c, b)
+                                            .build(),
+                                    ImmutableList.of(
+                                            p.values(a),
+                                            p.values(b))),
+                            // LimitNode is not a node type the per-branch copy knows how to rebuild
+                            p.limit(10, p.values(filterJoinVar)));
+                })
+                .doesNotFire();
+    }
+
+    private static void collectPlanNodeIds(PlanNode node, List<PlanNodeId> planNodeIds)
+    {
+        planNodeIds.add(node.getId());
+        // Subtrees the rule left untouched are still group references, which cannot be walked into. Sharing
+        // one of them between two branches is exactly the bug this asserts against, so their ids are counted.
+        if (node instanceof GroupReference) {
+            return;
+        }
+        node.getSources().forEach(source -> collectPlanNodeIds(source, planNodeIds));
     }
 }
