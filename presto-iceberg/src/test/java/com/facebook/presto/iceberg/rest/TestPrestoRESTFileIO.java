@@ -481,7 +481,7 @@ public class TestPrestoRESTFileIO
         ((SupportsNamespaces) catalog).createNamespace(namespace);
         catalog.createTable(identifier, new Schema(Types.NestedField.optional(1, "c1", Types.LongType.get())));
 
-        Table table = factory.loadTable(SESSION, identifier);
+        Table table = catalog.loadTable(identifier);
 
         assertTrue(table.io() instanceof PrestoRESTFileIO,
                 "expected PrestoRESTFileIO but got " + table.io().getClass().getName());

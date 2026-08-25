@@ -304,7 +304,7 @@ public final class IcebergUtil
 
     public static Table getNativeIcebergTable(IcebergNativeCatalogFactory catalogFactory, ConnectorSession session, SchemaTableName table)
     {
-        return catalogFactory.loadTable(session, toIcebergTableIdentifier(table, catalogFactory.isNestedNamespaceEnabled()));
+        return catalogFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table, catalogFactory.isNestedNamespaceEnabled()));
     }
 
     public static View getNativeIcebergView(IcebergNativeCatalogFactory catalogFactory, ConnectorSession session, SchemaTableName table)

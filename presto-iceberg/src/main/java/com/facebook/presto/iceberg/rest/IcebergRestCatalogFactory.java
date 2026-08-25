@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.iceberg.rest;
 
-import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.azure.AzureConfigurationInitializer;
@@ -32,7 +31,6 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.jsonwebtoken.Jwts;
 import jakarta.inject.Inject;
 import org.apache.iceberg.CatalogProperties;
-import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
 import org.apache.iceberg.rest.HTTPClient;
@@ -114,9 +112,10 @@ public class IcebergRestCatalogFactory
     {
         try {
             return catalogCache.get(getCacheKey(session), () -> {
-                RESTCatalog catalog = new RESTCatalog(
+                RESTCatalog catalog = new PrestoRestCatalog(
                         convertSession(session),
-                        config -> HTTPClient.builder(config).uri(config.get(URI)).build());
+                        config -> HTTPClient.builder(config).uri(config.get(URI)).build(),
+                        hdfsEnvironment, session);
 
                 configureHadoopConf(catalog, getHadoopConfiguration());
                 catalog.initialize(catalogName, getProperties(session));
@@ -127,14 +126,6 @@ public class IcebergRestCatalogFactory
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throwIfUnchecked(e);
             throw new UncheckedExecutionException(e);
-        }
-    }
-
-    @Override
-    public void configureTableFileIO(ConnectorSession session, Table table)
-    {
-        if (table.io() instanceof PrestoRESTFileIO) {
-            ((PrestoRESTFileIO) table.io()).setHdfsEnvironmentAndContext(hdfsEnvironment, new HdfsContext(session));
         }
     }
 

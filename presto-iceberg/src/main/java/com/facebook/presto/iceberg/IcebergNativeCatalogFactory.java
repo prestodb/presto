@@ -26,10 +26,8 @@ import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.CatalogUtil;
-import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.SupportsNamespaces;
-import org.apache.iceberg.catalog.TableIdentifier;
 
 import java.util.HashMap;
 import java.util.List;
@@ -100,25 +98,6 @@ public class IcebergNativeCatalogFactory
     public String getCatalogWarehouseDataDir()
     {
         return this.catalogWarehouseDataDir;
-    }
-
-    /** Loads a table; subclasses may override to post-process (e.g. bind a per-query FileIO context). */
-    public Table loadTable(ConnectorSession session, TableIdentifier tableIdentifier)
-    {
-        Table table = getCatalog(session).loadTable(tableIdentifier);
-        configureTableFileIO(session, table);
-        return table;
-    }
-
-    /**
-     * Binds per-query filesystem context onto a table's FileIO.
-     * Called after every table load and after a new-table transaction is opened,
-     * matching the Hive catalog's pattern of constructing a fresh FileIO per session.
-     * No-op by default; overridden by REST catalog.
-     */
-    public void configureTableFileIO(ConnectorSession session, Table table)
-    {
-        // no-op
     }
 
     public SupportsNamespaces getNamespaces(ConnectorSession session)
