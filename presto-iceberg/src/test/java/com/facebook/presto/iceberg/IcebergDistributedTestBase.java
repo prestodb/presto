@@ -140,6 +140,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -5325,6 +5326,31 @@ public abstract class IcebergDistributedTestBase
             catch (Exception e) {
                 // ignored for hive catalog compatibility
             }
+        }
+    }
+
+    @Test
+    public void testScalarSubqueryWithAggregationAndDynamicFiltering()
+    {
+        String tableName = "test_dynamic_filter_subquery";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
+                .build();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INT)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1), (2)", 2);
+            assertQuery(session,
+                    "SELECT id FROM " + tableName + " WHERE id <= (SELECT count(*) FROM " + tableName + ")",
+                    "VALUES 1, 2");
+            assertQuery(session,
+                    "SELECT t.id " +
+                    "FROM " + tableName + " t " +
+                    "JOIN (SELECT min(id) as min_id FROM " + tableName + ") q " +
+                    "ON t.id = q.min_id",
+                    "VALUES 1");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 }
