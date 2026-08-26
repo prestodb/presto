@@ -95,6 +95,7 @@ import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_N
 import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_APPROX_DISTINCT_IF_TO_MASK;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CASE_TO_MAP_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN;
@@ -9183,5 +9184,32 @@ public abstract class AbstractTestQueries
                 "WITH agg AS (SELECT custkey, MAX(totalprice) AS max_price FROM orders GROUP BY custkey) " +
                         "SELECT c.name, agg.max_price FROM agg JOIN customer c ON c.custkey = agg.custkey WHERE agg.max_price >= 300000",
                 disabled);
+    }
+
+    @Test
+    public void testRewriteApproxDistinctIfToMask()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(REWRITE_APPROX_DISTINCT_IF_TO_MASK, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(REWRITE_APPROX_DISTINCT_IF_TO_MASK, "false")
+                .build();
+
+        // The rewrite must not change results, so each query is compared against itself with the
+        // rule disabled rather than against a hardcoded value.
+        String[] queries = {
+                "SELECT approx_distinct(IF(orderpriority = '1-URGENT', comment)) FROM orders",
+                "SELECT orderstatus, approx_distinct(IF(orderpriority = '1-URGENT', comment)), " +
+                        "approx_distinct(IF(orderpriority = '2-HIGH', comment)) " +
+                        "FROM orders GROUP BY orderstatus ORDER BY orderstatus",
+                "SELECT orderstatus, approx_distinct(IF(orderpriority = 'NOT_A_PRIORITY', comment)) " +
+                        "FROM orders GROUP BY orderstatus ORDER BY orderstatus",
+                "SELECT approx_distinct(IF(orderpriority = '1-URGENT', comment), 0.01) FROM orders",
+                "SELECT orderstatus, approx_distinct(IF(orderpriority = '1-URGENT', comment)), count(*), max(totalprice) " +
+                        "FROM orders GROUP BY orderstatus ORDER BY orderstatus"};
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabled, query, disabled);
+        }
     }
 }
