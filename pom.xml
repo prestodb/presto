@@ -82,7 +82,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.13.2</dep.antlr.version>
-        <dep.airlift.version>42be4a951cc868704b4a790fb63c585749b04936</dep.airlift.version>
+        <dep.airlift.version>ddf8365b775134e5fd5a33f7aae12bb3c66b9ef5</dep.airlift.version>
         <!-- airbase resolves com.facebook.airlift:launcher at this version, so it stays on the
              released airlift that master tracks -->
         <dep.packaging.version>0.231</dep.packaging.version>
