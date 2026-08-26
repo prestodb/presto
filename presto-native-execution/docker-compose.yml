@@ -64,6 +64,6 @@ services:
         # Build requires 18GB of memory for 2 threads.
         - NUM_THREADS=2 # default value for NUM_THREADS
         - PRESTO_OPTIONAL_FEATURES=parquet,s3
-        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_CUDF=${GPU:-OFF}
+        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_CUDF=${GPU:-OFF} -DVELOX_ENABLE_UCX_EXCHANGE=${GPU:-OFF}
       context: .
       dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
