@@ -26,7 +26,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class Int32RLEDictionaryValuesDecoder
-        extends BaseRLEBitPackedDecoder
+        extends GenericRLEDictionaryValuesDecoder
         implements Int32ValuesDecoder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int32RLEDictionaryValuesDecoder.class).instanceSize();
@@ -46,17 +46,17 @@ public class Int32RLEDictionaryValuesDecoder
         int destinationIndex = offset;
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
-            if (currentCount == 0) {
+            if (getCurrentCount() == 0) {
                 if (!decode()) {
                     break;
                 }
             }
 
-            int numEntriesToFill = Math.min(remainingToCopy, currentCount);
+            int numEntriesToFill = Math.min(remainingToCopy, getCurrentCount());
             int endIndex = destinationIndex + numEntriesToFill;
-            switch (mode) {
+            switch (getCurrentMode()) {
                 case RLE: {
-                    final int rleValue = currentValue;
+                    final int rleValue = getDecodedInt();
                     final int rleDictionaryValue = dictionary.decodeToInt(rleValue);
                     while (destinationIndex < endIndex) {
                         values[destinationIndex++] = rleDictionaryValue;
@@ -64,19 +64,19 @@ public class Int32RLEDictionaryValuesDecoder
                     break;
                 }
                 case PACKED: {
-                    final int[] localCurrentBuffer = currentBuffer;
+                    final int[] localCurrentBuffer = getDecodedInts();
                     final IntegerDictionary localDictionary = dictionary;
-                    for (int sourceIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; sourceIndex++) {
+                    for (int sourceIndex = localCurrentBuffer.length - getCurrentCount(); destinationIndex < endIndex; sourceIndex++) {
                         int dictionaryValue = localDictionary.decodeToInt(localCurrentBuffer[sourceIndex]);
                         values[destinationIndex++] = dictionaryValue;
                     }
                     break;
                 }
                 default:
-                    throw new ParquetDecodingException("not a valid mode " + mode);
+                    throw new ParquetDecodingException("not a valid mode " + getCurrentMode());
             }
 
-            currentCount -= numEntriesToFill;
+            decrementCurrentCount(numEntriesToFill);
             remainingToCopy -= numEntriesToFill;
         }
     }
@@ -88,14 +88,14 @@ public class Int32RLEDictionaryValuesDecoder
         checkArgument(length >= 0, "invalid length %s", length);
         int remaining = length;
         while (remaining > 0) {
-            if (currentCount == 0) {
+            if (getCurrentCount() == 0) {
                 if (!decode()) {
                     break;
                 }
             }
 
-            int chunkSize = Math.min(remaining, currentCount);
-            currentCount -= chunkSize;
+            int chunkSize = Math.min(remaining, getCurrentCount());
+            decrementCurrentCount(chunkSize);
             remaining -= chunkSize;
         }
         checkState(remaining == 0, "End of stream: Invalid skip size request: %s", length);
@@ -104,6 +104,6 @@ public class Int32RLEDictionaryValuesDecoder
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + (dictionary == null ? 0 : dictionary.getRetainedSizeInBytes()) + sizeOf(currentBuffer);
+        return INSTANCE_SIZE + (dictionary == null ? 0 : dictionary.getRetainedSizeInBytes()) + sizeOf(getDecodedInts());
     }
 }
