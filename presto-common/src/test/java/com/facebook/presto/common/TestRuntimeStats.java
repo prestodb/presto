@@ -23,7 +23,9 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestRuntimeStats
 {
@@ -267,5 +269,40 @@ public class TestRuntimeStats
         stats.recordWallAndCpuTime(TEST_METRIC_NAME_NANO_2, () -> sleepUninterruptibly(100, MILLISECONDS));
         assertThat(stats.getMetric(TEST_METRIC_NAME_NANO_2).getSum()).isGreaterThanOrEqualTo(MILLISECONDS.toNanos(100));
         assertThat(stats.getMetric(TEST_METRIC_NAME_NANO_2 + "OnCpu").getSum()).isLessThan(MILLISECONDS.toNanos(100));
+    }
+
+    @Test
+    public void testComputeAllPercentilesBeforeSerialization()
+    {
+        // Create a metric with percentile tracking
+        RuntimeMetric metricWithPercentiles = new RuntimeMetric("latency", RuntimeUnit.NANO, true);
+        for (int i = 0; i < 100; i++) {
+            metricWithPercentiles.addValue(i * 1_000_000); // 0ms, 1ms, 2ms, ..., 99ms
+        }
+
+        RuntimeStats runtimeStats = new RuntimeStats();
+        runtimeStats.mergeMetric("latency", metricWithPercentiles);
+
+        // Serialize to JSON - percentiles are computed lazily during serialization via getters
+        JsonCodec<RuntimeStats> codec = JsonCodec.jsonCodec(RuntimeStats.class);
+        String json = codec.toJson(runtimeStats);
+
+        // The JSON should contain configuration and percentile values
+        assertTrue(json.contains("\"numBuckets\""));
+        assertTrue(json.contains("\"bucketWidth\""));
+        assertTrue(json.contains("\"p90\""));
+        assertTrue(json.contains("\"p95\""));
+        assertTrue(json.contains("\"p99\""));
+
+        // Verify the percentile values are reasonable after deserialization
+        RuntimeStats deserialized = codec.fromJson(json);
+        RuntimeMetric deserializedMetric = deserialized.getMetric("latency");
+        assertNotNull(deserializedMetric.getP90());
+        assertNotNull(deserializedMetric.getP95());
+        assertNotNull(deserializedMetric.getP99());
+
+        assertTrue(Math.abs(deserializedMetric.getP90() - 90_000_000) < 1_000_000); // within 1ms
+        assertTrue(Math.abs(deserializedMetric.getP95() - 95_000_000) < 1_000_000);
+        assertTrue(Math.abs(deserializedMetric.getP99() - 99_000_000) < 1_000_000);
     }
 }
