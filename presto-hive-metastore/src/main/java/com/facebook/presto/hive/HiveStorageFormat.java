@@ -58,11 +58,6 @@ public enum HiveStorageFormat
             com.facebook.hive.orc.OrcInputFormat.class.getName(),
             com.facebook.hive.orc.OrcOutputFormat.class.getName(),
             new DataSize(256, Unit.MEGABYTE)),
-    ALPHA(
-            "com.facebook.alpha.AlphaSerde",
-            "com.facebook.alpha.AlphaInputFormat",
-            "com.facebook.alpha.AlphaOutputFormat",
-            new DataSize(256, Unit.MEGABYTE)),
     PARQUET(
             ParquetHiveSerDe.class.getName(),
             MapredParquetInputFormat.class.getName(),
