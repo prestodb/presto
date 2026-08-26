@@ -38,7 +38,7 @@ import static java.lang.Math.toIntExact;
 public class ByteArrayOutputStream
         implements ValueOutputStream<ByteArrayStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayOutputStream.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayOutputStream.class).instanceSize();
     private final OrcOutputBuffer buffer;
     private final List<ByteArrayStreamCheckpoint> checkpoints = new ArrayList<>();
     private final StreamKind streamKind;

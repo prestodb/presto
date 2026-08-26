@@ -26,8 +26,8 @@ import static java.lang.String.format;
 public class KHyperLogLogStateFactory
         implements AccumulatorStateFactory<KHyperLogLogState>
 {
-    private static final int SIZE_OF_SINGLE = ClassLayout.parseClass(SingleKHyperLogLogState.class).instanceSize();
-    private static final int SIZE_OF_GROUPED = ClassLayout.parseClass(GroupedKHyperLogLogState.class).instanceSize();
+    private static final long SIZE_OF_SINGLE = ClassLayout.parseClass(SingleKHyperLogLogState.class).instanceSize();
+    private static final long SIZE_OF_GROUPED = ClassLayout.parseClass(GroupedKHyperLogLogState.class).instanceSize();
 
     private final long groupLimit;
 

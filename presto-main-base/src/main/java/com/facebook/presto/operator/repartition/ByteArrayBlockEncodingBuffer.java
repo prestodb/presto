@@ -48,7 +48,7 @@ public class ByteArrayBlockEncodingBuffer
     static final int POSITION_SIZE = Byte.BYTES + Byte.BYTES;
 
     private static final String NAME = "BYTE_ARRAY";
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlockEncodingBuffer.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlockEncodingBuffer.class).instanceSize();
 
     private byte[] valuesBuffer;
     private int valuesBufferIndex;

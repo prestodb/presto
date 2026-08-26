@@ -49,7 +49,7 @@ public class IntArrayBlockEncodingBuffer
     static final int POSITION_SIZE = Integer.BYTES + Byte.BYTES;
 
     private static final String NAME = "INT_ARRAY";
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntArrayBlockEncodingBuffer.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(IntArrayBlockEncodingBuffer.class).instanceSize();
 
     private byte[] valuesBuffer;
     private int valuesBufferIndex;

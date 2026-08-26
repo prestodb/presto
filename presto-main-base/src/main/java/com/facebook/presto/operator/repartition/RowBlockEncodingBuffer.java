@@ -55,7 +55,7 @@ public class RowBlockEncodingBuffer
     static final int POSITION_SIZE = SIZE_OF_INT + SIZE_OF_BYTE;
 
     private static final String NAME = "ROW";
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowBlockEncodingBuffer.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(RowBlockEncodingBuffer.class).instanceSize();
 
     // The buffer for the offsets for all incoming blocks so far
     private byte[] offsetsBuffer;
@@ -200,7 +200,7 @@ public class RowBlockEncodingBuffer
     @Override
     public long getRetainedSizeInBytes()
     {
-        int size = INSTANCE_SIZE;
+        long size = INSTANCE_SIZE;
         for (int i = 0; i < fieldBuffers.length; i++) {
             size += fieldBuffers[i].getRetainedSizeInBytes();
         }

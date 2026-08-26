@@ -64,7 +64,7 @@ public class FixedDoubleHistogram
         }
     }
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedDoubleHistogram.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(FixedDoubleHistogram.class).instanceSize();
 
     private final double[] weights;
 

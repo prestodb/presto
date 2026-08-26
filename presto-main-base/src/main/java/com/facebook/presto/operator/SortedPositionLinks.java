@@ -42,7 +42,7 @@ import static java.util.Objects.requireNonNull;
 public final class SortedPositionLinks
         implements PositionLinks
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortedPositionLinks.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SortedPositionLinks.class).instanceSize();
 
     public static class FactoryBuilder
             implements PositionLinks.FactoryBuilder
