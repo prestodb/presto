@@ -15,6 +15,10 @@
 
 #include "presto_cpp/main/properties/session/SessionPropertiesProvider.h"
 
+namespace facebook::velox::core {
+class QueryCtx;
+} // namespace facebook::velox::core
+
 namespace facebook::presto {
 
 /// Defines all system session properties supported by native worker to ensure
@@ -22,6 +26,34 @@ namespace facebook::presto {
 /// session properties. Also maps the native session properties to velox.
 class SessionProperties : public SessionPropertiesProvider {
  public:
+  /// Whether this query's worker-to-worker exchanges may use the cuDF UCX
+  /// transport. Unset means the worker decides, which is what
+  /// isCudfExchangeAvailable() answers; false always uses the in-memory
+  /// transport; true on a worker that has no UCX transport registered fails the
+  /// query rather than silently using the in-memory transport.
+  static constexpr const char* kCudfExchangeEnabled =
+      "native_cudf_exchange_enabled";
+
+  /// Velox query-config key kCudfExchangeEnabled maps to. Deliberately NOT
+  /// cuDF's own "cudf.exchange": that one is a worker-level switch read once at
+  /// registerCudf() to decide whether the UCX transports are registered at all,
+  /// whereas this is a per-query choice evaluated for each exchange edge.
+  static constexpr const char* kCudfExchangeEnabledConfig =
+      "cudf.exchange_enabled";
+
+  /// True when this worker can build both ends of a UCX exchange edge, that is
+  /// when the cuDF UCX transport is registered in the exchange (receive) and
+  /// the output (send) transport registry. registerCudf() registers it at
+  /// startup when 'cudf.exchange' is enabled and the worker was built with the
+  /// UCX exchange, so this one question covers both configuration and build.
+  ///
+  /// Pass the query's QueryCtx to honor its per-query transport registries, the
+  /// way exec::Task resolves a transport; null consults only the global
+  /// registries, which is what the default value of kCudfExchangeEnabled is
+  /// derived from.
+  static bool isCudfExchangeAvailable(
+      const velox::core::QueryCtx* queryCtx = nullptr);
+
   /// Enable simplified path in expression evaluation.
   static constexpr const char* kExprEvalSimplified =
       "native_simplified_expression_evaluation_enabled";
