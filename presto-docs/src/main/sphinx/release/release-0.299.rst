@@ -66,19 +66,16 @@ Prestissimo (Native Execution) Changes
 ______________________________________
 * Fix runtime type-mismatch crashes at exchange operators in Prestissimo when aggregation variable names sort differently from their Java allocation order. `#27903 <https://github.com/prestodb/presto/pull/27903>`_
 * Fix ``LIKE``, regexp, and json_extract queries applied to the result of a remote function (for example ``meta.ai.*`` outputs), which previously failed native query plan conversion. `#28118 <https://github.com/prestodb/presto/pull/28118>`_
-* Add ``PRESTO_OPTIONAL_FEATURES`` build variable to enable or disable optional features using a comma-separated list (such as ``PRESTO_OPTIONAL_FEATURES="s3,hdfs,jwt,no-parquet" make release``). Default-ON features (``parquet``, ``spatial``) can be disabled with the ``no-`` prefix. Invalid feature names cause an immediate build error. See `the presto-native-execution README <https://github.com/prestodb/presto/blob/master/presto-native-execution/README.md>`_. `#28108 <https://github.com/prestodb/presto/pull/28108>`_
 * Add an Arrow federation connector to run federated queries. `#26404 <https://github.com/prestodb/presto/pull/26404>`_
 * Add registration for Presto-specific cuDF functions when cuDF is enabled in Presto native. `#28093 <https://github.com/prestodb/presto/pull/28093>`_
 * Add support for setting gflags through ``config.properties`` using the ``gflag.`` prefix. Property names use hyphens in place of underscores, such as ``gflag.velox-memory-num-shared-leaf-pools=64``. Command-line flags take precedence over config values. See :doc:`/presto_cpp/properties` for the full list of supported gflag properties. `#28127 <https://github.com/prestodb/presto/pull/28127>`_
 * Add session properties to tune the adaptive RPC rate limiter and congestion window (:ref:`presto_cpp/properties-session:\`\`native_rpc_ratelimiter_adaptive_enabled\`\``, :ref:`presto_cpp/properties-session:\`\`native_rpc_ratelimiter_min_limit\`\``, :ref:`presto_cpp/properties-session:\`\`native_rpc_ratelimiter_decrease_factor\`\``, :ref:`presto_cpp/properties-session:\`\`native_rpc_ratelimiter_max_limit\`\``, :ref:`presto_cpp/properties-session:\`\`native_rpc_congestion_max_window\`\``). `#28115 <https://github.com/prestodb/presto/pull/28115>`_
 * Add a two-phase memory reclaim for MaterializedOutputBuffer, integrated with the Velox memory arbitrator. `#27875 <https://github.com/prestodb/presto/pull/27875>`_
-* Deprecate individual feature environment variables such as ``PRESTO_ENABLE_S3`` in favor of ``PRESTO_OPTIONAL_FEATURES``. See the `presto-native-execution README <https://github.com/prestodb/presto/blob/master/presto-native-execution/README.md>`_. `#28108 <https://github.com/prestodb/presto/pull/28108>`_
-* Update ``native_exchange_materialization_enabled`` session property default to ``true`` to enable MaterizliedOutput and MaterializedExchange operators in Velox by default. `#27980 <https://github.com/prestodb/presto/pull/27980>`_
+* Update ``native_exchange_materialization_enabled`` session property default to ``true`` to enable MaterializedOutput and MaterializedExchange operators in Velox by default. `#27980 <https://github.com/prestodb/presto/pull/27980>`_
 
 Security Changes
 ________________
 * Update Elasticsearch client dependencies to version 9 in response to `CVE-2024-52980 <https://github.com/advisories/GHSA-ghfh-p92w-j4mg>`_. `#25320 <https://github.com/prestodb/presto/pull/25320>`_
-* Upgrade Netty to 4.2.15.Final to address `CVE-2026-44250 <https://github.com/advisories/GHSA-3244-j874-rhc2>`_. `#27966 <https://github.com/prestodb/presto/pull/27966>`_
 * Upgrade Netty to 4.2.16.Final to address `CVE-2026-44891 <https://github.com/advisories/GHSA-vhch-2wf3-m8rp>`_. `#28169 <https://github.com/prestodb/presto/pull/28169>`_
 * Upgrade async-http-client to 3.0.11 in response to `CVE-2026-55688  <https://nvd.nist.gov/vuln/detail/CVE-2026-55688>`_. `#28168 <https://github.com/prestodb/presto/pull/28168>`_
 * Upgrade calcite version to 1.42.0 to address `CVE-2026-46718 <https://github.com/advisories/GHSA-c2rv-hwqm-wjpg>`_. `#28039 <https://github.com/prestodb/presto/pull/28039>`_
