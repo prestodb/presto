@@ -19,10 +19,10 @@ import static java.util.Objects.requireNonNull;
 
 public class JdbcMetadataFactory
 {
-    private final JdbcMetadataCache jdbcMetadataCache;
-    private final JdbcClient jdbcClient;
-    private final boolean allowDropTable;
-    private final TableLocationProvider tableLocationProvider;
+    protected final JdbcMetadataCache jdbcMetadataCache;
+    protected final JdbcClient jdbcClient;
+    protected final boolean allowDropTable;
+    protected final TableLocationProvider tableLocationProvider;
 
     @Inject
     public JdbcMetadataFactory(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, JdbcMetadataConfig config, TableLocationProvider tableLocationProvider)
@@ -35,6 +35,34 @@ public class JdbcMetadataFactory
     }
 
     public JdbcMetadata create()
+    {
+        // Check if this is a PostgreSQL client and create appropriate metadata
+        String clientClassName = jdbcClient.getClass().getName();
+        if (clientClassName.contains("PostgreSql")) {
+            try {
+                // Use reflection to create PostgreSqlMetadata
+                Class<?> postgreSqlClientClass = Class.forName("com.facebook.presto.plugin.postgresql.PostgreSqlClient");
+                Class<?> postgreSqlMetadataClass = Class.forName("com.facebook.presto.plugin.postgresql.PostgreSqlMetadata");
+
+                if (postgreSqlClientClass.isInstance(jdbcClient)) {
+                    return (JdbcMetadata) postgreSqlMetadataClass
+                            .getConstructor(
+                                    JdbcMetadataCache.class,
+                                    postgreSqlClientClass,
+                                    boolean.class,
+                                    TableLocationProvider.class)
+                            .newInstance(jdbcMetadataCache, jdbcClient, allowDropTable, tableLocationProvider);
+                }
+            }
+            catch (Exception e) {
+                // Fall back to default if reflection fails
+            }
+        }
+
+        return createMetadata();
+    }
+
+    protected JdbcMetadata createMetadata()
     {
         return new JdbcMetadata(jdbcMetadataCache, jdbcClient, allowDropTable, tableLocationProvider);
     }
