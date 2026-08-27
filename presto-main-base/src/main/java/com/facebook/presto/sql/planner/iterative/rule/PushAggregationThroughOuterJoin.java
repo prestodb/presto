@@ -36,11 +36,13 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -83,7 +85,7 @@ import static java.util.Objects.requireNonNull;
  *  - Aggregate(Group by: all columns from the left table, aggregation:
  *    avg("n2.nationkey"))
  *      - LeftJoin("regionkey" = "regionkey")
- *          - AssignUniqueId (nation)
+ *          - AssignUniqueId (nation) // Or any other node which has distinct output variables as inferred by logical properties
  *              - Tablescan (nation)
  *          - Tablescan (nation)
  * </pre>
@@ -138,7 +140,7 @@ public class PushAggregationThroughOuterJoin
         if (join.getFilter().isPresent()
                 || !(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT)
                 || !groupsOnAllColumns(aggregation, getOuterTable(join).getOutputVariables())
-                || !isDistinct(context.getLookup().resolve(getOuterTable(join)), context.getLookup()::resolve)) {
+                || !isDistinctInternal(getOuterTable(join), context.getLookup())) {
             return Result.empty();
         }
 
@@ -312,7 +314,6 @@ public class PushAggregationThroughOuterJoin
         }
         return Optional.of(new ProjectNode(idAllocator.getNextId(), finalJoinNode, assignmentsBuilder.build()));
     }
-
     private Optional<MappedAggregationInfo> createAggregationOverNull(AggregationNode referenceAggregation, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         // Create a values node that consists of a single row of nulls.
@@ -400,6 +401,20 @@ public class PushAggregationThroughOuterJoin
 
         ImmutableMap<VariableReferenceExpression, SortOrder> orderingMap = ordering.build();
         return new OrderingScheme(orderBy.build().stream().map(variable -> new Ordering(variable, orderingMap.get(variable))).collect(toImmutableList()));
+    }
+
+    private static boolean isDistinctInternal(PlanNode node, Lookup lookup)
+    {
+        // Try distinct check first with logical properties
+        if (node instanceof GroupReference
+                && ((GroupReference) node).getLogicalProperties()
+                .map(logicalProperties -> logicalProperties.isAtMostSingleRow() ||
+                        (!node.getOutputVariables().isEmpty() && logicalProperties.isDistinct(ImmutableSet.copyOf(node.getOutputVariables()))))
+                .orElse(false)) {
+            return true;
+        }
+
+        return isDistinct(lookup.resolve(node), lookup::resolve);
     }
 
     private static boolean isUsingVariables(AggregationNode.Aggregation aggregation, Set<VariableReferenceExpression> sourceVariables)
