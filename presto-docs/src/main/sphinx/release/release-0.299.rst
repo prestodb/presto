@@ -125,7 +125,7 @@ _________________________
 * Add support to enable TLS for REST catalog communication. See :ref:`connector/iceberg:REST catalog`. `#28103 <https://github.com/prestodb/presto/pull/28103>`_
 * Add read support for row lineage columns as per Iceberg V3 spec. `#27743 <https://github.com/prestodb/presto/pull/27743>`_
 * Add support for Iceberg V3 field-id protocol in Presto Native. `#28116 <https://github.com/prestodb/presto/pull/28116>`_
-* Add support for Iceberg V3 deletion vectors and ``UPDATE`` / ``MERGE`` statements in Presto Native. `#28058 <https://github.com/prestodb/presto/pull28058>`_
+* Add support for Iceberg V3 deletion vectors and ``UPDATE`` / ``MERGE`` statements in Presto Native. `#28058 <https://github.com/prestodb/presto/pull/28058>`_
 
 Lance Connector Changes
 _______________________
