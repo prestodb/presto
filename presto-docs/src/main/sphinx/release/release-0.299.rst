@@ -5,12 +5,19 @@ Release 0.299
 **Breaking Changes**
 ====================
 * Fix partition filter cache metrics association. BREAKING: Metric names changed from `partitionnamescache*` to `partitionfiltercache*`. Users monitoring these JMX metrics must update their dashboards, alerts, and scripts to use the new metric names. The old metrics tracked the partition filter cache (filtered partition queries), not the partition names cache, as the name suggested. `#27960 <https://github.com/prestodb/presto/pull/27960>`_
-* Add explicit strategy parameter to rewrite_data_files procedure with binpack and sort strategies. Breaking change: Default behavior changed from sort to binpack for faster rewrites. Existing queries that rely on data ordering must add strategy => 'sort' to maintain previous behavior. Queries using sorted_by must now explicitly specify strategy => 'sort'. `#28092 <https://github.com/prestodb/presto/pull/28092>`_
+* Add explicit strategy parameter to ``rewrite_data_files`` procedure with binpack and sort strategies. Breaking change: Default behavior changed from sort to binpack for faster rewrites. Existing queries that rely on data ordering must add strategy => 'sort' to maintain previous behavior. Queries using sorted_by must now explicitly specify strategy => 'sort'. `#28092 <https://github.com/prestodb/presto/pull/28092>`_
 * Replace the ``lance.root-url`` configuration property with ``lance.root``. This is a breaking change: catalogs that set ``lance.root-url`` must be updated to ``lance.root`` before upgrading. See :ref:`connector/lance:Configuration Properties`. `#27481 <https://github.com/prestodb/presto/pull/27481>`_
 * Upgrade minimum Elasticsearch version from 6 to 9 (breaking) in response to CVE-2024-52980. `#25320 <https://github.com/prestodb/presto/pull/25320>`_
 
 **Highlights**
 ==============
+* Add multi-arch (amd64 + arm64) support for presto-native and presto-native-dependency release Docker images, with the arm64 build using a portable -march=armv8-a+crc+crypto baseline for broad ARM CPU compatibility. `#28046 <https://github.com/prestodb/presto/pull/28046>`_
+* Add an Arrow federation connector to run federated queries. `#26404 <https://github.com/prestodb/presto/pull/26404>`_
+* Fix timestamp operations to match the SQL specification. The value of a ``TIMESTAMP`` type is not affected by the session time zone. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
+* Add comprehensive cache metrics for all metastore caches. See :ref:`connector/hive:Metastore Cache Metrics`.  `#27960 <https://github.com/prestodb/presto/pull/27960>`_
+* Add support for AWS Glue Table and Column Statistics. `#27112 <https://github.com/prestodb/presto/pull/27112>`_
+* Upgrade to Hive 4.0.1. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
+
 
 **Details**
 ===========
@@ -51,7 +58,7 @@ _______________
 * Add validation to reject non-deterministic and session-time functions in ``CREATE MATERIALIZED VIEW`` definitions. `#28220 <https://github.com/prestodb/presto/pull/28220>`_
 * Add optimizer rule ``parallelize_chained_aggregation`` (default: false) that inserts a local round-robin exchange to parallelize the outer PARTIAL in chained aggregations. `#27884 <https://github.com/prestodb/presto/pull/27884>`_
 * Add the ``AUTOMATIC`` value for the ``rpc_streaming_mode`` session property, the ``rpc_batch_min_rows`` session property, and a pluggable ``RpcExecutionPolicy`` so deployments can resolve per-row versus batch RPC dispatch from the estimated input stats. `#27984 <https://github/com/prestodb/presto/pull/27984>`_
-* Update ST_Equals function for empty geometries to return true regardless of geometry types. `#27015 <https://github.com/prestodb/presto/pull/27015>`_
+* Update ``ST_Equals`` function for empty geometries to return true regardless of geometry types. `#27015 <https://github.com/prestodb/presto/pull/27015>`_
 * Update default value of ``deprecated.legacy-timestamp`` to false. `#24571 <https://github.com/prestodb/presto/pull/24571>`_
 * Update the driver-side metadata sidecar registration of worker functions into the Airlift bootstrap. `#27699 <https://github.com/prestodb/presto/pull/27699>`_
 
@@ -90,7 +97,6 @@ ___________________________
 
 Delta Lake Connector Changes
 ____________________________
-* Add support for reading Variant columns as JSON columns in Presto when reading Parquet files. `#27552 <https://github.com/prestodb/presto/pull/27552>`_
 * Add support for reading Variant data as JSON. `#27552 <https://github.com/prestodb/presto/pull/27552>`_
 
 Hive Connector Changes
@@ -127,7 +133,6 @@ _______________________
 * Add ``LIMIT`` pushdown for Lance table scans to reduce rows read by Lance for simple limit queries. `#28049 <https://github.com/prestodb/presto/pull/28049>`_
 * Add pluggable namespace support to the Lance connector using the lance-namespace API, enabling directory, REST, and custom namespace implementations. `#27481 <https://github.com/prestodb/presto/pull/27481>`_
 * Add the ``lance.parent`` configuration property to select a parent namespace prefix for namespaces with three or more levels. See :ref:`connector/lance:Configuration Properties`. `#27481 <https://github.com/prestodb/presto/pull/27481>`_
-
 * Replace the ``lance.root-url`` configuration property with ``lance.root``. This is a breaking change: catalogs that set ``lance.root-url`` must be updated to ``lance.root`` before upgrading. See :ref:`connector/lance:Configuration Properties`. `#27481 <https://github.com/prestodb/presto/pull/27481>`_
 
 Oracle Connector Changes
