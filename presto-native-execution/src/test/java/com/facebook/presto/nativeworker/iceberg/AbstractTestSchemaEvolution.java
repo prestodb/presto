@@ -30,13 +30,14 @@ import static java.lang.String.format;
  * Concrete subclasses bind the storage format (PARQUET) so the same matrix
  * runs against every reader and proves parity.
  *
- * Two velox-level scenarios are intentionally absent because they are not
- * expressible as Presto Iceberg SQL DDL and are covered by the velox unit/e2e
+ * One velox-level scenario is intentionally absent because it is not
+ * expressible as Presto Iceberg SQL DDL and is covered by the velox unit/e2e
  * tests instead:
- * - column reorder (no ALTER ... FIRST/AFTER; only SELECT projection order, which
- *   {@link #testRenameReorderDropAdd} exercises),
  * - nested struct field add/drop/reorder (the connector only evolves top-level
  *   columns).
+ *
+ * Top-level column reordering via {@code ALTER TABLE … ADD COLUMN … FIRST|AFTER}
+ * is tested by {@link #testAddColumnFirst} and {@link #testAddColumnAfter}.
  */
 public abstract class AbstractTestSchemaEvolution
         extends AbstractTestQueryFramework
@@ -185,6 +186,72 @@ public abstract class AbstractTestSchemaEvolution
             // resolve by field id to their original data; d is null-filled.
             assertQuery(format("SELECT c2, a, d FROM %s ORDER BY a", table),
                     "VALUES ('x', BIGINT '1', NULL), ('y', BIGINT '2', NULL), ('z', BIGINT '3', NULL)");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s", table));
+        }
+    }
+
+    // ADD COLUMN … FIRST positions the new column at ordinal 0. Old files do not
+    // contain it, so the native reader must null-fill by field id, not by position.
+    // New files written after the DDL carry the value at the new field id.
+    @Test
+    public void testAddColumnFirst()
+    {
+        String table = "schema_evolution_add_first";
+        try {
+            assertUpdate(format("CREATE TABLE %s (a INTEGER, b VARCHAR) WITH (format = '%s')", table, storageFormat()));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 'x'), (2, 'y')", table), 2);
+
+            assertUpdate(format("ALTER TABLE %s ADD COLUMN z INTEGER FIRST", table));
+
+            // Old rows must read NULL for the new leading column.
+            assertQuery(format("SELECT z, a, b FROM %s ORDER BY a", table),
+                    "VALUES (NULL, 1, 'x'), (NULL, 2, 'y')");
+
+            // New rows have a real value for z; pre-existing rows keep their field-id
+            // bindings unchanged (a and b must not shift by one position).
+            assertUpdate(format("INSERT INTO %s VALUES (99, 3, 'new')", table), 1);
+            assertQuery(format("SELECT z, a, b FROM %s ORDER BY a", table),
+                    "VALUES (NULL, 1, 'x'), (NULL, 2, 'y'), (99, 3, 'new')");
+            assertQuery(format("SELECT b, z, a FROM %s ORDER BY a", table),
+                    "VALUES ('x', NULL, 1), ('y', NULL, 2), ('new', 99, 3)");
+            // SELECT * must return columns in schema order: z (FIRST), a, b.
+            assertQuery(format("SELECT * FROM %s ORDER BY a", table),
+                    "VALUES (NULL, 1, 'x'), (NULL, 2, 'y'), (99, 3, 'new')");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s", table));
+        }
+    }
+
+    // ADD COLUMN … AFTER <col> inserts the new column between two existing ones.
+    // The native reader must correctly null-fill for old files and bind the value
+    // for new files, in both cases using field id rather than physical position.
+    @Test
+    public void testAddColumnAfter()
+    {
+        String table = "schema_evolution_add_after";
+        try {
+            assertUpdate(format("CREATE TABLE %s (a INTEGER, c VARCHAR) WITH (format = '%s')", table, storageFormat()));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 'x'), (2, 'y')", table), 2);
+
+            // Insert column b between a and c.
+            assertUpdate(format("ALTER TABLE %s ADD COLUMN b INTEGER AFTER a", table));
+
+            // Old files do not have b; it must null-fill without disturbing c.
+            assertQuery(format("SELECT a, b, c FROM %s ORDER BY a", table),
+                    "VALUES (1, NULL, 'x'), (2, NULL, 'y')");
+
+            // New rows carry a value for b; a and c keep their field-id bindings.
+            assertUpdate(format("INSERT INTO %s VALUES (3, 10, 'z')", table), 1);
+            assertQuery(format("SELECT a, b, c FROM %s ORDER BY a", table),
+                    "VALUES (1, NULL, 'x'), (2, NULL, 'y'), (3, 10, 'z')");
+            assertQuery(format("SELECT b, a, c FROM %s ORDER BY a", table),
+                    "VALUES (NULL, 1, 'x'), (NULL, 2, 'y'), (10, 3, 'z')");
+            // SELECT * must return columns in schema order: a, b (AFTER a), c.
+            assertQuery(format("SELECT * FROM %s ORDER BY a", table),
+                    "VALUES (1, NULL, 'x'), (2, NULL, 'y'), (3, 10, 'z')");
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", table));

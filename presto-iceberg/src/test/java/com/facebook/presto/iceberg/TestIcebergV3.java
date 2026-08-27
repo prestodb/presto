@@ -503,6 +503,40 @@ public class TestIcebergV3
     }
 
     @Test
+    public void testAddColumnWithDefaultAndPosition()
+    {
+        String tableName = "test_add_column_default_position";
+        String columnOrderQuery = "SELECT column_name FROM information_schema.columns" +
+                " WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + tableName + "' ORDER BY ordinal_position";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
+
+            // The default literal and the move are staged on a single UpdateSchema, so both have to survive one commit
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'IN' FIRST");
+            // Asserted with assertQueryOrdered, because assertQuery compares results as an unordered multiset
+            // and would pass for any column order
+            assertQueryOrdered(columnOrderQuery, "VALUES ('country'), ('id'), ('name')");
+            Table table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "IN");
+            assertEquals(table.schema().findField("country").writeDefault(), "IN");
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN region VARCHAR DEFAULT 'APAC' AFTER id");
+            assertQueryOrdered(columnOrderQuery, "VALUES ('country'), ('id'), ('region'), ('name')");
+            table = loadTable(tableName);
+            assertEquals(table.schema().findField("region").initialDefault(), "APAC");
+            assertEquals(table.schema().findField("region").writeDefault(), "APAC");
+
+            // A row written without the defaulted columns reads them back in their requested positions
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (1, 'Alice')", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('IN', 1, 'APAC', 'Alice')");
+            assertQuery("SELECT country, region FROM " + tableName, "VALUES ('IN', 'APAC')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
     public void testSetColumnDefaultRequiresV3()
     {
         String tableName = "test_set_column_default_v2";

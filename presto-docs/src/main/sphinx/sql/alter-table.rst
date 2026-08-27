@@ -8,7 +8,7 @@ Synopsis
 .. code-block:: none
 
     ALTER TABLE [ IF EXISTS ] name RENAME TO new_name
-    ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_type [ DEFAULT default_expression ] [ COMMENT comment ] [ WITH ( property_name = expression [, ...] ) ]
+    ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_type [ DEFAULT default_expression ] [ COMMENT comment ] [ WITH ( property_name = expression [, ...] ) ] [ FIRST | AFTER existing_column_name ]
     ALTER TABLE [ IF EXISTS ] name DROP COLUMN column_name
     ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] column_name TO new_column_name
     ALTER TABLE [ IF EXISTS ] name ADD [ CONSTRAINT constraint_name ] { PRIMARY KEY | UNIQUE } ( { column_name [, ...] } ) [ { ENABLED | DISABLED } ] [ [ NOT ] RELY ] [ [ NOT ] ENFORCED } ]
@@ -40,6 +40,11 @@ The optional ``IF EXISTS`` (when used before the column name) clause causes the 
 
 The optional ``IF NOT EXISTS`` clause causes the error to be suppressed if the column already exists.
 
+For ``ADD COLUMN`` statements, the optional ``FIRST`` and ``AFTER`` clauses control where the new
+column is placed in the table's column order. When neither clause is given, the column is appended at the
+end. ``FIRST`` and ``AFTER`` require support from the connector; connectors that do not support them
+report an error. ``AFTER`` requires the named column to already exist.
+
 For ``CREATE BRANCH`` statements:
 
 * The optional ``OR REPLACE`` clause causes the branch to be replaced if it already exists.
@@ -70,6 +75,14 @@ Add column ``zip`` to the ``users`` table::
 Add column ``zip`` to the ``users`` table if table ``users`` exists and column ``zip`` not already exists::
 
     ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS zip varchar;
+
+Add column ``zip`` as the first column of the ``users`` table::
+
+    ALTER TABLE users ADD COLUMN zip varchar FIRST;
+
+Add column ``zip`` immediately after the ``city`` column of the ``users`` table::
+
+    ALTER TABLE users ADD COLUMN zip varchar AFTER city;
 
 Drop column ``zip`` from the ``users`` table::
 
