@@ -24,6 +24,7 @@
 #include "velox/connectors/hive/iceberg/IcebergFieldMetadata.h"
 #include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
+#include "velox/type/Type.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
 namespace facebook::presto {
@@ -152,6 +153,13 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
       // manifest file are consistent with the field names in
       // parquet data file.
       names.emplace_back(column.name);
+      // Iceberg's UNKNOWN type is recorded as "void" in the Hive metastore.
+      // HiveTypeParser does not recognise "void", so map it directly to the
+      // velox UNKNOWN type (an always-null, zero-width column).
+      if (column.type == "void") {
+        types.push_back(velox::UNKNOWN());
+        continue;
+      }
       auto parsedType = hiveTypeParser.parse(column.type);
       // The type from the metastore may have upper case letters
       // in field names, convert them all to lower case to be
