@@ -23,6 +23,7 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestJdbcMetadataConfig
@@ -34,7 +35,10 @@ public class TestJdbcMetadataConfig
                 .setAllowDropTable(false)
                 .setMetadataCacheTtl(new Duration(0, SECONDS))
                 .setMetadataCacheRefreshInterval(new Duration(0, SECONDS))
-                .setMetadataCacheMaximumSize(10000));
+                .setMetadataCacheMaximumSize(10000)
+                .setTableStatisticsCacheTtl(new Duration(0, SECONDS))
+                .setTableStatisticsCacheRefreshInterval(new Duration(0, SECONDS))
+                .setTableStatisticsCacheMaximumSize(10000));
     }
 
     @Test
@@ -42,16 +46,22 @@ public class TestJdbcMetadataConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("allow-drop-table", "true")
-                .put("metadata-cache-ttl", "1h")
-                .put("metadata-cache-refresh-interval", "10s")
-                .put("metadata-cache-maximum-size", "100")
+                .put("metadata-cache-ttl", "2h")
+                .put("metadata-cache-refresh-interval", "5m")
+                .put("metadata-cache-maximum-size", "200")
+                .put("table-statistics-cache-ttl", "1h")
+                .put("table-statistics-cache-refresh-interval", "10s")
+                .put("table-statistics-cache-maximum-size", "500")
                 .build();
 
         JdbcMetadataConfig expected = new JdbcMetadataConfig()
                 .setAllowDropTable(true)
-                .setMetadataCacheTtl(new Duration(1, HOURS))
-                .setMetadataCacheRefreshInterval(new Duration(10, SECONDS))
-                .setMetadataCacheMaximumSize(100);
+                .setMetadataCacheTtl(new Duration(2, HOURS))
+                .setMetadataCacheRefreshInterval(new Duration(5, MINUTES))
+                .setMetadataCacheMaximumSize(200)
+                .setTableStatisticsCacheTtl(new Duration(1, HOURS))
+                .setTableStatisticsCacheRefreshInterval(new Duration(10, SECONDS))
+                .setTableStatisticsCacheMaximumSize(500);
 
         assertFullMapping(properties, expected);
     }
