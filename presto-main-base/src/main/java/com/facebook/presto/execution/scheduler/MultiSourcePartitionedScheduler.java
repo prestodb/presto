@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.airlift.concurrent.MoreFutures;
 import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.Lifespan;
@@ -26,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.ArrayDeque;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
@@ -48,13 +50,15 @@ public class MultiSourcePartitionedScheduler
 
     private final SqlStageExecution stageExecution;
     private final Queue<SourceScheduler> partitionedSourceSchedulers; // Queue of schedulers, one per split source (table scan nodes).
+    private final CTEMaterializationTracker cteMaterializationTracker;
 
     public MultiSourcePartitionedScheduler(
             SqlStageExecution stageExecution,
             Map<PlanNodeId, SplitSource> splitSources,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            StageExecutionDescriptor stageExecutionDescriptor)
+            StageExecutionDescriptor stageExecutionDescriptor,
+            CTEMaterializationTracker cteMaterializationTracker)
     {
         requireNonNull(splitSources, "splitSources is null");
         checkArgument(splitSources.size() > 1, "It is expected that there will be more than one split sources");
@@ -78,11 +82,22 @@ public class MultiSourcePartitionedScheduler
         }
         this.stageExecution = requireNonNull(stageExecution, "stageExecution is null");
         this.partitionedSourceSchedulers = new ArrayDeque<>(sourceSchedulers.build());
+        this.cteMaterializationTracker = requireNonNull(cteMaterializationTracker, "cteMaterializationTracker is null");
     }
 
     @Override
     public synchronized ScheduleResult schedule()
     {
+        List<ListenableFuture<?>> cteMaterializationFutures = cteMaterializationTracker.waitForCteMaterialization(stageExecution);
+        if (!cteMaterializationFutures.isEmpty()) {
+            return ScheduleResult.blocked(
+                    false,
+                    ImmutableList.of(),
+                    MoreFutures.whenAnyComplete(cteMaterializationFutures),
+                    ScheduleResult.BlockedReason.WAITING_FOR_CTE_MATERIALIZATION,
+                    0);
+        }
+
         ImmutableSet.Builder<RemoteTask> newScheduledTasks = ImmutableSet.builder();
         ListenableFuture<?> blocked = immediateVoidFuture();
         Optional<ScheduleResult.BlockedReason> blockedReason = Optional.empty();

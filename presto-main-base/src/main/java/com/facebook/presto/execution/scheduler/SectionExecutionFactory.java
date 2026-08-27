@@ -333,7 +333,8 @@ public class SectionExecutionFactory
                     splitSources,
                     new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks),
                     splitBatchSize,
-                    plan.getFragment().getStageExecutionDescriptor());
+                    plan.getFragment().getStageExecutionDescriptor(),
+                    cteMaterializationTracker);
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStageExecutions.stream()
