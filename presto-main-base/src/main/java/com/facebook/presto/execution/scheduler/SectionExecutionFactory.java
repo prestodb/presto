@@ -292,6 +292,8 @@ public class SectionExecutionFactory
         int maxTasksPerStage = getMaxTasksPerStage(session);
         Optional<Predicate<Node>> nodePredicate = getNodePoolSelectionPredicate(plan);
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
+            checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
+
             // Single split source case: Use a single source-partitioned scheduler (SourcePartitionedScheduler).
             if (splitSources.size() == 1) {
                 // Nodes are selected dynamically based on the constraints of the splits and the system load
@@ -304,8 +306,6 @@ public class SectionExecutionFactory
                 }
                 NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, connectorId, maxTasksPerStage, nodePredicate);
                 SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
-
-                checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
 
                 // Return a SourcePartitionedScheduler for the single source.
                 return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, cteMaterializationTracker);
