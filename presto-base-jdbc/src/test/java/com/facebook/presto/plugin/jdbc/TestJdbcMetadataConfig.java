@@ -32,9 +32,11 @@ public class TestJdbcMetadataConfig
     {
         assertRecordedDefaults(recordDefaults(JdbcMetadataConfig.class)
                 .setAllowDropTable(false)
+                .setMetadataTransactionCacheEnabled(true)
                 .setMetadataCacheTtl(new Duration(0, SECONDS))
                 .setMetadataCacheRefreshInterval(new Duration(0, SECONDS))
-                .setMetadataCacheMaximumSize(10000));
+                .setMetadataCacheMaximumSize(10000)
+                .setMetadataTransactionCacheMaximumSize(1000));
     }
 
     @Test
@@ -42,16 +44,20 @@ public class TestJdbcMetadataConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("allow-drop-table", "true")
+                .put("metadata-transaction-cache-enabled", "false")
                 .put("metadata-cache-ttl", "1h")
                 .put("metadata-cache-refresh-interval", "10s")
                 .put("metadata-cache-maximum-size", "100")
+                .put("metadata-transaction-cache-maximum-size", "200")
                 .build();
 
         JdbcMetadataConfig expected = new JdbcMetadataConfig()
                 .setAllowDropTable(true)
+                .setMetadataTransactionCacheEnabled(false)
                 .setMetadataCacheTtl(new Duration(1, HOURS))
                 .setMetadataCacheRefreshInterval(new Duration(10, SECONDS))
-                .setMetadataCacheMaximumSize(100);
+                .setMetadataCacheMaximumSize(100)
+                .setMetadataTransactionCacheMaximumSize(200);
 
         assertFullMapping(properties, expected);
     }

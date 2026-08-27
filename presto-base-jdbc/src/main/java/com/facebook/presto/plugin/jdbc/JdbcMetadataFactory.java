@@ -22,6 +22,8 @@ public class JdbcMetadataFactory
     private final JdbcMetadataCache jdbcMetadataCache;
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
+    private final boolean metadataTransactionCacheEnabled;
+    private final long metadataTransactionCacheMaximumSize;
     private final TableLocationProvider tableLocationProvider;
 
     @Inject
@@ -31,11 +33,16 @@ public class JdbcMetadataFactory
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         requireNonNull(config, "config is null");
         this.allowDropTable = config.isAllowDropTable();
+        this.metadataTransactionCacheEnabled = config.isMetadataTransactionCacheEnabled();
+        this.metadataTransactionCacheMaximumSize = config.getMetadataTransactionCacheMaximumSize();
         this.tableLocationProvider = requireNonNull(tableLocationProvider, "tableLocationProvider is null");
     }
 
     public JdbcMetadata create()
     {
-        return new JdbcMetadata(jdbcMetadataCache, jdbcClient, allowDropTable, tableLocationProvider);
+        JdbcMetadataCache transactionMetadataCache = metadataTransactionCacheEnabled ?
+                JdbcMetadataCache.createTransactionCache(jdbcMetadataCache, metadataTransactionCacheMaximumSize) :
+                jdbcMetadataCache;
+        return new JdbcMetadata(transactionMetadataCache, jdbcClient, allowDropTable, tableLocationProvider);
     }
 }
