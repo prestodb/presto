@@ -236,6 +236,20 @@ TEST_F(ConfigTest, optionalSystemConfigsWithDefault) {
   ASSERT_EQ(config.maxDriversPerTask(), 1024);
 }
 
+TEST_F(ConfigTest, cudfExchangeServerPort) {
+  SystemConfig config;
+  // Unset: the port the receiving side derives from a remote task's HTTP
+  // location, which is the HTTP port plus 3.
+  init(config, {{std::string(SystemConfig::kHttpServerHttpPort), "7777"}});
+  ASSERT_EQ(config.cudfExchangeServerPort(), 7780);
+
+  init(
+      config,
+      {{std::string(SystemConfig::kHttpServerHttpPort), "7777"},
+       {std::string(SystemConfig::kCudfExchangeServerPort), "19003"}});
+  ASSERT_EQ(config.cudfExchangeServerPort(), 19003);
+}
+
 TEST_F(ConfigTest, asyncCacheNumShards) {
   SystemConfig config;
   init(config, {});
