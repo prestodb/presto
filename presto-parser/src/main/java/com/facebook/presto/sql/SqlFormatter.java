@@ -15,6 +15,7 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
+import com.facebook.presto.sql.tree.AddField;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterColumnNotNull;
@@ -1549,6 +1550,32 @@ public final class SqlFormatter
                 builder.append("IF NOT EXISTS ");
             }
             builder.append(formatColumnDefinition(node.getColumn()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitAddField(AddField node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTableName()))
+                    .append(" ADD COLUMN ");
+            if (node.isFieldNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatName(node.getColumnPath()))
+                    .append(".")
+                    .append(formatExpression(node.getFieldName(), parameters))
+                    .append(" ")
+                    .append(node.getType());
+            if (!node.isNullable()) {
+                builder.append(" NOT NULL");
+            }
+            node.getComment().ifPresent(comment ->
+                    builder.append(" COMMENT ").append(formatStringLiteral(comment)));
 
             return null;
         }
