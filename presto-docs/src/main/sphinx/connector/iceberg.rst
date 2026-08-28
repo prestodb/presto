@@ -23,7 +23,7 @@ Hive Metastore catalog
 ^^^^^^^^^^^^^^^^^^^^^^
 
 The Iceberg connector supports the same configuration for
-`HMS <https://prestodb.io/docs/current/connector/hive.html#metastore-configuration-properties>`_
+:ref:`HMS <connector/hive:Metastore Configuration Properties>`
 as a Hive connector.
 
 .. code-block:: none
@@ -42,7 +42,7 @@ Glue catalog
 ^^^^^^^^^^^^
 
 The Iceberg connector supports the same configuration for
-`Glue <https://prestodb.io/docs/current/connector/hive.html#aws-glue-catalog-configuration-properties>`_
+:ref:`Glue <connector/hive:AWS Glue Catalog Configuration Properties>`
 as a Hive connector.
 
 .. code-block:: none
@@ -335,7 +335,7 @@ Property Name                                           Description             
                                                         Otherwise, it will be ignored.
 ======================================================= ============================================================= ============
 
-Configure the `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
+Configure the :ref:`Amazon S3 <connector/hive:Amazon S3 Configuration>`
 properties to specify a S3 location as the warehouse data directory for the Hadoop catalog. This way,
 the data and delete files of Iceberg tables are stored in S3. An example configuration includes:
 
@@ -362,7 +362,7 @@ Configuration Properties
 .. note::
 
     The Iceberg connector supports configuration options for
-    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
+    :ref:`Amazon S3 <connector/hive:Amazon S3 Configuration>`
     as a Hive connector.
 
 The following configuration properties are available for all catalog types:
@@ -834,7 +834,7 @@ Iceberg Connector supports Metastore Caching with some exceptions. Iceberg Conne
 Metastore Caching is only supported when ``iceberg.catalog.type`` is ``HIVE``.
 
 The Iceberg connector supports the same configuration properties for
-`Hive Metastore Caching <https://prestodb.io/docs/current/connector/hive.html#metastore-configuration-properties>`_
+:ref:`Hive Metastore Caching <connector/hive:Metastore Configuration Properties>`
 as a Hive connector.
 
 The following configuration properties are the minimum set of configurations required to be added in the Iceberg catalog file ``catalog/iceberg.properties``:
@@ -2757,7 +2757,7 @@ In this example, SYSTEM_TIME can be used as an alias for TIMESTAMP.
 
 .. note::
 
-    Timestamp without timezone will be parsed and rendered in the session time zone. See `TIMESTAMP <https://prestodb.io/docs/current/language/types.html#timestamp>`_.
+    Timestamp without timezone will be parsed and rendered in the session time zone. See :ref:`language/types:\`\`TIMESTAMP\`\``.
 
 The option following FOR TIMESTAMP AS OF can accept any expression that returns a timestamp or timestamp with time zone value.
 For example, `TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles'` and `TIMESTAMP '2023-10-17 13:29:46.822'` are both valid timestamps. The first specifies the timestamp within the timezone `America/Los_Angeles`. The second will use the timestamp based on the user's session timezone.

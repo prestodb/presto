@@ -14,7 +14,8 @@ To enable OAuth2 authentication, configuration changes are made **only on the Pr
 Secure Communication
 --------------------
 
-Access to the Presto coordinator must be secured with HTTPS. You must configure a valid TLS certificate and keystore on the coordinator. See the `TLS setup guide <https://prestodb.io/docs/current/security/internal-communication.html>`_ for details.
+Access to the Presto coordinator must be secured with HTTPS. You must configure a valid TLS certificate and keystore on the coordinator.
+See the :doc:`TLS setup guide </security/internal-communication>` for details.
 
 OAuth2 Configuration
 --------------------
