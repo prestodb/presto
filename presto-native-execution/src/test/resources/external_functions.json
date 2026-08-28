@@ -82,7 +82,8 @@
         },
         "aggregateMetadata": {
           "intermediateType": "BIGINT",
-          "isOrderSensitive": false
+          "isOrderSensitive": false,
+          "isDistinctSensitive": true
         }
       }
     ],
@@ -102,7 +103,8 @@
         },
         "aggregateMetadata": {
           "intermediateType": "ROW(DOUBLE, BIGINT)",
-          "isOrderSensitive": false
+          "isOrderSensitive": false,
+          "isDistinctSensitive": true
         }
       }
     ],
@@ -122,7 +124,8 @@
         },
         "aggregateMetadata": {
           "intermediateType": "ROW(DOUBLE, BIGINT)",
-          "isOrderSensitive": false
+          "isOrderSensitive": false,
+          "isDistinctSensitive": true
         }
       }
     ],
@@ -142,7 +145,8 @@
         },
         "aggregateMetadata": {
           "intermediateType": "ROW(DOUBLE, BIGINT)",
-          "isOrderSensitive": false
+          "isOrderSensitive": false,
+          "isDistinctSensitive": true
         }
       }
     ],
