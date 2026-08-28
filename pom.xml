@@ -92,7 +92,7 @@
         <dep.commons.lang3.version>3.18.0</dep.commons.lang3.version>
         <dep.guice.version>6.0.0</dep.guice.version>
         <dep.arrow.version>18.3.0</dep.arrow.version>
-        <dep.mariadb.version>3.5.4</dep.mariadb.version>
+        <dep.mariadb.version>3.5.9</dep.mariadb.version>
         <dep.spark.version>2.4.4-1</dep.spark.version>
         <dep.hadoop.version>3.4.1-1</dep.hadoop.version>
         <scala.version>2.13.18</scala.version>
