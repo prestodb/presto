@@ -245,7 +245,7 @@ Native Execution only. Enable simplified path in expression evaluation.
 * **Type:** ``integer``
 * **Default value:** ``100000``
 
-Native Execution only. The `reduce <https://prestodb.io/docs/current/functions/array.html#reduce-array-T-initialState-S-inputFunction-S-T-S-outputFunction-S-R-R>`_
+Native Execution only. The :func:`reduce <reduce(array[T], initialState S, inputFunction(S,T,S), outputFunction(S,R)) -> R>`
 function will throw an error if it encounters an array of size greater than this value.
 
 ``native_expression_max_compiled_regexes``

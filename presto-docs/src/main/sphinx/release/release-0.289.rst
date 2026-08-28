@@ -72,7 +72,7 @@ _________________________
 * Add procedure ``remove_orphan_files`` to remove orphan files that are not referenced in any metadata files for Iceberg. :pr:`23267`
 * Add table properties ``metadata_previous_versions_max`` and ``metadata_delete_after_commit`` to maintain the previous metadata files. :pr:`23260`
 * Add support for Iceberg with hive catalog to delete old metadata files after commit based on the table properties. :pr:`23260`
-* Add `configuration properties <https://prestodb.io/docs/current/connector/iceberg.html#glue-catalog>` to tune table metadata refresh timeouts for the Iceberg connector when configured with the Hive or Glue catalog. :pr:`23174`
+* Add :ref:`configuration properties <connector/iceberg:Glue catalog>` to tune table metadata refresh timeouts for the Iceberg connector when configured with the Hive or Glue catalog. :pr:`23174`
 * Fix Iceberg read failing for Decimal type. :pr:`23305`
 * Improve performance of Iceberg and Delta connectors when used with JDBC client. :pr:`22936`
 

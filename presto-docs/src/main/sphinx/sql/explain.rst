@@ -21,7 +21,7 @@ Description
 
 Show the logical or distributed execution plan of a statement, or validate the statement.
 Use ``TYPE DISTRIBUTED`` option to display a fragmented plan. Each
-`plan fragment <https://prestodb.io/docs/current/overview/concepts.html#plan-fragment>`_
+:ref:`plan fragment <overview/concepts:Plan Fragment>`
 is executed by a single or multiple Presto nodes. Fragment type specifies how the fragment
 is executed by Presto nodes and how the data is distributed between fragments:
 

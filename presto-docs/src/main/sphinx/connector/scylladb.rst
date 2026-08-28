@@ -13,5 +13,5 @@ Configuration
 -------------
 
 No specific ScyllaDB configuration is needed. Please consult the documentation for the
-`Cassandra connector <https://prestodb.io/docs/current/connector/cassandra.html>`_ for further details.
+:doc:`/connector/cassandra` for further details.
 `For further information <https://docs.scylladb.com/stable/using-scylla/integrations/integration-presto.html>`_.
