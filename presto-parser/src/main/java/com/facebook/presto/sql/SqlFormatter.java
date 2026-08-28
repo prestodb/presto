@@ -565,7 +565,9 @@ public final class SqlFormatter
             builder.append(formatName(node.getName()));
             if (node.getTableVersionExpression().isPresent()) {
                 builder.append(' ');
-                process(node.getTableVersionExpression().get(), indent);
+                // The version expression is formatted inline after the table name, so it is a root
+                // for formatting purposes regardless of how deeply the table itself is nested.
+                process(node.getTableVersionExpression().get(), 0);
             }
 
             return null;
