@@ -940,7 +940,7 @@ to make the query plan easier to read.
 The corresponding session property is :ref:`admin/properties-session:\`\`optimize_hash_generation\`\``.
 
 ``optimizer.rewrite-approx-distinct-if-to-mask``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
