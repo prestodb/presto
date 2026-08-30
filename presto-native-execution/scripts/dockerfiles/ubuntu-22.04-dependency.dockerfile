@@ -39,8 +39,6 @@ COPY velox/CMake/resolve_dependency_modules/arrow/arrow-testing-boost.patch /vel
 ENV VELOX_ARROW_CMAKE_PATCH="/velox/cmake-compatibility.patch /velox/arrow-testing-boost.patch"
 COPY CMake/arrow/arrow-flight.patch /scripts
 ENV EXTRA_ARROW_PATCH=/scripts/arrow-flight.patch
-COPY velox/CMake/resolve_dependency_modules/fbthrift/compactv1-protocol-refiller.patch /velox
-ENV VELOX_FBTHRIFT_CMAKE_PATCH=/velox/compactv1-protocol-refiller.patch
 # from https://github.com/facebookincubator/velox/pull/18470
 COPY velox/CMake/resolve_dependency_modules/openzl/openzl-cxx-standard.patch /velox
 ENV VELOX_OPENZL_CMAKE_PATCH=/velox/openzl-cxx-standard.patch
