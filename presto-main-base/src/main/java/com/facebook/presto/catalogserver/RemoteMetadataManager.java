@@ -236,4 +236,10 @@ public class RemoteMetadataManager
     {
         throw new UnsupportedOperationException("addField is not supported in RemoteMetadataManager");
     }
+
+    @Override
+    public void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        throw new UnsupportedOperationException("dropField is not supported in RemoteMetadataManager");
+    }
 }
