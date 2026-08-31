@@ -428,7 +428,7 @@ to make the query plan easier to read.
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-hash-generation\`\``.
 
 ``rewrite_approx_distinct_if_to_mask``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
