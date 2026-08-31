@@ -1,6 +1,4 @@
 name: Maven OWASP Dependency Check
-permissions:
-  contents: read
 on:
   pull_request: {}
   workflow_dispatch:
@@ -27,13 +25,14 @@ jobs:
         with:
           filters: |
             codechange:
-              - '!presto-docs/**'
-              - '!presto-native-execution/presto_cpp/**'
+              - '!(presto-docs{,/**}|presto-native-execution/presto_cpp{,/**})'
               - 'presto-docs/pom.xml'
 
   dependency-check:
     needs: changes
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     concurrency:
       group: ${{ github.workflow }}-owasp-dependency-check-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -60,7 +59,7 @@ jobs:
         run: |
           merge_base=$(gh api -q '.merge_base_commit.sha' \
             "/repos/$REPO/compare/$BASE_REF...$HEAD_SHA")
-          echo "sha=$merge_base" >> $GITHUB_OUTPUT
+          echo "sha=$merge_base" >> "$GITHUB_OUTPUT"
           echo "Using merge base: $merge_base"
 
       - name: Checkout base branch
@@ -79,47 +78,44 @@ jobs:
           java-version: 17
           cache: maven
 
-      - name: Get date for cache key
-        if: needs.changes.outputs.codechange == 'true'
-        id: get-date
-        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-
-      - name: Restore OWASP database cache
+      # Refreshed by owasp-nvd-cache.yml; forks can read default-branch caches.
+      - name: Restore cached NVD database
         if: needs.changes.outputs.codechange == 'true'
         uses: actions/cache/restore@v4
         id: cache-owasp-restore
         with:
           path: /tmp/.owasp/dependency-check-data
-          key: owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-${{ steps.get-date.outputs.date }}
           restore-keys: |
-            owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-
-            owasp-cache-${{ runner.os }}-
+            owasp-nvd-db-${{ runner.os }}-v${{ env.OWASP_VERSION }}-
+          key: owasp-nvd-db-${{ runner.os }}-v${{ env.OWASP_VERSION }}-restore-only
+
+      # A missing DB is an infra gap, not a CVE regression: warn instead of failing.
+      - name: Skip if NVD database unavailable
+        if: needs.changes.outputs.codechange == 'true' && steps.cache-owasp-restore.outputs.cache-matched-key == ''
+        run: |
+          echo "::warning::OWASP NVD database cache not found; skipping the dependency check for this run."
+          echo "::warning::Trigger the 'OWASP NVD Database Cache' workflow to repopulate the cache."
 
       - name: Run OWASP check on base branch
-        if: needs.changes.outputs.codechange == 'true'
+        if: needs.changes.outputs.codechange == 'true' && steps.cache-owasp-restore.outputs.cache-matched-key != ''
         uses: ./.github/actions/maven-owasp-scan
         with:
           working-directory: base
           owasp-version: ${{ env.OWASP_VERSION }}
           data-directory: /tmp/.owasp/dependency-check-data
-
-      - name: Save OWASP cache after base scan
-        if: needs.changes.outputs.codechange == 'true' && steps.cache-owasp-restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: /tmp/.owasp/dependency-check-data
-          key: owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-${{ steps.get-date.outputs.date }}-partial
+          auto-update: 'false'
 
       - name: Run OWASP check on PR branch
-        if: needs.changes.outputs.codechange == 'true'
+        if: needs.changes.outputs.codechange == 'true' && steps.cache-owasp-restore.outputs.cache-matched-key != ''
         uses: ./.github/actions/maven-owasp-scan
         with:
           working-directory: .
           owasp-version: ${{ env.OWASP_VERSION }}
           data-directory: /tmp/.owasp/dependency-check-data
+          auto-update: 'false'
 
       - name: Compare and fail on new CVEs above threshold
-        if: needs.changes.outputs.codechange == 'true'
+        if: needs.changes.outputs.codechange == 'true' && steps.cache-owasp-restore.outputs.cache-matched-key != ''
         run: |
           # Extract CVEs above threshold from both branches (CVSS >= $CVSS_THRESHOLD)
           threshold=$CVSS_THRESHOLD
@@ -181,13 +177,6 @@ jobs:
           else
             echo "✅ No new vulnerabilities introduced"
           fi
-
-      - name: Save OWASP database cache
-        if: needs.changes.outputs.codechange == 'true' && always()
-        uses: actions/cache/save@v4
-        with:
-          path: /tmp/.owasp/dependency-check-data
-          key: owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-${{ steps.get-date.outputs.date }}
 
       - name: Upload reports
         if: needs.changes.outputs.codechange == 'true' && always()

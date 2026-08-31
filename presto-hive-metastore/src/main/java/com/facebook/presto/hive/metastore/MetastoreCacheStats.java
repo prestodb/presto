@@ -18,13 +18,51 @@ import com.google.common.cache.LoadingCache;
 
 public interface MetastoreCacheStats
 {
+    void setDatabaseCache(LoadingCache<?, ?> databaseCache);
+
+    void setDatabaseNamesCache(LoadingCache<?, ?> databaseNamesCache);
+
     void setTableCache(LoadingCache<?, ?> tableCache);
 
-    void setPartitionNamesCache(LoadingCache<?, ?> partitionNamesCache);
+    void setTableNamesCache(LoadingCache<?, ?> tableNamesCache);
+
+    void setTableStatisticsCache(LoadingCache<?, ?> tableStatisticsCache);
+
+    void setTableConstraintsCache(LoadingCache<?, ?> tableConstraintsCache);
+
+    void setPartitionStatisticsCache(LoadingCache<?, ?> partitionStatisticsCache);
+
+    void setViewNamesCache(LoadingCache<?, ?> viewNamesCache);
 
     void setPartitionCache(LoadingCache<?, ?> partitionCache);
 
+    void setPartitionFilterCache(LoadingCache<?, ?> partitionFilterCache);
+
+    void setPartitionNamesCache(LoadingCache<?, ?> partitionNamesCache);
+
+    void setTablePrivilegesCache(LoadingCache<?, ?> tablePrivilegesCache);
+
+    void setRolesCache(LoadingCache<?, ?> rolesCache);
+
+    void setRoleGrantsCache(LoadingCache<?, ?> roleGrantsCache);
+
     void incrementPartitionsWithColumnCountGreaterThanThreshold();
+
+    long getDatabaseCacheHit();
+
+    long getDatabaseCacheMiss();
+
+    long getDatabaseCacheEviction();
+
+    long getDatabaseCacheSize();
+
+    long getDatabaseNamesCacheHit();
+
+    long getDatabaseNamesCacheMiss();
+
+    long getDatabaseNamesCacheEviction();
+
+    long getDatabaseNamesCacheSize();
 
     long getTableCacheHit();
 
@@ -34,13 +72,45 @@ public interface MetastoreCacheStats
 
     long getTableCacheSize();
 
-    long getPartitionNamesCacheHit();
+    long getTableNamesCacheHit();
 
-    long getPartitionNamesCacheMiss();
+    long getTableNamesCacheMiss();
 
-    long getPartitionNamesCacheEviction();
+    long getTableNamesCacheEviction();
 
-    long getPartitionNamesCacheSize();
+    long getTableNamesCacheSize();
+
+    long getTableStatisticsCacheHit();
+
+    long getTableStatisticsCacheMiss();
+
+    long getTableStatisticsCacheEviction();
+
+    long getTableStatisticsCacheSize();
+
+    long getTableConstraintsCacheHit();
+
+    long getTableConstraintsCacheMiss();
+
+    long getTableConstraintsCacheEviction();
+
+    long getTableConstraintsCacheSize();
+
+    long getPartitionStatisticsCacheHit();
+
+    long getPartitionStatisticsCacheMiss();
+
+    long getPartitionStatisticsCacheEviction();
+
+    long getPartitionStatisticsCacheSize();
+
+    long getViewNamesCacheHit();
+
+    long getViewNamesCacheMiss();
+
+    long getViewNamesCacheEviction();
+
+    long getViewNamesCacheSize();
 
     long getPartitionCacheHit();
 
@@ -49,6 +119,46 @@ public interface MetastoreCacheStats
     long getPartitionCacheEviction();
 
     long getPartitionCacheSize();
+
+    long getPartitionFilterCacheHit();
+
+    long getPartitionFilterCacheMiss();
+
+    long getPartitionFilterCacheEviction();
+
+    long getPartitionFilterCacheSize();
+
+    long getPartitionNamesCacheHit();
+
+    long getPartitionNamesCacheMiss();
+
+    long getPartitionNamesCacheEviction();
+
+    long getPartitionNamesCacheSize();
+
+    long getTablePrivilegesCacheHit();
+
+    long getTablePrivilegesCacheMiss();
+
+    long getTablePrivilegesCacheEviction();
+
+    long getTablePrivilegesCacheSize();
+
+    long getRolesCacheHit();
+
+    long getRolesCacheMiss();
+
+    long getRolesCacheEviction();
+
+    long getRolesCacheSize();
+
+    long getRoleGrantsCacheHit();
+
+    long getRoleGrantsCacheMiss();
+
+    long getRoleGrantsCacheEviction();
+
+    long getRoleGrantsCacheSize();
 
     CounterStat getPartitionsWithColumnCountGreaterThanThreshold();
 }

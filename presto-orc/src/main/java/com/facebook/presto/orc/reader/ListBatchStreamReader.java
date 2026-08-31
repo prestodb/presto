@@ -28,11 +28,11 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.google.common.io.Closer;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
@@ -70,14 +70,14 @@ public class ListBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public ListBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcRecordReaderOptions options, OrcAggregatedMemoryContext systemMemoryContext)
+    public ListBatchStreamReader(Type type, StreamDescriptor streamDescriptor, OrcRecordReaderOptions options, OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, ArrayType.class::isInstance);
         elementType = ((ArrayType) type).getElementType();
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.elementStreamReader = createStreamReader(elementType, streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, options, systemMemoryContext);
+        this.elementStreamReader = createStreamReader(elementType, streamDescriptor.getNestedStreams().get(0), options, systemMemoryContext);
     }
 
     @Override
@@ -162,7 +162,7 @@ public class ListBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
             throws IOException
     {
         presentStreamSource = getBooleanMissingStreamSource();
@@ -176,7 +176,7 @@ public class ListBatchStreamReader
 
         rowGroupOpen = false;
 
-        elementStreamReader.startStripe(stripe);
+        elementStreamReader.startStripe(timezone, stripe);
     }
 
     @Override

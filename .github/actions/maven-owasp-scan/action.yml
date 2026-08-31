@@ -13,6 +13,10 @@ inputs:
     description: OWASP data directory path
     required: false
     default: /tmp/.owasp/dependency-check-data
+  auto-update:
+    description: Allow updating the NVD database from the NVD API; PR scans pass false.
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -21,6 +25,7 @@ runs:
       env:
         OWASP_VERSION: ${{ inputs.owasp-version }}
         OWASP_DATA_DIRECTORY: ${{ inputs.data-directory }}
+        OWASP_AUTO_UPDATE: ${{ inputs.auto-update }}
       working-directory: ${{ inputs.working-directory }}
       shell: bash
       run: |
@@ -29,8 +34,8 @@ runs:
           -Dformat=JSON \
           -DprettyPrint=true \
           -DfailOnError=false \
+          -DautoUpdate=$OWASP_AUTO_UPDATE \
           -DossindexAnalyzerEnabled=true \
-          -DnvdApiAnalyzerEnabled=false \
           -DnodeAnalyzerEnabled=false \
           -DassemblyAnalyzerEnabled=false \
           -DcentralAnalyzerEnabled=false \

@@ -31,6 +31,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanChecker;
@@ -49,6 +50,7 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -127,14 +129,14 @@ public final class NativePlanChecker
     }
 
     /**
-     * HACK: Replace TableWriterNode from the plan fragment with a ProjectNode because validating a TableWriterNode
+     * HACK: Replace TableWriterNode and CallDistributedProcedureNode from the plan fragment with a ProjectNode because validating a TableWriterNode
      * is unsupported by the native sidecar.  They are unsupported because they contain information only determined
      * during scheduling.
      */
     private SimplePlanFragment removeTableWriter(SimplePlanFragment planFragment)
     {
         // Remove TableWriterNode from the plan fragment
-        PlanNode root = planFragment.getRoot().accept(new TableWriterNodeReplacer(), null);
+        PlanNode root = planFragment.getRoot().accept(new WriterNodeReplacer(), null);
         requireNonNull(root, "TableWriterNode removal resulted in null root");
 
         return new SimplePlanFragment(
@@ -259,7 +261,7 @@ public final class NativePlanChecker
         }
     }
 
-    private static class TableWriterNodeReplacer
+    private static class WriterNodeReplacer
             extends PlanVisitor<PlanNode, Void>
     {
         @Override
@@ -273,12 +275,27 @@ public final class NativePlanChecker
             assignmentsMap.put(tableWriter.getRowCountVariable(), new ConstantExpression(0L, BIGINT));
             assignmentsMap.put(tableWriter.getFragmentVariable(), new ConstantExpression(utf8Slice(""), VARCHAR));
             assignmentsMap.put(tableWriter.getTableCommitContextVariable(), new ConstantExpression(utf8Slice(""), VARCHAR));
-            Assignments assignments = Assignments.builder().putAll(assignmentsMap).build();
 
             // Replace TableWriterNode with a ProjectNode
             return new ProjectNode(
                     tableWriter.getId(),
                     tableWriter.getSource(),
+                    Assignments.builder().putAll(assignmentsMap).build());
+        }
+
+        @Override
+        public PlanNode visitCallDistributedProcedure(CallDistributedProcedureNode callProcedure, Void context)
+        {
+            // Create dummy assignments for the ProjectNode
+            Map<VariableReferenceExpression, RowExpression> assignmentsMap = new HashMap<>();
+            assignmentsMap.put(callProcedure.getRowCountVariable(), new ConstantExpression(0L, BIGINT));
+            assignmentsMap.put(callProcedure.getFragmentVariable(), new ConstantExpression(utf8Slice(""), VARCHAR));
+            assignmentsMap.put(callProcedure.getTableCommitContextVariable(), new ConstantExpression(utf8Slice(""), VARCHAR));
+
+            // Replace CallDistributedProcedureNode with a ProjectNode
+            return new ProjectNode(
+                    callProcedure.getId(),
+                    callProcedure.getSource(),
                     Assignments.builder().putAll(assignmentsMap).build());
         }
 

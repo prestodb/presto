@@ -13,6 +13,11 @@ env:
   MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end
   RETRY: .github/bin/retry
 
+concurrency:
+  # Cancel superseded in-progress runs for the same PR/branch to save CI capacity; never cancel master.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -29,7 +34,7 @@ jobs:
         with:
           filters: |
             codechange:
-              - '!presto-docs/**'
+              - '!(presto-docs{,/**})'
 
   arrowflight-java-tests:
     runs-on: ubuntu-latest
@@ -87,13 +92,13 @@ jobs:
       # Run Maven tests for the target module, excluding native tests
       - name: Maven Tests
         if: needs.changes.outputs.codechange == 'true'
-        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*"
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*,!TestArrowFederationNativeQueries*"
 
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
     needs: changes
     container:
-      image: prestodb/presto-native-dependency:0.297-202602271419-160459b8
+      image: prestodb/presto-native-dependency:0.299-202607281131-55ac7c49
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -220,7 +225,7 @@ jobs:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.297-202602271419-160459b8
+      image: prestodb/presto-native-dependency:0.299-202607281131-55ac7c49
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -229,12 +234,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        modules:
-          - :presto-base-arrow-flight # Only run tests for the `presto-base-arrow-flight` module
+        include:
+          - modules: :presto-base-arrow-flight
+            testArgs: -Dtest="TestArrowFlightNativeQueries*"
+            connectorType: base
+          - modules: :presto-flight-shim
+            testArgs: -P jdbc-connectors
+            connectorType: jdbc
+          - modules: :presto-flight-shim
+            testArgs: -P non-jdbc-connectors
+            connectorType: non-jdbc
 
     timeout-minutes: 80
     concurrency:
-      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ matrix.connectorType }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
 
     steps:
@@ -315,7 +328,7 @@ jobs:
           mvn test \
             ${MAVEN_TEST} \
             -pl ${{ matrix.modules }} \
-            -Dtest="TestArrowFlightNativeQueries*" \
+            ${{ matrix.testArgs }} \
             -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
             -DDATA_DIR=${RUNNER_TEMP} \
             -Duser.timezone=America/Bahia_Banderas \

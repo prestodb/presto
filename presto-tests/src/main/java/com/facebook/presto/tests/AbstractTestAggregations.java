@@ -710,20 +710,20 @@ public abstract class AbstractTestAggregations
         assertQuery("SELECT approx_distinct(orderdate, 0.023) FROM orders", "SELECT 2443");
 
         // test timestamp
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP)) FROM orders", "SELECT 2347");
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP), 0.023) FROM orders", "SELECT 2347");
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP)) FROM orders", "SELECT 2384");
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP), 0.023) FROM orders", "SELECT 2384");
 
         // test timestamp with time zone
         assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP WITH TIME ZONE)) FROM orders", "SELECT 2347");
         assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP WITH TIME ZONE), 0.023) FROM orders", "SELECT 2347");
 
         // test time
-        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME)) FROM orders", "SELECT 996");
-        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME), 0.023) FROM orders", "SELECT 996");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME)) FROM orders", "SELECT 993");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME), 0.023) FROM orders", "SELECT 993");
 
         // test time with time zone
-        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE)) FROM orders", "SELECT 996");
-        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE), 0.023) FROM orders", "SELECT 996");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE)) FROM orders", "SELECT 975");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE), 0.023) FROM orders", "SELECT 975");
 
         // test short decimal
         assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(18, 0))) FROM orders", "SELECT 990");
@@ -1321,6 +1321,36 @@ public abstract class AbstractTestAggregations
         assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
         assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
         assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+
+        // values_at_quantiles returns a non-decreasing array.
+        assertQuery(format("SELECT v[1] <= v[2] AND v[2] <= v[3] FROM (" +
+                        "SELECT values_at_quantiles(%s_agg(CAST(orderkey AS DOUBLE)), ARRAY[0.1E0, 0.5E0, 0.9E0]) v FROM lineitem)",
+                type),
+                "SELECT true");
+
+        // scale_{q,t}digest preserves the quantile value within tolerance.
+        assertQuery(format("SELECT abs(value_at_quantile(scale_%s(d, 2E0), 0.5E0) - value_at_quantile(d, 0.5E0)) " +
+                        "/ value_at_quantile(d, 0.5E0) < 0.05E0 FROM (" +
+                        "SELECT %s_agg(CAST(orderkey AS DOUBLE)) d FROM lineitem)",
+                type,
+                type),
+                "SELECT true");
+
+        // quantile_at_value / value_at_quantile round-trip near 0.5.
+        assertQuery(format("SELECT quantile_at_value(d, value_at_quantile(d, 0.5E0)) BETWEEN 0.3E0 AND 0.7E0 FROM (" +
+                        "SELECT %s_agg(CAST(orderkey AS DOUBLE)) d FROM lineitem)",
+                type),
+                "SELECT true");
+
+        // Nulls are ignored when other values are present.
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CASE WHEN orderkey %% 2 = 0 THEN CAST(orderkey AS DOUBLE) END), 0.5E0) > 0 FROM lineitem",
+                type),
+                "SELECT true");
+
+        // All-null input produces a null aggregate.
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(NULL AS DOUBLE)), 0.5E0) IS NULL FROM lineitem",
+                type),
+                "SELECT true");
     }
 
     /**
@@ -1375,6 +1405,62 @@ public abstract class AbstractTestAggregations
                 type,
                 type),
                 "SELECT partkey, true FROM lineitem GROUP BY partkey");
+    }
+
+    /**
+     * reservoir_sample(initial_sample, initial_processed_count, value, desired_sample_size)
+     * draws a fixed-size sample and returns row(processed_count bigint, sample array(T)).
+     * The sampled elements are chosen at random, so the assertions check deterministic
+     * properties (processed count, sample cardinality, value domain) rather than the
+     * specific elements. Comprehensive correctness lives in TestReservoirSampleAggregation.
+     *
+     * <p>Although this test is declared in presto-tests, it also exercises the native
+     * (Velox) implementation: presto-native-tests/AbstractTestAggregationsNative extends
+     * this class, so the method is inherited and executed against the native query runner.
+     */
+    @Test
+    public void testReservoirSample()
+    {
+        // Single aggregation over orders covering three properties in one scan: processed_count
+        // equals the input row count, the sample is capped at the desired size, and every sampled
+        // element belongs to the input domain (orderkey is positive). Each property is its own
+        // output column so a failure points at the specific property that diverged.
+        assertQuery(
+                "SELECT rs.processed_count, " +
+                        "cardinality(rs.sample), " +
+                        "cardinality(filter(rs.sample, x -> x > 0)) = cardinality(rs.sample) " +
+                        "FROM (SELECT reservoir_sample(NULL, 0, orderkey, 10) AS rs FROM orders) t",
+                "SELECT count(*), 10, true FROM orders");
+
+        // When the input is smaller than the desired size the entire input is kept.
+        assertQuery(
+                "SELECT cardinality(rs.sample) FROM (SELECT reservoir_sample(NULL, 0, orderkey, 100) AS rs FROM (SELECT orderkey FROM orders LIMIT 40) o) t",
+                "SELECT 40");
+
+        // A constant input yields a sample of that constant value; verify the size and contents
+        // rather than the exact array shape.
+        assertQuery(
+                "SELECT cardinality(rs.sample) = 3 AND cardinality(filter(rs.sample, x -> x = 1.0E0)) = 3 FROM (SELECT reservoir_sample(NULL, 0, 1.0E0, 3) AS rs FROM orders) t",
+                "SELECT true");
+
+        // Null values still count toward processed_count (the function is called on null input).
+        assertQuery(
+                "SELECT rs.processed_count FROM (SELECT reservoir_sample(NULL, 0, CASE WHEN orderkey % 2 = 0 THEN orderkey END, 10) AS rs FROM orders) t",
+                "SELECT count(*) FROM orders");
+
+        // A non-empty initial sample with a non-zero initial_processed_count is merged with the new
+        // rows (resume behavior): processed_count accounts for both the seed and the new rows, and
+        // because the combined size does not exceed the desired size the seed elements are retained.
+        assertQuery(
+                "SELECT rs.processed_count = 5 AND cardinality(rs.sample) = 5 " +
+                        "AND contains(rs.sample, 100) AND contains(rs.sample, 200) " +
+                        "FROM (SELECT reservoir_sample(ARRAY[100, 200], 2, x, 5) AS rs FROM (VALUES 1, 2, 3) t(x)) u",
+                "SELECT true");
+
+        // GROUP BY: processed_count per group equals the group's row count.
+        assertQuery(
+                "SELECT orderpriority, rs.processed_count FROM (SELECT orderpriority, reservoir_sample(NULL, 0, orderkey, 5) AS rs FROM orders GROUP BY orderpriority) t",
+                "SELECT orderpriority, count(*) FROM orders GROUP BY orderpriority");
     }
 
     @Test

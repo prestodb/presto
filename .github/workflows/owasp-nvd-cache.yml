@@ -1,0 +1,66 @@
+name: OWASP NVD Database Cache
+# Publishes the NVD database to the Actions cache for PR runs to restore (forks included).
+on:
+  schedule:
+    # Stay within the 7-day cache retention window.
+    - cron: 0 */12 * * *
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    env:
+      OWASP_VERSION: 12.1.3
+      OWASP_DATA_DIRECTORY: /tmp/.owasp/dependency-check-data
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      # Restore prior DB so the update is incremental.
+      - name: Restore previous NVD database
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/.owasp/dependency-check-data
+          restore-keys: |
+            owasp-nvd-db-${{ runner.os }}-v${{ env.OWASP_VERSION }}-
+          key: owasp-nvd-db-${{ runner.os }}-v${{ env.OWASP_VERSION }}-restore-only
+
+      # NVD updates flake (503/524); keep retrying.
+      - name: Update NVD database
+        id: nvd_update
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+        env:
+          # Optional; raises the NVD rate limit.
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        with:
+          max_attempts: 30
+          timeout_minutes: 40
+          retry_wait_seconds: 120
+          retry_on: error
+          warning_on_retry: true
+          shell: bash
+          command: |
+            mvn -B org.owasp:dependency-check-maven:$OWASP_VERSION:update-only \
+              -DnvdValidForHours=0 \
+              ${NVD_API_KEY:+-DnvdApiKey=$NVD_API_KEY} \
+              -DdataDirectory=$OWASP_DATA_DIRECTORY
+
+      # Rotating key (caches are immutable). Guard on outcome: hashFiles can't see /tmp.
+      - name: Save NVD database cache
+        if: steps.nvd_update.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/.owasp/dependency-check-data
+          key: owasp-nvd-db-${{ runner.os }}-v${{ env.OWASP_VERSION }}-${{ github.run_id }}

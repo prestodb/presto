@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/common/Configs.h"
+#include <folly/portability/GFlags.h>
 #include <folly/system/HardwareConcurrency.h>
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -21,6 +22,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <algorithm>
 #include <limits>
 #if __has_include("filesystem")
 #include <filesystem>
@@ -137,6 +139,7 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kPrestoVersion),
           NONE_PROP(kHttpServerHttpPort),
           BOOL_PROP(kHttpServerReusePort, false),
+          BOOL_PROP(kHttpServerReportBoundPortToFile, false),
           BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, false),
           NONE_PROP(kDiscoveryUri),
           NUM_PROP(kMaxDriversPerTask, hardwareConcurrency()),
@@ -241,12 +244,18 @@ SystemConfig::SystemConfig() {
           NUM_PROP(
               kExchangeMaterializationOutputBufferPerPartitionMaxBytes,
               130L * 1024),
+          NUM_PROP(kExchangeMaterializationOutputBufferHighWatermarkRatio, 0.9),
+          NUM_PROP(kExchangeMaterializationOutputBufferLowWatermarkRatio, 0.7),
+          NUM_PROP(
+              kExchangeMaterializationOutputBufferDrainChunkMultiplier, 2.0),
           NUM_PROP(kExchangeMaterializationReclaimDrainThresholdRatio, 0.67),
+          BOOL_PROP(kExchangeMaterializationUseZeroCopyCollect, true),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
           BOOL_PROP(kHttpEnableAccessLog, false),
           BOOL_PROP(kHttpEnableStatsFilter, false),
           BOOL_PROP(kHttpEnableEndpointLatencyFilter, false),
+          BOOL_PROP(kHttpEnableRequestSizeHistogram, false),
           NUM_PROP(kHttpMaxAllocateBytes, 65536),
           STR_PROP(kQueryMaxMemoryPerNode, "4GB"),
           BOOL_PROP(kEnableMemoryLeakCheck, true),
@@ -306,7 +315,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kTextReaderEnabled, true),
           BOOL_PROP(kCharNToVarcharImplicitCast, false),
           BOOL_PROP(kEnumTypesEnabled, true),
-          BOOL_PROP(kPlanConsistencyCheckEnabled, false),
+          BOOL_PROP(kPlanConsistencyCheckEnabled, true),
       };
 }
 
@@ -322,6 +331,10 @@ int SystemConfig::httpServerHttpPort() const {
 
 bool SystemConfig::httpServerReusePort() const {
   return optionalProperty<bool>(kHttpServerReusePort).value();
+}
+
+bool SystemConfig::httpServerReportBoundPortToFile() const {
+  return optionalProperty<bool>(kHttpServerReportBoundPortToFile).value();
 }
 
 bool SystemConfig::httpServerBindToNodeInternalAddressOnlyEnabled() const {
@@ -801,6 +814,27 @@ int64_t SystemConfig::exchangeMaterializationOutputBufferPerPartitionMaxBytes()
       .value_or(130L * 1024);
 }
 
+double SystemConfig::exchangeMaterializationOutputBufferHighWatermarkRatio()
+    const {
+  return optionalProperty<double>(
+             kExchangeMaterializationOutputBufferHighWatermarkRatio)
+      .value_or(0.9);
+}
+
+double SystemConfig::exchangeMaterializationOutputBufferLowWatermarkRatio()
+    const {
+  return optionalProperty<double>(
+             kExchangeMaterializationOutputBufferLowWatermarkRatio)
+      .value_or(0.7);
+}
+
+double SystemConfig::exchangeMaterializationOutputBufferDrainChunkMultiplier()
+    const {
+  return optionalProperty<double>(
+             kExchangeMaterializationOutputBufferDrainChunkMultiplier)
+      .value_or(2.0);
+}
+
 double SystemConfig::exchangeMaterializationReclaimDrainThresholdRatio() const {
   return optionalProperty<double>(
              kExchangeMaterializationReclaimDrainThresholdRatio)
@@ -817,6 +851,11 @@ bool SystemConfig::exchangeMaterializationReclaimWaitForWriterDrainEnabled()
 bool SystemConfig::exchangeMaterializationReclaimHighPriority() const {
   return optionalProperty<bool>(kExchangeMaterializationReclaimHighPriority)
       .value_or(false);
+}
+
+bool SystemConfig::exchangeMaterializationUseZeroCopyCollect() const {
+  return optionalProperty<bool>(kExchangeMaterializationUseZeroCopyCollect)
+      .value_or(true);
 }
 
 bool SystemConfig::enableSerializedPageChecksum() const {
@@ -988,6 +1027,10 @@ bool SystemConfig::enableHttpStatsFilter() const {
 
 bool SystemConfig::enableHttpEndpointLatencyFilter() const {
   return optionalProperty<bool>(kHttpEnableEndpointLatencyFilter).value();
+}
+
+bool SystemConfig::enableHttpRequestSizeHistogram() const {
+  return optionalProperty<bool>(kHttpEnableRequestSizeHistogram).value();
 }
 
 uint64_t SystemConfig::httpMaxAllocateBytes() const {
@@ -1286,6 +1329,32 @@ std::string NodeConfig::nodeInternalAddress(
     VELOX_FAIL(
         "Node Internal Address or IP was not found in NodeConfigs. Default IP was not provided "
         "either.");
+  }
+}
+
+void applyGFlags(
+    const std::unordered_map<std::string, std::string>& configs) noexcept {
+  static constexpr std::string_view kGflagPrefix{"gflag."};
+  static constexpr size_t kPrefixLen = kGflagPrefix.size();
+  for (const auto& [key, value] : configs) {
+    if (!key.starts_with(kGflagPrefix)) {
+      continue;
+    }
+    // Strip "gflag." prefix and convert hyphens to underscores to get the
+    // flag name. e.g., "gflag.velox-memory-num-shared-leaf-pools" becomes
+    // "velox_memory_num_shared_leaf_pools".
+    std::string flagName = key.substr(kPrefixLen);
+    std::ranges::replace(flagName, '-', '_');
+
+    const std::string result = gflags::SetCommandLineOptionWithMode(
+        flagName.c_str(), value.c_str(), gflags::SET_FLAG_IF_DEFAULT);
+    if (result.empty()) {
+      PRESTO_STARTUP_LOG(WARNING) << "Failed to set gflag '" << flagName
+                                  << "' from config property '" << key << "'";
+    } else {
+      PRESTO_STARTUP_LOG(INFO)
+          << "Set gflag '" << flagName << "' from config.properties";
+    }
   }
 }
 

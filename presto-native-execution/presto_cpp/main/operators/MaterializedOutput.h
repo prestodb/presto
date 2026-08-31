@@ -116,8 +116,7 @@ class MaterializedOutput : public velox::exec::Operator {
   velox::RowVectorPtr getOutput() override;
 
   bool needsInput() const override {
-    return !finished_ &&
-        blockingReason_ == velox::exec::BlockingReason::kNotBlocked;
+    return !finished_;
   }
 
   void noMoreInput() override;
@@ -163,10 +162,10 @@ class MaterializedOutput : public velox::exec::Operator {
   // Grow the flat buffer if needed to accommodate additionalBytes.
   void ensureFlatBufferCapacity(int64_t additionalBytes);
 
-  // Build a contiguous IOBuf with RowGroupHeader + TRowSize-framed CompactRow
-  // data for the given row indices belonging to one partition.
-  std::unique_ptr<folly::IOBuf> buildRowGroup(
-      const std::vector<int32_t>& rowIndices);
+  // Build and enqueue a contiguous RowGroup with RowGroupHeader +
+  // TRowSize-framed CompactRow data for the given row indices belonging to one
+  // partition.
+  void flushRowGroup(int32_t partition, std::vector<int32_t>& rowIndices);
 
   // True when the plan requested replicateNullsAndAny AND broadcasting
   // would actually produce extra entries (i.e., more than one destination).
@@ -203,13 +202,15 @@ class MaterializedOutput : public velox::exec::Operator {
   // Flush threshold: clamp(numPartitions * kDefaultAvgRowSize, 1MB, 10MB).
   int64_t targetSizeInBytes_;
 
+  // Maximum target size for a multi-row RowGroup sent to the shared
+  // MaterializedOutputBuffer. A single row larger than this still emits as one
+  // RowGroup.
+  int64_t rowGroupMaxBytes_;
+
   // Fixed row size for all-fixed-width schemas (avoids per-row rowSize()).
   std::optional<int32_t> fixedRowSize_;
 
   // Operator state.
-  velox::exec::BlockingReason blockingReason_{
-      velox::exec::BlockingReason::kNotBlocked};
-  velox::ContinueFuture future_;
   bool finished_{false};
 
   // Reusable per-batch buffers.

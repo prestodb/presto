@@ -14,6 +14,12 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.FunctionType;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.spi.VariableAllocator;
@@ -42,6 +48,7 @@ import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -52,6 +59,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.SystemSessionProperties.getRpcDispatchBatchSize;
 import static com.facebook.presto.SystemSessionProperties.getRpcStreamingMode;
 import static com.facebook.presto.SystemSessionProperties.isRpcFunctionOptimizerEnabled;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class RpcFunctionOptimizer
@@ -59,15 +67,30 @@ public class RpcFunctionOptimizer
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final Supplier<Set<String>> rpcFunctionNamesSupplier;
+    // Nullable: when absent, the execution policy receives a NaN row estimate.
+    private final StatsCalculator statsCalculator;
+    private final RpcExecutionPolicy executionPolicy;
 
     public RpcFunctionOptimizer()
     {
-        this(ImmutableSet::of);
+        this(ImmutableSet::of, null, new DefaultRpcExecutionPolicy());
     }
 
     public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier)
     {
+        this(rpcFunctionNamesSupplier, null, new DefaultRpcExecutionPolicy());
+    }
+
+    public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier, StatsCalculator statsCalculator)
+    {
+        this(rpcFunctionNamesSupplier, statsCalculator, new DefaultRpcExecutionPolicy());
+    }
+
+    public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier, StatsCalculator statsCalculator, RpcExecutionPolicy executionPolicy)
+    {
         this.rpcFunctionNamesSupplier = requireNonNull(rpcFunctionNamesSupplier, "rpcFunctionNamesSupplier is null");
+        this.statsCalculator = statsCalculator;
+        this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
     }
 
     public boolean isRpcFunction(CallExpression call)
@@ -95,7 +118,10 @@ public class RpcFunctionOptimizer
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
-        Rewriter rewriter = new Rewriter(session, idAllocator, variableAllocator, rpcFunctionNamesSupplier.get());
+        StatsProvider statsProvider = statsCalculator != null
+                ? new CachingStatsProvider(statsCalculator, session, types)
+                : null;
+        Rewriter rewriter = new Rewriter(session, idAllocator, variableAllocator, rpcFunctionNamesSupplier.get(), statsProvider, executionPolicy);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
@@ -107,14 +133,19 @@ public class RpcFunctionOptimizer
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
         private final Set<String> rpcFunctionNames;
+        // Nullable: when null, the execution policy receives a NaN row estimate.
+        private final StatsProvider statsProvider;
+        private final RpcExecutionPolicy executionPolicy;
         private boolean planChanged;
 
-        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames)
+        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames, StatsProvider statsProvider, RpcExecutionPolicy executionPolicy)
         {
             this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.rpcFunctionNames = requireNonNull(rpcFunctionNames, "rpcFunctionNames is null");
+            this.statsProvider = statsProvider;
+            this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
         }
 
         public boolean isPlanChanged()
@@ -164,7 +195,13 @@ public class RpcFunctionOptimizer
             //    constants.
             PlanNode currentSource = rewrittenSource;
             for (ExtractedRpcCall extracted : extractedCalls) {
-                RPCNode.StreamingMode streamingMode = parseStreamingMode(extracted.originalCall);
+                // Resolve the streaming mode against rewrittenSource (the input feeding the whole
+                // chain). Every RPC call in this ProjectNode, and the projections interleaved
+                // between them, are row-count-preserving, so they all share rewrittenSource's
+                // cardinality. Using rewrittenSource (rather than walking currentSource onto the
+                // prior RPCNode) keeps the estimate well-defined even if no stats rule exists for
+                // RPCNode.
+                RPCNode.StreamingMode streamingMode = resolveExecutionProperties(extracted.originalCall, rewrittenSource).getStreamingMode();
                 int dispatchBatchSize = parseDispatchBatchSize(extracted.originalCall);
 
                 List<RowExpression> substitutedArgs = extracted.substitutedCall.getArguments();
@@ -327,18 +364,134 @@ public class RpcFunctionOptimizer
             RowExpression rewrittenBody = RowExpressionTreeRewriter.rewriteWith(
                     createRpcRewriter(), body, context);
 
+            // After extracting RPC calls, the body typically reduces to just
+            // a result variable (e.g., TRY(rpc_fn(args)) -> __rpc_result).
+            // Reading a column never throws, so TRY is unnecessary.
+            // Returning the variable directly also avoids creating a bare
+            // lambda with free variables invisible to VariablesExtractor,
+            // which causes PruneUnreferencedOutputs to drop the variable
+            // from intermediate ProjectNodes in multi-RPC chains.
+            if (rewrittenBody instanceof VariableReferenceExpression) {
+                return rewrittenBody;
+            }
+
+            // For complex bodies (e.g., TRY(CAST(rpc_fn(args) AS INT))),
+            // reconstruct a BIND to expose free variables to optimizers.
+            List<VariableReferenceExpression> freeVars = extractFreeVariables(rewrittenBody);
+            // A non-variable body reaching here normally references at least one
+            // free variable: createRpcRewriter replaces every rpc_fn(...) with a
+            // freshly allocated __rpc_result variable (never a lambda parameter).
+            // If a future rewriter/simplification ever yields a non-variable body
+            // with no free variables, degrade gracefully by leaving the TRY
+            // unchanged rather than emitting a captureless lambda (whose result
+            // would be invisible to PruneUnreferencedOutputs) or failing planning.
+            if (freeVars.isEmpty()) {
+                return tryCall;
+            }
+
+            // Dedup free variables by name. A plan variable name maps to a single
+            // type, so this is normally a no-op; it keeps the name-keyed subs map
+            // and the BIND capture list consistent and avoids a duplicate name
+            // that would otherwise throw from ImmutableMap.Builder.build().
+            Map<String, VariableReferenceExpression> uniqueFreeVars = new LinkedHashMap<>();
+            for (VariableReferenceExpression freeVar : freeVars) {
+                uniqueFreeVars.putIfAbsent(freeVar.getName(), freeVar);
+            }
+
+            ImmutableList.Builder<String> paramNames = ImmutableList.builder();
+            ImmutableList.Builder<com.facebook.presto.common.type.Type> paramTypes = ImmutableList.builder();
+            ImmutableMap.Builder<String, RowExpression> subs = ImmutableMap.builder();
+            ImmutableList.Builder<RowExpression> bindArgs = ImmutableList.builder();
+            int paramIndex = 0;
+            for (VariableReferenceExpression freeVar : uniqueFreeVars.values()) {
+                String paramName = "__try_p_" + paramIndex++;
+                paramNames.add(paramName);
+                paramTypes.add(freeVar.getType());
+                subs.put(
+                        freeVar.getName(),
+                        new VariableReferenceExpression(Optional.empty(), paramName, freeVar.getType()));
+                bindArgs.add(freeVar);
+            }
+
+            RowExpression substitutedBody = VariableSubstitutor.substitute(rewrittenBody, subs.build());
             LambdaDefinitionExpression newLambda = new LambdaDefinitionExpression(
                     lambda.getSourceLocation(),
-                    ImmutableList.of(),
-                    ImmutableList.of(),
-                    rewrittenBody);
+                    paramTypes.build(),
+                    paramNames.build(),
+                    substitutedBody);
+
+            bindArgs.add(newLambda);
+            // BIND fully applies every captured free variable to newLambda (one
+            // bind value per lambda parameter), so its result is a zero-arg
+            // function () -> bodyType. Match the canonical pattern in
+            // PlanRemoteProjections.buildLambdaWithBind; the prior tryCall.getType()
+            // (a scalar like INTEGER) mistyped the BIND special form.
+            SpecialFormExpression bind = new SpecialFormExpression(
+                    SpecialFormExpression.Form.BIND,
+                    new FunctionType(ImmutableList.of(), substitutedBody.getType()),
+                    bindArgs.build());
 
             return new CallExpression(
                     tryCall.getSourceLocation(),
                     tryCall.getDisplayName(),
                     tryCall.getFunctionHandle(),
                     tryCall.getType(),
-                    ImmutableList.of(newLambda));
+                    ImmutableList.of(bind));
+        }
+
+        /**
+         * Returns the free variables of {@code expression}: every
+         * VariableReferenceExpression referenced but not bound by an enclosing
+         * lambda. Unlike VariablesExtractor and the default traversal (whose
+         * visitLambda does not recurse into the body), this descends into lambda
+         * bodies while tracking each lambda's parameters as bound -- so a nested
+         * lambda neither hides a genuinely-free variable nor leaks its own
+         * parameters as free. This mirrors VariableSubstitutor's lambda-shadowing
+         * semantics above, so every free variable reported here is exactly one the
+         * substitution rewrites (and therefore one the reconstructed BIND must
+         * capture to keep it visible to PruneUnreferencedOutputs).
+         */
+        private static List<VariableReferenceExpression> extractFreeVariables(RowExpression expression)
+        {
+            ImmutableSet.Builder<VariableReferenceExpression> freeVars = ImmutableSet.builder();
+            expression.accept(new FreeVariableVisitor(), new FreeVariableScope(ImmutableSet.of(), freeVars));
+            return ImmutableList.copyOf(freeVars.build());
+        }
+
+        private static final class FreeVariableScope
+        {
+            private final Set<String> boundNames;
+            private final ImmutableSet.Builder<VariableReferenceExpression> freeVars;
+
+            FreeVariableScope(Set<String> boundNames, ImmutableSet.Builder<VariableReferenceExpression> freeVars)
+            {
+                this.boundNames = boundNames;
+                this.freeVars = freeVars;
+            }
+        }
+
+        private static final class FreeVariableVisitor
+                extends DefaultRowExpressionTraversalVisitor<FreeVariableScope>
+        {
+            @Override
+            public Void visitVariableReference(VariableReferenceExpression reference, FreeVariableScope scope)
+            {
+                if (!scope.boundNames.contains(reference.getName())) {
+                    scope.freeVars.add(reference);
+                }
+                return null;
+            }
+
+            @Override
+            public Void visitLambda(LambdaDefinitionExpression lambda, FreeVariableScope scope)
+            {
+                Set<String> innerBound = ImmutableSet.<String>builder()
+                        .addAll(scope.boundNames)
+                        .addAll(lambda.getArguments())
+                        .build();
+                lambda.getBody().accept(this, new FreeVariableScope(innerBound, scope.freeVars));
+                return null;
+            }
         }
 
         private boolean containsRpcFunction(RowExpression expression)
@@ -513,6 +666,36 @@ public class RpcFunctionOptimizer
             catch (IOException e) {
                 return Optional.empty();
             }
+        }
+
+        // Resolves the plan-time execution properties for one RPC call. The requested mode (from
+        // options JSON or the session property), the requested dispatch size, and the estimated
+        // input stats are handed to the injected RpcExecutionPolicy as an RpcExecutionIntent; the
+        // policy returns the resolved RpcExecutionProperties. AUTOMATIC is resolved here so the
+        // RPCNode never carries it. The default policy carries no batching heuristic
+        // (AUTOMATIC -> PER_ROW, no overrides); a deployment may bind a stats-driven policy.
+        private RpcExecutionProperties resolveExecutionProperties(CallExpression rpcCall, PlanNode source)
+        {
+            RPCNode.StreamingMode requested = parseStreamingMode(rpcCall);
+            PlanNodeStatsEstimate sourceStats = statsProvider == null
+                    ? PlanNodeStatsEstimate.unknown()
+                    : statsProvider.getStats(source);
+            RpcExecutionIntent intent = RpcExecutionIntent.builder()
+                    .setRequestedMode(requested)
+                    .setInputStats(sourceStats)
+                    .setSession(session)
+                    .setFunctionName(rpcCall.getDisplayName())
+                    .build();
+            RpcExecutionProperties properties = executionPolicy.translateIntent(intent);
+            // Enforce the policy contract at plan time: AUTOMATIC is coordinator-only and must
+            // be resolved to a concrete mode here. A custom policy that returns AUTOMATIC (e.g.
+            // by passing the requested mode through) would otherwise leak it into the serialized
+            // RPCNode and fail at the native worker, far from the offending policy.
+            checkArgument(
+                    properties.getStreamingMode() != RPCNode.StreamingMode.AUTOMATIC,
+                    "RpcExecutionPolicy must return a concrete streaming mode, not AUTOMATIC (call %s)",
+                    rpcCall.getDisplayName());
+            return properties;
         }
 
         private RPCNode.StreamingMode parseStreamingMode(CallExpression rpcCall)

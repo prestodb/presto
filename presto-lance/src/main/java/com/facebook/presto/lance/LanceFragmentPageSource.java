@@ -23,6 +23,7 @@ import org.lance.ipc.ScanOptions;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,7 +45,7 @@ public class LanceFragmentPageSource
             Optional<String> filter,
             List<String> filterProjectionColumns)
     {
-        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize, namespaceHolder, datasetVersion, filterProjectionColumns), arrowBlockBuilder, parentAllocator, filter);
+        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize, namespaceHolder, datasetVersion, filterProjectionColumns, tableHandle.getLimit()), arrowBlockBuilder, parentAllocator, filter);
     }
 
     private static class FragmentScannerFactory
@@ -56,9 +57,10 @@ public class LanceFragmentPageSource
         private final LanceNamespaceHolder namespaceHolder;
         private final Optional<Long> datasetVersion;
         private final List<String> filterProjectionColumns;
+        private final OptionalLong limit;
         private LanceScanner scanner;
 
-        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, LanceNamespaceHolder namespaceHolder, Optional<Long> datasetVersion, List<String> filterProjectionColumns)
+        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, LanceNamespaceHolder namespaceHolder, Optional<Long> datasetVersion, List<String> filterProjectionColumns, OptionalLong limit)
         {
             this.fragmentIds = ImmutableList.copyOf(fragmentIds);
             this.tablePath = requireNonNull(tablePath, "tablePath is null");
@@ -66,6 +68,7 @@ public class LanceFragmentPageSource
             this.namespaceHolder = requireNonNull(namespaceHolder, "namespaceHolder is null");
             this.datasetVersion = requireNonNull(datasetVersion, "datasetVersion is null");
             this.filterProjectionColumns = ImmutableList.copyOf(filterProjectionColumns);
+            this.limit = limit;
         }
 
         @Override
@@ -85,6 +88,7 @@ public class LanceFragmentPageSource
             optionsBuilder.batchSize(readBatchSize);
             optionsBuilder.fragmentIds(fragmentIds);
             filter.ifPresent(optionsBuilder::filter);
+            limit.ifPresent(optionsBuilder::limit);
 
             Dataset dataset = namespaceHolder.getCachedDataset(tablePath, datasetVersion);
             this.scanner = dataset.newScan(optionsBuilder.build());

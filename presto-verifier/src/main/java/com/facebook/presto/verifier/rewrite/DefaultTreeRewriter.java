@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.ColumnPosition;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -104,11 +105,12 @@ public class DefaultTreeRewriter<C>
     protected Node visitAddColumn(AddColumn node, C context)
     {
         Node column = process(node.getColumn(), context);
-        if (node.getColumn() == column) {
+        Optional<ColumnPosition> position = processColumnPosition(node.getPosition(), context);
+        if (node.getColumn() == column && sameElement(node.getPosition(), position)) {
             return node;
         }
 
-        return new AddColumn(node.getName(), (ColumnDefinition) column, node.isTableExists(), node.isColumnNotExists());
+        return new AddColumn(node.getName(), (ColumnDefinition) column, position, node.isTableExists(), node.isColumnNotExists());
     }
 
     @Override
@@ -498,12 +500,19 @@ public class DefaultTreeRewriter<C>
     @Override
     protected Node visitRow(Row node, C context)
     {
-        List<Expression> items = process(node.getItems(), context);
-        if (sameElements(node.getItems(), items)) {
+        List<Expression> items = node.getFields().stream()
+                .map(Row.Field::getExpression)
+                .collect(ImmutableList.toImmutableList());
+        List<Expression> rewritten = process(items, context);
+        if (sameElements(items, rewritten)) {
             return node;
         }
 
-        return new Row(items);
+        ImmutableList.Builder<Row.Field> fields = ImmutableList.builder();
+        for (int i = 0; i < rewritten.size(); i++) {
+            fields.add(new Row.Field(node.getFields().get(i).getLocation(), node.getFields().get(i).getName(), rewritten.get(i)));
+        }
+        return new Row(fields.build());
     }
 
     @Override
@@ -682,6 +691,22 @@ public class DefaultTreeRewriter<C>
         }
         Optional<T> result = element.map(e -> (T) process(e, context));
         return sameElement(element, result) ? element : result;
+    }
+
+    /**
+     * Rewrites the identifier of an {@code AFTER <column>} position, so a subclass that rewrites column
+     * references reaches the position target as well. {@code FIRST} carries no identifier.
+     * {@link ColumnPosition} is not a {@link Node}, so the {@code process} overloads above do not apply to it.
+     * Returns the argument itself when nothing changed, so the caller can detect that by identity.
+     */
+    private Optional<ColumnPosition> processColumnPosition(Optional<ColumnPosition> position, C context)
+    {
+        if (position == null || !position.isPresent() || !(position.get() instanceof ColumnPosition.After)) {
+            return position;
+        }
+        Identifier afterColumn = ((ColumnPosition.After) position.get()).getColumn();
+        Node rewritten = process(afterColumn, context);
+        return afterColumn == rewritten ? position : Optional.of(new ColumnPosition.After((Identifier) rewritten));
     }
 
     private static <T> boolean sameElement(Optional<T> a, Optional<T> b)

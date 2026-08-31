@@ -63,8 +63,6 @@ proxygen::HTTPMessage announcementRequest(
   request.setMethod(proxygen::HTTPMethod::PUT);
   request.setURL(fmt::format("/v1/announcement/{}", nodeId));
   request.getHeaders().set(
-      proxygen::HTTP_HEADER_HOST, fmt::format("{}:{}", address, port));
-  request.getHeaders().set(
       proxygen::HTTP_HEADER_CONTENT_TYPE, "application/json");
   request.getHeaders().set(
       proxygen::HTTP_HEADER_CONTENT_LENGTH, std::to_string(body.size()));

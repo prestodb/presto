@@ -34,10 +34,16 @@ import static java.util.Objects.requireNonNull;
 public class RPCNode
         extends InternalPlanNode
 {
+    // AUTOMATIC is a coordinator-only planning value. RpcFunctionOptimizer resolves it to
+    // PER_ROW or BATCH from the estimated input cardinality before constructing the node, so
+    // a serialized RPCNode never carries AUTOMATIC (the native protocol only understands
+    // PER_ROW / BATCH). The comment is kept outside the enum body because the native protocol
+    // generator (java-to-struct-json.py) mis-parses interior enum comments.
     public enum StreamingMode
     {
         PER_ROW,
-        BATCH
+        BATCH,
+        AUTOMATIC
     }
 
     private final PlanNode source;
@@ -90,6 +96,9 @@ public class RPCNode
                 this.argumentColumns.size());
         this.outputVariable = requireNonNull(outputVariable, "outputVariable is null");
         this.streamingMode = streamingMode != null ? streamingMode : StreamingMode.PER_ROW;
+        checkArgument(
+                this.streamingMode != StreamingMode.AUTOMATIC,
+                "RPCNode streamingMode must be PER_ROW or BATCH, not AUTOMATIC (coordinator-only value); resolve it before constructing the node");
         this.dispatchBatchSize = dispatchBatchSize;
 
         ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.builder();

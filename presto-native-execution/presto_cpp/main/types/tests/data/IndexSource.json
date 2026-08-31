@@ -182,7 +182,9 @@
   "stageExecutionDescriptor":{
     "stageExecutionStrategy":"FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION",
     "groupedExecutionScanNodes":["0"],
-    "totalLifespans":1
+    "totalLifespans":1,
+    "groupedExecutionPartitionValues":[],
+    "partitionColumnMappings": {}
   },
   "outputTableWriterFragment":false,
   "statsAndCosts":{

@@ -22,6 +22,7 @@ import java.util.Optional;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -116,5 +117,42 @@ public class TestExplainVerification
         event = runExplain("SELECT 1", "SELECT 2", queryBankModeSettings);
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED);
+    }
+
+    @Test
+    public void testExplainTypeIoPassthroughMatch()
+    {
+        getQueryRunner().execute("CREATE TABLE explain_io_match (x int, ds varchar)");
+        Optional<VerifierQueryEvent> event = runExplain(
+                "EXPLAIN (TYPE IO) SELECT * FROM explain_io_match",
+                "EXPLAIN (TYPE IO) SELECT * FROM explain_io_match");
+        assertTrue(event.isPresent());
+
+        assertEvent(event.get(), SUCCEEDED);
+        assertEquals(event.get().getMatchType(), "MATCH");
+        // A source query that is already an EXPLAIN is run verbatim, not re-wrapped in EXPLAIN (FORMAT JSON).
+        assertTrue(event.get().getControlQueryInfo().getQuery().trim().startsWith("EXPLAIN (TYPE IO)"));
+        assertTrue(event.get().getTestQueryInfo().getQuery().trim().startsWith("EXPLAIN (TYPE IO)"));
+        assertFalse(event.get().getControlQueryInfo().getQuery().contains("FORMAT JSON"));
+        assertNotNull(event.get().getControlQueryInfo().getJsonPlan());
+        assertNotNull(event.get().getTestQueryInfo().getJsonPlan());
+    }
+
+    @Test
+    public void testExplainTypeIoPassthroughMismatch()
+    {
+        getQueryRunner().execute("CREATE TABLE explain_io_a (x int, ds varchar)");
+        getQueryRunner().execute("CREATE TABLE explain_io_b (y int, ds varchar)");
+        Optional<VerifierQueryEvent> event = runExplain(
+                "EXPLAIN (TYPE IO) SELECT * FROM explain_io_a",
+                "EXPLAIN (TYPE IO) SELECT * FROM explain_io_b");
+        assertTrue(event.isPresent());
+
+        // Explain verification does not fail in case of plan changes; the mismatch is reported via match type.
+        assertEvent(event.get(), SUCCEEDED);
+        assertEquals(event.get().getMatchType(), "STRUCTURE_MISMATCH");
+        assertTrue(event.get().getControlQueryInfo().getQuery().trim().startsWith("EXPLAIN (TYPE IO)"));
+        assertNotNull(event.get().getControlQueryInfo().getJsonPlan());
+        assertNotNull(event.get().getTestQueryInfo().getJsonPlan());
     }
 }

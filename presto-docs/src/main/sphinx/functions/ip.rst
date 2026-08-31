@@ -26,7 +26,7 @@ IP Functions
         SELECT ip_subnet_max(IPPREFIX '192.64.0.0/9'); -- {192.127.255.255}
         SELECT ip_subnet_max(IPPREFIX '2001:0db8:85a3:0001:0001:8a2e:0370:7334/48'); -- {2001:db8:85a3:ffff:ffff:ffff:ffff:ffff}
 
-.. function:: ip_subnet_range(ip_prefix) -> array(ip_address)
+.. function:: ip_subnet_range(ip_prefix) -> array[ip_address]
 
     Return an array of 2 IP addresses.
     The array contains the smallest and the largest IP address
@@ -50,7 +50,7 @@ IP Functions
         SELECT is_subnet_of(IPPREFIX '64:ff9b::17/64', IPPREFIX '64:ffff::17/64'); -- false
         SELECT is_subnet_of(IPPREFIX '192.168.3.131/26', IPPREFIX '192.168.3.131/26'); -- true
 
-.. function:: ip_prefix_collapse(array(ip_prefix)) -> array(ip_prefix)
+.. function:: ip_prefix_collapse(array[ip_prefix]) -> array[ip_prefix]
 
     Returns the minimal CIDR representation of the input ``IPPREFIX`` array.
     Every ``IPPREFIX`` in the input array must be the same IP version (that is, only IPv4 or only IPv6)
@@ -70,7 +70,7 @@ IP Functions
         SELECT is_private_ip(IPADDRESS '157.240.200.99'); -- false
         SELECT is_private_ip(IPADDRESS '2a03:2880:f031:12:face:b00c:0:2'); -- false
 
-.. function:: ip_prefix_subnets(ip_prefix, prefix_length) -> array(ip_prefix)
+.. function:: ip_prefix_subnets(ip_prefix, prefix_length) -> array[ip_prefix]
 
     Returns the subnets of ``ip_prefix`` of size ``prefix_length``. ``prefix_length`` must be valid ([0, 32] for IPv4
     and [0, 128] for IPv6) or the query will fail and raise an error. An empty array is returned if ``prefix_length``

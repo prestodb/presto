@@ -228,6 +228,21 @@ at the server level. Error codes are matched by their name (such as ``GENERIC_IN
 
 The corresponding session property is :ref:`admin/properties-session:\`\`try_function_catchable_errors\`\``.
 
+``server.startup-complete-required-for-active``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, the coordinator reports itself as not ready until the server has fully
+completed startup: ``/v1/info/state`` returns ``INACTIVE`` and ``/v1/info`` reports
+``"starting": true`` until the server reaches the ``SERVER STARTED`` point. By default,
+a coordinator can report ``ACTIVE`` as soon as its catalogs and resource group
+configuration manager are loaded, which happens before the remaining startup steps
+complete. Enabling this property defers the ``ACTIVE`` state until startup has fully
+finished, so that external components such as load balancers, routers, and health
+checks do not route queries to a coordinator that is still initializing.
+
 Memory Management Properties
 ----------------------------
 
@@ -890,6 +905,23 @@ Enables optimization for aggregations on dictionaries.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`dictionary_aggregation\`\``.
 
+``optimizer.optimize-cascading-filters-and-projections``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Coalesce cascading projections by fully inlining deterministic child expressions into the parent
+projection (the opposite tradeoff from ``InlineProjections``), and merge an adjacent filter and
+projection by inlining the projection's expressions into the filter predicate. This co-locates
+shared subexpressions within a single operator so the native (Velox) engine's
+common-subexpression elimination can deduplicate them, which matches Velox's preferred
+filter-then-project shape. Non-deterministic expressions that are referenced more than once and
+inputs to ``TRY(...)`` are never inlined, preserving semantics. Runs as the last planning-time
+optimizer.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`optimize_cascading_filters_and_projections\`\``.
+
 ``optimizer.optimize-hash-generation``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -906,6 +938,36 @@ It is often helpful to disable this property when using :doc:`/sql/explain` in o
 to make the query plan easier to read.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`optimize_hash_generation\`\``.
+
+``optimizer.rewrite-approx-distinct-if-to-mask``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Move an ``IF`` condition inside an :func:`!approx_distinct` argument onto the aggregation as a
+mask, rewriting ``approx_distinct(IF(p, e))`` to ``approx_distinct(e)`` masked by ``p``. Results
+are unchanged, since ``IF(p, e)`` is NULL where ``p`` is false and :func:`!approx_distinct` does
+not count NULLs.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`rewrite_approx_distinct_if_to_mask\`\``.
+
+``optimizer.optimize-join-fan-out``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Collapse a fan-out equi-join, that is a join one of whose sides is not unique on the join keys
+but is unique on a strict superset of them. That side's non-key columns are packed with
+``array_agg(row(...))`` so the join becomes ``N``-to-``1`` (unique on the join key), and a local
+``UNNEST`` above the join re-expands them, reproducing the original rows. This moves the row
+multiplication out of the distributed join (smaller build, less shuffle of duplicated rows)
+into a streaming local ``UNNEST``. Either side of an ``INNER``, ``LEFT`` or ``RIGHT`` join can be
+collapsed, including the null-supplying side of an outer join; ``FULL`` outer and cross joins are
+never collapsed.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`optimize_join_fan_out\`\``.
 
 ``optimizer.optimize-metadata-queries``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -972,6 +1034,22 @@ hashing, or ordering are not pulled up, and for multi-source (``UNION``) exchang
 constants that are identical across all sources are pulled up.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`pull_constant_projection_above_exchange\`\``.
+
+``optimizer.pull-row-local-chain-above-exchange-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Allowed values:** ``DISABLED``, ``ALWAYS_ENABLED``, ``COST_BASED``
+* **Default value:** ``DISABLED``
+
+Strategy for pulling a chain of row-local operators (``UNNEST`` and deterministic projections)
+above a repartitioning remote ``ExchangeNode`` so the exchange shuffles the smaller pre-expansion
+input rather than the post-expansion (fanned-out and widened) rows. With ``ALWAYS_ENABLED`` the
+rewrite is applied whenever it is legal (every partitioning, hashing, or ordering variable is
+produced unchanged below the chain), independent of cost or statistics. ``COST_BASED`` currently
+behaves like ``ALWAYS_ENABLED``; cost-based selection is a separate layer to be added later.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`pull_row_local_chain_above_exchange_strategy\`\``.
 
 ``optimizer.push-aggregation-through-join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1434,7 +1512,7 @@ Flag to enable or disable compression of the log files of the HTTP server.
 
 The path to the log file used by the HTTP server. The path is relative to
 the data directory, configured by the launcher script as detailed in
-:ref:`running_presto`.
+:ref:`installation/deployment:Running Presto`.
 
 ``http-server.log.max-history``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1697,6 +1775,26 @@ grouped execution automatically.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`partition_aware_grouped_execution\`\``.
 
+``grouped-execution-when-capable-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``grouped-execution-enabled``, runs grouped execution for *any*
+grouped-execution-capable (bucketed) fragment, even when no downstream operator makes grouping
+individually beneficial. Normally grouped execution engages only when an operator such as a
+colocated join or a final aggregation on the bucket key makes it worthwhile; with this property a
+bucketed scan that merely feeds a shuffle (for example a join or aggregation on a non-bucket key),
+or a bucketed-to-bucketed table write, also runs one bucket per lifespan. This avoids re-partitioning
+data that is already bucketed and bounds per-lifespan memory to a single bucket.
+
+Grouping a capable fragment is always correct, but reading fewer buckets at a time can reduce scan
+parallelism, so this is most beneficial for memory- or aggregation-bound workloads and may regress
+scan-throughput-bound queries. It is therefore disabled by default.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`grouped_execution_when_capable\`\``.
+
 Cluster Overload Properties
 ---------------------------
 
@@ -1814,6 +1912,36 @@ or HTTP/S. HTTPS are supported using the same internal communication HTTPS
 configs.
 
 To enable SSL/TLS, see :doc:`/security/internal-communication`.
+
+Presto on Spark Properties
+--------------------------
+
+These properties control how :doc:`Presto on Spark </admin/spark>` assigns table scan
+splits to Spark input partitions.
+
+``spark.max-splits-count-per-partition``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``2147483647``
+
+Maximum number of splits assigned to one Spark input partition. The default is
+effectively unbounded, so partition contents are bounded by data size alone.
+
+The splits of one partition are serialized into a single task update request. A
+partition holding a very large number of splits can produce a request that exceeds
+the 2 GB limit of the underlying JSON serializer, which fails the query late in
+execution. Splits that are individually small do not approach the data size budget,
+so a count bound is the only way to keep such partitions in check. Set this property
+when a source table produces very many small splits.
+
+When this limit is reached on every partition and the partition count is already at
+``spark.max-spark-input-partition-count-for-auto-tune``, an additional partition is
+created rather than overfilling an existing one, so this limit takes precedence over
+the partition count ceiling.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`max_splits_count_per_spark_partition\`\``.
 
 Driver-side Metadata Sidecar Properties
 ---------------------------------------

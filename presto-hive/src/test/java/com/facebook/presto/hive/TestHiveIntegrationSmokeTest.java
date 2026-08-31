@@ -142,6 +142,7 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_SCHEMA;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -246,6 +247,16 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(admin, "DROP TABLE new_schema.test");
 
         assertUpdate(admin, "DROP SCHEMA new_schema");
+
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().deny(privilege(admin.getUser(), "test", CREATE_SCHEMA));
+                assertQueryFails(admin, "CREATE SCHEMA invalid_catalog.test", "Catalog does not exist: invalid_catalog");
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
     }
 
     @Test
@@ -3316,7 +3327,13 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN b bigint COMMENT 'test comment BBB'");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN a varchar", ".* Column 'a' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bad_type", ".* Unknown type 'bad_type' for column 'c'");
-        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA', 19, NULL, NULL), ('b', 'bigint', '', 'test comment BBB', 19, NULL, NULL)");
+        // Hive does not implement the position-aware addColumn, so a position clause must be rejected outright
+        // rather than silently appending the column somewhere the user did not ask for
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bigint FIRST", ".*This connector does not support adding columns with FIRST clause");
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bigint AFTER a", ".*This connector does not support adding columns with AFTER clause");
+        // Omitting the clause appends, which is the connector's existing behavior
+        assertUpdate("ALTER TABLE test_add_column ADD COLUMN c bigint COMMENT 'test comment CCC'");
+        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA', 19, NULL, NULL), ('b', 'bigint', '', 'test comment BBB', 19, NULL, NULL), ('c', 'bigint', '', 'test comment CCC', 19, NULL, NULL)");
         assertUpdate("DROP TABLE test_add_column");
     }
 
@@ -5296,18 +5313,7 @@ public class TestHiveIntegrationSmokeTest
                 "WITH (avro_schema_url = 'dummy_schema',\n" +
                 "      bucket_count = 2, bucketed_by=ARRAY['dummy'])";
 
-        assertQueryFails(createSql, "Bucketing/Partitioning columns not supported when Avro schema url is set");
-    }
-
-    @Test
-    public void testPartitionedTablesFailWithAvroSchemaUrl()
-            throws Exception
-    {
-        @Language("SQL") String createSql = "CREATE TABLE create_avro (dummy VARCHAR)\n" +
-                "WITH (avro_schema_url = 'dummy_schema',\n" +
-                "      partitioned_by=ARRAY['dummy'])";
-
-        assertQueryFails(createSql, "Bucketing/Partitioning columns not supported when Avro schema url is set");
+        assertQueryFails(createSql, "Bucketing columns not supported when Avro schema url is set");
     }
 
     @Test
@@ -5944,7 +5950,7 @@ public class TestHiveIntegrationSmokeTest
                 .execute(session, transactionSession -> {
                     QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
                     Optional<TableHandle> handle = metadata.getMetadataResolver(transactionSession).getTableHandle(objectName);
-                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get());
+                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get(), ImmutableList.of());
                     HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle.getConnectorHandle();
 
                     metadata.finishInsert(transactionSession, insertTableHandle, ImmutableList.of(), ImmutableList.of());

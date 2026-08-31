@@ -260,7 +260,7 @@ public class TestDwrfMetadataReader
                                     .setSum(45)
                                     .build(),
                             isRowGroup),
-                    new StringStatistics(null, null, 45));
+                    new StringStatistics(null, null, false, false, 45));
         }
         // and the ORIGINAL version row group stats (but not rolled up stats)
         assertEquals(
@@ -270,7 +270,7 @@ public class TestDwrfMetadataReader
                                 .setSum(45)
                                 .build(),
                         true),
-                new StringStatistics(null, null, 45));
+                new StringStatistics(null, null, false, false, 45));
 
         // having only a min or max should work
         assertEquals(
@@ -280,7 +280,7 @@ public class TestDwrfMetadataReader
                                 .setMinimum("ant")
                                 .build(),
                         true),
-                new StringStatistics(Slices.utf8Slice("ant"), null, 0));
+                new StringStatistics(Slices.utf8Slice("ant"), null, false, false, 0));
         assertEquals(
                 DwrfMetadataReader.toStringStatistics(
                         HiveWriterVersion.ORC_HIVE_8732,
@@ -288,7 +288,7 @@ public class TestDwrfMetadataReader
                                 .setMaximum("cat")
                                 .build(),
                         true),
-                new StringStatistics(null, Slices.utf8Slice("cat"), 0));
+                new StringStatistics(null, Slices.utf8Slice("cat"), false, false, 0));
 
         // normal full stat
         assertEquals(
@@ -300,7 +300,7 @@ public class TestDwrfMetadataReader
                                 .setSum(79)
                                 .build(),
                         true),
-                new StringStatistics(Slices.utf8Slice("ant"), Slices.utf8Slice("cat"), 79));
+                new StringStatistics(Slices.utf8Slice("ant"), Slices.utf8Slice("cat"), false, false, 79));
 
         for (Slice prefix : ALL_UTF8_SEQUENCES) {
             for (int testCodePoint : TEST_CODE_POINTS) {
@@ -351,6 +351,8 @@ public class TestDwrfMetadataReader
         return new StringStatistics(
                 minStringTruncateToValidRange(min, version),
                 maxStringTruncateToValidRange(max, version),
+                false,
+                false,
                 sum);
     }
 

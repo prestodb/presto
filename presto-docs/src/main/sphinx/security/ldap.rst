@@ -220,8 +220,8 @@ Presto CLI
 
 See :doc:`/clients/presto-cli` for instructions to set up Presto CLI.
 
-Environment Configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Presto CLI Environment Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 TLS Configuration
 ~~~~~~~~~~~~~~~~~

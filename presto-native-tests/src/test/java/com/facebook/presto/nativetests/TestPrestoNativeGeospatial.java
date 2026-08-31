@@ -24,6 +24,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativetests.GeoSpatialTestUtils.createCoordinates;
+import static com.facebook.presto.nativetests.GeoSpatialTestUtils.createGeometries;
 import static com.facebook.presto.nativetests.GeoSpatialTestUtils.generateRandomTableName;
 import static com.facebook.presto.sidecar.TestNativeSidecarPlugin.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
@@ -49,6 +50,7 @@ public class TestPrestoNativeGeospatial
     {
         QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
         createCoordinates(queryRunner);
+        createGeometries(queryRunner);
     }
 
     @AfterClass(alwaysRun = true)
@@ -56,6 +58,7 @@ public class TestPrestoNativeGeospatial
     {
         QueryRunner expectedQueryRunner = (QueryRunner) getExpectedQueryRunner();
         expectedQueryRunner.execute("DROP TABLE IF EXISTS coordinates");
+        expectedQueryRunner.execute("DROP TABLE IF EXISTS geometries");
     }
 
     @Override
@@ -166,5 +169,27 @@ public class TestPrestoNativeGeospatial
                 "(?s)(?i).*Latitude.*range.*-90.*90.*");
         assertQueryFails("SELECT great_circle_distance(lat1, lon1, lat2, lon2) FROM coordinates WHERE lon1 = 200.0",
                 "(?s)(?i).*Longitude.*range.*-180.*180.*");
+    }
+
+    @Test
+    public void testGeometryUnionAgg()
+    {
+        // Compare geometry-invariant properties (area and envelope) instead of the serialized
+        // geometry, since native and Java may order vertices differently for equal geometries.
+        assertQuery("SELECT gid, ST_Area(g), ST_XMin(g), ST_XMax(g), ST_YMin(g), ST_YMax(g) FROM " +
+                "(SELECT gid, geometry_union_agg(ST_GeometryFromText(wkt)) AS g FROM geometries GROUP BY gid) " +
+                "ORDER BY gid");
+        assertQuery("SELECT ST_Area(g), ST_XMin(g), ST_XMax(g), ST_YMin(g), ST_YMax(g) FROM " +
+                "(SELECT geometry_union_agg(ST_GeometryFromText(wkt)) AS g FROM geometries)");
+    }
+
+    @Test
+    public void testConvexHullAgg()
+    {
+        assertQuery("SELECT gid, ST_Area(g), ST_XMin(g), ST_XMax(g), ST_YMin(g), ST_YMax(g) FROM " +
+                "(SELECT gid, convex_hull_agg(ST_GeometryFromText(wkt)) AS g FROM geometries GROUP BY gid) " +
+                "ORDER BY gid");
+        assertQuery("SELECT ST_Area(g), ST_XMin(g), ST_XMax(g), ST_YMin(g), ST_YMax(g) FROM " +
+                "(SELECT convex_hull_agg(ST_GeometryFromText(wkt)) AS g FROM geometries)");
     }
 }

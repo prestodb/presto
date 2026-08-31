@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.TableAlreadyExistsException;
@@ -53,6 +54,7 @@ import org.apache.iceberg.exceptions.NamespaceNotEmptyException;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
+import org.apache.iceberg.view.SQLViewRepresentation;
 import org.apache.iceberg.view.View;
 import org.apache.iceberg.view.ViewBuilder;
 
@@ -77,6 +79,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergView;
 import static com.facebook.presto.iceberg.IcebergUtil.getViewComment;
+import static com.facebook.presto.iceberg.IcebergUtil.isPrestoView;
 import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.validateViewDefinitionForBranches;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
@@ -103,6 +106,7 @@ import static org.apache.iceberg.NullOrder.NULLS_LAST;
 public class IcebergNativeMetadata
         extends IcebergAbstractMetadata
 {
+    private static final Logger log = Logger.get(IcebergNativeMetadata.class);
     private static final String VIEW_DIALECT = "presto";
 
     private final Optional<String> warehouseDataDir;
@@ -348,7 +352,19 @@ public class IcebergNativeMetadata
                         if (view.properties().containsKey(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION)) {
                             continue;
                         }
-                        verifyAndPopulateViews(view, schemaTableName, view.sqlFor(VIEW_DIALECT).sql(), views);
+                        // Skip views that have no genuine Presto SQL representation. Views created by
+                        // other engines (e.g. Netezza, Spark, Trino) store raw SQL under their own
+                        // dialect; sqlFor() falls back to the closest (or first) representation when
+                        // the "presto" dialect is absent, which later causes MetadataManager to fail
+                        // trying to JSON-deserialise plain SQL as a ViewDefinition.
+                        SQLViewRepresentation sqlRepresentation = view.sqlFor(VIEW_DIALECT);
+                        boolean hasPrestoDialect = sqlRepresentation != null && VIEW_DIALECT.equalsIgnoreCase(sqlRepresentation.dialect());
+                        if (!hasPrestoDialect || !isPrestoView(view)) {
+                            log.debug("Skipping view '%s': not a Presto view (dialect=%s, prestoViewFlag=%s)",
+                                    schemaTableName, sqlRepresentation == null ? "<none>" : sqlRepresentation.dialect(), isPrestoView(view));
+                            continue;
+                        }
+                        verifyAndPopulateViews(view, schemaTableName, sqlRepresentation.sql(), views);
                     }
                 }
                 catch (IllegalArgumentException e) {
@@ -509,8 +525,9 @@ public class IcebergNativeMetadata
     }
 
     @Override
-    public void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation)
+    public void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation, boolean deleteDataOnDrop)
     {
+        // deleteDataOnDrop is not used in the native catalog implementation
         catalogFactory.getCatalog(clientSession).registerTable(toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled()), metadataLocation.toString());
     }
 

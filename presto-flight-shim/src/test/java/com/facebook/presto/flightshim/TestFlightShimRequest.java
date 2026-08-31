@@ -17,7 +17,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.type.BigintType;
-import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -28,6 +27,7 @@ import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTransactionHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.function.table.Descriptor;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableList;
@@ -76,7 +76,7 @@ public class TestFlightShimRequest
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
         TestingTypeDeserializer typeDeserializer = new TestingTypeDeserializer(functionAndTypeManager);
-        provider.setJsonDeserializers(ImmutableMap.of(RowType.class, typeDeserializer, Type.class, typeDeserializer));
+        provider.setJsonDeserializers(ImmutableMap.of(Descriptor.class, typeDeserializer, Type.class, typeDeserializer));
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
         REQUEST_JSON_CODEC = codecFactory.jsonCodec(FlightShimRequest.class);
     }
@@ -119,9 +119,9 @@ public class TestFlightShimRequest
                 Optional.empty());
         byte[] nameBytes = COLUMN_HANDLE_JSON_CODEC.toJsonBytes(nameHandle);
 
-        ImmutableList<RowType.Field> fields = ImmutableList.of(
-                new RowType.Field(Optional.of(custkeyHandle.getColumnName()), custkeyHandle.getColumnType()),
-                new RowType.Field(Optional.of(nameHandle.getColumnName()), nameHandle.getColumnType()));
+        ImmutableList<Descriptor.Field> fields = ImmutableList.of(
+                new Descriptor.Field(Optional.of(custkeyHandle.getColumnName()), Optional.of(custkeyHandle.getColumnType())),
+                new Descriptor.Field(Optional.of(nameHandle.getColumnName()), Optional.of(nameHandle.getColumnType())));
 
         JdbcTableHandle tableHandle = new JdbcTableHandle("postgresql", new SchemaTableName("tpch", TPCH_TABLE), "postgresql", "tpch", TPCH_TABLE);
         byte[] tableHandleBytes = TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle);

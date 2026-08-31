@@ -31,6 +31,48 @@ public class GeoSpatialTestUtils
         return tableName;
     }
 
+    public static void createGeometries(QueryRunner queryRunner)
+    {
+        queryRunner.execute("DROP TABLE IF EXISTS geometries");
+        queryRunner.execute("CREATE TABLE geometries (gid integer, wkt varchar)");
+        queryRunner.execute("INSERT INTO geometries VALUES " +
+                // Three overlapping triangles: union and convex hull are single polygons.
+                "(1, 'POLYGON ((2 2, 3 1, 1 1, 2 2))'), " +
+                "(1, 'POLYGON ((3 2, 4 1, 2 1, 3 2))'), " +
+                "(1, 'POLYGON ((4 2, 5 1, 3 1, 4 2))'), " +
+                // Two disjoint triangles: union is a multipolygon, convex hull is a polygon.
+                "(2, 'POLYGON ((1 1, 3 1, 2 2, 1 1))'), " +
+                "(2, 'POLYGON ((4 1, 6 1, 5 2, 4 1))'), " +
+                // Points at the corners of a unit square: union is a multipoint, convex hull is a polygon.
+                "(3, 'POINT (0 0)'), " +
+                "(3, 'POINT (1 0)'), " +
+                "(3, 'POINT (1 1)'), " +
+                "(3, 'POINT (0 1)'), " +
+                // Collinear points: union is a multipoint, convex hull collapses to a linestring.
+                "(4, 'POINT (1 1)'), " +
+                "(4, 'POINT (2 2)'), " +
+                "(4, 'POINT (3 3)'), " +
+                // Two overlapping rectangles forming a cross.
+                "(5, 'POLYGON ((1 3, 1 4, 6 4, 6 3, 1 3))'), " +
+                "(5, 'POLYGON ((3 1, 4 1, 4 6, 3 6, 3 1))'), " +
+                // Linestrings: union is a multilinestring, convex hull is a polygon.
+                "(6, 'LINESTRING (0 0, 1 1)'), " +
+                "(6, 'LINESTRING (1 0, 2 1)'), " +
+                // Null mixed with a value: nulls are skipped by the aggregate.
+                "(7, NULL), " +
+                "(7, 'POINT (5 5)'), " +
+                // Single geometry: union and convex hull return the input unchanged.
+                "(8, 'POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))'), " +
+                // Multipoints on the line y = 2x.
+                "(9, 'MULTIPOINT ((1 2), (2 4), (3 6))'), " +
+                "(9, 'MULTIPOINT ((4 8), (5 10))'), " +
+                // Empty geometry absorbed by a non-empty one: result is the non-empty geometry.
+                "(10, 'LINESTRING EMPTY'), " +
+                "(10, 'LINESTRING (1 1, 3 3)'), " +
+                // Only-empty geometry: result is empty, so ST_Area is 0 and the envelope is null.
+                "(11, 'POLYGON EMPTY')");
+    }
+
     public static void createCoordinates(QueryRunner queryRunner)
     {
         queryRunner.execute("DROP TABLE IF EXISTS coordinates");

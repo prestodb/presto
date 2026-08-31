@@ -432,7 +432,7 @@ public class HiveSplitManager
                     Function<HivePartitionKey, String> partitionValueNormalizer = key -> {
                         Type type = checkNotNull(partitionColumnTypes.get(key.getName()),
                                 "No type found for partition column: %s", key.getName());
-                        NullableValue parsed = HiveUtil.parsePartitionValue(key, type, timeZone);
+                        NullableValue parsed = HiveUtil.parsePartitionValue(session, key, type, timeZone);
                         checkState(!parsed.isNull(),
                                 "Unexpected null partition value for column: %s", key.getName());
                         Object value = parsed.getValue();

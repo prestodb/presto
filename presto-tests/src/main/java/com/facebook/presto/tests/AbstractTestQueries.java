@@ -69,9 +69,11 @@ import static com.facebook.presto.SystemSessionProperties.MERGE_DUPLICATE_AGGREG
 import static com.facebook.presto.SystemSessionProperties.MERGE_MAX_BY_AND_MIN_BY_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOIN_FAN_OUT;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_ROW_IN_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.PARALLELIZE_CHAINED_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
@@ -79,11 +81,13 @@ import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_
 import static com.facebook.presto.SystemSessionProperties.PRE_AGGREGATE_BEFORE_GROUPING_SETS;
 import static com.facebook.presto.SystemSessionProperties.PRE_PROCESS_METADATA_CALLS;
 import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PUSH_AGGREGATION_THROUGH_DISJOINT_UNION;
 import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_FILTER_THROUGH_SELECTING_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.PUSH_PROJECTION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
+import static com.facebook.presto.SystemSessionProperties.PUSH_SEMI_JOIN_THROUGH_UNION;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_NULL_SOURCE_KEY_IN_SEMI_JOIN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
@@ -91,6 +95,7 @@ import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_N
 import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_APPROX_DISTINCT_IF_TO_MASK;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CASE_TO_MAP_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN;
@@ -720,6 +725,145 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT a.col0 FROM (VALUES ROW(CAST(ROW(1, 2) AS ROW(col0 integer, col1 integer)))) AS t (a) WHERE a.col0 < a.col1", "SELECT 1");
         assertQuery("SELECT SUM(a.col0) FROM (VALUES ROW(CAST(ROW(1, 2) AS ROW(col0 integer, col1 integer)))) AS t (a) WHERE a.col0 < a.col1", "SELECT 1");
         assertQuery("SELECT SUM(a.col0) FROM (VALUES ROW(CAST(ROW(1, 2) AS ROW(col0 integer, col1 integer)))) AS t (a) WHERE a.col0 > a.col1", "SELECT null");
+    }
+
+    @Test
+    public void testRowWithFieldNames()
+    {
+        // field names can be declared without repeating the field types
+        assertQuery("SELECT r.a, r.b FROM (SELECT ROW(1 AS a, 'x' AS b) AS r)", "SELECT 1, 'x'");
+
+        // the optional AS may be omitted, as in a SELECT list
+        assertQuery("SELECT r.a FROM (SELECT ROW(1 a) AS r)", "SELECT 1");
+
+        // equivalent to spelling the type out in a CAST
+        assertQuery("SELECT ROW(1 AS a, 2 AS b) = CAST(ROW(1, 2) AS ROW(a integer, b integer))", "SELECT true");
+
+        // rows may be partially named
+        assertQuery("SELECT r.a FROM (SELECT ROW(1 AS a, 2) AS r)", "SELECT 1");
+
+        // named and anonymous rows remain comparable
+        assertQuery("SELECT ROW(1 AS a) = ROW(1)", "SELECT true");
+
+        // field access stays case insensitive, matching CAST(... AS ROW(...))
+        assertQuery("SELECT r.A FROM (SELECT ROW(1 AS a) AS r)", "SELECT 1");
+
+        // declaring a name must produce exactly the same type as spelling it out in a cast:
+        // undelimited names fold to lower case, delimited names are kept verbatim
+        assertQuery("SELECT typeof(ROW(1 AS Abc)) = typeof(CAST(ROW(1) AS ROW(Abc integer)))", "SELECT true");
+        assertQuery("SELECT typeof(ROW(1 AS Abc))", "SELECT 'row(\"abc\" integer)'");
+        assertQuery("SELECT typeof(ROW(1 AS \"Abc\"))", "SELECT 'row(\"Abc\" integer)'");
+
+        // the same equivalence has to hold for the observable JSON rendering
+        assertQuery(
+                "SELECT CAST(ROW(1 AS Abc) AS JSON) = CAST(CAST(ROW(1) AS ROW(Abc integer)) AS JSON)",
+                "SELECT true");
+
+        // VALUES takes its column names from the row field names
+        assertQuery("SELECT a, b FROM (VALUES ROW(1 AS a, 'x' AS b))", "SELECT 1, 'x'");
+        assertQuery("SELECT a FROM (VALUES ROW(1 AS a), ROW(2 AS a))", "SELECT 1 UNION ALL SELECT 2");
+
+        // when rows disagree about a field name, the column stays unnamed.
+        // (?s) is required because some runners, notably Presto on Spark, put the stack trace in
+        // the message and assertQueryFails matches against the whole string.
+        assertQueryFails("SELECT a FROM (VALUES ROW(1 AS a), ROW(2 AS b))", "(?s).*'a' cannot be resolved.*");
+        // the column is still there, just not addressable by name. It cannot be selected as _col0
+        // either: that is only the output label, not an identifier that resolves.
+        assertQuery("SELECT * FROM (VALUES ROW(1 AS a), ROW(2 AS b))", "VALUES 1, 2");
+    }
+
+    @Test
+    public void testPullRowLocalChainAboveExchange()
+    {
+        // Result-equality (enabled vs disabled) over CROSS JOIN UNNEST shapes where a repartitioning
+        // exchange sits above a row-local chain (unnest + projections) keyed on a replicate column.
+        // Checksums are order-independent, so they are robust to the plan differences the rule introduces.
+        // checksum() returns varbinary; wrap it in to_hex() so the two-runner comparison compares
+        // varchar rather than varbinary (raw varbinary is materialized inconsistently across the two
+        // result sets -- ByteBuffer vs byte[] -- and would never compare equal).
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY, "ALWAYS_ENABLED")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY, "DISABLED")
+                .build();
+
+        // Repartition on a replicate column (custkey) carried through UNNEST, feeding a downstream aggregation.
+        @Language("SQL") String aggregateOverUnnest =
+                "SELECT to_hex(checksum(custkey)), to_hex(checksum(total)) FROM (" +
+                "  SELECT o.custkey, sum(t.elem) AS total" +
+                "  FROM orders o" +
+                "  CROSS JOIN UNNEST(sequence(1, (o.orderkey % 5) + 1)) AS t(elem)" +
+                "  GROUP BY o.custkey)";
+        assertQueryWithSameQueryRunner(enabled, aggregateOverUnnest, disabled);
+
+        // Repartition (join) on a replicate column carried through UNNEST.
+        @Language("SQL") String joinOverUnnest =
+                "SELECT to_hex(checksum(u.elem)) FROM (" +
+                "  SELECT o.custkey AS k, t.elem" +
+                "  FROM orders o" +
+                "  CROSS JOIN UNNEST(sequence(1, (o.orderkey % 4) + 1)) AS t(elem)) u" +
+                "  JOIN customer c ON u.k = c.custkey";
+        assertQueryWithSameQueryRunner(enabled, joinOverUnnest, disabled);
+
+        // WITH ORDINALITY variant: the ordinality column is an unnest output and must not be a partition key.
+        @Language("SQL") String withOrdinality =
+                "SELECT to_hex(checksum(custkey)), to_hex(checksum(total)) FROM (" +
+                "  SELECT o.custkey, sum(t.elem * t.ord) AS total" +
+                "  FROM orders o" +
+                "  CROSS JOIN UNNEST(sequence(1, (o.orderkey % 5) + 1)) WITH ORDINALITY AS t(elem, ord)" +
+                "  GROUP BY o.custkey)";
+        assertQueryWithSameQueryRunner(enabled, withOrdinality, disabled);
+    }
+
+    @Test
+    public void testPushSemiJoinThroughUnion()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_SEMI_JOIN_THROUGH_UNION, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_SEMI_JOIN_THROUGH_UNION, "false")
+                .build();
+
+        // The semi join is pushed into both union branches, so the filtering source ends up in the plan
+        // twice and has to be copied with fresh plan node ids.
+        @Language("SQL") String semiJoinOverUnion =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT orderkey FROM orders WHERE orderkey % 3 = 0" +
+                "  UNION ALL" +
+                "  SELECT orderkey FROM lineitem WHERE partkey % 7 = 0) t" +
+                " WHERE orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)";
+        assertQueryWithSameQueryRunner(enabled, semiJoinOverUnion, disabled);
+
+        // Aggregation in the filtering source: every node below the aggregation is copied as well.
+        @Language("SQL") String aggregatedFilteringSource =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT orderkey FROM orders" +
+                "  UNION ALL" +
+                "  SELECT orderkey FROM lineitem) t" +
+                " WHERE orderkey IN (SELECT DISTINCT orderkey FROM orders WHERE custkey % 5 = 0)";
+        assertQueryWithSameQueryRunner(enabled, aggregatedFilteringSource, disabled);
+
+        // Three branches, with a projection between the semi join and the union.
+        @Language("SQL") String projectOverUnion =
+                "SELECT to_hex(checksum(k)) FROM (" +
+                "  SELECT orderkey * 2 AS k FROM orders" +
+                "  UNION ALL" +
+                "  SELECT orderkey * 2 AS k FROM lineitem" +
+                "  UNION ALL" +
+                "  SELECT custkey * 2 AS k FROM customer) t" +
+                " WHERE k IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)";
+        assertQueryWithSameQueryRunner(enabled, projectOverUnion, disabled);
+
+        // NOT IN, so the semi join output is consumed by a negated filter.
+        @Language("SQL") String notInOverUnion =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT orderkey FROM orders WHERE orderkey % 3 = 0" +
+                "  UNION ALL" +
+                "  SELECT orderkey FROM lineitem WHERE partkey % 7 = 0) t" +
+                " WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)";
+        assertQueryWithSameQueryRunner(enabled, notInOverUnion, disabled);
     }
 
     @Test
@@ -1601,6 +1745,62 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOptimizeCascadingFiltersAndProjections()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "false")
+                .build();
+
+        // Compare results with the optimization enabled vs disabled to validate correctness.
+        // These queries produce cascading projections and adjacent filter/project shapes that the
+        // rules coalesce/merge; results must be identical regardless of the property.
+        String[] queries = {
+                // Nested arithmetic projections (cascading projects)
+                "SELECT (nationkey * 2 + 1) * 3 FROM nation",
+                // Multiply-referenced computed column across projections
+                "SELECT a + 1, a + 2, a * a FROM (SELECT nationkey * 2 AS a FROM nation)",
+                // WHERE over a computed column (filter over project)
+                "SELECT nationkey FROM (SELECT nationkey, nationkey * 2 AS d FROM nation) WHERE d > 10",
+                // Filter and projection both reference the same computed expression
+                "SELECT d + 1 FROM (SELECT nationkey * 2 AS d FROM nation) WHERE d > 10 AND d < 40",
+                // Computed column used in both predicate and projection over a real source
+                "SELECT region_tag, cnt FROM (" +
+                        "SELECT regionkey + 1 AS region_tag, count(*) AS cnt FROM nation GROUP BY regionkey) " +
+                        "WHERE region_tag > 2",
+                // Deeper cascade with string functions
+                "SELECT upper(substr(name, 1, 3)) FROM (SELECT name FROM nation WHERE length(name) > 4)",
+                // TRY over a computed column must preserve semantics (no unsafe inlining)
+                "SELECT try(d / 0) FROM (SELECT nationkey - nationkey AS d FROM nation)",
+                // Interleaved filter/project at multiple nesting levels: each level filters on a
+                // computed column, so Filter/Project must reorder and collapse while keeping the
+                // filters applied at the correct positions in the data flow.
+                "SELECT e2 FROM (" +
+                        "  SELECT e + 1 AS e2 FROM (" +
+                        "    SELECT d * 2 AS e FROM (" +
+                        "      SELECT nationkey + 1 AS d FROM nation WHERE nationkey > 3) " +
+                        "    WHERE d < 20) " +
+                        "  WHERE e > 10) " +
+                        "WHERE e2 < 35",
+                // Filter sandwiched between two projections over an aggregation
+                "SELECT s + 1 FROM (" +
+                        "  SELECT c * c AS s FROM (" +
+                        "    SELECT count(*) AS c FROM nation GROUP BY regionkey) " +
+                        "  WHERE c > 1)",
+                // Predicate combines an aggregated column and a computed column at different levels
+                "SELECT t.k, t.total FROM (" +
+                        "  SELECT regionkey AS k, sum(nationkey) * 2 AS total FROM nation GROUP BY regionkey) t " +
+                        "WHERE t.total > 50 AND t.k < 4",
+        };
+
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabled, query, disabled);
+        }
+    }
+
+    @Test
     public void testPushAggregationThroughDisjointUnion()
     {
         Session enabled = Session.builder(getSession())
@@ -1638,6 +1838,136 @@ public abstract class AbstractTestQueries
 
         for (String query : queries) {
             assertQueryWithSameQueryRunner(enabled, query, disabled);
+        }
+    }
+
+    @Test
+    public void testOptimizeJoinFanOut()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOIN_FAN_OUT, "true")
+                .setSystemProperty(LEGACY_UNNEST, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOIN_FAN_OUT, "false")
+                .build();
+
+        String[] queries = {
+                // INNER join, aggregation on the build (right) side grouped by a strict superset
+                // (regionkey, nationkey) of the join key (regionkey): the canonical fan-out shape.
+                "SELECT r.regionkey, r.name, b.nationkey, b.cnt " +
+                        "FROM region r " +
+                        "JOIN (SELECT regionkey, nationkey, count(*) AS cnt FROM nation GROUP BY regionkey, nationkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
+                // INNER join, aggregation on the probe (left) side.
+                "SELECT b.regionkey, b.nationkey, b.total, r.name " +
+                        "FROM (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation GROUP BY regionkey, nationkey) b " +
+                        "JOIN region r " +
+                        "  ON b.regionkey = r.regionkey " +
+                        "ORDER BY b.regionkey, b.nationkey",
+                // LEFT join, aggregation on the preserved (left) side.
+                "SELECT b.regionkey, b.nationkey, b.total, r.name " +
+                        "FROM (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation GROUP BY regionkey, nationkey) b " +
+                        "LEFT JOIN region r " +
+                        "  ON b.regionkey = r.regionkey " +
+                        "ORDER BY b.regionkey, b.nationkey",
+                // RIGHT join, aggregation on the preserved (right) side.
+                "SELECT r.name, b.regionkey, b.nationkey, b.total " +
+                        "FROM region r " +
+                        "RIGHT JOIN (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation GROUP BY regionkey, nationkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY b.regionkey, b.nationkey",
+                // LEFT join, aggregation on the null-supplying (right) side. The filter leaves
+                // regions 2..4 without a match, so the null-extended rows exercise the COALESCE that
+                // keeps an unmatched row alive through the UNNEST.
+                "SELECT r.regionkey, r.name, b.nationkey, b.total " +
+                        "FROM region r " +
+                        "LEFT JOIN (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation " +
+                        "           WHERE regionkey < 2 GROUP BY regionkey, nationkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
+                // RIGHT join, aggregation on the null-supplying (left) side.
+                "SELECT r.regionkey, r.name, b.nationkey, b.total " +
+                        "FROM (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation " +
+                        "      WHERE regionkey < 2 GROUP BY regionkey, nationkey) b " +
+                        "RIGHT JOIN region r " +
+                        "  ON b.regionkey = r.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
+                // LEFT join over a larger source, with unmatched preserved rows and several packed
+                // columns, including one that is NULL for some matched rows.
+                "SELECT o.orderkey, o.custkey, b.shipmode, b.revenue, b.lines " +
+                        "FROM orders o " +
+                        "LEFT JOIN (SELECT orderkey, shipmode, sum(extendedprice) AS revenue, count(*) AS lines " +
+                        "           FROM lineitem WHERE orderkey % 3 = 0 GROUP BY orderkey, shipmode) b " +
+                        "  ON o.orderkey = b.orderkey " +
+                        "WHERE o.orderkey < 1000 " +
+                        "ORDER BY o.orderkey, b.shipmode",
+                // A UNION below the aggregation: PropertyDerivations does not cover UnionNode, so the
+                // union reports unknown properties while the grouping above it still reaches the join.
+                "SELECT r.regionkey, b.nationkey, b.total " +
+                        "FROM region r " +
+                        "JOIN (SELECT regionkey, nationkey, sum(nationkey) AS total " +
+                        "      FROM (SELECT regionkey, nationkey FROM nation WHERE regionkey < 3 " +
+                        "            UNION ALL SELECT regionkey, nationkey FROM nation WHERE regionkey >= 3) u " +
+                        "      GROUP BY regionkey, nationkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
+                // DISTINCT build side: the derived key (regionkey, nationkey) is a strict superset of
+                // the join key, a shape the side's own node type does not reveal.
+                "SELECT r.regionkey, r.name, b.nationkey " +
+                        "FROM region r " +
+                        "JOIN (SELECT DISTINCT regionkey, nationkey FROM nation) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
+                // Fan-out reported by the derived keys rather than by the shape of the collapsed side:
+                // the side is a TopN over an aggregation, and the key (regionkey, nationkey) carried
+                // up through the TopN is a strict superset of the join key regionkey.
+                "SELECT r.regionkey, r.name, b.nationkey, b.total " +
+                        "FROM region r " +
+                        "JOIN (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation " +
+                        "      GROUP BY regionkey, nationkey ORDER BY regionkey, nationkey LIMIT 20) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
+                // Multiple measures and an extra grouping key, larger source (orders/lineitem).
+                "SELECT o.orderkey, o.custkey, b.shipmode, b.revenue, b.lines " +
+                        "FROM orders o " +
+                        "JOIN (SELECT orderkey, shipmode, sum(extendedprice) AS revenue, count(*) AS lines " +
+                        "      FROM lineitem GROUP BY orderkey, shipmode) b " +
+                        "  ON o.orderkey = b.orderkey " +
+                        "WHERE o.orderkey < 1000 " +
+                        "ORDER BY o.orderkey, b.shipmode",
+                // Negative case: join key equals the grouping key, so the build side is already
+                // unique on the key. The rule must not fire and results must still match.
+                "SELECT r.regionkey, b.total FROM region r " +
+                        "JOIN (SELECT regionkey, sum(nationkey) AS total FROM nation GROUP BY regionkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey",
+                // The grouping of an aggregation reaches the outer join across an inner join, since an
+                // inner join propagates its probe's local properties.
+                "SELECT r.regionkey, r.name, j.nationkey, j.total " +
+                        "FROM region r " +
+                        "JOIN (SELECT b.regionkey AS regionkey, b.nationkey AS nationkey, b.total AS total " +
+                        "      FROM (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation " +
+                        "            GROUP BY regionkey, nationkey) b " +
+                        "      JOIN nation n2 ON b.regionkey = n2.regionkey AND b.nationkey = n2.nationkey) j " +
+                        "  ON r.regionkey = j.regionkey " +
+                        "ORDER BY r.regionkey, j.nationkey",
+        };
+
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabled, query, disabled);
+        }
+
+        // Also exercise the optimization under the non-legacy (flattened) UNNEST form: the rule
+        // emits one column per row field instead of a single ROW column, so results must still
+        // match the unoptimized plan with legacy_unnest=false.
+        Session enabledNonLegacyUnnest = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOIN_FAN_OUT, "true")
+                .setSystemProperty(LEGACY_UNNEST, "false")
+                .build();
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabledNonLegacyUnnest, query, disabled);
         }
     }
 
@@ -6757,6 +7087,39 @@ public abstract class AbstractTestQueries
                 .build();
         String varcharJoinKey = "select t.k, t2.k, t2.v from (values 'r0', 'r1', 'r2', 'r3') t(k) left join (values (null, 1), (null, 2), (null, 3), (null, 4)) t2(k, v) on t.k = t2.k";
         assertQueryWithSameQueryRunner(enableRandomizeFourPartition, varcharJoinKey, "values ('r0', null, null), ('r1', null, null), ('r2', null, null), ('r3', null, null)");
+
+        // Native randomization correctness: spreading null join keys across partitions must never change
+        // results. Exercise a supported key type (BIGINT, DATE, VARCHAR) and each outer join type (LEFT,
+        // RIGHT, FULL), comparing optimization-enabled vs disabled with the same query runner. The joins are
+        // table-based (so the join is partitioned and the rewrite fires under a distributed runner) and one
+        // in five keys is NULL. The comparison is a GROUP BY (grouped, not global, avoiding the local-runner
+        // "final aggregation not separated" validator) and the group key is cast to VARCHAR so no compared
+        // column is a DATE (assertQueryWithSameQueryRunner cannot compare DATE-typed result columns). The
+        // join keys are non-bucket columns (custkey/orderdate/clerk, not the orderkey the TPC-H connector
+        // buckets on) so the exchange uses a system hash function -- the primary skew scenario this rewrite
+        // targets -- rather than the connector bucket function.
+        Session enableRandomizePartitioned = Session.builder(getSession())
+                .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, "true")
+                .setSystemProperty(HASH_PARTITION_COUNT, "4")
+                .setSystemProperty("join_distribution_type", "PARTITIONED")
+                .build();
+        String[] nullableKeyByType = {
+                "case when mod(orderkey, 5) = 0 then null else custkey end",    // BIGINT
+                "case when mod(orderkey, 5) = 0 then null else orderdate end",  // DATE
+                "case when mod(orderkey, 5) = 0 then null else clerk end",      // VARCHAR
+        };
+        String[] probeKeyByType = {"custkey", "orderdate", "clerk"};
+        for (int i = 0; i < nullableKeyByType.length; i++) {
+            for (String joinType : ImmutableList.of("left join", "right join", "full join")) {
+                String randomizeCorrectness = format(
+                        "select cast(t.k as varchar) gk, count(*) c, count(t2.k) m " +
+                                "from (select %s k from orders) t " +
+                                "%s (select %s k from orders) t2 on t.k = t2.k " +
+                                "group by cast(t.k as varchar)",
+                        nullableKeyByType[i], joinType, probeKeyByType[i]);
+                assertQueryWithSameQueryRunner(enableRandomizePartitioned, randomizeCorrectness, getSession());
+            }
+        }
     }
 
     @Test
@@ -7949,20 +8312,6 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testMergeKHyperLogLog()
-    {
-        assertQueryWithSameQueryRunner("select k1, cardinality(merge(khll)), uniqueness_distribution(merge(khll)) from (select k1, k2, khyperloglog_agg(v1, v2) khll from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), " +
-                        "(2, 1, 11, 30), (2, 1, 11, 11), (2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2) group by k1, k2) group by k1",
-                "select k1, cardinality(khyperloglog_agg(v1, v2)), uniqueness_distribution(khyperloglog_agg(v1, v2)) from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), (2, 1, 11, 30), (2, 1, 11, 11), " +
-                        "(2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2) group by k1");
-
-        assertQueryWithSameQueryRunner("select cardinality(merge(khll)), uniqueness_distribution(merge(khll)) from (select k1, k2, khyperloglog_agg(v1, v2) khll from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), " +
-                        "(2, 1, 11, 30), (2, 1, 11, 11), (2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2) group by k1, k2)",
-                "select cardinality(khyperloglog_agg(v1, v2)), uniqueness_distribution(khyperloglog_agg(v1, v2)) from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), (2, 1, 11, 30), (2, 1, 11, 11), " +
-                        "(2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2)");
-    }
-
-    @Test
     public void testRepeat()
     {
         assertQuery("select repeat(k1, k2), repeat(k1, 5), repeat(3, k2) from (values (3, 2), (5, 4), (2, 4))t(k1, k2)",
@@ -8835,5 +9184,32 @@ public abstract class AbstractTestQueries
                 "WITH agg AS (SELECT custkey, MAX(totalprice) AS max_price FROM orders GROUP BY custkey) " +
                         "SELECT c.name, agg.max_price FROM agg JOIN customer c ON c.custkey = agg.custkey WHERE agg.max_price >= 300000",
                 disabled);
+    }
+
+    @Test
+    public void testRewriteApproxDistinctIfToMask()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(REWRITE_APPROX_DISTINCT_IF_TO_MASK, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(REWRITE_APPROX_DISTINCT_IF_TO_MASK, "false")
+                .build();
+
+        // The rewrite must not change results, so each query is compared against itself with the
+        // rule disabled rather than against a hardcoded value.
+        String[] queries = {
+                "SELECT approx_distinct(IF(orderpriority = '1-URGENT', comment)) FROM orders",
+                "SELECT orderstatus, approx_distinct(IF(orderpriority = '1-URGENT', comment)), " +
+                        "approx_distinct(IF(orderpriority = '2-HIGH', comment)) " +
+                        "FROM orders GROUP BY orderstatus ORDER BY orderstatus",
+                "SELECT orderstatus, approx_distinct(IF(orderpriority = 'NOT_A_PRIORITY', comment)) " +
+                        "FROM orders GROUP BY orderstatus ORDER BY orderstatus",
+                "SELECT approx_distinct(IF(orderpriority = '1-URGENT', comment), 0.01) FROM orders",
+                "SELECT orderstatus, approx_distinct(IF(orderpriority = '1-URGENT', comment)), count(*), max(totalprice) " +
+                        "FROM orders GROUP BY orderstatus ORDER BY orderstatus"};
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabled, query, disabled);
+        }
     }
 }

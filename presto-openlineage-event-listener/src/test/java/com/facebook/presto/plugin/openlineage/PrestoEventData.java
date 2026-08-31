@@ -119,7 +119,8 @@ public final class PrestoEventData
                 0.0, // cumulativeTotalMemory
                 0, // completedSplits
                 true, // complete
-                new RuntimeStats());
+                new RuntimeStats(),
+                0L);
 
         queryCompleteEvent = new QueryCompletedEvent(
                 queryMetadata,
@@ -141,6 +142,7 @@ public final class PrestoEventData
                 Collections.emptyMap(), // canonicalPlan
                 Optional.empty(), // statsEquivalentPlan
                 Optional.empty(), // expandedQuery
+                Optional.empty(), // materializedViewRewrittenQuery
                 Collections.emptyList(), // optimizerInformation
                 Collections.emptyList(), // cteInformationList
                 Collections.emptySet(), // scalarFunctions

@@ -4,7 +4,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.299-SNAPSHOT</version>
+        <version>0.300-SNAPSHOT</version>
     </parent>
     <artifactId>presto-hudi</artifactId>
     <name>presto-hudi</name>
@@ -48,6 +48,11 @@
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
         </dependency>
 
         <dependency>

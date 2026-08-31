@@ -78,6 +78,7 @@ public class IcebergColumnHandle
     private final ColumnIdentity columnIdentity;
     private final Type type;
     private final Optional<String> defaultValue;
+    private final Optional<String> writeDefaultValue;
 
     @JsonCreator
     public IcebergColumnHandle(
@@ -86,23 +87,30 @@ public class IcebergColumnHandle
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("columnType") ColumnType columnType,
             @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields,
-            @JsonProperty("defaultValue") Optional<String> defaultValue)
+            @JsonProperty("defaultValue") Optional<String> defaultValue,
+            @JsonProperty("writeDefaultValue") Optional<String> writeDefaultValue)
     {
         super(columnIdentity.getName(), comment, columnType, requiredSubfields);
 
         this.columnIdentity = requireNonNull(columnIdentity, "columnIdentity is null");
         this.type = requireNonNull(type, "type is null");
         this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
+        this.writeDefaultValue = requireNonNull(writeDefaultValue, "writeDefaultValue is null");
     }
 
     public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment, ColumnType columnType)
     {
-        this(columnIdentity, type, comment, columnType, ImmutableList.of(), Optional.empty());
+        this(columnIdentity, type, comment, columnType, ImmutableList.of(), Optional.empty(), Optional.empty());
     }
 
     public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment, ColumnType columnType, Optional<String> defaultValue)
     {
-        this(columnIdentity, type, comment, columnType, ImmutableList.of(), defaultValue);
+        this(columnIdentity, type, comment, columnType, ImmutableList.of(), defaultValue, Optional.empty());
+    }
+
+    public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment, ColumnType columnType, Optional<String> defaultValue, Optional<String> writeDefaultValue)
+    {
+        this(columnIdentity, type, comment, columnType, ImmutableList.of(), defaultValue, writeDefaultValue);
     }
 
     @JsonProperty
@@ -127,6 +135,12 @@ public class IcebergColumnHandle
     public Optional<String> getDefaultValue()
     {
         return defaultValue;
+    }
+
+    @JsonProperty
+    public Optional<String> getWriteDefaultValue()
+    {
+        return writeDefaultValue;
     }
 
     @JsonIgnore
@@ -161,13 +175,13 @@ public class IcebergColumnHandle
             return this;
         }
 
-        return new IcebergColumnHandle(columnIdentity, type, getComment(), getColumnType(), subfields, defaultValue);
+        return new IcebergColumnHandle(columnIdentity, type, getComment(), getColumnType(), subfields, defaultValue, writeDefaultValue);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnIdentity, type, getComment(), getColumnType(), getRequiredSubfields(), defaultValue);
+        return Objects.hash(columnIdentity, type, getComment(), getColumnType(), getRequiredSubfields(), defaultValue, writeDefaultValue);
     }
 
     @Override
@@ -185,7 +199,8 @@ public class IcebergColumnHandle
                 Objects.equals(this.getComment(), other.getComment()) &&
                 Objects.equals(this.getColumnType(), other.getColumnType()) &&
                 Objects.equals(this.getRequiredSubfields(), other.getRequiredSubfields()) &&
-                Objects.equals(this.defaultValue, other.defaultValue);
+                Objects.equals(this.defaultValue, other.defaultValue) &&
+                Objects.equals(this.writeDefaultValue, other.writeDefaultValue);
     }
 
     @Override
@@ -262,12 +277,17 @@ public class IcebergColumnHandle
         if (column.initialDefault() != null) {
             defaultValue = Optional.of(String.valueOf(column.initialDefault()));
         }
+        Optional<String> writeDefaultValue = Optional.empty();
+        if (column.writeDefault() != null) {
+            writeDefaultValue = Optional.of(String.valueOf(column.writeDefault()));
+        }
         return new IcebergColumnHandle(
                 createColumnIdentity(column),
                 toPrestoType(column.type(), typeManager),
                 Optional.ofNullable(column.doc()),
                 columnType,
-                defaultValue);
+                defaultValue,
+                writeDefaultValue);
     }
 
     public static Subfield getPushedDownSubfield(IcebergColumnHandle column)
@@ -294,6 +314,7 @@ public class IcebergColumnHandle
                 Optional.of("nested column pushdown"),
                 SYNTHESIZED,
                 requiredSubfields,
+                Optional.empty(),
                 Optional.empty());
     }
 }

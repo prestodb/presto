@@ -57,6 +57,7 @@ import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
@@ -811,11 +812,11 @@ public class MetadataManager
     }
 
     @Override
-    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        metadata.addColumn(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column);
+        metadata.addColumn(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column, position);
     }
 
     @Override
@@ -998,13 +999,16 @@ public class MetadataManager
     }
 
     @Override
-    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<String> insertColumnNames)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        List<String> normalizedColumnNames = insertColumnNames.stream()
+                .map(name -> normalizeIdentifier(session, connectorId.getCatalogName(), name))
+                .collect(toImmutableList());
+        ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), normalizedColumnNames);
         return new InsertTableHandle(tableHandle.getConnectorId(), transactionHandle, handle);
     }
 
@@ -1405,13 +1409,13 @@ public class MetadataManager
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, Optional<RowExpression> refreshScopePredicate)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), refreshScopePredicate);
         return new InsertTableHandle(tableHandle.getConnectorId(), transactionHandle, handle);
     }
 
@@ -1419,7 +1423,10 @@ public class MetadataManager
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        // Use the write-mode metadata so finish runs on the same ConnectorMetadata instance as
+        // beginRefreshMaterializedView (some connectors, e.g. Prism, return distinct read/write
+        // instances); this lets a connector read state set during begin (e.g. the refresh scope).
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
         return metadata.finishRefreshMaterializedView(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
     }
 

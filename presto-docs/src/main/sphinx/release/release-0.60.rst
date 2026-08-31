@@ -135,7 +135,7 @@ Bug fixes
 
 * Exchange client leak
 
-  When a query finished early (e.g., limit or failure) and the exchange operator
+  When a query finished early (for instance, from a limit or failure) and the exchange operator
   was blocked waiting for data from other nodes, the exchange was not be closed
   properly. This resulted in continuous failing HTTP requests which leaked
   resources and produced large log files.

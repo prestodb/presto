@@ -373,7 +373,17 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitRow(Row node, C context)
     {
-        node.getItems().forEach(expression -> process(expression, context));
+        node.getFields().forEach(field -> process(field, context));
+        return null;
+    }
+
+    @Override
+    protected R visitRowField(Row.Field node, C context)
+    {
+        // Only the value expression is traversed. A declared field name is a declaration, not a
+        // reference, so visitors that collect identifiers (e.g. FreeLambdaReferenceExtractor,
+        // VariablesExtractor, SubqueryPlanner) must not mistake it for a column reference.
+        process(node.getExpression(), context);
         return null;
     }
 
@@ -593,6 +603,9 @@ public abstract class DefaultTraversalVisitor<R, C>
     protected R visitAddColumn(AddColumn node, C context)
     {
         process(node.getColumn(), context);
+        node.getPosition()
+                .filter(position -> position instanceof ColumnPosition.After)
+                .ifPresent(position -> process(((ColumnPosition.After) position).getColumn(), context));
 
         return null;
     }

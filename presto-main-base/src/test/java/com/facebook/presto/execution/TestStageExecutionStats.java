@@ -71,6 +71,7 @@ public class TestStageExecutionStats
             123L,
 
             19L,
+            17L,
             20,
 
             21L,
@@ -139,6 +140,7 @@ public class TestStageExecutionStats
         assertEquals(actual.getTotalAllocationInBytes(), 123L);
 
         assertEquals(actual.getRawInputDataSizeInBytes(), 19L);
+        assertEquals(actual.getScanRawInputDataSizeInBytes(), 17L);
         assertEquals(actual.getRawInputPositions(), 20);
 
         assertEquals(actual.getProcessedInputDataSizeInBytes(), 21L);

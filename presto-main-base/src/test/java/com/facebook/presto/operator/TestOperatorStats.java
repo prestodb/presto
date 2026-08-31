@@ -385,7 +385,7 @@ public class TestOperatorStats
 
         DynamicFilterStats expectedDynamicFilterStats = DynamicFilterStats.copyOf(TEST_DYNAMIC_FILTER_STATS_1);
         expectedDynamicFilterStats.mergeWith(TEST_DYNAMIC_FILTER_STATS_2);
-        assertEquals(actual.getDynamicFilterStats().getProducerNodeIds(), TEST_DYNAMIC_FILTER_STATS_1.getProducerNodeIds());
+        assertEquals(actual.getDynamicFilterStats().getProducerNodeIds(), expectedDynamicFilterStats.getProducerNodeIds());
     }
 
     @Test

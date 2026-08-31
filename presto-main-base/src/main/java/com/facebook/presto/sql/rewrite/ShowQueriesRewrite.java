@@ -536,8 +536,8 @@ final class ShowQueriesRewrite
 
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
-                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
-                List<Property> propertyNodes = buildProperties("materialized view " + objectName, INVALID_TABLE_PROPERTY, properties, allTableProperties);
+                Map<String, PropertyMetadata<?>> allMaterializedViewProperties = metadata.getMaterializedViewPropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
+                List<Property> propertyNodes = buildProperties("materialized view " + objectName, INVALID_TABLE_PROPERTY, properties, allMaterializedViewProperties);
 
                 Optional<ViewSecurity> security = SystemSessionProperties.isLegacyMaterializedViews(session)
                         ? Optional.empty()

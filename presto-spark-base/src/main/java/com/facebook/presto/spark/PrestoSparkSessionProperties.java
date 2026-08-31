@@ -45,6 +45,7 @@ public class PrestoSparkSessionProperties
     public static final String MAX_SPARK_INPUT_PARTITION_COUNT_FOR_AUTO_TUNE = "max_spark_input_partition_count_for_auto_tune";
     public static final String SPARK_INITIAL_PARTITION_COUNT = "spark_initial_partition_count";
     public static final String MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION = "max_splits_data_size_per_spark_partition";
+    public static final String MAX_SPLITS_COUNT_PER_SPARK_PARTITION = "max_splits_count_per_spark_partition";
     public static final String SHUFFLE_OUTPUT_TARGET_AVERAGE_ROW_SIZE = "shuffle_output_target_average_row_size";
     public static final String STORAGE_BASED_BROADCAST_JOIN_ENABLED = "storage_based_broadcast_join_enabled";
     public static final String STORAGE_BASED_BROADCAST_JOIN_WRITE_BUFFER_SIZE = "storage_based_broadcast_join_write_buffer_size";
@@ -61,6 +62,7 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_AVERAGE_INPUT_DATA_SIZE_PER_EXECUTOR = "spark_average_input_data_size_per_executor";
     public static final String SPARK_MAX_EXECUTOR_COUNT = "spark_max_executor_count";
     public static final String SPARK_MIN_EXECUTOR_COUNT = "spark_min_executor_count";
+    public static final String SPARK_MAX_TASK_INFOS_IN_QUERY_COMPLETED_EVENT = "spark_max_task_infos_in_query_completed_event";
     public static final String SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION = "spark_average_input_data_size_per_partition";
     public static final String SPARK_MAX_HASH_PARTITION_COUNT = "spark_max_hash_partition_count";
     public static final String SPARK_MIN_HASH_PARTITION_COUNT = "spark_min_hash_partition_count";
@@ -115,6 +117,11 @@ public class PrestoSparkSessionProperties
                         MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION,
                         "Maximal size in bytes for splits assigned to one partition",
                         prestoSparkConfig.getMaxSplitsDataSizePerSparkPartition(),
+                        false),
+                integerProperty(
+                        MAX_SPLITS_COUNT_PER_SPARK_PARTITION,
+                        "Maximal number of splits assigned to one partition",
+                        prestoSparkConfig.getMaxSplitsCountPerSparkPartition(),
                         false),
                 dataSizeProperty(
                         SHUFFLE_OUTPUT_TARGET_AVERAGE_ROW_SIZE,
@@ -215,6 +222,11 @@ public class PrestoSparkSessionProperties
                         SPARK_MIN_EXECUTOR_COUNT,
                         "Minimum count of executors to run a query",
                         prestoSparkConfig.getMinExecutorCount(),
+                        false),
+                integerProperty(
+                        SPARK_MAX_TASK_INFOS_IN_QUERY_COMPLETED_EVENT,
+                        "Maximum number of task infos to deserialize and retain when assembling the query completed event; bounds driver memory on queries with very large task counts",
+                        prestoSparkConfig.getMaxTaskInfosInQueryCompletedEvent(),
                         false),
                 dataSizeProperty(
                         SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION,
@@ -328,6 +340,11 @@ public class PrestoSparkSessionProperties
         return session.getSystemProperty(MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION, DataSize.class);
     }
 
+    public static int getMaxSplitsCountPerSparkPartition(Session session)
+    {
+        return session.getSystemProperty(MAX_SPLITS_COUNT_PER_SPARK_PARTITION, Integer.class);
+    }
+
     public static DataSize getShuffleOutputTargetAverageRowSize(Session session)
     {
         return session.getSystemProperty(SHUFFLE_OUTPUT_TARGET_AVERAGE_ROW_SIZE, DataSize.class);
@@ -406,6 +423,11 @@ public class PrestoSparkSessionProperties
     public static int getMinExecutorCount(Session session)
     {
         return session.getSystemProperty(SPARK_MIN_EXECUTOR_COUNT, Integer.class);
+    }
+
+    public static int getMaxTaskInfosInQueryCompletedEvent(Session session)
+    {
+        return session.getSystemProperty(SPARK_MAX_TASK_INFOS_IN_QUERY_COMPLETED_EVENT, Integer.class);
     }
 
     public static DataSize getAverageInputDataSizePerPartition(Session session)

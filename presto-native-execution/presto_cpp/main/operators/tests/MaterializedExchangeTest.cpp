@@ -11,10 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <folly/ScopeGuard.h>
 #include <folly/Uri.h>
 #include <folly/init/Init.h>
+#include <folly/synchronization/Baton.h>
 
 #include <boost/range/algorithm/find_if.hpp>
+
+#include <chrono>
+#include <cstring>
+#include <thread>
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/tests/MutableConfigs.h"
@@ -26,9 +32,10 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Exchange.h"
-#include "velox/exec/ExchangeClient.h"
 #include "velox/exec/HashPartitionFunction.h"
+#include "velox/exec/InMemoryExchangeClient.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -156,6 +163,157 @@ class FailingCloseShuffleFactory : public ShuffleInterfaceFactory {
 
  private:
   ShuffleInterfaceFactory* delegate_;
+};
+
+class RecordingShuffleWriter : public ShuffleWriter {
+ public:
+  RecordingShuffleWriter(
+      std::shared_ptr<ShuffleWriter> delegate,
+      std::shared_ptr<std::vector<size_t>> collectSizes)
+      : delegate_(std::move(delegate)),
+        collectSizes_(std::move(collectSizes)) {}
+
+  void collect(int32_t partition, std::string_view key, std::string_view data)
+      override {
+    collectSizes_->push_back(data.size());
+    delegate_->collect(partition, key, data);
+  }
+
+  void noMoreData(bool success) override {
+    delegate_->noMoreData(success);
+  }
+
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return delegate_->stats();
+  }
+
+ private:
+  std::shared_ptr<ShuffleWriter> delegate_;
+  std::shared_ptr<std::vector<size_t>> collectSizes_;
+};
+
+class RecordingShuffleFactory : public ShuffleInterfaceFactory {
+ public:
+  explicit RecordingShuffleFactory(ShuffleInterfaceFactory* delegate)
+      : delegate_(delegate),
+        collectSizes_(std::make_shared<std::vector<size_t>>()) {}
+
+  std::shared_ptr<ShuffleReader> createReader(
+      const std::string& serializedShuffleInfo,
+      int32_t partition,
+      velox::memory::MemoryPool* pool) override {
+    return delegate_->createReader(serializedShuffleInfo, partition, pool);
+  }
+
+  std::shared_ptr<ShuffleWriter> createWriter(
+      const std::string& serializedShuffleInfo,
+      velox::memory::MemoryPool* pool) override {
+    return std::make_shared<RecordingShuffleWriter>(
+        delegate_->createWriter(serializedShuffleInfo, pool), collectSizes_);
+  }
+
+  const std::vector<size_t>& collectSizes() const {
+    return *collectSizes_;
+  }
+
+ private:
+  ShuffleInterfaceFactory* delegate_;
+  std::shared_ptr<std::vector<size_t>> collectSizes_;
+};
+
+// Holds the first collect() while the test exercises flush serialization and
+// backpressure.
+class BlockingCollectShuffleWriter : public ShuffleWriter {
+ public:
+  BlockingCollectShuffleWriter(
+      std::shared_ptr<ShuffleWriter> delegate,
+      folly::Baton<>* collectReached,
+      folly::Baton<>* releaseCollect)
+      : delegate_(std::move(delegate)),
+        collectReached_(collectReached),
+        releaseCollect_(releaseCollect) {}
+
+  void collect(int32_t partition, std::string_view key, std::string_view data)
+      override {
+    const auto active = activeCollects_.fetch_add(1) + 1;
+    auto maxActive = maxActiveCollects_.load();
+    while (active > maxActive &&
+           !maxActiveCollects_.compare_exchange_weak(maxActive, active)) {
+    }
+    SCOPE_EXIT {
+      --activeCollects_;
+    };
+    collectSizes_.withWLock([&](auto& sizes) { sizes.push_back(data.size()); });
+    if (!blockedOnce_.exchange(true)) {
+      collectReached_->post();
+      releaseCollect_->wait();
+    }
+    delegate_->collect(partition, key, data);
+  }
+
+  void noMoreData(bool success) override {
+    delegate_->noMoreData(success);
+  }
+
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return delegate_->stats();
+  }
+
+  int maxActiveCollects() const {
+    return maxActiveCollects_;
+  }
+
+  std::vector<size_t> collectSizes() const {
+    return collectSizes_.copy();
+  }
+
+ private:
+  std::shared_ptr<ShuffleWriter> delegate_;
+  folly::Baton<>* const collectReached_;
+  folly::Baton<>* const releaseCollect_;
+  std::atomic<bool> blockedOnce_{false};
+  std::atomic<int> activeCollects_{0};
+  std::atomic<int> maxActiveCollects_{0};
+  folly::Synchronized<std::vector<size_t>> collectSizes_;
+};
+
+class BlockingCollectShuffleFactory : public ShuffleInterfaceFactory {
+ public:
+  BlockingCollectShuffleFactory(
+      ShuffleInterfaceFactory* delegate,
+      folly::Baton<>* collectReached,
+      folly::Baton<>* releaseCollect)
+      : delegate_(delegate),
+        collectReached_(collectReached),
+        releaseCollect_(releaseCollect) {}
+
+  std::shared_ptr<ShuffleReader> createReader(
+      const std::string& serializedShuffleInfo,
+      int32_t partition,
+      velox::memory::MemoryPool* pool) override {
+    return delegate_->createReader(serializedShuffleInfo, partition, pool);
+  }
+
+  std::shared_ptr<ShuffleWriter> createWriter(
+      const std::string& serializedShuffleInfo,
+      velox::memory::MemoryPool* pool) override {
+    auto writer = std::make_shared<BlockingCollectShuffleWriter>(
+        delegate_->createWriter(serializedShuffleInfo, pool),
+        collectReached_,
+        releaseCollect_);
+    writer_ = writer;
+    return writer;
+  }
+
+  std::shared_ptr<BlockingCollectShuffleWriter> writer() const {
+    return writer_.lock();
+  }
+
+ private:
+  ShuffleInterfaceFactory* delegate_;
+  folly::Baton<>* const collectReached_;
+  folly::Baton<>* const releaseCollect_;
+  std::weak_ptr<BlockingCollectShuffleWriter> writer_;
 };
 
 } // namespace
@@ -363,6 +521,105 @@ TEST_F(MaterializedExchangeTest, largeDataEndToEnd) {
   auto actual = runExchangeRead(numPartitions, asRowType(data->type()));
 
   exec::test::assertEqualResults(expected, actual);
+  cleanupDirectory(tempDir_->getPath());
+}
+
+TEST_F(MaterializedExchangeTest, concurrentSamePartitionPreservesData) {
+  constexpr int numRows = 2'000;
+  constexpr int numDrivers = 8;
+  facebook::presto::test::setupMutableSystemConfig();
+  // Keep 2x chunks below LocalShuffleWriter's 64KiB test-only partition cap.
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      std::to_string(16L * 1024));
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(numRows, [](auto row) { return row; }),
+      makeFlatVector<std::string>(
+          numRows,
+          [](auto row) {
+            return fmt::format("driver-concurrent-row-{}", row);
+          }),
+  });
+
+  auto expected = runExchangeWrite({data}, /*numPartitions=*/1, numDrivers);
+  auto actual = runExchangeRead(/*numPartitions=*/1, asRowType(data->type()));
+
+  // The real shuffle round trip checks concurrent appends and writer checksum.
+  exec::test::assertEqualResults(expected, actual);
+  cleanupDirectory(tempDir_->getPath());
+}
+
+TEST_F(MaterializedExchangeTest, boundsCollectSizeForLargeInputBatch) {
+  constexpr int numRows = 128;
+  constexpr int valueBytes = 8 * 1024;
+
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(numRows, [](auto /*row*/) { return 0; }),
+      makeFlatVector<std::string>(
+          numRows,
+          [](auto row) {
+            return std::string(valueBytes, static_cast<char>('a' + row % 26));
+          }),
+  });
+  auto dataType = asRowType(data->type());
+
+  constexpr int numPartitions = 1;
+  constexpr int numDrivers = 1;
+  auto writeInfoStr = localShuffleWriteInfo(tempDir_->getPath(), numPartitions);
+  RecordingShuffleFactory recordingFactory(
+      ShuffleInterfaceFactory::factory(shuffleName_));
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions,
+      writeInfoStr,
+      &recordingFactory,
+      "split.0.0.0.0",
+      rootPool_.get());
+
+  std::vector<core::TypedExprPtr> keys{
+      std::make_shared<core::FieldAccessTypedExpr>(
+          dataType->childAt(0), dataType->nameOf(0))};
+  auto partitionFunctionSpec =
+      std::make_shared<exec::HashPartitionFunctionSpec>(
+          dataType, std::vector<column_index_t>{0});
+
+  auto valuesNode = exec::test::PlanBuilder().values({data}, true).planNode();
+  auto exchangeWriteNode = std::make_shared<MaterializedOutputNode>(
+      "exchangeWrite",
+      keys,
+      numPartitions,
+      dataType,
+      partitionFunctionSpec,
+      /*replicateNullsAndAny=*/false,
+      ShuffleWriterMetadata{},
+      valuesNode);
+
+  auto taskId = makeTaskId("write", 0);
+  MaterializedOutputBuffer::registerBuffer(taskId, buffer);
+  auto task = makeTask(taskId, exchangeWriteNode, 0);
+  task->start(numDrivers);
+
+  EXPECT_TRUE(exec::test::waitForTaskCompletion(task.get(), 10'000'000));
+  MaterializedOutputBuffer::removeBuffer(taskId);
+
+  auto stats = buffer->stats();
+  const auto collectCount =
+      stats.at(std::string(MaterializedOutputBuffer::kTotalCollectCalls)).sum;
+  const auto collectSizeLimit = static_cast<int64_t>(
+      SystemConfig::instance()
+          ->exchangeMaterializationOutputBufferDrainChunkMultiplier() *
+      stats.at(std::string(MaterializedOutputBuffer::kCurrentDrainThreshold))
+          .sum);
+  // A large drain must split into bounded collect() calls.
+  EXPECT_GT(collectCount, 1);
+  ASSERT_EQ(recordingFactory.collectSizes().size(), collectCount);
+  for (auto collectSize : recordingFactory.collectSizes()) {
+    EXPECT_LE(collectSize, collectSizeLimit);
+  }
+
+  auto actual = runExchangeRead(numPartitions, dataType);
+  exec::test::assertEqualResults({data}, actual);
   cleanupDirectory(tempDir_->getPath());
 }
 
@@ -739,7 +996,7 @@ TEST_F(MaterializedExchangeTest, abortFromActiveState) {
 
   buffer->abort();
   EXPECT_EQ(buffer->state(), MaterializedOutputBuffer::State::kAborted);
-  EXPECT_EQ(buffer->bufferedBytes(), 0);
+  EXPECT_EQ(buffer->bufferedBytes(), 1024);
 
   // Second abort is a no-op (CAS fails, already kAborted).
   buffer->abort();
@@ -750,6 +1007,376 @@ TEST_F(MaterializedExchangeTest, abortFromActiveState) {
   std::memset(iobuf2->writableData(), 'y', 64);
   iobuf2->append(64);
   buffer->enqueue(0, std::move(iobuf2));
+
+  buffer.reset();
+  EXPECT_EQ(rootPool->usedBytes(), 0);
+
+  cleanupDirectory(shuffleDir->getPath());
+}
+
+// A producer parks at the high watermark and wakes below the low watermark.
+TEST_F(MaterializedExchangeTest, backpressureParksAndWakesProducer) {
+  constexpr int32_t numPartitions = 1;
+  constexpr int64_t kMaxBytes = 1L << 20; // 1MB backpressure cap.
+  constexpr int64_t kPerPartitionMax = 100L * 1024; // 100KB drain threshold.
+  // One RowGroup crosses both the drain and high watermarks.
+  constexpr int64_t kRowGroupBytes = kMaxBytes;
+
+  facebook::presto::test::setupMutableSystemConfig();
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationOutputBufferMaxBytes),
+      std::to_string(kMaxBytes));
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      std::to_string(kPerPartitionMax));
+
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "backpressureParkTest", 64L << 20, memory::MemoryReclaimer::create());
+  auto shuffleDir = exec::test::TempDirectoryPath::create();
+  auto writeInfo = localShuffleWriteInfo(shuffleDir->getPath(), numPartitions);
+
+  folly::Baton<> collectReached;
+  folly::Baton<> releaseCollect;
+  BlockingCollectShuffleFactory blockingFactory(
+      ShuffleInterfaceFactory::factory(shuffleName_),
+      &collectReached,
+      &releaseCollect);
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions, writeInfo, &blockingFactory, "bp.0.0.0.0", rootPool.get());
+
+  std::thread producer([&]() {
+    auto iobuf = buffer->allocateTrackedIOBuf(kRowGroupBytes);
+    std::memset(iobuf->writableData(), 'x', kRowGroupBytes);
+    iobuf->append(kRowGroupBytes);
+    buffer->enqueue(0, std::move(iobuf));
+  });
+
+  // The blocked collect keeps bytes above the high watermark.
+  collectReached.wait();
+  ASSERT_GE(buffer->bufferedBytes(), kMaxBytes * 9 / 10);
+
+  // The flusher gate prevents this producer from draining, so it parks.
+  velox::ContinueFuture future = velox::ContinueFuture::makeEmpty();
+  auto reason = buffer->isBlocked(&future);
+  EXPECT_EQ(reason, velox::exec::BlockingReason::kWaitForConsumer);
+  ASSERT_TRUE(future.valid());
+  EXPECT_FALSE(future.isReady());
+
+  // Completing the drain crosses the low watermark and wakes the producer.
+  releaseCollect.post();
+  producer.join();
+  EXPECT_TRUE(future.isReady());
+  EXPECT_EQ(buffer->bufferedBytes(), 0);
+
+  buffer->noMoreData();
+  cleanupDirectory(shuffleDir->getPath());
+}
+
+TEST_F(MaterializedExchangeTest, DISABLED_finishedDriverSkipsBackpressure) {
+  constexpr int32_t numPartitions = 2;
+  constexpr int32_t numDrivers = 2;
+  constexpr int64_t kMaxBytes = 1L << 20;
+  constexpr int64_t kInjectedBytesPerPartition = 480L << 10;
+
+  facebook::presto::test::setupMutableSystemConfig();
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationOutputBufferMaxBytes),
+      std::to_string(kMaxBytes));
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      std::to_string(kMaxBytes));
+
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "finishedDriverTest", 64L << 20, memory::MemoryReclaimer::create());
+  auto shuffleDir = exec::test::TempDirectoryPath::create();
+  auto writeInfo = localShuffleWriteInfo(shuffleDir->getPath(), numPartitions);
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions,
+      writeInfo,
+      ShuffleInterfaceFactory::factory(shuffleName_),
+      "finished-driver.0.0.0.0",
+      rootPool.get());
+
+  auto data = makeRowVector({makeFlatVector<int64_t>({1})});
+  auto dataType = asRowType(data->type());
+  std::vector<core::TypedExprPtr> keys{
+      std::make_shared<core::FieldAccessTypedExpr>(
+          dataType->childAt(0), dataType->nameOf(0))};
+  auto partitionFunctionSpec =
+      std::make_shared<exec::HashPartitionFunctionSpec>(
+          dataType, std::vector<column_index_t>{0});
+  auto valuesNode = exec::test::PlanBuilder().values({data}, true).planNode();
+  auto exchangeWriteNode = std::make_shared<MaterializedOutputNode>(
+      "exchangeWrite",
+      keys,
+      numPartitions,
+      dataType,
+      partitionFunctionSpec,
+      false,
+      ShuffleWriterMetadata{},
+      valuesNode);
+
+  folly::Baton<> secondDriverAtNoMoreInput;
+  folly::Baton<> releaseSecondDriver;
+  folly::Baton<> finishedDriverAtIsBlocked;
+  folly::Baton<> releaseFinishedDriver;
+  std::atomic<int32_t> noMoreInputCalls{0};
+  std::atomic<bool> capturedFinishedDriver{false};
+  exec::Operator* finishedDriver{nullptr};
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::noMoreInput",
+      std::function<void(exec::Operator*)>([&](exec::Operator* op) {
+        if (op->operatorType() != "MaterializedOutput") {
+          return;
+        }
+        if (noMoreInputCalls.fetch_add(1) == 1) {
+          secondDriverAtNoMoreInput.post();
+          releaseSecondDriver.wait();
+        }
+      }));
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::isBlocked",
+      std::function<void(exec::Operator*)>([&](exec::Operator* op) {
+        if (op->operatorType() != "MaterializedOutput" || !op->isFinished() ||
+            capturedFinishedDriver.exchange(true)) {
+          return;
+        }
+        finishedDriver = op;
+        finishedDriverAtIsBlocked.post();
+        releaseFinishedDriver.wait();
+      }));
+
+  auto taskId = makeTaskId("finished-driver", 0);
+  MaterializedOutputBuffer::registerBuffer(taskId, buffer);
+  auto task = makeTask(taskId, exchangeWriteNode, 0);
+  task->start(numDrivers);
+
+  const bool secondDriverReady =
+      secondDriverAtNoMoreInput.try_wait_for(std::chrono::seconds(10));
+  const bool finishedDriverReady =
+      finishedDriverAtIsBlocked.try_wait_for(std::chrono::seconds(10));
+
+  if (secondDriverReady && finishedDriverReady) {
+    for (int32_t partition = 0; partition < numPartitions; ++partition) {
+      auto iobuf = buffer->allocateTrackedIOBuf(kInjectedBytesPerPartition);
+      std::memset(iobuf->writableData(), 'x', kInjectedBytesPerPartition);
+      iobuf->append(kInjectedBytesPerPartition);
+      buffer->enqueue(partition, std::move(iobuf));
+    }
+
+    const auto bufferedBytes = buffer->bufferedBytes();
+    EXPECT_GE(bufferedBytes, kMaxBytes * 9 / 10);
+    velox::ContinueFuture future = velox::ContinueFuture::makeEmpty();
+    EXPECT_EQ(
+        finishedDriver->isBlocked(&future),
+        velox::exec::BlockingReason::kNotBlocked);
+    EXPECT_EQ(buffer->bufferedBytes(), bufferedBytes);
+  }
+
+  releaseFinishedDriver.post();
+  for (int32_t i = 0; i < 1'000 && task->numFinishedDrivers() == 0; ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  EXPECT_EQ(task->numFinishedDrivers(), 1);
+  releaseSecondDriver.post();
+
+  EXPECT_TRUE(secondDriverReady);
+  EXPECT_TRUE(finishedDriverReady);
+  EXPECT_TRUE(exec::test::waitForTaskCompletion(task.get(), 10'000'000));
+  MaterializedOutputBuffer::removeBuffer(taskId);
+  cleanupDirectory(shuffleDir->getPath());
+}
+
+TEST_F(MaterializedExchangeTest, singleFlusherAndBoundedRollover) {
+  constexpr int32_t numPartitions = 1;
+  constexpr int64_t kDrainThreshold = 16L * 1024;
+  constexpr int64_t kRowGroupBytes = 8L * 1024;
+  constexpr int kQueuedWhileFlushing = 9;
+
+  facebook::presto::test::setupMutableSystemConfig();
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      std::to_string(kDrainThreshold));
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationOutputBufferMaxBytes),
+      std::to_string(64L << 20));
+
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "singleFlusherTest", 64L << 20, memory::MemoryReclaimer::create());
+  auto shuffleDir = exec::test::TempDirectoryPath::create();
+  auto writeInfo = localShuffleWriteInfo(shuffleDir->getPath(), numPartitions);
+  folly::Baton<> collectReached;
+  folly::Baton<> releaseCollect;
+  BlockingCollectShuffleFactory blockingFactory(
+      ShuffleInterfaceFactory::factory(shuffleName_),
+      &collectReached,
+      &releaseCollect);
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions,
+      writeInfo,
+      &blockingFactory,
+      "single-flusher.0.0.0.0",
+      rootPool.get());
+
+  auto makeRowGroup = [&]() {
+    auto iobuf = buffer->allocateTrackedIOBuf(kRowGroupBytes);
+    std::memset(iobuf->writableData(), 'x', kRowGroupBytes);
+    iobuf->append(kRowGroupBytes);
+    return iobuf;
+  };
+
+  std::thread winner([&]() {
+    buffer->enqueue(0, makeRowGroup());
+    buffer->enqueue(0, makeRowGroup());
+  });
+  collectReached.wait();
+
+  std::vector<std::thread> losers;
+  losers.reserve(kQueuedWhileFlushing);
+  for (int i = 0; i < kQueuedWhileFlushing; ++i) {
+    losers.emplace_back([&]() { buffer->enqueue(0, makeRowGroup()); });
+  }
+  for (auto& loser : losers) {
+    loser.join();
+  }
+
+  releaseCollect.post();
+  winner.join();
+  buffer->noMoreData();
+
+  auto writer = blockingFactory.writer();
+  ASSERT_NE(writer, nullptr);
+  EXPECT_EQ(writer->maxActiveCollects(), 1);
+  const auto collectSizes = writer->collectSizes();
+  ASSERT_EQ(collectSizes.size(), 4);
+  const size_t chunkLimit = static_cast<size_t>(
+      SystemConfig::instance()
+          ->exchangeMaterializationOutputBufferDrainChunkMultiplier() *
+      kDrainThreshold);
+  EXPECT_EQ(collectSizes[0], kDrainThreshold);
+  EXPECT_EQ(collectSizes[1], chunkLimit);
+  EXPECT_EQ(collectSizes[2], chunkLimit);
+  EXPECT_EQ(collectSizes[3], kRowGroupBytes);
+  for (const auto collectSize : collectSizes) {
+    EXPECT_LE(collectSize, chunkLimit);
+  }
+  EXPECT_EQ(buffer->bufferedBytes(), 0);
+
+  cleanupDirectory(shuffleDir->getPath());
+}
+
+// Concurrent same-partition appends must reach the writer exactly once.
+TEST_F(MaterializedExchangeTest, concurrentAppendPreservesAllData) {
+  constexpr int32_t numPartitions = 1;
+  constexpr int numThreads = 8;
+  constexpr int perThread = 200;
+  constexpr int64_t kRowGroupBytes = 4L * 1024;
+
+  facebook::presto::test::setupMutableSystemConfig();
+  // Small per-partition drain threshold so appends race with frequent drains.
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      std::to_string(16L * 1024));
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationOutputBufferMaxBytes),
+      std::to_string(64L << 20));
+
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "concurrentAppendTest", 256L << 20, memory::MemoryReclaimer::create());
+  auto shuffleDir = exec::test::TempDirectoryPath::create();
+  auto writeInfo = localShuffleWriteInfo(shuffleDir->getPath(), numPartitions);
+  RecordingShuffleFactory recordingFactory(
+      ShuffleInterfaceFactory::factory(shuffleName_));
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions,
+      writeInfo,
+      &recordingFactory,
+      "concurrent.0.0.0.0",
+      rootPool.get());
+
+  std::atomic<int64_t> totalEnqueued{0};
+  std::vector<std::thread> producers;
+  producers.reserve(numThreads);
+  for (int t = 0; t < numThreads; ++t) {
+    producers.emplace_back([&]() {
+      for (int i = 0; i < perThread; ++i) {
+        auto iobuf = buffer->allocateTrackedIOBuf(kRowGroupBytes);
+        std::memset(iobuf->writableData(), 'x', kRowGroupBytes);
+        iobuf->append(kRowGroupBytes);
+        totalEnqueued += kRowGroupBytes;
+        buffer->enqueue(0, std::move(iobuf));
+      }
+    });
+  }
+  for (auto& producer : producers) {
+    producer.join();
+  }
+  buffer->noMoreData();
+
+  int64_t totalCollected = 0;
+  for (auto collectSize : recordingFactory.collectSizes()) {
+    totalCollected += static_cast<int64_t>(collectSize);
+  }
+  EXPECT_EQ(totalCollected, totalEnqueued.load());
+  EXPECT_EQ(buffer->bufferedBytes(), 0);
+
+  cleanupDirectory(shuffleDir->getPath());
+}
+
+// Abort leaves queued data for destruction without flushing partial output.
+TEST_F(
+    MaterializedExchangeTest,
+    abortRetainsBufferedDataWithoutFlushUntilDestruction) {
+  constexpr int32_t numPartitions = 1;
+  constexpr int64_t kRowGroupBytes = 10L * 1024;
+
+  facebook::presto::test::setupMutableSystemConfig();
+  // Keep the RowGroup buffered until abort.
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      std::to_string(1L << 20));
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationOutputBufferMaxBytes),
+      std::to_string(64L << 20));
+
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "abortDiscardTest", 64L << 20, memory::MemoryReclaimer::create());
+  auto shuffleDir = exec::test::TempDirectoryPath::create();
+  auto writeInfo = localShuffleWriteInfo(shuffleDir->getPath(), numPartitions);
+  RecordingShuffleFactory recordingFactory(
+      ShuffleInterfaceFactory::factory(shuffleName_));
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions,
+      writeInfo,
+      &recordingFactory,
+      "abort.0.0.0.0",
+      rootPool.get());
+
+  auto iobuf = buffer->allocateTrackedIOBuf(kRowGroupBytes);
+  std::memset(iobuf->writableData(), 'x', kRowGroupBytes);
+  iobuf->append(kRowGroupBytes);
+  buffer->enqueue(0, std::move(iobuf));
+  ASSERT_EQ(buffer->bufferedBytes(), kRowGroupBytes);
+
+  buffer->abort();
+
+  EXPECT_TRUE(recordingFactory.collectSizes().empty());
+  EXPECT_EQ(buffer->bufferedBytes(), kRowGroupBytes);
+  EXPECT_EQ(buffer->state(), MaterializedOutputBuffer::State::kAborted);
+
+  buffer.reset();
+  EXPECT_EQ(rootPool->usedBytes(), 0);
 
   cleanupDirectory(shuffleDir->getPath());
 }

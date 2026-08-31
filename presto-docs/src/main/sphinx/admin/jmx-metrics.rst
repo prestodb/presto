@@ -29,7 +29,7 @@ Once configured, you can query metrics using SQL:
     SELECT * FROM jmx.current."com.facebook.presto.metadata:name=metadatamanagerstats";
 
 Metadata Operation Metrics
----------------------------
+--------------------------
 
 **JMX Table Name:** ``com.facebook.presto.metadata:name=metadatamanagerstats``
 
@@ -145,14 +145,11 @@ Track data insertion performance:
     -- 1.0               | 11.47       | 11.47       | 11.47
 
 System Access Control Metrics
-------------------------------
+-----------------------------
 
 **JMX Table Name:** ``com.facebook.presto.security:name=accesscontrolmanager``
 
 Tracks performance of access control checks.
-
-Key Metrics
-^^^^^^^^^^^
 
 Similar structure to metadata metrics, tracking operations like:
 
@@ -180,7 +177,7 @@ Query Execution Metrics
 * ``com.facebook.presto.execution:name=querymanager``: Query execution statistics
 
 Connector-Specific Metrics
----------------------------
+--------------------------
 
 Hive Connector
 ^^^^^^^^^^^^^^

@@ -245,7 +245,7 @@ Native Execution only. Enable simplified path in expression evaluation.
 * **Type:** ``integer``
 * **Default value:** ``100000``
 
-Native Execution only. The `reduce <https://prestodb.io/docs/current/functions/array.html#reduce-array-T-initialState-S-inputFunction-S-T-S-outputFunction-S-R-R>`_
+Native Execution only. The :func:`reduce <reduce(array[T], initialState S, inputFunction(S,T,S), outputFunction(S,R)) -> R>`
 function will throw an error if it encounters an array of size greater than this value.
 
 ``native_expression_max_compiled_regexes``
@@ -278,6 +278,30 @@ These parameters are provided to the underlying file system, allowing for custom
 The format and options of these parameters are determined by the capabilities of the underlying file system
 and may include settings such as file location, size limits, and file system-specific optimizations.
 
+``native_aggregation_spill_file_create_config``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``""``
+
+Native Execution only. Specifies the configuration parameters used to create spill files for the
+aggregation operators, overriding ``native_spill_file_create_config`` for those operators.
+These parameters are provided to the underlying file system and are free form, with the format and
+options determined by the capabilities of the underlying file system.
+If left empty, aggregation spill files are created with ``native_spill_file_create_config``.
+
+``native_hash_join_spill_file_create_config``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``""``
+
+Native Execution only. Specifies the configuration parameters used to create spill files for the
+hash join build and probe operators, overriding ``native_spill_file_create_config`` for those operators.
+These parameters are provided to the underlying file system and are free form, with the format and
+options determined by the capabilities of the underlying file system.
+If left empty, hash join spill files are created with ``native_spill_file_create_config``.
+
 ``native_spill_write_buffer_size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -294,6 +318,26 @@ If set to ``0``, buffering is disabled.
 * **Default value:** ``true``
 
 Native Execution only. Enable topN row number spilling on native engine.
+
+``native_abandon_partial_topn_row_number_min_rows``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``100000``
+
+Native Execution only. Number of rows accumulated by the partial ``TopNRowNumber`` operator
+before checking whether to abandon it. Must be greater than ``0``.
+
+``native_abandon_partial_topn_row_number_min_pct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``80``
+
+Native Execution only. Percentage of accumulated input rows still retained by the partial
+``TopNRowNumber`` operator at or above which the operator is abandoned and degrades to
+pass-through. Only checked once ``native_abandon_partial_topn_row_number_min_rows`` rows
+have been accumulated. Must be between ``0`` and ``100``.
 
 ``native_window_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -529,6 +573,64 @@ Native Execution only. Initial output batch size in rows for MergeJoin operator.
 When non-zero, the batch size starts at this value and is dynamically adjusted
 based on the average row size of previous output batches. When zero (default),
 dynamic adjustment is disabled and the batch size is fixed at ``preferred_output_batch_rows``.
+
+``native_rpc_ratelimiter_adaptive_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. Enable the adaptive per-tier RPC rate limiter (AIMD on the backend
+rate-limit/timeout overload signal). When enabled, the rate limiter automatically adjusts the
+per-tier max-pending cap based on backend overload signals, using additive increase and
+multiplicative decrease. On by default (protective for shared, rate-limited inference backends);
+set to false to keep a static cap defined by ``native_rpc_ratelimiter_max_limit``.
+
+``native_rpc_ratelimiter_min_limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``50``
+
+Native Execution only. Floor for the adaptive RPC rate limiter's per-tier max-pending cap.
+The adaptive limiter will not shrink the per-tier cap below this value, even under sustained
+overload. Default is 50. A floor of 1 can stall under sustained throttling. Only used when
+``native_rpc_ratelimiter_adaptive_enabled`` is true.
+
+``native_rpc_ratelimiter_decrease_factor``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``double``
+* **Default value:** ``0.5``
+
+Native Execution only. Multiplicative-decrease factor applied to the adaptive RPC rate limiter's
+per-tier max-pending cap on each overload-classified drain. For example, with the default 0.5,
+the cap is halved on each overload. Only used when ``native_rpc_ratelimiter_adaptive_enabled``
+is true.
+
+``native_rpc_ratelimiter_max_limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``200``
+
+Native Execution only. Ceiling for the per-tier RPC rate-limiter max-pending cap. The adaptive
+limiter grows the per-tier cap up to this value under normal conditions and shrinks from here
+under overload. Default is 200, validated for LLM-inference backends. Set to 0 to fall back to
+the built-in default of 20. Admission-controlled dispatch makes this cap bind; the adaptive
+limiter shrinks from here under overload. Only used when ``native_rpc_ratelimiter_adaptive_enabled``
+is true. Set the adaptive limiter to false to keep a static cap at this value.
+
+``native_rpc_congestion_max_window``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``0``
+
+Native Execution only. Ceiling for the per-driver RPC congestion window. When set to 0 (default),
+the per-mode built-in values are used: PER_ROW mode defaults to 100, BATCH mode defaults to 256.
+Raise this value for high-latency backends so admission-controlled dispatch can run at high
+concurrency. The congestion window controls how many RPC requests can be in flight per driver.
 
 ``native_request_data_sizes_max_wait_sec``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

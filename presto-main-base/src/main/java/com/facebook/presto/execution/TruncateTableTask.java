@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -48,6 +50,14 @@ public class TruncateTableTask
     {
         MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
+
+        if (!metadataResolver.catalogExists(tableName.getCatalogName())) {
+            throw new SemanticException(MISSING_CATALOG, "Catalog '%s' does not exist", tableName.getCatalogName());
+        }
+
+        if (!metadataResolver.schemaExists(tableName.getCatalogSchemaName())) {
+            throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", tableName.getSchemaName());
+        }
 
         if (metadataResolver.isMaterializedView(tableName)) {
             throw new SemanticException(NOT_SUPPORTED, statement, "Cannot truncate a materialized view");

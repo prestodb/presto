@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -30,6 +30,7 @@ import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.TopNNode.Step;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -38,6 +39,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,9 +50,8 @@ import static com.facebook.presto.SystemSessionProperties.isOptimizeTopNUsingRow
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.PlannerUtils.addColumnToTableScan;
 import static com.facebook.presto.sql.planner.PlannerUtils.addPassThroughVariable;
-import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
+import static com.facebook.presto.sql.planner.PlannerUtils.copyDeterministicScanNodes;
 import static com.facebook.presto.sql.planner.PlannerUtils.findTableScanNode;
-import static com.facebook.presto.sql.planner.PlannerUtils.isDeterministicScanFilterProject;
 import static com.facebook.presto.sql.planner.PlannerUtils.isScanFilterProject;
 import static com.facebook.presto.sql.planner.PlannerUtils.restrictOutput;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -75,6 +76,14 @@ import static java.util.Objects.requireNonNull;
  * The inner TopN sorts only the narrow clone (sort keys + $row_id).
  * The SemiJoin filters the full scan to only the N matching rows.
  * The outer TopN re-sorts only N rows (cheap).
+ *
+ * The same rewrite is also applied to {@link TopNRowNumberNode} (the
+ * row_number()/rank()/dense_rank() OVER (PARTITION BY ... ORDER BY ...) with
+ * WHERE rn &lt;= N pattern, produced by {@link WindowFilterPushDown}). There the
+ * narrow key set is partitionBy ∪ orderBy: the inner TopNRowNumber selects, per
+ * partition, the same $row_id set, the SemiJoin restricts the wide scan to those
+ * rows, and the outer TopNRowNumber recomputes the ranking column over only the
+ * kept rows.
  */
 public class OptimizeTopNUsingRowId
         implements PlanOptimizer
@@ -103,7 +112,7 @@ public class OptimizeTopNUsingRowId
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
-            Rewriter rewriter = new Rewriter(session, metadata, idAllocator, variableAllocator, metadata.getFunctionAndTypeManager());
+            Rewriter rewriter = new Rewriter(session, metadata, idAllocator, variableAllocator);
             PlanNode rewritten = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
             return PlanOptimizerResult.optimizerResult(rewritten, rewriter.isPlanChanged());
         }
@@ -117,17 +126,15 @@ public class OptimizeTopNUsingRowId
         private final Metadata metadata;
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
-        private final FunctionAndTypeManager functionAndTypeManager;
         private final int minColumnSavings;
         private boolean planChanged;
 
-        private Rewriter(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
+        private Rewriter(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
-            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
             this.minColumnSavings = getOptimizeTopNUsingRowIdMinColumnSavings(session);
         }
 
@@ -148,11 +155,6 @@ public class OptimizeTopNUsingRowId
 
             // Guard: source must be a scan-filter-project chain
             if (!isScanFilterProject(source)) {
-                return replaceSource(node, source);
-            }
-
-            // Guard: source must be deterministic
-            if (!isDeterministicScanFilterProject(source, functionAndTypeManager)) {
                 return replaceSource(node, source);
             }
 
@@ -199,7 +201,12 @@ public class OptimizeTopNUsingRowId
             // 2. Clone narrow source: sort keys only + $row_id
             List<VariableReferenceExpression> sortKeys = node.getOrderingScheme().getOrderByVariables();
             Map<VariableReferenceExpression, VariableReferenceExpression> varMap = new HashMap<>();
-            PlanNode narrowClone = clonePlanNode(source, session, metadata, idAllocator, sortKeys, varMap);
+            // The copy is refused when the source cannot be duplicated safely, e.g. it is not deterministic
+            Optional<PlanNode> narrowCloneCopy = copyDeterministicScanNodes(source, metadata, idAllocator, sortKeys, varMap);
+            if (!narrowCloneCopy.isPresent()) {
+                return replaceSource(node, source);
+            }
+            PlanNode narrowClone = narrowCloneCopy.get();
 
             // Add $row_id to the cloned narrow source too
             Optional<TableScanNode> clonedTableScanOpt = findTableScanNode(narrowClone);
@@ -292,6 +299,171 @@ public class OptimizeTopNUsingRowId
                     topNNode.getCount(),
                     topNNode.getOrderingScheme(),
                     topNNode.getStep());
+        }
+
+        @Override
+        public PlanNode visitTopNRowNumber(TopNRowNumberNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+
+            // Guard: only the final (non-partial) node, analogous to the Step.SINGLE guard for TopN
+            if (node.isPartial()) {
+                return replaceSource(node, source);
+            }
+
+            // Guard: source must be a scan-filter-project chain
+            if (!isScanFilterProject(source)) {
+                return replaceSource(node, source);
+            }
+
+            // Find the underlying TableScanNode
+            Optional<TableScanNode> tableScanOpt = findTableScanNode(source);
+            if (!tableScanOpt.isPresent()) {
+                return replaceSource(node, source);
+            }
+            TableScanNode tableScan = tableScanOpt.get();
+
+            // Check unique column from table layout
+            TableLayout layout = metadata.getLayout(session, tableScan.getTable());
+            Optional<ColumnHandle> uniqueColumnOpt = layout.getUniqueColumn();
+            if (!uniqueColumnOpt.isPresent()) {
+                return replaceSource(node, source);
+            }
+            ColumnHandle uniqueColumnHandle = uniqueColumnOpt.get();
+
+            // Check heuristic: enough non-key columns to justify the rewrite.
+            // Narrow key set = partitionBy ∪ orderBy variables.
+            LinkedHashSet<VariableReferenceExpression> narrowKeySet = new LinkedHashSet<>();
+            narrowKeySet.addAll(node.getPartitionBy());
+            narrowKeySet.addAll(node.getOrderingScheme().getOrderByVariables());
+            List<VariableReferenceExpression> narrowKeys = ImmutableList.copyOf(narrowKeySet);
+            int totalColumns = source.getOutputVariables().size();
+            int columnSavings = totalColumns - narrowKeys.size();
+            if (columnSavings < minColumnSavings) {
+                return replaceSource(node, source);
+            }
+
+            // === Build the rewritten plan ===
+
+            // 1. Add $row_id to the original source
+            VariableReferenceExpression rowIdVar = variableAllocator.newVariable("$row_id",
+                    metadata.getColumnMetadata(session, tableScan.getTable(), uniqueColumnHandle).getType());
+            TableScanNode augmentedTableScan = addColumnToTableScan(tableScan, uniqueColumnHandle, rowIdVar, idAllocator);
+            Optional<PlanNode> augmentedSourceOpt = addPassThroughVariable(source, rowIdVar, idAllocator);
+            if (!augmentedSourceOpt.isPresent()) {
+                return replaceSource(node, source);
+            }
+            augmentedSourceOpt = replaceTableScan(augmentedSourceOpt.get(), augmentedTableScan, idAllocator);
+            if (!augmentedSourceOpt.isPresent()) {
+                return replaceSource(node, source);
+            }
+            PlanNode augmentedSource = augmentedSourceOpt.get();
+
+            // 2. Clone narrow source: partition/order keys only + $row_id
+            Map<VariableReferenceExpression, VariableReferenceExpression> varMap = new HashMap<>();
+            // The copy is refused when the source cannot be duplicated safely, e.g. it is not deterministic
+            Optional<PlanNode> narrowCloneCopy = copyDeterministicScanNodes(source, metadata, idAllocator, narrowKeys, varMap);
+            if (!narrowCloneCopy.isPresent()) {
+                return replaceSource(node, source);
+            }
+            PlanNode narrowClone = narrowCloneCopy.get();
+
+            // Add $row_id to the cloned narrow source too
+            Optional<TableScanNode> clonedTableScanOpt = findTableScanNode(narrowClone);
+            if (!clonedTableScanOpt.isPresent()) {
+                return replaceSource(node, source);
+            }
+            VariableReferenceExpression clonedRowIdVar = variableAllocator.newVariable("$row_id_clone",
+                    metadata.getColumnMetadata(session, tableScan.getTable(), uniqueColumnHandle).getType());
+            TableScanNode clonedAugmentedTableScan = addColumnToTableScan(clonedTableScanOpt.get(), uniqueColumnHandle, clonedRowIdVar, idAllocator);
+            Optional<PlanNode> narrowCloneOpt = addPassThroughVariable(narrowClone, clonedRowIdVar, idAllocator);
+            if (!narrowCloneOpt.isPresent()) {
+                return replaceSource(node, source);
+            }
+            narrowCloneOpt = replaceTableScan(narrowCloneOpt.get(), clonedAugmentedTableScan, idAllocator);
+            if (!narrowCloneOpt.isPresent()) {
+                return replaceSource(node, source);
+            }
+            narrowClone = narrowCloneOpt.get();
+
+            // Restrict narrow clone to only the mapped narrow keys + cloned $row_id
+            List<VariableReferenceExpression> narrowOutputs = ImmutableList.<VariableReferenceExpression>builder()
+                    .addAll(narrowKeys.stream().map(v -> varMap.getOrDefault(v, v)).collect(toImmutableList()))
+                    .add(clonedRowIdVar)
+                    .build();
+            narrowClone = restrictOutput(narrowClone, idAllocator, narrowOutputs);
+
+            // 3. Build inner TopNRowNumber over the narrow clone with mapped specification
+            List<VariableReferenceExpression> clonedPartitionBy = node.getPartitionBy().stream()
+                    .map(v -> varMap.getOrDefault(v, v))
+                    .collect(toImmutableList());
+            List<Ordering> clonedOrderings = node.getOrderingScheme().getOrderBy().stream()
+                    .map(o -> new Ordering(varMap.getOrDefault(o.getVariable(), o.getVariable()), o.getSortOrder()))
+                    .collect(toImmutableList());
+            DataOrganizationSpecification clonedSpecification = new DataOrganizationSpecification(
+                    clonedPartitionBy,
+                    Optional.of(new OrderingScheme(clonedOrderings)));
+            VariableReferenceExpression innerRowNumberVar = variableAllocator.newVariable("inner_row_number", node.getRowNumberVariable().getType());
+            TopNRowNumberNode innerTopNRowNumber = new TopNRowNumberNode(
+                    node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    Optional.empty(),
+                    narrowClone,
+                    clonedSpecification,
+                    node.getRankingFunction(),
+                    innerRowNumberVar,
+                    node.getMaxRowCountPerPartition(),
+                    false,
+                    Optional.empty());
+
+            // 4. Build SemiJoinNode: source=$row_id from augmented original, filtering=$row_id_clone from inner node.
+            //    For small N (<= 100K), broadcast the inner result to all workers to avoid a full repartition.
+            VariableReferenceExpression semiJoinOutput = variableAllocator.newVariable("semiJoinOutput", BOOLEAN);
+            Optional<SemiJoinNode.DistributionType> semiJoinDistribution = node.getMaxRowCountPerPartition() <= 100_000
+                    ? Optional.of(SemiJoinNode.DistributionType.REPLICATED)
+                    : Optional.empty();
+            SemiJoinNode semiJoinNode = new SemiJoinNode(
+                    node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    Optional.empty(),
+                    augmentedSource,
+                    innerTopNRowNumber,
+                    rowIdVar,
+                    clonedRowIdVar,
+                    semiJoinOutput,
+                    Optional.empty(),
+                    Optional.empty(),
+                    semiJoinDistribution,
+                    ImmutableMap.of());
+
+            // 5. Filter on semiJoinOutput = true
+            PlanNode filtered = new FilterNode(semiJoinNode.getSourceLocation(), idAllocator.getNextId(), semiJoinNode, semiJoinOutput);
+
+            // 6. Build outer TopNRowNumber over the filtered result, reusing the original specification.
+            // Don't project away $row_id and semiJoinOutput here — PruneUnreferencedOutputs will handle it.
+            // Projecting them away here would break StreamPropertyDerivations' unique column consistency check.
+            TopNRowNumberNode outerTopNRowNumber = new TopNRowNumberNode(
+                    node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    Optional.empty(),
+                    filtered,
+                    node.getSpecification(),
+                    node.getRankingFunction(),
+                    node.getRowNumberVariable(),
+                    node.getMaxRowCountPerPartition(),
+                    false,
+                    node.getHashVariable());
+
+            planChanged = true;
+            return outerTopNRowNumber;
+        }
+
+        private static PlanNode replaceSource(TopNRowNumberNode node, PlanNode newSource)
+        {
+            if (node.getSource() == newSource) {
+                return node;
+            }
+            return node.replaceChildren(ImmutableList.of(newSource));
         }
 
         /**

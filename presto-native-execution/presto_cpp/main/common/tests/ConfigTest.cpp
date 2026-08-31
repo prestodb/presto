@@ -15,8 +15,14 @@
 #include <filesystem>
 #include <unordered_set>
 
+#include <folly/portability/GFlags.h>
 #include <folly/system/HardwareConcurrency.h>
 #include <gtest/gtest.h>
+#include <cstdint>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
@@ -417,4 +423,72 @@ TEST_F(ConfigTest, prestoDefaultNamespacePrefix) {
   ASSERT_TRUE(validateDefaultNamespacePrefix(
       windowFunctions, prestoBuiltinFunctionPrefix));
 }
+} // namespace facebook::presto::test
+
+DECLARE_int32(velox_memory_num_shared_leaf_pools);
+DECLARE_bool(velox_ssd_odirect);
+DECLARE_bool(avx2);
+
+namespace facebook::presto::test {
+
+// Saves and restores the gflags touched by applyGFlags() so tests do not leak
+// flag state to one another.
+class GFlagConfigTest : public ConfigTest {
+ protected:
+  void SetUp() override {
+    ConfigTest::SetUp();
+    saveFlagState("velox_memory_num_shared_leaf_pools");
+    saveFlagState("velox_ssd_odirect");
+    saveFlagState("avx2");
+  }
+
+  void TearDown() override {
+    for (const auto& [name, value] : savedFlags_) {
+      gflags::SetCommandLineOptionWithMode(
+          name.c_str(), value.c_str(), gflags::SET_FLAGS_DEFAULT);
+    }
+    ConfigTest::TearDown();
+  }
+
+ private:
+  void saveFlagState(std::string_view name) {
+    gflags::CommandLineFlagInfo info;
+    const std::string nameStr{name};
+    if (gflags::GetCommandLineFlagInfo(nameStr.c_str(), &info)) {
+      savedFlags_.emplace_back(nameStr, info.current_value);
+    }
+  }
+
+  std::vector<std::pair<std::string, std::string>> savedFlags_;
+};
+
+TEST_F(GFlagConfigTest, applyGFlags) {
+  applyGFlags({
+      {"gflag.velox-memory-num-shared-leaf-pools", "64"},
+      {"gflag.velox-ssd-odirect", "false"},
+      {"unrelated.property", "ignored"},
+  });
+
+  EXPECT_EQ(FLAGS_velox_memory_num_shared_leaf_pools, 64);
+  EXPECT_FALSE(FLAGS_velox_ssd_odirect);
+}
+
+TEST_F(GFlagConfigTest, applyGFlagsIgnoresNonGflagKeys) {
+  const int32_t origPools = FLAGS_velox_memory_num_shared_leaf_pools;
+
+  applyGFlags({{"velox-memory-num-shared-leaf-pools", "99"}});
+
+  EXPECT_EQ(FLAGS_velox_memory_num_shared_leaf_pools, origPools);
+}
+
+TEST_F(GFlagConfigTest, applyGFlagsCommandLineTakesPrecedence) {
+  gflags::SetCommandLineOptionWithMode(
+      "avx2", "false", gflags::SET_FLAGS_VALUE);
+
+  applyGFlags({{"gflag.avx2", "true"}});
+
+  // SET_FLAG_IF_DEFAULT won't override a non-default flag.
+  EXPECT_FALSE(FLAGS_avx2);
+}
+
 } // namespace facebook::presto::test

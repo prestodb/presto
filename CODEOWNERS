@@ -104,10 +104,14 @@ CODEOWNERS @prestodb/team-tsc
 # Presto core
 
 # Presto analyzer and optimizer
-/presto-main-base/src/*/java/com/facebook/presto/sql @jaystarshot @feilong-liu @ClarenceThreepwood @prestodb/committers
+/presto-main-base/src/*/java/com/facebook/presto/sql @jaystarshot @feilong-liu @ClarenceThreepwood @kaikalur @aaneja @prestodb/committers
 
 # Presto cost based optimizer framework
-/presto-main-base/src/*/java/com/facebook/presto/cost @jaystarshot @feilong-liu @ClarenceThreepwood @prestodb/committers
+/presto-main-base/src/*/java/com/facebook/presto/cost @jaystarshot @feilong-liu @ClarenceThreepwood @kaikalur @aaneja @prestodb/committers
+
+# Column lineage and query event plumbing
+/presto-main-base/src/*/java/com/facebook/presto/event @jja725 @prestodb/committers
+/presto-spi/src/main/java/com/facebook/presto/spi/eventlistener @jja725 @prestodb/committers
 
 # Testing module
 # Note: all code owners in Presto core should be included here as well
@@ -116,7 +120,7 @@ CODEOWNERS @prestodb/team-tsc
 #####################################################################
 # Prestissimo module
 /presto-native-execution @prestodb/team-velox @prestodb/committers
-/presto-native-sidecar-plugin @pdabre12 @prestodb/team-velox @prestodb/committers
+/presto-native-sidecar-plugin @pdabre12 @kevintang2022 @prestodb/team-velox @prestodb/committers
 /presto-native-tests @prestodb/team-velox @prestodb/committers
 /presto-main-base/src/main/java/com/facebook/presto/sessionpropertyproviders/NativeWorkerSessionPropertyProvider.java  @prestodb/team-velox @prestodb/committers
 /.github/workflows/prestocpp-* @prestodb/team-velox @prestodb/committers
@@ -133,7 +137,13 @@ CODEOWNERS @prestodb/team-tsc
 /presto-hudi @vinothchandar @7c00 @prestodb/committers
 
 # Iceberg connector
-/presto-iceberg @hantangwangd @ZacBlanco @prestodb/committers
+/presto-iceberg @hantangwangd @ZacBlanco @imjalpreet @prestodb/committers
+
+# Lance connector
+/presto-lance @jja725 @prestodb/committers
+
+# OpenLineage event listener plugin
+/presto-openlineage-event-listener @jja725 @prestodb/committers
 
 # Ranger Hive plugin
 /presto-hive/**/com/facebook/presto/hive/security/ranger @agrawalreetika @prestodb/committers
@@ -163,6 +173,8 @@ CODEOWNERS @prestodb/team-tsc
 /presto-docs @steveburnett @elharo @prestodb/committers
 /**/*.md @steveburnett @prestodb/committers
 /presto-docs/src/**/connector/iceberg.rst @steveburnett @elharo @hantangwangd @ZacBlanco @prestodb/committers
+/presto-docs/src/**/connector/lance.rst @steveburnett @elharo @jja725 @prestodb/committers
+/presto-docs/src/**/develop/openlineage-event-listener.rst @steveburnett @elharo @jja725 @prestodb/committers
 
 #####################################################################
 # Presto CI and builds

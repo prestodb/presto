@@ -72,7 +72,8 @@ folly::SemiFuture<ShuffleExchangeSource::Response>
 ShuffleExchangeSource::requestDataSizes(std::chrono::microseconds /*maxWait*/) {
   std::vector<int64_t> remainingBytes;
   if (!atEnd_) {
-    // Use default value of ExchangeClient::getAveragePageSize() for now.
+    // Use default value of InMemoryExchangeClient::getAveragePageSize() for
+    // now.
     //
     // TODO: Change ShuffleReader to return the next batch size.
     remainingBytes.push_back(1 << 20);

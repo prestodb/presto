@@ -40,6 +40,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
+import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -59,7 +60,8 @@ public class RegisterTableProcedure
             String.class,
             String.class,
             String.class,
-            String.class);
+            String.class,
+            Boolean.class);
     private final IcebergMetadataFactory metadataFactory;
     private final HdfsEnvironment hdfsEnvironment;
 
@@ -87,18 +89,19 @@ public class RegisterTableProcedure
                         new Argument("schema", VARCHAR),
                         new Argument("table_name", VARCHAR),
                         new Argument("metadata_location", VARCHAR),
-                        new Argument("metadata_file", VARCHAR, false, null)),
+                        new Argument("metadata_file", VARCHAR, false, null),
+                        new Argument("delete_data_on_drop", BOOLEAN, false, false)),
                 REGISTER_TABLE.bindTo(this));
     }
 
-    public void registerTable(ConnectorSession clientSession, String schema, String table, String metadataLocation, String metadataFile)
+    public void registerTable(ConnectorSession clientSession, String schema, String table, String metadataLocation, String metadataFile, Boolean deleteDataOnDrop)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doRegisterTable(clientSession, schema, table, metadataLocation, Optional.ofNullable(metadataFile));
+            doRegisterTable(clientSession, schema, table, metadataLocation, Optional.ofNullable(metadataFile), requireNonNull(deleteDataOnDrop, "deleteDataOnDrop is null"));
         }
     }
 
-    private void doRegisterTable(ConnectorSession clientSession, String schema, String table, String metadataLocation, Optional<String> metadataFile)
+    private void doRegisterTable(ConnectorSession clientSession, String schema, String table, String metadataLocation, Optional<String> metadataFile, boolean deleteDataOnDrop)
     {
         IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) metadataFactory.create();
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
@@ -116,7 +119,7 @@ public class RegisterTableProcedure
                         getFileSystem(clientSession, hdfsEnvironment, schemaTableName, metadataDirectory),
                         metadataDirectory));
 
-        metadata.registerTable(clientSession, schemaTableName, metadataPath);
+        metadata.registerTable(clientSession, schemaTableName, metadataPath, deleteDataOnDrop);
     }
 
     public static FileSystem getFileSystem(ConnectorSession clientSession, HdfsEnvironment hdfsEnvironment, SchemaTableName schemaTableName, Path location)

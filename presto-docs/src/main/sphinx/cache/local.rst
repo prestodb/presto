@@ -65,7 +65,7 @@ Additionally, Alluxio exports various JMX metrics while performing caching-relat
 System administrators can monitor cache usage across the cluster by checking the following metrics:
 
 * ``Client.CacheBytesEvicted``: Total number of bytes evicted from the client cache.
-* ``Client.CacheBytesReadCache``:  Total number of bytes read from the client cache (e.g., cache hit).
+* ``Client.CacheBytesReadCache``:  Total number of bytes read from the client cache (for example, cache hit).
 * ``Client.CacheBytesRequestedExternal``: Total number of bytes the user requested to read which resulted in a cache miss. This number may be smaller than Client.CacheBytesReadExternal due to chunk reads.
 * ``Client.CacheHitRate``: The hit rate measured by (# bytes read from cache) / (# bytes requested).
 * ``Client.CacheSpaceAvailable``: Amount of bytes available in the client cache.

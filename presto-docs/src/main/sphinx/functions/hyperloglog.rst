@@ -89,7 +89,7 @@ Functions
     Returns the ``HyperLogLog`` of the aggregate union of the individual ``hll``
     HyperLogLog structures.
 
-.. function:: merge_hll(array(HyperLogLog)) -> HyperLogLog
+.. function:: merge_hll(array[HyperLogLog]) -> HyperLogLog
 
     Returns the ``HyperLogLog`` of the union of an array ``hll`` HyperLogLog
     structures.

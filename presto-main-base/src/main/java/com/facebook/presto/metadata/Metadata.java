@@ -40,6 +40,7 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.api.Experimental;
+import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
@@ -244,9 +245,9 @@ public interface Metadata
     void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue);
 
     /**
-     * Add the specified column to the table.
+     * Add the specified column to the table at the specified position.
      */
-    void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
+    void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position);
 
     /**
      * Set the specified type to the column.
@@ -333,8 +334,14 @@ public interface Metadata
 
     /**
      * Begin insert query
+     *
+     * @param session the session
+     * @param tableHandle the table handle
+     * @param insertColumnNames the list of column names that are explicitly specified in the INSERT statement.
+     *                          An empty list indicates no explicit column specification (e.g. INSERT INTO table VALUES ...),
+     *                          which implies inserting into all columns.
      */
-    InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
+    InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<String> insertColumnNames);
 
     /**
      * Finish insert query
@@ -488,9 +495,10 @@ public interface Metadata
             QualifiedTablePrefix prefix);
 
     /**
-     * Begin refresh materialized view
+     * Begin refresh materialized view, carrying the refresh scope (the analysis-time WHERE predicate;
+     * {@code Optional.empty()} when there is no WHERE) so the connector can scope refresh work.
      */
-    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle);
+    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, Optional<RowExpression> refreshScopePredicate);
 
     /**
      * Finish refresh materialized view

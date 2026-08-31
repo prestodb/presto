@@ -54,8 +54,8 @@ public class OAuth2Authenticator
     public OAuth2Authenticator(OAuth2Client client, OAuth2Config config, TokenRefresher tokenRefresher, TokenPairSerializer tokenPairSerializer)
     {
         this.client = requireNonNull(client, "service is null");
-        this.principalField = config.getPrincipalField();
         requireNonNull(config, "oauth2Config is null");
+        this.principalField = config.getPrincipalField();
         this.tokenRefresher = requireNonNull(tokenRefresher, "tokenRefresher is null");
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
     }

@@ -318,19 +318,41 @@ public class PlannerUtils
                 ImmutableList.of());
     }
 
-    private static PlanNode cloneFilterNode(FilterNode filterNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> variablesToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator)
+    /**
+     * Builds an {@code array_agg(argument)} aggregation that packs the (non-grouped) input rows
+     * into an array. The result type is {@code array(argument type)}; the aggregation has no
+     * filter, ordering, mask and is not distinct. Useful for collapsing a fan-out into one row
+     * per group that can later be re-expanded with a {@code CROSS JOIN UNNEST}.
+     */
+    public static AggregationNode.Aggregation createArrayAggregation(FunctionAndTypeManager functionAndTypeManager, RowExpression argument)
     {
-        PlanNode newSource = clonePlanNode(filterNode.getSource(), session, metadata, planNodeIdAllocator, variablesToKeep, varMap);
-        return new FilterNode(
-                filterNode.getSourceLocation(),
-                idAllocator.getNextId(),
-                newSource,
-                RowExpressionVariableInliner.inlineVariables(varMap, filterNode.getPredicate()));
+        CallExpression call = call(functionAndTypeManager, "array_agg", new ArrayType(argument.getType()), argument);
+        return new AggregationNode.Aggregation(call, Optional.empty(), Optional.empty(), false, Optional.empty());
     }
 
-    private static PlanNode cloneProjectNode(ProjectNode projectNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator)
+    private static Optional<PlanNode> copyFilterNode(FilterNode filterNode, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> variablesToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, DeterminismEvaluator determinismEvaluator)
     {
-        PlanNode newSource = clonePlanNode(projectNode.getSource(), session, metadata, planNodeIdAllocator, fieldsToKeep, varMap);
+        if (!determinismEvaluator.isDeterministic(filterNode.getPredicate())) {
+            return Optional.empty();
+        }
+        return copyDeterministicScanNodes(filterNode.getSource(), planNodeIdAllocator, variablesToKeep, varMap, determinismEvaluator)
+                .map(newSource -> new FilterNode(
+                        filterNode.getSourceLocation(),
+                        planNodeIdAllocator.getNextId(),
+                        newSource,
+                        RowExpressionVariableInliner.inlineVariables(varMap, filterNode.getPredicate())));
+    }
+
+    private static Optional<PlanNode> copyProjectNode(ProjectNode projectNode, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, DeterminismEvaluator determinismEvaluator)
+    {
+        if (!projectNode.getAssignments().getExpressions().stream().allMatch(determinismEvaluator::isDeterministic)) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> newSource = copyDeterministicScanNodes(projectNode.getSource(), planNodeIdAllocator, fieldsToKeep, varMap, determinismEvaluator);
+        if (!newSource.isPresent()) {
+            return Optional.empty();
+        }
 
         Assignments.Builder newAssignments = Assignments.builder();
 
@@ -342,13 +364,13 @@ public class PlannerUtils
             newAssignments.put(varMap.getOrDefault(var, var), RowExpressionVariableInliner.inlineVariables(varMap, entry.getValue()));
         }
 
-        return new ProjectNode(
-                idAllocator.getNextId(),
-                newSource,
-                newAssignments.build());
+        return Optional.of(new ProjectNode(
+                planNodeIdAllocator.getNextId(),
+                newSource.get(),
+                newAssignments.build()));
     }
 
-    private static TableScanNode cloneTableScan(TableScanNode scanNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
+    private static TableScanNode copyTableScan(TableScanNode scanNode, PlanNodeIdAllocator planNodeIdAllocator, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
     {
         Map<VariableReferenceExpression, ColumnHandle> assignments = scanNode.getAssignments();
 
@@ -384,30 +406,44 @@ public class PlannerUtils
                 scanNode.getEnforcedConstraint(), scanNode.getCteMaterializationInfo());
     }
 
-    public static PlanNode clonePlanNode(PlanNode planNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
+    /**
+     * Copies a scan/filter/project subtree (or a UNION ALL of such subtrees), giving every copied node a
+     * freshly allocated plan node id and renaming the variables listed in {@code varMap}. Sharing one
+     * subtree between two parents instead of copying it leaves the plan with duplicated plan node ids,
+     * which the plan checker rejects.
+     * <p>
+     * Returns {@link Optional#empty()} when the subtree must not be duplicated: it contains a node type
+     * this method cannot rebuild, or a non-deterministic expression, which would make the copy produce
+     * different rows than the original (e.g. a rand() filter). Callers are expected to abandon their
+     * rewrite in that case, so they do not need to check determinism themselves.
+     */
+    public static Optional<PlanNode> copyDeterministicScanNodes(PlanNode planNode, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
     {
-        if (planNode instanceof TableScanNode) {
-            TableScanNode scanNode = (TableScanNode) planNode;
-            return cloneTableScan(scanNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap);
-        }
-        else if (planNode instanceof FilterNode) {
-            return cloneFilterNode((FilterNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap, planNodeIdAllocator);
-        }
-        else if (planNode instanceof ProjectNode) {
-            return cloneProjectNode((ProjectNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap, planNodeIdAllocator);
-        }
-        else if (planNode instanceof UnionNode) {
-            return cloneUnionNode((UnionNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap);
-        }
-
-        checkState(false, "Currently cannot clone: " + planNode.getClass().getName() + " nodes.");
-        return null;
+        return copyDeterministicScanNodes(planNode, planNodeIdAllocator, fieldsToKeep, varMap, new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()));
     }
 
-    private static PlanNode cloneUnionNode(UnionNode unionNode, Session session, Metadata metadata, PlanNodeIdAllocator idAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
+    private static Optional<PlanNode> copyDeterministicScanNodes(PlanNode planNode, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, DeterminismEvaluator determinismEvaluator)
+    {
+        if (planNode instanceof TableScanNode) {
+            return Optional.of(copyTableScan((TableScanNode) planNode, planNodeIdAllocator, varMap));
+        }
+        else if (planNode instanceof FilterNode) {
+            return copyFilterNode((FilterNode) planNode, planNodeIdAllocator, fieldsToKeep, varMap, determinismEvaluator);
+        }
+        else if (planNode instanceof ProjectNode) {
+            return copyProjectNode((ProjectNode) planNode, planNodeIdAllocator, fieldsToKeep, varMap, determinismEvaluator);
+        }
+        else if (planNode instanceof UnionNode) {
+            return copyUnionNode((UnionNode) planNode, planNodeIdAllocator, fieldsToKeep, varMap, determinismEvaluator);
+        }
+
+        return Optional.empty();
+    }
+
+    private static Optional<PlanNode> copyUnionNode(UnionNode unionNode, PlanNodeIdAllocator idAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, DeterminismEvaluator determinismEvaluator)
     {
         int numSources = unionNode.getSources().size();
-        List<PlanNode> clonedSources = new ArrayList<>();
+        List<PlanNode> copiedSources = new ArrayList<>();
         List<Map<VariableReferenceExpression, VariableReferenceExpression>> legVarMaps = new ArrayList<>();
 
         for (int i = 0; i < numSources; i++) {
@@ -419,8 +455,11 @@ public class PlannerUtils
                     .filter(v -> v != null)
                     .collect(toImmutableList());
 
-            PlanNode clonedLeg = clonePlanNode(unionNode.getSources().get(i), session, metadata, idAllocator, legFieldsToKeep, legVarMap);
-            clonedSources.add(clonedLeg);
+            Optional<PlanNode> copiedLeg = copyDeterministicScanNodes(unionNode.getSources().get(i), idAllocator, legFieldsToKeep, legVarMap, determinismEvaluator);
+            if (!copiedLeg.isPresent()) {
+                return Optional.empty();
+            }
+            copiedSources.add(copiedLeg.get());
             legVarMaps.add(legVarMap);
         }
 
@@ -435,18 +474,18 @@ public class PlannerUtils
             List<VariableReferenceExpression> originalInputs = unionNode.getVariableMapping().get(outputVar);
             for (int i = 0; i < numSources; i++) {
                 VariableReferenceExpression originalInput = originalInputs.get(i);
-                VariableReferenceExpression clonedInput = legVarMaps.get(i).getOrDefault(originalInput, originalInput);
-                newOutputToInputs.put(newOutputVar, clonedInput);
+                VariableReferenceExpression copiedInput = legVarMaps.get(i).getOrDefault(originalInput, originalInput);
+                newOutputToInputs.put(newOutputVar, copiedInput);
             }
         }
 
         ListMultimap<VariableReferenceExpression, VariableReferenceExpression> multimap = newOutputToInputs.build();
-        return new UnionNode(
+        return Optional.of(new UnionNode(
                 unionNode.getSourceLocation(),
                 idAllocator.getNextId(),
-                clonedSources,
+                copiedSources,
                 newOutputVars.build(),
-                fromListMultimap(multimap));
+                fromListMultimap(multimap)));
     }
 
     public static String getPlanString(PlanNode planNode, Session session, TypeProvider types, Metadata metadata, boolean isVerboseOptimizerInfoEnabled)
@@ -593,53 +632,6 @@ public class PlannerUtils
     {
         return isScanFilterProject(node) ||
                 node instanceof UnionNode && ((UnionNode) node).getSources().stream().allMatch(PlannerUtils::isScanFilterProjectOrUnion);
-    }
-
-    /**
-     * Returns true if the scan-filter-project plan subtree contains only deterministic
-     * expressions in all filters and projections. This check is critical for optimizations
-     * that clone the subtree (e.g., JoinPrefilter), because cloning a subtree with
-     * non-deterministic expressions (like rand()) produces different results from each
-     * clone, leading to incorrect query results.
-     */
-    public static boolean isDeterministicScanFilterProject(PlanNode node, FunctionAndTypeManager functionAndTypeManager)
-    {
-        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
-        return isDeterministicPlanSubtree(node, determinismEvaluator, false);
-    }
-
-    /**
-     * Like {@link #isDeterministicScanFilterProject}, but additionally accepts a UnionNode
-     * whose every source is itself a deterministic scan/filter/project (or another such Union)
-     * subtree. Pair with {@link #isScanFilterProjectOrUnion} when the caller specifically
-     * supports cloning UNION ALL probe sides.
-     */
-    public static boolean isDeterministicScanFilterProjectOrUnion(PlanNode node, FunctionAndTypeManager functionAndTypeManager)
-    {
-        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
-        return isDeterministicPlanSubtree(node, determinismEvaluator, true);
-    }
-
-    private static boolean isDeterministicPlanSubtree(PlanNode node, DeterminismEvaluator determinismEvaluator, boolean allowUnion)
-    {
-        if (node instanceof TableScanNode) {
-            return true;
-        }
-        else if (node instanceof FilterNode) {
-            FilterNode filterNode = (FilterNode) node;
-            return determinismEvaluator.isDeterministic(filterNode.getPredicate())
-                    && isDeterministicPlanSubtree(filterNode.getSource(), determinismEvaluator, allowUnion);
-        }
-        else if (node instanceof ProjectNode) {
-            ProjectNode projectNode = (ProjectNode) node;
-            return projectNode.getAssignments().getExpressions().stream().allMatch(determinismEvaluator::isDeterministic)
-                    && isDeterministicPlanSubtree(projectNode.getSource(), determinismEvaluator, allowUnion);
-        }
-        else if (allowUnion && node instanceof UnionNode) {
-            return ((UnionNode) node).getSources().stream()
-                    .allMatch(source -> isDeterministicPlanSubtree(source, determinismEvaluator, allowUnion));
-        }
-        return false;
     }
 
     public static CallExpression equalityPredicate(FunctionResolution functionResolution, RowExpression leftExpr, RowExpression rightExpr)
@@ -791,6 +783,67 @@ public class PlannerUtils
         return new SpecialFormExpression(COALESCE, VARCHAR, ImmutableList.of(castToVarchar, concatExpression));
     }
 
+    /**
+     * Randomizes a null join key in its own native type: {@code COALESCE(key, randomDefault)}, where the
+     * default is a random value drawn from the hash-partition-count range so null keys spread across
+     * partitions instead of colliding on one. The key itself is never cast to VARCHAR.
+     * <p>
+     * The default is chosen to rarely collide with a real key (which only saves wasted work, not
+     * correctness): for BIGINT it is {@code -random(N)} (a negative value real ids almost never take),
+     * for DATE a pre-epoch date, and for VARCHAR the textual form of a small random number (e.g.
+     * {@code "53"}). Correctness does not depend on this: callers compare the coalesced key against the RAW
+     * other-side key and guard the join with {@code key IS NOT NULL} (as
+     * {@link com.facebook.presto.sql.planner.optimizations.RandomizeNullKeyInOuterJoin} does), so a
+     * randomized null can never match a real key or a null regardless of the random value.
+     * <p>
+     * For BIGINT/DATE the randomized key is produced in the key's own type, so it stays identical to the raw
+     * other-side key type. For VARCHAR the small random number is cast to unbounded VARCHAR (which never
+     * throws, unlike a cast to a bounded {@code varchar(n)}); the resulting key is unbounded VARCHAR, so the
+     * caller must NOT randomize VARCHAR keys in FULL joins -- FULL-join partitioning property derivation
+     * ({@code COALESCE(probe, build)}) requires the randomized key type to match the raw build key exactly.
+     *
+     * @param keyExpression the original join key expression (BIGINT, DATE, or VARCHAR)
+     * @return {@code COALESCE(key, randomDefault)} in the key's native type (unbounded VARCHAR for VARCHAR keys)
+     */
+    public static RowExpression randomizeJoinKeyNative(Session session, FunctionAndTypeManager functionAndTypeManager, RowExpression keyExpression)
+    {
+        int partitionCount = getHashPartitionCount(session);
+        RowExpression randomNumber = call(
+                functionAndTypeManager,
+                "random",
+                BIGINT,
+                constant((long) partitionCount, BIGINT));
+        // Negate so the fill is negative, which real keys rarely are -> fewer (harmless) hash collisions.
+        RowExpression negativeRandom = callOperator(functionAndTypeManager.getFunctionAndTypeResolver(), OperatorType.NEGATION, BIGINT, randomNumber);
+
+        Type keyType = keyExpression.getType();
+        RowExpression randomDefault;
+        if (keyType.equals(BIGINT)) {
+            randomDefault = negativeRandom;
+        }
+        else if (keyType.equals(DATE)) {
+            // date_add('day', -random(N), DATE '1970-01-01') -> a pre-epoch date, rarely a real key
+            randomDefault = call(
+                    functionAndTypeManager,
+                    "date_add",
+                    DATE,
+                    constant(Slices.utf8Slice("day"), VARCHAR),
+                    negativeRandom,
+                    constant(0L, DATE));
+        }
+        else if (keyType instanceof VarcharType) {
+            // Cast only the small random number to unbounded VARCHAR (e.g. "53"), never the (potentially
+            // large) key itself. Unbounded VARCHAR never overflows on cast; the caller excludes VARCHAR keys
+            // from FULL joins so the unbounded randomized key never needs to match a bounded build key.
+            randomDefault = call("CAST", functionAndTypeManager.lookupCast(CAST, BIGINT, VARCHAR), VARCHAR, randomNumber);
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported key type for native null-key randomization: " + keyType);
+        }
+        // BIGINT/DATE keep their native type; a VARCHAR key's randomized key is unbounded VARCHAR.
+        return new SpecialFormExpression(COALESCE, keyType instanceof VarcharType ? VARCHAR : keyType, ImmutableList.of(keyExpression, randomDefault));
+    }
+
     public static RowExpression getVariableHash(List<VariableReferenceExpression> inputVariables, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(!inputVariables.isEmpty());
@@ -885,38 +938,5 @@ public class PlannerUtils
                     });
         }
         return Optional.empty();
-    }
-
-    /**
-     * Returns true if the plan subtree (expected to be a Filter/Project chain
-     * above a TableScanNode) contains any non-deterministic expressions.
-     * Useful for optimizations that clone the subtree — non-deterministic
-     * expressions would produce different values in the clone vs the original.
-     */
-    public static boolean containsNonDeterministicExpression(PlanNode node, FunctionAndTypeManager functionAndTypeManager)
-    {
-        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
-        PlanNode current = node;
-        while (current != null) {
-            if (current instanceof ProjectNode) {
-                for (RowExpression expression : ((ProjectNode) current).getAssignments().getExpressions()) {
-                    if (!determinismEvaluator.isDeterministic(expression)) {
-                        return true;
-                    }
-                }
-                current = ((ProjectNode) current).getSource();
-            }
-            else if (current instanceof FilterNode) {
-                if (!determinismEvaluator.isDeterministic(((FilterNode) current).getPredicate())) {
-                    return true;
-                }
-                current = ((FilterNode) current).getSource();
-            }
-            else {
-                // TableScanNode or other leaf
-                break;
-            }
-        }
-        return false;
     }
 }

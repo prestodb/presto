@@ -359,25 +359,27 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
-        PartitionStatistics originalStatistics = getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName);
-        if (originalStatistics == null) {
-            throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName);
-        }
-        PartitionStatistics updatedStatistics = update.apply(originalStatistics);
+        updates.forEach((partitionName, update) -> {
+            PartitionStatistics originalStatistics = getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName);
+            if (originalStatistics == null) {
+                throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName);
+            }
+            PartitionStatistics updatedStatistics = update.apply(originalStatistics);
 
-        Table table = getRequiredTable(metastoreContext, databaseName, tableName);
-        List<String> partitionValues = extractPartitionValues(partitionName);
-        Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
-        PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
-                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
+            Table table = getRequiredTable(metastoreContext, databaseName, tableName);
+            List<String> partitionValues = extractPartitionValues(partitionName);
+            Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
+            PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
+                    .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
 
-        PartitionMetadata updatedMetadata = partitionMetadata
-                .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
-                .withColumnStatistics(updatedStatistics.getColumnStatistics());
+            PartitionMetadata updatedMetadata = partitionMetadata
+                    .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
+                    .withColumnStatistics(updatedStatistics.getColumnStatistics());
 
-        writeSchemaFile("partition", partitionDirectory, partitionCodec, updatedMetadata, true);
+            writeSchemaFile("partition", partitionDirectory, partitionCodec, updatedMetadata, true);
+        });
     }
 
     @Override

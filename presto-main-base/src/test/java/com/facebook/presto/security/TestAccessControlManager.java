@@ -67,6 +67,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyQueryIntegrityCheck;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
+import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -92,6 +93,12 @@ public class TestAccessControlManager
                 new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty()),
                 Optional.empty(),
                 "foo");
+    }
+
+    @Test
+    public void testInitializingSystemAccessControlEverythingImplemented()
+    {
+        assertAllMethodsOverridden(SystemAccessControl.class, AccessControlManager.InitializingSystemAccessControl.class);
     }
 
     @Test

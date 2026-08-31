@@ -23,6 +23,7 @@ add_executable(
   DurationTest.cpp
   LifespanTest.cpp
   MapWithIntegerKeysTest.cpp
+  MergeHandleTest.cpp
   OptionalTest.cpp
   RowExpressionTest.cpp
   TaskUpdateRequestTest.cpp
@@ -43,11 +44,7 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   $<TARGET_OBJECTS:presto_protocol>
-  velox_type
-  velox_encode
-  velox_exception
-  velox_vector
-  velox_presto_serializer
+  velox
   Boost::filesystem
   ${RE2}
   ${FOLLY_LIBRARIES}

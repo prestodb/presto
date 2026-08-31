@@ -20,6 +20,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 
 import java.util.List;
@@ -32,6 +33,7 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.cache.CacheLoader.asyncReloading;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -39,6 +41,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class JdbcMetadataCache
 {
     private final JdbcClient jdbcClient;
+    private final JdbcMetadataCache delegate;
 
     private final LoadingCache<KeyAndSession<SchemaTableName>, Optional<JdbcTableHandle>> tableHandleCache;
     private final LoadingCache<KeyAndSession<JdbcTableHandle>, List<JdbcColumnHandle>> columnHandlesCache;
@@ -52,7 +55,8 @@ public class JdbcMetadataCache
                 stats,
                 OptionalLong.of(config.getMetadataCacheTtl().toMillis()),
                 config.getMetadataCacheRefreshInterval().toMillis() >= config.getMetadataCacheTtl().toMillis() ? OptionalLong.empty() : OptionalLong.of(config.getMetadataCacheRefreshInterval().toMillis()),
-                config.getMetadataCacheMaximumSize());
+                config.getMetadataCacheMaximumSize(),
+                null);
     }
 
     public JdbcMetadataCache(
@@ -63,7 +67,27 @@ public class JdbcMetadataCache
             OptionalLong refreshInterval,
             long cacheMaximumSize)
     {
+        this(
+                executor,
+                jdbcClient,
+                stats,
+                cacheTtl,
+                refreshInterval,
+                cacheMaximumSize,
+                null);
+    }
+
+    private JdbcMetadataCache(
+            ExecutorService executor,
+            JdbcClient jdbcClient,
+            JdbcMetadataCacheStats stats,
+            OptionalLong cacheTtl,
+            OptionalLong refreshInterval,
+            long cacheMaximumSize,
+            @Nullable JdbcMetadataCache delegate)
+    {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.delegate = delegate;
 
         this.tableHandleCache = newCacheBuilder(cacheTtl, refreshInterval, cacheMaximumSize)
                 .build(asyncReloading(CacheLoader.from(this::loadTableHandle), executor));
@@ -74,9 +98,32 @@ public class JdbcMetadataCache
         stats.setColumnHandlesCache(columnHandlesCache);
     }
 
+    public static JdbcMetadataCache createTransactionCache(JdbcMetadataCache delegate, long maximumSize)
+    {
+        return createTransactionCache(delegate, new JdbcMetadataCacheStats(), maximumSize);
+    }
+
+    static JdbcMetadataCache createTransactionCache(JdbcMetadataCache delegate, JdbcMetadataCacheStats stats, long maximumSize)
+    {
+        requireNonNull(delegate, "delegate is null");
+        return new JdbcMetadataCache(
+                newDirectExecutorService(),
+                delegate.jdbcClient,
+                stats,
+                OptionalLong.empty(),
+                OptionalLong.empty(),
+                maximumSize,
+                delegate);
+    }
+
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return get(tableHandleCache, new KeyAndSession<>(session, tableName)).orElse(null);
+        KeyAndSession<SchemaTableName> key = new KeyAndSession<>(session, tableName);
+        Optional<JdbcTableHandle> tableHandle = get(tableHandleCache, key);
+        if (!tableHandle.isPresent()) {
+            tableHandleCache.invalidate(key);
+        }
+        return tableHandle.orElse(null);
     }
 
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle jdbcTableHandle)
@@ -84,14 +131,37 @@ public class JdbcMetadataCache
         return get(columnHandlesCache, new KeyAndSession<>(session, jdbcTableHandle));
     }
 
+    public void invalidateTable(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        tableHandleCache.invalidate(new KeyAndSession<>(session, tableHandle.getSchemaTableName()));
+        columnHandlesCache.invalidate(new KeyAndSession<>(session, tableHandle));
+        if (delegate != null) {
+            delegate.invalidateTable(session, tableHandle);
+        }
+    }
+
+    public void invalidateTableHandle(ConnectorSession session, SchemaTableName tableName)
+    {
+        tableHandleCache.invalidate(new KeyAndSession<>(session, tableName));
+        if (delegate != null) {
+            delegate.invalidateTableHandle(session, tableName);
+        }
+    }
+
     private Optional<JdbcTableHandle> loadTableHandle(KeyAndSession<SchemaTableName> tableName)
     {
         // The returned tableHandle can be null if it does not contain the table
+        if (delegate != null) {
+            return Optional.ofNullable(delegate.getTableHandle(tableName.getSession(), tableName.getKey()));
+        }
         return Optional.ofNullable(jdbcClient.getTableHandle(tableName.getSession(), JdbcIdentity.from(tableName.getSession()), tableName.getKey()));
     }
 
     private List<JdbcColumnHandle> loadColumnHandles(KeyAndSession<JdbcTableHandle> tableHandle)
     {
+        if (delegate != null) {
+            return delegate.getColumns(tableHandle.getSession(), tableHandle.getKey());
+        }
         return jdbcClient.getColumns(tableHandle.getSession(), tableHandle.getKey());
     }
 
@@ -139,8 +209,6 @@ public class JdbcMetadataCache
             return key;
         }
 
-        // Session object changes for every query. For caching to be effective across multiple queries,
-        // we should NOT include session in equals() and hashCode() methods below.
         @Override
         public boolean equals(Object o)
         {

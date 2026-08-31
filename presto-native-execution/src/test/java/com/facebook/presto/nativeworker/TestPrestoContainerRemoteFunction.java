@@ -30,13 +30,9 @@ public class TestPrestoContainerRemoteFunction
     protected ContainerQueryRunner createQueryRunner()
             throws Exception
     {
-        return new ContainerQueryRunner(
-                ContainerQueryRunner.DEFAULT_COORDINATOR_PORT,
-                ContainerQueryRunner.TPCH_CATALOG,
-                ContainerQueryRunner.TINY_SCHEMA,
-                ContainerQueryRunner.DEFAULT_NUMBER_OF_WORKERS,
-                ContainerQueryRunner.DEFAULT_FUNCTION_SERVER_PORT,
-                true);
+        return new ContainerQueryRunner(new ContainerQueryRunner.Config()
+                .setNativeCluster(true)
+                .setFunctionServerEnabled(true));
     }
 
     @Test

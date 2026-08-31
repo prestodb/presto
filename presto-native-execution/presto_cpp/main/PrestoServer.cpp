@@ -18,6 +18,10 @@
 #include <folly/system/HardwareConcurrency.h>
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
@@ -27,6 +31,7 @@
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/common/LegacyHiveConfigKeys.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/Registration.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
@@ -39,6 +44,7 @@
 #include "presto_cpp/main/http/filters/StatsFilter.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
+#include "presto_cpp/main/operators/IcebergMergeProcessorOperator.h"
 #include "presto_cpp/main/operators/LocalShuffle.h"
 #include "presto_cpp/main/operators/MaterializedExchange.h"
 #include "presto_cpp/main/operators/MaterializedOutput.h"
@@ -71,7 +77,7 @@
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/dwio/text/RegisterTextReader.h"
 #include "velox/dwio/text/RegisterTextWriter.h"
-#include "velox/exec/OutputBufferManager.h"
+#include "velox/exec/DefaultOutputBufferManager.h"
 #include "velox/exec/TraceUtil.h"
 #include "velox/exec/rpc/RPCPlanNodeTranslator.h"
 #include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
@@ -85,6 +91,7 @@
 #ifdef PRESTO_ENABLE_CUDF
 #include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
+#include "velox/experimental/cudf/expression/PrestoFunctions.h"
 #endif
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
@@ -115,6 +122,7 @@ constexpr char const* kLinuxSharedLibExt = ".so";
 constexpr char const* kMacOSSharedLibExt = ".dylib";
 constexpr char const* kOptimized = "OPTIMIZED";
 constexpr char const* kEvaluated = "EVALUATED";
+constexpr char const* kProtocolConnectorId = "protocol-connector.id";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -129,10 +137,11 @@ protocol::NodeState convertNodeState(presto::NodeState nodeState) {
 }
 
 void enableChecksum() {
-  velox::exec::OutputBufferManager::getInstanceRef()->setListenerFactory([]() {
-    return std::make_unique<
-        velox::serializer::presto::PrestoOutputStreamListener>();
-  });
+  velox::exec::DefaultOutputBufferManager::getInstanceRef()->setListenerFactory(
+      []() {
+        return std::make_unique<
+            velox::serializer::presto::PrestoOutputStreamListener>();
+      });
 }
 
 // Log only the catalog keys that are configured to avoid leaking
@@ -178,17 +187,18 @@ bool isSharedLibrary(const fs::path& path) {
 
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
+  auto& cudfConfig = velox::cudf_velox::CudfConfig::getInstance();
+
   // Disable by default.
-  velox::cudf_velox::CudfConfig::getInstance().enabled = false;
+  cudfConfig.enabled = false;
   auto systemConfig = SystemConfig::instance();
-  velox::cudf_velox::CudfConfig::getInstance().functionNamePrefix =
-      systemConfig->prestoDefaultNamespacePrefix();
+  cudfConfig.functionNamePrefix = systemConfig->prestoDefaultNamespacePrefix();
   if (systemConfig->values().contains(
           velox::cudf_velox::CudfConfig::kCudfEnabled)) {
-    velox::cudf_velox::CudfConfig::getInstance().initialize(
-        systemConfig->values());
-    if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
+    cudfConfig.initialize(systemConfig->values());
+    if (cudfConfig.enabled) {
       velox::cudf_velox::registerCudf();
+      velox::cudf_velox::registerPrestoFunctions(cudfConfig.functionNamePrefix);
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
     }
   }
@@ -261,6 +271,37 @@ json::array_t getOptimizedExpressions(
     result.push_back(optimized);
   }
   return result;
+}
+
+// Atomically writes 'boundPort' to '<configDirectoryPath>/http-server.port'
+// via a tmp+rename so readers only ever see a fully-written, current value.
+// Logs and returns on any failure; never throws.
+void writeBoundHttpPortFile(
+    const std::string& configDirectoryPath,
+    uint16_t boundPort) {
+  const std::string portFilePath = configDirectoryPath + "/http-server.port";
+  const std::string tmpPortFilePath = portFilePath + ".tmp";
+  try {
+    {
+      std::ofstream out(tmpPortFilePath);
+      out.exceptions(std::ios::failbit | std::ios::badbit);
+      out << boundPort << std::endl;
+      out.flush();
+    }
+    if (std::rename(tmpPortFilePath.c_str(), portFilePath.c_str()) != 0) {
+      PRESTO_STARTUP_LOG(ERROR)
+          << "Failed to rename port file " << tmpPortFilePath << " -> "
+          << portFilePath << ": " << std::strerror(errno);
+      std::remove(tmpPortFilePath.c_str());
+      return;
+    }
+  } catch (const std::exception& e) {
+    PRESTO_STARTUP_LOG(ERROR)
+        << "Failed to write port file " << portFilePath << ": " << e.what();
+    std::remove(tmpPortFilePath.c_str());
+    return;
+  }
+  PRESTO_STARTUP_LOG(INFO) << "HTTP server bound to port " << boundPort;
 }
 
 } // namespace
@@ -760,6 +801,10 @@ void PrestoServer::startServer(const std::vector<std::string>& catalogNames) {
                 kTaskUriFormat, kHttp, address_, address.address.getPort());
           }
           taskManager_->setBaseUri(taskUri);
+          if (systemConfig->httpServerReportBoundPortToFile()) {
+            writeBoundHttpPortFile(
+                configDirectoryPath_, address.address.getPort());
+          }
           break;
         }
 
@@ -793,8 +838,9 @@ void PrestoServer::stopAnnouncer() {
 void PrestoServer::joinExecutors() {
   // Join exchange HTTP CPU executor first. Exchange CPU threads run
   // PrestoExchangeSource::handleDataResponse which dispatches callbacks to
-  // driverExecutor_ (MonitoredExecutor) via ExchangeClient. We must drain
-  // these threads before destroying driverExecutor_ to avoid use-after-free.
+  // driverExecutor_ (MonitoredExecutor) via InMemoryExchangeClient. We must
+  // drain these threads before destroying driverExecutor_ to avoid
+  // use-after-free.
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Exchange Http CPU executor '"
       << exchangeHttpCpuExecutor_->getName()
@@ -1428,6 +1474,11 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
           fileName.substr(0, fileName.size() - kPropertiesExtension.size());
 
       auto connectorConf = util::readConfig(entry.path());
+      auto connectorName =
+          util::requiredProperty(connectorConf, kConnectorName);
+
+      util::migrateLegacyHiveParquetKeys(connectorName, connectorConf);
+
       PRESTO_STARTUP_LOG(INFO)
           << "Registered catalog property keys from " << entry.path() << ":\n"
           << logConnectorConfigPropertyKeys(connectorConf);
@@ -1436,7 +1487,16 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
           std::make_shared<const velox::config::ConfigBase>(
               std::move(connectorConf));
 
-      auto connectorName = util::requiredProperty(*properties, kConnectorName);
+      auto protocolConnectorId =
+          util::getOptionalProperty(*properties, kProtocolConnectorId, "");
+      if (!protocolConnectorId.empty() &&
+          !hasPrestoToVeloxConnector(protocolConnectorId)) {
+        PRESTO_STARTUP_LOG(INFO)
+            << "Registering PrestoToVeloxConnector " << protocolConnectorId
+            << " using connector " << connectorName;
+
+        registerPrestoToVeloxConnector(protocolConnectorId, connectorName);
+      }
 
       catalogNames.emplace_back(catalogName);
 
@@ -1479,6 +1539,8 @@ void PrestoServer::registerShuffleInterfaceFactories() {
 }
 
 void PrestoServer::registerCustomOperators() {
+  velox::exec::Operator::registerOperator(
+      std::make_unique<operators::IcebergMergeProcessorTranslator>());
   velox::exec::Operator::registerOperator(
       std::make_unique<operators::PartitionAndSerializeTranslator>());
   velox::exec::Operator::registerOperator(
@@ -1624,7 +1686,8 @@ void PrestoServer::unregisterFileReadersAndWriters() {
 }
 
 void PrestoServer::registerStatsCounters() {
-  registerPrestoMetrics();
+  registerPrestoMetrics(
+      SystemConfig::instance()->enableHttpRequestSizeHistogram());
   velox::registerVeloxMetrics();
   velox::filesystems::registerS3Metrics();
 }
@@ -1699,6 +1762,19 @@ void PrestoServer::populateMemAndCPUInfo() {
   cpuMon_.update();
   checkOverload();
   **memoryInfo_.wlock() = std::move(memoryInfo);
+
+  // In-memory AsyncDataCache footprint (evictable/reclaimable); SSD-resident
+  // bytes are excluded as they do not contribute to RAM pressure. Computed here
+  // (this task runs periodically) rather than in fetchNodeStatus(), because
+  // refreshStats() walks the cache shards and fetchNodeStatus() serves every
+  // /v1/status poll on every worker. 0 when no cache instance exists.
+  int64_t asyncDataCacheBytes = 0;
+  if (auto* cache = velox::cache::AsyncDataCache::getInstance()) {
+    const auto cacheStats = cache->refreshStats();
+    asyncDataCacheBytes = cacheStats.tinySize + cacheStats.largeSize +
+        cacheStats.tinyPadding + cacheStats.largePadding;
+  }
+  asyncDataCacheBytes_.store(asyncDataCacheBytes, std::memory_order_relaxed);
 }
 
 void PrestoServer::checkOverload() {
@@ -1917,8 +1993,28 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
 
   const double cpuLoadPct{cpuMon_.getCPULoadPct()};
 
-  // TODO(spershin): As 'nonHeapUsed' we could export the cache memory.
-  const int64_t nonHeapUsed{0};
+  // 'nonHeapUsed' is a JVM/GC concept that does not apply to native workers.
+  // Kept at 0 to avoid breaking existing tooling that consumes this field; it
+  // could be changed to a not-applicable value (e.g. -1) in the future. Native
+  // memory is reported via the dedicated fields below.
+  const int64_t nonHeapUsed = 0;
+
+  // In-memory AsyncDataCache footprint (evictable/reclaimable), sampled off the
+  // serving path by populateMemAndCPUInfo() — read the cached value here so the
+  // refreshStats() cache-shard walk never runs on the /v1/status poll path.
+  const int64_t asyncDataCacheBytes =
+      asyncDataCacheBytes_.load(std::memory_order_relaxed);
+
+  // Query memory (non-evictable): sum of per-query pool reservations, already
+  // aggregated per memory pool in populateMemAndCPUInfo(). Reservations are
+  // rounded up to Velox's quantized reservation size, so this slightly
+  // over-reports live usage, and may include memory that is spillable under
+  // pressure. It excludes the evictable AsyncDataCache reported above.
+  const auto memoryInfo = **memoryInfo_.rlock();
+  int64_t queryMemoryBytes = 0;
+  for (const auto& pool : memoryInfo.pools) {
+    queryMemoryBytes += pool.second.reservedBytes;
+  }
 
   protocol::NodeStatus nodeStatus{
       nodeId_,
@@ -1928,13 +2024,15 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       getUptime(start_),
       address_,
       address_,
-      **memoryInfo_.rlock(),
+      memoryInfo,
       (int)folly::available_concurrency(),
       cpuLoadPct,
       cpuLoadPct,
       pool_ ? pool_->usedBytes() : 0,
       nodeMemoryGb * 1024 * 1024 * 1024,
-      nonHeapUsed};
+      nonHeapUsed,
+      asyncDataCacheBytes,
+      queryMemoryBytes};
 
   return nodeStatus;
 }

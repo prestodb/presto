@@ -91,6 +91,7 @@ import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -327,10 +328,16 @@ public class PrestoSparkNativeTaskExecutorFactory
                             .getHandle().equals(FIXED_BROADCAST_DISTRIBUTION));
 
             log.info("Creating task and will wait for remote task completion");
-            TaskInfo taskInfo = task.start();
+            try {
+                TaskInfo taskInfo = task.start();
 
-            // task creation might have failed
-            processTaskInfoForErrorsOrCompletion(taskInfo);
+                // task creation might have failed
+                processTaskInfoForErrorsOrCompletion(taskInfo);
+            }
+            catch (RuntimeException e) {
+                task.stop(false);
+                throw e;
+            }
 
             // 4. return output to spark RDD layer
             return new PrestoSparkNativeTaskOutputIterator<>(
@@ -360,28 +367,31 @@ public class PrestoSparkNativeTaskExecutorFactory
 
     private static void completeTask(boolean success, CollectionAccumulator<SerializedTaskInfo> taskInfoCollector, NativeExecutionTask task, Codec<TaskInfo> taskInfoCodec, CpuTracker cpuTracker)
     {
-        // stop the task
-        task.stop(success);
+        try {
+            OptionalLong processCpuTime = cpuTracker.get();
 
-        OptionalLong processCpuTime = cpuTracker.get();
+            // collect statistics (if available)
+            Optional<TaskInfo> taskInfoOptional = tryGetTaskInfo(task);
+            if (!taskInfoOptional.isPresent()) {
+                log.error("Missing taskInfo. Statistics might be inaccurate");
+                return;
+            }
 
-        // collect statistics (if available)
-        Optional<TaskInfo> taskInfoOptional = tryGetTaskInfo(task);
-        if (!taskInfoOptional.isPresent()) {
-            log.error("Missing taskInfo. Statistics might be inaccurate");
-            return;
+            // Record process-wide CPU time spent while executing this task. Since we run one task at a time,
+            // process-wide CPU time matches task's CPU time.
+            processCpuTime.ifPresent(cpuTime -> taskInfoOptional.get().getStats().getRuntimeStats()
+                    .addMetricValue("javaProcessCpuTime", RuntimeUnit.NANO, cpuTime));
+
+            SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfoOptional.get()));
+            taskInfoCollector.add(serializedTaskInfo);
+
+            // Update Spark Accumulators for spark internal metrics
+            PrestoSparkStatsCollectionUtils.collectMetrics(taskInfoOptional.get());
         }
-
-        // Record process-wide CPU time spent while executing this task. Since we run one task at a time,
-        // process-wide CPU time matches task's CPU time.
-        processCpuTime.ifPresent(cpuTime -> taskInfoOptional.get().getStats().getRuntimeStats()
-                .addMetricValue("javaProcessCpuTime", RuntimeUnit.NANO, cpuTime));
-
-        SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfoOptional.get()));
-        taskInfoCollector.add(serializedTaskInfo);
-
-        // Update Spark Accumulators for spark internal metrics
-        PrestoSparkStatsCollectionUtils.collectMetrics(taskInfoOptional.get());
+        finally {
+            // Stop after fetching final task info so task cleanup does not race with stats collection.
+            task.stop(success);
+        }
     }
 
     private static Optional<TaskInfo> tryGetTaskInfo(NativeExecutionTask task)
@@ -691,6 +701,15 @@ public class PrestoSparkNativeTaskExecutorFactory
             }
             else {
                 message = "Native execution process is dead";
+                // Record the exit code so a death with no crash banner (e.g. an OOM-kill) is still classifiable.
+                OptionalInt exitCode = process.getExitCode();
+                if (exitCode.isPresent()) {
+                    int code = exitCode.getAsInt();
+                    String signal = describeExitCode(code);
+                    message += signal.isEmpty()
+                            ? format(" (exit code %s)", code)
+                            : format(" (exit code %s %s)", code, signal);
+                }
                 String crashReport = process.getCrashReport();
                 if (!crashReport.isEmpty()) {
                     message += ":\n" + crashReport;
@@ -713,5 +732,21 @@ public class PrestoSparkNativeTaskExecutorFactory
         }
         PrestoTransportException transportException = (PrestoTransportException) failure;
         return TOO_MANY_REQUESTS_FAILED.toErrorCode().equals(transportException.getErrorCode());
+    }
+
+    // A process terminated by signal N exits with code 128 + N. Annotating the common native crash
+    // signals keeps a death with no crash banner (e.g. an OOM-kill) classifiable from the exit code alone.
+    private static String describeExitCode(int exitCode)
+    {
+        switch (exitCode) {
+            case 137:
+                return "SIGKILL - likely OOM-killed by the container";
+            case 139:
+                return "SIGSEGV";
+            case 134:
+                return "SIGABRT";
+            default:
+                return "";
+        }
     }
 }

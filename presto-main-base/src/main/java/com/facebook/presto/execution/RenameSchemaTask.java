@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_EXISTS;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -48,6 +49,10 @@ public class RenameSchemaTask
         CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()), metadata);
         CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), statement.getTarget().getValue());
         MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
+
+        if (!metadataResolver.catalogExists(source.getCatalogName())) {
+            throw new SemanticException(MISSING_CATALOG, "Catalog '%s' does not exist", source.getCatalogName());
+        }
 
         if (!metadataResolver.schemaExists(source)) {
             throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", source);

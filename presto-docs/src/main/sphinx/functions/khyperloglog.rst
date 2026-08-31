@@ -71,6 +71,6 @@ Functions
     Returns the ``KHyperLogLog`` of the aggregate union of the individual ``KHyperLogLog``
     structures.
 
-.. function:: merge_khll(array(khll)) -> KHyperLogLog
+.. function:: merge_khll(array[khll]) -> KHyperLogLog
 
     Returns the ``KHyperLogLog`` of the union of an array of KHyperLogLog structures.

@@ -74,7 +74,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabl
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTempPathEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.checkPartitionIsWritable;
-import static com.facebook.presto.hive.LocationHandle.TableType.TEMPORARY;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createPartitionValues;
@@ -404,9 +403,6 @@ public class HiveWriterFactory
                     bucketNumber.orElseGet(() -> abs(path.hashCode() % 1024)),
                     writerParameters.getWriteInfo().getTempPath());
         }
-
-        boolean writeTempData = locationHandle.getTableType() == TEMPORARY || locationHandle.getTempPath().isPresent() || writeToTempFile;
-
         return new HiveWriter(
                 hiveFileWriter,
                 partitionName,
@@ -415,8 +411,7 @@ public class HiveWriterFactory
                 writerParameters.getWriteInfo().getWritePath().toString(),
                 writerParameters.getWriteInfo().getTargetPath().toString(),
                 createCommitEventListener(path, partitionName, hiveFileWriter, writerParameters),
-                hiveWriterStats,
-                writeTempData);
+                hiveWriterStats);
     }
 
     private WriterParameters getWriterParameters(Optional<String> partitionName, OptionalInt bucketNumber)

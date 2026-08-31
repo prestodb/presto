@@ -119,6 +119,7 @@ MaterializedOutput::MaterializedOutput(
               kMinTargetSize,
               SystemConfig::instance()
                   ->exchangeMaterializationPartitioningRowBatchBufferSize())),
+      rowGroupMaxBytes_(buffer_->partitionDrainThreshold()),
       fixedRowSize_(
           row::CompactRow::fixedRowSize(
               std::dynamic_pointer_cast<const RowType>(
@@ -391,13 +392,20 @@ void MaterializedOutput::addInput(RowVectorPtr input) {
 
   output_.reset();
 
+  // Reserve drain headroom while this operator is reclaimable.
+  {
+    velox::exec::Operator::ReclaimableSectionGuard guard(this);
+    buffer_->ensureDrainMemoryHeadroom();
+  }
+
   if (flatBufferSize_ >= targetSizeInBytes_) {
     flushBatch();
   }
 }
 
-std::unique_ptr<folly::IOBuf> MaterializedOutput::buildRowGroup(
-    const std::vector<int32_t>& rowIndices) {
+void MaterializedOutput::flushRowGroup(
+    int32_t partition,
+    std::vector<int32_t>& rowIndices) {
   using TRowSize = serializer::TRowSize;
   const auto kHeaderSize = serializer::detail::RowGroupHeader::size();
 
@@ -429,7 +437,8 @@ std::unique_ptr<folly::IOBuf> MaterializedOutput::buildRowGroup(
     dest += rowSizes_[idx];
   }
   iobuf->append(totalBytes);
-  return iobuf;
+  buffer_->enqueue(partition, std::move(iobuf));
+  rowIndices.clear();
 }
 
 void MaterializedOutput::flushBatch() {
@@ -449,9 +458,24 @@ void MaterializedOutput::flushBatch() {
       continue;
     }
 
-    auto iobuf = buildRowGroup(rows);
+    std::vector<int32_t> rowGroupRows;
+    rowGroupRows.reserve(rows.size());
+    int64_t rowGroupBytes = serializer::detail::RowGroupHeader::size();
+    for (auto row : rows) {
+      const auto rowBytes =
+          static_cast<int64_t>(sizeof(serializer::TRowSize)) + rowSizes_[row];
+      if (!rowGroupRows.empty() &&
+          rowGroupBytes + rowBytes > rowGroupMaxBytes_) {
+        flushRowGroup(partition, rowGroupRows);
+        rowGroupBytes = serializer::detail::RowGroupHeader::size();
+      }
+      rowGroupRows.push_back(row);
+      rowGroupBytes += rowBytes;
+    }
 
-    buffer_->enqueue(partition, std::move(iobuf));
+    if (!rowGroupRows.empty()) {
+      flushRowGroup(partition, rowGroupRows);
+    }
   }
 
   // Reset accumulated state.
@@ -472,13 +496,11 @@ void MaterializedOutput::noMoreInput() {
 }
 
 BlockingReason MaterializedOutput::isBlocked(ContinueFuture* future) {
-  if (blockingReason_ != BlockingReason::kNotBlocked) {
-    *future = std::move(future_);
-    auto reason = blockingReason_;
-    blockingReason_ = BlockingReason::kNotBlocked;
-    return reason;
+  if (finished_) {
+    return BlockingReason::kNotBlocked;
   }
-  return BlockingReason::kNotBlocked;
+  // Drain at the high watermark or park until below the low watermark.
+  return buffer_->isBlocked(future);
 }
 
 bool MaterializedOutput::isFinished() {

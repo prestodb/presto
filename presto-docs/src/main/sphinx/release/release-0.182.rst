@@ -8,7 +8,7 @@ General Changes
 * Fix correctness issue that causes :func:`!corr` to return positive numbers for inverse correlations.
 * Fix the :doc:`/sql/explain` query plan for tables that are partitioned
   on ``TIMESTAMP`` or ``DATE`` columns.
-* Fix query failure when when using certain window functions that take arrays or maps as arguments (e.g., :func:`!approx_percentile`).
+* Fix query failure when using certain window functions that take arrays or maps as arguments (for example, :func:`!approx_percentile`).
 * Implement subtraction for all ``TIME`` and ``TIMESTAMP`` types.
 * Improve planning performance for queries that join multiple tables with
   a large number columns.

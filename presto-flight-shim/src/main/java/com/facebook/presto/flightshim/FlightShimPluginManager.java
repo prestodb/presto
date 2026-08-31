@@ -17,11 +17,14 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.resolver.ArtifactResolver;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.server.PluginInstaller;
@@ -41,10 +44,11 @@ import com.facebook.presto.type.TypeDeserializer;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
-import io.airlift.resolver.ArtifactResolver;
 import jakarta.annotation.PreDestroy;
 
 import java.io.File;
@@ -63,6 +67,7 @@ public class FlightShimPluginManager
     private static final Logger log = Logger.get(FlightShimPluginManager.class);
     private static final String SERVICES_FILE = "META-INF/services/" + Plugin.class.getName();
     private final ConnectorManager connectorManager;
+    private final CatalogManager catalogManager;
     private final Map<String, ConnectorCodecs> connectorCodecMap = new ConcurrentHashMap<>();
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -72,10 +77,12 @@ public class FlightShimPluginManager
     private final StaticCatalogStore staticCatalogStore;
     private final TypeDeserializer typeDeserializer;
     private final BlockEncodingManager blockEncodingManager;
+    private final Supplier<List<PluginManagerUtil.PluginClassLoaderHandle>> cachedPluginClassLoaders;
 
     @Inject
     public FlightShimPluginManager(
             ConnectorManager connectorManager,
+            CatalogManager catalogManager,
             StaticCatalogStore staticCatalogStore,
             PluginManagerConfig pluginManagerConfig,
             StaticCatalogStoreConfig catalogStoreConfig,
@@ -83,6 +90,7 @@ public class FlightShimPluginManager
             BlockEncodingManager blockEncodingManager)
     {
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
+        this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
         this.staticCatalogStore = requireNonNull(staticCatalogStore, "staticCatalogStore is null");
         requireNonNull(pluginManagerConfig, "pluginManagerConfig is null");
         requireNonNull(catalogStoreConfig, "catalogStoreConfig is null");
@@ -96,6 +104,7 @@ public class FlightShimPluginManager
             this.plugins = ImmutableList.copyOf(pluginManagerConfig.getPlugins());
         }
         this.resolver = new ArtifactResolver(pluginManagerConfig.getMavenLocalRepository(), pluginManagerConfig.getMavenRemoteRepository());
+        this.cachedPluginClassLoaders = Suppliers.memoize(this::createPluginClassLoaders);
     }
 
     @PreDestroy
@@ -110,15 +119,9 @@ public class FlightShimPluginManager
         PluginManagerUtil.loadPlugins(
                 pluginsLoading,
                 pluginsLoaded,
-                installedPluginsDir,
-                plugins,
                 null,
-                resolver,
-                SPI_PACKAGES,
-                null,
-                SERVICES_FILE,
                 this,
-                getClass().getClassLoader());
+                cachedPluginClassLoaders.get());
     }
 
     public void loadCatalogs(Map<String, Map<String, String>> additionalCatalogs)
@@ -129,7 +132,12 @@ public class FlightShimPluginManager
 
     public ConnectorCodecs getConnectorCodecs(String connectorId)
     {
-        return connectorCodecMap.get(connectorId);
+        Catalog catalog = catalogManager.getCatalog(connectorId).orElseThrow(() -> new IllegalArgumentException("Requested catalog not loaded: " + connectorId));
+        ConnectorCodecs connectorCodecs = connectorCodecMap.get(catalog.getCatalogContext().getConnectorName());
+        if (connectorCodecs == null) {
+            throw new IllegalArgumentException("Requested connector not loaded: " + catalog.getCatalogContext().getConnectorName());
+        }
+        return connectorCodecs;
     }
 
     @Override
@@ -208,6 +216,23 @@ public class FlightShimPluginManager
         JsonCodec<? extends ConnectorTransactionHandle> getCodecTransactionHandle()
         {
             return codecTransactionHandle;
+        }
+    }
+
+    private List<PluginManagerUtil.PluginClassLoaderHandle> createPluginClassLoaders()
+    {
+        try {
+            return PluginManagerUtil.buildClassLoaders(
+                    installedPluginsDir,
+                    plugins,
+                    resolver,
+                    SPI_PACKAGES,
+                    null,
+                    SERVICES_FILE,
+                    getClass().getClassLoader());
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to build plugin classloaders", e);
         }
     }
 }

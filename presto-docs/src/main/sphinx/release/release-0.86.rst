@@ -20,7 +20,7 @@ General Changes
 * Fix scheduling issue for queries involving tables from information_schema, which could result in
   inconsistent metadata.
 * Fix an issue with :func:`!min_by` and :func:`!max_by` that could result in an error when used with
-  a variable-length type (e.g., ``VARCHAR``) in a ``GROUP BY`` query.
+  a variable-length type (such as ``VARCHAR``) in a ``GROUP BY`` query.
 * Fix rendering of array attributes in JMX connector.
 * Input rows/bytes are now tracked properly for ``JOIN`` queries.
 * Fix case-sensitivity issue when resolving names of constant table expressions.

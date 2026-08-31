@@ -145,9 +145,19 @@ public final class ExpressionFormatter
         @Override
         protected String visitRow(Row node, Void context)
         {
-            return "ROW (" + Joiner.on(", ").join(node.getItems().stream()
-                    .map((child) -> process(child, context))
+            return "ROW (" + Joiner.on(", ").join(node.getFields().stream()
+                    .map((field) -> process(field, context))
                     .collect(toList())) + ")";
+        }
+
+        @Override
+        protected String visitRowField(Row.Field node, Void context)
+        {
+            String expression = process(node.getExpression(), context);
+            if (node.getName().isPresent()) {
+                return expression + " AS " + process(node.getName().get(), context);
+            }
+            return expression;
         }
 
         @Override

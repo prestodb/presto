@@ -251,33 +251,41 @@ public class TestBlackHoleSmoke
     public void testSelectAllTypes()
     {
         createBlackholeAllTypesTable();
-        MaterializedResult rows = queryRunner.execute("SELECT * FROM blackhole_all_types");
-        assertEquals(rows.getRowCount(), 1);
-        MaterializedRow row = Iterables.getOnlyElement(rows);
-        assertEquals(row.getFieldCount(), 13);
-        assertEquals(row.getField(0), "**********");
-        assertEquals(row.getField(1), 0L);
-        assertEquals(row.getField(2), 0);
-        assertEquals(row.getField(3), (short) 0);
-        assertEquals(row.getField(4), (byte) 0);
-        assertEquals(row.getField(5), 0.0f);
-        assertEquals(row.getField(6), 0.0);
-        assertEquals(row.getField(7), false);
-        assertEquals(row.getField(8), LocalDate.ofEpochDay(0));
-        assertEquals(row.getField(9), LocalDateTime.of(1969, 12, 31, 13, 0, 0)); // TODO #7122 should be 1970-01-01 00:00:00
-        assertEquals(row.getField(10), "****************".getBytes());
-        assertEquals(row.getField(11), new BigDecimal("0.00"));
-        assertEquals(row.getField(12), new BigDecimal("00000000000000000000.0000000000"));
-        dropBlackholeAllTypesTable();
+        try {
+            MaterializedResult rows = queryRunner.execute("SELECT * FROM blackhole_all_types");
+            assertEquals(rows.getRowCount(), 1);
+            MaterializedRow row = Iterables.getOnlyElement(rows);
+            assertEquals(row.getFieldCount(), 13);
+            assertEquals(row.getField(0), "**********");
+            assertEquals(row.getField(1), 0L);
+            assertEquals(row.getField(2), 0);
+            assertEquals(row.getField(3), (short) 0);
+            assertEquals(row.getField(4), (byte) 0);
+            assertEquals(row.getField(5), 0.0f);
+            assertEquals(row.getField(6), 0.0);
+            assertEquals(row.getField(7), false);
+            assertEquals(row.getField(8), LocalDate.ofEpochDay(0));
+            assertEquals(row.getField(9), LocalDateTime.of(1970, 1, 1, 0, 0, 0));
+            assertEquals(row.getField(10), "****************".getBytes());
+            assertEquals(row.getField(11), new BigDecimal("0.00"));
+            assertEquals(row.getField(12), new BigDecimal("00000000000000000000.0000000000"));
+        }
+        finally {
+            dropBlackholeAllTypesTable();
+        }
     }
 
     @Test
     public void testSelectWithUnenforcedConstraint()
     {
         createBlackholeAllTypesTable();
-        MaterializedResult rows = queryRunner.execute("SELECT * FROM blackhole_all_types where _bigint > 10");
-        assertEquals(rows.getRowCount(), 0);
-        dropBlackholeAllTypesTable();
+        try {
+            MaterializedResult rows = queryRunner.execute("SELECT * FROM blackhole_all_types where _bigint > 10");
+            assertEquals(rows.getRowCount(), 0);
+        }
+        finally {
+            dropBlackholeAllTypesTable();
+        }
     }
 
     private void createBlackholeAllTypesTable()

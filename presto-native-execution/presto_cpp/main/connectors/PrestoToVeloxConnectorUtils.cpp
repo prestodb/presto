@@ -836,6 +836,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
     const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
     const std::string& tableName,
     const protocol::List<protocol::Column>& dataColumns,
+    const std::vector<std::string>& indexColumns,
     const protocol::TableHandle& tableHandle,
     const std::vector<velox::connector::hive::HiveColumnHandlePtr>&
         columnHandles,
@@ -889,6 +890,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
       std::move(subfieldFilters),
       remainingFilter,
       finalDataColumns,
+      indexColumns,
       finalTableParameters,
       columnHandles);
 }

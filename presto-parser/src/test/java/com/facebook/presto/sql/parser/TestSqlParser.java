@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.ColumnPosition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
@@ -363,8 +364,47 @@ public class TestSqlParser
     public void testRowSubscript()
     {
         assertExpression("ROW (1, 'a', true)[1]", new SubscriptExpression(
-                new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true"))),
+                Row.unnamed(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true"))),
                 new LongLiteral("1")));
+    }
+
+    @Test
+    public void testRowFieldNames()
+    {
+        // all fields named, with and without the optional AS
+        assertExpression("ROW(1 AS a, 2 AS b)", new Row(ImmutableList.of(
+                rowField("a", new LongLiteral("1")),
+                rowField("b", new LongLiteral("2")))));
+        assertExpression("ROW(1 a, 2 b)", new Row(ImmutableList.of(
+                rowField("a", new LongLiteral("1")),
+                rowField("b", new LongLiteral("2")))));
+
+        // partially named
+        assertExpression("ROW(1 AS a, 2)", new Row(ImmutableList.of(
+                rowField("a", new LongLiteral("1")),
+                new Row.Field(new LongLiteral("2")))));
+
+        // no names at all is equivalent to the historical form
+        assertExpression("ROW(1, 2)", Row.unnamed(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))));
+
+        // the parenthesized form cannot declare names, so it stays anonymous
+        assertExpression("(1, 2)", Row.unnamed(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))));
+
+        // case is preserved as written, and delimited identifiers stay delimited
+        assertExpression("ROW(1 AS \"Mixed Case\")", new Row(ImmutableList.of(
+                new Row.Field(Optional.of(new Identifier("Mixed Case", true)), new LongLiteral("1")))));
+        assertExpression("ROW(1 AS Abc)", new Row(ImmutableList.of(
+                new Row.Field(Optional.of(new Identifier("Abc", false)), new LongLiteral("1")))));
+
+        // single field, and nesting
+        assertExpression("ROW(1 AS a)", new Row(ImmutableList.of(rowField("a", new LongLiteral("1")))));
+        assertExpression("ROW(ROW(1 AS a) AS b)", new Row(ImmutableList.of(
+                rowField("b", new Row(ImmutableList.of(rowField("a", new LongLiteral("1"))))))));
+    }
+
+    private static Row.Field rowField(String name, Expression expression)
+    {
+        return new Row.Field(Optional.of(new Identifier(name)), expression);
     }
 
     @Test
@@ -931,7 +971,7 @@ public class TestSqlParser
                         Optional.empty(),
                         new QuerySpecification(
                                 selectList(
-                                        new DereferenceExpression(new Cast(new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), "ROW(COL0 INTEGER,COL1 INTEGER)"), identifier("col0"))),
+                                        new DereferenceExpression(new Cast(Row.unnamed(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), "ROW(COL0 INTEGER,COL1 INTEGER)"), identifier("col0"))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -2092,6 +2132,42 @@ public class TestSqlParser
     }
 
     @Test
+    public void testAddColumnWithPosition()
+    {
+        // No clause at all leaves the position absent, so connectors keep the pre-existing append behavior
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"),
+                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), Optional.empty(), false, false));
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint FIRST", new AddColumn(QualifiedName.of("foo", "t"),
+                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.First()), false, false));
+
+        assertInvalidStatement("ALTER TABLE foo.t ADD COLUMN c bigint LAST", ".*mismatched input 'LAST'.*");
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint AFTER b", new AddColumn(QualifiedName.of("foo", "t"),
+                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.After(identifier("b"))), false, false));
+
+        // The clause composes with every other modifier of ADD COLUMN
+        assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN IF NOT EXISTS c bigint NOT NULL AFTER b",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("c"), "bigint", false, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.After(identifier("b"))), true, true));
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN country varchar DEFAULT 'IN' FIRST",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("IN"))),
+                        Optional.of(new ColumnPosition.First()), false, false));
+
+        // AFTER remains usable as an identifier, both as the new column name and as the target
+        assertStatement("ALTER TABLE foo.t ADD COLUMN after bigint AFTER after", new AddColumn(QualifiedName.of("foo", "t"),
+                new ColumnDefinition(identifier("after"), "bigint", true, emptyList(), Optional.empty()),
+                Optional.of(new ColumnPosition.After(identifier("after"))), false, false));
+
+        // A delimited target keeps its case
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint AFTER \"MixedCase\"", new AddColumn(QualifiedName.of("foo", "t"),
+                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()),
+                Optional.of(new ColumnPosition.After(new Identifier("MixedCase", true))), false, false));
+    }
+
+    @Test
     public void testAlterColumnSetDataType()
     {
         assertStatement("ALTER TABLE foo.t ALTER COLUMN c SET DATA TYPE BIGINT", new SetColumnType(
@@ -2749,12 +2825,19 @@ public class TestSqlParser
                                 new DereferenceExpression(new Identifier("t"), new Identifier("current_role"))),
                         table(QualifiedName.of("t"))));
 
+        // AFTER is a keyword only inside the ADD COLUMN position clause
+        assertStatement("SELECT after FROM t",
+                simpleQuery(
+                        selectList(new Identifier("after")),
+                        table(QualifiedName.of("t"))));
+
         assertExpression("stats", new Identifier("stats"));
         assertExpression("nfd", new Identifier("nfd"));
         assertExpression("nfc", new Identifier("nfc"));
         assertExpression("nfkd", new Identifier("nfkd"));
         assertExpression("nfkc", new Identifier("nfkc"));
         assertExpression("current_role", new Identifier("current_role"));
+        assertExpression("after", new Identifier("after"));
     }
 
     @Test

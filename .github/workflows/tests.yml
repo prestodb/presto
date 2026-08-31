@@ -11,6 +11,11 @@ env:
   MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end
   RETRY: .github/bin/retry
 
+concurrency:
+  # Cancel superseded in-progress runs for the same PR/branch to save CI capacity; never cancel master.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -25,10 +30,11 @@ jobs:
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
+          # Use a single extglob negation pattern instead of multiple negation
+          # list items. See https://github.com/prestodb/presto/pull/28052 for details.
           filters: |
             codechange:
-              - '!presto-docs/**'
-              - '!presto-native-execution/presto_cpp/**'
+              - '!(presto-docs{,/**}|presto-native-execution/presto_cpp{,/**})'
 
   test:
     runs-on: ubuntu-latest
@@ -71,6 +77,7 @@ jobs:
           - :presto-spark-base -P presto-spark-tests-all-queries
           - :presto-spark-base -P presto-spark-tests-spill-queries
           - :presto-iceberg
+          - :presto-iceberg -P test-iceberg-others
           - :presto-clickhouse -P ci
     timeout-minutes: 80
     concurrency:

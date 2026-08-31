@@ -19,6 +19,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           show-progress: false
           persist-credentials: false
+          allow-unsafe-pr-checkout: true
       - uses: sourcegraph/codenotify@54e4320f0d93f162a371d8d9dc1fb11018199746 # v0.6.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

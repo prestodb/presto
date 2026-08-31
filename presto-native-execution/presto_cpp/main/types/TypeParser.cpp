@@ -30,6 +30,18 @@ velox::TypePtr TypeParser::parse(const std::string& text) const {
       VELOX_UNSUPPORTED("Unsupported type: {}", text);
     }
   }
+  // Varchar-backed Presto logical types that have no Velox type. Native
+  // normally never parses these: PrestoToVeloxExpr unwraps the inline cast(...
+  // as <T>) (or, for LIKE, the cast(... as LikePattern)) down to the inner
+  // varchar. But when such a value is materialized into a projection column —
+  // e.g. a remote (RPC) function result feeding LIKE, regexp, or json_extract,
+  // where the optimizer hoists the constant pattern below the RPC node — the
+  // column's declared type and references to it reach this parser. Their
+  // runtime value is the varchar pattern/path, so resolve them to varchar.
+  if (text == "LikePattern" || text == "Re2JRegExp" || text == "JsonPath" ||
+      text == "CodePoints") {
+    return velox::VARCHAR();
+  }
   auto it = cache_.find(text);
   if (it != cache_.end()) {
     return it->second;

@@ -36,6 +36,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.geospatial.type.GeometryType;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.PrestoException;
@@ -52,6 +53,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -70,6 +72,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
 import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
+import static com.facebook.presto.hive.HiveType.HIVE_GEOMETRY;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
@@ -92,6 +95,7 @@ public final class TypeConverter
 {
     public static final String ORC_ICEBERG_ID_KEY = "iceberg.id";
     public static final String ORC_ICEBERG_REQUIRED_KEY = "iceberg.required";
+    private static final Pattern UNQUOTED_IDENTIFIER = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
 
     private TypeConverter() {}
 
@@ -118,6 +122,8 @@ public final class TypeConverter
                 return IntegerType.INTEGER;
             case TIME:
                 return TimeType.TIME;
+            case GEOMETRY:
+                return GeometryType.GEOMETRY;
             case TIMESTAMP:
                 Types.TimestampType timestampType = (Types.TimestampType) type.asPrimitiveType();
                 if (timestampType.shouldAdjustToUTC()) {
@@ -139,11 +145,16 @@ public final class TypeConverter
             case STRUCT:
                 List<Types.NestedField> fields = ((Types.StructType) type).fields();
                 return RowType.from(fields.stream()
-                        .map(field -> new RowType.Field(Optional.of(field.name()), toPrestoType(field.type(), typeManager)))
+                        .map(field -> new RowType.Field(Optional.of(field.name()), toPrestoType(field.type(), typeManager), needsDelimiting(field.name())))
                         .collect(toImmutableList()));
             default:
                 throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Presto type", type, type.typeId()));
         }
+    }
+
+    private static boolean needsDelimiting(String name)
+    {
+        return !UNQUOTED_IDENTIFIER.matcher(name).matches();
     }
 
     public static org.apache.iceberg.types.Type toIcebergType(
@@ -320,6 +331,9 @@ public final class TypeConverter
         }
         if (TimeType.TIME.equals(type)) {
             return HIVE_LONG.getTypeInfo();
+        }
+        if (GeometryType.GEOMETRY.equals(type)) {
+            return HIVE_GEOMETRY.getTypeInfo();
         }
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;

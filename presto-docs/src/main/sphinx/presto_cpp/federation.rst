@@ -15,7 +15,7 @@ information from the coordinator.
 Installing FlightShim
 ---------------------
 
-Download the Presto FlightShim tarball, :maven_download:`flight-shim`, and unpack it.
+Download the Presto FlightShim tarball, :maven_download:`flightshim`, and unpack it.
 The tarball will contain a single top-level directory,
 |presto_flight_shim_release|, which we will call the *installation* directory.
 
@@ -35,8 +35,6 @@ Similar to the installation of Presto, this will hold the following configuratio
   The available catalog configuration properties for a connector are described
   in the respective connector documentation.
 
-.. _jvm_configuration:
-
 JVM Configuration
 ^^^^^^^^^^^^^^^^^
 
@@ -55,8 +53,6 @@ The following provides an example of ``etc/jvm.config``.
     -Xmx12G
     --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED
 
-.. _configuration_properties:
-
 Configuration Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -72,8 +68,6 @@ The following provides an example of ``etc/flightshim.properties``.
     flight-shim.server-ssl-certificate-file=/path/to/server.crt
     flight-shim.server-ssl-key-file=/path/to/server.key
 
-.. _authentication:
-
 Authentication
 --------------
 
@@ -83,8 +77,6 @@ cert-key pair ``flight-shim.server-ssl-certificate-file`` and
 include the client cert file with ``client-ssl-certificate-file``. SSL is
 enabled by default, to disable SSL for an unsecure channel (for debugging
 purposes only) add the config ``flight-shim.server-ssl-enabled=false``.
-
-.. _worker_catalog_properties:
 
 Worker Catalog Properties
 -------------------------
@@ -103,7 +95,31 @@ The following provides an example of a worker PostgresSQL catalog ``etc/catalog/
     arrow-flight.server-ssl-enabled=true
     arrow-flight.server.verify=false
 
-.. _running_flightshim:
+mTLS Authentication
+^^^^^^^^^^^^^^^^^^^
+For mutual TLS (mTLS) authentication between the worker and FlightShim server, additional SSL certificate properties must be configured.
+This provides enhanced security by requiring both the client and server to authenticate each other.
+
+The following provides an example of a worker catalog with mTLS enabled:
+
+.. code-block:: none
+
+    connector.name=arrow-federation
+    protocol-connector.id=postgresql
+    arrow-flight.server=localhost
+    arrow-flight.server.port=9999
+    arrow-flight.server.verify=true
+    arrow-flight.server-ssl-enabled=true
+    arrow-flight.server-ssl-certificate=/path/to/server.crt
+    arrow-flight.client-ssl-certificate=/path/to/client.crt
+    arrow-flight.client-ssl-key=/path/to/client.key
+
+To enable mTLS, the following properties must be configured:
+
+- ``arrow-flight.server-ssl-certificate``: Path to the server's SSL certificate. Used by the client to verify the server's identity.
+- ``arrow-flight.client-ssl-certificate``: Path to the client's SSL certificate. Sent to the server for client authentication.
+- ``arrow-flight.client-ssl-key``: Path to the client's SSL private key file. Used to establish the secure connection.
+- ``arrow-flight.server.verify``: When set to true, enables certificate verification.
 
 Running FlightShim
 ------------------

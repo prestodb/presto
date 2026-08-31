@@ -9,7 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.24)
 
 # set the project name
 project(PrestoCpp)
@@ -37,6 +37,10 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "14.0.0")
     string(APPEND DISABLED_WARNINGS " -Wno-error=template-id-cdtor")
   endif()
+elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "AppleClang")
+  # Handle Apple toolchain Clang change of name of variable.
+  # Remove when upgrading to the latest FBOS version where this has been addressed.
+  add_compile_options(-D_LIBCPP_HAS_NO_ASAN)
 endif()
 
 # Important warnings that must be explicitly enabled.
@@ -142,7 +146,11 @@ find_package(gflags COMPONENTS shared)
 
 find_library(GLOG glog)
 
-find_library(FMT fmt)
+# Must precede find_package(folly), which transitively imports fmt via
+# folly-config.cmake's find_dependency(fmt). Use GLOBAL so the imported
+# target's directory scope doesn't trip (GPU) rapids-cmake's make_global() when
+# cudf is later configured under add_subdirectory(velox).
+find_package(fmt CONFIG REQUIRED GLOBAL)
 
 find_library(EVENT event)
 # On macOS, explicitly find and add libevent include directory to handle
@@ -226,9 +234,7 @@ include_directories(${CMAKE_BINARY_DIR})
 # set this for backwards compatibility, will be overwritten in velox/
 set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
 
-# Do not use the Mono library because it causes link errors.
-set(VELOX_MONO_LIBRARY OFF CACHE BOOL "Build Velox mono library")
-
+set(VELOX_MONO_LIBRARY ON CACHE BOOL "Build Velox mono library")
 add_subdirectory(velox)
 
 if(PRESTO_ENABLE_TESTING)

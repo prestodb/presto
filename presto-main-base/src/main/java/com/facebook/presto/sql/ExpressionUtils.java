@@ -347,7 +347,7 @@ public final class ExpressionUtils
         }
         Expression processedExpression = removeExpressionPrefix(singleColumn.getExpression(), removablePrefix);
         if (processedExpression != singleColumn.getExpression()) {
-            return new SingleColumn(removeExpressionPrefix(singleColumn.getExpression(), removablePrefix), singleColumn.getAlias());
+            return new SingleColumn(processedExpression, singleColumn.getAlias());
         }
         return singleColumn;
     }
@@ -386,7 +386,7 @@ public final class ExpressionUtils
             if (processedArgument != argument) {
                 prefixRemoved = true;
             }
-            rewrittenArguments.add(removeExpressionPrefix(argument, removablePrefix));
+            rewrittenArguments.add(processedArgument);
         }
         if (prefixRemoved) {
             return new FunctionCall(

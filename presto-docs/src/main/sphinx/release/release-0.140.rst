@@ -18,7 +18,7 @@ General Changes
   being evaluated more than once producing unexpected results.
 * Fix incorrect result for rare ``IN`` lists that contain certain combinations
   of non-constant expressions that are null and non-null.
-* Improve performance of joins, aggregations, etc. by removing unnecessarily
+* Improve performance of joins, aggregations, and other operations by removing unnecessarily
   duplicated columns.
 * Optimize ``NOT IN`` queries to produce more compact predicates.
 

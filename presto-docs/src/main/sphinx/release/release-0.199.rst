@@ -21,11 +21,11 @@ General Changes
   ``d`` is of type ``INTEGER``. Previously, ``d`` could be of type ``BIGINT``.
   This behavior can be restored with the ``deprecated.legacy-round-n-bigint`` config option
   or the ``legacy_round_n_bigint`` session property.
-* Accessing anonymous row fields via ``.field0``, ``.field1``, etc., is no longer allowed.
+* Accessing anonymous row fields by using ``.field0``, ``.field1``, ``.field(n)`` is no longer allowed.
   This behavior can be restored with the ``deprecated.legacy-row-field-ordinal-access``
   config option or the ``legacy_row_field_ordinal_access`` session property.
 * Optimize the :func:`!ST_Intersection` function for rectangles aligned with coordinate axes
-  (e.g., polygons produced by the :func:`!ST_Envelope` and :func:`!bing_tile_polygon` functions).
+  (for example, polygons produced by the :func:`!ST_Envelope` and :func:`!bing_tile_polygon` functions).
 * Finish joins early when possible if one side has no rows. This happens for
   either side of an inner join, for the left side of a left join, and for the
   right side of a right join.
@@ -65,10 +65,10 @@ Hive Changes
 * Partitioned tables now have a hidden system table that contains the partition values.
   A table named ``example`` will have a partitions table named ``example$partitions``.
   This provides the same functionality and data as ``SHOW PARTITIONS``.
-* Partition name listings, both via the ``$partitions`` table and using
+* Partition name listings, both by using the ``$partitions`` table and using
   ``SHOW PARTITIONS``, are no longer subject to the limit defined by the
   ``hive.max-partitions-per-scan`` config option.
-* Allow marking partitions as offline via the ``presto_offline`` partition property.
+* Allow marking partitions as offline with the ``presto_offline`` partition property.
 
 Thrift Connector Changes
 ------------------------

@@ -70,6 +70,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
@@ -225,6 +226,7 @@ import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_ROW_LINEAGE;
+import static com.facebook.presto.iceberg.IcebergUtil.buildColumnMetadata;
 import static com.facebook.presto.iceberg.IcebergUtil.convertToIcebergLiteral;
 import static com.facebook.presto.iceberg.IcebergUtil.createDomainFromIcebergPartitionValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
@@ -404,7 +406,7 @@ public abstract class IcebergAbstractMetadata
 
     protected abstract boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName);
 
-    public abstract void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation);
+    public abstract void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation, boolean deleteDataOnDrop);
 
     public abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
 
@@ -675,13 +677,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
-        return ColumnMetadata.builder()
-                .setName(column.getName())
-                .setType(column.getType())
-                .setComment(column.getComment().orElse(null))
-                .setHidden(false)
-                .build();
+        return buildColumnMetadata((IcebergColumnHandle) columnHandle);
     }
 
     @Override
@@ -698,7 +694,7 @@ public abstract class IcebergAbstractMetadata
         return finishInsert(session, (IcebergOutputTableHandle) tableHandle, fragments);
     }
 
-    protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable)
+    protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable, List<String> insertColumnNames)
     {
         validateBranchExists(table, icebergTable);
         return new IcebergInsertTableHandle(
@@ -712,7 +708,8 @@ public abstract class IcebergAbstractMetadata
                 getCompressionCodec(session),
                 icebergTable.properties(),
                 getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
-                Optional.empty());
+                Optional.empty(),
+                insertColumnNames);
     }
 
     public static List<SortField> getSupportedSortFields(Schema schema, SortOrder sortOrder)
@@ -1254,8 +1251,22 @@ public abstract class IcebergAbstractMetadata
         }
     }
 
+    /**
+     * All the logic lives in the position-aware overload below, which this delegates to with
+     * {@link ColumnPosition.Last}. The engine only ever calls that overload, so a subclass that needs to
+     * customize {@code addColumn} must override it; overriding only this three-argument form would leave the
+     * subclass bypassed for every {@code ADD COLUMN} statement, positioned or not. Note that the
+     * {@code ConnectorMetadata} default for the position-aware overload delegates back to this
+     * three-argument form for {@code Last}, so a subclass must not reintroduce that direction of delegation.
+     */
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    {
+        addColumn(session, tableHandle, column, new ColumnPosition.Last());
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         if (!column.isNullable() && !column.getDefaultValue().isPresent()) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support add column with non null");
@@ -1273,11 +1284,14 @@ public abstract class IcebergAbstractMetadata
                     "Table '%s' is currently at format version %d. ", handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion(), handle.getSchemaTableName()));
             Object defaultValue = column.getDefaultValue().get();
             Literal<?> defaultLiteral = convertToIcebergLiteral(defaultValue, columnType);
-            updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null), defaultLiteral).commit();
+            updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null), defaultLiteral);
         }
         else {
-            updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null)).commit();
+            updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null));
         }
+        // The move is staged on the same UpdateSchema as the add, so the column is added and positioned in a single commit
+        applyColumnPosition(updateSchema, icebergTable.schema(), column.getName(), position);
+        updateSchema.commit();
         if (column.getProperties().containsKey(PARTITIONING_PROPERTY)) {
             List<String> partitioningTransform = (List<String>) column.getProperties().get(PARTITIONING_PROPERTY);
             UpdatePartitionSpec updatePartitionSpec = icebergTable.updateSpec();
@@ -1287,6 +1301,68 @@ public abstract class IcebergAbstractMetadata
             }
             updatePartitionSpec.commit();
         }
+    }
+
+    /**
+     * Stages the {@code FIRST | AFTER <column>} move for a newly added column on the given
+     * {@link UpdateSchema}. {@link ColumnPosition.Last}, which is what an omitted clause resolves to,
+     * is a no-op, because Iceberg appends by default.
+     * {@code schema} is the table schema before the add, which is where an {@code AFTER} target must exist.
+     */
+    private static void applyColumnPosition(UpdateSchema updateSchema, Schema schema, String columnName, ColumnPosition position)
+    {
+        if (position instanceof ColumnPosition.Last) {
+            return;
+        }
+        if (position instanceof ColumnPosition.First) {
+            updateSchema.moveFirst(columnName);
+            return;
+        }
+        if (position instanceof ColumnPosition.After) {
+            String afterColumnName = ((ColumnPosition.After) position).getColumnName();
+            // The engine lowercases the target name, while an Iceberg field keeps whatever case the table was
+            // created with, so the lookup has to be case-insensitive to match the name SHOW COLUMNS reports.
+            // Only the top-level columns are scanned, rather than using Schema.caseInsensitiveFindField: that
+            // builds a lower-case index over the whole schema, which resolves dotted paths to nested fields
+            // whose leaf name would be wrong here, and throws outright if any two fields anywhere in the table
+            // differ only by case.
+            //
+            // A name that does not resolve is rejected here rather than passed to moveAfter, which would raise
+            // an IllegalArgumentException for a name it cannot find. The engine already rejects a target that
+            // is not a real column, so this is the guard for a caller that goes through the SPI directly.
+            //
+            // A dotted name (e.g. "struct_col.nested") is a valid nested-field path in Iceberg but not a valid
+            // AFTER target: the AFTER clause positions a column among its siblings at the same nesting level,
+            // so only a top-level column name is accepted here.
+            if (afterColumnName.contains(".")) {
+                throw new PrestoException(COLUMN_NOT_FOUND, format(
+                        "Column '%s' does not exist as a top-level column. The AFTER clause requires a top-level column name, not a nested field path.",
+                        afterColumnName));
+            }
+            NestedField afterColumn = findTopLevelColumn(schema, afterColumnName)
+                    .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND, format("Column '%s' does not exist", afterColumnName)));
+            updateSchema.moveAfter(columnName, afterColumn.name());
+            return;
+        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column position: " + position);
+    }
+
+    /**
+     * Finds a top-level column of {@code schema} by name, preferring an exact match over a case-insensitive
+     * one, so that a table whose top-level columns differ only by case resolves deterministically rather than
+     * by whatever order the fields happen to be in.
+     */
+    private static Optional<NestedField> findTopLevelColumn(Schema schema, String columnName)
+    {
+        Optional<NestedField> exactMatch = schema.columns().stream()
+                .filter(field -> field.name().equals(columnName))
+                .findFirst();
+        if (exactMatch.isPresent()) {
+            return exactMatch;
+        }
+        return schema.columns().stream()
+                .filter(field -> field.name().equalsIgnoreCase(columnName))
+                .findFirst();
     }
 
     @Override
@@ -1351,14 +1427,14 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> insertColumnNames)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         verify(table.getIcebergTableName().getTableType() == DATA, "only the data table can have data inserted");
         Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
         validateTableMode(session, icebergTable);
 
-        return beginIcebergTableInsert(session, table, icebergTable);
+        return beginIcebergTableInsert(session, table, icebergTable, insertColumnNames);
     }
 
     @Override
@@ -1573,7 +1649,7 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
         RowDelta rowDelta = icebergTable.newRowDelta();
-
+        handle.getIcebergTableName().getSnapshotId().ifPresent(rowDelta::validateFromSnapshot);
         Optional<String> branchName = handle.getIcebergTableName().getBranchName();
         if (branchName.isPresent()) {
             rowDelta.toBranch(branchName.get());
@@ -1754,7 +1830,7 @@ public abstract class IcebergAbstractMetadata
             }
             else if (tableVersion.getVersionExpressionType() instanceof TimestampType) {
                 long timestampValue = (long) tableVersion.getTableVersion();
-                long millisUtc = ((TimestampType) tableVersion.getVersionExpressionType()).getPrecision().toMillis(timestampValue);
+                long millisUtc = ((TimestampType) tableVersion.getVersionExpressionType()).toEpochMillis(timestampValue);
                 return getSnapshotIdTimeOperator(table, millisUtc, tableVersion.getVersionOperator());
             }
             else if (tableVersion.getVersionExpressionType() instanceof BigintType) {

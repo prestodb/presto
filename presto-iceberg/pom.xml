@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.299-SNAPSHOT</version>
+        <version>0.300-SNAPSHOT</version>
     </parent>
     <artifactId>presto-iceberg</artifactId>
     <name>presto-iceberg</name>
@@ -537,6 +537,16 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-geospatial-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.esri.geometry</groupId>
+            <artifactId>esri-geometry-api</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
             <scope>provided</scope>
@@ -788,6 +798,15 @@
             <artifactId>commons-math3</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -800,8 +819,7 @@
                         <ignoredNonTestScopedDependency>com.facebook.airlift:node</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>org.projectnessie.nessie:nessie-model</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>org.apache.httpcomponents.core5:httpcore5</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.amazonaws:aws-java-sdk-s3</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.amazonaws:aws-java-sdk-core</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>commons-io:commons-io</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                     <!--                    <ignoredUsedUndeclaredDependencies>-->
                     <!--                        &lt;!&ndash; Ignore these because they are picked up as false-positives when configuring logging in the IcebergQueryRunner &ndash;&gt;-->
@@ -854,4 +872,52 @@
             </plugins>
         </pluginManagement>
     </build>
+
+    <profiles>
+        <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestIcebergSmoke*.java</include>
+                                <include>**/TestIcebergDistributed*.java</include>
+                                <include>**/TestIcebergHadoopCatalog*.java</include>
+                                <include>**/TestIcebergHiveCatalog*.java</include>
+                                <include>**/TestIcebergNessie*.java</include>
+                                <include>**/TestIcebergRestCatalog*.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-iceberg-others</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/TestIcebergSmoke*.java</exclude>
+                                <exclude>**/TestIcebergDistributed*.java</exclude>
+                                <exclude>**/TestIcebergHadoopCatalog*.java</exclude>
+                                <exclude>**/TestIcebergHiveCatalog*.java</exclude>
+                                <exclude>**/TestIcebergNessie*.java</exclude>
+                                <exclude>**/TestIcebergRestCatalog*.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

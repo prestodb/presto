@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.ColumnPosition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateBranch;
@@ -1549,6 +1550,18 @@ public final class SqlFormatter
                 builder.append("IF NOT EXISTS ");
             }
             builder.append(formatColumnDefinition(node.getColumn()));
+            node.getPosition().ifPresent(position -> {
+                if (position instanceof ColumnPosition.First) {
+                    builder.append(" FIRST");
+                }
+                else if (position instanceof ColumnPosition.After) {
+                    builder.append(" AFTER ")
+                            .append(formatName(((ColumnPosition.After) position).getColumn()));
+                }
+                else {
+                    throw new UnsupportedOperationException("Unsupported column position: " + position);
+                }
+            });
 
             return null;
         }
@@ -1655,14 +1668,22 @@ public final class SqlFormatter
         {
             builder.append("ROW(");
             boolean firstItem = true;
-            for (Expression item : node.getItems()) {
+            for (Row.Field field : node.getFields()) {
                 if (!firstItem) {
                     builder.append(", ");
                 }
-                process(item, indent);
+                process(field, indent);
                 firstItem = false;
             }
             builder.append(")");
+            return null;
+        }
+
+        @Override
+        protected Void visitRowField(Row.Field node, Integer indent)
+        {
+            builder.append(formatExpression(node.getExpression(), parameters));
+            node.getName().ifPresent(name -> builder.append(" AS ").append(formatExpression(name, parameters)));
             return null;
         }
 

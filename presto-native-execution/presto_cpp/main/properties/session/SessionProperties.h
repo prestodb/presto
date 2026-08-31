@@ -59,6 +59,28 @@ class SessionProperties : public SessionPropertiesProvider {
 
   static constexpr const char* kMaxSpillBytes = "native_max_spill_bytes";
 
+  /// Enable the adaptive per-tier RPC rate limiter on the native worker.
+  static constexpr const char* kRpcRateLimiterAdaptiveEnabled =
+      "native_rpc_ratelimiter_adaptive_enabled";
+
+  /// Minimum value the adaptive RPC rate limiter's per-tier max-pending cap may
+  /// shrink to under sustained overload.
+  static constexpr const char* kRpcRateLimiterMinLimit =
+      "native_rpc_ratelimiter_min_limit";
+
+  /// Multiplicative-decrease factor for the adaptive RPC rate limiter's
+  /// per-tier max-pending cap on each overload-classified drain.
+  static constexpr const char* kRpcRateLimiterDecreaseFactor =
+      "native_rpc_ratelimiter_decrease_factor";
+
+  /// Ceiling for the per-tier RPC rate-limiter max-pending cap.
+  static constexpr const char* kRpcRateLimiterMaxLimit =
+      "native_rpc_ratelimiter_max_limit";
+
+  /// Ceiling for the per-driver RPC congestion window (0 = per-mode default).
+  static constexpr const char* kRpcCongestionMaxWindow =
+      "native_rpc_congestion_max_window";
+
   /// Enable row number spilling on native engine.
   static constexpr const char* kRowNumberSpillEnabled =
       "native_row_number_spill_enabled";
@@ -112,6 +134,17 @@ class SessionProperties : public SessionPropertiesProvider {
   /// Enable topN row number spilling on native engine.
   static constexpr const char* kTopNRowNumberSpillEnabled =
       "native_topn_row_number_spill_enabled";
+
+  /// Number of rows accumulated by the partial TopNRowNumber operator before
+  /// checking whether to abandon it.
+  static constexpr const char* kAbandonPartialTopNRowNumberMinRows =
+      "native_abandon_partial_topn_row_number_min_rows";
+
+  /// Percentage of accumulated input rows still retained by the partial
+  /// TopNRowNumber operator at or above which the operator is abandoned and
+  /// degrades to pass-through.
+  static constexpr const char* kAbandonPartialTopNRowNumberMinPct =
+      "native_abandon_partial_topn_row_number_min_pct";
 
   /// If set to true, then during execution of tasks, the output vectors of
   /// every operator are validated for consistency. This is an expensive check

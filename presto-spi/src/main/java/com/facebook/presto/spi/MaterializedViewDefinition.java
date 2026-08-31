@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -123,6 +124,7 @@ public final class MaterializedViewDefinition
                 convertFromMapToColumnMappings(
                         requireNonNull(originalColumnMapping, "originalColumnMapping is null"),
                         requireNonNull(nonNullColumnMappings, "nonNullColumnMappings is null"),
+                        Collections.emptyMap(),
                         new SchemaTableName(schema, table)),
                 baseTablesOnOuterJoinSide,
                 validRefreshColumns,
@@ -152,9 +154,43 @@ public final class MaterializedViewDefinition
                 baseTableCatalogs,
                 owner,
                 securityMode,
+                originalColumnMapping,
+                nonNullColumnMappings,
+                Collections.emptyMap(),
+                baseTablesOnOuterJoinSide,
+                validRefreshColumns);
+    }
+
+    // Derived (expression/aggregation) view columns are appended to columnMappings flagged
+    // isDerived: visible to lineage consumers but excluded from the map accessors used by
+    // partition/refresh logic.
+    @JsonIgnore
+    public MaterializedViewDefinition(
+            String originalSql,
+            String schema,
+            String table,
+            List<SchemaTableName> baseTables,
+            Optional<List<String>> baseTableCatalogs,
+            Optional<String> owner,
+            Optional<ViewSecurity> securityMode,
+            Map<String, Map<SchemaTableName, String>> originalColumnMapping,
+            Map<String, Map<SchemaTableName, String>> nonNullColumnMappings,
+            Map<String, List<TableColumn>> derivedColumnMappings,
+            List<SchemaTableName> baseTablesOnOuterJoinSide,
+            Optional<List<String>> validRefreshColumns)
+    {
+        this(
+                originalSql,
+                schema,
+                table,
+                baseTables,
+                baseTableCatalogs,
+                owner,
+                securityMode,
                 convertFromMapToColumnMappings(
                         requireNonNull(originalColumnMapping, "originalColumnMapping is null"),
                         requireNonNull(nonNullColumnMappings, "nonNullColumnMappings is null"),
+                        requireNonNull(derivedColumnMappings, "derivedColumnMappings is null"),
                         new SchemaTableName(schema, table)),
                 baseTablesOnOuterJoinSide,
                 validRefreshColumns,
@@ -258,6 +294,7 @@ public final class MaterializedViewDefinition
     public Map<String, Map<SchemaTableName, String>> getColumnMappingsAsMap()
     {
         return columnMappings.stream()
+                .filter(mapping -> !mapping.isDerived())
                 .collect(toMap(
                         mapping -> mapping.getViewColumn().getColumnName(),
                         mapping -> mapping.getBaseTableColumns().stream().collect(toMap(TableColumn::getTableName, TableColumn::getColumnName))));
@@ -267,13 +304,14 @@ public final class MaterializedViewDefinition
     public Map<String, Map<SchemaTableName, String>> getDirectColumnMappingsAsMap()
     {
         return columnMappings.stream()
+                .filter(mapping -> !mapping.isDerived())
                 .collect(toMap(
                         mapping -> mapping.getViewColumn().getColumnName(),
                         mapping -> mapping.getBaseTableColumns().stream().filter(col -> col.isDirectMapped().orElse(true)).collect(toMap(TableColumn::getTableName, TableColumn::getColumnName))));
     }
 
     @JsonIgnore
-    private static List<ColumnMapping> convertFromMapToColumnMappings(Map<String, Map<SchemaTableName, String>> originalColumnMappings, Map<String, Map<SchemaTableName, String>> directColumnMappings, SchemaTableName sourceTable)
+    private static List<ColumnMapping> convertFromMapToColumnMappings(Map<String, Map<SchemaTableName, String>> originalColumnMappings, Map<String, Map<SchemaTableName, String>> directColumnMappings, Map<String, List<TableColumn>> derivedColumnMappings, SchemaTableName sourceTable)
     {
         List<ColumnMapping> columnMappingList = new ArrayList<>();
 
@@ -291,6 +329,15 @@ public final class MaterializedViewDefinition
             columnMappingList.add(new ColumnMapping(viewColumn, unmodifiableList(baseTableColumns)));
         }
 
+        for (Map.Entry<String, List<TableColumn>> derived : derivedColumnMappings.entrySet()) {
+            // Skip columns already covered by the 1:1 origin-based mapping above.
+            if (originalColumnMappings.containsKey(derived.getKey())) {
+                continue;
+            }
+            TableColumn viewColumn = new TableColumn(sourceTable, derived.getKey(), true);
+            columnMappingList.add(new ColumnMapping(viewColumn, unmodifiableList(new ArrayList<>(derived.getValue())), true));
+        }
+
         return unmodifiableList(columnMappingList);
     }
 
@@ -298,14 +345,23 @@ public final class MaterializedViewDefinition
     {
         private final TableColumn viewColumn;
         private final List<TableColumn> baseTableColumns;
+        // True for expression/aggregation columns; excluded from the map accessors.
+        private final boolean isDerived;
 
         @JsonCreator
         public ColumnMapping(
                 @JsonProperty("viewColumn") TableColumn viewColumn,
-                @JsonProperty("baseTableColumns") List<TableColumn> baseTableColumns)
+                @JsonProperty("baseTableColumns") List<TableColumn> baseTableColumns,
+                @JsonProperty("isDerived") boolean isDerived)
         {
             this.viewColumn = requireNonNull(viewColumn, "viewColumn is null");
             this.baseTableColumns = unmodifiableList(new ArrayList<>(requireNonNull(baseTableColumns, "baseTableColumns is null")));
+            this.isDerived = isDerived;
+        }
+
+        public ColumnMapping(TableColumn viewColumn, List<TableColumn> baseTableColumns)
+        {
+            this(viewColumn, baseTableColumns, false);
         }
 
         @JsonProperty
@@ -320,12 +376,19 @@ public final class MaterializedViewDefinition
             return baseTableColumns;
         }
 
+        @JsonProperty(value = "isDerived")
+        public boolean isDerived()
+        {
+            return isDerived;
+        }
+
         @Override
         public String toString()
         {
             StringBuilder sb = new StringBuilder("ColumnMapping{");
             sb.append("viewColumn=").append(viewColumn);
             sb.append(",baseTableColumns=").append(baseTableColumns);
+            sb.append(",isDerived=").append(isDerived);
             sb.append("}");
             return sb.toString();
         }
