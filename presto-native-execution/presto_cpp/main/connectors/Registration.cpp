@@ -38,6 +38,9 @@ namespace {
 
 constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
 constexpr char const* kIcebergConnectorName = "iceberg";
+#ifdef PRESTO_ENABLE_CUDF
+constexpr char const* kCudfIcebergConnectorName = "cudf-iceberg";
+#endif
 
 using ConnectorRegistry =
     std::unordered_map<std::string, std::function<void(const std::string&)>>;
@@ -53,6 +56,13 @@ const ConnectorRegistry& prestoToVeloxConnectorsRegistry() {
          registerPrestoToVeloxConnector(
              std::make_unique<IcebergPrestoToVeloxConnector>(connectorId));
        }},
+#ifdef PRESTO_ENABLE_CUDF
+      {kCudfIcebergConnectorName,
+       [](const std::string& connectorId) {
+         registerPrestoToVeloxConnector(
+             std::make_unique<IcebergPrestoToVeloxConnector>(connectorId));
+       }},
+#endif
       {velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName,
        [](const std::string& connectorId) {
          registerPrestoToVeloxConnector(
@@ -120,8 +130,7 @@ void registerConnectors() {
   // with connector.name=cudf-iceberg coexist with CPU iceberg catalogs.
   registerPrestoToVeloxConnector(
       std::make_unique<IcebergPrestoToVeloxConnector>(
-          velox::cudf_velox::connector::hive::iceberg::
-              CudfIcebergConnectorFactory::kCudfIcebergConnectorName));
+          kCudfIcebergConnectorName));
 #endif
   registerPrestoToVeloxConnector(
       std::make_unique<TpchPrestoToVeloxConnector>(
@@ -203,7 +212,8 @@ void registerConnectorFactories() {
   // opt into GPU-accelerated Iceberg reads via connector.name=cudf-iceberg.
   facebook::presto::registerConnectorFactory(
       std::make_shared<facebook::velox::cudf_velox::connector::hive::iceberg::
-                           CudfIcebergConnectorFactory>());
+                           CudfIcebergConnectorFactory>(
+          kCudfIcebergConnectorName));
 #endif
 
 #ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
