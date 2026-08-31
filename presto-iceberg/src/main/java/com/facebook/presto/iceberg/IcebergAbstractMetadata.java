@@ -93,6 +93,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicates;
 import com.google.common.base.VerifyException;
@@ -1569,6 +1570,148 @@ public abstract class IcebergAbstractMetadata
         icebergTable.updateSchema()
                 .updateColumnDefault(columnName, defaultLiteral)
                 .commit();
+    }
+
+    @Override
+    public void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have fields dropped");
+        validateNoBranchSpecified(handle, "DROP COLUMN");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        // Iceberg's deleteColumn() is case-sensitive, so resolve the field first and use its canonical name
+        Optional<NestedField> resolvedField = resolveFieldToDrop(icebergTable.schema(), fieldPath, ignoreNonExistent, handle.getSchemaTableName());
+        if (!resolvedField.isPresent()) {
+            return;
+        }
+        Types.NestedField field = resolvedField.get();
+        String dottedPath = String.join(".", fieldPath);
+        String canonicalPath = icebergTable.schema().findColumnName(field.fieldId());
+
+        // Reject dropping a field referenced by any partition spec (current or historical).
+        // See https://github.com/apache/iceberg/issues/4563
+        long fieldId = field.fieldId();
+        boolean isPartitionField = icebergTable.specs().values().stream()
+                .flatMap(spec -> spec.fields().stream())
+                .anyMatch(partField -> partField.sourceId() == fieldId);
+        if (isPartitionField) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("Cannot drop field '%s' which is used by a partition spec", dottedPath));
+        }
+
+        try {
+            icebergTable.updateSchema().deleteColumn(canonicalPath).commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to drop field: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    /**
+     * Resolves the field that {@code fieldPath} names, walking one level at a time from the root of the schema.
+     * An exact name match is preferred, then a case-insensitive match among the siblings of that level only, so a
+     * case collision elsewhere in the schema cannot affect the lookup (unlike {@link Schema#caseInsensitiveFindField}).
+     * <p>
+     * The path may pass through struct fields, list elements ({@code .element}) and map values ({@code .value}).
+     * {@code element}, {@code key} and {@code value} are only treated as collection steps when the type being
+     * traversed is a list or map; in a struct they are ordinary field names.
+     *
+     * @return the field to drop, or empty if it does not exist and {@code ignoreNonExistent} is set
+     */
+    @VisibleForTesting
+    static Optional<NestedField> resolveFieldToDrop(Schema schema, List<String> fieldPath, boolean ignoreNonExistent, SchemaTableName tableName)
+    {
+        Type currentType = schema.asStruct();
+        Types.StructType containingStruct = null;
+        NestedField field = null;
+
+        for (int i = 0; i < fieldPath.size(); i++) {
+            String segment = fieldPath.get(i);
+            boolean isLast = i == fieldPath.size() - 1;
+
+            if (currentType.isStructType()) {
+                Optional<NestedField> child = findFieldToDrop(currentType.asStructType(), segment, String.join(".", fieldPath.subList(0, i + 1)), tableName);
+                if (!child.isPresent()) {
+                    if (ignoreNonExistent) {
+                        return Optional.empty();
+                    }
+                    if (isLast) {
+                        throw new PrestoException(COLUMN_NOT_FOUND,
+                                format("Field '%s' does not exist in table '%s'", String.join(".", fieldPath), tableName));
+                    }
+                    throw new PrestoException(COLUMN_NOT_FOUND,
+                            format("Cannot find parent field '%s' in table '%s'", String.join(".", fieldPath.subList(0, i + 1)), tableName));
+                }
+                containingStruct = currentType.asStructType();
+                field = child.get();
+                currentType = field.type();
+            }
+            else if (currentType.isListType()) {
+                if (!segment.equalsIgnoreCase("element")) {
+                    throw notStructParent(fieldPath, i, tableName);
+                }
+                if (isLast) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            format("Cannot drop the element of list '%s' in table '%s'", String.join(".", fieldPath.subList(0, i)), tableName));
+                }
+                currentType = currentType.asListType().elementType();
+            }
+            else if (currentType.isMapType()) {
+                if (segment.equalsIgnoreCase("key")) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            format("Cannot drop or traverse the key of map '%s' in table '%s'", String.join(".", fieldPath.subList(0, i)), tableName));
+                }
+                if (!segment.equalsIgnoreCase("value")) {
+                    throw notStructParent(fieldPath, i, tableName);
+                }
+                if (isLast) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            format("Cannot drop the value of map '%s' in table '%s'", String.join(".", fieldPath.subList(0, i)), tableName));
+                }
+                currentType = currentType.asMapType().valueType();
+            }
+            else {
+                throw notStructParent(fieldPath, i, tableName);
+            }
+        }
+
+        // Reject dropping the last field from a nested struct. Iceberg permits empty structs but
+        // Presto's RowType requires at least one field, so the table would become permanently
+        // unreadable (DESCRIBE and SELECT both throw) after such a drop.
+        if (fieldPath.size() > 1 && containingStruct.fields().size() == 1) {
+            String canonicalPath = schema.findColumnName(field.fieldId());
+            int lastDot = canonicalPath.lastIndexOf('.');
+            String canonicalParentPath = lastDot > 0 ? canonicalPath.substring(0, lastDot) : "";
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("Cannot drop the only field '%s' in row type: %s", fieldPath.get(fieldPath.size() - 1), canonicalParentPath));
+        }
+        return Optional.of(field);
+    }
+
+    private static Optional<NestedField> findFieldToDrop(Types.StructType structType, String fieldName, String fieldPath, SchemaTableName tableName)
+    {
+        Optional<NestedField> exactMatch = structType.fields().stream()
+                .filter(field -> field.name().equals(fieldName))
+                .findFirst();
+        if (exactMatch.isPresent()) {
+            return exactMatch;
+        }
+        // Dropping is destructive, so never guess between fields that differ only by case
+        List<NestedField> caseInsensitiveMatches = structType.fields().stream()
+                .filter(field -> field.name().equalsIgnoreCase(fieldName))
+                .collect(toImmutableList());
+        if (caseInsensitiveMatches.size() > 1) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("Field '%s' in table '%s' is ambiguous: multiple fields match ignoring case", fieldPath, tableName));
+        }
+        return caseInsensitiveMatches.stream().findFirst();
+    }
+
+    private static PrestoException notStructParent(List<String> fieldPath, int segmentIndex, SchemaTableName tableName)
+    {
+        return new PrestoException(NOT_SUPPORTED,
+                format("Parent field '%s' in table '%s' is not a struct/ROW type", String.join(".", fieldPath.subList(0, segmentIndex)), tableName));
     }
 
     @Override
