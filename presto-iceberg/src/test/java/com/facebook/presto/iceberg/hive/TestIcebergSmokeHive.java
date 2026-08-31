@@ -56,6 +56,13 @@ public class TestIcebergSmokeHive
         super(HIVE);
     }
 
+    @Test
+    @Override
+    public void testDropNestedField()
+    {
+        super.testDropNestedField();
+    }
+
     @Override
     protected String getLocation(String schema, String table)
     {
