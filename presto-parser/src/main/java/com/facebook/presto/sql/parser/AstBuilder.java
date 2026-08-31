@@ -677,7 +677,7 @@ class AstBuilder
     {
         return new DropColumn(getLocation(context),
                 getQualifiedName(context.tableName),
-                (Identifier) visit(context.column),
+                getQualifiedName(context.column),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }

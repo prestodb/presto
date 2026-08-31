@@ -444,6 +444,15 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Drop a field from a nested struct column.
+     * {@code fieldPath} is the full dotted path to the field being dropped (e.g. ["info", "age"]).
+     */
+    default void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping nested fields");
+    }
+
+    /**
      * Get the physical layout for a new table.
      */
     default Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)

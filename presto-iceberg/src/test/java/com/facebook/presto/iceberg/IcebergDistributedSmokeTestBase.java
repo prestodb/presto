@@ -1011,6 +1011,145 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testDropNestedField()
+    {
+        testWithAllFileFormats(this::testDropNestedField);
+    }
+
+    private void testDropNestedField(Session session, FileFormat fileFormat)
+    {
+        String format = "\"write.format.default\" = '" + fileFormat + "'";
+
+        // --- Single-level struct: drop one field, verify remaining field and whole-struct reads ---
+        assertUpdate(session, "CREATE TABLE test_nested_drop_field (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_drop_field VALUES (1, ROW('alice', 30))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age FROM test_nested_drop_field",
+                "VALUES (1, 'alice', 30)");
+
+        // Drop one field from the struct
+        assertUpdate(session, "ALTER TABLE test_nested_drop_field DROP COLUMN info.age");
+
+        // Remaining field still readable via subfield access
+        assertQuery(session, "SELECT id, info.name FROM test_nested_drop_field",
+                "VALUES (1, 'alice')");
+
+        // Whole-struct read after field drop (uses computeActual because H2 cannot parse VALUES ROW(...))
+        MaterializedResult infoAfterDrop = computeActual(session,
+                "SELECT info FROM test_nested_drop_field");
+        assertEquals(infoAfterDrop.getRowCount(), 1);
+        assertEquals(infoAfterDrop.getMaterializedRows().get(0).getField(0), Arrays.asList("alice"));
+
+        // New rows work correctly with the evolved schema
+        assertUpdate(session, "INSERT INTO test_nested_drop_field VALUES (2, ROW('bob'))", 1);
+        assertQuery(session, "SELECT id, info.name FROM test_nested_drop_field ORDER BY id",
+                "VALUES (1, 'alice'), (2, 'bob')");
+
+        dropTable(session, "test_nested_drop_field");
+
+        // --- Multi-level nesting: drop a field from a deeply nested struct ---
+        assertUpdate(session, "CREATE TABLE test_nested_drop_deep (" +
+                "id BIGINT, " +
+                "outer_col ROW(inner_col ROW(a VARCHAR, b BIGINT))" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_drop_deep VALUES (1, ROW(ROW('hello', 42)))", 1);
+        assertQuery(session, "SELECT outer_col.inner_col.a, outer_col.inner_col.b FROM test_nested_drop_deep",
+                "VALUES ('hello', 42)");
+
+        assertUpdate(session, "ALTER TABLE test_nested_drop_deep DROP COLUMN outer_col.inner_col.b");
+
+        // Remaining deeply nested field still readable
+        assertQuery(session, "SELECT outer_col.inner_col.a FROM test_nested_drop_deep",
+                "VALUES ('hello')");
+
+        // Whole-struct read of deeply nested column after drop
+        MaterializedResult deepResult = computeActual(session,
+                "SELECT * FROM test_nested_drop_deep");
+        assertEquals(deepResult.getRowCount(), 1);
+        assertEquals(deepResult.getMaterializedRows().get(0).getField(0), 1L);
+        @SuppressWarnings("unchecked")
+        List<Object> outerCol = (List<Object>) deepResult.getMaterializedRows().get(0).getField(1);
+        assertEquals(outerCol.size(), 1); // one child: inner_col
+        @SuppressWarnings("unchecked")
+        List<Object> innerCol = (List<Object>) outerCol.get(0);
+        assertEquals(innerCol.size(), 1); // one remaining field: a
+        assertEquals(innerCol.get(0), "hello");
+
+        dropTable(session, "test_nested_drop_deep");
+
+        // --- IF EXISTS: silently skip if nested field does not exist ---
+        assertUpdate(session, "CREATE TABLE test_nested_drop_ifexists (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        // Field exists — drops normally
+        assertUpdate(session, "ALTER TABLE test_nested_drop_ifexists DROP COLUMN IF EXISTS info.age");
+        // Field no longer exists — IF EXISTS suppresses the error
+        assertUpdate(session, "ALTER TABLE test_nested_drop_ifexists DROP COLUMN IF EXISTS info.age");
+        dropTable(session, "test_nested_drop_ifexists");
+
+        // --- Error: leaf field does not exist (no IF EXISTS) ---
+        assertUpdate(session, "CREATE TABLE test_nested_drop_missing (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_drop_missing DROP COLUMN info.nonexistent",
+                ".*Field 'info.nonexistent' does not exist.*|.*Failed to drop field.*");
+        dropTable(session, "test_nested_drop_missing");
+
+        // --- Error: parent struct does not exist (no IF EXISTS) ---
+        assertUpdate(session, "CREATE TABLE test_nested_drop_no_parent (" +
+                "id BIGINT" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_drop_no_parent DROP COLUMN nonexistent.field",
+                ".*Field 'nonexistent.field' does not exist.*|.*Failed to drop field.*");
+        dropTable(session, "test_nested_drop_no_parent");
+
+        // --- Error: dropping the only field from a nested struct (Trino 873bfad8 guard) ---
+        // Must fail cleanly; the table must remain readable after the rejected DDL.
+        assertUpdate(session, "CREATE TABLE test_nested_drop_only_field (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_drop_only_field VALUES (1, ROW('alice'))", 1);
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_drop_only_field DROP COLUMN info.name",
+                ".*Cannot drop the only field.*");
+        // Table must still be fully readable after the rejected DDL
+        assertQuery(session, "SELECT id, info.name FROM test_nested_drop_only_field",
+                "VALUES (1, 'alice')");
+        dropTable(session, "test_nested_drop_only_field");
+
+        // --- Error: dropping the only field from a deeply nested struct ---
+        assertUpdate(session, "CREATE TABLE test_nested_drop_only_deep (" +
+                "id BIGINT, " +
+                "outer_col ROW(inner_col ROW(x VARCHAR))" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_drop_only_deep DROP COLUMN outer_col.inner_col.x",
+                ".*Cannot drop the only field.*");
+        dropTable(session, "test_nested_drop_only_deep");
+
+        // --- Array of structs: drop a field from the element struct (arr.element.field) ---
+        // 'element' is not a keyword in Presto SQL; the path resolves via Iceberg's IndexByName
+        // which names the list element field "element".
+        assertUpdate(session, "CREATE TABLE test_nested_drop_array (" +
+                "id BIGINT, " +
+                "items ARRAY(ROW(name VARCHAR, value INTEGER))" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_drop_array VALUES (1, ARRAY[ROW('a', 10), ROW('b', 20)])", 1);
+        assertQuery(session, "SELECT id FROM test_nested_drop_array", "VALUES (1)");
+        assertUpdate(session, "ALTER TABLE test_nested_drop_array DROP COLUMN items.element.value");
+        // Remaining field in element struct is still readable
+        assertQuery(session, "SELECT id FROM test_nested_drop_array", "VALUES (1)");
+        dropTable(session, "test_nested_drop_array");
+    }
+
+    @Test
     protected void testCreateTableLike()
     {
         Session session = getSession();

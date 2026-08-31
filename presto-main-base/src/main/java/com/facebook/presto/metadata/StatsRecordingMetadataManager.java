@@ -1189,6 +1189,12 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        delegate.dropField(session, tableHandle, fieldPath, ignoreNonExistent);
+    }
+
+    @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         long startTime = System.nanoTime();

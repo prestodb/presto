@@ -24,12 +24,12 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
@@ -68,29 +68,39 @@ public class DropColumnTask
         }
 
         TableHandle tableHandle = tableHandleOptional.get();
-        Identifier columnIdentifier = statement.getColumn();
-        String column = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnIdentifier.getValue());
 
         accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
-        if (columnHandle == null) {
-            if (!statement.isColumnExists()) {
-                throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", column);
+        List<String> normalizedParts = statement.getColumn().getParts().stream()
+                .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part))
+                .collect(Collectors.toList());
+
+        if (normalizedParts.size() == 1) {
+            // Top-level column: use existing ColumnHandle-based path.
+            String column = normalizedParts.get(0);
+            ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
+            if (columnHandle == null) {
+                if (!statement.isColumnExists()) {
+                    throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", column);
+                }
+                return immediateFuture(null);
             }
-            return immediateFuture(null);
-        }
 
-        if (metadata.getColumnMetadata(session, tableHandle, columnHandle).isHidden()) {
-            throw new SemanticException(NOT_SUPPORTED, statement, "Cannot drop hidden column");
-        }
+            if (metadata.getColumnMetadata(session, tableHandle, columnHandle).isHidden()) {
+                throw new SemanticException(NOT_SUPPORTED, statement, "Cannot drop hidden column");
+            }
 
-        if (metadata.getTableMetadata(session, tableHandle).getColumns().stream()
-                .filter(info -> !info.isHidden()).count() <= 1) {
-            throw new SemanticException(NOT_SUPPORTED, statement, "Cannot drop the only column in a table");
-        }
+            if (metadata.getTableMetadata(session, tableHandle).getColumns().stream()
+                    .filter(info -> !info.isHidden()).count() <= 1) {
+                throw new SemanticException(NOT_SUPPORTED, statement, "Cannot drop the only column in a table");
+            }
 
-        metadata.dropColumn(session, tableHandle, columnHandle);
+            metadata.dropColumn(session, tableHandle, columnHandle);
+        }
+        else {
+            // Nested field: no ColumnHandle exists for sub-fields; delegate path-based drop.
+            metadata.dropField(session, tableHandle, normalizedParts, statement.isColumnExists());
+        }
 
         return immediateFuture(null);
     }

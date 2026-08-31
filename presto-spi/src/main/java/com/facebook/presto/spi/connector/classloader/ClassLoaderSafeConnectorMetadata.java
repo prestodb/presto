@@ -356,6 +356,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.dropField(session, tableHandle, fieldPath, ignoreNonExistent);
+        }
+    }
+
+    @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

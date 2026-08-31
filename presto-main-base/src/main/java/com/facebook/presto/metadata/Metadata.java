@@ -264,6 +264,12 @@ public interface Metadata
     void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);
 
     /**
+     * Drop a field from a nested struct column.
+     * {@code fieldPath} is the full dotted path to the field being dropped (e.g. ["info", "age"]).
+     */
+    void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent);
+
+    /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
