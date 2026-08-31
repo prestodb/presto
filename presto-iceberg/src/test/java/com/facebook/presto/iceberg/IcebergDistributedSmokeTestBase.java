@@ -1608,6 +1608,157 @@ public abstract class IcebergDistributedSmokeTestBase
         }
     }
 
+    @Test
+    public void testPartitionedCTASWithLargeAmountOfPartitions()
+    {
+        String tableName = "test_partitioned_ctas_with_many_partitions";
+        try {
+            // 4 worker nodes, default `max_partitions_per_writer` is 100.
+            // Creating a table with data from 1000 partitions would fail.
+            assertQueryFails(format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)']) AS SELECT * FROM tpch.tiny.lineitem", tableName),
+                    "Exceeded limit of 100 open writers for partitions");
+
+            // 4 worker nodes, set `max_partitions_per_writer` to 200, which is insufficient for 1000 partitions.
+            // Creating a table with data from 1000 partitions would fail as well.
+            Session sessionWithInsufficientPartitionsPerWriter = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", "max_partitions_per_writer", "200")
+                    .build();
+            assertQueryFails(sessionWithInsufficientPartitionsPerWriter, format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)']) AS SELECT * FROM tpch.tiny.lineitem", tableName),
+                    "Exceeded limit of 200 open writers for partitions");
+
+            // 4 worker nodes, set `max_partitions_per_writer` to 300, which is sufficient for 1000 partitions.
+            // Creating a table with data from 1000 partitions would succeed.
+            Session sessionWithSufficientPartitionsPerWriter = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", "max_partitions_per_writer", "300")
+                    .build();
+            assertUpdate(sessionWithSufficientPartitionsPerWriter,
+                    format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)']) AS SELECT * FROM tpch.tiny.lineitem", tableName), 60175);
+
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 60175");
+            assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 1000");
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
+    @Test
+    public void testPlanFragmentPartitioningOfCTAS()
+    {
+        String tableName = "test_plan_fragment_partitioning_of_ctas";
+        try {
+            // For non-partitioned target tables, the plan fragment containing the writer node is of SCALED distributed type.
+            String distributedPlanForUnpartitionedTable = getQueryRunner().execute(
+                    format("EXPLAIN (TYPE DISTRIBUTED) CREATE TABLE %s AS SELECT * FROM %s", tableName, "lineitem"))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 1 [SCALED]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 2 [SOURCE]"));
+
+            // For partitioned target tables, the plan fragment containing the writer node is of IcebergPartitioningHandle distributed type.
+            String distributedPlanForPartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)'])" +
+                                    " AS SELECT * FROM %s", tableName, "lineitem"))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 1 [iceberg:[field(channel=0, bucket[1000], bigint)]]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 2 [SOURCE]"));
+
+            // IcebergPartitioningHandle distributed type with multiple partition fields.
+            distributedPlanForPartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)', 'orderkey', 'suppkey'])" +
+                                    " AS SELECT * FROM %s", tableName, "lineitem"))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 1 [iceberg:[field(channel=0, bucket[1000], bigint), field(channel=0, identity, bigint), field(channel=1, identity, bigint)]]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 2 [SOURCE]"));
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
+    @Test
+    public void testPartitionedInsertIntoTableWithLargeAmountOfPartitions()
+    {
+        String tableName = "test_partitioned_insert_with_many_partitions";
+        try {
+            assertUpdate(format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['partkey']) AS SELECT * FROM tpch.tiny.lineitem WITH NO DATA", tableName), 0);
+
+            // 4 worker nodes, default `max_partitions_per_writer` is 100.
+            // Inserting into a table with data from 2000 partitions would fail.
+            assertQueryFails(format("INSERT INTO %s SELECT * FROM tpch.tiny.lineitem", tableName),
+                    "Exceeded limit of 100 open writers for partitions");
+
+            // 4 worker nodes, set `max_partitions_per_writer` to 400, which is insufficient for 2000 partitions.
+            // Inserting into a table with data from 2000 partitions would fail as well.
+            Session sessionWithInsufficientPartitionsPerWriter = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "100kB")
+                    .setCatalogSessionProperty("iceberg", "parquet_writer_page_size", "10kB")
+                    .setCatalogSessionProperty("iceberg", "max_partitions_per_writer", "400")
+                    .build();
+            assertQueryFails(sessionWithInsufficientPartitionsPerWriter, format("INSERT INTO %s SELECT * FROM tpch.tiny.lineitem", tableName),
+                    "Exceeded limit of 400 open writers for partitions");
+
+            // 4 worker nodes, set `max_partitions_per_writer` to 600, which is sufficient for 2000 partitions.
+            // Inserting into a table with data from 2000 partitions would succeed.
+            Session sessionWithSufficientPartitionsPerWriter = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "100kB")
+                    .setCatalogSessionProperty("iceberg", "parquet_writer_page_size", "10kB")
+                    .setCatalogSessionProperty("iceberg", "max_partitions_per_writer", "600")
+                    .build();
+            assertUpdate(sessionWithSufficientPartitionsPerWriter,
+                    format("INSERT INTO %s SELECT * FROM tpch.tiny.lineitem", tableName), 60175);
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 60175");
+            assertQuery(format("SELECT count(*) from \"%s$partitions\"", tableName), "SELECT 2000");
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
+    @Test
+    public void testPlanFragmentPartitioningOfInsertIntoTable()
+    {
+        String unpartitionedTableName = "plan_fragment_partitioning_of_unpartitioned_insert";
+        String partitionedTableName = "plan_fragment_partitioning_of_partitioned_insert";
+        try {
+            // For non-partitioned target tables, the plan fragment containing the writer node is of SCALED distributed type.
+            assertUpdate(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", unpartitionedTableName, "lineitem"), 0);
+            String distributedPlanForUnpartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) INSERT INTO %s SELECT * FROM %s", unpartitionedTableName, "lineitem"))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 1 [SCALED]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 2 [SOURCE]"));
+
+            // For partitioned target tables, the plan fragment containing the writer node is of IcebergPartitioningHandle distributed type.
+            assertUpdate(format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)']) AS SELECT * FROM %s WITH NO DATA",
+                    partitionedTableName, "lineitem"), 0);
+            String distributedPlanForPartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) INSERT INTO %s SELECT * FROM %s", partitionedTableName, "lineitem"))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 1 [iceberg:[field(channel=0, bucket[1000], bigint)]]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 2 [SOURCE]"));
+
+            // IcebergPartitioningHandle distributed type with multiple partition fields.
+            dropTable(getSession(), partitionedTableName);
+            assertUpdate(format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)', 'orderkey', 'suppkey']) AS SELECT * FROM %s WITH NO DATA",
+                    partitionedTableName, "lineitem"), 0);
+            distributedPlanForPartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) INSERT INTO %s SELECT * FROM %s", partitionedTableName, "lineitem"))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 1 [iceberg:[field(channel=0, bucket[1000], bigint), field(channel=0, identity, bigint), field(channel=1, identity, bigint)]]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 2 [SOURCE]"));
+        }
+        finally {
+            dropTable(getSession(), partitionedTableName);
+            dropTable(getSession(), unpartitionedTableName);
+        }
+    }
+
     @DataProvider
     public Object[][] compressionCodecTestData()
     {
