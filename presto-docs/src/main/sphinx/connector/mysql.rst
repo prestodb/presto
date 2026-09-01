@@ -375,6 +375,7 @@ MySQL Connector Limitations
 
 The following SQL statements are not supported:
 
+* :doc:`/sql/alter-table`
 * :doc:`/sql/analyze`
 * :doc:`/sql/create-schema`
 * :doc:`/sql/delete`

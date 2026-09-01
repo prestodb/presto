@@ -85,7 +85,7 @@ public class MySqlClient
      * @see <a href="https://dev.mysql.com/doc/connector-j/en/connector-j-reference-error-sqlstates.html">MySQL documentation</a>
      */
     private static final String SQL_STATE_ER_TABLE_EXISTS_ERROR = "42S01";
-    private static JsonCodec<ViewDefinition> viewCodec;
+    private final JsonCodec<ViewDefinition> viewCodec;
 
     @Inject
     public MySqlClient(
@@ -329,7 +329,7 @@ public class MySqlClient
                         ResultSet resultSet = statement.executeQuery(sql)) {
                     while (resultSet.next()) {
                         String owner = resultSet.getString("DEFINER");
-                        ViewDefinition viewDefinition = getViewDefinition(resultSet, session, connectorId, schemaTableName, schemaName, tableName, owner);
+                        ViewDefinition viewDefinition = getViewDefinition(resultSet, session, connectorId, schemaTableName, owner);
 
                         SchemaTableName viewName = new SchemaTableName(schemaName, tableName);
                         String viewData = viewCodec.toJson(viewDefinition);
@@ -348,12 +348,14 @@ public class MySqlClient
         return views.build();
     }
 
-    private ViewDefinition getViewDefinition(ResultSet resultSet, ConnectorSession session, String connectorId, SchemaTableName schemaTableName, String schemaName, String tableName, String owner)
+    private ViewDefinition getViewDefinition(ResultSet resultSet, ConnectorSession session, String connectorId, SchemaTableName schemaTableName, String owner)
             throws SQLException
     {
         boolean runAsInvoker = "INVOKER".equals(resultSet.getString("SECURITY_TYPE"));
         // StatementAnalyzer can't parse sql with back ticks, so we replace them here
         String viewSql = resultSet.getString("VIEW_DEFINITION").replace('`', '"');
+        String schemaName = schemaTableName.getSchemaName();
+        String tableName = schemaTableName.getTableName();
 
         List<JdbcColumnHandle> jdbcColumns = super.getColumns(session, new JdbcTableHandle(
                 connectorId,
@@ -416,9 +418,10 @@ public class MySqlClient
             String catalog = connection.getCatalog();
 
             if (!replace) {
-                ResultSet resultSet = getTables(connection, Optional.ofNullable(schema), Optional.ofNullable(view));
-                if (resultSet.next()) {
-                    throw new PrestoException(ALREADY_EXISTS, format("The view/table '%s' already exists", viewName.getTableName()));
+                try (ResultSet resultSet = getTables(connection, Optional.ofNullable(schema), Optional.ofNullable(view))) {
+                    if (resultSet.next()) {
+                        throw new PrestoException(ALREADY_EXISTS, format("The view/table '%s' already exists", viewName.getTableName()));
+                    }
                 }
             }
 
