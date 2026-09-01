@@ -33,6 +33,10 @@ import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.se
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static java.lang.String.format;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 public class TestArrowFederationNativeQueriesPostgres
         extends AbstractTestArrowFederationNativeQueries
@@ -42,6 +46,7 @@ public class TestArrowFederationNativeQueriesPostgres
     private static final String CONNECTOR_ID = "postgresql_testing";
     private static final String CONNECTOR_NAME = "postgresql";
     private static final String PLUGIN_BUNDLES = "../presto-postgresql/pom.xml";
+    private static final String FLIGHT_UNKNOWN_CATALOG = "flight_unknown";
 
     private final PostgreSQLContainer<?> postgresContainer;
 
@@ -95,6 +100,9 @@ public class TestArrowFederationNativeQueriesPostgres
             queryRunner.installPlugin(new PostgreSqlPlugin());
             queryRunner.createCatalog(getConnectorId(), getConnectorName(), getConnectorProperties());
             createTpchTables(queryRunner, postgresContainer.getJdbcUrl(), getConnectorId());
+
+            // Create a catalog only known to presto coordinator and worker, not flight shim server
+            queryRunner.createCatalog(FLIGHT_UNKNOWN_CATALOG, getConnectorName(), getConnectorProperties());
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -115,11 +123,24 @@ public class TestArrowFederationNativeQueriesPostgres
             throws Exception
     {
         QueryRunner queryRunner =
-                createNativeQueryRunner(ImmutableList.of(getConnectorId()), ImmutableList.of(getConnectorName()), server.getPort());
+                createNativeQueryRunner(ImmutableList.of(getConnectorId(), FLIGHT_UNKNOWN_CATALOG), ImmutableList.of(getConnectorName(), CONNECTOR_NAME), server.getPort());
         queryRunner.installPlugin(new PostgreSqlPlugin());
         queryRunner.createCatalog(getConnectorId(), getConnectorName(), createJdbcConnectorProperties(postgresContainer.getJdbcUrl()));
+        queryRunner.createCatalog(FLIGHT_UNKNOWN_CATALOG, getConnectorName(), getConnectorProperties());
         setupNativeSidecarPlugin(queryRunner);
         return queryRunner;
+    }
+
+    @Test
+    public void testFlightShimErrorPropagation()
+    {
+        // Cause a failure in the FlightShim server, check PrestoException is routed through native to coordinator
+        RuntimeException ex = expectThrows(RuntimeException.class, () -> computeActual(format("SELECT * FROM %s.tpch.nation", FLIGHT_UNKNOWN_CATALOG)));
+
+        // AbstractTestingPrestoClient wraps error in RuntimeException
+        assertNotNull(ex.getCause());
+        // NOTE: use toString() to include the FailureException.type with message
+        assertTrue(ex.getCause().toString().matches(format(".*PrestoException.*Federation catalog does not exist: %s.*", FLIGHT_UNKNOWN_CATALOG)));
     }
 
     @Override

@@ -19,6 +19,7 @@
 
 namespace arrow {
 class RecordBatch;
+class Status;
 namespace flight {
 class FlightClientOptions;
 class FlightStreamReader;
@@ -107,6 +108,8 @@ class ArrowFlightDataSource : public velox::connector::DataSource {
   void cancel() override;
 
  protected:
+  virtual void handleArrowError(const arrow::Status& status) {}
+
   velox::RowTypePtr outputType_;
 
  private:
