@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: changes
     container:
-      image: prestodb/presto-native-dependency:0.299-202607281131-55ac7c49
+      image: prestodb/presto-native-dependency:0.300-202608311415-6d54ae18
     concurrency:
       group: ${{ github.workflow }}-prestocpp-linux-build-test-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -128,7 +128,7 @@ jobs:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.299-202607281131-55ac7c49
+      image: prestodb/presto-native-dependency:0.300-202608311415-6d54ae18
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -253,7 +253,7 @@ jobs:
         storage-format: [PARQUET, DWRF]
         enable-sidecar: [true, false]
     container:
-      image: prestodb/presto-native-dependency:0.299-202607281131-55ac7c49
+      image: prestodb/presto-native-dependency:0.300-202608311415-6d54ae18
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -382,7 +382,7 @@ jobs:
       group: ${{ github.workflow }}-prestocpp-linux-presto-on-spark-e2e-tests-${{ matrix.storage-format }}-${{ matrix.enable-sidecar }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     container:
-      image: prestodb/presto-native-dependency:0.299-202607281131-55ac7c49
+      image: prestodb/presto-native-dependency:0.300-202608311415-6d54ae18
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -495,7 +495,7 @@ jobs:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.299-202607281131-55ac7c49
+      image: prestodb/presto-native-dependency:0.300-202608311415-6d54ae18
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -607,7 +607,7 @@ jobs:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.299-202607281131-55ac7c49
+      image: prestodb/presto-native-dependency:0.300-202608311415-6d54ae18
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
