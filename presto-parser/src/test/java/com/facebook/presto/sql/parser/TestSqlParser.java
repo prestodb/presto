@@ -942,12 +942,133 @@ public class TestSqlParser
                 new Trim(Trim.Specification.TRAILING, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
 
         assertExpression("trim(' abc ')",
-                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.empty()));
+                new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(new StringLiteral(" abc "))));
         assertExpression("trim(' ' FROM ' abc ')",
                 new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
         assertExpression("trim(' abc ', ' ')",
-                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+                new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(new StringLiteral(" abc "), new StringLiteral(" "))));
         assertInvalidExpression("trim(FROM ' abc ')", "The 'trim' function must have specification, char or both arguments when it takes FROM");
+    }
+
+    @Test
+    public void testTrimAsIdentifier()
+    {
+        // trim used as a column name in SELECT output list
+        assertStatement("SELECT trim FROM t",
+                simpleQuery(selectList(identifier("trim")), table(QualifiedName.of("t"))));
+
+        // trim used as a column alias
+        assertStatement("SELECT 1 AS trim FROM t",
+                simpleQuery(
+                        selectList(new SingleColumn(new LongLiteral("1"), Optional.of(new Identifier("trim")))),
+                        table(QualifiedName.of("t"))));
+
+        // trim used as a dotted column reference (t.trim)
+        assertStatement("SELECT t.trim FROM t",
+                simpleQuery(selectList(nameReference("t", "trim")), table(QualifiedName.of("t"))));
+
+        // trim used as a table name
+        assertStatement("SELECT * FROM trim",
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("trim"))));
+
+        // trim used as a table alias
+        assertStatement("SELECT * FROM t AS trim",
+                simpleQuery(selectList(new AllColumns()), new AliasedRelation(table(QualifiedName.of("t")), new Identifier("trim"), null)));
+
+        // trim used in a three-part qualified name (catalog.schema.table)
+        assertStatement("SELECT * FROM trim.trim.trim",
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("trim", "trim", "trim"))));
+
+        // trim used as an unquoted identifier in WHERE
+        assertStatement("SELECT * FROM t WHERE trim = 1",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        table(QualifiedName.of("t")),
+                        new ComparisonExpression(EQUAL, identifier("trim"), new LongLiteral("1"))));
+
+        // trim used as an unquoted identifier in GROUP BY
+        assertStatement("SELECT * FROM t GROUP BY trim",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        table(QualifiedName.of("t")),
+                        Optional.empty(),
+                        Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(identifier("trim")))))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // trim used as an unquoted identifier in ORDER BY
+        assertStatement("SELECT * FROM t ORDER BY trim",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        table(QualifiedName.of("t")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(identifier("trim"), ASCENDING, UNDEFINED)))),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // trim used as an unquoted identifier in PARTITION BY of a window function
+        assertStatement("SELECT count(*) OVER (PARTITION BY trim) FROM t",
+                simpleQuery(
+                        selectList(
+                                new FunctionCall(
+                                        QualifiedName.of("count"),
+                                        Optional.of(new Window(
+                                                ImmutableList.of(identifier("trim")),
+                                                Optional.empty(),
+                                                Optional.empty())),
+                                        false,
+                                        false,
+                                        ImmutableList.of())),
+                        table(QualifiedName.of("t"))));
+
+        // trim used as a CTE name
+        assertStatement("WITH trim AS (SELECT 1) SELECT * FROM trim",
+                new Query(
+                        Optional.of(new With(false, ImmutableList.of(
+                                new WithQuery(
+                                        identifier("trim"),
+                                        simpleQuery(selectList(new LongLiteral("1"))),
+                                        Optional.empty())))),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(table(QualifiedName.of("trim"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // trim used as a column name in CREATE TABLE
+        assertStatement("CREATE TABLE t (trim bigint)",
+                new CreateTable(
+                        QualifiedName.of("t"),
+                        ImmutableList.of(new ColumnDefinition(identifier("trim"), "bigint", true, emptyList(), Optional.empty())),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testTrimFunction()
+    {
+        assertExpression("trim(' abc ')",
+                new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(new StringLiteral(" abc "))));
+        assertExpression("trim('')",
+                new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(new StringLiteral(""))));
+        assertExpression("trim(' abc ', ' ')",
+                new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(new StringLiteral(" abc "), new StringLiteral(" "))));
+        assertExpression("trim('xyaxyxy', 'xy')",
+                new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(new StringLiteral("xyaxyxy"), new StringLiteral("xy"))));
+        assertStatement("SELECT trim FROM t",
+                simpleQuery(selectList(identifier("trim")), table(QualifiedName.of("t"))));
     }
 
     @Test
