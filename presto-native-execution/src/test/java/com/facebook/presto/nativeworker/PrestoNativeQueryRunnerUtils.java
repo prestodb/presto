@@ -101,7 +101,7 @@ public class PrestoNativeQueryRunnerUtils
     private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
     private static final String SYMLINK_FOLDER = "symlink_tables_manifests";
-    private static final PrincipalPrivileges PRINCIPAL_PRIVILEGES = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
+    public static final PrincipalPrivileges PRINCIPAL_PRIVILEGES = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
     private static final ErrorCode CREATE_ERROR_CODE = new ErrorCode(123, "CREATE_ERROR_CODE", INTERNAL_ERROR);
 
     private static final StorageFormat STORAGE_FORMAT_SYMLINK_TABLE = StorageFormat.create(
@@ -601,8 +601,14 @@ public class PrestoNativeQueryRunnerUtils
                 externalWorkerLauncher = getExternalWorkerLauncher("delta", "delta", serverBinary, cacheMaxSize, remoteFunctionServerUds,
                         Optional.empty(), false, false, false, false, false, false, false, workerImage, dataDirectory);
             }
+
+            // Set legacy_timestamp to true to adjust timestamps to timezone for Delta queries
+            // This ensures timestamps are properly adjusted in native execution
+            Map<String, String> sessionProperties = ImmutableMap.of("legacy_timestamp", "true");
+
             DeltaQueryRunner.Builder builder = DeltaQueryRunner.builder()
                     .setExtraProperties(extraProperties)
+                    .setSessionProperties(sessionProperties)
                     .setNodeCount(OptionalInt.of(workerCount))
                     .setExternalWorkerLauncher(externalWorkerLauncher)
                     .setTimeZoneKey(timeZoneKey);
