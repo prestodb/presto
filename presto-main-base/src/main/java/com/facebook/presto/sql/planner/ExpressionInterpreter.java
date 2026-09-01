@@ -1271,7 +1271,12 @@ public class ExpressionInterpreter
             arguments.add(node.getTrimSource());
             node.getTrimCharacter().ifPresent(arguments::add);
 
-            FunctionCall functionCall = new FunctionCall(QualifiedName.of(node.getSpecification().getFunctionName()), arguments.build());
+            QualifiedName functionName = QualifiedName.of(node.getSpecification().getFunctionName());
+            List<Expression> argumentList = arguments.build();
+            // Preserve the Trim node's location so that failures report the original line:column
+            FunctionCall functionCall = node.getLocation()
+                    .map(location -> new FunctionCall(location, functionName, argumentList))
+                    .orElseGet(() -> new FunctionCall(functionName, argumentList));
             addGeneratedExpressionType(functionCall, type(node));
             return visitFunctionCall(functionCall, context);
         }

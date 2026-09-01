@@ -987,7 +987,12 @@ public class TestStringFunctions
         assertFunction("TRIM(' ' FROM ' hello world ')", createVarcharType(13), "hello world");
 
         assertFunction("TRIM('!' FROM '!foo!')", createVarcharType(5), "foo");
-        assertFunction("TRIM(' ' FROM '  hello  ')", createVarcharType(9), "hello");
+
+        // NULL handling
+        assertFunction("TRIM(BOTH NULL FROM 'x')", createVarcharType(1), null);
+        assertFunction("TRIM(LEADING FROM NULL)", createVarcharType(0), null);
+        assertFunction("TRIM(TRAILING 'a' FROM CAST(NULL AS VARCHAR))", VARCHAR, null);
+        assertFunction("TRIM(BOTH CAST(NULL AS VARCHAR) FROM CAST(NULL AS VARCHAR))", VARCHAR, null);
     }
 
     @Test

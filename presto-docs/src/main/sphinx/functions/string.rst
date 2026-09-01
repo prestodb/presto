@@ -256,15 +256,19 @@ For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:
         SELECT trim('test', 't'); -- es
         SELECT trim('.t.e.s.t.', '.t'); -- e.s
 
-.. function:: trim( [ [ specification ] [ string ] FROM ] source ) -> varchar
+.. function:: trim( { BOTH | LEADING | TRAILING } [ characters ] FROM source ) -> varchar
+              trim( characters FROM source ) -> varchar
+    :noindex:
 
-     Removes any leading and/or trailing characters as specified up to and
-     including ``string`` from ``source``::
+    ANSI SQL form of ``trim``. Removes the longest prefix and/or suffix containing only characters in ``characters`` from ``source``.
+    ``LEADING`` removes a prefix, ``TRAILING`` removes a suffix and ``BOTH`` removes both.
+    At least one of the direction or ``characters`` must be given before ``FROM``: when the direction is omitted,
+    ``BOTH`` is used, and when ``characters`` is omitted, whitespace is trimmed. ::
 
-         SELECT trim('!' FROM '!foo!'); -- 'foo'
-         SELECT trim(LEADING FROM '  abcd');  -- 'abcd'
-         SELECT trim(BOTH '$' FROM '$var$'); -- 'var'
-         SELECT trim(TRAILING 'ER' FROM upper('worker')); -- 'WORK'
+        SELECT trim('!' FROM '!foo!'); -- 'foo'
+        SELECT trim(LEADING FROM '  abcd');  -- 'abcd'
+        SELECT trim(BOTH '$' FROM '$var$'); -- 'var'
+        SELECT trim(TRAILING 'ER' FROM upper('worker')); -- 'WORK'
 
 .. function:: upper(string) -> varchar
 

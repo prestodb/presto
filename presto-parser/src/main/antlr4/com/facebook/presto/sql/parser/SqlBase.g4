@@ -463,9 +463,9 @@ primaryExpression
     | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #specialDateTimeFunction
     | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #specialDateTimeFunction
     | name=CURRENT_USER                                                                   #currentUser
-    | TRIM '(' (trimsSpecification? trimChar=valueExpression? FROM)?
+    // trim(source) and trim(source, chars) are matched by #functionCall above since TRIM is nonReserved
+    | TRIM '(' trimsSpecification? trimChar=valueExpression? FROM
         trimSource=valueExpression ')'                                                    #trim
-    | TRIM '(' trimSource=valueExpression ',' trimChar=valueExpression ')'                #trim
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
@@ -733,7 +733,7 @@ trimsSpecification
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ADD | ADMIN | AFTER | ALL | ALWAYS | ANALYZE | ANY | ARRAY | ASC | AT
-    | BEFORE | BERNOULLI | BRANCH
+    | BEFORE | BERNOULLI | BOTH | BRANCH
     | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | COPARTITION | CURRENT | CURRENT_ROLE
     | DATA | DATE | DAY | DEFAULT | DEFINER | DESC | DESCRIPTOR | DETERMINISTIC | DISABLED | DISTRIBUTED | DAYS
     | EMPTY | ENABLED | ENFORCED | EXCLUDING | EXECUTE | EXPLAIN | EXTERNAL
@@ -751,7 +751,7 @@ nonReserved
     | RANGE | READ | REFRESH | RELY | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETAIN | RETENTION | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SNAPSHOT | SNAPSHOTS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM | SYSTEM_TIME | SYSTEM_VERSION
-    | TABLES | TABLESAMPLE | TAG | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
+    | TABLES | TABLESAMPLE | TAG | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRIM | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | UNIQUE | UPDATE | UPDATING | USE | USER
     | VALIDATE | VECTOR | VERBOSE | VERSION | VIEW | VIRTUAL
     | WINDOW | WORK | WRITE

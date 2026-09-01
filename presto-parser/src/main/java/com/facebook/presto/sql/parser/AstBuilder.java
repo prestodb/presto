@@ -2226,13 +2226,13 @@ class AstBuilder
     @Override
     public Node visitTrim(SqlBaseParser.TrimContext context)
     {
-        if (context.FROM() != null && context.trimsSpecification() == null && context.trimChar == null) {
-            throw parseError("The 'trim' function must have specification, char or both arguments when it takes FROM", context);
+        if (context.trimsSpecification() == null && context.trimChar == null) {
+            throw parseError("TRIM requires a specification (BOTH, LEADING or TRAILING) or trim characters before FROM", context);
         }
 
         Trim.Specification specification = context.trimsSpecification() == null
                 ? Trim.Specification.BOTH
-                : toTrimSpecification((Token) context.trimsSpecification().getChild(0).getPayload());
+                : toTrimSpecification(context.trimsSpecification().getStart());
         return new Trim(
                 getLocation(context),
                 specification,

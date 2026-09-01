@@ -1,5 +1,3 @@
-
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +38,7 @@ public class Trim
         this(Optional.of(location), specification, trimSource, trimCharacter);
     }
 
-    private Trim(Optional<NodeLocation> location, Specification specification, Expression trimSource, Optional<Expression> trimCharacter)
+    public Trim(Optional<NodeLocation> location, Specification specification, Expression trimSource, Optional<Expression> trimCharacter)
     {
         super(location);
         this.specification = requireNonNull(specification, "specification is null");
