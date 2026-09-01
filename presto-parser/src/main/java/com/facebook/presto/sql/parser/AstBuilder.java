@@ -2232,7 +2232,7 @@ class AstBuilder
 
         Trim.Specification specification = context.trimsSpecification() == null
                 ? Trim.Specification.BOTH
-                : toTrimSpecification((Token) context.trimsSpecification().getChild(0).getPayload());
+                : toTrimSpecification(context.trimsSpecification().getStart());
         return new Trim(
                 getLocation(context),
                 specification,

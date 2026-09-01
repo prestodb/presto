@@ -1234,6 +1234,11 @@ public class ExpressionAnalyzer
                     }
                 }
             }
+            if (expression instanceof Trim) {
+                Trim trim = (Trim) expression;
+                return expressionReferencesName(trim.getTrimSource(), name) ||
+                        trim.getTrimCharacter().map(trimCharacter -> expressionReferencesName(trimCharacter, name)).orElse(false);
+            }
             // Literals don't reference any names
             return false;
         }
@@ -1483,7 +1488,12 @@ public class ExpressionAnalyzer
             arguments.add(node.getTrimSource());
             node.getTrimCharacter().ifPresent(arguments::add);
 
-            FunctionCall functionCall = new FunctionCall(QualifiedName.of(node.getSpecification().getFunctionName()), arguments.build());
+            QualifiedName functionName = QualifiedName.of(node.getSpecification().getFunctionName());
+            List<Expression> argumentList = arguments.build();
+            // Preserve the Trim node's location so that errors raised while resolving the function report line:column
+            FunctionCall functionCall = node.getLocation()
+                    .map(location -> new FunctionCall(location, functionName, argumentList))
+                    .orElseGet(() -> new FunctionCall(functionName, argumentList));
             Type type = process(functionCall, context);
             return setExpressionType(node, type);
         }
