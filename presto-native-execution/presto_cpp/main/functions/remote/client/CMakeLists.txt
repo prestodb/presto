@@ -11,4 +11,5 @@
 # limitations under the License.
 
 add_library(presto_functions_rest_client RestRemoteClient.cpp)
-target_link_libraries(presto_functions_rest_client presto_http)
+target_link_libraries(presto_functions_rest_client presto_http
+                      remote_function_thrift)
