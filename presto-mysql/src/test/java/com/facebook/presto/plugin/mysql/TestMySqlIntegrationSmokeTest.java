@@ -472,6 +472,13 @@ public class TestMySqlIntegrationSmokeTest
                         "WHERE table_schema = 'tpch'");
         assertTrue(result.getMaterializedRows().isEmpty(),
                 "Views should not be exposed as Presto views when datasource-managed-views is enabled");
+
+        // Absent from information_schema.views only proves half of it: both views must still be
+        // reachable, listed as tables by name. MySqlClient.getTables asks MySQL for TABLE and VIEW.
+        assertQuery(
+                "SELECT table_name FROM " + MYSQL_PASSTHROUGH_CATALOG + ".information_schema.tables " +
+                        "WHERE table_schema = 'tpch' AND table_name IN ('v_now', 'v_standard')",
+                "VALUES ('v_now'), ('v_standard')");
     }
 
     // MANAGED MODE (enable-datasource-managed-views=false)
@@ -482,7 +489,7 @@ public class TestMySqlIntegrationSmokeTest
         // IFNULL() is MySQL-specific and not registered in Presto's function registry —
         // the analyzer throws FUNCTION_NOT_FOUND, so the query must fail
         assertQueryFails("SELECT * FROM " + MYSQL_CATALOG + ".tpch.v_now",
-                "(?s).*");
+                "(?s).*Failed analyzing stored view '" + MYSQL_CATALOG + "\\.tpch\\.v_now'.*ifnull.*");
     }
 
     @Test
@@ -501,6 +508,13 @@ public class TestMySqlIntegrationSmokeTest
                         "WHERE table_schema = 'tpch'");
         assertFalse(result.getMaterializedRows().isEmpty(),
                 "Views should be exposed as Presto views when datasource-managed-views is disabled");
+
+        // Both views from setUpViews must be listed by name, not just some non-empty set of rows.
+        // Restricted to those two names so a view left behind by another test cannot affect the comparison.
+        assertQuery(
+                "SELECT table_name FROM " + MYSQL_CATALOG + ".information_schema.views " +
+                        "WHERE table_schema = 'tpch' AND table_name IN ('v_now', 'v_standard')",
+                "VALUES ('v_now'), ('v_standard')");
     }
 
     // CROSS-MODE: same MySQL view, different behavior per catalog
