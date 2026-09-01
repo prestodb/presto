@@ -1458,7 +1458,7 @@ TEST_F(PrestoToVeloxConnectorTest, deltaPredicateSkipsParquetRowGroups) {
   const std::string fileContent(sinkPtr->data(), sinkPtr->size());
 
   auto readAll = [&](const common::SubfieldFilters& filters,
-                     dwio::common::RuntimeStatistics& stats) {
+                     dwio::common::RuntimeStats& stats) {
     dwio::common::ReaderOptions readerOptions(pool_.get());
     auto reader = std::make_unique<parquet::ParquetReader>(
         std::make_unique<dwio::common::BufferedInput>(
@@ -1485,7 +1485,7 @@ TEST_F(PrestoToVeloxConnectorTest, deltaPredicateSkipsParquetRowGroups) {
   };
 
   // Control: no predicate, so both row groups are read.
-  dwio::common::RuntimeStatistics withoutPushdown;
+  dwio::common::RuntimeStats withoutPushdown;
   EXPECT_EQ(readAll({}, withoutPushdown), 20);
   EXPECT_EQ(withoutPushdown.skippedStrides, 0);
   EXPECT_EQ(withoutPushdown.processedStrides, 2);
@@ -1502,7 +1502,7 @@ TEST_F(PrestoToVeloxConnectorTest, deltaPredicateSkipsParquetRowGroups) {
   auto tableHandle =
       convertDeltaTableHandle(domains, *exprConverter_, *typeParser_);
 
-  dwio::common::RuntimeStatistics withPushdown;
+  dwio::common::RuntimeStats withPushdown;
   // Only the second row group's rows survive the filter, and the first row
   // group is never read: its statistics say max(id) == 9.
   EXPECT_EQ(
