@@ -27,6 +27,7 @@
 #include "velox/connectors/hive/iceberg/IcebergColumnHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
+#include "velox/connectors/hive/iceberg/IcebergTableHandle.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/Filter.h"
 
@@ -150,7 +151,8 @@ TEST_F(PrestoToVeloxConnectorTest, icebergPreservesColumnNameCase) {
       tableHandle, *exprConverter_, *typeParser_);
 
   ASSERT_NE(result, nullptr);
-  auto* handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
+  auto* handle =
+      dynamic_cast<connector::hive::iceberg::IcebergTableHandle*>(result.get());
   ASSERT_NE(handle, nullptr);
 
   // Verify Iceberg preserves column name case.
