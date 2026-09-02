@@ -61,9 +61,15 @@ public class ContainerQueryRunner
     protected static final Network networkExpected = Network.newNetwork();
     protected static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
     protected static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
+    // The native worker binary is invoked directly rather than through the image's entrypoint, so
+    // images that do not put it on PATH can be tested by overriding this property.
+    protected static final String NATIVE_WORKER_BINARY = System.getProperty("nativeWorkerBinary", "presto_server");
     protected static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
     protected static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
     protected static final String BASE_DIR = System.getProperty("user.dir");
+    // Where the generated worker configuration is copied to, and what the worker is pointed at with
+    // --etc-dir. The harness owns both ends, so this does not have to match the image's own layout.
+    protected static final String NATIVE_WORKER_ETC_DIR = "/opt/presto-server/etc";
     protected static final int DEFAULT_COORDINATOR_PORT = 8080;
     protected static final int DEFAULT_BASE_WORKER_PORT = 7778;
     protected static final int DEFAULT_SIDECAR_PORT = 7777;
@@ -309,14 +315,15 @@ public class ContainerQueryRunner
         if (!isSidecarEnabled) {
             ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
         }
-        ContainerQueryRunnerUtils.createNativeWorkerEntryPointScript(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);
         return new GenericContainer<>(PRESTO_WORKER_IMAGE)
                 .withExposedPorts(port)
                 .withNetwork(isNativeCluster ? network : networkExpected)
                 .withNetworkAliases(nodeId)
-                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/etc"), "/opt/presto-server/etc")
-                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh")
+                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/etc"), NATIVE_WORKER_ETC_DIR)
+                .withEnv("GLOG_logtostderr", "1")
+                .withCreateContainerCmdModifier(cmd -> cmd.withEntrypoint(NATIVE_WORKER_BINARY))
+                .withCommand("--etc-dir=" + NATIVE_WORKER_ETC_DIR)
                 .waitingFor(isSidecarNode ? Wait.forListeningPort() : Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1));
     }
 
