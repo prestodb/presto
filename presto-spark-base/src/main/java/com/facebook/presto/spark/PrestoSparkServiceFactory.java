@@ -70,12 +70,16 @@ public class PrestoSparkServiceFactory
     }
 
     // Presto on Spark bootstraps here instead of PrestoServer.run(); relax Jackson's default read
-    // name-length and write nesting-depth limits so large plan fragments (de)serialize. Mutates
-    // JVM-global Jackson defaults, so it must run before any JsonFactory is constructed.
+    // name-length, read string-length and write nesting-depth limits so large plan fragments
+    // (de)serialize. Mutates JVM-global Jackson defaults, so it must run before any JsonFactory
+    // is constructed.
     static void overrideJacksonStreamConstraints()
     {
         StreamReadConstraints.overrideDefaultStreamReadConstraints(
-                StreamReadConstraints.builder().maxNameLength(Integer.MAX_VALUE).build());
+                StreamReadConstraints.builder()
+                        .maxNameLength(Integer.MAX_VALUE)
+                        .maxStringLength(Integer.MAX_VALUE)
+                        .build());
         StreamWriteConstraints.overrideDefaultStreamWriteConstraints(
                 StreamWriteConstraints.builder().maxNestingDepth(Integer.MAX_VALUE).build());
     }
