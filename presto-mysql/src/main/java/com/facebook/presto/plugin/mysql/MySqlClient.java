@@ -34,6 +34,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -86,6 +87,7 @@ public class MySqlClient
      */
     private static final String SQL_STATE_ER_TABLE_EXISTS_ERROR = "42S01";
     private final JsonCodec<ViewDefinition> viewCodec;
+    private final boolean datasourceManagedViewsEnabled;
 
     @Inject
     public MySqlClient(
@@ -97,6 +99,7 @@ public class MySqlClient
     {
         super(connectorId, config, "`", connectionFactory(config, mySqlConfig));
         this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
+        this.datasourceManagedViewsEnabled = requireNonNull(mySqlConfig, "mySqlConfig is null").isDatasourceManagedViewsEnabled();
     }
 
     private static ConnectionFactory connectionFactory(BaseJdbcConfig config, MySqlConfig mySqlConfig)
@@ -310,8 +313,23 @@ public class MySqlClient
         return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
     }
 
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, List<SchemaTableName> tableNames)
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
+        // When datasource-managed views are enabled, Presto does not analyze the view
+        // definition — MySQL resolves it natively. Return empty so views appear as tables.
+        if (datasourceManagedViewsEnabled) {
+            return ImmutableMap.of();
+        }
+
+        List<SchemaTableName> tableNames;
+        if (prefix.getTableName() != null) {
+            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        }
+        else {
+            tableNames = listViews(session, Optional.ofNullable(prefix.getSchemaName()));
+        }
+
         JdbcIdentity identity = new JdbcIdentity(session.getUser(), session.getIdentity().getExtraCredentials());
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
 
@@ -377,6 +395,7 @@ public class MySqlClient
                 runAsInvoker);
     }
 
+    @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
         JdbcIdentity identity = JdbcIdentity.from(session);
@@ -404,6 +423,7 @@ public class MySqlClient
         }
     }
 
+    @Override
     public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
         SchemaTableName viewName = viewMetadata.getTable();
@@ -437,6 +457,7 @@ public class MySqlClient
         }
     }
 
+    @Override
     public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
     {
         JdbcIdentity identity = JdbcIdentity.from(session);
@@ -453,6 +474,7 @@ public class MySqlClient
         }
     }
 
+    @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
         JdbcIdentity identity = JdbcIdentity.from(session);

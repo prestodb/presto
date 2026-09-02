@@ -17,72 +17,35 @@ import com.facebook.presto.plugin.jdbc.JdbcMetadata;
 import com.facebook.presto.plugin.jdbc.JdbcMetadataCache;
 import com.facebook.presto.plugin.jdbc.TableLocationProvider;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class MySqlMetadata
         extends JdbcMetadata
 {
-    private final MySqlClient mySqlClient;
     private final boolean datasourceManagedViewsEnabled;
 
     public MySqlMetadata(JdbcMetadataCache jdbcMetadataCache, MySqlClient client, boolean allowDropTable, TableLocationProvider tableLocationProvider, MySqlConfig mySqlConfig)
     {
         super(jdbcMetadataCache, client, allowDropTable, tableLocationProvider);
-        this.mySqlClient = requireNonNull(client, "client is null");
         requireNonNull(mySqlConfig, "mySqlConfig is null");
         this.datasourceManagedViewsEnabled = mySqlConfig.isDatasourceManagedViewsEnabled();
     }
 
     @Override
-    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
-    {
-        mySqlClient.createView(session, viewMetadata, viewData, replace);
-    }
-
-    @Override
-    public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
-    {
-        mySqlClient.renameView(session, viewName, newViewName);
-    }
-
-    @Override
-    public void dropView(ConnectorSession session, SchemaTableName viewName)
-    {
-        mySqlClient.dropView(session, viewName);
-    }
-
-    @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
-    {
-        return mySqlClient.listViews(session, schemaName);
-    }
-
-    @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        // Skip view analysis, resolve via normal table flow.
+        // When datasource-managed views are enabled, Presto does not analyze the view
+        // definition — MySQL resolves it natively. Return empty so views appear as tables.
         if (datasourceManagedViewsEnabled) {
             return ImmutableMap.of();
         }
-
-        List<SchemaTableName> tableNames;
-        if (prefix.getTableName() != null) {
-            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
-        }
-        else {
-            tableNames = listViews(session, Optional.ofNullable(prefix.getSchemaName()));
-        }
-        return mySqlClient.getViews(session, tableNames);
+        return super.getViews(session, prefix);
     }
 }

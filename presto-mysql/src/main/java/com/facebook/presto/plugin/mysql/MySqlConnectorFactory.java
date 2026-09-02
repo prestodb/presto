@@ -59,6 +59,7 @@ public class MySqlConnectorFactory
         return new JdbcHandleResolver();
     }
 
+    @Override
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");

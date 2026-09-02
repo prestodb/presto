@@ -68,14 +68,15 @@ public class MySqlClientModule
     @Override
     protected void setup(Binder binder)
     {
+        // Standard JDBC wiring — duplicated from JdbcModule because MySqlConnectorFactory
+        // bootstraps only this module (no JdbcModule), avoiding the duplicate-binding conflict
+        // that would arise if both JdbcModule and a connector module bound JdbcMetadataFactory.
         newOptionalBinder(binder, ConnectorAccessControl.class);
         newSetBinder(binder, Procedure.class).addBinding().toProvider(ExecuteProcedure.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnectorId.class).toInstance(new JdbcConnectorId(connectorId));
-
         binder.bind(JdbcMetadataCache.class).in(Scopes.SINGLETON);
         binder.bind(JdbcMetadataCacheStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(JdbcMetadataCacheStats.class).as(generatedNameOf(JdbcMetadataCacheStats.class, connectorId));
-
         binder.bind(JdbcMetadataFactory.class).to(MySqlMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
@@ -85,15 +86,18 @@ public class MySqlClientModule
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
         binder.bind(TableLocationProvider.class).to(DefaultTableLocationProvider.class).in(Scopes.SINGLETON);
+
+        // MySQL-specific bindings
         binder.bind(MySqlClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).to(MySqlClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(MySqlConfig.class);
         configBinder(binder).bindConfigDefaults(BaseJdbcConfig.class, baseJdbcConfig -> {
             baseJdbcConfig.setlistSchemasIgnoredSchemas("information_schema,mysql");
         });
         ensureCatalogIsEmpty(buildConfigObject(BaseJdbcConfig.class).getConnectionUrl());
-        configBinder(binder).bindConfig(MySqlConfig.class);
-        binder.install(new JsonModule());
 
+        // JSON codec required by MySqlClient for ViewDefinition serialization
+        binder.install(new JsonModule());
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
     }

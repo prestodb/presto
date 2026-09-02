@@ -37,7 +37,6 @@ public class MySqlMetadataFactory
         super(jdbcMetadataCache, mySqlClient, config, tableLocationProvider);
         this.jdbcMetadataCache = requireNonNull(jdbcMetadataCache, "jdbcMetadataCache is null");
         this.mySqlClient = requireNonNull(mySqlClient, "mySqlClient is null");
-        requireNonNull(config, "config is null");
         this.allowDropTable = config.isAllowDropTable();
         this.tableLocationProvider = requireNonNull(tableLocationProvider, "tableLocationProvider is null");
         this.mySqlConfig = requireNonNull(mySqlConfig, "mySqlConfig is null");
@@ -46,11 +45,6 @@ public class MySqlMetadataFactory
     @Override
     public JdbcMetadata create()
     {
-        return new MySqlMetadata(
-                jdbcMetadataCache,
-                mySqlClient,
-                allowDropTable,
-                tableLocationProvider,
-                mySqlConfig);
+        return new MySqlMetadata(jdbcMetadataCache, mySqlClient, allowDropTable, tableLocationProvider, mySqlConfig);
     }
 }
