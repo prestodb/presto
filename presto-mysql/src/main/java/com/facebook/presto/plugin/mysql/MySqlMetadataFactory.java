@@ -28,6 +28,8 @@ public class MySqlMetadataFactory
     private final JdbcMetadataCache jdbcMetadataCache;
     private final MySqlClient mySqlClient;
     private final boolean allowDropTable;
+    private final boolean metadataTransactionCacheEnabled;
+    private final long metadataTransactionCacheMaximumSize;
     private final TableLocationProvider tableLocationProvider;
     private final MySqlConfig mySqlConfig;
 
@@ -39,6 +41,8 @@ public class MySqlMetadataFactory
         this.mySqlClient = requireNonNull(mySqlClient, "mySqlClient is null");
         requireNonNull(config, "config is null");
         this.allowDropTable = config.isAllowDropTable();
+        this.metadataTransactionCacheEnabled = config.isMetadataTransactionCacheEnabled();
+        this.metadataTransactionCacheMaximumSize = config.getMetadataTransactionCacheMaximumSize();
         this.tableLocationProvider = requireNonNull(tableLocationProvider, "tableLocationProvider is null");
         this.mySqlConfig = requireNonNull(mySqlConfig, "mySqlConfig is null");
     }
@@ -46,8 +50,14 @@ public class MySqlMetadataFactory
     @Override
     public JdbcMetadata create()
     {
+        // Overriding create() bypasses the transaction cache that JdbcMetadataFactory sets up, so
+        // repeat it here. Without this, metadata-transaction-cache-enabled and
+        // metadata-transaction-cache-maximum-size would be silently ignored for MySQL catalogs.
+        JdbcMetadataCache transactionMetadataCache = metadataTransactionCacheEnabled ?
+                JdbcMetadataCache.createTransactionCache(jdbcMetadataCache, metadataTransactionCacheMaximumSize) :
+                jdbcMetadataCache;
         return new MySqlMetadata(
-                jdbcMetadataCache,
+                transactionMetadataCache,
                 mySqlClient,
                 allowDropTable,
                 tableLocationProvider,
