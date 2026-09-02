@@ -95,6 +95,8 @@
         <dep.mariadb.version>3.5.4</dep.mariadb.version>
         <dep.spark.version>2.4.4-1</dep.spark.version>
         <dep.hadoop.version>3.4.1-1</dep.hadoop.version>
+        <dep.httpclient5.version>5.4.3</dep.httpclient5.version>
+        <dep.httpcore5.version>5.4.3</dep.httpcore5.version>
         <scala.version>2.13.18</scala.version>
 
         <!--
@@ -1683,20 +1685,6 @@
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
                 <version>0.24.0</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpcore</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpclient</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.tomcat.embed</groupId>
-                        <artifactId>tomcat-embed-core</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <!-- Start dependencies for querying Hudi table-->
@@ -1910,10 +1898,6 @@
                         <groupId>joda-time</groupId>
                         <artifactId>joda-time</artifactId>
                     </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpclient</artifactId>
-                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -2066,6 +2050,24 @@
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpcore</artifactId>
                 <version>4.4.16</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5</artifactId>
+                <version>${dep.httpcore5.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5-h2</artifactId>
+                <version>${dep.httpcore5.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents.client5</groupId>
+                <artifactId>httpclient5</artifactId>
+                <version>${dep.httpclient5.version}</version>
             </dependency>
 
             <dependency>
