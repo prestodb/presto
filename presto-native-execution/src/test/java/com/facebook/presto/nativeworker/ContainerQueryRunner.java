@@ -293,7 +293,10 @@ public class ContainerQueryRunner
                 .withNetwork(networkExpected)
                 .withNetworkAliases(nodeId)
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/etc"), "/opt/presto-server/etc")
-                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh");
+                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh")
+                // No explicit wait strategy, so the default host-port strategy applies; bound it by
+                // CONTAINER_TIMEOUT rather than the Testcontainers default.
+                .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
     }
 
     protected GenericContainer<?> createSidecar(int port, String nodeId, boolean isNativeCluster)
