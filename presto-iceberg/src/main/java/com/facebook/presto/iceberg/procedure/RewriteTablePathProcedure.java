@@ -128,6 +128,9 @@ public class RewriteTablePathProcedure
     private static final String MANIFEST_LIST_PATH_FIELD = "manifest_path";
     private static final String MANIFEST_LIST_LENGTH_FIELD = "manifest_length";
 
+    private static final List<String> AVRO_METADATA_KEYS_TO_PRESERVE = ImmutableList.of(
+            "format-version", "content", "partition-spec-id", "schema", "partition-spec");
+
     private static final MethodHandle REWRITE_TABLE_PATH = methodHandle(
             RewriteTablePathProcedure.class,
             "rewriteTablePath",
@@ -254,8 +257,8 @@ public class RewriteTablePathProcedure
                                     "Manifest path '%s' does not start with source_prefix '%s'",
                                     manifest.path(), normalizedSource));
                         }
-                        String manifestStagingPath = manifest.path().replace(normalizedSource, normalizedStaging);
-                        String manifestFinalPath = manifest.path().replace(normalizedSource, normalizedTarget);
+                        String manifestStagingPath = normalizedStaging + manifest.path().substring(normalizedSource.length());
+                        String manifestFinalPath = normalizedTarget + manifest.path().substring(normalizedSource.length());
 
                         // Both DATA and DELETE manifests use "data_file" as the nested record field name
                         // The manifest content type is stored in the Avro metadata, not in the schema
@@ -282,8 +285,8 @@ public class RewriteTablePathProcedure
                                 "Manifest list path '%s' does not start with source_prefix '%s'",
                                 manifestListPath, normalizedSource));
                     }
-                    String manifestListStagingPath = manifestListPath.replace(normalizedSource, normalizedStaging);
-                    String manifestListFinalPath = manifestListPath.replace(normalizedSource, normalizedTarget);
+                    String manifestListStagingPath = normalizedStaging + manifestListPath.substring(normalizedSource.length());
+                    String manifestListFinalPath = normalizedTarget + manifestListPath.substring(normalizedSource.length());
                     // Manifest lists don't contain data files, so pass null for the collection param.
                     // The recorded lengths correct manifest_length for the manifests rewritten in Step 1.
                     rewriteAvroFile(manifestListPath, null, MANIFEST_LIST_PATH_FIELD, fileIO,
@@ -302,7 +305,7 @@ public class RewriteTablePathProcedure
                 for (StatisticsFile statsFile : currentMetadata.statisticsFiles()) {
                     String statsPath = statsFile.path();
                     if (statsPath.startsWith(normalizedSource)) {
-                        String statsTargetPath = statsPath.replace(normalizedSource, normalizedTarget);
+                        String statsTargetPath = normalizedTarget + statsPath.substring(normalizedSource.length());
                         fileList.add(new String[] {statsPath, statsTargetPath});
                     }
                 }
@@ -396,7 +399,7 @@ public class RewriteTablePathProcedure
                 // interpretation of manifests when the table has undergone schema/partition evolution.
                 // Avoid copying keys that may be location-specific or auto-generated.
                 // Based on org.apache.iceberg.avro.AvroFileAppender metadata keys.
-                for (String key : new String[]{"format-version", "content", "partition-spec-id", "schema", "partition-spec"}) {
+                for (String key : AVRO_METADATA_KEYS_TO_PRESERVE) {
                     byte[] value = reader.getMeta(key);
                     if (value != null) {
                         writer.setMeta(key, value);
@@ -422,10 +425,12 @@ public class RewriteTablePathProcedure
                                     Object filePathValue = fileRecord.get(filePathField.pos());
                                     if (filePathValue != null) {
                                         String filePath = filePathValue.toString();
-                                        collectDataFiles.add(new String[] {
-                                                filePath,
-                                                filePath.replace(sourcePrefix, targetPrefix)
-                                        });
+                                        if (filePath.startsWith(sourcePrefix)) {
+                                            collectDataFiles.add(new String[] {
+                                                    filePath,
+                                                    targetPrefix + filePath.substring(sourcePrefix.length())
+                                            });
+                                        }
                                     }
                                 }
                             }
@@ -512,7 +517,11 @@ public class RewriteTablePathProcedure
         }
         Object value = target.get(field.pos());
         if (value != null) {
-            target.put(field.pos(), new Utf8(value.toString().replace(sourcePrefix, targetPrefix)));
+            String path = value.toString();
+            String rewritten = path.startsWith(sourcePrefix)
+                    ? targetPrefix + path.substring(sourcePrefix.length())
+                    : path;
+            target.put(field.pos(), new Utf8(rewritten));
         }
     }
 
@@ -579,8 +588,9 @@ public class RewriteTablePathProcedure
                 .replace(sourcePrefix, targetPrefix);
 
         // Compute staging path (physical write destination) and final target path (logical).
-        String stagingPath = sourceMetadataPath.replace(sourcePrefix, stagingPrefix);
-        String finalTargetPath = sourceMetadataPath.replace(sourcePrefix, targetPrefix);
+        // Anchored: sourceMetadataPath is validated to start with sourcePrefix by the caller.
+        String stagingPath = stagingPrefix + sourceMetadataPath.substring(sourcePrefix.length());
+        String finalTargetPath = targetPrefix + sourceMetadataPath.substring(sourcePrefix.length());
 
         // Write the rewritten bytes directly — bypassing TableMetadataParser.write() which
         // would re-serialise the object and embed the staging OutputFile.location() as the
