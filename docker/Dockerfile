@@ -10,7 +10,7 @@ ENV PRESTO_HOME="/opt/presto-server"
 
 RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
     dnf install -y java-17-openjdk less procps python3 \
-    && ln -s $(which python3) /usr/bin/python \
+    && ln -sf $(which python3) /usr/bin/python \
     # clean cache jobs
     && mv /etc/yum/protected.d/systemd.conf /etc/yum/protected.d/systemd.conf.bak
 
