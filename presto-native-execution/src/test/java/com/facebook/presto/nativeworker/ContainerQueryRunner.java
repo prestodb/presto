@@ -317,7 +317,8 @@ public class ContainerQueryRunner
                 .withNetworkAliases(nodeId)
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/etc"), "/opt/presto-server/etc")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh")
-                .waitingFor(isSidecarNode ? Wait.forListeningPort() : Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1));
+                .waitingFor(isSidecarNode ? Wait.forListeningPort() : Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1))
+                .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
     }
 
     protected GenericContainer<?> createFunctionServer()
