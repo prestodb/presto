@@ -312,7 +312,13 @@ public class RewriteTablePathProcedure
             }
 
             // Step 4: Rewrite every metadata JSON file the table tracks.
+            // previousFiles() log entries may reference metadata files from before the table was
+            // moved to its current location. Skip those — they are outside the migration scope and
+            // calling substring(sourcePrefix.length()) on them would produce a garbled staging path.
             for (String metadataFile : allMetadataFiles) {
+                if (!metadataFile.startsWith(normalizedSource)) {
+                    continue;
+                }
                 rewriteMetadataJson(metadataFile, fileIO, normalizedSource, normalizedTarget, normalizedStaging, fileList);
             }
 

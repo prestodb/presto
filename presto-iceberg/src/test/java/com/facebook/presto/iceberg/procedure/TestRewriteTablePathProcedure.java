@@ -1504,7 +1504,7 @@ public class TestRewriteTablePathProcedure
     private void createTable(String tableName)
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS " + TEST_SCHEMA + "." + tableName);
-        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, value VARCHAR)");
+        assertUpdate("CREATE TABLE " + TEST_SCHEMA + "." + tableName + " (id INTEGER, value VARCHAR)");
     }
 
     private void dropTable(String tableName)
