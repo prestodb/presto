@@ -1445,6 +1445,32 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
+    public void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have fields renamed");
+        validateNoBranchSpecified(handle, "RENAME COLUMN");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        // Resolve field using case-insensitive lookup, then recover its canonical name —
+        // Iceberg's renameColumn() is case-sensitive when locating the field.
+        String dottedPath = String.join(".", fieldPath);
+        Types.NestedField field = icebergTable.schema().caseInsensitiveFindField(dottedPath);
+        if (field == null) {
+            throw new PrestoException(COLUMN_NOT_FOUND,
+                    format("Field '%s' does not exist in table '%s'", dottedPath, handle.getSchemaTableName()));
+        }
+        String canonicalPath = icebergTable.schema().findColumnName(field.fieldId());
+
+        try {
+            icebergTable.updateSchema().renameColumn(canonicalPath, target).commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to rename field: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> insertColumnNames)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;

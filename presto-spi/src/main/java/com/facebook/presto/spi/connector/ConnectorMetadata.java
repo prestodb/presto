@@ -427,6 +427,16 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Rename a field inside a nested struct column.
+     * {@code fieldPath} is the full dotted path to the field being renamed (e.g. ["info", "age"]).
+     * {@code target} is the new name for the last element of the path.
+     */
+    default void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming nested fields");
+    }
+
+    /**
      * Set the default value for the specified column for future writes.
      * The exact semantics are connector-defined.
      */

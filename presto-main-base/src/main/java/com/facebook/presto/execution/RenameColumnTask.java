@@ -18,12 +18,12 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -31,8 +31,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
@@ -70,31 +72,47 @@ public class RenameColumnTask
 
         TableHandle tableHandle = tableHandleOptional.get();
 
-        Identifier sourceName = statement.getSource();
-        String source = metadata.normalizeIdentifier(session, tableName.getCatalogName(), sourceName.getValue());
-        Identifier targetName = statement.getTarget();
-        String target = metadata.normalizeIdentifier(session, tableName.getCatalogName(), targetName.getValue());
+        List<String> normalizedSourceParts = statement.getSource().getParts().stream()
+                .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part))
+                .collect(Collectors.toList());
+        String target = metadata.normalizeIdentifier(session, tableName.getCatalogName(), statement.getTarget().getValue());
 
         accessControl.checkCanRenameColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-        ColumnHandle columnHandle = columnHandles.get(source);
-        if (columnHandle == null) {
-            if (!statement.isColumnExists()) {
-                throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", source);
+        if (normalizedSourceParts.size() == 1) {
+            // Top-level column: use existing ColumnHandle-based path.
+            String source = normalizedSourceParts.get(0);
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+            ColumnHandle columnHandle = columnHandles.get(source);
+            if (columnHandle == null) {
+                if (!statement.isColumnExists()) {
+                    throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", source);
+                }
+                return immediateFuture(null);
             }
-            return immediateFuture(null);
-        }
 
-        if (columnHandles.containsKey(target)) {
-            throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", target);
-        }
+            if (columnHandles.containsKey(target)) {
+                throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", target);
+            }
 
-        if (metadata.getColumnMetadata(session, tableHandle, columnHandle).isHidden()) {
-            throw new SemanticException(NOT_SUPPORTED, statement, "Cannot rename hidden column");
-        }
+            if (metadata.getColumnMetadata(session, tableHandle, columnHandle).isHidden()) {
+                throw new SemanticException(NOT_SUPPORTED, statement, "Cannot rename hidden column");
+            }
 
-        metadata.renameColumn(session, tableHandle, columnHandle, target);
+            metadata.renameColumn(session, tableHandle, columnHandle, target);
+        }
+        else {
+            // Nested field: no ColumnHandle exists for sub-fields; delegate path-based rename.
+            try {
+                metadata.renameField(session, tableHandle, normalizedSourceParts, target);
+            }
+            catch (PrestoException e) {
+                if (e.getErrorCode().equals(COLUMN_NOT_FOUND.toErrorCode()) && statement.isColumnExists()) {
+                    return immediateFuture(null);
+                }
+                throw e;
+            }
+        }
 
         return immediateFuture(null);
     }

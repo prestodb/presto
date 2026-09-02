@@ -1504,7 +1504,7 @@ public final class SqlFormatter
             if (node.isColumnExists()) {
                 builder.append("IF EXISTS ");
             }
-            builder.append(node.getSource())
+            builder.append(formatName(node.getSource()))
                     .append(" TO ")
                     .append(node.getTarget());
 

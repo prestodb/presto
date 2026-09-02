@@ -1150,6 +1150,97 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testRenameNestedField()
+    {
+        testWithAllFileFormats(this::testRenameNestedField);
+    }
+
+    private void testRenameNestedField(Session session, FileFormat fileFormat)
+    {
+        String format = "\"write.format.default\" = '" + fileFormat + "'";
+
+        // --- Single-level struct: rename one field ---
+        assertUpdate(session, "CREATE TABLE test_nested_rename_field (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_rename_field VALUES (1, ROW('alice', 30))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age FROM test_nested_rename_field",
+                "VALUES (1, 'alice', 30)");
+
+        // Rename the nested field
+        assertUpdate(session, "ALTER TABLE test_nested_rename_field RENAME COLUMN info.age TO years");
+
+        // Renamed field is accessible by new name
+        assertQuery(session, "SELECT id, info.name, info.years FROM test_nested_rename_field",
+                "VALUES (1, 'alice', 30)");
+
+        // Old name is no longer accessible
+        assertQueryFails(session,
+                "SELECT info.age FROM test_nested_rename_field",
+                ".*Column 'info.age' cannot be resolved.*|.*Field 'age' does not exist.*");
+
+        // Whole-struct read after field rename
+        MaterializedResult infoAfterRename = computeActual(session,
+                "SELECT info FROM test_nested_rename_field");
+        assertEquals(infoAfterRename.getRowCount(), 1);
+        assertEquals(infoAfterRename.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30));
+
+        // New rows work correctly with the evolved schema
+        assertUpdate(session, "INSERT INTO test_nested_rename_field VALUES (2, ROW('bob', 25))", 1);
+        assertQuery(session, "SELECT id, info.name, info.years FROM test_nested_rename_field ORDER BY id",
+                "VALUES (1, 'alice', 30), (2, 'bob', 25)");
+
+        dropTable(session, "test_nested_rename_field");
+
+        // --- Multi-level nesting: rename a field from a deeply nested struct ---
+        assertUpdate(session, "CREATE TABLE test_nested_rename_deep (" +
+                "id BIGINT, " +
+                "outer_col ROW(inner_col ROW(a VARCHAR, b BIGINT))" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_rename_deep VALUES (1, ROW(ROW('hello', 42)))", 1);
+
+        assertUpdate(session, "ALTER TABLE test_nested_rename_deep RENAME COLUMN outer_col.inner_col.b TO value");
+
+        // Renamed deeply nested field accessible by new name
+        assertQuery(session, "SELECT outer_col.inner_col.a, outer_col.inner_col.value FROM test_nested_rename_deep",
+                "VALUES ('hello', 42)");
+
+        dropTable(session, "test_nested_rename_deep");
+
+        // --- IF EXISTS: silently skip if nested field does not exist ---
+        assertUpdate(session, "CREATE TABLE test_nested_rename_ifexists (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        // Field exists — renames normally
+        assertUpdate(session, "ALTER TABLE test_nested_rename_ifexists RENAME COLUMN IF EXISTS info.age TO years");
+        // Field already renamed — no longer exists, IF EXISTS suppresses the error
+        assertUpdate(session, "ALTER TABLE test_nested_rename_ifexists RENAME COLUMN IF EXISTS info.age TO years");
+        dropTable(session, "test_nested_rename_ifexists");
+
+        // --- Error: nested field does not exist (no IF EXISTS) ---
+        assertUpdate(session, "CREATE TABLE test_nested_rename_missing (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_rename_missing RENAME COLUMN info.nonexistent TO new_name",
+                ".*Field 'info.nonexistent' does not exist.*|.*Failed to rename field.*");
+        dropTable(session, "test_nested_rename_missing");
+
+        // --- Error: target name already exists as a sibling field ---
+        assertUpdate(session, "CREATE TABLE test_nested_rename_collision (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_rename_collision RENAME COLUMN info.age TO name",
+                ".*name.*already exists.*|.*Failed to rename field.*");
+        dropTable(session, "test_nested_rename_collision");
+    }
+
+    @Test
     protected void testCreateTableLike()
     {
         Session session = getSession();

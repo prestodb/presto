@@ -239,6 +239,13 @@ public interface Metadata
     void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
 
     /**
+     * Rename a field inside a nested struct column.
+     * {@code fieldPath} is the full dotted path to the field being renamed (e.g. ["info", "age"]).
+     * {@code target} is the new name for the last element of the path.
+     */
+    void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target);
+
+    /**
      * Set the default value for the specified column
      */
     void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue);

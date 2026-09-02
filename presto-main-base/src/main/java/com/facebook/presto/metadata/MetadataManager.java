@@ -811,6 +811,14 @@ public class MetadataManager
     }
 
     @Override
+    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.renameField(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fieldPath, normalizeIdentifier(session, connectorId.getCatalogName(), target));
+    }
+
+    @Override
     public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
