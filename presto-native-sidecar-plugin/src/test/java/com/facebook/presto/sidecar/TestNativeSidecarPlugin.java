@@ -32,6 +32,7 @@ import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceMana
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.sidecar.nativechecker.NativePlanChecker;
 import com.facebook.presto.sidecar.nativechecker.NativePlanCheckerProvider;
+import com.facebook.presto.sidecar.SidecarRetryConfig;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProvider;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
@@ -79,6 +80,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrde
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -184,6 +186,39 @@ public class TestNativeSidecarPlugin
         httpClient = planChecker.getHttpClient();
         assertEquals(httpClient.getMaxContentLength(), new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
         testInternalAuthenticationFilter(httpClient);
+    }
+
+    @Test
+    public void testSharedRetryConfig()
+    {
+        // All 4 sidecar HTTP clients must share the same SidecarRetryConfig instance —
+        // a single sidecar.retry.max-failure-interval property controls retry behaviour
+        // uniformly across session-property, function-namespace, plan-checker, and
+        // expression-optimizer calls.
+        WorkerSessionPropertyProvider sessionPropertyProvider = getQueryRunner().getMetadata().getSessionPropertyManager().getWorkerSessionPropertyProviders().get(NativeSystemSessionPropertyProviderFactory.NAME);
+        checkArgument(sessionPropertyProvider instanceof NativeSystemSessionPropertyProvider, "Expected NativeSystemSessionPropertyProvider but got %s", sessionPropertyProvider);
+        SidecarRetryConfig retryConfig = ((NativeSystemSessionPropertyProvider) sessionPropertyProvider).getRetryConfig();
+
+        FunctionNamespaceManager<? extends SqlFunction> functionNamespaceManager = getQueryRunner().getMetadata().getFunctionAndTypeManager().getFunctionNamespaceManagers().get(NativeFunctionNamespaceManagerFactory.NAME);
+        checkArgument(functionNamespaceManager instanceof NativeFunctionNamespaceManager, "Expected NativeFunctionNamespaceManager but got %s", functionNamespaceManager);
+        FunctionDefinitionProvider functionDefinitionProvider = ((NativeFunctionNamespaceManager) functionNamespaceManager).getFunctionDefinitionProvider();
+        checkArgument(functionDefinitionProvider instanceof NativeFunctionDefinitionProvider, "Expected NativeFunctionDefinitionProvider but got %s", functionDefinitionProvider);
+        assertSame(((NativeFunctionDefinitionProvider) functionDefinitionProvider).getRetryConfig(), retryConfig,
+                "NativeFunctionDefinitionProvider must share the same SidecarRetryConfig instance");
+
+        ExpressionOptimizer expressionOptimizer = getQueryRunner().getExpressionManager().getExpressionOptimizer(NativeExpressionOptimizerFactory.NAME);
+        checkArgument(expressionOptimizer instanceof NativeExpressionOptimizer, "Expected NativeExpressionOptimizer but got %s", expressionOptimizer);
+        NativeSidecarExpressionInterpreter interpreter = ((NativeExpressionOptimizer) expressionOptimizer).getRowExpressionInterpreterService();
+        assertSame(interpreter.getRetryConfig(), retryConfig,
+                "NativeSidecarExpressionInterpreter must share the same SidecarRetryConfig instance");
+
+        List<PlanCheckerProvider> planCheckerProviders = getQueryRunner().getPlanCheckerProviderManager().getPlanCheckerProviders();
+        assertEquals(planCheckerProviders.size(), 1);
+        PlanCheckerProvider provider = planCheckerProviders.get(0);
+        checkArgument(provider instanceof NativePlanCheckerProvider, "Expected NativePlanCheckerProvider but got %s", provider);
+        NativePlanChecker planChecker = (NativePlanChecker) provider.getFragmentPlanCheckers().get(0);
+        assertSame(planChecker.getRetryConfig(), retryConfig,
+                "NativePlanChecker must share the same SidecarRetryConfig instance");
     }
 
     @Test

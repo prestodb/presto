@@ -22,6 +22,9 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sidecar.ForSidecarInfo;
+import com.facebook.presto.common.util.Backoff;
+import com.facebook.presto.sidecar.SidecarRetryConfig;
+import com.facebook.presto.sidecar.SidecarRetryDriver;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
@@ -45,7 +48,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
@@ -64,6 +67,7 @@ public class NativeSystemSessionPropertyProvider
     private final JsonCodec<List<SessionPropertyMetadata>> nativeSessionPropertiesJsonCodec;
     private final Supplier<List<PropertyMetadata<?>>> memoizedSessionPropertiesSupplier;
     private final HttpClient httpClient;
+    private final SidecarRetryConfig retryConfig;
     private static final String SESSION_PROPERTIES_ENDPOINT = "/v1/properties/session";
 
     @Inject
@@ -71,12 +75,14 @@ public class NativeSystemSessionPropertyProvider
             @ForSidecarInfo HttpClient httpClient,
             JsonCodec<List<SessionPropertyMetadata>> nativeSessionPropertiesJsonCodec,
             NodeManager nodeManager,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            SidecarRetryConfig retryConfig)
     {
         this.nativeSessionPropertiesJsonCodec = requireNonNull(nativeSessionPropertiesJsonCodec, "nativeSessionPropertiesJsonCodec is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.retryConfig = requireNonNull(retryConfig, "retryConfig is null");
         this.memoizedSessionPropertiesSupplier = Suppliers.memoize(this::fetchSessionProperties);
     }
 
@@ -88,19 +94,21 @@ public class NativeSystemSessionPropertyProvider
 
     private List<PropertyMetadata<?>> fetchSessionProperties()
     {
-        try {
-            List<PropertyMetadata<?>> propertyMetadataList = new ArrayList<>();
-            Request request = prepareGet().setUri(getSidecarLocation()).build();
-            List<SessionPropertyMetadata> nativeSessionProperties = httpClient.execute(request, createJsonResponseHandler(nativeSessionPropertiesJsonCodec));
-            for (SessionPropertyMetadata sessionProperty : nativeSessionProperties) {
-                PropertyMetadata<?> propertyMetadata = toPropertyMetadata(sessionProperty);
-                propertyMetadataList.add(propertyMetadata);
-            }
-            return propertyMetadataList;
+        Backoff backoff = new Backoff(retryConfig.getMaxFailureInterval());
+        List<SessionPropertyMetadata> nativeSessionProperties = SidecarRetryDriver.executeWithRetry(
+                () -> {
+                    Request request = prepareGet().setUri(getSidecarLocation()).build();
+                    return httpClient.execute(request, createJsonResponseHandler(nativeSessionPropertiesJsonCodec));
+                },
+                backoff,
+                "session properties",
+                new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to get session properties from sidecar."));
+
+        List<PropertyMetadata<?>> propertyMetadataList = new ArrayList<>();
+        for (SessionPropertyMetadata sessionProperty : nativeSessionProperties) {
+            propertyMetadataList.add(toPropertyMetadata(sessionProperty));
         }
-        catch (Exception e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get session properties from sidecar.", e);
-        }
+        return propertyMetadataList;
     }
 
     public PropertyMetadata<?> toPropertyMetadata(SessionPropertyMetadata data)
@@ -146,5 +154,11 @@ public class NativeSystemSessionPropertyProvider
     public HttpClient getHttpClient()
     {
         return httpClient;
+    }
+
+    @VisibleForTesting
+    public SidecarRetryConfig getRetryConfig()
+    {
+        return retryConfig;
     }
 }

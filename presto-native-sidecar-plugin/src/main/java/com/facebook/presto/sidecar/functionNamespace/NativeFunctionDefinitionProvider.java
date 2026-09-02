@@ -22,6 +22,9 @@ import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import com.facebook.presto.sidecar.ForSidecarInfo;
+import com.facebook.presto.common.util.Backoff;
+import com.facebook.presto.sidecar.SidecarRetryConfig;
+import com.facebook.presto.sidecar.SidecarRetryDriver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
@@ -35,7 +38,7 @@ import java.util.Map;
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.presto.builtin.tools.NativeSidecarFunctionRegistryTool.getSidecarLocationOnStartup;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class NativeFunctionDefinitionProvider
@@ -46,47 +49,59 @@ public class NativeFunctionDefinitionProvider
     private final HttpClient httpClient;
     private final NativeFunctionNamespaceManagerConfig config;
     private final String catalogName;
+    private final SidecarRetryConfig retryConfig;
 
     @Inject
     public NativeFunctionDefinitionProvider(
             @ForSidecarInfo HttpClient httpClient,
             JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec,
             NativeFunctionNamespaceManagerConfig config,
-            @ServingCatalog String catalogName)
+            @ServingCatalog String catalogName,
+            SidecarRetryConfig retryConfig)
     {
         this.nativeFunctionSignatureMapJsonCodec =
                 requireNonNull(nativeFunctionSignatureMapJsonCodec, "nativeFunctionSignatureMapJsonCodec is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.config = requireNonNull(config, "config is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.retryConfig = requireNonNull(retryConfig, "retryConfig is null");
     }
 
     @Override
     public UdfFunctionSignatureMap getUdfDefinition(NodeManager nodeManager)
     {
-        try {
-            // Base endpoint: /v1/functions
-            URI baseUri = getSidecarLocationOnStartup(
-                    nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis());
-            // Catalog-filtered endpoint: /v1/functions/{catalog}
-            URI catalogUri = HttpUriBuilder.uriBuilderFrom(baseUri).appendPath(catalogName).build();
-            Request catalogRequest = prepareGet().setUri(catalogUri).build();
-            Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap =
-                    httpClient.execute(catalogRequest, createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));
-            if (nativeFunctionSignatureMap == null) {
-                return new UdfFunctionSignatureMap(ImmutableMap.of());
-            }
-            return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));
+        // Base endpoint: /v1/functions
+        URI baseUri = getSidecarLocationOnStartup(
+                nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis());
+        // Catalog-filtered endpoint: /v1/functions/{catalog}
+        URI catalogUri = HttpUriBuilder.uriBuilderFrom(baseUri).appendPath(catalogName).build();
+
+        Backoff backoff = new Backoff(retryConfig.getMaxFailureInterval());
+        Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap =
+                SidecarRetryDriver.executeWithRetry(
+                        () -> {
+                            Request catalogRequest = prepareGet().setUri(catalogUri).build();
+                            return httpClient.execute(catalogRequest, createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));
+                        },
+                        backoff,
+                        "function definitions for catalog " + catalogName,
+                        new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Failed to get catalog-scoped functions from sidecar for catalog '%s'", catalogName)));
+
+        if (nativeFunctionSignatureMap == null) {
+            return new UdfFunctionSignatureMap(ImmutableMap.of());
         }
-        catch (Exception e) {
-            // Do not fall back to unfiltered endpoint to avoid cross-catalog leakage.
-            throw new PrestoException(INVALID_ARGUMENTS, String.format("Failed to get catalog-scoped functions from sidecar for catalog '%s'", catalogName), e);
-        }
+        return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));
     }
 
     @VisibleForTesting
     public HttpClient getHttpClient()
     {
         return httpClient;
+    }
+
+    @VisibleForTesting
+    public SidecarRetryConfig getRetryConfig()
+    {
+        return retryConfig;
     }
 }

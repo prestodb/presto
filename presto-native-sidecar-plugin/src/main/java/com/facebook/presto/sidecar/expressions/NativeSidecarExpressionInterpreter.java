@@ -22,6 +22,9 @@ import com.facebook.airlift.stats.TimeStat;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.NativeSidecarFailureInfo;
+import com.facebook.presto.common.util.Backoff;
+import com.facebook.presto.sidecar.SidecarRetryConfig;
+import com.facebook.presto.sidecar.SidecarRetryDriver;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
@@ -45,7 +48,7 @@ import static com.facebook.airlift.http.client.JsonBodyGenerator.jsonBodyGenerat
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -68,18 +71,21 @@ public class NativeSidecarExpressionInterpreter
     private final HttpClient httpClient;
     private final JsonCodec<ExpressionOptimizationRequest> expressionOptimizationRequestCodec;
     private final JsonCodec<List<RowExpressionOptimizationResult>> rowExpressionOptimizationResultJsonCodec;
+    private final SidecarRetryConfig retryConfig;
 
     @Inject
     public NativeSidecarExpressionInterpreter(
             @ForSidecarInfo HttpClient httpClient,
             NodeManager nodeManager,
             JsonCodec<List<RowExpressionOptimizationResult>> rowExpressionOptimizationResultJsonCodec,
-            JsonCodec<ExpressionOptimizationRequest> expressionOptimizationRequestCodec)
+            JsonCodec<ExpressionOptimizationRequest> expressionOptimizationRequestCodec,
+            SidecarRetryConfig retryConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.rowExpressionOptimizationResultJsonCodec = requireNonNull(rowExpressionOptimizationResultJsonCodec, "rowExpressionOptimizationResultJsonCodec is null");
         this.expressionOptimizationRequestCodec = requireNonNull(expressionOptimizationRequestCodec, "expressionOptimizationRequestCodec is null");
+        this.retryConfig = requireNonNull(retryConfig, "retryConfig is null");
     }
 
     public Map<RowExpression, RowExpression> optimizeBatch(ConnectorSession session, Map<RowExpression, RowExpression> expressions, ExpressionOptimizer.Level level)
@@ -115,22 +121,22 @@ public class NativeSidecarExpressionInterpreter
 
     public List<RowExpressionOptimizationResult> optimize(ConnectorSession session, ExpressionOptimizer.Level level, List<RowExpression> resolvedExpressions)
     {
-        List<RowExpressionOptimizationResult> optimizedExpressions;
         long start = System.nanoTime();
         try {
-            optimizedExpressions = httpClient.execute(
-                    getSidecarRequest(session, level, resolvedExpressions),
-                    createJsonResponseHandler(rowExpressionOptimizationResultJsonCodec));
-        }
-        catch (Exception e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get optimized expressions from sidecar.", e);
+            Backoff backoff = new Backoff(retryConfig.getMaxFailureInterval());
+            return SidecarRetryDriver.executeWithRetry(
+                    () -> httpClient.execute(
+                            getSidecarRequest(session, level, resolvedExpressions),
+                            createJsonResponseHandler(rowExpressionOptimizationResultJsonCodec)),
+                    backoff,
+                    "expression optimization",
+                    new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to get optimized expressions from sidecar."));
         }
         finally {
             Duration duration = new Duration(System.nanoTime() - start, TimeUnit.NANOSECONDS);
             latency.add(duration);
             log.debug("queryId=%s, expression optimization latencyMs=%d", session.getQueryId(), duration.toMillis());
         }
-        return optimizedExpressions;
     }
 
     @Managed
@@ -192,5 +198,11 @@ public class NativeSidecarExpressionInterpreter
     public HttpClient getHttpClient()
     {
         return httpClient;
+    }
+
+    @VisibleForTesting
+    public SidecarRetryConfig getRetryConfig()
+    {
+        return retryConfig;
     }
 }
