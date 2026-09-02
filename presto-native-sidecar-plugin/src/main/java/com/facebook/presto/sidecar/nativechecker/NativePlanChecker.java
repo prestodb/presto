@@ -287,43 +287,30 @@ public final class NativePlanChecker
         @Override
         public PlanNode visitCallDistributedProcedure(CallDistributedProcedureNode callProcedure, Void context)
         {
-            // Create dummy assignments for the ProjectNode
-            Map<VariableReferenceExpression, RowExpression> assignmentsMap = new HashMap<>();
-            assignmentsMap.put(callProcedure.getRowCountVariable(), new ConstantExpression(0L, BIGINT));
-            assignmentsMap.put(callProcedure.getFragmentVariable(), new ConstantExpression(utf8Slice(""), VARCHAR));
-            assignmentsMap.put(callProcedure.getTableCommitContextVariable(), new ConstantExpression(utf8Slice(""), VARCHAR));
-
-            // Replace CallDistributedProcedureNode with a ProjectNode
-            return new ProjectNode(
-                    callProcedure.getId(),
-                    callProcedure.getSource(),
-                    Assignments.builder().putAll(assignmentsMap).build());
+            return replaceWithDummyProject(callProcedure, callProcedure.getSource(), callProcedure.getOutputVariables());
         }
 
         @Override
         public PlanNode visitDelete(DeleteNode deleteNode, Void context)
         {
-            // DeleteNode has no named rowCount/fragment/commitContext accessors; its
-            // outputVariables list is [partialrows:BIGINT, fragment:VARBINARY, commitcontext:VARBINARY]
-            // on the native path.  Map every output to a dummy constant following the
-            // same pattern as visitCallDistributedProcedure() so the native plan checker
-            // receives a structurally valid ProjectNode instead of a DeleteNode whose
-            // writerTarget is absent during the plan-check phase.
+            return replaceWithDummyProject(deleteNode, deleteNode.getSource(), deleteNode.getOutputVariables());
+        }
+
+        private static ProjectNode replaceWithDummyProject(
+                PlanNode node,
+                PlanNode source,
+                List<VariableReferenceExpression> outputVariables)
+        {
             Map<VariableReferenceExpression, RowExpression> assignmentsMap = new HashMap<>();
-            List<VariableReferenceExpression> outputs = deleteNode.getOutputVariables();
-            for (int i = 0; i < outputs.size(); i++) {
-                VariableReferenceExpression output = outputs.get(i);
-                // Index 0 is the row-count (BIGINT); all others are VARBINARY slices.
+            for (int i = 0; i < outputVariables.size(); i++) {
                 RowExpression dummy = (i == 0)
                         ? new ConstantExpression(0L, BIGINT)
                         : new ConstantExpression(utf8Slice(""), VARCHAR);
-                assignmentsMap.put(output, dummy);
+                assignmentsMap.put(outputVariables.get(i), dummy);
             }
-
-            // Replace DeleteNode with a ProjectNode wrapping its scan/filter source.
             return new ProjectNode(
-                    deleteNode.getId(),
-                    deleteNode.getSource(),
+                    node.getId(),
+                    source,
                     Assignments.builder().putAll(assignmentsMap).build());
         }
 

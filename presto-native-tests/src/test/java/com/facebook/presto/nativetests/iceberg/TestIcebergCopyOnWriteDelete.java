@@ -110,6 +110,9 @@ public class TestIcebergCopyOnWriteDelete
 
             // DELETE on a non-partition column requires row-level delete, which is not supported for COW.
             assertQueryFails("DELETE FROM " + tableName + " WHERE value = 1", errorMessage);
+
+            // Verify the failed DELETE left all rows intact.
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 10), (2, 1), (3, 5)");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
