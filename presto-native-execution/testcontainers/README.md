@@ -60,7 +60,7 @@ To run the functional tests using existing docker images, specify `-Dcoordinator
 ```
 The native worker is started by invoking its binary directly, so the worker image does not need to
 supply an entrypoint. The binary is looked up as `presto_server` on the image's `PATH`; if the image
-installs it elsewhere, name it explicitly:
+installs it elsewhere, name the location explicitly:
 ```
 -DnativeWorkerBinary="/opt/presto/bin/presto_server"
 ```
