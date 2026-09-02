@@ -34,7 +34,11 @@ import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 
-/** Storage layout: {@code getLong(position, 0)} -> epochMicros; {@code getInt(position)} -> picosOfMicro. */
+/**
+ * A fixed-width block that stores 12 bytes per position, addressed as a {@code long} in the first
+ * 8 bytes ({@code getLong(position, 0)}) plus an {@code int} in the last 4 bytes ({@code getInt(position)}).
+ * The block assigns no meaning to either component; interpretation belongs to the {@code Type} using it.
+ */
 public class Fixed12ArrayBlock
         implements Block
 {
@@ -146,14 +150,14 @@ public class Fixed12ArrayBlock
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be 0");
         }
-        return getEpochMicros(position + positionOffset);
+        return getLongValue(position + positionOffset);
     }
 
     @Override
     public int getInt(int position)
     {
         checkReadablePosition(position);
-        return getPicosOfMicro(position + positionOffset);
+        return getIntValue(position + positionOffset);
     }
 
     @Override
@@ -174,8 +178,8 @@ public class Fixed12ArrayBlock
     {
         checkReadablePosition(position);
         int internalPosition = position + positionOffset;
-        blockBuilder.writeLong(getEpochMicros(internalPosition))
-                .writeInt(getPicosOfMicro(internalPosition))
+        blockBuilder.writeLong(getLongValue(internalPosition))
+                .writeInt(getIntValue(internalPosition))
                 .closeEntry();
     }
 
@@ -188,8 +192,8 @@ public class Fixed12ArrayBlock
         else {
             int internalPosition = position + positionOffset;
             output.writeByte(1);
-            output.writeLong(getEpochMicros(internalPosition));
-            output.writeInt(getPicosOfMicro(internalPosition));
+            output.writeLong(getLongValue(internalPosition));
+            output.writeInt(getIntValue(internalPosition));
         }
     }
 
@@ -266,12 +270,12 @@ public class Fixed12ArrayBlock
         return format("Fixed12ArrayBlock(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
-    // WARNING: returns only epochMicros; call getIntUnchecked separately for picosOfMicro. See #27934 Phase 3.
+    // WARNING: returns only the long component; call getIntUnchecked separately for the int component.
     @Override
     public long getLongUnchecked(int internalPosition)
     {
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
-        return getEpochMicros(internalPosition);
+        return getLongValue(internalPosition);
     }
 
     @Override
@@ -279,14 +283,14 @@ public class Fixed12ArrayBlock
     {
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
         assert offset == 0 : "offset must be 0";
-        return getEpochMicros(internalPosition);
+        return getLongValue(internalPosition);
     }
 
     @Override
     public int getIntUnchecked(int internalPosition)
     {
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
-        return getPicosOfMicro(internalPosition);
+        return getIntValue(internalPosition);
     }
 
     @Override
@@ -311,26 +315,26 @@ public class Fixed12ArrayBlock
         return new Fixed12ArrayBlock(positionOffset, positionCount + 1, newValueIsNull, newValues);
     }
 
-    private long getEpochMicros(int internalPosition)
+    private long getLongValue(int internalPosition)
     {
-        return unpackEpochMicros(values, internalPosition * INTS_PER_POSITION);
+        return unpackLong(values, internalPosition * INTS_PER_POSITION);
     }
 
-    private int getPicosOfMicro(int internalPosition)
+    private int getIntValue(int internalPosition)
     {
         return values[internalPosition * INTS_PER_POSITION + 2];
     }
 
-    static long unpackEpochMicros(int[] values, int base)
+    static long unpackLong(int[] values, int base)
     {
         // & 0xFFFFFFFFL prevents sign extension of the low 32-bit word.
         return ((long) values[base] << 32) | (values[base + 1] & 0xFFFFFFFFL);
     }
 
-    static void packEpochMicros(int[] values, int base, long epochMicros)
+    static void packLong(int[] values, int base, long value)
     {
-        values[base] = (int) (epochMicros >>> 32);
-        values[base + 1] = (int) epochMicros;
+        values[base] = (int) (value >>> 32);
+        values[base + 1] = (int) value;
     }
 
     private void checkReadablePosition(int position)

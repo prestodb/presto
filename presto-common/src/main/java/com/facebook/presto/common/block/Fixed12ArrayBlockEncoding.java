@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.TimestampConstants;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
@@ -59,12 +58,9 @@ public class Fixed12ArrayBlockEncoding
         int[] values = new int[positionCount * INTS_PER_POSITION];
         for (int position = 0; position < positionCount; position++) {
             if (valueIsNull == null || !valueIsNull[position]) {
-                long epochMicros = sliceInput.readLong();
-                int picosOfMicro = sliceInput.readInt();
-                TimestampConstants.checkPicosOfMicro(picosOfMicro);
                 int base = position * INTS_PER_POSITION;
-                Fixed12ArrayBlock.packEpochMicros(values, base, epochMicros);
-                values[base + 2] = picosOfMicro;
+                Fixed12ArrayBlock.packLong(values, base, sliceInput.readLong());
+                values[base + 2] = sliceInput.readInt();
             }
         }
 

@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.type.TimestampType;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.common.TimestampConstants.MAX_PICOS_OF_MICRO;
-import static com.facebook.presto.common.type.TimestampType.createTimestampType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -31,31 +28,31 @@ public class TestFixed12ArrayBlock
     @Test
     public void testSinglePositionRoundTrip()
     {
-        long epochMicros = 1_000_000_000L;
-        int picosOfMicro = 500_000;
+        long longValue = 1_000_000_000L;
+        int intValue = 500_000;
 
         Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 1);
-        builder.writeLong(epochMicros).writeInt(picosOfMicro).closeEntry();
+        builder.writeLong(longValue).writeInt(intValue).closeEntry();
 
         Block block = builder.build();
         assertEquals(block.getPositionCount(), 1);
-        assertEquals(block.getLong(0), epochMicros);
-        assertEquals(block.getLong(0, 0), epochMicros);
-        assertEquals(block.getInt(0), picosOfMicro);
+        assertEquals(block.getLong(0), longValue);
+        assertEquals(block.getLong(0, 0), longValue);
+        assertEquals(block.getInt(0), intValue);
     }
 
     @Test
-    public void testNegativeEpochMicros()
+    public void testNegativeLongComponent()
     {
-        long epochMicros = -1_000_000L;
-        int picosOfMicro = 999_999;
+        long longValue = -1_000_000L;
+        int intValue = 999_999;
 
         Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 1);
-        builder.writeLong(epochMicros).writeInt(picosOfMicro).closeEntry();
+        builder.writeLong(longValue).writeInt(intValue).closeEntry();
 
         Block block = builder.build();
-        assertEquals(block.getLong(0, 0), epochMicros);
-        assertEquals(block.getInt(0), picosOfMicro);
+        assertEquals(block.getLong(0, 0), longValue);
+        assertEquals(block.getInt(0), intValue);
     }
 
     @Test
@@ -101,26 +98,6 @@ public class TestFixed12ArrayBlock
     }
 
     @Test
-    public void testTimestampTypeCreateBlockBuilderForLongPrecision()
-    {
-        TimestampType longType = createTimestampType(7);
-        assertFalse(longType.isShort());
-        BlockBuilder builder = longType.createBlockBuilder(null, 10);
-        assertTrue(builder instanceof Fixed12ArrayBlockBuilder,
-                "Expected Fixed12ArrayBlockBuilder for p=7, got: " + builder.getClass().getSimpleName());
-    }
-
-    @Test
-    public void testTimestampTypeCreateBlockBuilderForShortPrecision()
-    {
-        TimestampType shortType = createTimestampType(6);
-        assertTrue(shortType.isShort());
-        BlockBuilder builder = shortType.createBlockBuilder(null, 10);
-        assertTrue(builder instanceof LongArrayBlockBuilder,
-                "Expected LongArrayBlockBuilder for p=6, got: " + builder.getClass().getSimpleName());
-    }
-
-    @Test
     public void testEncodingRoundTrip()
     {
         Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 3);
@@ -147,74 +124,28 @@ public class TestFixed12ArrayBlock
     }
 
     @Test
-    public void testExtremeNegativeEpoch()
+    public void testLongComponentMinValue()
     {
-        long epochMicros = Long.MIN_VALUE;
-        int picosOfMicro = 0;
+        long longValue = Long.MIN_VALUE;
+        int intValue = 0;
 
         Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 1);
-        builder.writeLong(epochMicros).writeInt(picosOfMicro).closeEntry();
+        builder.writeLong(longValue).writeInt(intValue).closeEntry();
 
         Block block = builder.build();
-        assertEquals(block.getLong(0, 0), epochMicros);
-        assertEquals(block.getInt(0), picosOfMicro);
+        assertEquals(block.getLong(0, 0), longValue);
+        assertEquals(block.getInt(0), intValue);
     }
 
     @Test
     public void testBuilderGetLongNoOffset()
     {
-        long epochMicros = -999_000L;
+        long longValue = -999_000L;
         Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 1);
-        builder.writeLong(epochMicros).writeInt(0).closeEntry();
+        builder.writeLong(longValue).writeInt(0).closeEntry();
 
-        assertEquals(builder.getLong(0), epochMicros);
-        assertEquals(builder.getLong(0, 0), epochMicros);
-    }
-
-    @Test
-    public void testEqualTo()
-    {
-        TimestampType longType = createTimestampType(9);
-
-        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 2);
-        builder.writeLong(100L).writeInt(500_000).closeEntry();
-        builder.writeLong(100L).writeInt(500_000).closeEntry();
-        builder.writeLong(100L).writeInt(999_999).closeEntry();
-        Block block = builder.build();
-
-        assertTrue(longType.equalTo(block, 0, block, 0), "value must equal itself");
-        assertTrue(longType.equalTo(block, 0, block, 1), "identical values must be equal");
-        assertFalse(longType.equalTo(block, 0, block, 2), "same epochMicros but different picosOfMicro must not be equal");
-    }
-
-    @Test
-    public void testHashEqualsContract()
-    {
-        TimestampType longType = createTimestampType(9);
-
-        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 2);
-        builder.writeLong(42L).writeInt(7).closeEntry();
-        builder.writeLong(42L).writeInt(7).closeEntry();
-        Block block = builder.build();
-
-        assertTrue(longType.equalTo(block, 0, block, 1));
-        assertEquals(longType.hash(block, 0), longType.hash(block, 1),
-                "equal values must have the same hash");
-    }
-
-    @Test
-    public void testHashDifferentiatesByPicosOfMicro()
-    {
-        // Guards against a future bug where hash() ignores the picosOfMicro field.
-        TimestampType nanos = createTimestampType(9);
-
-        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 2);
-        builder.writeLong(100L).writeInt(0).closeEntry();
-        builder.writeLong(100L).writeInt(1).closeEntry();
-        Block block = builder.build();
-
-        assertNotEquals(nanos.hash(block, 0), nanos.hash(block, 1),
-                "same epochMicros but different picosOfMicro must produce different hashes");
+        assertEquals(builder.getLong(0), longValue);
+        assertEquals(builder.getLong(0, 0), longValue);
     }
 
     @Test
@@ -307,16 +238,22 @@ public class TestFixed12ArrayBlock
     }
 
     @Test
-    public void testWriteIntRejectsPicosOutOfRange()
+    public void testStoresArbitraryIntComponent()
     {
-        expectThrows(IllegalArgumentException.class, () ->
-                new Fixed12ArrayBlockBuilder(null, 1).writeLong(0L).writeInt(-1));
+        // The block is type-agnostic: it stores whatever int it is given, including negative values
+        // and the full int range. Range checks belong to the Type that owns the layout — see
+        // LongTimestamp, which validates picosOfMicro before LongTimestampType writes it here.
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 4);
+        builder.writeLong(0L).writeInt(Integer.MIN_VALUE).closeEntry();
+        builder.writeLong(0L).writeInt(-1).closeEntry();
+        builder.writeLong(0L).writeInt(0).closeEntry();
+        builder.writeLong(0L).writeInt(Integer.MAX_VALUE).closeEntry();
+        Block block = builder.build();
 
-        expectThrows(IllegalArgumentException.class, () ->
-                new Fixed12ArrayBlockBuilder(null, 1).writeLong(0L).writeInt(MAX_PICOS_OF_MICRO + 1));
-
-        new Fixed12ArrayBlockBuilder(null, 1).writeLong(0L).writeInt(0).closeEntry();
-        new Fixed12ArrayBlockBuilder(null, 1).writeLong(0L).writeInt(MAX_PICOS_OF_MICRO).closeEntry();
+        assertEquals(block.getInt(0), Integer.MIN_VALUE);
+        assertEquals(block.getInt(1), -1);
+        assertEquals(block.getInt(2), 0);
+        assertEquals(block.getInt(3), Integer.MAX_VALUE);
     }
 
     @Test
@@ -363,36 +300,24 @@ public class TestFixed12ArrayBlock
     }
 
     @Test
-    public void testEncodingRejectsOutOfRangePicosOfMicro()
+    public void testEncodingRoundTripsFullIntRange()
     {
-        // Bypass the builder's validation by writing raw bytes directly.
+        // The encoding is type-agnostic too: it round-trips whatever the block holds.
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 2);
+        builder.writeLong(Long.MIN_VALUE).writeInt(Integer.MIN_VALUE).closeEntry();
+        builder.writeLong(Long.MAX_VALUE).writeInt(Integer.MAX_VALUE).closeEntry();
+        Block original = builder.build();
+
         DynamicSliceOutput out = new DynamicSliceOutput(64);
-        out.writeInt(1);          // positionCount
-        out.writeBoolean(false);  // mayHaveNull = false (matches encodeNullsAsBits output)
-        out.writeLong(0L);        // epochMicros
-        out.writeInt(MAX_PICOS_OF_MICRO + 1);  // invalid picosOfMicro
-
         Fixed12ArrayBlockEncoding encoding = new Fixed12ArrayBlockEncoding();
-        expectThrows(IllegalArgumentException.class,
-                () -> encoding.readBlock(null, out.slice().getInput()));
-    }
+        encoding.writeBlock(null, out, original);
+        Block decoded = encoding.readBlock(null, out.slice().getInput());
 
-    @Test
-    public void testCompareToNegativeEpochWithNonZeroPicos()
-    {
-        TimestampType nanos = createTimestampType(9);
-
-        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 3);
-        builder.writeLong(-1_000L).writeInt(0).closeEntry();       // earlier
-        builder.writeLong(-1_000L).writeInt(500_000).closeEntry(); // same epoch, higher picos
-        builder.writeLong(-999L).writeInt(0).closeEntry();         // later epoch
-        Block block = builder.build();
-
-        assertEquals(nanos.compareTo(block, 0, block, 0), 0);
-        assertTrue(nanos.compareTo(block, 0, block, 1) < 0, "same negative epoch, lower picos must sort first");
-        assertTrue(nanos.compareTo(block, 1, block, 0) > 0);
-        assertTrue(nanos.compareTo(block, 0, block, 2) < 0, "more negative epoch must sort first");
-        assertTrue(nanos.compareTo(block, 2, block, 0) > 0);
+        assertEquals(decoded.getPositionCount(), 2);
+        assertEquals(decoded.getLong(0, 0), Long.MIN_VALUE);
+        assertEquals(decoded.getInt(0), Integer.MIN_VALUE);
+        assertEquals(decoded.getLong(1, 0), Long.MAX_VALUE);
+        assertEquals(decoded.getInt(1), Integer.MAX_VALUE);
     }
 
     @Test

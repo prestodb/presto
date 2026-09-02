@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.TimestampConstants;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
@@ -34,8 +33,9 @@ import static java.lang.Math.max;
 import static java.lang.String.format;
 
 /**
- * Each non-null entry requires writeLong(epochMicros) -> writeInt(picosOfMicro) -> closeEntry() in order.
- * Null entries use appendNull() alone. Violations throw IllegalStateException immediately.
+ * Builds a {@link Fixed12ArrayBlock}. Each non-null entry requires writeLong(long) -> writeInt(int) ->
+ * closeEntry() in order; null entries use appendNull() alone. Violations throw IllegalStateException
+ * immediately. The builder assigns no meaning to the two components.
  */
 public class Fixed12ArrayBlockBuilder
         implements BlockBuilder
@@ -77,7 +77,7 @@ public class Fixed12ArrayBlockBuilder
         if (valueIsNull.length <= positionCount) {
             growCapacity();
         }
-        Fixed12ArrayBlock.packEpochMicros(values, positionCount * INTS_PER_POSITION, value);
+        Fixed12ArrayBlock.packLong(values, positionCount * INTS_PER_POSITION, value);
         entryFieldCount = 1;
         hasNonNullValue = true;
         return this;
@@ -89,7 +89,6 @@ public class Fixed12ArrayBlockBuilder
         if (entryFieldCount != 1) {
             throw new IllegalStateException("writeInt must follow writeLong for each entry");
         }
-        TimestampConstants.checkPicosOfMicro(value);
         values[positionCount * INTS_PER_POSITION + 2] = value;
         entryFieldCount = 2;
         return this;
@@ -100,7 +99,7 @@ public class Fixed12ArrayBlockBuilder
     {
         if (entryFieldCount != 2) {
             throw new IllegalStateException(
-                    "Each entry requires writeLong(epochMicros) then writeInt(picosOfMicro) before closeEntry()");
+                    "Each entry requires writeLong(long) then writeInt(int) before closeEntry()");
         }
         positionCount++;
         entryFieldCount = 0;
@@ -238,7 +237,7 @@ public class Fixed12ArrayBlockBuilder
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be 0");
         }
-        return getEpochMicros(position);
+        return getLongValue(position);
     }
 
     @Override
@@ -265,7 +264,7 @@ public class Fixed12ArrayBlockBuilder
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        blockBuilder.writeLong(getEpochMicros(position))
+        blockBuilder.writeLong(getLongValue(position))
                 .writeInt(values[position * INTS_PER_POSITION + 2])
                 .closeEntry();
     }
@@ -278,7 +277,7 @@ public class Fixed12ArrayBlockBuilder
         }
         else {
             output.writeByte(1);
-            output.writeLong(getEpochMicros(position));
+            output.writeLong(getLongValue(position));
             output.writeInt(values[position * INTS_PER_POSITION + 2]);
         }
     }
@@ -381,7 +380,7 @@ public class Fixed12ArrayBlockBuilder
     public long getLongUnchecked(int internalPosition)
     {
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
-        return getEpochMicros(internalPosition);
+        return getLongValue(internalPosition);
     }
 
     @Override
@@ -389,7 +388,7 @@ public class Fixed12ArrayBlockBuilder
     {
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
         assert offset == 0 : "offset must be 0";
-        return getEpochMicros(internalPosition);
+        return getLongValue(internalPosition);
     }
 
     @Override
@@ -413,9 +412,9 @@ public class Fixed12ArrayBlockBuilder
         return 0;
     }
 
-    private long getEpochMicros(int position)
+    private long getLongValue(int position)
     {
-        return Fixed12ArrayBlock.unpackEpochMicros(values, position * INTS_PER_POSITION);
+        return Fixed12ArrayBlock.unpackLong(values, position * INTS_PER_POSITION);
     }
 
     private void checkReadablePosition(int position)

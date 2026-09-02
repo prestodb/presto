@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.common.type;
 
-import com.facebook.presto.common.TimestampConstants;
-
 import java.util.Objects;
 
+import static com.facebook.presto.common.TimestampConstants.checkPicosOfMicro;
 import static java.lang.String.format;
 
 public final class LongTimestamp
@@ -26,7 +25,7 @@ public final class LongTimestamp
 
     public LongTimestamp(long epochMicros, int picosOfMicro)
     {
-        TimestampConstants.checkPicosOfMicro(picosOfMicro);
+        checkPicosOfMicro(picosOfMicro);
         this.epochMicros = epochMicros;
         this.picosOfMicro = picosOfMicro;
     }
