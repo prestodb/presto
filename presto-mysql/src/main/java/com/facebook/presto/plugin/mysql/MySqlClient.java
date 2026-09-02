@@ -34,6 +34,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -310,8 +311,20 @@ public class MySqlClient
         return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
     }
 
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, List<SchemaTableName> tableNames)
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
+        List<SchemaTableName> tableNames;
+        if (prefix.getTableName() != null) {
+            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        }
+        else {
+            // A prefix with no table name, and possibly no schema name either, comes from queries
+            // such as SELECT * FROM information_schema.views. Every matching schema has to be
+            // walked, so the cost grows with the number of views on the server.
+            tableNames = listViews(session, Optional.ofNullable(prefix.getSchemaName()));
+        }
+
         JdbcIdentity identity = new JdbcIdentity(session.getUser(), session.getIdentity().getExtraCredentials());
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
 
@@ -377,6 +390,7 @@ public class MySqlClient
                 runAsInvoker);
     }
 
+    @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
         JdbcIdentity identity = JdbcIdentity.from(session);
@@ -404,6 +418,7 @@ public class MySqlClient
         }
     }
 
+    @Override
     public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
         SchemaTableName viewName = viewMetadata.getTable();
@@ -437,6 +452,7 @@ public class MySqlClient
         }
     }
 
+    @Override
     public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
     {
         JdbcIdentity identity = JdbcIdentity.from(session);
@@ -453,6 +469,7 @@ public class MySqlClient
         }
     }
 
+    @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
         JdbcIdentity identity = JdbcIdentity.from(session);
