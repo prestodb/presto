@@ -8,7 +8,7 @@ Synopsis
 .. code-block:: none
 
     ALTER TABLE [ IF EXISTS ] name RENAME TO new_name
-    ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_type [ DEFAULT default_expression ] [ COMMENT comment ] [ WITH ( property_name = expression [, ...] ) ] [ FIRST | AFTER existing_column_name ]
+    ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_type [ DEFAULT default_expression ] [ COMMENT comment ] [[GENERATED ALWAYS] AS expression [VIRTUAL | PERSISTENT]] [ WITH ( property_name = expression [, ...] ) ] [ FIRST | AFTER existing_column_name ]
     ALTER TABLE [ IF EXISTS ] name DROP COLUMN column_name
     ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] column_name TO new_column_name
     ALTER TABLE [ IF EXISTS ] name ADD [ CONSTRAINT constraint_name ] { PRIMARY KEY | UNIQUE } ( { column_name [, ...] } ) [ { ENABLED | DISABLED } ] [ [ NOT ] RELY ] [ [ NOT ] ENFORCED } ]
@@ -72,7 +72,11 @@ Add column ``zip`` to the ``users`` table::
 
     ALTER TABLE users ADD COLUMN zip varchar;
 
-Add column ``zip`` to the ``users`` table if table ``users`` exists and column ``zip`` not already exists::
+Add column ``zip_derived`` to the ``users`` table with a derived column expression::
+
+    ALTER TABLE users ADD COLUMN zip_derived varchar AS upper(zip);
+
+Add column ``zip`` to the ``users`` table if table ``users`` exists and column ``zip`` does not already exist::
 
     ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS zip varchar;
 
