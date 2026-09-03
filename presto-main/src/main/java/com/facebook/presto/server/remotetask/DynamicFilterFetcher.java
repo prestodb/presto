@@ -239,6 +239,13 @@ public class DynamicFilterFetcher
                     resolveFilter(filterId)
                             .ifPresent(f -> f.addPartitionByFilterId(filterDomain));
                 }
+                else {
+                    // The native worker must follow a publish-once-when-complete contract:
+                    // each filter ID is emitted only after the HashBuild operator has fully
+                    // resolved it. Receiving the same ID a second time indicates a protocol
+                    // violation — log a warning so it is visible in operator diagnostics.
+                    log.warn("DynamicFilterFetcher: filter ID '%s' received more than once from task %s — ignoring duplicate", filterId, taskId);
+                }
             }
 
             sendDeleteRequest(responseVersion);
@@ -255,6 +262,13 @@ public class DynamicFilterFetcher
             }
         }
 
+        // operatorCompleted is computed by the native (Prestissimo/Velox) worker in
+        // PrestoTask::snapshotDynamicFilters: it is true when all registered build-side filter IDs
+        // have been flushed to the coordinator, or the Velox task has terminated.
+        // Java workers never set this field — TaskResource on the Java side always returns false;
+        // the write path exists only in the native worker implementation.
+        // isFinalFetch is the Java-side equivalent: set by stopAfterFinalFetch() when the
+        // coordinator knows the build stage is done and one last poll is sufficient.
         if (response.isOperatorCompleted() || isFinalFetch) {
             dynamicFilterStats.getFilterFlushes().update(1);
             stop();

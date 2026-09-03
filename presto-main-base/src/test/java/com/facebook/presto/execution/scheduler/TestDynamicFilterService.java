@@ -411,6 +411,82 @@ public class TestDynamicFilterService
         assertEquals(seen.get(filterId), Boolean.FALSE);
     }
 
+    /**
+     * Verifies that {@code buildSubtreeIsReplicated} correctly classifies each join's build
+     * exchange even when the build subtree of the outer join contains a nested inline join
+     * with its own (different) remote source.
+     *
+     * Plan shape (all in one fragment after stage-splitting):
+     *
+     *   outerJoin (filter=outerFilterId, build=REPLICATE via outerBuildSource)
+     *     probe: probeSource (REPARTITION)
+     *     build: outerBuildSource (REPLICATE)   ← outer build exchange — leaf, no children
+     *
+     *   innerJoin (filter=innerFilterId, build=REPARTITION via innerBuildSource)
+     *     probe: probeSource (REPARTITION)
+     *     build: innerBuildSource (REPARTITION) ← inner build exchange — leaf, no children
+     *
+     * Even if outerBuildSource itself were an inline join (not yet split to a RemoteSourceNode),
+     * findFirst() in DFS pre-order would always return the direct build exchange node first,
+     * never a deeper node belonging to a different join.
+     */
+    @Test
+    public void testBuildSubtreeIsReplicatedWithNestedBuildJoin()
+    {
+        String outerFilterId = "outer";
+        String innerFilterId = "inner";
+        VariableReferenceExpression probeVar = new VariableReferenceExpression(Optional.empty(), "probe", BigintType.BIGINT);
+        VariableReferenceExpression outerBuildVar = new VariableReferenceExpression(Optional.empty(), "outer_build", BigintType.BIGINT);
+        VariableReferenceExpression innerBuildVar = new VariableReferenceExpression(Optional.empty(), "inner_build", BigintType.BIGINT);
+
+        JoinDynamicFilter outerFilter = createTestFilterWithId(outerFilterId);
+        JoinDynamicFilter innerFilter = createTestFilterWithId(innerFilterId);
+        QueryId queryId = QueryId.valueOf("test_nested_build");
+        service.registerFilter(queryId, outerFilterId, outerFilter);
+        service.registerFilter(queryId, innerFilterId, innerFilter);
+
+        // Outer join: probe=REPARTITION, build=REPLICATE (broadcast)
+        RemoteSourceNode probeSource = new RemoteSourceNode(
+                Optional.empty(), new PlanNodeId("probe_src"), new PlanFragmentId(1),
+                ImmutableList.of(probeVar), false, Optional.empty(), REPARTITION);
+        RemoteSourceNode outerBuildSource = new RemoteSourceNode(
+                Optional.empty(), new PlanNodeId("outer_build_src"), new PlanFragmentId(2),
+                ImmutableList.of(outerBuildVar), false, Optional.empty(), REPLICATE);
+        JoinNode outerJoin = new JoinNode(
+                Optional.empty(), new PlanNodeId("outer_join"), INNER,
+                probeSource, outerBuildSource,
+                ImmutableList.of(new EquiJoinClause(probeVar, outerBuildVar)),
+                ImmutableList.of(probeVar, outerBuildVar),
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                ImmutableMap.of(outerFilterId, outerBuildVar));
+
+        // Inner join: probe=REPARTITION, build=REPARTITION (partitioned)
+        RemoteSourceNode innerBuildSource = new RemoteSourceNode(
+                Optional.empty(), new PlanNodeId("inner_build_src"), new PlanFragmentId(3),
+                ImmutableList.of(innerBuildVar), false, Optional.empty(), REPARTITION);
+        JoinNode innerJoin = new JoinNode(
+                Optional.empty(), new PlanNodeId("inner_join"), INNER,
+                probeSource, innerBuildSource,
+                ImmutableList.of(new EquiJoinClause(probeVar, innerBuildVar)),
+                ImmutableList.of(probeVar, innerBuildVar),
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                ImmutableMap.of(innerFilterId, innerBuildVar));
+
+        // Outer join: build is REPLICATE → isBroadcastBuild must be true
+        java.util.Map<String, Boolean> seen = new java.util.HashMap<>();
+        SectionExecutionFactory.forEachJoinDynamicFilter(
+                service, queryId, outerJoin,
+                (f, isBroadcastBuild) -> seen.put(f.getFilterId(), isBroadcastBuild));
+        assertEquals(seen.get(outerFilterId), Boolean.TRUE, "outer join with REPLICATE build must be classified as broadcast");
+
+        // Inner join: build is REPARTITION → isBroadcastBuild must be false
+        seen.clear();
+        SectionExecutionFactory.forEachJoinDynamicFilter(
+                service, queryId, innerJoin,
+                (f, isBroadcastBuild) -> seen.put(f.getFilterId(), isBroadcastBuild));
+        assertEquals(seen.get(innerFilterId), Boolean.FALSE, "inner join with REPARTITION build must not be classified as broadcast");
+    }
+
     @Test
     public void testCrossFragmentFilterMatchingSimplePartitionedJoin()
     {

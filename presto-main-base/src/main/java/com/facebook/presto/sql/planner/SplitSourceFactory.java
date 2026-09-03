@@ -118,7 +118,6 @@ public class SplitSourceFactory
     private final WarningCollector warningCollector;
     private final Metadata metadata;
     private final DynamicFilterService dynamicFilterService;
-    private final List<TableScanDynamicFilter> createdDynamicFilters = new ArrayList<>();
 
     public SplitSourceFactory(SplitSourceProvider splitSourceProvider, WarningCollector warningCollector, DynamicFilterService dynamicFilterService, Metadata metadata)
     {
@@ -126,6 +125,34 @@ public class SplitSourceFactory
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+    }
+
+    /**
+     * Result of {@link #createSplitSources}: split sources keyed by plan node ID, plus
+     * the {@link TableScanDynamicFilter}s created for this specific fragment. The filters
+     * are scoped to this call only — callers must use {@link #setTaskCountHint(List, int)}
+     * with the returned list to update only this fragment's filters.
+     */
+    public static final class SplitSourcesResult
+    {
+        private final Map<PlanNodeId, SplitSource> splitSources;
+        private final List<TableScanDynamicFilter> dynamicFilters;
+
+        private SplitSourcesResult(Map<PlanNodeId, SplitSource> splitSources, List<TableScanDynamicFilter> dynamicFilters)
+        {
+            this.splitSources = splitSources;
+            this.dynamicFilters = dynamicFilters;
+        }
+
+        public Map<PlanNodeId, SplitSource> getSplitSources()
+        {
+            return splitSources;
+        }
+
+        public List<TableScanDynamicFilter> getDynamicFilters()
+        {
+            return dynamicFilters;
+        }
     }
 
     public void registerDynamicFilters(StreamingSubPlan rootPlan, Session session)
@@ -309,18 +336,20 @@ public class SplitSourceFactory
         return result.build();
     }
 
-    public void setTaskCountHint(int taskCountHint)
+    public static void setTaskCountHint(List<TableScanDynamicFilter> dynamicFilters, int taskCountHint)
     {
-        for (TableScanDynamicFilter filter : createdDynamicFilters) {
+        for (TableScanDynamicFilter filter : dynamicFilters) {
             filter.setTaskCountHint(taskCountHint);
         }
     }
 
-    public Map<PlanNodeId, SplitSource> createSplitSources(PlanFragment fragment, Session session, TableWriteInfo tableWriteInfo)
+    public SplitSourcesResult createSplitSources(PlanFragment fragment, Session session, TableWriteInfo tableWriteInfo)
     {
         ImmutableList.Builder<SplitSource> splitSources = ImmutableList.builder();
+        List<TableScanDynamicFilter> createdFilters = new ArrayList<>();
         try {
-            return fragment.getRoot().accept(new Visitor(session, fragment.getStageExecutionDescriptor(), splitSources), new Context(tableWriteInfo));
+            Map<PlanNodeId, SplitSource> result = fragment.getRoot().accept(new Visitor(session, fragment.getStageExecutionDescriptor(), splitSources, createdFilters), new Context(tableWriteInfo));
+            return new SplitSourcesResult(result, createdFilters);
         }
         catch (Throwable t) {
             splitSources.build().forEach(SplitSourceFactory::closeSplitSource);
@@ -355,12 +384,14 @@ public class SplitSourceFactory
         private final Session session;
         private final StageExecutionDescriptor stageExecutionDescriptor;
         private final ImmutableList.Builder<SplitSource> splitSources;
+        private final List<TableScanDynamicFilter> createdDynamicFilters;
 
-        private Visitor(Session session, StageExecutionDescriptor stageExecutionDescriptor, ImmutableList.Builder<SplitSource> allSplitSources)
+        private Visitor(Session session, StageExecutionDescriptor stageExecutionDescriptor, ImmutableList.Builder<SplitSource> allSplitSources, List<TableScanDynamicFilter> createdDynamicFilters)
         {
             this.session = session;
             this.stageExecutionDescriptor = stageExecutionDescriptor;
             this.splitSources = allSplitSources;
+            this.createdDynamicFilters = createdDynamicFilters;
         }
 
         @Override
