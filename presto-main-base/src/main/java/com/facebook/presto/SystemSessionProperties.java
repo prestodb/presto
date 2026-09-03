@@ -57,7 +57,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.iterative.rule.materializedview.MaterializedViewRewriteStrategy;
-import com.facebook.presto.sql.planner.plan.RPCNode;
+import com.facebook.presto.sql.planner.optimizations.RpcExecutionMode;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -1448,18 +1448,20 @@ public final class SystemSessionProperties
                         false),
                 new PropertyMetadata<>(
                         RPC_STREAMING_MODE,
-                        format("Streaming mode for RPC function execution. Options are %s. "
-                                        + "PER_ROW dispatches each row individually, BATCH accumulates rows and dispatches in batches, "
-                                        + "AUTOMATIC picks PER_ROW or BATCH from the estimated input row count (see rpc_batch_min_rows).",
-                                Stream.of(RPCNode.StreamingMode.values())
-                                        .map(RPCNode.StreamingMode::name)
+                        format("Dispatch mode for RPC function execution. Options are %s. Explicit PER_ROW "
+                                        + "dispatches each row individually and BATCH accumulates rows and dispatches in batches; "
+                                        + "the objectives LATENCY (per-row), THROUGHPUT/COST (batch), and AUTOMATIC "
+                                        + "(cardinality-based where supported, see rpc_batch_min_rows) are resolved to PER_ROW/BATCH "
+                                        + "at plan time.",
+                                Stream.of(RpcExecutionMode.values())
+                                        .map(RpcExecutionMode::name)
                                         .collect(joining(","))),
                         VARCHAR,
-                        RPCNode.StreamingMode.class,
-                        RPCNode.StreamingMode.PER_ROW,
+                        RpcExecutionMode.class,
+                        RpcExecutionMode.PER_ROW,
                         false,
-                        value -> RPCNode.StreamingMode.valueOf(((String) value).toUpperCase()),
-                        RPCNode.StreamingMode::name),
+                        value -> RpcExecutionMode.valueOf(((String) value).toUpperCase()),
+                        RpcExecutionMode::name),
                 integerProperty(
                         RPC_DISPATCH_BATCH_SIZE,
                         "Batch size for RPC function dispatch in BATCH streaming mode. "
@@ -3438,9 +3440,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(RPC_FUNCTION_OPTIMIZER_ENABLED, Boolean.class);
     }
 
-    public static RPCNode.StreamingMode getRpcStreamingMode(Session session)
+    public static RpcExecutionMode getRpcStreamingMode(Session session)
     {
-        return session.getSystemProperty(RPC_STREAMING_MODE, RPCNode.StreamingMode.class);
+        return session.getSystemProperty(RPC_STREAMING_MODE, RpcExecutionMode.class);
     }
 
     public static int getRpcDispatchBatchSize(Session session)
