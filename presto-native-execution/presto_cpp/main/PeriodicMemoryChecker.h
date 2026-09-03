@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <folly/executors/FunctionScheduler.h>
+#include <folly/experimental/FunctionScheduler.h>
 #include <cstdint>
 #include <queue>
 #include <string>

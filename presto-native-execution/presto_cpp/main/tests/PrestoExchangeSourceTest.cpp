@@ -17,7 +17,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
-#include "folly/synchronization/EventCount.h"
+#include "folly/experimental/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/common/tests/MutableConfigs.h"
