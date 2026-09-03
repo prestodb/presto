@@ -255,6 +255,16 @@ public class ContainerQueryRunner
         }
     }
 
+    private static Duration containerStartupTimeout()
+    {
+        try {
+            return Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT));
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException("containerTimeout must be a whole number of seconds, but was: " + CONTAINER_TIMEOUT, e);
+        }
+    }
+
     protected GenericContainer<?> createCoordinator(boolean isNativeCluster, boolean isSidecarEnabled)
             throws IOException
     {
@@ -278,7 +288,7 @@ public class ContainerQueryRunner
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/etc"), "/opt/presto-server/etc")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/entrypoint.sh"), "/opt/entrypoint.sh")
                 .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
-                .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)))
+                .withStartupTimeout(containerStartupTimeout())
                 .withExposedPorts(coordinatorPort);
     }
     protected GenericContainer<?> createJavaWorker(int port, String nodeId)
@@ -296,7 +306,7 @@ public class ContainerQueryRunner
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh")
                 // No explicit wait strategy, so the default host-port strategy applies; bound it by
                 // CONTAINER_TIMEOUT rather than the Testcontainers default.
-                .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
+                .withStartupTimeout(containerStartupTimeout());
     }
 
     protected GenericContainer<?> createSidecar(int port, String nodeId, boolean isNativeCluster)
@@ -321,7 +331,7 @@ public class ContainerQueryRunner
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/etc"), "/opt/presto-server/etc")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh")
                 .waitingFor(isSidecarNode ? Wait.forListeningPort() : Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1))
-                .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
+                .withStartupTimeout(containerStartupTimeout());
     }
 
     protected GenericContainer<?> createFunctionServer()
@@ -337,7 +347,7 @@ public class ContainerQueryRunner
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/function-server/etc"), "/opt/function-server/etc")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/function-server/entrypoint.sh"), "/opt/entrypoint.sh")
                 .waitingFor(Wait.forLogMessage(".*======== REMOTE FUNCTION SERVER STARTED at: .*", 1))
-                .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)))
+                .withStartupTimeout(containerStartupTimeout())
                 .withExposedPorts(functionServerPort);
     }
 
