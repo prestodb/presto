@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -131,5 +132,17 @@ public final class ClickHouseTypeHandle
                 .add("decimalDigits", decimalDigits)
                 .add("arrayDimensions", arrayDimensions.orElse(null))
                 .toString();
+    }
+
+    /**
+     * Convert ClickHouseTypeHandle to JdbcTypeHandle for compatibility with BaseJdbcClient
+     */
+    public JdbcTypeHandle toJdbcTypeHandle()
+    {
+        return new JdbcTypeHandle(
+                jdbcType,
+                jdbcTypeName.orElse("UNKNOWN"),
+                columnSize,
+                decimalDigits);
     }
 }
