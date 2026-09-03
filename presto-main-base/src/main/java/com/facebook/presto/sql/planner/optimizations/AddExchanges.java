@@ -1484,8 +1484,10 @@ public class AddExchanges
         {
             Optional<PreferredProperties.Global> parentPartitioningPreference = parentPreference.getGlobalProperties();
 
-            // case 1: parent provides preferred distributed partitioning
-            if (parentPartitioningPreference.isPresent() && parentPartitioningPreference.get().isDistributed() && parentPartitioningPreference.get().getPartitioningProperties().isPresent()) {
+            // case 1: parent provides preferred distributed partitioning that is expressible over this
+            // union's outputs. An untranslatable preference is treated as no preference and falls
+            // through to case 2 rather than failing to plan.
+            if (canTranslatePartitioningOntoBranches(node, parentPartitioningPreference)) {
                 PartitioningProperties parentPartitioningProperties = parentPartitioningPreference.get().getPartitioningProperties().get();
                 boolean nullsAndAnyReplicated = parentPartitioningProperties.isNullsAndAnyReplicated();
                 Partitioning desiredParentPartitioning = selectUnionPartitioning(node, parentPartitioningProperties);
@@ -1549,6 +1551,8 @@ public class AddExchanges
             //   * parentPartitioningPreference is Optional.empty()
             //   * parentPartitioningPreference is present, but is single node distribution
             //   * parentPartitioningPreference is present and is distributed, but does not have an explicit partitioning preference
+            //   * parentPartitioningPreference is present, distributed and explicit, but partitions on a
+            //     variable this union does not produce, so it cannot be translated onto the branches
 
             // first, classify children into single node and distributed
             List<PlanNode> singleNodeChildren = new ArrayList<>();
@@ -1885,6 +1889,19 @@ public class AddExchanges
         }
         // Optimizations can be applied if the first LocalProperty has been modified in the match in any way
         return !matchResult.get(0).equals(Optional.of(desiredLayout.get(0)));
+    }
+
+    // visitUnion case 1 translates the parent's preferred partitioning onto each union branch, so a
+    // column the union does not output cannot be translated. AssignUniqueId produces exactly that:
+    // it adds an output its own source lacks, and AddExchanges forwards the preference through it
+    // untranslated. See TestAddExchangesUnionPreferredPartitioning.
+    private static boolean canTranslatePartitioningOntoBranches(UnionNode node, Optional<PreferredProperties.Global> parentPartitioningPreference)
+    {
+        return parentPartitioningPreference
+                .filter(PreferredProperties.Global::isDistributed)
+                .flatMap(PreferredProperties.Global::getPartitioningProperties)
+                .map(partitioning -> node.getOutputVariables().containsAll(partitioning.getPartitioningColumns()))
+                .orElse(false);
     }
 
     private static boolean meetsPartitioningRequirements(PreferredProperties preferred, ActualProperties actual)
