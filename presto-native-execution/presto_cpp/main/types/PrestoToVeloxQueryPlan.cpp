@@ -2421,6 +2421,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::RPCNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
+  VELOX_CHECK_NOT_NULL(node);
   // Convert the single source.
   auto sourceNode = toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
 
@@ -2533,7 +2534,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->outputVariable.name,
       std::move(outputType),
       veloxStreamingMode,
-      dispatchBatchSize);
+      dispatchBatchSize,
+      node->riftTier);
 }
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
