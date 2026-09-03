@@ -313,6 +313,11 @@ public class TaskResource
             @QueryParam("since") @DefaultValue("0") long sinceVersion)
     {
         requireNonNull(taskId, "taskId is null");
+        // Java workers do not populate dynamicFilters; the write path lives in the native Presto
+        // worker (worktree-dpp-upstream-native-extraction). This endpoint is a Java-side stub so
+        // that DynamicFilterFetcher can safely long-poll against all task types without 404.
+        // The response echoes sinceVersion as the response version — the fetcher advances its
+        // lastFetchedVersion only when the response version is greater.
         Map<String, TupleDomain<String>> filters = taskManager.getDynamicFiltersSince(taskId, sinceVersion);
         return Response.ok(DynamicFilterResponse.incomplete(filters, sinceVersion)).build();
     }
@@ -320,8 +325,12 @@ public class TaskResource
     @DELETE
     @Path("{taskId}/dynamicFilters")
     public Response deleteDynamicFilters(
-            @PathParam("taskId") TaskId taskId)
+            @PathParam("taskId") TaskId taskId,
+            @QueryParam("through") @DefaultValue("0") long through)
     {
+        // Java-side stub: no in-memory filter state to release. The native worker implementation
+        // (worktree-dpp-upstream-native-extraction) will honour the `through` watermark to free
+        // per-partition filter data after the coordinator has acknowledged receipt.
         return Response.noContent().build();
     }
 

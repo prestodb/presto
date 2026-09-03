@@ -19,6 +19,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.connector.DynamicFilter;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
@@ -28,11 +29,19 @@ public interface SplitSourceProvider
 
     default SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector, DynamicFilter dynamicFilter)
     {
-        return getSplits(session, tableHandle, splitSchedulingStrategy, warningCollector, dynamicFilter, java.util.Collections.emptyMap());
+        return getSplits(session, tableHandle, splitSchedulingStrategy, warningCollector, dynamicFilter, ImmutableMap.of());
     }
 
     default SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector, DynamicFilter dynamicFilter, Map<String, String> partitionColumnMapping)
     {
+        // Implementations that support partition-aware grouped execution and dynamic filtering
+        // should override this method. If a non-empty partitionColumnMapping is passed to an
+        // implementation that does not override the 6-parameter form, delegate to the
+        // throws-overload so the caller gets a clear UnsupportedOperationException rather than
+        // silently ignoring the mapping.
+        if (!partitionColumnMapping.isEmpty()) {
+            return getSplits(session, tableHandle, splitSchedulingStrategy, warningCollector, partitionColumnMapping);
+        }
         return getSplits(session, tableHandle, splitSchedulingStrategy, warningCollector);
     }
 

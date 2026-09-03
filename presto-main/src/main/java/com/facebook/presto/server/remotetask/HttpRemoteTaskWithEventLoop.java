@@ -176,6 +176,11 @@ public final class HttpRemoteTaskWithEventLoop
     private static final Logger log = Logger.get(HttpRemoteTaskWithEventLoop.class);
     private static final double UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE = 0.01;
     private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
+    // Maximum number of 503-throttle retries before giving up on a dynamic filter push.
+    // Giving up is safe: filter delivery is best-effort — the probe scan still runs;
+    // it just won't benefit from row-level filtering for this particular push.
+    private static final int MAX_DYNAMIC_FILTER_PUSH_ATTEMPTS = 3;
+    private static final long MAX_DYNAMIC_FILTER_PUSH_RETRY_DELAY_MS = 5_000;
 
     private final JsonCodec<DynamicFilterPushRequest> pushRequestCodec;
 
@@ -1524,15 +1529,15 @@ public final class HttpRemoteTaskWithEventLoop
         taskEventLoop.execute(r, this::failTask, schedulerStatsTracker, loggingPrefix + ", method: " + methodName);
     }
 
-    private static final int MAX_DYNAMIC_FILTER_PUSH_ATTEMPTS = 3;
-    private static final long MAX_DYNAMIC_FILTER_PUSH_RETRY_DELAY_MS = 5_000;
-
     @Override
     public void pushDynamicFilter(PlanNodeId scanNodeId, String filterId, RuntimeFilter constraint)
     {
         DynamicFilterPushRequest pushRequest = new DynamicFilterPushRequest(true, scanNodeId.toString(), constraint);
         byte[] body = pushRequestCodec.toJsonBytes(pushRequest);
 
+        // POST to /v1/task/{taskId}/dynamicFilter/{filterId} — singular "dynamicFilter" endpoint
+        // defined in the native Presto worker (worktree-dpp-upstream-native-extraction).
+        // The plural "dynamicFilters" path is the coordinator-side fetch endpoint (GET/DELETE).
         URI uri = uriBuilderFrom(taskLocation)
                 .appendPath("dynamicFilter")
                 .appendPath(filterId)
@@ -1577,6 +1582,13 @@ public final class HttpRemoteTaskWithEventLoop
                                 taskId, filterId, attempt, latencyMs);
                         return;
                     }
+                    // Skip retry if the task has already completed — there is no point pushing
+                    // a filter to a task that is DONE/FAILED/ABORTED.
+                    TaskState taskState = getTaskStatus().getState();
+                    if (taskState.isDone()) {
+                        log.debug("Dynamic filter push: task %s is %s, skipping 503 retry (filter %s)", taskId, taskState, filterId);
+                        return;
+                    }
                     long retryDelayMs = Math.min(parseRetryAfterMs(result), MAX_DYNAMIC_FILTER_PUSH_RETRY_DELAY_MS);
                     runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_RETRIED_COUNT, NONE, 1);
                     log.debug(
@@ -1604,6 +1616,12 @@ public final class HttpRemoteTaskWithEventLoop
         }, taskEventLoop);
     }
 
+    /**
+     * Parses the {@code Retry-After} response header value as milliseconds.
+     * Supports the seconds-as-integer form only (e.g. {@code "5"} → 5000 ms).
+     * The HTTP-date form (e.g. {@code "Wed, 21 Oct 2015 07:28:00 GMT"}) is not
+     * supported; an unparseable header falls back to the default of 1 second.
+     */
     private static long parseRetryAfterMs(StatusResponse response)
     {
         String header = response.getHeader("Retry-After");

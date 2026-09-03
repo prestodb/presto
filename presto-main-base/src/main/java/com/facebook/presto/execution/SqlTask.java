@@ -84,6 +84,11 @@ public class SqlTask
 
     private final AtomicLong lastHeartbeat = new AtomicLong(System.currentTimeMillis());
     private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
+    // dynamicFilters and dynamicFilterVersions are never populated on Java workers. The write path
+    // (i.e. updating these maps from Velox HashJoinBridge callbacks) lives in the native Presto worker
+    // implementation (worktree-dpp-upstream-native-extraction). They are retained here so that
+    // getDynamicFiltersSince() returns an empty map — rather than throwing — when polled by
+    // DynamicFilterFetcher on non-native clusters.
     private final ConcurrentMap<String, TupleDomain<String>> dynamicFilters = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Long> dynamicFilterVersions = new ConcurrentHashMap<>();
 

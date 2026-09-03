@@ -41,6 +41,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -92,6 +93,10 @@ public class DynamicFilterFetcher
     private final AtomicLong lastFetchedVersion = new AtomicLong(0);
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean running = new AtomicBoolean(true);
+    // Tracks filter IDs already delivered to JoinDynamicFilter.addPartitionByFilterId().
+    // Entries are never removed: a filter ID is delivered at most once per fetcher instance
+    // (one fetcher per build-side task), enforcing the single-contribution-per-task contract
+    // of JoinDynamicFilter's partition counting.
     private final Set<String> deliveredFilterIds = new HashSet<>();
     private final Map<String, JoinDynamicFilter> filterCache = new HashMap<>();
     private final Duration maxWait;
@@ -177,6 +182,10 @@ public class DynamicFilterFetcher
                 .setHeader(PRESTO_MAX_WAIT, maxWait.toString())
                 .build();
 
+        // Note: errorTracker.startRequest() is paired with errorTracker.requestSucceeded() in
+        // success() or errorTracker.requestFailed() in failed(). The final fetch path
+        // (sendFinalFetchRequest) intentionally skips startRequest() because the final fetch is
+        // a one-shot best-effort collection and should not count against the error budget.
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, createAdaptingJsonResponseHandler(filterCodec));
         currentRequestStartNanos = System.nanoTime();
@@ -212,6 +221,9 @@ public class DynamicFilterFetcher
             for (String filterId : filters.keySet()) {
                 emitExtendedMetric(format("%s[%s][%s]", DYNAMIC_FILTER_PARTITIONS_RECEIVED_FROM_TASK, filterId, taskSuffix), 1);
             }
+            // operatorCompleted is set by the native Presto worker when the HashBuild operator
+            // finishes. Java workers never set this field (dynamicFilters is always empty on the
+            // Java side), so this metric will only fire in Prestissimo deployments.
             if (isFinalFetch && response.isOperatorCompleted()) {
                 emitExtendedMetric(format("%s[%s]", DYNAMIC_FILTER_FETCHER_FINAL_FETCH_COMPLETED, taskSuffix), 1);
             }
@@ -280,9 +292,33 @@ public class DynamicFilterFetcher
     public void failed(Throwable cause)
     {
         verify(taskEventLoop.inEventLoop());
+
+        // The final fetch future is cancelled by abort() if the query fails while the final
+        // fetch is in-flight. Treat CancellationException on a final fetch as a clean stop
+        // rather than a retriable error — there is nothing to retry at this point.
+        if (isFinalFetch && cause instanceof CancellationException) {
+            stop();
+            return;
+        }
+
         dynamicFilterStats.getFilterFetchFailure().update(1);
         if (extendedMetrics) {
             emitExtendedMetric(format("dynamicFilterFetcherFailed[%s]", taskSuffix), 1);
+        }
+
+        if (isFinalFetch) {
+            // The final fetch failed for a non-cancellation reason. Log a warning and deliver
+            // TupleDomain.all() for any undelivered filters so their JoinDynamicFilter reaches
+            // quorum rather than waiting indefinitely.
+            log.warn(cause, "Final dynamic filter fetch failed for task %s; undelivered filters will not be pruned", taskId);
+            for (Map.Entry<String, JoinDynamicFilter> entry : filterCache.entrySet()) {
+                String filterId = entry.getKey();
+                if (deliveredFilterIds.add(filterId)) {
+                    entry.getValue().addPartitionByFilterId(new DomainRuntimeFilter(TupleDomain.all()));
+                }
+            }
+            stop();
+            return;
         }
 
         try {

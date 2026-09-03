@@ -800,6 +800,8 @@ public class SplitSourceFactory
     private static final class FilterToScanMatcher
             extends InternalPlanVisitor<Map<PlanNodeId, Map<String, String>>, Map<String, Set<String>>>
     {
+        private static final Logger log = Logger.get(FilterToScanMatcher.class);
+
         @Override
         public Map<PlanNodeId, Map<String, String>> visitPlan(PlanNode node, Map<String, Set<String>> context)
         {
@@ -816,8 +818,17 @@ public class SplitSourceFactory
             Map<String, String> filterIdToColumn = new HashMap<>();
             for (Map.Entry<String, Set<String>> entry : filterColumnToFilterIds.entrySet()) {
                 String columnName = entry.getKey();
+                // Column matching uses the variable name from the planner (pre-rename). If the connector
+                // renames a column between planning and split-source creation (e.g. Iceberg identity
+                // partition columns mapped through a partition spec update), the variable name no longer
+                // matches the physical column name and this filter will be silently skipped — accepted
+                // limitation for this milestone; full column-handle matching is deferred.
                 boolean columnInScan = node.getAssignments().keySet().stream()
                         .anyMatch(var -> var.getName().equals(columnName));
+                if (!columnInScan) {
+                    log.debug("DPP: filter column '%s' not found in scan node %s assignments — pruning disabled for this filter",
+                            columnName, node.getId());
+                }
                 if (columnInScan) {
                     for (String filterId : entry.getValue()) {
                         filterIdToColumn.put(filterId, columnName);

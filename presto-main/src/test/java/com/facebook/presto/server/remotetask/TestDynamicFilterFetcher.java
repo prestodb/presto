@@ -141,11 +141,11 @@ public class TestDynamicFilterFetcher
 
         poll(() -> requestCount.get() >= 3);
 
-        Thread.sleep(500);
+        drainEventLoop();
         int countAfterStop = requestCount.get();
         assertTrue(countAfterStop >= 3, "Expected at least 3 requests (Backoff.MIN_RETRIES), got " + countAfterStop);
 
-        Thread.sleep(500);
+        drainEventLoop();
         assertEquals(requestCount.get(), countAfterStop,
                 "Fetcher should have stopped polling after too many failures");
     }
@@ -188,12 +188,11 @@ public class TestDynamicFilterFetcher
 
         poll(() -> joinFilter.hasData());
 
-        // Wait for the event loop to drain all in-flight callbacks before snapshotting.
-        // This ensures stopAfterFinalFetch and its final-fetch success() have both
-        // executed before we assert that polling has stopped.
-        Thread.sleep(300);
+        // Drain the event loop to ensure stopAfterFinalFetch and its final-fetch success()
+        // callback have both executed before we snapshot the fetch count.
+        drainEventLoop();
         int countAfterStop = fetchCount.get();
-        Thread.sleep(300);
+        drainEventLoop();
         assertEquals(fetchCount.get(), countAfterStop,
                 "Fetcher should stop after the final fetch, not keep polling");
         assertFalse(joinFilter.getCurrentConstraintByColumnName().isAll(),
@@ -217,10 +216,10 @@ public class TestDynamicFilterFetcher
         fetcher.start();
 
         poll(() -> requestCount.get() >= 1);
-        Thread.sleep(500);
+        drainEventLoop();
         int countAfterFatal = requestCount.get();
 
-        Thread.sleep(500);
+        drainEventLoop();
         assertEquals(requestCount.get(), countAfterFatal,
                 "Fetcher should have stopped immediately on fatal error");
         assertEquals(countAfterFatal, 1,
@@ -325,8 +324,7 @@ public class TestDynamicFilterFetcher
         fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
         fetcher.start();
 
-        poll(() -> fetchCount.get() >= 1);
-        Thread.sleep(500);
+        poll(() -> joinFilter.isComplete());
 
         assertTrue(joinFilter.hasData(), "Filter should have received data");
         assertTrue(joinFilter.isComplete(), "Filter should be complete (1 of 1 partitions)");
@@ -383,8 +381,7 @@ public class TestDynamicFilterFetcher
         fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
         fetcher.start();
 
-        poll(() -> fetchCount.get() >= 1);
-        Thread.sleep(1000);
+        poll(() -> filterA.hasData() && filterB.hasData());
 
         assertTrue(filterA.hasData(), "Filter A should have received data");
         assertTrue(filterB.hasData(),
@@ -427,8 +424,10 @@ public class TestDynamicFilterFetcher
         fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
         fetcher.start();
 
-        poll(() -> fetchCount.get() >= 1);
-        Thread.sleep(500);
+        // Poll for hasData() so we know success() has run, then drain to confirm the fetch
+        // count did not increase (i.e. the fetcher stopped after one request).
+        poll(() -> joinFilter.hasData());
+        drainEventLoop();
 
         assertEquals(fetchCount.get(), 1,
                 "Fetcher should stop after processing filters with operator completion");
@@ -487,8 +486,7 @@ public class TestDynamicFilterFetcher
         fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
         fetcher.start();
 
-        poll(() -> fetchCount.get() >= 1);
-        Thread.sleep(500);
+        poll(() -> joinFilter.isComplete());
 
         assertTrue(joinFilter.isComplete(),
                 "Filter should complete when delivered with isFinal=true");
@@ -534,8 +532,7 @@ public class TestDynamicFilterFetcher
         fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
         fetcher.start();
 
-        poll(() -> fetchCount.get() >= 2);
-        Thread.sleep(500);
+        poll(() -> joinFilter.isComplete());
 
         assertTrue(joinFilter.isComplete(),
                 "Filter should complete after the second response marks the prior partial as final");
@@ -577,8 +574,7 @@ public class TestDynamicFilterFetcher
         fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
         fetcher.start();
 
-        poll(() -> fetchCount.get() >= 1);
-        Thread.sleep(500);
+        poll(() -> joinFilter.isComplete());
 
         assertTrue(joinFilter.hasData(),
                 "Empty-build path must record a contribution (none())");
@@ -770,6 +766,20 @@ public class TestDynamicFilterFetcher
     private static TupleDomain<String> asDomain(Object filter)
     {
         return ((DomainRuntimeFilter) filter).getDomain();
+    }
+
+    /**
+     * Drains the event loop by submitting a no-op task and waiting for it to complete.
+     * Any callbacks already enqueued on the event loop before this call will have run
+     * by the time this method returns. Use this instead of {@code Thread.sleep} to
+     * create a deterministic synchronisation point.
+     */
+    private void drainEventLoop()
+            throws InterruptedException
+    {
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        eventLoop.execute(latch::countDown);
+        latch.await(FAIL_TIMEOUT.toMillis(), MILLISECONDS);
     }
 
     private static void poll(BooleanSupplier success)

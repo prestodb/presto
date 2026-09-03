@@ -76,6 +76,7 @@ import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespans
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedScaleWriterProducerBuffer;
 import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
@@ -202,7 +203,11 @@ public class SectionExecutionFactory
                 splitSourceFactory,
                 attemptId,
                 cteMaterializationTracker);
-        if (isDistributedDynamicFilterEnabled(session)) {
+        // Filter pushing is only relevant for Prestissimo (native) workers: Java workers do not
+        // implement the POST /v1/task/{taskId}/dynamicFilter/{filterId} endpoint, so pushing to
+        // them would only generate 404s. The feature default is DISABLED so this block never
+        // runs in practice, but the native-execution gate ensures correctness when it is enabled.
+        if (isDistributedDynamicFilterEnabled(session) && isNativeExecutionEnabled(session)) {
             QueryId queryId = session.getQueryId();
             DynamicFilterPusher pusher = new DynamicFilterPusher(
                     session.getRuntimeStats(),
@@ -563,7 +568,9 @@ public class SectionExecutionFactory
     @VisibleForTesting
     static void setExpectedPartitionsForFilters(DynamicFilterService dynamicFilterService, QueryId queryId, PlanNode root, int taskCount)
     {
-        forEachJoinDynamicFilter(dynamicFilterService, queryId, root, (filter, isBroadcastBuild) -> filter.setExpectedPartitions(taskCount));
+        // Broadcast-build joins always have exactly 1 build partition (the single broadcast task),
+        // so their filter should wait for 1 partition, not taskCount.
+        forEachJoinDynamicFilter(dynamicFilterService, queryId, root, (filter, isBroadcastBuild) -> filter.setExpectedPartitions(isBroadcastBuild ? 1 : taskCount));
     }
 
     @VisibleForTesting

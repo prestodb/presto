@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentMap;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_TASK_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Pushes coordinator-collected dynamic filters to probe-side C++ workers
@@ -46,7 +47,7 @@ public class DynamicFilterPusher
 
     public DynamicFilterPusher(RuntimeStats runtimeStats, boolean extendedMetrics)
     {
-        this.runtimeStats = runtimeStats;
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         this.extendedMetrics = extendedMetrics;
     }
 
@@ -57,6 +58,10 @@ public class DynamicFilterPusher
      *
      * <p>Also registers a task-created listener so tasks created after filter
      * completion receive the push too.
+     *
+     * <p>Each (filterId, scanNodeId) pair must be registered at most once per
+     * query; the {@code resolvedKey} is keyed on this pair and used to replay
+     * the push to tasks that are created after the filter resolves.
      */
     public void startPushing(
             String filterId,
@@ -64,12 +69,21 @@ public class DynamicFilterPusher
             JoinDynamicFilter joinFilter,
             SqlStageExecution probeStageExecution)
     {
+        // resolvedKey uniquely identifies the (filter, scan) pair for this query.
+        // It is safe to call startPushing once per pair — calling it twice for the
+        // same pair would overwrite resolvedFilters and could race with the task-
+        // created listener, delivering a duplicate push to already-created tasks.
         String resolvedKey = filterId + ":" + scanNodeId;
 
         joinFilter.onFullyResolved((resolvedFilterId, resolvedFilter) -> {
             if (resolvedFilter.isAll()) {
                 return;
             }
+            // Store before iterating getAllTasks() so that the task-created listener
+            // (which may fire concurrently) sees the resolved filter immediately.
+            // A task created between the put() and the getAllTasks() loop may receive
+            // two pushes (one from each path), which is harmless — pushDynamicFilter
+            // is idempotent on the worker side.
             resolvedFilters.put(resolvedKey, new ResolvedFilter(scanNodeId, resolvedFilter));
             for (RemoteTask task : probeStageExecution.getAllTasks()) {
                 pushToTask(task, scanNodeId, resolvedFilterId, resolvedFilter);
