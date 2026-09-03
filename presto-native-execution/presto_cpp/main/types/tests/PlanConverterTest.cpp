@@ -26,6 +26,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
 #include "velox/connectors/hive/TableHandle.h"
+#include "velox/core/PlanFragment.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 using namespace facebook::presto;
@@ -78,6 +79,30 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
           prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3")
       .planNode;
 }
+const core::ExchangeNode* findExchangeNode(
+    const std::shared_ptr<const core::PlanNode>& node) {
+  if (auto* exchange = dynamic_cast<const core::ExchangeNode*>(node.get())) {
+    return exchange;
+  }
+  for (const auto& source : node->sources()) {
+    if (auto* found = findExchangeNode(source)) {
+      return found;
+    }
+  }
+  return nullptr;
+}
+
+// Returns the transport type annotated for 'nodeId' in 'transportTypes', or
+// TransportKind::kHttp when the node is absent, matching PlanFragment's
+// "a node absent from the map uses kHttp" contract.
+std::string_view transportTypeOrDefault(
+    const folly::F14FastMap<core::PlanNodeId, std::string>& transportTypes,
+    const core::PlanNodeId& nodeId) {
+  const auto it = transportTypes.find(nodeId);
+  return it == transportTypes.end() ? core::TransportKind::kHttp
+                                    : std::string_view{it->second};
+}
+
 } // namespace
 
 class PlanConverterTest : public ::testing::Test {
@@ -303,4 +328,91 @@ TEST_F(PlanConverterTest, batchPlanConversionExchangeWrite) {
       std::dynamic_pointer_cast<const operators::MaterializedExchangeNode>(
           curNode);
   ASSERT_NE(materializedExchangeNode, nullptr);
+}
+
+TEST_F(PlanConverterTest, transportTypeAbsentDefaultsToHttp) {
+  std::string fragment = slurp(test::utils::getDataPath("FinalAgg.json"));
+  json j = json::parse(fragment);
+
+  ASSERT_FALSE(j.count("outputTransportType"));
+  ASSERT_FALSE(j["root"]["source"]["sources"][0].count("transportType"));
+
+  protocol::PlanFragment prestoPlan = j;
+  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
+  auto queryCtx = core::QueryCtx::create();
+  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
+  auto veloxFragment = converter.toVeloxQueryPlan(
+      prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3");
+
+  auto* partitionedOutput = dynamic_cast<const core::PartitionedOutputNode*>(
+      veloxFragment.planNode.get());
+  ASSERT_NE(partitionedOutput, nullptr);
+  ASSERT_EQ(
+      transportTypeOrDefault(
+          veloxFragment.outputTransportTypes, partitionedOutput->id()),
+      core::TransportKind::kHttp);
+
+  auto* exchange = findExchangeNode(veloxFragment.planNode);
+  ASSERT_NE(exchange, nullptr);
+  ASSERT_EQ(
+      transportTypeOrDefault(veloxFragment.inputTransportTypes, exchange->id()),
+      core::TransportKind::kHttp);
+}
+
+TEST_F(PlanConverterTest, transportTypeAny) {
+  std::string fragment = slurp(test::utils::getDataPath("FinalAgg.json"));
+  json j = json::parse(fragment);
+
+  j["outputTransportType"] = "ANY";
+  j["root"]["source"]["sources"][0]["transportType"] = "ANY";
+
+  protocol::PlanFragment prestoPlan = j;
+  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
+  auto queryCtx = core::QueryCtx::create();
+  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
+  auto veloxFragment = converter.toVeloxQueryPlan(
+      prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3");
+
+  auto* partitionedOutput = dynamic_cast<const core::PartitionedOutputNode*>(
+      veloxFragment.planNode.get());
+  ASSERT_NE(partitionedOutput, nullptr);
+  ASSERT_EQ(
+      transportTypeOrDefault(
+          veloxFragment.outputTransportTypes, partitionedOutput->id()),
+      core::TransportKind::kUcx);
+
+  auto* exchange = findExchangeNode(veloxFragment.planNode);
+  ASSERT_NE(exchange, nullptr);
+  ASSERT_EQ(
+      transportTypeOrDefault(veloxFragment.inputTransportTypes, exchange->id()),
+      core::TransportKind::kUcx);
+}
+
+TEST_F(PlanConverterTest, transportTypeHttp) {
+  std::string fragment = slurp(test::utils::getDataPath("FinalAgg.json"));
+  json j = json::parse(fragment);
+
+  j["outputTransportType"] = "HTTP";
+  j["root"]["source"]["sources"][0]["transportType"] = "HTTP";
+
+  protocol::PlanFragment prestoPlan = j;
+  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
+  auto queryCtx = core::QueryCtx::create();
+  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
+  auto veloxFragment = converter.toVeloxQueryPlan(
+      prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3");
+
+  auto* partitionedOutput = dynamic_cast<const core::PartitionedOutputNode*>(
+      veloxFragment.planNode.get());
+  ASSERT_NE(partitionedOutput, nullptr);
+  ASSERT_EQ(
+      transportTypeOrDefault(
+          veloxFragment.outputTransportTypes, partitionedOutput->id()),
+      core::TransportKind::kHttp);
+
+  auto* exchange = findExchangeNode(veloxFragment.planNode);
+  ASSERT_NE(exchange, nullptr);
+  ASSERT_EQ(
+      transportTypeOrDefault(veloxFragment.inputTransportTypes, exchange->id()),
+      core::TransportKind::kHttp);
 }
