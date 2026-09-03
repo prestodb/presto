@@ -914,6 +914,15 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kRemoteFunctionServerSerde{
       "remote-function-server.serde"};
 
+  /// When true (default) intra-cluster communication (announcement, heartbeat
+  /// and exchange) uses HTTPS. When false the internal client SSL context is
+  /// not built, so the announcer/heartbeat/exchange clients speak plaintext
+  /// HTTP to match the http:// peer URIs the coordinator hands out. The HTTPS
+  /// server listener (http-server.https.*) is independent and stays up for
+  /// external clients.
+  static constexpr std::string_view kInternalCommunicationHttpsRequired{
+      "internal-communication.https.required"};
+
   /// Options to configure the internal (in-cluster) JWT authentication.
   static constexpr std::string_view kInternalCommunicationJwtEnabled{
       "internal-communication.jwt.enabled"};
@@ -1339,6 +1348,8 @@ class SystemConfig : public ConfigBase {
   int32_t oldTaskCleanUpMs() const;
 
   bool enableOldTaskCleanUp() const;
+
+  bool internalCommunicationHttpsRequired() const noexcept;
 
   bool internalCommunicationJwtEnabled() const;
 
