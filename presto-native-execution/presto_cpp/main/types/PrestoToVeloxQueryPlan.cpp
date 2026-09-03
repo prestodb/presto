@@ -2119,7 +2119,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const protocol::TaskId& taskId) {
   std::vector<core::FieldAccessTypedExprPtr> unnestFields;
   unnestFields.reserve(node->unnestVariables.size());
-  std::vector<std::string> unnestNames;
+  std::vector<std::optional<std::string>> unnestNames;
   for (const auto& [unnestField, outputVariables] : node->unnestVariables) {
     unnestFields.emplace_back(exprConverter_.toVeloxExpr(unnestField));
     for (const auto& output : outputVariables) {
@@ -2130,8 +2130,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   return std::make_shared<core::UnnestNode>(
       node->id,
       toVeloxExprs(node->replicateVariables),
-      unnestFields,
-      unnestNames,
+      std::move(unnestFields),
+      std::move(unnestNames),
       node->ordinalityVariable ? std::optional{node->ordinalityVariable->name}
                                : std::nullopt,
       std::nullopt,
