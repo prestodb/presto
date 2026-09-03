@@ -68,7 +68,6 @@ public class KeyBasedSampler
         implements PlanOptimizer
 {
     private final Metadata metadata;
-    private boolean isEnabledForTesting;
 
     public KeyBasedSampler(Metadata metadata)
     {
@@ -76,25 +75,20 @@ public class KeyBasedSampler
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        isEnabledForTesting = isSet;
+        return forceEnableOptimizer || isKeyBasedSamplingEnabled(session);
     }
 
     @Override
-    public boolean isEnabled(Session session)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
-        return isEnabledForTesting || isKeyBasedSamplingEnabled(session);
-    }
-
-    @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
-    {
-        if (isEnabled(session)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             List<String> sampledFields = new ArrayList<>(2);
             PlanNode rewritten = SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata.getFunctionAndTypeManager(), idAllocator, sampledFields), plan, null);
 
-            if (!isEnabledForTesting) {
+            if (!forceEnableOptimizer) {
                 if (!sampledFields.isEmpty()) {
                     warningCollector.add(new PrestoWarning(SAMPLED_FIELDS, String.format("Sampled the following columns/derived columns at %s percent:%n\t%s", getKeyBasedSamplingPercentage(session) * 100., String.join("\n\t", sampledFields))));
                 }

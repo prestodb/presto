@@ -102,7 +102,8 @@ public class MetadataQueryOptimizer
     }
 
     @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
         if (!SystemSessionProperties.isOptimizeMetadataQueries(session) && !SystemSessionProperties.isOptimizeMetadataQueriesIgnoreStats(session)) {
             return PlanOptimizerResult.optimizerResult(plan, false);
