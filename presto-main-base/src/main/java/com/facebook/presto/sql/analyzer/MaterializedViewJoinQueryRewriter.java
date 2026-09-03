@@ -183,7 +183,12 @@ public class MaterializedViewJoinQueryRewriter
             try {
                 MaterializedViewDefinition mvDef = metadataResolver.getMaterializedView(materializedViewName).orElseThrow(() ->
                         new IllegalStateException("Materialized view definition not present in metadata as expected."));
-                materializedViewTable = new Table(QualifiedName.of(mvDef.getTable()));
+                // Use a fully-qualified 3-part name for the storage table so that
+                // StatementAnalyzer can resolve it regardless of session defaults.
+                materializedViewTable = new Table(QualifiedName.of(
+                        materializedViewName.getCatalogName(),
+                        mvDef.getSchema(),
+                        mvDef.getTable()));
                 mvPrefix = isAliasedLeaf() ? swappedPrefix : new Identifier(mvDef.getTable());
 
                 Query mvQuery = (Query) sqlParser.createStatement(mvDef.getOriginalSql(), createParsingOptions(session));
