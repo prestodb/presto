@@ -4919,8 +4919,9 @@ public abstract class TestIcebergMaterializedViewsBase
         assertUpdate(sessionWithDefaultSchema, "CREATE MATERIALIZED VIEW test_default_storage_schema_mv AS " +
                 "SELECT id, name FROM test_default_storage_schema_base");
 
+        String storageTableName = "__mv_storage__test_schema__test_default_storage_schema_mv";
         try {
-            assertQuery("SELECT COUNT(*) FROM mv_storage_isolated.\"__mv_storage__test_default_storage_schema_mv\"", "SELECT 0");
+            assertQuery("SELECT COUNT(*) FROM mv_storage_isolated.\"" + storageTableName + "\"", "SELECT 0");
             assertQueryFails("SELECT * FROM \"__mv_storage__test_default_storage_schema_mv\"", ".*does not exist.*");
 
             assertMaterializedViewQuery(
@@ -4928,12 +4929,59 @@ public abstract class TestIcebergMaterializedViewsBase
                     "VALUES (1, 'Alice'), (2, 'Bob')");
 
             assertRefreshAndFullyMaterialized("test_default_storage_schema_mv", 2);
-            assertQuery("SELECT COUNT(*) FROM mv_storage_isolated.\"__mv_storage__test_default_storage_schema_mv\"", "SELECT 2");
+            assertQuery("SELECT COUNT(*) FROM mv_storage_isolated.\"" + storageTableName + "\"", "SELECT 2");
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW test_default_storage_schema_mv");
             assertUpdate("DROP TABLE test_default_storage_schema_base");
             assertUpdate("DROP SCHEMA IF EXISTS mv_storage_isolated");
+        }
+    }
+
+    @Test
+    public void testDefaultStorageSchemaNoCollisionAcrossSourceSchemas()
+    {
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS mv_shared_storage");
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS mv_src_schema1");
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS mv_src_schema2");
+
+        Session sessionWithDefaultSchema = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "materialized_view_default_storage_schema", "mv_shared_storage")
+                .build();
+
+        try {
+            assertUpdate("CREATE TABLE mv_src_schema1.collision_base (id BIGINT)");
+            assertUpdate("INSERT INTO mv_src_schema1.collision_base VALUES 1, 2", 2);
+            assertUpdate("CREATE TABLE mv_src_schema2.collision_base (id BIGINT)");
+            assertUpdate("INSERT INTO mv_src_schema2.collision_base VALUES 10, 20", 2);
+
+            assertUpdate(sessionWithDefaultSchema,
+                    "CREATE MATERIALIZED VIEW mv_src_schema1.collision_mv AS SELECT id FROM mv_src_schema1.collision_base");
+            assertUpdate(sessionWithDefaultSchema,
+                    "CREATE MATERIALIZED VIEW mv_src_schema2.collision_mv AS SELECT id FROM mv_src_schema2.collision_base");
+
+            String storage1 = "mv_shared_storage.\"__mv_storage__mv_src_schema1__collision_mv\"";
+            String storage2 = "mv_shared_storage.\"__mv_storage__mv_src_schema2__collision_mv\"";
+            assertQuery("SELECT COUNT(*) FROM " + storage1, "SELECT 0");
+            assertQuery("SELECT COUNT(*) FROM " + storage2, "SELECT 0");
+
+            assertUpdate(sessionWithDefaultSchema, "REFRESH MATERIALIZED VIEW mv_src_schema1.collision_mv", 2);
+            assertUpdate(sessionWithDefaultSchema, "REFRESH MATERIALIZED VIEW mv_src_schema2.collision_mv", 2);
+
+            assertQuery("SELECT * FROM mv_src_schema1.collision_mv ORDER BY id", "VALUES 1, 2");
+            assertQuery("SELECT * FROM mv_src_schema2.collision_mv ORDER BY id", "VALUES 10, 20");
+
+            assertQuery("SELECT COUNT(*) FROM " + storage1, "SELECT 2");
+            assertQuery("SELECT COUNT(*) FROM " + storage2, "SELECT 2");
+        }
+        finally {
+            assertUpdate(sessionWithDefaultSchema, "DROP MATERIALIZED VIEW IF EXISTS mv_src_schema1.collision_mv");
+            assertUpdate(sessionWithDefaultSchema, "DROP MATERIALIZED VIEW IF EXISTS mv_src_schema2.collision_mv");
+            assertUpdate("DROP TABLE IF EXISTS mv_src_schema1.collision_base");
+            assertUpdate("DROP TABLE IF EXISTS mv_src_schema2.collision_base");
+            assertUpdate("DROP SCHEMA IF EXISTS mv_shared_storage");
+            assertUpdate("DROP SCHEMA IF EXISTS mv_src_schema1");
+            assertUpdate("DROP SCHEMA IF EXISTS mv_src_schema2");
         }
     }
 
@@ -4988,8 +5036,8 @@ public abstract class TestIcebergMaterializedViewsBase
         assertUpdate(sessionWithDefaultSchema, "CREATE MATERIALIZED VIEW storage_lockdown_invoker_mv SECURITY INVOKER AS " +
                 "SELECT id, value FROM storage_lockdown_base");
 
-        String definerStorage = "__mv_storage__storage_lockdown_definer_mv";
-        String invokerStorage = "__mv_storage__storage_lockdown_invoker_mv";
+        String definerStorage = "__mv_storage__test_schema__storage_lockdown_definer_mv";
+        String invokerStorage = "__mv_storage__test_schema__storage_lockdown_invoker_mv";
 
         try {
             // Wildcard deny matches every identity, including the MV creator.
