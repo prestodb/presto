@@ -89,7 +89,10 @@
 #include "velox/serializers/UnsafeRowSerializer.h"
 
 #ifdef PRESTO_ENABLE_CUDF
+#include <cuda_runtime.h>
+#include <nvml.h>
 #include "velox/experimental/cudf/CudfConfig.h"
+#include "velox/experimental/cudf/exec/GpuResources.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/expression/PrestoFunctions.h"
 #endif
@@ -1319,6 +1322,21 @@ void PrestoServer::addServerPeriodicTasks() {
       1'000'000, // 1 second
       "populate_mem_cpu_info");
 
+#ifdef PRESTO_ENABLE_CUDF
+  // Sample GPU metrics off the serving path so fetchNodeStatus() (RM heartbeat)
+  // only reads cached atomics — never runs synchronous CUDA/NVML probes.
+  // updateGpuStatusCache() is a no-op unless cuDF is enabled at runtime, so
+  // scheduling it unconditionally here is safe regardless of init ordering.
+  const uint64_t gpuStatusIntervalMs =
+      SystemConfig::instance()->gpuStatusUpdateIntervalMs();
+  if (gpuStatusIntervalMs > 0) {
+    periodicTaskManager_->addTask(
+        [server = this]() { server->updateGpuStatusCache(); },
+        gpuStatusIntervalMs * 1'000, // ms -> micros
+        "update_gpu_status");
+  }
+#endif
+
   periodicTaskManager_->addTask(
       [start = start_]() {
         const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
@@ -2016,6 +2034,26 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
     queryMemoryBytes += pool.second.reservedBytes;
   }
 
+  // GPU metrics. cuDF/RMM allocations do not flow through Velox MemoryPools, so
+  // these are sampled directly from the device/NVML. To keep the synchronous
+  // CUDA/NVML probes off this path (fetchNodeStatus feeds the RM heartbeat — a
+  // stalled probe here can get the worker declared dead), sampling runs on the
+  // periodic 'update_gpu_status' task and we only read the cached atomics here.
+  // -1 sentinel when cuDF is disabled/not registered, when no probe has run
+  // yet, or when the most recent probe failed (same convention as
+  // 'nonHeapUsed'). Semantics of each value are documented on
+  // updateGpuStatusCache().
+  const int64_t gpuMemoryUsedBytes =
+      gpuMemoryUsedBytes_.load(std::memory_order_relaxed);
+  const int64_t gpuMemoryCapacityBytes =
+      gpuMemoryCapacityBytes_.load(std::memory_order_relaxed);
+  const int64_t gpuUtilizationPercent =
+      gpuUtilizationPercent_.load(std::memory_order_relaxed);
+  const int64_t gpuMemoryBandwidthPercent =
+      gpuMemoryBandwidthPercent_.load(std::memory_order_relaxed);
+  const int64_t gpuPoolAllocatedBytes =
+      gpuPoolAllocatedBytes_.load(std::memory_order_relaxed);
+
   protocol::NodeStatus nodeStatus{
       nodeId_,
       {nodeVersion_},
@@ -2032,9 +2070,75 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       nodeMemoryGb * 1024 * 1024 * 1024,
       nonHeapUsed,
       asyncDataCacheBytes,
-      queryMemoryBytes};
+      queryMemoryBytes,
+      gpuMemoryUsedBytes,
+      gpuMemoryCapacityBytes,
+      gpuUtilizationPercent,
+      gpuMemoryBandwidthPercent,
+      gpuPoolAllocatedBytes};
 
   return nodeStatus;
+}
+
+void PrestoServer::updateGpuStatusCache() {
+#ifdef PRESTO_ENABLE_CUDF
+  if (!velox::cudf_velox::CudfConfig::getInstance().enabled) {
+    return;
+  }
+  // Every probe stores unconditionally, writing the -1 sentinel when it fails.
+  // Leaving the previous sample in place would be worse than reporting nothing:
+  // a stale value is indistinguishable from a fresh one, so a GPU that stopped
+  // responding would keep reporting healthy numbers indefinitely.
+
+  // cudaMemGetInfo reports the whole device: 'used' reflects the retained RMM
+  // pool reservation (high-water mark) — the right notion for "how full is the
+  // GPU". Stored into gpuMemory{Used,Capacity}Bytes_.
+  int64_t gpuMemoryUsedBytes = -1;
+  int64_t gpuMemoryCapacityBytes = -1;
+  size_t gpuFree = 0;
+  size_t gpuTotal = 0;
+  if (cudaMemGetInfo(&gpuFree, &gpuTotal) == cudaSuccess) {
+    gpuMemoryCapacityBytes = static_cast<int64_t>(gpuTotal);
+    gpuMemoryUsedBytes = static_cast<int64_t>(gpuTotal - gpuFree);
+  }
+  gpuMemoryCapacityBytes_.store(
+      gpuMemoryCapacityBytes, std::memory_order_relaxed);
+  gpuMemoryUsedBytes_.store(gpuMemoryUsedBytes, std::memory_order_relaxed);
+
+  // Live bytes currently allocated through the cuDF/RMM memory resource, via
+  // velox's statistics adaptor. Unlike gpuMemoryUsedBytes_ — the retained pool
+  // high-water mark from cudaMemGetInfo — this drops when queries free their
+  // allocations, so it separates an idle worker from a busy one. The accessor
+  // itself returns -1 when cuDF is not registered.
+  gpuPoolAllocatedBytes_.store(
+      velox::cudf_velox::cudfAllocatedBytes(), std::memory_order_relaxed);
+
+  // GPU compute / memory-bandwidth utilization (%) via NVML — nvidia-smi's
+  // "GPU-Util". Says whether the GPU is actually computing, not how full VRAM
+  // is. NOTE: NVML reports the whole physical device; under fractional/shared
+  // GPU (time-slicing/MPS) this reflects the shared GPU, not just this worker
+  // (see plan Annex A3).
+  int64_t gpuUtilizationPercent = -1;
+  int64_t gpuMemoryBandwidthPercent = -1;
+  // NVML init once for the server lifetime (process exit reclaims it).
+  static const bool nvmlReady = (nvmlInit_v2() == NVML_SUCCESS);
+  if (nvmlReady) {
+    nvmlDevice_t nvmlDevice;
+    nvmlUtilization_t util;
+    // Index 0: inside the container NVML sees only the GPU(s) exposed to this
+    // pod, so device 0 is this worker's GPU. Multi-GPU-visible containers
+    // would need PCI-bus-id mapping to the active CUDA device.
+    if (nvmlDeviceGetHandleByIndex_v2(0, &nvmlDevice) == NVML_SUCCESS &&
+        nvmlDeviceGetUtilizationRates(nvmlDevice, &util) == NVML_SUCCESS) {
+      gpuUtilizationPercent = static_cast<int64_t>(util.gpu);
+      gpuMemoryBandwidthPercent = static_cast<int64_t>(util.memory);
+    }
+  }
+  gpuUtilizationPercent_.store(
+      gpuUtilizationPercent, std::memory_order_relaxed);
+  gpuMemoryBandwidthPercent_.store(
+      gpuMemoryBandwidthPercent, std::memory_order_relaxed);
+#endif
 }
 
 void PrestoServer::registerDynamicFunctions() {
