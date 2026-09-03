@@ -103,6 +103,7 @@ import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_OR_
 import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_MIN_MAX_BY_TO_TOP_N;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_SEMI_JOIN_AGAINST_VALUES_TO_FILTER_MAX_SIZE;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_COALESCE_OVER_JOIN_KEYS;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS;
@@ -7924,6 +7925,9 @@ public abstract class AbstractTestQueries
     {
         Session enableOptimization = Session.builder(getSession())
                 .setSystemProperty(REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN, "true")
+                // This test asserts the semi join (and its distinct aggregation) survives; keep the values-to-filter
+                // rewrite from collapsing it.
+                .setSystemProperty(REWRITE_SEMI_JOIN_AGAINST_VALUES_TO_FILTER_MAX_SIZE, "0")
                 .build();
 
         String sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
@@ -7934,24 +7938,24 @@ public abstract class AbstractTestQueries
         assertQuery(enableOptimization, sql, "values 3, 3, null");
         sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3, null) t(k)), t2 as (select * from (values 1, 1, 2, 2, null, null, null, null) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
         assertQuery(enableOptimization, sql, "values 3, 3, null");
-        assertNotEquals(computeActual("EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
+        assertNotEquals(computeActual(enableOptimization, "EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
 
         // null in right side
         sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2, null) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
         assertQuery(enableOptimization, sql, "values 3, 3");
         sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2, null, null, null, null) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
         assertQuery(enableOptimization, sql, "values 3, 3");
-        assertNotEquals(computeActual("EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
+        assertNotEquals(computeActual(enableOptimization, "EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
 
         // right side already has distinct should apply no more distinct
         sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select distinct(k) from (values 1, 1, 2, 2, null) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
         assertQuery(enableOptimization, sql, "values 3, 3");
-        assertNotEquals(computeActual("EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
+        assertNotEquals(computeActual(enableOptimization, "EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
 
         // right side has group by but not distinct
         sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select k from (values 1, 1, 2, 2, null) t(k) group by k having count(1) > 1) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
         assertQuery(enableOptimization, sql, "values 3, 3");
-        assertNotEquals(computeActual("EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
+        assertNotEquals(computeActual(enableOptimization, "EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
 
         // filter in right child of join
         sql = "with t1 as (select * from (values (1, 2), (2, 3), (1, 0)) t(k1, k2)), t2 as (select * from (values (1, 2), (2, 3)) t(k1, k2)) select t1.k1, t1.k2 from t1 left join t2 on t1.k2=t2.k2 and t2.k1 > 1 where t2.k2 is null";
