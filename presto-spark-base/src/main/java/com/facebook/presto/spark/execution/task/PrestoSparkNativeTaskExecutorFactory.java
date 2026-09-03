@@ -658,8 +658,22 @@ public class PrestoSparkNativeTaskExecutorFactory
                         terminateWithCoreTimeout));
             }
             catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
+                // Spark kills a task by interrupting its thread, so this is the path a cancelled stage or a losing
+                // speculative attempt takes out of the wait above. Without completing the task here no DELETE is
+                // ever sent, and the worker keeps the task and everything it pins.
+                RuntimeException failure = new RuntimeException(e);
+                try {
+                    completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
+                }
+                catch (RuntimeException completionFailure) {
+                    // Keep the interrupt as the reported cause. A failure to complete is
+                    // secondary and would otherwise replace it, hiding why the task stopped.
+                    failure.addSuppressed(completionFailure);
+                }
+                finally {
+                    Thread.currentThread().interrupt();
+                }
+                throw failure;
             }
 
             // Reaching here marks the end of task processing

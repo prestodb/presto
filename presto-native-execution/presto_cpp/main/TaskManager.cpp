@@ -905,8 +905,11 @@ void TaskManager::maybeStartNextQueuedTask() {
   }
 }
 
-std::unique_ptr<TaskInfo>
-TaskManager::deleteTask(const TaskId& taskId, bool /*abort*/, bool summarize) {
+std::unique_ptr<TaskInfo> TaskManager::deleteTask(
+    const TaskId& taskId,
+    bool /*abort*/,
+    bool summarize,
+    bool shouldDropTask) {
   LOG(INFO) << "Deleting task " << taskId;
   // Fast. non-blocking delete and cancel serialized on 'taskMap'.
   std::shared_ptr<facebook::presto::PrestoTask> prestoTask;
@@ -923,34 +926,54 @@ TaskManager::deleteTask(const TaskId& taskId, bool /*abort*/, bool summarize) {
     prestoTask = findOrCreateTask(taskId, 0);
   }
 
-  std::lock_guard<std::mutex> l(prestoTask->mutex);
-  prestoTask->updateHeartbeatLocked();
-  prestoTask->updateCoordinatorHeartbeatLocked();
-  auto execTask = prestoTask->task;
-  if (execTask) {
-    auto state = execTask->state();
-    if (state == exec::TaskState::kRunning) {
-      execTask->requestAbort();
+  std::unique_ptr<TaskInfo> taskInfo;
+  bool dropTask{false};
+  {
+    std::lock_guard<std::mutex> l(prestoTask->mutex);
+    prestoTask->updateHeartbeatLocked();
+    prestoTask->updateCoordinatorHeartbeatLocked();
+    auto execTask = prestoTask->task;
+    if (execTask) {
+      auto state = execTask->state();
+      if (state == exec::TaskState::kRunning) {
+        execTask->requestAbort();
+      }
+      prestoTask->info.stats.endTimeInMillis = velox::getCurrentTimeMs();
+      prestoTask->updateInfoLocked(summarize);
+
+      // Do not erase the finished/aborted tasks, because someone might still
+      // want to get some results from them. Instead, we run a periodic task to
+      // clean up the old finished/aborted tasks.
+      if (prestoTask->info.taskStatus.state == protocol::TaskState::RUNNING) {
+        prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
+      }
+      dropTask = shouldDropTask;
+    } else {
+      // If task is not found than we observe DELETE message coming before
+      // CREATE. In that case we create the task with ABORTED state, so we know
+      // we don't need to do anything on CREATE message and can clean up the
+      // cancelled task later. This marker holds no Velox Task and so pins
+      // nothing; it is kept even under 'shouldDropTask', because dropping it
+      // would let the later CREATE start the task the client just cancelled.
+      prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
     }
-    prestoTask->info.stats.endTimeInMillis = velox::getCurrentTimeMs();
-    prestoTask->updateInfoLocked(summarize);
-  } else {
-    // If task is not found than we observe DELETE message coming before
-    // CREATE. In that case we create the task with ABORTED state, so we know
-    // we don't need to do anything on CREATE message and can clean up the
-    // cancelled task later.
-    prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
-    return std::make_unique<TaskInfo>(prestoTask->info);
+    taskInfo = std::make_unique<TaskInfo>(prestoTask->info);
   }
 
-  // Do not erase the finished/aborted tasks, because someone might still want
-  // to get some results from them. Instead, we run a periodic task to clean up
-  // the old finished/aborted tasks.
-  if (prestoTask->info.taskStatus.state == protocol::TaskState::RUNNING) {
-    prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
+  // The deferral above assumes cleanOldTasks() will eventually reclaim the
+  // task, but it declines to erase any task whose Drivers have not finished
+  // unwinding (see the zombie check there), so a task left in 'taskMap_' can
+  // pin its Velox Task -- and every resource its operators hold on the shared
+  // per-query memory pool -- for the lifetime of the worker process. Drop the
+  // reference here when the caller states it will never read the task again.
+  // The Velox Task itself stays alive until its Drivers finish unwinding the
+  // abort requested above, so this only releases what is already finished
+  // with.
+  if (dropTask) {
+    taskMap_.withWLock([&](auto& taskMap) { taskMap.erase(taskId); });
   }
 
-  return std::make_unique<TaskInfo>(prestoTask->info);
+  return taskInfo;
 }
 
 size_t TaskManager::cleanOldTasks() {
