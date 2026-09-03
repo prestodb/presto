@@ -23,6 +23,7 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
+import static com.facebook.presto.memory.LocalMemoryManager.validateCoordinatorHeapHeadroom;
 import static com.facebook.presto.memory.LocalMemoryManager.validateHeapHeadroom;
 import static com.facebook.presto.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 
@@ -120,5 +121,23 @@ public class TestNodeMemoryConfig
         // In this case we have 4GB - 1GB = 3GB available memory for the general pool
         // and the heap headroom and the config is more than that.
         validateHeapHeadroom(config, new DataSize(4, GIGABYTE).toBytes());
+    }
+
+    @Test
+    public void testCoordinatorOnlyValidationPassesWhenHeadroomFits()
+    {
+        NodeMemoryConfig config = new NodeMemoryConfig();
+        config.setMaxQueryTotalMemoryPerNode(new DataSize(32, GIGABYTE));
+        config.setHeapHeadroom(new DataSize(1, GIGABYTE));
+        // Coordinator-only validation: only headroom must fit. Per-node limits are for workers.
+        validateCoordinatorHeapHeadroom(config, new DataSize(4, GIGABYTE).toBytes());
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testCoordinatorOnlyValidationFailsWhenHeadroomExceedsHeap()
+    {
+        NodeMemoryConfig config = new NodeMemoryConfig();
+        config.setHeapHeadroom(new DataSize(2, GIGABYTE));
+        validateCoordinatorHeapHeadroom(config, new DataSize(1, GIGABYTE).toBytes());
     }
 }
