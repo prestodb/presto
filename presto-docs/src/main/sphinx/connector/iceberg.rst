@@ -648,7 +648,10 @@ Session properties set behavior changes for queries executed within the given se
 
        ``materialized_view_storage_table_name_prefix``
      - Prefix for automatically generated materialized view storage table names.
-       Default: ``__mv_storage__``
+       Default: ``__mv_storage__``. When ``materialized_view_default_storage_schema``
+       routes storage tables into a shared schema, the generated name uses a
+       length-prefix encoding to include the source schema and avoid collisions:
+       ``<prefix><schemaLen>_<schema>__<viewName>``.
      - Yes
      - Yes
    * - .. _iceberg-sess-materialized-view-missing-base-table-behavior:
@@ -3137,7 +3140,17 @@ The Iceberg connector supports materialized views. See :doc:`/admin/materialized
 Storage
 ^^^^^^^
 
-Materialized views use a dedicated Iceberg storage table to persist the pre-computed results. By default, the storage table is created with the prefix ``__mv_storage__`` followed by the materialized view name in the same schema as the view.
+Materialized views use a dedicated Iceberg storage table to persist the pre-computed results. By
+default, the storage table is placed in the same schema as the view and its name is generated
+automatically from the configured prefix (``__mv_storage__`` by default) and the materialized view
+name.
+
+When ``iceberg.materialized-view-default-storage-schema`` is set to route storage tables into a
+shared schema, the generated name also embeds the source schema to prevent collisions between
+materialized views with the same name in different schemas. The format used is::
+
+    <prefix><schemaLength>_<sourceSchema>__<viewName>
+
 
 Catalog Configuration
 ^^^^^^^^^^^^^^^^^^^^^
@@ -3164,7 +3177,10 @@ view creation time and can be overridden per-view by using the ``storage_schema`
        ``iceberg.materialized-view-default-storage-schema``
      - Schema in which storage tables are created when the per-view ``storage_schema``
        property is not set. Point at a locked-down schema to keep storage tables out of
-       users' reach without affecting materialized view reads.
+       users' reach without affecting materialized view reads. When this property is set,
+       the auto-generated storage table name includes the source schema using a
+       length-prefix encoding (``<prefix><schemaLen>_<schema>__<viewName>``) to avoid
+       collisions between same-named views in different schemas.
      - (the view's own schema)
    * - .. _mv-cfg-max-changed-partitions:
 
@@ -3206,7 +3222,12 @@ by using :doc:`/sql/alter-materialized-view`; properties not specified in the
      - Schema name for the storage table. Defaults to the materialized view's schema.
      - No
    * - ``storage_table``
-     - Custom name for the storage table. Defaults to the prefix plus the materialized view name.
+     - Custom name for the storage table. When not set, the name is auto-generated from
+       the configured prefix and the materialized view name. If
+       ``iceberg.materialized-view-default-storage-schema`` (or the session property
+       ``materialized_view_default_storage_schema``) routes storage into a different schema,
+       the source schema is also embedded using length-prefix encoding:
+       ``<prefix><schemaLen>_<schema>__<viewName>``.
      - No
    * - ``stale_read_behavior``
      - Behavior when reading from a materialized view that is stale beyond the staleness window.
