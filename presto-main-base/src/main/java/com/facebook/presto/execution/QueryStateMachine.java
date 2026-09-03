@@ -35,6 +35,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
+import com.facebook.presto.spi.eventlistener.MaterializedViewStatistics;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -478,6 +479,8 @@ public class QueryStateMachine
 
         List<StageId> runtimeOptimizedStages = allStages.stream().filter(StageInfo::isRuntimeOptimized).map(StageInfo::getStageId).collect(toImmutableList());
         QueryStats queryStats = getQueryStats(rootStage, allStages);
+        MaterializedViewStatistics mvStats = session.getMaterializedViewInfoCollector().getMaterializedViewStatistics();
+        MaterializedViewStatistics mvStatsOrNull = mvStats.isEmpty() ? null : mvStats;
         return new QueryInfo(
                 queryId,
                 session.toSessionRepresentation(),
@@ -517,6 +520,7 @@ public class QueryStateMachine
                 Optional.ofNullable(planStatsAndCosts.get()).orElseGet(StatsAndCosts::empty),
                 session.getOptimizerInformationCollector().getOptimizationInfo(),
                 session.getCteInformationCollector().getCTEInformationList(),
+                mvStatsOrNull,
                 scalarFunctions.get(),
                 aggregateFunctions.get(),
                 windowFunctions.get(),
@@ -1204,6 +1208,7 @@ public class QueryStateMachine
                 pruneHistogramsFromStatsAndCosts(queryInfo.getPlanStatsAndCosts()),
                 queryInfo.getOptimizerInformation(),
                 queryInfo.getCteInformationList(),
+                queryInfo.getMaterializedViewStatistics().orElse(null),
                 queryInfo.getScalarFunctions(),
                 queryInfo.getAggregateFunctions(),
                 queryInfo.getWindowFunctions(),
@@ -1325,6 +1330,7 @@ public class QueryStateMachine
                 StatsAndCosts.empty(),
                 queryInfo.getOptimizerInformation(),
                 queryInfo.getCteInformationList(),
+                queryInfo.getMaterializedViewStatistics().orElse(null),
                 queryInfo.getScalarFunctions(),
                 queryInfo.getAggregateFunctions(),
                 queryInfo.getWindowFunctions(),

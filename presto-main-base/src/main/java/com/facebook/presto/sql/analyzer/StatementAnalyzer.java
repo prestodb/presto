@@ -2865,6 +2865,10 @@ class StatementAnalyzer
         {
             MaterializedViewStatus materializedViewStatus = getMaterializedViewStatus(materializedViewName, scope, materializedView);
 
+            session.getMaterializedViewInfoCollector().addQueryInfo(
+                    materializedViewName.toString(),
+                    materializedViewStatus);
+
             String materializedViewCreateSql = materializedViewDefinition.getOriginalSql();
 
             if (materializedViewStatus.isNotMaterialized() || materializedViewStatus.isTooManyPartitionsMissing()) {
