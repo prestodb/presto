@@ -208,6 +208,15 @@ public class TestArrowFederationNativeQueriesRedis
     {
     }
 
+    // Redis connector in Java is read-only, no write operations go past the coordinator stage
+    @Test
+    public void testUnsupportedWriteOperations()
+    {
+        assertQueryFails("INSERT INTO nation VALUES (100, 'TESTLAND', 0, 'test')", ".*This connector does not support inserts.*");
+        assertQueryFails("CREATE TABLE ctas_test AS SELECT * FROM nation LIMIT 1", ".*This connector does not support creating tables.*");
+        assertQueryFails("DELETE FROM nation WHERE nationkey = 100", ".*This connector does not support deletes.*");
+    }
+
     static void createTpchTables(EmbeddedRedis embeddedRedis, QueryRunner queryRunner)
     {
         TestingPrestoClient prestoClient = ((DistributedQueryRunner) queryRunner).getRandomClient();
