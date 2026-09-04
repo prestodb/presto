@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
@@ -762,6 +763,56 @@ public class TestIcebergV3
         finally {
             dropTable(tableName);
         }
+    }
+
+    @Test
+    public void testAlterColumnNotNullDoesNotTamperWithRowLineage()
+    {
+        String tableName = "test_not_null_row_lineage";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar) WITH (\"format-version\" = '3')");
+            assertUpdate(format("INSERT INTO %s VALUES (1, 'a'), (2, 'b')", tableName), 2);
+            assertEquals(((BaseTable) loadTable(tableName)).operations().current().formatVersion(), 3);
+
+            // Assert lineage is actually populated, so the before/after comparison below is not
+            // vacuously comparing two all-null results.
+            assertQuery(format("SELECT count(*) FROM %s WHERE \"_row_id\" IS NOT NULL", tableName), "VALUES 2");
+
+            String rowLineageBefore = rowLineage(tableName);
+            String schemaBefore = loadTable(tableName).schema().toString();
+
+            for (String column : ImmutableList.of("_row_id", "_last_updated_sequence_number")) {
+                assertQueryFails(
+                        format("ALTER TABLE %s ALTER COLUMN \"%s\" SET NOT NULL", tableName, column),
+                        format(".*Cannot set NOT NULL on metadata column '%s'.*", column));
+                assertQueryFails(
+                        format("ALTER TABLE %s ALTER COLUMN \"%s\" DROP NOT NULL", tableName, column),
+                        format(".*Cannot drop NOT NULL on metadata column '%s'.*", column));
+            }
+
+            // The Iceberg schema is unchanged and row lineage still reads back the same values.
+            assertEquals(loadTable(tableName).schema().toString(), schemaBefore);
+            assertEquals(rowLineage(tableName), rowLineageBefore);
+
+            // Altering a real column still works on a row-lineage table, and leaves lineage intact.
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN value SET NOT NULL", tableName));
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (3, NULL)", tableName),
+                    "NULL value not allowed for NOT NULL column: value");
+            assertEquals(rowLineage(tableName), rowLineageBefore);
+            assertUpdate(format("INSERT INTO %s VALUES (3, 'c')", tableName), 1);
+            assertQuery(format("SELECT id, value FROM %s", tableName), "VALUES (1, 'a'), (2, 'b'), (3, 'c')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    private String rowLineage(String tableName)
+    {
+        return computeActual(format("SELECT id, \"_row_id\", \"_last_updated_sequence_number\" FROM %s ORDER BY id", tableName))
+                .getMaterializedRows()
+                .toString();
     }
 
     private Table loadTable(String tableName)
