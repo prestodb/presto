@@ -85,13 +85,11 @@ import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 import javax.security.auth.x500.X500Principal;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
@@ -113,7 +111,6 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import java.util.zip.GZIPInputStream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -253,6 +250,16 @@ public class ElasticsearchClient
         PoolingAsyncClientConnectionManager poolingAsyncClientConnectionManager = new PoolingAsyncClientConnectionManager(tlsStrategyRegistryBuilder.build());
         poolingAsyncClientConnectionManager.setMaxTotal(config.getMaxHttpConnections());
         clientBuilder.setConnectionManager(poolingAsyncClientConnectionManager);
+        // httpclient5 5.6 negotiates content encodings on the async transport by default, so responses
+        // would arrive gzip-encoded unless we opt out. Compression is off by default here, which keeps the
+        // behavior of releases built against httpclient5 5.2.x. When it is on, the interceptor below repairs
+        // the stale Content-Encoding header that otherwise makes elasticsearch-java decode the body twice.
+        if (config.isContentCompressionEnabled()) {
+            clientBuilder.addExecInterceptorFirst("strip-stale-content-encoding", new StripStaleContentEncodingExec());
+        }
+        else {
+            clientBuilder.disableContentCompression();
+        }
 
         // AuthScope(null, -1) replaces AuthScope.ANY
         passwordConfig.ifPresent(securityConfig -> {
@@ -733,32 +740,12 @@ public class ElasticsearchClient
 
         String body;
         try {
-            HttpEntity entity = response.getEntity();
-            // ES 9.x may return responses with Content-Encoding: gzip header
-            // but without actual GZIP compression. Read the raw bytes and
-            // decompress manually only if the content is actually GZIP encoded.
-            byte[] rawBytes = EntityUtils.toByteArray(entity);
-            if (isGzipped(rawBytes)) {
-                try (GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(rawBytes))) {
-                    body = new String(gis.readAllBytes(), StandardCharsets.UTF_8);
-                }
-            }
-            else {
-                body = new String(rawBytes, StandardCharsets.UTF_8);
-            }
+            body = EntityUtils.toString(response.getEntity());
         }
-        catch (IOException e) {
+        catch (IOException | ParseException e) {
             throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
         }
         return handler.process(body);
-    }
-
-    private static boolean isGzipped(byte[] bytes)
-    {
-        // GZIP magic number is 0x1f 0x8b
-        return bytes.length >= 2
-                && (bytes[0] & 0xFF) == 0x1F
-                && (bytes[1] & 0xFF) == 0x8B;
     }
 
     private static PrestoException propagate(ResponseException exception)
