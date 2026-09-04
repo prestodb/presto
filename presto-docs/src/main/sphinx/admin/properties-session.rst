@@ -567,6 +567,19 @@ performance by allowing the aggregation to pre-reduce data before the join is pe
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-partial-aggregation-through-join\`\``.
 
+``push_partial_aggregation_through_outer_join``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``push_partial_aggregation_through_join``, extends partial
+aggregation pushdown to outer joins.
+The aggregation can always be pushed to a side whose rows the join preserves exactly.
+It can be pushed to a side the join may null-extend, only if the aggregation function
+ignores null inputs (for example ``SUM``, ``MIN``, ``MAX``, ``COUNT(col)``)
+Aggregation that do not ignore null inputs, such as ``COUNT(*)`` or ``ARRAY_AGG``, are not pushed
+
 ``push_semi_join_through_union``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
