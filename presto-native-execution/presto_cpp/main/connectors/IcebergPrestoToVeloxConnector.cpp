@@ -24,6 +24,7 @@
 #include "velox/connectors/hive/iceberg/IcebergFieldMetadata.h"
 #include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
+#include "velox/connectors/hive/iceberg/IcebergTableHandle.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
 namespace facebook::presto {
@@ -116,7 +117,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     const std::string& tableName,
     const protocol::List<protocol::Column>& dataColumns,
     const protocol::TableHandle& tableHandle,
-    const std::vector<velox::connector::hive::HiveColumnHandlePtr>&
+    const std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>&
         columnHandles,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) {
@@ -176,13 +177,14 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     finalDataColumns = ROW(std::move(names), std::move(types));
   }
 
-  return std::make_unique<velox::connector::hive::HiveTableHandle>(
+  return std::make_unique<velox::connector::hive::iceberg::IcebergTableHandle>(
       tableHandle.connectorId,
       tableName,
       std::move(subfieldFilters),
       remainingFilter,
       finalDataColumns,
-      std::unordered_map<std::string, std::string>{},
+      /*indexColumns=*/std::vector<std::string>{},
+      /*tableParameters=*/std::unordered_map<std::string, std::string>{},
       columnHandles);
 }
 
@@ -495,12 +497,13 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       tableHandle.connectorTableLayout->_type);
 
   std::unordered_set<std::string> columnNames;
-  std::vector<velox::connector::hive::HiveColumnHandlePtr> columnHandles;
+  std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
+      columnHandles;
   for (const auto& entry : icebergLayout->partitionColumns) {
     if (columnNames.emplace(entry.columnIdentity.name).second) {
       columnHandles.emplace_back(
           std::dynamic_pointer_cast<
-              const velox::connector::hive::HiveColumnHandle>(
+              const velox::connector::hive::iceberg::IcebergColumnHandle>(
               std::shared_ptr(toVeloxColumnHandle(&entry, typeParser))));
     }
   }
@@ -510,7 +513,7 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
     if (columnNames.emplace(entry.second.columnIdentity.name).second) {
       columnHandles.emplace_back(
           std::dynamic_pointer_cast<
-              const velox::connector::hive::HiveColumnHandle>(
+              const velox::connector::hive::iceberg::IcebergColumnHandle>(
               std::shared_ptr(toVeloxColumnHandle(&entry.second, typeParser))));
     }
   }
