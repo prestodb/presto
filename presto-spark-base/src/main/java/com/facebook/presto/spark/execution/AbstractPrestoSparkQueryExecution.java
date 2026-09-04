@@ -475,7 +475,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         PrestoSparkTaskDescriptor taskDescriptor = new PrestoSparkTaskDescriptor(
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
-                rootFragment,
+                rootFragment.withoutJsonRepresentation(),
                 tableWriteInfo,
                 nativeTempStorage.serializeHandle(nativeTempStorage.getRootDirectoryHandle()));
         SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(sparkTaskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
