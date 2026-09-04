@@ -95,8 +95,20 @@ class TaskManager {
       const std::unordered_map<int64_t, std::shared_ptr<ResultRequest>>&
           resultRequests);
 
-  std::unique_ptr<protocol::TaskInfo>
-  deleteTask(const protocol::TaskId& taskId, bool abort, bool summarize);
+  /// Aborts the task and returns its final info.
+  ///
+  /// 'shouldDropTask' makes the task be dropped from 'taskMap_' before
+  /// returning, instead of being left behind for the periodic cleanOldTasks()
+  /// sweep to reclaim. Only callers that will never read from the task again
+  /// may set it.
+  /// It has no effect on a DELETE that arrives before its CREATE: the ABORTED
+  /// marker recorded for that case pins nothing and must survive so the later
+  /// CREATE still no-ops.
+  std::unique_ptr<protocol::TaskInfo> deleteTask(
+      const protocol::TaskId& taskId,
+      bool abort,
+      bool summarize,
+      bool shouldDropTask);
 
   /// Remove old Finished, Cancelled, Failed and Aborted tasks.
   /// Old is being defined by the lifetime of the task.

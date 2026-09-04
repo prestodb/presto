@@ -27,6 +27,11 @@ namespace facebook::presto {
 
 namespace {
 
+// Query parameter on DELETE /v1/task/<taskId> with which a client states that
+// it will never read from the task again, so the task can be released now
+// rather than left for the periodic cleanOldTasks() sweep.
+constexpr const char* kDropTaskOnDeleteUrlParam{"dropTaskOnDelete"};
+
 void sendTaskNotFound(
     proxygen::ResponseHandler* downstream,
     const protocol::TaskId& taskId) {
@@ -442,19 +447,25 @@ proxygen::RequestHandler* TaskResource::deleteTask(
         message->getQueryParam(protocol::PRESTO_ABORT_TASK_URL_PARAM) == "true";
   }
   bool summarize = message->hasQueryParam("summarize");
+  bool dropTaskOnDelete = false;
+  if (message->hasQueryParam(kDropTaskOnDeleteUrlParam)) {
+    dropTaskOnDelete =
+        message->getQueryParam(kDropTaskOnDeleteUrlParam) == "true";
+  }
   const auto sendThrift = shouldUseThrift(*message);
 
   return new http::CallbackRequestHandler(
-      [this, taskId, abort, summarize, sendThrift](
+      [this, taskId, abort, summarize, dropTaskOnDelete, sendThrift](
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream,
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
         folly::via(
             httpSrvCpuExecutor_,
-            [this, taskId, abort, downstream, summarize]() {
+            [this, taskId, abort, downstream, summarize, dropTaskOnDelete]() {
               std::unique_ptr<protocol::TaskInfo> taskInfo;
-              taskInfo = taskManager_.deleteTask(taskId, abort, summarize);
+              taskInfo = taskManager_.deleteTask(
+                  taskId, abort, summarize, dropTaskOnDelete);
               return std::move(taskInfo);
             })
             .via(
