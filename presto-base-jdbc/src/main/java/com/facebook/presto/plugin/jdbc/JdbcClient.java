@@ -22,16 +22,23 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import jakarta.annotation.Nullable;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface JdbcClient
 {
@@ -104,4 +111,29 @@ public interface JdbcClient
     TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, List<JdbcColumnHandle> columnHandles, TupleDomain<ColumnHandle> tupleDomain);
 
     String normalizeIdentifier(ConnectorSession session, String identifier);
+
+    default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return Collections.emptyList();
+    }
+
+    default Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return Collections.emptyMap();
+    }
+
+    default void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
+    }
+
+    default void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming views");
+    }
+
+    default void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping views");
+    }
 }
