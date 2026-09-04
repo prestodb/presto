@@ -544,7 +544,7 @@ public final class HttpRemoteTaskWithEventLoop
             // to start we just need to trigger an update
             started = true;
             startedTime = System.nanoTime();
-            schedulerStatsTracker.recordStartWaitForEventLoop(startedTime - startTime);
+            schedulerStatsTracker.recordStartWaitForEventLoop(startTime, startedTime);
             scheduleUpdate();
 
             taskStatusFetcher.start();
@@ -1319,12 +1319,12 @@ public final class HttpRemoteTaskWithEventLoop
                 }
                 taskUpdateTimeline.removeElements(0, deliveredUpdates);
 
-                updateStats(currentRequestStartNanos);
+                updateStats(currentRequestStartNanos, false);
                 processTaskUpdate(value, sources);
                 updateErrorTracker.requestSucceeded();
                 if (oldestTaskUpdateTime != 0) {
                     schedulerStatsTracker.recordDeliveredUpdates(deliveredUpdates);
-                    schedulerStatsTracker.recordTaskUpdateDeliveredTime(System.nanoTime() - oldestTaskUpdateTime);
+                    schedulerStatsTracker.recordTaskUpdateDeliveredTime(oldestTaskUpdateTime, System.nanoTime());
                 }
             }
             finally {
@@ -1341,7 +1341,7 @@ public final class HttpRemoteTaskWithEventLoop
                 long currentRequestStartNanos;
                 currentRequest = null;
                 currentRequestStartNanos = HttpRemoteTaskWithEventLoop.this.currentRequestStartNanos;
-                updateStats(currentRequestStartNanos);
+                updateStats(currentRequestStartNanos, true);
 
                 // on failure assume we need to update again
                 needsUpdate = true;
@@ -1372,12 +1372,13 @@ public final class HttpRemoteTaskWithEventLoop
             failTask(cause);
         }
 
-        private void updateStats(long currentRequestStartNanos)
+        private void updateStats(long currentRequestStartNanos, boolean failed)
         {
             verify(taskEventLoop.inEventLoop());
-            Duration requestRoundTrip = Duration.nanosSince(currentRequestStartNanos);
-            stats.updateRoundTripMillis(requestRoundTrip.toMillis());
-            schedulerStatsTracker.recordRoundTripTime(requestRoundTrip.toMillis() * 1000000);
+            long endTimeNanos = System.nanoTime();
+            long roundTripMillis = NANOSECONDS.toMillis(endTimeNanos - currentRequestStartNanos);
+            stats.updateRoundTripMillis(roundTripMillis);
+            schedulerStatsTracker.recordRoundTripTime(MILLISECONDS.toNanos(roundTripMillis), currentRequestStartNanos, endTimeNanos, failed);
         }
     }
 

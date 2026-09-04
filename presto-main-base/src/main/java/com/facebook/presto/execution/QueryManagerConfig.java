@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.units.DataSize.Unit.PETABYTE;
 import static com.facebook.airlift.units.DataSize.Unit.TERABYTE;
+import static com.facebook.presto.common.RuntimeStats.DEFAULT_QUERY_TRACE_MAX_EVENTS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -57,6 +58,7 @@ public class QueryManagerConfig
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
     private int maxStageCount = 100;
+    private int runtimeStatsTracingMaxEvents = DEFAULT_QUERY_TRACE_MAX_EVENTS;
     private int stageCountWarningThreshold = 50;
     private int maxTotalRunningTaskCountToKillQuery = Integer.MAX_VALUE;
     private int maxQueryRunningTaskCount = Integer.MAX_VALUE;
@@ -284,6 +286,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxStageCount(int maxStageCount)
     {
         this.maxStageCount = maxStageCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getRuntimeStatsTracingMaxEvents()
+    {
+        return runtimeStatsTracingMaxEvents;
+    }
+
+    @Config("query.runtime-stats-tracing.max-events")
+    @ConfigDescription("Default maximum number of trace events retained per query, including the query root event")
+    public QueryManagerConfig setRuntimeStatsTracingMaxEvents(int runtimeStatsTracingMaxEvents)
+    {
+        this.runtimeStatsTracingMaxEvents = runtimeStatsTracingMaxEvents;
         return this;
     }
 
