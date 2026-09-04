@@ -215,6 +215,11 @@ public class TestArrowFederationNativeQueriesRedis
         assertQueryFails("INSERT INTO nation VALUES (100, 'TESTLAND', 0, 'test')", ".*This connector does not support inserts.*");
         assertQueryFails("CREATE TABLE ctas_test AS SELECT * FROM nation LIMIT 1", ".*This connector does not support creating tables.*");
         assertQueryFails("DELETE FROM nation WHERE nationkey = 100", ".*This connector does not support deletes.*");
+        // MERGE is rejected at the coordinator via ConnectorMetadata.beginMerge() before any plan
+        // fragment reaches the native worker.
+        assertQueryFails(
+                "MERGE INTO nation USING (SELECT 1) t ON false WHEN NOT MATCHED THEN INSERT VALUES (100, 'TESTLAND', 0, 'test')",
+                ".*This connector does not support modifying table rows.*");
     }
 
     static void createTpchTables(EmbeddedRedis embeddedRedis, QueryRunner queryRunner)
