@@ -1717,6 +1717,164 @@ Examples:
 
     CALL iceberg.system.rewrite_manifests('schema_name', 'table_name', 0);
 
+Rewrite Table Path
+^^^^^^^^^^^^^^^^^^
+
+This procedure rewrites all Iceberg metadata files (table metadata JSON, manifest list Avro,
+and manifest Avro) to a new storage location by substituting ``source_prefix`` with
+``target_prefix`` in every embedded path string.
+
+The procedure is a **metadata-only, coordinator-only** operation. Data and delete files are
+**not** written or moved. The source table and its catalog entry are left completely untouched.
+After the procedure completes, the caller copies files using the generated ``file-list`` CSV
+and registers the table at the new location using ``system.register_table``.
+
+The following arguments are available:
+
+====================== ========== =============== ============================================================
+Argument Name          Required   Type            Description
+====================== ========== =============== ============================================================
+``schema``             Yes        string          Schema of the table to migrate
+
+``table_name``         Yes        string          Name of the table to migrate
+
+``source_prefix``      Yes        string          The existing path prefix to replace. Can be the table
+                                                  directory or a parent directory.
+
+``target_prefix``      Yes        string          The replacement path prefix. Must be at the same directory
+                                                  level as ``source_prefix`` (for example, if ``source_prefix`` is
+                                                  a parent directory, ``target_prefix`` should also be a
+                                                  parent directory, not the table directory)
+
+``staging_location``   No         string          Directory where rewritten metadata files are physically
+                                                  written. Content inside each file references
+                                                  ``target_prefix``, so files are ready to use once
+                                                  moved from staging to the final target. Defaults to a
+                                                  UUID-named subdirectory under the source table's
+                                                  metadata directory.
+
+``create_file_list``   No         boolean         When ``true`` (default), writes a two-column CSV to
+                                                  ``<staging_location>/file-list``. Each row is
+                                                  ``source_or_staging_path,final_target_path`` and covers
+                                                  all data files and all rewritten metadata files.
+                                                  Set to ``false`` to skip writing the file list.
+====================== ========== =============== ============================================================
+
+.. note::
+
+    ``rewrite_table_path`` does **not** update the catalog. After copying files, register the table
+    at the new location using :ref:`register_table <connector/iceberg:Register Table>`.
+
+.. note::
+
+    **Filesystem support:** The procedure supports any Hadoop-compatible filesystem configured
+    in Presto, including:
+
+    * HDFS: ``hdfs://``
+    * Amazon S3: ``s3://``, ``s3a://``, ``s3n://``
+    * Google Cloud Storage: ``gs://``
+    * Azure Blob Storage: ``wasb://``, ``wasbs://``
+    * Azure Data Lake Storage Gen2: ``abfs://``, ``abfss://``
+    * Local filesystem: ``file:///`` (for testing)
+
+    ``source_prefix`` and ``staging_location`` can use different filesystem schemes, which is what
+    enables cross-filesystem migrations (for example, HDFS to S3, S3 to GCS, or cloud storage to
+    local filesystem for testing). Presto reads from the former and writes to the latter, so the
+    catalog must be configured for both; a single catalog can hold credentials for several schemes
+    at once (for example, both ``hive.s3.*`` and ``hive.gcs.*``). Credentials are configured per
+    scheme rather than per path, so a source and staging location in two different S3 accounts
+    requires ``hive.aws.security-mapping.*`` or a role with access to both.
+
+    ``target_prefix`` is only substituted into the rewritten metadata and recorded in
+    ``file-list``; Presto never reads from or writes to it. It therefore requires no credentials
+    and does not need to exist yet, whether or not it shares a scheme with ``source_prefix``. The
+    final copy from ``staging_location`` to ``target_prefix`` is performed by the caller, with any
+    tool that can reach both.
+
+    Example with local filesystem: ::
+
+        CALL iceberg.system.rewrite_table_path(
+            schema           => 'schema_name',
+            table_name       => 'table_name',
+            source_prefix    => 's3a://bucket/warehouse',
+            target_prefix    => 'file:///tmp/warehouse',
+            staging_location => 'file:///tmp/staging'
+        );
+
+.. note::
+
+    **Prefix consistency:** The ``source_prefix`` and ``target_prefix`` must be at the same
+    directory level. If ``source_prefix`` points to a parent directory (for example,
+    ``s3://bucket/warehouse``), then ``target_prefix`` must also point to a parent directory
+    (for example, ``s3://new-bucket/warehouse``), not to the table directory. The procedure will
+    automatically preserve the relative path structure between the prefix and the table location.
+
+    Example with parent directory prefix:
+      - Table location: ``s3://bucket/warehouse/db/my_table``
+      - Source prefix: ``s3://bucket/warehouse``
+      - Target prefix: ``s3://new-bucket/warehouse``
+      - Result: Table will be at ``s3://new-bucket/warehouse/db/my_table``
+
+    Example with table directory prefix:
+      - Table location: ``s3://bucket/warehouse/db/my_table``
+      - Source prefix: ``s3://bucket/warehouse/db/my_table``
+      - Target prefix: ``s3://new-bucket/warehouse/db/my_table``
+      - Result: Table will be at ``s3://new-bucket/warehouse/db/my_table``
+
+.. note::
+
+    Every metadata version the table still tracks is rewritten. Manifest list and manifest Avro
+    files are rewritten for all snapshots reachable from that metadata, because those files are
+    shared across versions and must be internally consistent.
+
+Typical workflow::
+
+    -- Step 1: rewrite metadata from source prefix to target prefix
+    CALL catalog_name.system.rewrite_table_path(
+        schema           => 'db',
+        table_name       => 'my_table',
+        source_prefix    => 's3a://bucketOne/prefix/db.db/my_table',
+        target_prefix    => 's3a://bucketTwo/prefix/db.db/my_table',
+        staging_location => 's3a://bucketStaging/my_table'
+    );
+
+    -- Step 2: copy every row from <staging_location>/file-list
+    --         source_or_staging_path -> final_target_path
+
+    -- Step 3: register the table at the new location
+    CALL catalog_name.system.register_table(
+        schema            => 'db',
+        table_name        => 'my_table_new',
+        metadata_location => 's3a://bucketTwo/prefix/db.db/my_table/metadata'
+    );
+
+Examples:
+
+* Rewrite the table: ::
+
+    CALL iceberg.system.rewrite_table_path('schema_name', 'table_name',
+        's3a://old-bucket/warehouse', 's3a://new-bucket/warehouse');
+
+* Rewrite with an explicit staging directory: ::
+
+    CALL iceberg.system.rewrite_table_path(
+        schema           => 'schema_name',
+        table_name       => 'table_name',
+        source_prefix    => 's3a://bucketOne/prefix/db.db/my_table',
+        target_prefix    => 's3a://bucketTwo/prefix/db.db/my_table',
+        staging_location => 's3a://bucketStaging/my_table'
+    );
+
+* Rewrite without generating a file list: ::
+
+    CALL iceberg.system.rewrite_table_path(
+        schema           => 'schema_name',
+        table_name       => 'table_name',
+        source_prefix    => 's3a://bucketOne/prefix',
+        target_prefix    => 's3a://bucketTwo/prefix',
+        create_file_list => false
+    );
+
 .. rubric:: Presto C++ Support
 
 All above procedures are supported in Presto C++.
