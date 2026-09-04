@@ -2753,13 +2753,16 @@ public abstract class IcebergAbstractMetadata
 
     private SchemaTableName getStorageTableName(ConnectorSession session, SchemaTableName viewName, Map<String, Object> properties)
     {
-        String tableName = getStorageTable(properties).orElseGet(() -> {
-            // Generate default storage table name using prefix
-            return getMaterializedViewStoragePrefix(session) + viewName.getTableName();
-        });
-        String schema = getStorageSchema(properties)
+        String resolvedSchema = getStorageSchema(properties)
                 .orElseGet(() -> getMaterializedViewDefaultStorageSchema(session).orElse(viewName.getSchemaName()));
-        return new SchemaTableName(schema, tableName);
+        String tableName = getStorageTable(properties).orElseGet(() -> {
+            String prefix = getMaterializedViewStoragePrefix(session);
+            if (!resolvedSchema.equals(viewName.getSchemaName())) {
+                return prefix + viewName.getSchemaName() + "__" + viewName.getTableName();
+            }
+            return prefix + viewName.getTableName();
+        });
+        return new SchemaTableName(resolvedSchema, tableName);
     }
 
     private String serializeColumnMappings(List<ColumnMapping> columnMappings)
