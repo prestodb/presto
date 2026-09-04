@@ -1792,102 +1792,53 @@ frequently used together in query predicates.
 SQL Support
 -----------
 
-.. list-table::
-   :widths: 30 15 15 40
-   :header-rows: 1
+========================================== ============= ============ ============================================================================
+SQL Operation                              Presto Java   Presto C++   Comments
+========================================== ============= ============ ============================================================================
+``CREATE SCHEMA``                          Yes           Yes
 
-   * - SQL Operation
-     - Presto Java
-     - Presto C++
-     - Comments
-   * - ``CREATE SCHEMA``
-     - Yes
-     - Yes
-     -
-   * - ``CREATE TABLE``
-     - Yes
-     - Yes
-     -
-   * - ``CREATE VIEW``
-     - Yes
-     - Yes
-     -
-   * - ``INSERT INTO``
-     - Yes
-     - No
-     -
-   * - ``CREATE TABLE AS SELECT``
-     - Yes
-     - No
-     -
-   * - ``SELECT``
-     - Yes
-     - Yes
-     - Read is supported in Presto C++, including queries involving positional delete files.
-   * - ``ALTER TABLE``
-     - Yes
-     - Yes
-     -
-   * - ``ALTER TABLE ADD COLUMN DEFAULT``
-     - Yes
-     - Yes
-     -
-   * - ``ALTER TABLE ALTER COLUMN SET DEFAULT``
-     - Yes
-     - Yes
-     -
-   * - ``ALTER TABLE ALTER COLUMN SET NOT NULL``
-     - Yes
-     - Yes
-     -
-   * - ``ALTER TABLE ALTER COLUMN DROP NOT NULL``
-     - Yes
-     - Yes
-     -
-   * - ``ALTER VIEW``
-     - Yes
-     - Yes
-     -
-   * - ``TRUNCATE``
-     - Yes
-     - Yes
-     -
-   * - ``DELETE``
-     - Yes
-     - No
-     -
-   * - ``DROP TABLE``
-     - Yes
-     - Yes
-     -
-   * - ``DROP VIEW``
-     - Yes
-     - Yes
-     -
-   * - ``DROP SCHEMA``
-     - Yes
-     - Yes
-     -
-   * - ``SHOW CREATE TABLE``
-     - Yes
-     - Yes
-     -
-   * - ``SHOW COLUMNS``
-     - Yes
-     - Yes
-     -
-   * - ``DESCRIBE``
-     - Yes
-     - Yes
-     -
-   * - ``UPDATE``
-     - Yes
-     - No
-     -
-   * - ``MERGE``
-     - Yes
-     - No
-     -
+``CREATE TABLE``                           Yes           Yes
+
+``CREATE VIEW``                            Yes           Yes
+
+``INSERT INTO``                            Yes           No
+
+``CREATE TABLE AS SELECT``                 Yes           No
+
+``SELECT``                                 Yes           Yes          Read is supported in Presto C++ including those with positional delete files.
+
+``ALTER TABLE``                            Yes           Yes
+
+``ALTER TABLE ADD COLUMN DEFAULT``         Yes           Yes
+
+``ALTER TABLE ALTER COLUMN SET DEFAULT``   Yes           Yes
+
+``ALTER TABLE ALTER COLUMN SET NOT NULL``  Yes           Yes
+
+``ALTER TABLE ALTER COLUMN DROP NOT NULL`` Yes           Yes
+
+``ALTER VIEW``                             Yes           Yes
+
+``TRUNCATE``                               Yes           Yes
+
+``DELETE``                                 Yes           No
+
+``DROP TABLE``                             Yes           Yes
+
+``DROP VIEW``                              Yes           Yes
+
+``DROP SCHEMA``                            Yes           Yes
+
+``SHOW CREATE TABLE``                      Yes           Yes
+
+``SHOW COLUMNS``                           Yes           Yes
+
+``DESCRIBE``                               Yes           Yes
+
+``UPDATE``                                 Yes           No
+
+``MERGE``                                  Yes           No
+========================================== ============= ============ ============================================================================
 
 The Iceberg connector supports querying and manipulating Iceberg tables and schemas
 (databases). Here are some examples of the SQL operations supported by Presto:
@@ -2252,8 +2203,22 @@ required/optional flag in the schema without rewriting data files. This means:
 * Existing rows with ``NULL`` values remain readable after the constraint is set.
 * ``NOT NULL`` is enforced only on subsequent writes.
 
-This behavior follows Iceberg's schema evolution model and is consistent with how Iceberg
-handles the ``required`` field flag internally.
+.. warning::
+
+    Iceberg classifies promoting a column from optional to required as an *incompatible*
+    schema change, and Presto applies it without first validating that the column contains
+    no ``NULL`` values. A table can therefore end up advertising a ``required`` field while
+    its data files still contain ``NULL`` values for that column. Other engines reading the
+    table may treat ``required`` as a guarantee and optimize on it, so only use ``SET NOT NULL``
+    on a column you know contains no ``NULL`` values. Verify with
+    ``SELECT count(*) FROM <table> WHERE <column> IS NULL`` before running it.
+
+Both ``SET NOT NULL`` and ``DROP NOT NULL`` are committed to the Iceberg catalog as soon as the
+statement runs, rather than being staged with the surrounding transaction. Two consequences follow:
+
+* A ``ROLLBACK`` does not undo the change, unlike ``ALTER TABLE ADD COLUMN``.
+* The statement is rejected if a write to the same table is already pending in the transaction,
+  because committing the new schema would undercut the write staged against the old one.
 
 ALTER COLUMN DROP NOT NULL
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2272,8 +2237,8 @@ required/optional flag in the schema without rewriting data files. This means:
 * Dropping ``NOT NULL`` on a column that is already nullable is idempotent and does not change the schema.
 * After the constraint is dropped, ``NULL`` values are accepted for that column on subsequent writes.
 
-This behavior follows Iceberg's schema evolution model and is consistent with how Iceberg
-handles the ``required`` field flag internally.
+Unlike ``SET NOT NULL``, relaxing a column from required to optional is a compatible schema
+change in Iceberg, so this direction is always safe.
 
 ALTER VIEW
 ^^^^^^^^^^

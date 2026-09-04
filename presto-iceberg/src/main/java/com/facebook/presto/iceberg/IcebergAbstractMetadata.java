@@ -147,6 +147,8 @@ import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.util.CharSequenceSet;
+import org.apache.iceberg.util.PropertyUtil;
+import org.apache.iceberg.util.Tasks;
 import org.apache.iceberg.view.View;
 
 import java.io.IOException;
@@ -164,6 +166,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -289,6 +292,7 @@ import static com.facebook.presto.spi.connector.RowChangeParadigm.DELETE_ROW_AND
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -339,8 +343,6 @@ public abstract class IcebergAbstractMetadata
     protected static final String PRESTO_MATERIALIZED_VIEW_USE_TIMESTAMP_BASED_STALENESS = "presto.materialized_view.use_timestamp_based_staleness";
 
     protected static final int CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION = 1;
-    // Balances retry coverage against latency; each retry adds one full Iceberg commit round-trip.
-    private static final int MAX_COMMIT_RETRIES = 5;
 
     protected final TypeManager typeManager;
     protected final ProcedureRegistry procedureRegistry;
@@ -998,7 +1000,6 @@ public abstract class IcebergAbstractMetadata
                         .setExtraInfo(partitionFields.containsKey(column.name()) ?
                                 columnExtraInfo(partitionFields.get(column.name())) :
                                 null)
-                        .setNullable(column.isOptional())
                         .build())
                 .collect(toImmutableList());
     }
@@ -2893,38 +2894,7 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have constraints dropped");
         validateNoBranchSpecified(handle, "ALTER COLUMN DROP NOT NULL");
-        String column = columnName.get();
-        // Reject Presto-virtual synthesized columns ($path, $data_sequence_number, etc.) that have
-        // no corresponding entry in the Iceberg schema and cannot have NOT NULL dropped.
-        IcebergColumnHandle targetHandle = (IcebergColumnHandle) getColumnHandles(session, tableHandle).get(column);
-        if (targetHandle != null && targetHandle.getColumnType() == SYNTHESIZED) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot add/drop NOT NULL on hidden column: " + column);
-        }
-        // Intentionally bypasses the transaction cache (getRawIcebergTable instead of getIcebergTable)
-        // so that refresh() between retries fetches a current version number. Iceberg's UpdateSchema
-        // does not retry CommitFailedException internally, so we do it here.
-        Table icebergTable = getRawIcebergTable(session, handle.getSchemaTableName());
-        try {
-            for (int attempt = 0; ; attempt++) {
-                try {
-                    // Relaxing required -> optional is always a compatible change.
-                    icebergTable.updateSchema().makeColumnOptional(column).commit();
-                    break;
-                }
-                catch (CommitFailedException e) {
-                    if (attempt >= MAX_COMMIT_RETRIES) {
-                        throw e;
-                    }
-                    icebergTable.refresh();
-                }
-            }
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(COLUMN_NOT_FOUND, format("Cannot drop NOT NULL: column '%s' does not exist in Iceberg schema", column), e);
-        }
-        catch (RuntimeException e) {
-            throw new PrestoException(ICEBERG_COMMIT_ERROR, format("Failed to drop NOT NULL on column '%s': %s", column, firstNonNull(e.getMessage(), e)), e);
-        }
+        updateColumnNullability(session, handle, columnName.get(), false);
     }
 
     @Override
@@ -2936,38 +2906,86 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have constraints added");
         validateNoBranchSpecified(handle, "ALTER COLUMN SET NOT NULL");
-        verify(constraint.getColumns().size() == 1, "NotNullConstraint must apply to exactly one column");
-        String columnName = constraint.getColumns().iterator().next();
-        // Reject Presto-virtual synthesized columns ($path, $data_sequence_number, etc.) that have
-        // no corresponding entry in the Iceberg schema and cannot be made required.
-        IcebergColumnHandle targetHandle = (IcebergColumnHandle) getColumnHandles(session, tableHandle).get(columnName);
-        if (targetHandle != null && targetHandle.getColumnType() == SYNTHESIZED) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot add/drop NOT NULL on hidden column: " + columnName);
+        checkArgument(constraint.getColumns().size() == 1, "NotNullConstraint must apply to exactly one column, found: %s", constraint.getColumns());
+        updateColumnNullability(session, handle, constraint.getColumns().iterator().next(), true);
+    }
+
+    /**
+     * Marks {@code columnName} as required (NOT NULL) or optional in the Iceberg schema.
+     * <p>
+     * Only the table's own columns can be altered. Metadata columns are not part of the schema, so
+     * both families are rejected here: Iceberg's reserved {@code _}-prefixed columns, which reach
+     * the connector because they are exposed as {@code REGULAR} handles and so are not hidden, and
+     * Presto's synthesized {@code $}-prefixed columns, which the engine already rejects.
+     */
+    private void updateColumnNullability(ConnectorSession session, IcebergTableHandle handle, String columnName, boolean required)
+    {
+        SchemaTableName tableName = handle.getSchemaTableName();
+        String operation = required ? "set" : "drop";
+        if (MetadataColumns.isMetadataColumn(columnName) || IcebergMetadataColumn.isSynthesizedColumnName(columnName)) {
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot %s NOT NULL on metadata column '%s'", operation, columnName));
         }
-        // Intentionally bypasses the transaction cache (getRawIcebergTable instead of getIcebergTable)
-        // so that refresh() between retries fetches a current version number. Iceberg's UpdateSchema
-        // does not retry CommitFailedException internally, so we do it here.
-        Table icebergTable = getRawIcebergTable(session, handle.getSchemaTableName());
-        try {
-            for (int attempt = 0; ; attempt++) {
-                try {
-                    // allowIncompatibleChanges is required: optional -> required is an incompatible change.
-                    icebergTable.updateSchema().allowIncompatibleChanges().requireColumn(columnName).commit();
-                    break;
-                }
-                catch (CommitFailedException e) {
-                    if (attempt >= MAX_COMMIT_RETRIES) {
-                        throw e;
-                    }
-                    icebergTable.refresh();
-                }
+        commitSchemaUpdateWithRetry(session, tableName, format("%s NOT NULL on column '%s'", operation, columnName), table -> {
+            if (table.schema().findField(columnName) == null) {
+                throw new PrestoException(COLUMN_NOT_FOUND, format("Cannot %s NOT NULL: column '%s' does not exist in table '%s'", operation, columnName, tableName));
             }
+            UpdateSchema updateSchema = table.updateSchema();
+            if (required) {
+                // allowIncompatibleChanges is required: optional -> required is an incompatible change.
+                updateSchema.allowIncompatibleChanges().requireColumn(columnName);
+            }
+            else {
+                // Relaxing required -> optional is always a compatible change.
+                updateSchema.makeColumnOptional(columnName);
+            }
+            updateSchema.commit();
+        });
+    }
+
+    /**
+     * Applies {@code schemaUpdate} and commits it to the catalog immediately, retrying
+     * {@link CommitFailedException} using the table's own {@code commit.retry.*} properties.
+     * <p>
+     * The table is loaded with {@code getRawIcebergTable} rather than the transaction-scoped
+     * {@code getIcebergTable} because a staged commit fails only when the Presto transaction
+     * commits, where it can no longer be retried. Committing outside the transaction means a
+     * staged write on the same table would be undercut, so that is rejected up front, and the
+     * context's memoized table is invalidated afterwards so the rest of the transaction sees the
+     * new schema. A {@code ROLLBACK} does not undo the change.
+     */
+    private void commitSchemaUpdateWithRetry(ConnectorSession session, SchemaTableName tableName, String description, Consumer<Table> schemaUpdate)
+    {
+        if (transactionContext.getTransaction(tableName).isPresent()) {
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot %s: a write transaction is already open on table '%s'", description, tableName));
         }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(COLUMN_NOT_FOUND, format("Cannot set NOT NULL: column '%s' does not exist in Iceberg schema", columnName), e);
+        Table icebergTable = getRawIcebergTable(session, tableName);
+        Map<String, String> properties = icebergTable.properties();
+        // getRawIcebergTable has just loaded current metadata, so only re-read it when retrying.
+        AtomicBoolean firstAttempt = new AtomicBoolean(true);
+        try {
+            Tasks.foreach(icebergTable)
+                    .retry(PropertyUtil.propertyAsInt(properties, TableProperties.COMMIT_NUM_RETRIES, TableProperties.COMMIT_NUM_RETRIES_DEFAULT))
+                    .exponentialBackoff(
+                            PropertyUtil.propertyAsInt(properties, TableProperties.COMMIT_MIN_RETRY_WAIT_MS, TableProperties.COMMIT_MIN_RETRY_WAIT_MS_DEFAULT),
+                            PropertyUtil.propertyAsInt(properties, TableProperties.COMMIT_MAX_RETRY_WAIT_MS, TableProperties.COMMIT_MAX_RETRY_WAIT_MS_DEFAULT),
+                            PropertyUtil.propertyAsInt(properties, TableProperties.COMMIT_TOTAL_RETRY_TIME_MS, TableProperties.COMMIT_TOTAL_RETRY_TIME_MS_DEFAULT),
+                            2.0)
+                    .onlyRetryOn(CommitFailedException.class)
+                    .run(table -> {
+                        if (!firstAttempt.getAndSet(false)) {
+                            table.refresh();
+                        }
+                        schemaUpdate.accept(table);
+                    });
+        }
+        catch (PrestoException e) {
+            throw e;
         }
         catch (RuntimeException e) {
-            throw new PrestoException(ICEBERG_COMMIT_ERROR, format("Failed to set NOT NULL on column '%s': %s", columnName, firstNonNull(e.getMessage(), e)), e);
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, format("Failed to %s: %s", description, firstNonNull(e.getMessage(), e)), e);
+        }
+        finally {
+            transactionContext.invalidateTable(tableName);
         }
     }
 

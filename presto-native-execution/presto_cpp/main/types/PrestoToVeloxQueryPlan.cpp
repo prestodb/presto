@@ -18,6 +18,7 @@
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include <folly/container/F14Set.h>
+#include <folly/container/F14Map.h>
 #include <folly/io/IOBuf.h>
 #include <velox/type/TypeUtil.h>
 #include <velox/type/Filter.h>
@@ -1567,9 +1568,6 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
-namespace {
-// Translates notNullColumnVariables (source variable names) to the
-// corresponding target column names so the TableWriter can enforce them.
 folly::F14FastSet<std::string> toNotNullColumnNames(
     const protocol::List<protocol::VariableReferenceExpression>&
         notNullColumnVariables,
@@ -1580,20 +1578,31 @@ folly::F14FastSet<std::string> toNotNullColumnNames(
     return notNullColumnNames;
   }
 
-  folly::F14FastSet<std::string> notNullVarNames;
-  notNullVarNames.reserve(notNullColumnVariables.size());
-  for (const auto& var : notNullColumnVariables) {
-    notNullVarNames.insert(var.name);
-  }
-  notNullColumnNames.reserve(notNullColumnVariables.size());
+  VELOX_CHECK_EQ(
+      columns.size(),
+      columnNames.size(),
+      "TableWriter columns and columnNames must have the same size");
+
+  folly::F14FastMap<std::string, std::string> sourceToTargetName;
+  sourceToTargetName.reserve(columns.size());
   for (size_t i = 0; i < columns.size(); ++i) {
-    if (notNullVarNames.count(columns[i].name) > 0) {
-      notNullColumnNames.insert(columnNames[i]);
-    }
+    sourceToTargetName[columns[i].name] = columnNames[i];
+  }
+
+  notNullColumnNames.reserve(notNullColumnVariables.size());
+  for (const auto& variable : notNullColumnVariables) {
+    const auto it = sourceToTargetName.find(variable.name);
+    // The planner derives notNullColumnVariables from the same list as
+    // 'columns', so a miss means the constraint would go unenforced. Fail
+    // loudly instead of dropping it silently.
+    VELOX_CHECK(
+        it != sourceToTargetName.end(),
+        "NOT NULL column variable is not among the TableWriter columns: {}",
+        variable.name);
+    notNullColumnNames.insert(it->second);
   }
   return notNullColumnNames;
 }
-} // namespace
 
 std::shared_ptr<const core::TableWriteNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(

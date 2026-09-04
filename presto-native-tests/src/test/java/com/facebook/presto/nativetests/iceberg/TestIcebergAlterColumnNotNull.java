@@ -67,10 +67,10 @@ public class TestIcebergAlterColumnNotNull
 
             assertQueryFails(
                     format("INSERT INTO %s VALUES (2, NULL, 'b', 5)", tableName),
-                    "NULL value not allowed for NOT NULL column: c2");
+                    "(?s).*NULL value not allowed for NOT NULL column: c2.*");
             assertQueryFails(
                     format("INSERT INTO %s VALUES (2, 3, 'b', NULL)", tableName),
-                    "NULL value not allowed for NOT NULL column: c4");
+                    "(?s).*NULL value not allowed for NOT NULL column: c4.*");
 
             assertUpdate(format("INSERT INTO %s VALUES (2, 3, 'b', 5)", tableName), 1);
             assertUpdate(format("INSERT INTO %s VALUES (NULL, 6, NULL, 7)", tableName), 1);
@@ -83,7 +83,7 @@ public class TestIcebergAlterColumnNotNull
             assertUpdate(format("INSERT INTO %s VALUES (3, NULL, 'c', 8)", tableName), 1);
             assertQueryFails(
                     format("INSERT INTO %s VALUES (3, 9, 'c', NULL)", tableName),
-                    "NULL value not allowed for NOT NULL column: c4");
+                    "(?s).*NULL value not allowed for NOT NULL column: c4.*");
 
             assertQuery(format("SELECT count(*) FROM %s", tableName), "VALUES 4");
 
@@ -118,7 +118,7 @@ public class TestIcebergAlterColumnNotNull
 
             assertQueryFails(
                     format("INSERT INTO %s VALUES (2, NULL)", tableName),
-                    "NULL value not allowed for NOT NULL column: c2");
+                    "(?s).*NULL value not allowed for NOT NULL column: c2.*");
 
             assertUpdate(format("INSERT INTO %s VALUES (2, 3)", tableName), 1);
             assertQuery(format("SELECT count(*) FROM %s", tableName), "VALUES 2");
@@ -160,7 +160,7 @@ public class TestIcebergAlterColumnNotNull
 
             assertQueryFails(
                     format("INSERT INTO %s VALUES (1, NULL, 'a')", tableName),
-                    "NULL value not allowed for NOT NULL column: c2");
+                    "(?s).*NULL value not allowed for NOT NULL column: c2.*");
 
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName));
             assertQuery(
@@ -195,7 +195,7 @@ public class TestIcebergAlterColumnNotNull
             assertUpdate(format("INSERT INTO %s VALUES (1, 'us-east')", tableName), 1);
             assertQueryFails(
                     format("INSERT INTO %s VALUES (2, NULL)", tableName),
-                    "NULL value not allowed for NOT NULL column: region");
+                    "(?s).*NULL value not allowed for NOT NULL column: region.*");
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));

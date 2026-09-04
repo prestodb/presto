@@ -1368,15 +1368,23 @@ public abstract class AbstractTestNativeGeneralQueries
                     "ALTER TABLE %s ALTER COLUMN c4 SET NOT NULL",
                     tableName));
 
-            // NULLs should now be rejected on both the native and java engines.
+            // NULLs should now be rejected on both engines. The native engine decorates the message
+            // with the failing expression and operator context, so match it loosely.
             assertQueryFails(javaQueryRunner, format("INSERT INTO %s VALUES (1, NULL, 'abc', 4)", tableName), "NULL value not allowed for NOT NULL column: c2");
-            assertQueryFails(format("INSERT INTO %s VALUES (1, NULL, 'abc', 4)", tableName), "NULL value not allowed for NOT NULL column: c2");
+            assertQueryFails(format("INSERT INTO %s VALUES (1, NULL, 'abc', 4)", tableName), "(?s).*NULL value not allowed for NOT NULL column: c2.*");
             assertQueryFails(javaQueryRunner, format("INSERT INTO %s VALUES (1, 2.3, 'abc', NULL)", tableName), "NULL value not allowed for NOT NULL column: c4");
-            assertQueryFails(format("INSERT INTO %s VALUES (1, 2.3, 'abc', NULL)", tableName), "NULL value not allowed for NOT NULL column: c4");
+            assertQueryFails(format("INSERT INTO %s VALUES (1, 2.3, 'abc', NULL)", tableName), "(?s).*NULL value not allowed for NOT NULL column: c4.*");
 
             // Columns that were never marked NOT NULL remain nullable on both engines.
             assertUpdate(format("INSERT INTO %s VALUES (NULL, 2.3, NULL, 4)", tableName), 1);
             assertUpdateExpected(getSession(), format("INSERT INTO %s VALUES (NULL, 2.3, NULL, 4)", tableName), 1);
+
+            // A reordered column list makes the writer's source variables appear in an order that
+            // does not match the table's, which the source-to-target name translation must handle.
+            assertQueryFails(format("INSERT INTO %s (c4, c3, c2, c1) VALUES (NULL, 'abc', 2.3, 1)", tableName), "(?s).*NULL value not allowed for NOT NULL column: c4.*");
+            assertQueryFails(javaQueryRunner, format("INSERT INTO %s (c4, c3, c2, c1) VALUES (NULL, 'abc', 2.3, 1)", tableName), "NULL value not allowed for NOT NULL column: c4");
+            assertUpdate(format("INSERT INTO %s (c4, c3, c2, c1) VALUES (4, 'abc', 2.3, 1)", tableName), 1);
+            assertUpdateExpected(getSession(), format("INSERT INTO %s (c4, c3, c2, c1) VALUES (4, 'abc', 2.3, 1)", tableName), 1);
 
             // Drop NOT NULL on c2.
             getQueryRunner().execute(format(
@@ -1389,7 +1397,7 @@ public abstract class AbstractTestNativeGeneralQueries
 
             // c4 should still reject NULL on both engines.
             assertQueryFails(javaQueryRunner, format("INSERT INTO %s VALUES (1, 2.3, 'abc', NULL)", tableName), "NULL value not allowed for NOT NULL column: c4");
-            assertQueryFails(format("INSERT INTO %s VALUES (1, 2.3, 'abc', NULL)", tableName), "NULL value not allowed for NOT NULL column: c4");
+            assertQueryFails(format("INSERT INTO %s VALUES (1, 2.3, 'abc', NULL)", tableName), "(?s).*NULL value not allowed for NOT NULL column: c4.*");
         }
         finally {
             dropTableIfExists(tableName);
