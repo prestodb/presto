@@ -26,6 +26,7 @@ import com.facebook.drift.transport.netty.client.DriftNettyMethodInvokerFactory;
 import com.facebook.drift.transport.netty.server.DriftNettyServerModule;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -58,6 +59,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -276,6 +278,12 @@ public class TestThriftTaskIntegration
 
                 @Override
                 public void removeRemoteSource(TaskId taskId, TaskId remoteSourceTaskId)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Map<String, TupleDomain<String>> getDynamicFiltersSince(TaskId taskId, long sinceVersion)
                 {
                     throw new UnsupportedOperationException();
                 }
