@@ -1162,6 +1162,23 @@ public abstract class AbstractTestArrowFederationNativeQueries
         assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
     }
 
+    @Test
+    public void testUnsupportedWriteOperations()
+    {
+        @Language("RegExp") String unsupportedWriteError =
+                ".*This connector is read-only and does not support write operations.*Only SELECT is supported.*";
+
+        assertQueryFails("INSERT INTO nation VALUES (100, 'TESTLAND', 0, 'test')", unsupportedWriteError);
+        assertQueryFails("CREATE TABLE ctas_test AS SELECT * FROM nation LIMIT 1", unsupportedWriteError);
+        // We fail at the coordinator itself for deletes
+        assertQueryFails("DELETE FROM nation WHERE nationkey = 100", ".*This connector does not support deletes.*");
+        // MERGE is rejected at the coordinator via ConnectorMetadata.beginMerge() before any plan
+        // fragment reaches the native worker.
+        assertQueryFails(
+                "MERGE INTO nation USING (SELECT 1) t ON false WHEN NOT MATCHED THEN INSERT VALUES (100, 'TESTLAND', 0, 'test')",
+                ".*This connector does not support modifying table rows.*");
+    }
+
     private static void assertContainsFunctionSignature(List<MaterializedRow> functions, String returnType, String argumentTypes, String functionType)
     {
         assertTrue(

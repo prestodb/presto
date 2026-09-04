@@ -124,7 +124,7 @@ public class TestArrowFederationNativeQueriesCassandra
     public void testTableCreation()
             throws InterruptedException
     {
-        assertQueryFails("CREATE TABLE temp AS SELECT * FROM nation", ".*Not implemented: N8facebook6presto8protocol26ConnectorOutputTableHandleE.*");
+        assertQueryFails("CREATE TABLE temp AS SELECT * FROM nation", ".*This connector is read-only and does not support write operations.*Only SELECT is supported.*");
         while (true) {
             try {
                 assertQueryFails("SELECT * FROM temp", ".*Table cassandra.tpch.temp does not exist.*");

@@ -183,6 +183,7 @@ class ConnectorProtocol {
 
 namespace {
 struct NotImplemented {};
+struct UnsupportedOperation {};
 } // namespace
 
 template <
@@ -420,6 +421,12 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
   }
 
  private:
+  static void throwUnsupportedWriteOperation() {
+    VELOX_UNSUPPORTED(
+        "This connector is read-only and does not support write operations "
+        "(INSERT, CREATE TABLE AS SELECT, DELETE, MERGE). Only SELECT is supported.");
+  }
+
   template <typename DERIVED, typename BASE>
   static void to_json_template(
       json& j,
@@ -437,6 +444,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
           std::is_same<DERIVED, NotImplemented>::value,
           BASE>::type* = 0) {
     VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+  }
+
+  template <typename DERIVED, typename BASE>
+  static void to_json_template(
+      json&,
+      const std::shared_ptr<BASE>&,
+      typename std::enable_if<
+          std::is_same<DERIVED, UnsupportedOperation>::value,
+          BASE>::type* = 0) {
+    throwUnsupportedWriteOperation();
   }
 
   template <typename DERIVED, typename BASE>
@@ -461,6 +478,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
   }
 
   template <typename DERIVED, typename BASE>
+  static void from_json_template(
+      const json&,
+      std::shared_ptr<BASE>&,
+      typename std::enable_if<
+          std::is_same<DERIVED, UnsupportedOperation>::value,
+          BASE>::type* = 0) {
+    throwUnsupportedWriteOperation();
+  }
+
+  template <typename DERIVED, typename BASE>
   static void serializeTemplate(
       const std::shared_ptr<BASE>&,
       std::string&,
@@ -469,6 +496,17 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
           BASE>::type* = 0) {
     VELOX_NYI("Not implemented: {}", typeid(BASE).name());
   }
+
+  template <typename DERIVED, typename BASE>
+  static void serializeTemplate(
+      const std::shared_ptr<BASE>&,
+      std::string&,
+      typename std::enable_if<
+          std::is_same<DERIVED, UnsupportedOperation>::value,
+          BASE>::type* = 0) {
+    throwUnsupportedWriteOperation();
+  }
+
   template <typename DERIVED, typename BASE>
   static void deserializeTemplate(
       const std::string&,
@@ -477,6 +515,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
           std::is_same<DERIVED, NotImplemented>::value,
           BASE>::type* = 0) {
     VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+  }
+
+  template <typename DERIVED, typename BASE>
+  static void deserializeTemplate(
+      const std::string&,
+      std::shared_ptr<BASE>&,
+      typename std::enable_if<
+          std::is_same<DERIVED, UnsupportedOperation>::value,
+          BASE>::type* = 0) {
+    throwUnsupportedWriteOperation();
   }
 
   template <typename DERIVED, typename BASE>
