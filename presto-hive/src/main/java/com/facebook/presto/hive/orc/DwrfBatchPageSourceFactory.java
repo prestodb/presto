@@ -47,6 +47,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMerg
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isReadNullForOutOfBoundsTimestamp;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.orc.OrcBatchPageSourceFactory.createOrcPageSource;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
@@ -129,6 +130,7 @@ public class DwrfBatchPageSourceFactory
                         .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))
                         .withMaxBlockSize(getOrcMaxReadBlockSize(session))
                         .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
+                        .withReadNullForOutOfBoundsTimestamp(isReadNullForOutOfBoundsTimestamp(session))
                         .build(),
                 encryptionInformation,
                 dwrfEncryptionProvider,
