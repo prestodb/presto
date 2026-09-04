@@ -62,6 +62,7 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
@@ -278,6 +279,13 @@ class AggregationAnalyzer
         protected Boolean visitNullIfExpression(NullIfExpression node, Void context)
         {
             return process(node.getFirst(), context) && process(node.getSecond(), context);
+        }
+
+        @Override
+        protected Boolean visitTrim(Trim node, Void context)
+        {
+            return process(node.getTrimSource(), context)
+                    && (!node.getTrimCharacter().isPresent() || process(node.getTrimCharacter().get(), context));
         }
 
         @Override

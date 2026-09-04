@@ -819,6 +819,27 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitTrim(Trim node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteTrim(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression trimSource = rewrite(node.getTrimSource(), context.get());
+            Optional<Expression> trimChar = node.getTrimCharacter()
+                    .map(trimCharacter -> rewrite(trimCharacter, context.get()));
+
+            if (trimSource != node.getTrimSource() || !sameElements(trimChar, node.getTrimCharacter())) {
+                return new Trim(node.getSpecification(), trimSource, trimChar);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitExtract(Extract node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
