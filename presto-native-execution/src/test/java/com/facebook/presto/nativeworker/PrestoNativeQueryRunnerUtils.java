@@ -892,10 +892,16 @@ public class PrestoNativeQueryRunnerUtils
                     }
 
                     // Write config file - use an ephemeral port (0) for bare-metal, pre-allocated port for container.
+                    // On macOS (Apple Silicon), the OS page size is 16KB which trips Velox's MmapAllocator
+                    // page-size check. Fall back to the malloc allocator so the native worker starts.
+                    String mmapAllocatorProperty = System.getProperty("os.name").toLowerCase().contains("mac")
+                            ? "use-mmap-allocator=false%n"
+                            : "";
                     String configProperties = format("discovery.uri=%s%n" +
                             "presto.version=testversion%n" +
                             "plan-consistency-check-enabled=true%n" +
                             "system-memory-gb=4%n" +
+                            mmapAllocatorProperty +
                             "http-server.http.port=%d%n", discoveryUri, workerPort);
 
                     if (coordinatorSidecarEnabled) {
