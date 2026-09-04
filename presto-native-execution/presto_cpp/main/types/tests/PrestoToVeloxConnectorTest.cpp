@@ -27,6 +27,7 @@
 #include "velox/connectors/hive/HiveConnectorUtil.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
+#include "velox/connectors/hive/delta/HiveDeltaSplit.h"
 #include "velox/connectors/hive/iceberg/IcebergColumnHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
@@ -1810,6 +1811,26 @@ std::shared_ptr<protocol::delta::DeltaTableHandle> createDeltaTableHandle() {
   return deltaHandle;
 }
 
+std::unique_ptr<connector::ConnectorSplit> convertDeltaSplit(
+    const std::string& tableLocation,
+    const std::string& filePath,
+    protocol::Map<protocol::String, protocol::String> partitionValues = {}) {
+  protocol::delta::DeltaSplit split;
+  split.connectorId = "delta";
+  split.schemaName = "test_schema";
+  split.tableName = "test_table";
+  split.tableLocation = tableLocation;
+  split.filePath = filePath;
+  split.length = 123;
+  split.fileSize = 456;
+  split.partitionValues = std::move(partitionValues);
+
+  protocol::SplitContext context;
+  context.cacheable = true;
+  DeltaPrestoToVeloxConnector deltaConnector("delta");
+  return deltaConnector.toVeloxSplit("delta", &split, &context);
+}
+
 // Domain matching values greater than 'lowerBound'.
 protocol::Domain createBigintRangeDomain(
     int64_t lowerBound,
@@ -1964,6 +1985,43 @@ TEST_F(PrestoToVeloxConnectorTest, deltaTableHandleUsesPhysicalColumnNames) {
 
   // Without a layout there is no predicate to push down.
   EXPECT_TRUE(handle->subfieldFilters().empty());
+}
+
+// failing on oss-delta-lake
+TEST_F(PrestoToVeloxConnectorTest, deltaSplitPreservesEmptyPartitionValue) {
+  auto result = convertDeltaSplit(
+      "s3://bucket/table", "part=empty/data.parquet", {{"part", ""}});
+  auto* split =
+      dynamic_cast<connector::hive::delta::HiveDeltaSplit*>(result.get());
+  ASSERT_NE(split, nullptr);
+
+  const auto partition = split->partitionKeys.find("part");
+  ASSERT_NE(partition, split->partitionKeys.end());
+  ASSERT_TRUE(partition->second.has_value());
+  EXPECT_EQ(partition->second.value(), "");
+}
+
+// Delta Kernel resolves AddFile.path against the table root before creating a
+// DeltaSplit. filePath is therefore an absolute URI and must be used verbatim.
+TEST_F(PrestoToVeloxConnectorTest, deltaSplitPreservesResolvedFileUri) {
+  auto result =
+      convertDeltaSplit("file:/table", "file:/data/file.parquet");
+  auto* split =
+      dynamic_cast<connector::hive::delta::HiveDeltaSplit*>(result.get());
+  ASSERT_NE(split, nullptr);
+  EXPECT_EQ(split->filePath, "file:/data/file.parquet");
+  EXPECT_EQ(split->infoColumns.at("$path"), "file:/data/file.parquet");
+}
+
+// failing on oss-delta-lake
+TEST_F(PrestoToVeloxConnectorTest, deltaSplitPreservesUriWithoutAuthority) {
+  auto result =
+      convertDeltaSplit("hdfs:/table", "hdfs:/warehouse/data.parquet");
+  auto* split =
+      dynamic_cast<connector::hive::delta::HiveDeltaSplit*>(result.get());
+  ASSERT_NE(split, nullptr);
+  EXPECT_EQ(split->filePath, "hdfs:/warehouse/data.parquet");
+  EXPECT_EQ(split->infoColumns.at("$path"), "hdfs:/warehouse/data.parquet");
 }
 
 TEST_F(PrestoToVeloxConnectorTest, deltaTableHandlePushesDownDataPredicate) {
@@ -2381,4 +2439,71 @@ TEST_F(PrestoToVeloxConnectorTest, deltaPredicateSkipsParquetRowGroups) {
       10);
   EXPECT_EQ(withPushdown.skippedStrides, 1);
   EXPECT_EQ(withPushdown.processedStrides, 1);
+}
+
+// failing on oss-delta-lake
+TEST_F(PrestoToVeloxConnectorTest, deltaReadsNestedPhysicalColumnName) {
+  auto deltaHandle = createDeltaTableHandle();
+  deltaHandle->deltaTable.columns = {
+      createDeltaColumn("root", "row(child bigint)", false, "col-root")};
+
+  protocol::TableHandle tableHandle;
+  tableHandle.connectorId = "delta";
+  tableHandle.connectorHandle = std::move(deltaHandle);
+  DeltaPrestoToVeloxConnector deltaConnector("delta");
+  auto converted = deltaConnector.toVeloxTableHandle(
+      tableHandle, *exprConverter_, *typeParser_);
+  auto readType = asHiveTableHandle(*converted).dataColumns();
+  ASSERT_NE(readType, nullptr);
+
+  auto physicalNestedType = ROW({"col-child"}, {BIGINT()});
+  auto fileType = ROW({"col-root"}, {physicalNestedType});
+  auto values =
+      BaseVector::create<FlatVector<int64_t>>(BIGINT(), 1, pool_.get());
+  values->set(0, 7);
+  auto nested = std::make_shared<RowVector>(
+      pool_.get(),
+      physicalNestedType,
+      nullptr,
+      1,
+      std::vector<VectorPtr>{values});
+  auto batch = std::make_shared<RowVector>(
+      pool_.get(), fileType, nullptr, 1, std::vector<VectorPtr>{nested});
+
+  dwio::common::WriterOptions writerOptions;
+  writerOptions.memoryPool = rootPool_.get();
+  auto sink = std::make_unique<dwio::common::MemorySink>(
+      1 << 20, dwio::common::FileSink::Options{.pool = pool_.get()});
+  auto* sinkPtr = sink.get();
+  auto writer = std::make_unique<parquet::Writer>(
+      std::move(sink), writerOptions, fileType);
+  writer->write(batch);
+  writer->close();
+
+  const std::string fileContent(sinkPtr->data(), sinkPtr->size());
+  dwio::common::ReaderOptions readerOptions(pool_.get());
+  readerOptions.setFileSchema(readType);
+  readerOptions.setColumnMappingMode(dwio::common::ColumnMappingMode::kName);
+  auto reader = std::make_unique<parquet::ParquetReader>(
+      std::make_unique<dwio::common::BufferedInput>(
+          std::make_shared<InMemoryReadFile>(fileContent),
+          readerOptions.memoryPool()),
+      readerOptions);
+
+  dwio::common::RowReaderOptions rowReaderOptions;
+  rowReaderOptions.select(
+      std::make_shared<dwio::common::ColumnSelector>(
+          readType, readType->names()));
+  rowReaderOptions.setScanSpec(makeDeltaScanSpec({}, readType, pool_.get()));
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  VectorPtr result = BaseVector::create(readType, 0, pool_.get());
+  ASSERT_EQ(rowReader->next(1, result), 1);
+  auto child = result->as<RowVector>()->childAt(0)->as<RowVector>();
+  ASSERT_NE(child, nullptr);
+  ASSERT_FALSE(child->isNullAt(0));
+  auto childValue = child->childAt(0)->as<FlatVector<int64_t>>();
+  ASSERT_NE(childValue, nullptr);
+  ASSERT_FALSE(childValue->isNullAt(0));
+  EXPECT_EQ(childValue->valueAt(0), 7);
 }
