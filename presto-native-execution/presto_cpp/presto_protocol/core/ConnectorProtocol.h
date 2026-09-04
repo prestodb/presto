@@ -424,7 +424,7 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
   static void throwUnsupportedWriteOperation() {
     VELOX_UNSUPPORTED(
         "This connector is read-only and does not support write operations "
-        "(INSERT, CREATE TABLE AS SELECT, DELETE). Only SELECT is supported.");
+        "(INSERT, CREATE TABLE AS SELECT, DELETE, MERGE). Only SELECT is supported.");
   }
 
   template <typename DERIVED, typename BASE>
