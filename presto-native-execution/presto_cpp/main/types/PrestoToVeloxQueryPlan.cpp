@@ -1601,7 +1601,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle);
+      connectorId, connectorInsertHandle, folly::F14FastSet<std::string>{});
 
   const auto outputType = toRowType(
       generateOutputVariables(
@@ -1662,7 +1662,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle);
+      connectorId, connectorInsertHandle, folly::F14FastSet<std::string>{});
 
   const auto outputType = toRowType(
       generateOutputVariables(
@@ -1711,7 +1711,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle);
+      connectorId, connectorInsertHandle, folly::F14FastSet<std::string>{});
 
   // [ICEBERG-FIX bug 1B]: Build outputType from node->outputVariables
   // — the Java QueryPlanner.plan(Delete) now declares 3 vars
@@ -1958,7 +1958,9 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         connectorId);
   }
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, std::shared_ptr(std::move(veloxHandle)));
+      connectorId,
+      std::shared_ptr(std::move(veloxHandle)),
+      folly::F14FastSet<std::string>{});
 
   // 2. Translate source plan. The source is the IcebergMergeProcessorNode
   //    (Layer 3c) when the upstream pipeline went through the
