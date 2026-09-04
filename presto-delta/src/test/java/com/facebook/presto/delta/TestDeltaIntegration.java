@@ -224,6 +224,14 @@ public class TestDeltaIntegration
         assertQuery(testQuery, expResultsQuery);
     }
 
+    @Test
+    public void readEmptyStringPartitionValue()
+    {
+        String table = goldenTablePathWithPrefix(DELTA_V1, "empty-string-partition");
+        String testQuery = format("SELECT value, part FROM \"%s\".\"%s\"", PATH_SCHEMA, table);
+        assertQuery(testQuery, "SELECT * FROM VALUES('0', '')");
+    }
+
     @Test(dataProvider = "deltaReaderVersions")
     public void readPartitionedTableAllDataTypes(String version)
     {
