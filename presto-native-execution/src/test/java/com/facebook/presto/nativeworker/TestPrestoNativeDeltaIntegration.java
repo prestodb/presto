@@ -18,6 +18,7 @@ import com.facebook.airlift.log.Logging;
 import com.facebook.presto.delta.TestDeltaIntegration;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 public class TestPrestoNativeDeltaIntegration
         extends TestDeltaIntegration
@@ -34,6 +35,14 @@ public class TestPrestoNativeDeltaIntegration
         // Hide huge warning logs caused by not having checkpoints.
         Logging logging = Logging.initialize();
         logging.setLevel("io.delta.kernel", Level.ERROR);
+    }
+
+    // failing on oss-delta-lake
+    @Override
+    @Test
+    public void readEmptyStringPartitionValue()
+    {
+        super.readEmptyStringPartitionValue();
     }
 
     @Override
