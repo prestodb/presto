@@ -78,6 +78,8 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.connector.EmptyConnectorCommitHandle;
 import com.facebook.presto.spi.connector.RowChangeParadigm;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.BaseProcedure;
@@ -133,6 +135,7 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.UpdateSchema;
+import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Expressions;
@@ -144,6 +147,8 @@ import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.util.CharSequenceSet;
+import org.apache.iceberg.util.PropertyUtil;
+import org.apache.iceberg.util.Tasks;
 import org.apache.iceberg.view.View;
 
 import java.io.IOException;
@@ -161,6 +166,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -286,6 +292,7 @@ import static com.facebook.presto.spi.connector.RowChangeParadigm.DELETE_ROW_AND
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -993,7 +1000,6 @@ public abstract class IcebergAbstractMetadata
                         .setExtraInfo(partitionFields.containsKey(column.name()) ?
                                 columnExtraInfo(partitionFields.get(column.name())) :
                                 null)
-                        .setNullable(column.isOptional())
                         .build())
                 .collect(toImmutableList());
     }
@@ -2876,6 +2882,110 @@ public abstract class IcebergAbstractMetadata
         }
         catch (RuntimeException e) {
             throw new PrestoException(ICEBERG_INCOMPATIBLE_COLUMN_TYPE, "Failed to set column type: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    @Override
+    public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
+    {
+        if (!columnName.isPresent()) {
+            throw new PrestoException(NOT_SUPPORTED, "Iceberg does not support named constraints; only NOT NULL constraints identified by column are supported");
+        }
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have constraints dropped");
+        validateNoBranchSpecified(handle, "ALTER COLUMN DROP NOT NULL");
+        updateColumnNullability(session, handle, columnName.get(), false);
+    }
+
+    @Override
+    public void addConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, TableConstraint<String> constraint)
+    {
+        if (!(constraint instanceof NotNullConstraint)) {
+            throw new PrestoException(NOT_SUPPORTED, format("Unsupported constraint type %s; Iceberg only supports NOT NULL constraints", constraint.getClass().getSimpleName()));
+        }
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have constraints added");
+        validateNoBranchSpecified(handle, "ALTER COLUMN SET NOT NULL");
+        checkArgument(constraint.getColumns().size() == 1, "NotNullConstraint must apply to exactly one column, found: %s", constraint.getColumns());
+        updateColumnNullability(session, handle, constraint.getColumns().iterator().next(), true);
+    }
+
+    /**
+     * Marks {@code columnName} as required (NOT NULL) or optional in the Iceberg schema.
+     * <p>
+     * Only the table's own columns can be altered. Metadata columns are not part of the schema, so
+     * both families are rejected here: Iceberg's reserved {@code _}-prefixed columns, which reach
+     * the connector because they are exposed as {@code REGULAR} handles and so are not hidden, and
+     * Presto's synthesized {@code $}-prefixed columns, which the engine already rejects.
+     */
+    private void updateColumnNullability(ConnectorSession session, IcebergTableHandle handle, String columnName, boolean required)
+    {
+        SchemaTableName tableName = handle.getSchemaTableName();
+        String operation = required ? "set" : "drop";
+        if (MetadataColumns.isMetadataColumn(columnName) || IcebergMetadataColumn.isSynthesizedColumnName(columnName)) {
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot %s NOT NULL on metadata column '%s'", operation, columnName));
+        }
+        commitSchemaUpdateWithRetry(session, tableName, format("%s NOT NULL on column '%s'", operation, columnName), table -> {
+            if (table.schema().findField(columnName) == null) {
+                throw new PrestoException(COLUMN_NOT_FOUND, format("Cannot %s NOT NULL: column '%s' does not exist in table '%s'", operation, columnName, tableName));
+            }
+            UpdateSchema updateSchema = table.updateSchema();
+            if (required) {
+                // allowIncompatibleChanges is required: optional -> required is an incompatible change.
+                updateSchema.allowIncompatibleChanges().requireColumn(columnName);
+            }
+            else {
+                // Relaxing required -> optional is always a compatible change.
+                updateSchema.makeColumnOptional(columnName);
+            }
+            updateSchema.commit();
+        });
+    }
+
+    /**
+     * Applies {@code schemaUpdate} and commits it to the catalog immediately, retrying
+     * {@link CommitFailedException} using the table's own {@code commit.retry.*} properties.
+     * <p>
+     * The table is loaded with {@code getRawIcebergTable} rather than the transaction-scoped
+     * {@code getIcebergTable} because a staged commit fails only when the Presto transaction
+     * commits, where it can no longer be retried. Committing outside the transaction means a
+     * staged write on the same table would be undercut, so that is rejected up front, and the
+     * context's memoized table is invalidated afterwards so the rest of the transaction sees the
+     * new schema. A {@code ROLLBACK} does not undo the change.
+     */
+    private void commitSchemaUpdateWithRetry(ConnectorSession session, SchemaTableName tableName, String description, Consumer<Table> schemaUpdate)
+    {
+        if (transactionContext.getTransaction(tableName).isPresent()) {
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot %s: a write transaction is already open on table '%s'", description, tableName));
+        }
+        Table icebergTable = getRawIcebergTable(session, tableName);
+        Map<String, String> properties = icebergTable.properties();
+        // getRawIcebergTable has just loaded current metadata, so only re-read it when retrying.
+        AtomicBoolean firstAttempt = new AtomicBoolean(true);
+        try {
+            Tasks.foreach(icebergTable)
+                    .retry(PropertyUtil.propertyAsInt(properties, TableProperties.COMMIT_NUM_RETRIES, TableProperties.COMMIT_NUM_RETRIES_DEFAULT))
+                    .exponentialBackoff(
+                            PropertyUtil.propertyAsInt(properties, TableProperties.COMMIT_MIN_RETRY_WAIT_MS, TableProperties.COMMIT_MIN_RETRY_WAIT_MS_DEFAULT),
+                            PropertyUtil.propertyAsInt(properties, TableProperties.COMMIT_MAX_RETRY_WAIT_MS, TableProperties.COMMIT_MAX_RETRY_WAIT_MS_DEFAULT),
+                            PropertyUtil.propertyAsInt(properties, TableProperties.COMMIT_TOTAL_RETRY_TIME_MS, TableProperties.COMMIT_TOTAL_RETRY_TIME_MS_DEFAULT),
+                            2.0)
+                    .onlyRetryOn(CommitFailedException.class)
+                    .run(table -> {
+                        if (!firstAttempt.getAndSet(false)) {
+                            table.refresh();
+                        }
+                        schemaUpdate.accept(table);
+                    });
+        }
+        catch (PrestoException e) {
+            throw e;
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, format("Failed to %s: %s", description, firstNonNull(e.getMessage(), e)), e);
+        }
+        finally {
+            transactionContext.invalidateTable(tableName);
         }
     }
 

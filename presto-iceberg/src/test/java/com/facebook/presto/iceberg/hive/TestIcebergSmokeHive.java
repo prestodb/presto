@@ -38,15 +38,25 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestIcebergSmokeHive
         extends IcebergDistributedSmokeTestBase
@@ -385,6 +395,55 @@ public class TestIcebergSmokeHive
         assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 0");
 
         dropTable(session, tableName);
+    }
+
+    /**
+     * Five identical {@code SET NOT NULL} statements submitted concurrently. These genuinely race:
+     * without the {@code CommitFailedException} retry in {@code IcebergAbstractMetadata} the losing
+     * statements fail with "Table metadata refresh is required".
+     * <p>
+     * Kept here rather than in {@link IcebergDistributedSmokeTestBase} because it depends on how a
+     * catalog resolves commit conflicts, and running it against every catalog (including the Nessie
+     * and REST test servers) would trade coverage for flakiness.
+     */
+    @Test
+    public void testConcurrentSetNotNull()
+            throws Exception
+    {
+        String tableName = "test_concurrent_set_not_null_" + randomTableSuffix();
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        ExecutorService executor = Executors.newFixedThreadPool(5);
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+
+            List<Future<?>> futures = new ArrayList<>();
+            for (int i = 0; i < 5; i++) {
+                futures.add(executor.submit(() ->
+                        assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName))));
+            }
+            for (Future<?> future : futures) {
+                try {
+                    future.get(60, TimeUnit.SECONDS);
+                }
+                catch (TimeoutException e) {
+                    fail("Timed out waiting for concurrent SET NOT NULL to finish");
+                }
+                catch (ExecutionException e) {
+                    throw new AssertionError(e.getCause());
+                }
+            }
+
+            validateShowCreateTable(catalog, schema, tableName,
+                    ImmutableList.of(
+                            columnDefinition("c1", "bigint"),
+                            columnDefinitionNotNull("c2", "bigint")),
+                    null, null);
+        }
+        finally {
+            executor.shutdownNow();
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     private Table getIcebergTable(Session session, String tableName)

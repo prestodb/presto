@@ -128,6 +128,16 @@ public class IcebergTransactionContext
         return new TransactionalTable(schemaTableName, table, opsFromTable(table));
     }
 
+    /**
+     * Discards the table memoized for {@code tableName} so that the next {@link #getIcebergTable}
+     * call reloads it. Needed by metadata operations that commit outside of this context, which
+     * would otherwise stay invisible for the rest of the Presto transaction.
+     */
+    public void invalidateTable(SchemaTableName tableName)
+    {
+        initiallyReadTables.remove(tableName);
+    }
+
     public void registerCallback(Runnable callback)
     {
         checkArgument(this.callbacksOnCommit.get() == null, "Cannot set callbacksOnCommit multiple times");
