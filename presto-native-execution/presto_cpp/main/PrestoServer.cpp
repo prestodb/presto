@@ -102,6 +102,8 @@
 #include "presto_cpp/main/functions/theta_sketch/ThetaSketchRegistration.h"
 #endif
 
+#include "presto_cpp/main/functions/kll_sketch/KllSketchRegistration.h"
+
 #ifdef __linux__
 // Required by BatchThreadFactory
 #include <pthread.h>
@@ -1581,6 +1583,8 @@ void PrestoServer::registerFunctions() {
   functions::aggregate::theta_sketch::registerAllThetaSketchFunctions(
       prestoBuiltinFunctionPrefix_);
 #endif
+
+  functions::registerAllKllSketchFunctions(prestoBuiltinFunctionPrefix_);
 
   // Register RPC function stubs so the sidecar's /v1/functions endpoint
   // exposes them to the coordinator for function discovery.
