@@ -24,6 +24,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -32,11 +33,11 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.NoOpVariableResolver;
-import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -113,15 +114,22 @@ public class FilterStatsCalculator
     private final StatsNormalizer normalizer;
     private final LiteralEncoder literalEncoder;
     private final FunctionResolution functionResolution;
+    private final ExpressionOptimizerProvider expressionOptimizerProvider;
 
     @Inject
-    public FilterStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
+    public FilterStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer, ExpressionOptimizerManager expressionOptimizerManager)
+    {
+        this(metadata, scalarStatsCalculator, normalizer, (ExpressionOptimizerProvider) expressionOptimizerManager);
+    }
+
+    public FilterStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer, ExpressionOptimizerProvider expressionOptimizerProvider)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
         this.normalizer = requireNonNull(normalizer, "normalizer is null");
         this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
         this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+        this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
     }
 
     @Deprecated
@@ -176,8 +184,11 @@ public class FilterStatsCalculator
 
     private RowExpression simplifyExpression(ConnectorSession session, RowExpression predicate)
     {
-        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(predicate, metadata.getFunctionAndTypeManager(), session, OPTIMIZED);
-        Object value = interpreter.optimize();
+        // Route through the session's pluggable optimizer so the native/sidecar optimizer evaluates the
+        // predicate (matching how the plan's expressions were optimized) instead of the hardcoded Java
+        // interpreter, which mis-folds native-produced expressions.
+        RowExpression optimized = expressionOptimizerProvider.getExpressionOptimizer(session).optimize(predicate, OPTIMIZED, session);
+        Object value = optimized instanceof ConstantExpression ? ((ConstantExpression) optimized).getValue() : optimized;
 
         if (value == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
