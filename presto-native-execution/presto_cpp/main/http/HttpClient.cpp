@@ -606,29 +606,30 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
   return future;
 }
 
-void RequestBuilder::addJwtIfConfigured() {
+// 'options' is unused when the binary is built without PRESTO_ENABLE_JWT.
+std::optional<std::string> makeInternalJwt(
+    [[maybe_unused]] const JwtOptions& options) {
 #ifdef PRESTO_ENABLE_JWT
-  if (jwtOptions_.jwtEnabled) {
+  if (options.jwtEnabled) {
     // If JWT was enabled the secret cannot be empty.
     auto secretHash = std::vector<uint8_t>(SHA256_DIGEST_LENGTH);
     folly::ssl::OpenSSLHash::sha256(
         folly::range(secretHash),
-        folly::ByteRange(folly::StringPiece(jwtOptions_.sharedSecret)));
+        folly::ByteRange(folly::StringPiece(options.sharedSecret)));
 
     const auto time = std::chrono::system_clock::now();
-    const auto token =
-        jwt::create<jwt::traits::nlohmann_json>()
-            .set_subject(jwtOptions_.nodeId)
-            .set_issued_at(time)
-            .set_expires_at(
-                time + std::chrono::seconds{jwtOptions_.jwtExpirationSeconds})
-            .sign(
-                jwt::algorithm::hs256{std::string(
-                    reinterpret_cast<char*>(secretHash.data()),
-                    secretHash.size())});
-    header(kPrestoInternalBearer, token);
+    return jwt::create<jwt::traits::nlohmann_json>()
+        .set_subject(options.nodeId)
+        .set_issued_at(time)
+        .set_expires_at(
+            time + std::chrono::seconds{options.jwtExpirationSeconds})
+        .sign(
+            jwt::algorithm::hs256{std::string(
+                reinterpret_cast<char*>(secretHash.data()),
+                secretHash.size())});
   }
 #endif // PRESTO_ENABLE_JWT
+  return std::nullopt;
 }
 
 } // namespace facebook::presto::http
