@@ -156,7 +156,7 @@ public class TestHudiDirectoryLister
                     TEST_CLIENT_TAGS);
             HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
-            assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
+            assertEquals(metaClient.getBasePath().toString(), mockTable.getStorage().getLocation());
             Path path = new Path(mockTable.getStorage().getLocation());
             ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
             Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
@@ -195,7 +195,7 @@ public class TestHudiDirectoryLister
                     TEST_CLIENT_TAGS);
             HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
-            assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
+            assertEquals(metaClient.getBasePath().toString(), mockTable.getStorage().getLocation());
             Path path = new Path(mockTable.getStorage().getLocation(), "p1");
             ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
             Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
@@ -239,7 +239,7 @@ public class TestHudiDirectoryLister
         try {
             HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
-            assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
+            assertEquals(metaClient.getBasePath().toString(), mockTable.getStorage().getLocation());
             Path path = new Path(mockTable.getStorage().getLocation());
             ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
             Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
@@ -267,7 +267,7 @@ public class TestHudiDirectoryLister
         try {
             HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
-            assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
+            assertEquals(metaClient.getBasePath().toString(), mockTable.getStorage().getLocation());
             Path path = new Path(mockTable.getStorage().getLocation());
             ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
             Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
