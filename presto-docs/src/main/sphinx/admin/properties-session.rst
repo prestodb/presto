@@ -712,6 +712,39 @@ the join key.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.rewrite-bucketed-semi-join-to-join\`\``.
 
+``runtime_stats_tracing_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, records a coordinator-side query trace in runtime statistics.
+Trace events include start and end timestamps, duration, parent span, failure status,
+and thread names for query lifecycle, planning, scheduling, and task communication.
+Epoch timestamps are expressed in nanoseconds but use a millisecond-resolution wall-clock
+anchor; relative offsets and durations use a monotonic clock.
+This property is intended for diagnostics and can increase query information size.
+The number of retained events is controlled by
+:ref:`admin/properties-session:\`\`runtime_stats_tracing_max_events\`\``.
+
+Set to ``true`` to enable tracing for a query:
+
+``SET SESSION runtime_stats_tracing_enabled=true;``
+
+``runtime_stats_tracing_max_events``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``2000``
+
+The maximum number of trace events retained for a query, including the query
+root event. After the limit is reached, additional trace events are omitted
+while aggregate runtime statistics continue to be recorded.
+
+The corresponding configuration property is
+:ref:`admin/properties:\`\`query.runtime-stats-tracing.max-events\`\``.
+
 ``simplify_aggregations_over_constant``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
