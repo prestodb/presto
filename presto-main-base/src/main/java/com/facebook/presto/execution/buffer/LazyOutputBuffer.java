@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.buffer;
 
 import com.facebook.airlift.concurrent.ExtendedSettableFuture;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -48,6 +49,8 @@ import static java.util.Objects.requireNonNull;
 public class LazyOutputBuffer
         implements OutputBuffer
 {
+    private static final Logger log = Logger.get(LazyOutputBuffer.class);
+
     private final StateMachine<BufferState> state;
     private final TaskId taskId;
     private final String taskInstanceId;
@@ -219,7 +222,22 @@ public class LazyOutputBuffer
     @Override
     public void acknowledge(OutputBufferId bufferId, long token)
     {
-        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
+        OutputBuffer outputBuffer = delegate;
+        if (outputBuffer == null) {
+            synchronized (this) {
+                if (delegate == null) {
+                    // The delegate output buffer has not been created yet (setOutputBuffers has
+                    // not run). An acknowledge for a not-yet-initialized buffer is a no-op: there
+                    // are no pages to release, and the client will re-issue the request once the
+                    // buffer exists. Mirrors the null-tolerant behavior of get() and abort();
+                    // failing hard here (as the previous getDelegateOutputBufferOrFail did)
+                    // turned an early acknowledge/HEAD get-data-size probe into a 500.
+                    log.debug("acknowledge(%s, %s) before output buffer initialized for task %s; treating as no-op", bufferId, token, taskId);
+                    return;
+                }
+                outputBuffer = delegate;
+            }
+        }
         outputBuffer.acknowledge(bufferId, token);
     }
 
