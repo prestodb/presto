@@ -97,6 +97,7 @@ Responsibilities:
 * Complete release process
 * Ensure release notes follow guidelines
 * Fix release note issues
+* Update the SQL statement compatibility matrix by connector in :doc:`/sql/connector-statement-support`
 * Cut and deploy release
 * Coordinate with community
 * Make go/no-go decisions
