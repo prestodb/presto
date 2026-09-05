@@ -255,6 +255,11 @@ public interface Metadata
     void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
 
     /**
+     * Move the specified column to the specified position within the table's column order.
+     */
+    void setColumnPosition(Session session, TableHandle tableHandle, ColumnHandle column, ColumnPosition position);
+
+    /**
      * Drop the specified column.
      */
     void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);

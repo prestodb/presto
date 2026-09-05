@@ -15,6 +15,7 @@ Synopsis
     ALTER TABLE [ IF EXISTS ] name DROP CONSTRAINT [ IF EXISTS ] constraint_name
     ALTER TABLE [ IF EXISTS ] name ALTER [ COLUMN ] column_name { SET | DROP } NOT NULL
     ALTER TABLE [ IF EXISTS ] name ALTER [ COLUMN ] column_name SET DEFAULT default_expression
+    ALTER TABLE [ IF EXISTS ] name ALTER [ COLUMN ] column_name { FIRST | AFTER existing_column_name }
     ALTER TABLE [ IF EXISTS ] name SET PROPERTIES (property_name=value, [, ...])
     ALTER TABLE [ IF EXISTS ] name DROP BRANCH [ IF EXISTS ] branch_name
     ALTER TABLE [ IF EXISTS ] name DROP TAG [ IF EXISTS ] tag_name
@@ -44,6 +45,13 @@ For ``ADD COLUMN`` statements, the optional ``FIRST`` and ``AFTER`` clauses cont
 column is placed in the table's column order. When neither clause is given, the column is appended at the
 end. ``FIRST`` and ``AFTER`` require support from the connector; connectors that do not support them
 report an error. ``AFTER`` requires the named column to already exist.
+
+For ``ALTER COLUMN`` statements, the ``FIRST`` and ``AFTER`` clauses move an existing column within the
+table's column order, leaving the data of every column unchanged. Unlike ``ADD COLUMN``, one of the two
+clauses is required, since the statement does nothing else; a column is moved to the end of the table by
+naming the column that is currently last in ``AFTER``. ``AFTER`` requires the named column to already exist
+and to be a column other than the one being moved. Moving a column requires support from the connector;
+connectors that do not support it report an error.
 
 For ``CREATE BRANCH`` statements:
 
@@ -83,6 +91,14 @@ Add column ``zip`` as the first column of the ``users`` table::
 Add column ``zip`` immediately after the ``city`` column of the ``users`` table::
 
     ALTER TABLE users ADD COLUMN zip varchar AFTER city;
+
+Move the existing ``zip`` column to the front of the ``users`` table::
+
+    ALTER TABLE users ALTER COLUMN zip FIRST;
+
+Move the existing ``zip`` column immediately after the ``city`` column of the ``users`` table::
+
+    ALTER TABLE users ALTER COLUMN zip AFTER city;
 
 Drop column ``zip`` from the ``users`` table::
 

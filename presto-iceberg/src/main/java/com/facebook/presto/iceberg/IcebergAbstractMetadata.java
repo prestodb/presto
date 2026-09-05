@@ -1339,30 +1339,67 @@ public abstract class IcebergAbstractMetadata
                         "Column '%s' does not exist as a top-level column. The AFTER clause requires a top-level column name, not a nested field path.",
                         afterColumnName));
             }
-            NestedField afterColumn = findTopLevelColumn(schema, afterColumnName)
-                    .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND, format("Column '%s' does not exist", afterColumnName)));
-            updateSchema.moveAfter(columnName, afterColumn.name());
+            updateSchema.moveAfter(columnName, findTopLevelColumn(schema, afterColumnName).name());
             return;
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column position: " + position);
     }
 
     /**
-     * Finds a top-level column of {@code schema} by name, preferring an exact match over a case-insensitive
-     * one, so that a table whose top-level columns differ only by case resolves deterministically rather than
-     * by whatever order the fields happen to be in.
+     * Resolves a column name the engine resolved against {@link #getColumnHandles} to the top-level schema
+     * field it names.
+     *
+     * <p>The engine lowercases the name, while an Iceberg field keeps whatever case the table was created
+     * with, so the lookup has to be case-insensitive to match the name SHOW COLUMNS reports. An exact match
+     * wins over a case-insensitive one, so that a table whose top-level columns differ only by case resolves
+     * deterministically rather than by whatever order the fields happen to be in. Only the top-level columns
+     * are scanned, rather than using {@link Schema#caseInsensitiveFindField}: that builds a lower-case index
+     * over the whole schema, which resolves dotted paths to nested fields whose leaf name would be wrong here,
+     * and throws outright if any two fields anywhere in the table differ only by case.
+     *
+     * <p>{@link #getColumnHandles} also exposes the synthesized columns ($path, $row_id and the like) that are
+     * not fields of the schema at all; rejecting an unresolvable name here keeps the failure a user error,
+     * rather than the {@link IllegalArgumentException} that {@link UpdateSchema} would raise for a name it
+     * cannot find.
      */
-    private static Optional<NestedField> findTopLevelColumn(Schema schema, String columnName)
+    private static NestedField findTopLevelColumn(Schema schema, String columnName)
     {
         Optional<NestedField> exactMatch = schema.columns().stream()
                 .filter(field -> field.name().equals(columnName))
                 .findFirst();
         if (exactMatch.isPresent()) {
-            return exactMatch;
+            return exactMatch.get();
         }
         return schema.columns().stream()
                 .filter(field -> field.name().equalsIgnoreCase(columnName))
-                .findFirst();
+                .findFirst()
+                .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND, format("Column '%s' does not exist", columnName)));
+    }
+
+    @Override
+    public void setColumnPosition(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, ColumnPosition position)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns moved");
+        validateNoBranchSpecified(handle, "ALTER COLUMN");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        Schema schema = icebergTable.schema();
+        NestedField movedColumn = findTopLevelColumn(schema, ((IcebergColumnHandle) columnHandle).getName());
+        // The move is resolved before an UpdateSchema is created, because one that is created and then not
+        // committed leaves the connector's Iceberg transaction with an operation that never completed, which
+        // fails the statement with an error about the transaction rather than about the column
+        if (position instanceof ColumnPosition.First) {
+            icebergTable.updateSchema().moveFirst(movedColumn.name()).commit();
+            return;
+        }
+        if (position instanceof ColumnPosition.After) {
+            String afterColumnName = findTopLevelColumn(schema, ((ColumnPosition.After) position).getColumnName()).name();
+            icebergTable.updateSchema().moveAfter(movedColumn.name(), afterColumnName).commit();
+            return;
+        }
+        // ALTER COLUMN has no position a connector can honor for free, unlike the omitted ADD COLUMN clause
+        // that ColumnPosition.Last stands for, so anything else is a caller that ignored the SPI contract
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column position: " + position);
     }
 
     @Override
