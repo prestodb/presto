@@ -240,6 +240,8 @@ json::array_t getOptimizedExpressions(
   auto configs = toVeloxConfigsFromSessionProperties(sessionProperties);
   configs.insert({velox::core::QueryConfig::kSessionTimezone, timezone});
   configs.insert(
+      {velox::core::QueryConfig::kAdjustTimestampToTimezone, "true"});
+  configs.insert(
       {velox::core::QueryConfig::kSessionStartTime, sessionStartTime});
 
   auto queryConfig = velox::core::QueryConfig{std::move(configs)};

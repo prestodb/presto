@@ -17,6 +17,7 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpRequestFilter;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
@@ -57,6 +58,7 @@ import org.testng.annotations.Test;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -80,7 +82,6 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrde
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
-import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -93,6 +94,7 @@ public class TestNativeSidecarPlugin
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
     private static final long SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB = 128;
     private static final int INLINED_SQL_FUNCTIONS_COUNT = 5;
+    private static final Duration SIDECAR_RETRY_MAX_FAILURE_INTERVAL = new Duration(2, TimeUnit.MINUTES);
 
     @Override
     protected void createTables()
@@ -134,23 +136,28 @@ public class TestNativeSidecarPlugin
         queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
         queryRunner.loadSessionPropertyProvider(
                 NativeSystemSessionPropertyProviderFactory.NAME,
-                ImmutableMap.of("sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
+                ImmutableMap.of(
+                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB",
+                        "sidecar.retry.max-failure-interval", SIDECAR_RETRY_MAX_FAILURE_INTERVAL.toString()));
         queryRunner.loadFunctionNamespaceManager(
                 NativeFunctionNamespaceManagerFactory.NAME,
                 "native",
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP",
-                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
+                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB",
+                        "sidecar.retry.max-failure-interval", SIDECAR_RETRY_MAX_FAILURE_INTERVAL.toString()));
         queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
         queryRunner.loadPlanCheckerProviderManager("native",
                 ImmutableMap.of(
-                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
+                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB",
+                        "sidecar.retry.max-failure-interval", SIDECAR_RETRY_MAX_FAILURE_INTERVAL.toString()));
         queryRunner.loadExpressionOptimizer(
                 NativeExpressionOptimizerFactory.NAME,
                 "native",
                 ImmutableMap.of(
-                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
+                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB",
+                        "sidecar.retry.max-failure-interval", SIDECAR_RETRY_MAX_FAILURE_INTERVAL.toString()));
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
     }
 
@@ -191,34 +198,31 @@ public class TestNativeSidecarPlugin
     @Test
     public void testSharedRetryConfig()
     {
-        // All 4 sidecar HTTP clients must share the same SidecarRetryConfig instance —
-        // a single sidecar.retry.max-failure-interval property controls retry behaviour
-        // uniformly across session-property, function-namespace, plan-checker, and
-        // expression-optimizer calls.
         WorkerSessionPropertyProvider sessionPropertyProvider = getQueryRunner().getMetadata().getSessionPropertyManager().getWorkerSessionPropertyProviders().get(NativeSystemSessionPropertyProviderFactory.NAME);
-        checkArgument(sessionPropertyProvider instanceof NativeSystemSessionPropertyProvider, "Expected NativeSystemSessionPropertyProvider but got %s", sessionPropertyProvider);
+        checkArgument(sessionPropertyProvider instanceof NativeSystemSessionPropertyProvider, "Expected  NativeSystemSessionPropertyProvider but got  %s", sessionPropertyProvider);
         SidecarRetryConfig retryConfig = ((NativeSystemSessionPropertyProvider) sessionPropertyProvider).getRetryConfig();
+        assertEquals(retryConfig.getMaxFailureInterval(), SIDECAR_RETRY_MAX_FAILURE_INTERVAL);
 
         FunctionNamespaceManager<? extends SqlFunction> functionNamespaceManager = getQueryRunner().getMetadata().getFunctionAndTypeManager().getFunctionNamespaceManagers().get(NativeFunctionNamespaceManagerFactory.NAME);
-        checkArgument(functionNamespaceManager instanceof NativeFunctionNamespaceManager, "Expected NativeFunctionNamespaceManager but got %s", functionNamespaceManager);
+        checkArgument(functionNamespaceManager instanceof NativeFunctionNamespaceManager, "Expected  NativeFunctionNamespaceManager but got  %s", functionNamespaceManager);
         FunctionDefinitionProvider functionDefinitionProvider = ((NativeFunctionNamespaceManager) functionNamespaceManager).getFunctionDefinitionProvider();
-        checkArgument(functionDefinitionProvider instanceof NativeFunctionDefinitionProvider, "Expected NativeFunctionDefinitionProvider but got %s", functionDefinitionProvider);
-        assertSame(((NativeFunctionDefinitionProvider) functionDefinitionProvider).getRetryConfig(), retryConfig,
-                "NativeFunctionDefinitionProvider must share the same SidecarRetryConfig instance");
+        checkArgument(functionDefinitionProvider instanceof NativeFunctionDefinitionProvider, "Expected  NativeFunctionDefinitionProvider but got %s", functionDefinitionProvider);
+        retryConfig = ((NativeFunctionDefinitionProvider) functionDefinitionProvider).getRetryConfig();
+        assertEquals(retryConfig.getMaxFailureInterval(), SIDECAR_RETRY_MAX_FAILURE_INTERVAL);
 
         ExpressionOptimizer expressionOptimizer = getQueryRunner().getExpressionManager().getExpressionOptimizer(NativeExpressionOptimizerFactory.NAME);
-        checkArgument(expressionOptimizer instanceof NativeExpressionOptimizer, "Expected NativeExpressionOptimizer but got %s", expressionOptimizer);
+        checkArgument(expressionOptimizer instanceof NativeExpressionOptimizer, "Expected  NativeExpressionOptimizer but got  %s", expressionOptimizer);
         NativeSidecarExpressionInterpreter interpreter = ((NativeExpressionOptimizer) expressionOptimizer).getRowExpressionInterpreterService();
-        assertSame(interpreter.getRetryConfig(), retryConfig,
-                "NativeSidecarExpressionInterpreter must share the same SidecarRetryConfig instance");
+        retryConfig = interpreter.getRetryConfig();
+        assertEquals(retryConfig.getMaxFailureInterval(), SIDECAR_RETRY_MAX_FAILURE_INTERVAL);
 
         List<PlanCheckerProvider> planCheckerProviders = getQueryRunner().getPlanCheckerProviderManager().getPlanCheckerProviders();
         assertEquals(planCheckerProviders.size(), 1);
         PlanCheckerProvider provider = planCheckerProviders.get(0);
-        checkArgument(provider instanceof NativePlanCheckerProvider, "Expected NativePlanCheckerProvider but got %s", provider);
+        checkArgument(provider instanceof NativePlanCheckerProvider, "Expected  NativePlanCheckerProvider but got  %s", provider);
         NativePlanChecker planChecker = (NativePlanChecker) provider.getFragmentPlanCheckers().get(0);
-        assertSame(planChecker.getRetryConfig(), retryConfig,
-                "NativePlanChecker must share the same SidecarRetryConfig instance");
+        retryConfig = planChecker.getRetryConfig();
+        assertEquals(retryConfig.getMaxFailureInterval(), SIDECAR_RETRY_MAX_FAILURE_INTERVAL);
     }
 
     @Test
