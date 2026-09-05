@@ -42,6 +42,9 @@ import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
+import org.apache.hudi.hadoop.HoodieParquetInputFormat;
+import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
 import org.apache.parquet.column.statistics.DoubleStatistics;
 import org.apache.parquet.column.statistics.FloatStatistics;
 import org.apache.parquet.column.statistics.IntStatistics;
@@ -78,6 +81,7 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getReadNullMaskedParquetEncryptedValue;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsProvableEmptyEnabled;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.PARQUET_SERDE_CLASS_NAMES;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
@@ -86,6 +90,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 
 public class ParquetQuickStatsBuilder
         implements QuickStatsBuilder
@@ -110,7 +115,18 @@ public class ParquetQuickStatsBuilder
         this.footerFetchExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
     }
 
-    private static void processColumnMetadata(ParquetMetadata parquetMetadata, Map<ColumnPath, ColumnQuickStats<?>> rolledUpColStats)
+    // NDV (distinct-values-count) note: Parquet column-chunk statistics carry no distinct count
+    // (no getNumDistinct()), so we deliberately do not attempt any distinct-value estimation here
+    // (e.g. HLL) -- see ColumnQuickStats#getDistinctValuesCount() for the conservative NDV bound
+    // that is derived, once, from the min/max/rowCount/nullsCount rolled up below across all row
+    // groups and files for a given column+partition (NDV is not additive across row groups/files,
+    // so it must be derived from the final merged state rather than accumulated incrementally).
+    /**
+     * @return the number of row groups seen in this footer. A file with zero row groups holds zero
+     * rows, which is what lets {@link #buildQuickStats} tell provable emptiness apart from "the
+     * schema had nothing we could use" (e.g. every column nested, skipped below).
+     */
+    private static long processColumnMetadata(ParquetMetadata parquetMetadata, Map<ColumnPath, ColumnQuickStats<?>> rolledUpColStats)
     {
         List<BlockMetaData> rowGroups = parquetMetadata.getBlocks();
         for (BlockMetaData rowGroup : rowGroups) {
@@ -252,6 +268,7 @@ public class ParquetQuickStatsBuilder
                 }
             }
         }
+        return rowGroups.size();
     }
 
     @Managed
@@ -294,22 +311,27 @@ public class ParquetQuickStatsBuilder
         requireNonNull(files);
 
         if (!files.hasNext()) {
+            if (!isQuickStatsProvableEmptyEnabled(session)) {
+                // Legacy behavior: report "unknown". Returning here also avoids the metadata lookups
+                // below, which the pre-fix code never performed for a partition with no files.
+                return PartitionQuickStats.EMPTY;
+            }
+            // No files means no rows. That is a proof, not an estimate -- but only claim it for
+            // formats where a bare directory listing tells the whole story.
+            //
+            // Everything below must degrade to EMPTY rather than throw: pre-fix this branch returned
+            // without touching the metastore, so any new exception here would turn a previously silent,
+            // cached UNKNOWN into error-log noise plus an uncached result retried on every query.
+            if (canProveNoFilesMeansNoRows(metastore, table, metastoreContext, partitionId)) {
+                return PartitionQuickStats.PROVABLY_EMPTY;
+            }
             return PartitionQuickStats.EMPTY;
         }
 
         // TODO: Consider refactoring storage and/or table format to the interface when we implement an ORC/Iceberg quick stats builder
-        StorageFormat storageFormat;
-        if (UNPARTITIONED_ID.getPartitionName().equals(partitionId)) {
-            Table resolvedTable = metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).get();
-            storageFormat = resolvedTable.getStorage().getStorageFormat();
-        }
-        else {
-            Partition partition = metastore.getPartitionsByNames(metastoreContext, table.getSchemaName(), table.getTableName(),
-                    ImmutableList.of(new PartitionNameWithVersion(partitionId, Optional.empty()))).get(partitionId).get();
-            storageFormat = partition.getStorage().getStorageFormat();
-        }
+        StorageFormat storageFormat = resolveStorageFormat(metastore, table, metastoreContext, partitionId);
 
-        if (!PARQUET_SERDE_CLASS_NAMES.contains(storageFormat.getSerDe())) {
+        if (!isParquetSerDe(storageFormat)) {
             // Not a parquet table/partition
             return PartitionQuickStats.EMPTY;
         }
@@ -366,6 +388,8 @@ public class ParquetQuickStatsBuilder
         fileCountPerPartition.add(filesCount);
 
         HashMap<ColumnPath, ColumnQuickStats<?>> rolledUpColStats = new HashMap<>();
+        int footersRead = 0;
+        long rowGroupsSeen = 0;
         try {
             // Wait for footer reads to finish
             CompletableFuture<Void> overallCompletableFuture = CompletableFuture.allOf(footerFetchCompletableFutures.toArray(new CompletableFuture[0]));
@@ -373,7 +397,8 @@ public class ParquetQuickStatsBuilder
 
             for (CompletableFuture<ParquetMetadata> future : footerFetchCompletableFutures) {
                 ParquetMetadata parquetMetadata = future.get();
-                processColumnMetadata(parquetMetadata, rolledUpColStats);
+                footersRead++;
+                rowGroupsSeen += processColumnMetadata(parquetMetadata, rolledUpColStats);
             }
         }
         catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -382,9 +407,178 @@ public class ParquetQuickStatsBuilder
         }
 
         if (rolledUpColStats.isEmpty()) {
+            // Every footer read cleanly and reported no row groups: the files exist but hold no rows,
+            // which is provable emptiness. An empty roll-up with row groups present means something
+            // else (e.g. every column is nested and therefore skipped above), so stay UNKNOWN.
+            // footersRead > 0 cannot actually be false here (files.hasNext() was true above and any
+            // unresolved future would have thrown), and is kept only so the proof does not depend on
+            // that reasoning holding after future edits.
+            if (isQuickStatsProvableEmptyEnabled(session)
+                    && footersRead > 0
+                    && rowGroupsSeen == 0
+                    && canProveEmptiness(metastore, table, metastoreContext, storageFormat)) {
+                return PartitionQuickStats.PROVABLY_EMPTY;
+            }
             return PartitionQuickStats.EMPTY;
         }
         return new PartitionQuickStats(partitionId, rolledUpColStats.values(), filesCount);
+    }
+
+    private static StorageFormat resolveStorageFormat(ExtendedHiveMetastore metastore, SchemaTableName table, MetastoreContext metastoreContext, String partitionId)
+    {
+        if (UNPARTITIONED_ID.getPartitionName().equals(partitionId)) {
+            Table resolvedTable = metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).get();
+            return resolvedTable.getStorage().getStorageFormat();
+        }
+        Partition partition = metastore.getPartitionsByNames(metastoreContext, table.getSchemaName(), table.getTableName(),
+                ImmutableList.of(new PartitionNameWithVersion(partitionId, Optional.empty()))).get(partitionId).get();
+        return partition.getStorage().getStorageFormat();
+    }
+
+    /**
+     * The non-throwing form of {@link #resolveStorageFormat}, for the zero-files path: absent rather
+     * than {@code NoSuchElementException} when the table or the partition has been dropped from under
+     * us. Proving nothing is always a safe answer.
+     */
+    private static Optional<StorageFormat> findStorageFormat(ExtendedHiveMetastore metastore, SchemaTableName table, MetastoreContext metastoreContext, String partitionId)
+    {
+        if (UNPARTITIONED_ID.getPartitionName().equals(partitionId)) {
+            return resolveTable(metastore, table, metastoreContext)
+                    .map(resolvedTable -> resolvedTable.getStorage().getStorageFormat());
+        }
+        // Same degrade-rather-than-throw requirement as resolveTable: this runs on the no-files path,
+        // which previously never contacted the metastore.
+        try {
+            return Optional.ofNullable(metastore.getPartitionsByNames(metastoreContext, table.getSchemaName(), table.getTableName(),
+                            ImmutableList.of(new PartitionNameWithVersion(partitionId, Optional.empty())))
+                            .get(partitionId))
+                    .flatMap(partition -> partition)
+                    .map(partition -> partition.getStorage().getStorageFormat());
+        }
+        catch (RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * {@link StorageFormat#getSerDe()} throws {@code HIVE_INVALID_METADATA} for a null serde, which is
+     * reachable for view-like metadata; the emptiness proof must degrade to UNKNOWN there rather than
+     * fail a statistics call that used to succeed.
+     */
+    private static boolean isParquetSerDe(StorageFormat storageFormat)
+    {
+        String serDe = storageFormat.getSerDeNullable();
+        return serDe != null && PARQUET_SERDE_CLASS_NAMES.contains(serDe);
+    }
+
+    /**
+     * "No files under the location" (or "files, but no row groups") only implies "no rows" for
+     * formats where the data files are the whole story. Refuse to claim provable emptiness otherwise:
+     * <ul>
+     * <li>Transactional/ACID tables keep their data in nested {@code base_*}/{@code delta_*}
+     * directories, and the default nested-directory policy is IGNORED
+     * ({@code QuickStatsProvider#buildQuickStats}), so a non-empty ACID table can list as zero
+     * files.</li>
+     * <li>Hudi tables are read through a Hoodie input format whose visible file set is derived from
+     * a commit timeline, not from a plain listing.</li>
+     * </ul>
+     * Two formats need no gate here, but only because something upstream already excludes them, so
+     * both are worth naming:
+     * <ul>
+     * <li><b>Symlink tables</b> -- {@code QuickStatsProvider} replaces the manifest listing with the
+     * resolved target files before any builder runs, so the iterator we see is the real data-file set.
+     * Zero files then genuinely means no manifests and no targets.</li>
+     * <li><b>Iceberg / Delta</b> -- unreachable through this connector: {@code HiveMetadata}
+     * ({@code getTableMetadata}) throws {@code UnknownTableTypeException} during analysis. That is the
+     * only thing protecting us, and it matters: an Iceberg table registered in HMS keeps its data
+     * under {@code data/}, which the default IGNORED nested-directory policy skips, so it would list
+     * as zero files. If that refusal ever moves, add an explicit gate here.</li>
+     * </ul>
+     * Ordinary nested-directory layouts are safe for a different and stronger reason: statistics and
+     * split generation use the same policy ({@code QuickStatsProvider} and
+     * {@code StoragePartitionLoader} both derive it from {@code recursiveDirWalkerEnabled}), so a zero
+     * estimate matches what the scan will actually read.
+     */
+    private static boolean canProveEmptiness(ExtendedHiveMetastore metastore, SchemaTableName table, MetastoreContext metastoreContext, StorageFormat storageFormat)
+    {
+        if (isHudiFormat(storageFormat)) {
+            return false;
+        }
+        // ACID-ness is a table-level property, so this needs the table even when the storage format
+        // above came from a partition.
+        Optional<Table> resolvedTable = resolveTable(metastore, table, metastoreContext);
+        if (!resolvedTable.isPresent()) {
+            // The table vanished from under us, or the metastore could not be reached; prove nothing.
+            return false;
+        }
+        return canProveEmptiness(storageFormat, resolvedTable.get().getParameters());
+    }
+
+    /**
+     * Pure predicate: given a storage format and the table-level parameters, may "no data files" be
+     * treated as "no rows"? Split out from the metastore lookup so the decision is testable without a
+     * metastore and so a caller that already holds the {@link Table} does not pay a second round-trip.
+     */
+    private static boolean canProveEmptiness(StorageFormat storageFormat, Map<String, String> tableParameters)
+    {
+        return !isHudiFormat(storageFormat) && !isTransactionalTable(tableParameters);
+    }
+
+    /**
+     * Resolves the emptiness proof for a partition with no data files, using a single metastore
+     * round-trip for an unpartitioned table: {@code getTable} yields both the storage format and the
+     * table-level transactional flag, so there is no reason to fetch it twice.
+     * <p>
+     * A partitioned table needs two lookups, because the storage format is a partition-level property
+     * while ACID-ness is table-level. That second lookup is per empty partition rather than per table;
+     * threading an already-resolved table down from {@code QuickStatsProvider} would make it O(1) per
+     * planning event, which is worth doing separately from this change.
+     */
+    private static boolean canProveNoFilesMeansNoRows(ExtendedHiveMetastore metastore, SchemaTableName table, MetastoreContext metastoreContext, String partitionId)
+    {
+        if (UNPARTITIONED_ID.getPartitionName().equals(partitionId)) {
+            Optional<Table> resolvedTable = resolveTable(metastore, table, metastoreContext);
+            if (!resolvedTable.isPresent()) {
+                return false;
+            }
+            StorageFormat storageFormat = resolvedTable.get().getStorage().getStorageFormat();
+            return isParquetSerDe(storageFormat) && canProveEmptiness(storageFormat, resolvedTable.get().getParameters());
+        }
+
+        Optional<StorageFormat> partitionFormat = findStorageFormat(metastore, table, metastoreContext, partitionId);
+        return partitionFormat.isPresent()
+                && isParquetSerDe(partitionFormat.get())
+                && canProveEmptiness(metastore, table, metastoreContext, partitionFormat.get());
+    }
+
+    /**
+     * A metastore lookup on the emptiness-proof path must degrade to "cannot prove" rather than throw.
+     * Before this change the no-files branch returned without touching the metastore, so letting an
+     * exception escape here would turn a previously silent, cached UNKNOWN into a failed statistics
+     * call -- and, because the failure is not cached, one retried on every query.
+     */
+    private static Optional<Table> resolveTable(ExtendedHiveMetastore metastore, SchemaTableName table, MetastoreContext metastoreContext)
+    {
+        try {
+            return metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName());
+        }
+        catch (RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Mirrors {@code HiveSplitManager#isHudiFormat}: a Parquet serde combined with a Hoodie input
+     * format.
+     */
+    private static boolean isHudiFormat(StorageFormat storageFormat)
+    {
+        String serDe = storageFormat.getSerDeNullable();
+        String inputFormat = storageFormat.getInputFormatNullable();
+        return serDe != null && serDe.equals(ParquetHiveSerDe.class.getName())
+                && inputFormat != null
+                && (inputFormat.equals(HoodieParquetInputFormat.class.getName())
+                || inputFormat.equals(HoodieParquetRealtimeInputFormat.class.getName()));
     }
 
     enum ColumnType
