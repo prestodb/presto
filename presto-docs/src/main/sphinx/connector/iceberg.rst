@@ -2418,15 +2418,36 @@ updates.
 
     Query 20250204_010445_00022_ymwi5 failed: Iceberg table updates require at least format version 2 and update mode must be merge-on-read
 
-Iceberg tables do not support running multiple :doc:`../sql/merge` statements on the same table in parallel. If two or more ``MERGE`` operations are executed concurrently on the same Iceberg table:
+Concurrent Iceberg table data modification
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* The first operation to complete will succeed.
-* Subsequent operations will fail due to conflicting writes and will return the following error:
+When two statements concurrently update or delete rows in the same Iceberg table, Iceberg rejects the commit of the
+last statement to finish. That statement writes nothing, and Presto reports the failure with the following error:
 
 .. code-block:: text
 
-    Failed to commit Iceberg update to table: <table name>
-    Found conflicting files that can contain records matching true
+    Failed to commit changes to the Iceberg table <table name> because it was concurrently modified
+
+Presto supports query retries against the new state of the Iceberg table instead of failing it.
+Query retries are disabled by default. There are two ways to enable them:
+
+- Set the ``per-query-retry-limit`` configuration property in the coordinator's ``etc/config.properties`` file:
+
+.. code-block:: properties
+
+   # coordinator/etc/config.properties
+   coordinator=true
+   per-query-retry-limit=2
+
+- Set the ``query_retry_limit`` session property by executing the following statement:
+
+.. code-block:: sql
+
+    SET SESSION query_retry_limit = 2;
+
+The value configured in these properties determines how many times Presto will re-execute a failing query.
+Query retries apply only to statements running in autocommit mode. An Iceberg commit conflict raised by the
+:doc:`/sql/commit` statement is always reported to the client.
 
 Transaction support
 ^^^^^^^^^^^^^^^^^^^
