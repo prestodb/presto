@@ -158,6 +158,10 @@ public interface Block
 
     /**
      * Appends the value at {@code position} to {@code blockBuilder} and closes the entry.
+     * Implementations do not check {@link #isNull(int)}: a null position is written as a
+     * non-null entry backed by whatever raw data happens to be stored there, which is not
+     * guaranteed to be zero. Callers must check {@code isNull} first and call
+     * {@link BlockBuilder#appendNull()} themselves when the position is null.
      */
     void writePositionTo(int position, BlockBuilder blockBuilder);
 

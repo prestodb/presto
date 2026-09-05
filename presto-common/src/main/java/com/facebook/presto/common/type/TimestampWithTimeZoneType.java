@@ -19,6 +19,8 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
+// TODO(#27934 Phase 1): Add a parameterized precision registry (p=0–12) split into Short/Long
+// subclasses, mirroring TimestampType / ShortTimestampType / LongTimestampType.
 public final class TimestampWithTimeZoneType
         extends AbstractLongType
 {
