@@ -16,7 +16,7 @@ package com.facebook.presto.spark.execution.http.server;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.server.remotetask.Backoff;
+import com.facebook.presto.common.util.Backoff;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;

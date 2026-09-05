@@ -23,6 +23,9 @@ import com.facebook.airlift.stats.TimeStat;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.NativeSidecarFailureInfo;
+import com.facebook.presto.common.util.Backoff;
+import com.facebook.presto.sidecar.SidecarRetryConfig;
+import com.facebook.presto.sidecar.SidecarRetryDriver;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Node;
@@ -85,13 +88,15 @@ public final class NativePlanChecker
     private final NodeManager nodeManager;
     private final JsonCodec<SimplePlanFragment> planFragmentJsonCodec;
     private final HttpClient httpClient;
+    private final SidecarRetryConfig retryConfig;
 
     @Inject
-    public NativePlanChecker(NodeManager nodeManager, JsonCodec<SimplePlanFragment> planFragmentJsonCodec, @ForSidecarInfo HttpClient httpClient)
+    public NativePlanChecker(NodeManager nodeManager, JsonCodec<SimplePlanFragment> planFragmentJsonCodec, @ForSidecarInfo HttpClient httpClient, SidecarRetryConfig retryConfig)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.planFragmentJsonCodec = requireNonNull(planFragmentJsonCodec, "planFragmentJsonCodec is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.retryConfig = requireNonNull(retryConfig, "retryConfig is null");
     }
 
     @Override
@@ -119,6 +124,12 @@ public final class NativePlanChecker
     public HttpClient getHttpClient()
     {
         return httpClient;
+    }
+
+    @VisibleForTesting
+    public SidecarRetryConfig getRetryConfig()
+    {
+        return retryConfig;
     }
 
     @Managed
@@ -185,18 +196,20 @@ public final class NativePlanChecker
         long start = System.nanoTime();
 
         try {
-            StringResponse response = httpClient.execute(getSidecarRequest(requestBodyJson), createStringResponseHandler());
-            if (response.getStatusCode() != 200) {
-                NativeSidecarFailureInfo failure = processResponseFailure(response);
-                String message = String.format("Error from native plan checker: %s", firstNonNull(failure.getMessage(), "Internal error"));
-                throw new PrestoException(failure::getErrorCode, message, failure.toException());
-            }
-        }
-        catch (RuntimeException e) {
-            if (e instanceof PrestoException) {
-                throw e;
-            }
-            throw new PrestoException(NATIVEPLANCHECKER_CONNECTION_ERROR, "Error getting native plan checker response", e);
+            Backoff backoff = new Backoff(retryConfig.getMaxFailureInterval());
+            SidecarRetryDriver.executeWithRetry(
+                    () -> {
+                        StringResponse response = httpClient.execute(getSidecarRequest(requestBodyJson), createStringResponseHandler());
+                        if (response.getStatusCode() != 200) {
+                            NativeSidecarFailureInfo failure = processResponseFailure(response);
+                            String message = String.format("Error from native plan checker: %s", firstNonNull(failure.getMessage(), "Internal error"));
+                            throw new PrestoException(failure::getErrorCode, message, failure.toException());
+                        }
+                        return null;
+                    },
+                    backoff,
+                    "plan validation",
+                    new PrestoException(NATIVEPLANCHECKER_CONNECTION_ERROR, "Error getting native plan checker response"));
         }
         finally {
             Duration duration = new Duration(System.nanoTime() - start, TimeUnit.NANOSECONDS);

@@ -16,7 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
-import com.facebook.presto.server.remotetask.Backoff;
+import com.facebook.presto.common.util.Backoff;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.SerializedPage;
