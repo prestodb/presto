@@ -2817,8 +2817,10 @@ public class LocalExecutionPlanner
             List<Integer> inputChannels = node.getColumns().stream()
                     .map(source::variableToChannel)
                     .collect(toImmutableList());
-            List<String> notNullChannelColumnNames = node.getColumns().stream()
-                    .map(variable -> node.getNotNullColumnVariables().contains(variable) ? node.getColumnNames().get(source.variableToChannel(variable)) : null)
+            // 'columns' and 'columnNames' are parallel, so a not-null variable is named by its position
+            // in 'columns', which is unrelated to the source channel it reads from.
+            List<String> notNullChannelColumnNames = IntStream.range(0, node.getColumns().size())
+                    .mapToObj(i -> node.getNotNullColumnVariables().contains(node.getColumns().get(i)) ? node.getColumnNames().get(i) : null)
                     .collect(Collectors.toList());
 
             OperatorFactory operatorFactory = new TableWriterOperatorFactory(
@@ -2901,8 +2903,10 @@ public class LocalExecutionPlanner
                     .map(source::variableToChannel)
                     .collect(toImmutableList());
 
-            List<String> notNullChannelColumnNames = node.getColumns().stream()
-                    .map(variable -> node.getNotNullColumnVariables().contains(variable) ? node.getColumnNames().get(source.variableToChannel(variable)) : null)
+            // 'columns' and 'columnNames' are parallel, so a not-null variable is named by its position
+            // in 'columns', which is unrelated to the source channel it reads from.
+            List<String> notNullChannelColumnNames = IntStream.range(0, node.getColumns().size())
+                    .mapToObj(i -> node.getNotNullColumnVariables().contains(node.getColumns().get(i)) ? node.getColumnNames().get(i) : null)
                     .collect(Collectors.toList());
 
             OperatorFactory operatorFactory = new TableWriterOperatorFactory(

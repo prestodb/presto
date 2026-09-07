@@ -7111,6 +7111,11 @@ public class TestHiveIntegrationSmokeTest
         insertStmt = format("INSERT INTO %s VALUES (null, 2.3, null, 4)", tableName);
         assertUpdate(getSession(), insertStmt, 1);
 
+        // c1 and c4 read the same source column, so the page reaching the writer holds fewer channels
+        // than the table has columns and the violation is named after the column the NULL is written to.
+        insertStmt = format("INSERT INTO %s SELECT orderkey, IF(orderkey %% 2 = 0, null, totalprice), comment, orderkey FROM orders", tableName);
+        assertQueryFails(insertStmt, "NULL value not allowed for NOT NULL column: c2");
+
         assertUpdate(getSession(), dropTableStmt);
     }
 
