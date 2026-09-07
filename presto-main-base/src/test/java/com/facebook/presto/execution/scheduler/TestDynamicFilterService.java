@@ -625,6 +625,61 @@ public class TestDynamicFilterService
     }
 
     @Test
+    public void testProjectBetweenJoinAndScanWithRenamedProbeColumnIsWired()
+    {
+        // Scenario: a ProjectNode sits between the JoinNode's left (probe) child and the TableScanNode.
+        // The scan outputs "order_id_0"; the ProjectNode renames it to "order_id"; the JoinNode's
+        // probe variable is "order_id".  Without visitProject in FilterToScanMatcher the variable name
+        // mismatch would silently prevent the filter from being wired to the scan.
+        String filterId = "400";
+        // Join probe variable — the name used in the JoinNode criteria
+        VariableReferenceExpression probeVar = new VariableReferenceExpression(Optional.empty(), "order_id", BigintType.BIGINT);
+        // Scan output variable — different name, renamed by the ProjectNode below the join
+        VariableReferenceExpression scanVar = new VariableReferenceExpression(Optional.empty(), "order_id_0", BigintType.BIGINT);
+        VariableReferenceExpression buildVar = new VariableReferenceExpression(Optional.empty(), "build_id", BigintType.BIGINT);
+
+        PlanNodeId scanId = new PlanNodeId("probe_scan");
+        TableScanNode scan = createTableScan(scanId,
+                ImmutableList.of(scanVar),
+                ImmutableMap.of(scanVar, "order_id_0"));
+
+        // ProjectNode renames scanVar ("order_id_0") to probeVar ("order_id")
+        ProjectNode projectBetween = new ProjectNode(
+                new PlanNodeId("project_between"),
+                scan,
+                Assignments.builder().put(probeVar, scanVar).build());
+
+        RemoteSourceNode buildSource = new RemoteSourceNode(
+                Optional.empty(), new PlanNodeId("build_source"), new PlanFragmentId(2),
+                ImmutableList.of(buildVar), false, Optional.empty(), REPARTITION);
+
+        JoinNode joinNode = new JoinNode(
+                Optional.empty(), new PlanNodeId("join_1"), INNER,
+                projectBetween, buildSource,
+                ImmutableList.of(new EquiJoinClause(probeVar, buildVar)),
+                ImmutableList.of(probeVar, buildVar),
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                ImmutableMap.of(filterId, buildVar));
+
+        PlanFragment fragment = new PlanFragment(
+                new PlanFragmentId(1), joinNode,
+                ImmutableSet.of(probeVar, buildVar), SOURCE_DISTRIBUTION, ImmutableList.of(scanId),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(probeVar, buildVar)),
+                Optional.empty(), StageExecutionDescriptor.ungroupedExecution(), false,
+                Optional.of(StatsAndCosts.empty()), Optional.empty());
+
+        Session session = createDppSession();
+        QueryId queryId = session.getQueryId();
+        SplitSourceFactory factory = createSplitSourceFactory();
+
+        factory.registerDynamicFilters(new StreamingSubPlan(fragment, ImmutableList.of()), session);
+
+        assertTrue(service.hasFilter(queryId, filterId));
+        assertEquals(service.getFilterIdsForScan(queryId, scanId), ImmutableSet.of(filterId),
+                "Filter should be wired to scan even when a ProjectNode between join and scan renames the probe column");
+    }
+
+    @Test
     public void testSameFragmentFilterMatchesWhenRootProjectStripsProbeColumn()
     {
         String filterId = "500";

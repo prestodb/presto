@@ -64,6 +64,7 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitSource;
@@ -844,16 +845,49 @@ public class SplitSourceFactory
         }
 
         @Override
+        public Map<PlanNodeId, Map<String, String>> visitProject(ProjectNode node, Map<String, Set<String>> filterColumnToFilterIds)
+        {
+            // A ProjectNode may rename variables with a pass-through assignment of the form
+            //   output_var = input_var
+            // For example: l_orderkey_0 → l_orderkey. If the join's probe variable is
+            // l_orderkey but the TableScanNode below the ProjectNode outputs l_orderkey_0,
+            // visitTableScan would miss the match. Resolve such renames here so that the
+            // TableScanNode is searched with the source-side variable name.
+            Map<String, String> outputToInput = new HashMap<>();
+            for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : node.getAssignments().getMap().entrySet()) {
+                RowExpression value = assignment.getValue();
+                if (value instanceof VariableReferenceExpression) {
+                    // pass-through rename: output → input
+                    outputToInput.put(assignment.getKey().getName(), ((VariableReferenceExpression) value).getName());
+                }
+            }
+
+            if (outputToInput.isEmpty()) {
+                // No pass-through renames — recurse with the original context unchanged.
+                return node.getSource().accept(this, filterColumnToFilterIds);
+            }
+
+            // Remap each filter column that was renamed by the projection.
+            Map<String, Set<String>> remapped = new HashMap<>();
+            for (Map.Entry<String, Set<String>> entry : filterColumnToFilterIds.entrySet()) {
+                String outputName = entry.getKey();
+                String sourceName = outputToInput.getOrDefault(outputName, outputName);
+                remapped.computeIfAbsent(sourceName, k -> new HashSet<>()).addAll(entry.getValue());
+            }
+            return node.getSource().accept(this, remapped);
+        }
+
+        @Override
         public Map<PlanNodeId, Map<String, String>> visitTableScan(TableScanNode node, Map<String, Set<String>> filterColumnToFilterIds)
         {
             Map<String, String> filterIdToColumn = new HashMap<>();
             for (Map.Entry<String, Set<String>> entry : filterColumnToFilterIds.entrySet()) {
                 String columnName = entry.getKey();
-                // Column matching uses the variable name from the planner (pre-rename). If the connector
-                // renames a column between planning and split-source creation (e.g. Iceberg identity
-                // partition columns mapped through a partition spec update), the variable name no longer
-                // matches the physical column name and this filter will be silently skipped — accepted
-                // limitation for this milestone; full column-handle matching is deferred.
+                // Column matching uses the planner variable name. Pass-through projection renames
+                // are resolved by visitProject above. The remaining gap — a connector renaming a
+                // column between planning and split-source creation (e.g. Iceberg partition spec
+                // evolution) — is an accepted M2 limitation; it is rare in practice and is
+                // surfaced via the log.debug below.
                 boolean columnInScan = node.getAssignments().keySet().stream()
                         .anyMatch(var -> var.getName().equals(columnName));
                 if (!columnInScan) {
