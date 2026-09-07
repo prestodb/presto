@@ -15,6 +15,7 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
+import com.facebook.presto.teradata.functions.TeradataFunctionsPlugin;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
@@ -32,6 +33,7 @@ public class TestPrestoNativeGeneralQueriesThrift
                 .setUseThrift(true)
                 .build();
         queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        queryRunner.installPlugin(new TeradataFunctionsPlugin());
         return queryRunner;
     }
 
@@ -43,6 +45,7 @@ public class TestPrestoNativeGeneralQueriesThrift
                 .setAddStorageFormatToPath(true)
                 .build();
         queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        queryRunner.installPlugin(new TeradataFunctionsPlugin());
         return queryRunner;
     }
 
