@@ -75,6 +75,19 @@ public class AggregatedOrcPageSource
     }
 
     @Override
+    public long getDecompressedBytes()
+    {
+        // For aggregated page source, there's no decompression - just return completed bytes
+        return completedBytes;
+    }
+
+    @Override
+    public long getDecompressedPositions()
+    {
+        return 0;
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return readTimeNanos;

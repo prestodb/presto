@@ -137,6 +137,21 @@ public class PageFilePageSource
     }
 
     @Override
+    public long getDecompressedBytes()
+    {
+        // PageFile format stores pages in a serialized format.
+        // The completedBytes already represents the decompressed data size
+        // since we're reading from the deserialized pages.
+        return completedBytes;
+    }
+
+    @Override
+    public long getDecompressedPositions()
+    {
+        return completedPositions;
+    }
+
+    @Override
     public void close()
             throws IOException
     {
