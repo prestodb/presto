@@ -4304,7 +4304,7 @@ class StatementAnalyzer
          * aliased expression, so that analysis state recorded for the HAVING clause (types,
          * coercions, ...) is never shared with the SELECT item it was copied from.
          */
-        private static class HavingAliasRewriter
+        private class HavingAliasRewriter
                 extends ExpressionRewriter<Void>
         {
             private final Multimap<QualifiedName, Expression> outputAliases;
