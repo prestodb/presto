@@ -520,6 +520,11 @@ public interface ConnectorMetadata
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 
+    default void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting field types");
+    }
+
     /**
      * Move the specified column to the specified position within the table's column order.
      * <p>

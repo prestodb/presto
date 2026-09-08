@@ -1789,6 +1789,152 @@ public abstract class IcebergDistributedSmokeTestBase
         });
     }
 
+    @Test
+    public void testAlterNestedFieldType()
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_nested_field_type_" + fileFormat.name().toLowerCase(ENGLISH);
+            String schemaName = session.getSchema().get();
+            try {
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                                "id BIGINT, " +
+                                "info ROW(age INTEGER, score REAL, amount DECIMAL(10, 2), name VARCHAR)" +
+                                ") WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                // Insert rows before widening
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                                "(1, ROW(25, REAL '1.5', DECIMAL '100.50', 'alice')), " +
+                                "(2, ROW(30, REAL '2.5', DECIMAL '200.75', 'bob'))",
+                        tableName), 2);
+
+                // Verify initial data
+                assertQuery(session,
+                        format("SELECT info.age FROM %s WHERE id = 1", tableName),
+                        "VALUES 25");
+
+                // Widen info.age: INTEGER → BIGINT
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN info.age SET DATA TYPE BIGINT", tableName));
+
+                // Verify schema reflects the widened type
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("id", "bigint"),
+                                columnDefinition("info", "ROW(\"age\" bigint,\"score\" real,\"amount\" decimal(10,2),\"name\" varchar)")),
+                        null,
+                        null);
+
+                // Old rows still readable after INTEGER → BIGINT widening
+                assertQuery(session,
+                        format("SELECT info.age, typeof(info.age) FROM %s WHERE id = 1", tableName),
+                        "VALUES (CAST(25 AS BIGINT), 'bigint')");
+                assertQuery(session,
+                        format("SELECT info.age FROM %s WHERE id = 2", tableName),
+                        "VALUES CAST(30 AS BIGINT)");
+
+                // Insert new row after widening with a value that fits only in BIGINT
+                assertUpdate(session, format("INSERT INTO %s VALUES (3, ROW(CAST(9999999999 AS BIGINT), REAL '3.5', DECIMAL '300.00', 'carol'))", tableName), 1);
+                assertQuery(session,
+                        format("SELECT info.age FROM %s WHERE id = 3", tableName),
+                        "VALUES CAST(9999999999 AS BIGINT)");
+
+                // Widen info.score: REAL → DOUBLE
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN info.score SET DATA TYPE DOUBLE", tableName));
+
+                // Old rows still readable after REAL → DOUBLE widening
+                assertQuery(session,
+                        format("SELECT info.score, typeof(info.score) FROM %s WHERE id = 1", tableName),
+                        "VALUES (CAST(1.5 AS DOUBLE), 'double')");
+                assertQuery(session,
+                        format("SELECT info.score FROM %s WHERE id = 2", tableName),
+                        "VALUES CAST(2.5 AS DOUBLE)");
+
+                // Widen info.amount: DECIMAL(10,2) → DECIMAL(20,2)
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN info.amount SET DATA TYPE DECIMAL(20, 2)", tableName));
+
+                // Old rows still readable after DECIMAL widening
+                assertQuery(session,
+                        format("SELECT info.amount, typeof(info.amount) FROM %s WHERE id = 1", tableName),
+                        "VALUES (CAST(100.50 AS DECIMAL(20,2)), 'decimal(20,2)')");
+                assertQuery(session,
+                        format("SELECT info.amount FROM %s WHERE id = 2", tableName),
+                        "VALUES CAST(200.75 AS DECIMAL(20,2))");
+
+                // Narrowing (BIGINT → INTEGER) must be rejected by Iceberg
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN info.age SET DATA TYPE INTEGER", tableName),
+                        "Failed to set field type: Cannot change column type.*");
+
+                // Missing nested field must fail with a descriptive error
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN info.nonexistent SET DATA TYPE BIGINT", tableName),
+                        "Failed to set field type: Cannot find nested field nonexistent");
+
+                // Non-struct parent (id is BIGINT, not ROW) must fail
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN id.age SET DATA TYPE BIGINT", tableName),
+                        "Failed to set field type: Cannot find nested field age");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
+    }
+
+    @Test(dataProvider = "batchReadAndParquetVersions")
+    public void testAlterNestedFieldTypeWithBatchRead(boolean batchRead, ParquetProperties.WriterVersion writerVersion)
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "parquet_batch_read_optimization_enabled", String.valueOf(batchRead))
+                .setCatalogSessionProperty("iceberg", "parquet_writer_version", writerVersion.toString())
+                .build();
+        String tableName = "test_alter_nested_batch_"
+                + (batchRead ? "on" : "off") + "_"
+                + writerVersion.name().toLowerCase(ENGLISH);
+        try {
+            assertUpdate(session,
+                    format("CREATE TABLE %s (id INTEGER, info ROW(score REAL)) WITH (format = 'PARQUET')", tableName));
+            assertUpdate(session,
+                    format("INSERT INTO %s VALUES (1, ROW(REAL '1.5')), (2, ROW(NULL)), (3, ROW(REAL '2.5'))", tableName), 3);
+
+            assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN info.score SET DATA TYPE DOUBLE", tableName));
+
+            // Pre-existing rows must return correct double values after widening.
+            // 1.5 and 2.5 are exact binary fractions: (double)(float)1.5f == 1.5d exactly.
+            // With batchRead=true the nested FLOAT column is stored as raw int32 bits (IntArrayBlock);
+            // the rewriteFloatArrayBlockToDouble path must decode them via Float.intBitsToFloat.
+            assertQuery(session,
+                    format("SELECT info.score FROM %s ORDER BY id", tableName),
+                    "VALUES CAST(1.5 AS DOUBLE), CAST(NULL AS DOUBLE), CAST(2.5 AS DOUBLE)");
+
+            // Whole-row read exercises the ROW block coercion path.
+            // H2 cannot parse VALUES ROW(…) — use computeActual for ROW-typed columns.
+            // With batchRead=true, DoubleType.getObjectValue sees a LongArrayBlock (after
+            // rewriteFloatArrayBlockToDouble converts the IntArrayBlock); values are Double.
+            // If the coercion is broken the values come back as Float and the assertion fails.
+            MaterializedResult infoRows = computeActual(session,
+                    format("SELECT info FROM %s ORDER BY id", tableName));
+            assertEquals(infoRows.getRowCount(), 3);
+            assertEquals(infoRows.getMaterializedRows().get(0).getField(0), Arrays.asList(1.5));
+            assertEquals(infoRows.getMaterializedRows().get(1).getField(0), Arrays.asList((Object) null));
+            assertEquals(infoRows.getMaterializedRows().get(2).getField(0), Arrays.asList(2.5));
+
+            // New rows written after widening must also be readable
+            assertUpdate(session, format("INSERT INTO %s VALUES (4, ROW(CAST(4.0 AS DOUBLE)))", tableName), 1);
+            assertQuery(session,
+                    format("SELECT info.score FROM %s WHERE id = 4", tableName),
+                    "VALUES CAST(4.0 AS DOUBLE)");
+        }
+        finally {
+            dropTable(session, tableName);
+        }
+    }
+
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
     {
         test.accept(getSession(), FileFormat.PARQUET);

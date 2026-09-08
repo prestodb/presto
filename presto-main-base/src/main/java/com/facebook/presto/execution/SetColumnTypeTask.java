@@ -25,6 +25,7 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -40,6 +41,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
@@ -82,12 +84,22 @@ public class SetColumnTypeTask
         accessControl.checkCanAlterColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
         TableHandle tableHandleOptional = tableHandle.get();
+        List<String> columnPath = statement.getColumnName().getOriginalParts().stream()
+                .map(Identifier::getValue)
+                .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part))
+                .collect(toImmutableList());
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandleOptional);
-        ColumnHandle column = columnHandles.get(statement.getColumnName().getValue());
+        ColumnHandle column = columnHandles.get(columnPath.get(0));
         if (column == null) {
             throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", statement.getColumnName());
         }
-        metadata.setColumnType(session, tableHandleOptional, column, getColumnType(statement));
+        Type type = getColumnType(statement);
+        if (columnPath.size() == 1) {
+            metadata.setColumnType(session, tableHandleOptional, column, type);
+        }
+        else {
+            metadata.setFieldType(session, tableHandleOptional, column, columnPath.subList(1, columnPath.size()), type);
+        }
 
         return immediateFuture(null);
     }

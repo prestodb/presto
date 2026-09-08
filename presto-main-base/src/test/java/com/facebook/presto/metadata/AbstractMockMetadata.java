@@ -358,6 +358,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setFieldType(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void setColumnPosition(Session session, TableHandle tableHandle, ColumnHandle column, ColumnPosition position)
     {
         throw new UnsupportedOperationException();

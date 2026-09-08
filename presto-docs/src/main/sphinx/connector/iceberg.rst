@@ -1854,6 +1854,10 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE ALTER COLUMN SET DATA TYPE`` (nested struct field)
+     - Yes
+     - Yes
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2271,6 +2275,35 @@ The optional ``IF NOT EXISTS`` clause suppresses the error if the field already 
 The dotted path may refer to arbitrarily nested fields. The following clauses are not supported
 for nested fields and will be rejected: ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
 ``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER``.
+
+ALTER COLUMN SET DATA TYPE (nested struct field)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports widening the type of a nested field by specifying a dotted path
+in ``ALTER COLUMN … SET DATA TYPE``. This is a metadata-only change — no data files are
+rewritten, and previously written data remains readable under the new, wider type.
+
+Only widening conversions are permitted:
+
+* ``INTEGER`` → ``BIGINT``
+* ``REAL`` → ``DOUBLE``
+* ``DECIMAL(p, s)`` → ``DECIMAL(p2, s)`` where ``p2 >= p`` (scale must remain unchanged)
+
+Narrowing conversions (such as ``BIGINT`` → ``INTEGER``) are rejected. The path must point to a
+field inside a struct column; paths into the element type of an array or the key/value types of a
+map are not supported.
+
+Example — Widen ``age`` from ``INTEGER`` to ``BIGINT`` inside the ``info`` struct::
+
+     ALTER TABLE iceberg.web.users ALTER COLUMN info.age SET DATA TYPE BIGINT;
+
+Example — Widen ``score`` from ``REAL`` to ``DOUBLE`` inside the ``info`` struct::
+
+     ALTER TABLE iceberg.web.users ALTER COLUMN info.score SET DATA TYPE DOUBLE;
+
+Example — Widen a decimal column with increased precision::
+
+     ALTER TABLE iceberg.web.orders ALTER COLUMN totals.amount SET DATA TYPE DECIMAL(20, 2);
 
 ALTER VIEW
 ^^^^^^^^^^

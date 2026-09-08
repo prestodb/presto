@@ -280,6 +280,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void setFieldType(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type)
+    {
+        delegate.setFieldType(session, tableHandle, column, fieldPath, type);
+    }
+
+    @Override
     public void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue)
     {
         delegate.setColumnDefault(session, tableHandle, columnName, defaultValue);

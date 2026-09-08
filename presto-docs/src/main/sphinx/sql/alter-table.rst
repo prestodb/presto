@@ -52,6 +52,13 @@ inside the named ``ROW`` column. The optional clauses ``NOT NULL``, ``COMMENT``,
 and will be rejected. Adding a nested field requires ``ALTER COLUMN`` permission on the table,
 not ``ADD COLUMN`` permission.
 
+For ``ALTER COLUMN … SET DATA TYPE`` statements, when ``column_name`` contains a dot
+(e.g. ``info.age``), the type change is applied to the named nested field inside the ``ROW``
+column. Only widening conversions are supported: ``INTEGER`` to ``BIGINT``, ``REAL`` to
+``DOUBLE``, or ``DECIMAL(p,s)`` to ``DECIMAL(p2,s)`` where ``p2 >= p``.
+Narrowing conversions are rejected. The path must refer to a field inside a struct; paths
+into arrays or maps are not supported.
+
 For ``ALTER COLUMN`` statements, the ``FIRST`` and ``AFTER`` clauses move an existing column within the
 table's column order, leaving the data of every column unchanged. Unlike ``ADD COLUMN``, one of the two
 clauses is required, since the statement does nothing else; a column is moved to the end of the table by
@@ -105,6 +112,10 @@ Add column ``zip`` immediately after the ``city`` column of the ``users`` table:
 Add a nested field ``email`` inside the ``address`` struct column of the ``users`` table::
 
     ALTER TABLE users ADD COLUMN address.email varchar;
+
+Widen the type of a nested field ``age`` inside the ``info`` struct column of the ``users`` table::
+
+    ALTER TABLE users ALTER COLUMN info.age SET DATA TYPE BIGINT;
 
 Move the existing ``zip`` column to the front of the ``users`` table::
 
