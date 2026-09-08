@@ -211,7 +211,7 @@ public class KafkaMetadata
     {
         KafkaTableHandle handle = convertTableHandle(table);
         long startTimestamp = 0;
-        long endTimestamp = 0;
+        long endTimestamp = Long.MAX_VALUE;
         Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
         if (domains.isPresent()) {
             Map<ColumnHandle, Domain> columnHandleDomainMap = domains.get();
