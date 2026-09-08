@@ -32,10 +32,15 @@ ShuffleRead::ShuffleRead(
     : Exchange(
           operatorId,
           ctx,
+          // Stand-in node for the Exchange base class. Shuffle read is served
+          // by a ShuffleInterface, not by a worker-to-worker transport, so it
+          // names the in-memory one explicitly rather than inheriting a
+          // default.
           std::make_shared<core::ExchangeNode>(
               shuffleReadNode->id(),
               shuffleReadNode->outputType(),
-              "CompactRow"),
+              "CompactRow",
+              std::string{core::TransportKind::kInMemory}),
           exchangeClient,
           "ShuffleRead") {
   initStats();
