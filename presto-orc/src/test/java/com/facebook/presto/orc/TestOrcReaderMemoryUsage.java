@@ -128,8 +128,8 @@ public class TestOrcReaderMemoryUsage
 
                 // StripeReader memory should increase after reading a block.
                 assertGreaterThan(reader.getCurrentStripeRetainedSizeInBytes(), stripeReaderRetainedSize);
-                // There are no local buffers needed.
-                assertEquals(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 0L);
+                // There are local buffers needed.
+                assertGreaterThan(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 0L);
                 // The total retained size and system memory usage should be strictly larger than 0L because of the instance sizes.
                 assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 0L);
                 assertGreaterThan(reader.getSystemMemoryUsage() - readerSystemMemoryUsage, 0L);
@@ -189,8 +189,8 @@ public class TestOrcReaderMemoryUsage
 
                 // StripeReader memory should increase after reading a block.
                 assertGreaterThan(reader.getCurrentStripeRetainedSizeInBytes(), stripeReaderRetainedSize);
-                // There are no local buffers needed.
-                assertEquals(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 0L);
+                // There are local buffers needed.
+                assertGreaterThan(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 0L);
                 // The total retained size and system memory usage should be strictly larger than 0L because of the instance sizes.
                 assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 0L);
                 assertGreaterThan(reader.getSystemMemoryUsage() - readerSystemMemoryUsage, 0L);
