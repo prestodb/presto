@@ -2022,9 +2022,6 @@ void PrestoServer::registerSidecarEndpoints() {
                 std::shared_ptr<http::CallbackRequestHandlerState>
                     handlerState) {
               auto planFragmentJson = util::extractMessageBody(body);
-              // driverExecutor_ is intentionally passed to QueryCtx inside
-              // prestoToVeloxPlanConversion for Velox-internal parallelism;
-              // the outer CPU work runs on httpSrvCpuExecutor_.
               folly::via(
                   httpSrvCpuExecutor_.get(),
                   [this, planFragmentJson = std::move(planFragmentJson)]() {
