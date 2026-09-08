@@ -44,6 +44,7 @@ public class HiveCommonClientConfig
     private DataSize parquetMaxReadBlockSize = new DataSize(16, MEGABYTE);
     private boolean rangeFiltersOnSubscriptsEnabled;
     private boolean readNullMaskedParquetEncryptedValueEnabled;
+    private boolean readNullForOutOfBoundsTimestamp;
     private boolean useParquetColumnNames;
     private boolean zstdJniDecompressionEnabled;
     private String catalogName;
@@ -273,6 +274,19 @@ public class HiveCommonClientConfig
     public boolean getReadNullMaskedParquetEncryptedValue()
     {
         return this.readNullMaskedParquetEncryptedValueEnabled;
+    }
+
+    @Config("hive.read-null-for-out-of-bounds-timestamp")
+    @ConfigDescription("Read null instead of failing the read when a timestamp value is outside the supported range")
+    public HiveCommonClientConfig setReadNullForOutOfBoundsTimestamp(boolean readNullForOutOfBoundsTimestamp)
+    {
+        this.readNullForOutOfBoundsTimestamp = readNullForOutOfBoundsTimestamp;
+        return this;
+    }
+
+    public boolean getReadNullForOutOfBoundsTimestamp()
+    {
+        return this.readNullForOutOfBoundsTimestamp;
     }
 
     public boolean isUseParquetColumnNames()

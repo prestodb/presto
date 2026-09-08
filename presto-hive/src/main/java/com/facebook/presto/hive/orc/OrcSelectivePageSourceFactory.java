@@ -104,6 +104,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxRead
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isReadNullForOutOfBoundsTimestamp;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseOrcColumnNames;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.isAdaptiveFilterReorderingEnabled;
@@ -294,6 +295,7 @@ public class OrcSelectivePageSourceFactory
                 .withMaxBlockSize(maxReadBlockSize)
                 .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
                 .withAppendRowNumber(appendRowNumberEnabled || supplyRowIDs)
+                .withReadNullForOutOfBoundsTimestamp(isReadNullForOutOfBoundsTimestamp(session))
                 .build();
         OrcAggregatedMemoryContext systemMemoryUsage = new HiveOrcAggregatedMemoryContext();
         try {
