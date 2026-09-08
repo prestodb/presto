@@ -599,7 +599,7 @@ TypePtr fieldNamesToLowerCase<TypeKind::ROW>(const TypePtr& type) {
     folly::toLowerAscii(name);
     names.push_back(std::move(name));
     auto& childType = rowType.childAt(i);
-    types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+    types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
         fieldNamesToLowerCase, childType->kind(), childType));
   }
   return std::make_shared<RowType>(std::move(names), std::move(types));
@@ -610,16 +610,16 @@ TypePtr fieldNamesToLowerCase<TypeKind::MAP>(const TypePtr& type) {
   auto& keyType = type->childAt(0);
   auto& valueType = type->childAt(1);
   return std::make_shared<MapType>(
-      VELOX_DYNAMIC_TYPE_DISPATCH(
+      VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
           fieldNamesToLowerCase, keyType->kind(), keyType),
-      VELOX_DYNAMIC_TYPE_DISPATCH(
+      VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
           fieldNamesToLowerCase, valueType->kind(), valueType));
 }
 
 template <>
 TypePtr fieldNamesToLowerCase<TypeKind::ARRAY>(const TypePtr& type) {
   auto& elementType = type->childAt(0);
-  return std::make_shared<ArrayType>(VELOX_DYNAMIC_TYPE_DISPATCH(
+  return std::make_shared<ArrayType>(VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
       fieldNamesToLowerCase, elementType->kind(), elementType));
 }
 
@@ -634,6 +634,8 @@ template TypePtr fieldNamesToLowerCase<TypeKind::VARCHAR>(const TypePtr&);
 template TypePtr fieldNamesToLowerCase<TypeKind::VARBINARY>(const TypePtr&);
 template TypePtr fieldNamesToLowerCase<TypeKind::TIMESTAMP>(const TypePtr&);
 template TypePtr fieldNamesToLowerCase<TypeKind::HUGEINT>(const TypePtr&);
+template TypePtr fieldNamesToLowerCase<TypeKind::UNKNOWN>(const TypePtr&);
+template TypePtr fieldNamesToLowerCase<TypeKind::OPAQUE>(const TypePtr&);
 
 std::unique_ptr<common::Filter> toFilter(
     const protocol::Domain& domain,
