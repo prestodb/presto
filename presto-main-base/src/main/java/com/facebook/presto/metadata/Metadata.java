@@ -254,6 +254,11 @@ public interface Metadata
      */
     void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
 
+    default void setFieldType(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     /**
      * Drop the specified column.
      */

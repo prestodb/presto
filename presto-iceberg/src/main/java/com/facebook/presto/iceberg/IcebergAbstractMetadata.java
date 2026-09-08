@@ -2879,6 +2879,34 @@ public abstract class IcebergAbstractMetadata
         }
     }
 
+    @Override
+    public void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, List<String> fieldPath, com.facebook.presto.common.type.Type type)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
+
+        Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        try {
+            Schema schema = icebergTable.schema();
+            Types.NestedField field = schema.findField(column.getId());
+            for (String pathElement : fieldPath) {
+                if (!field.type().isStructType()) {
+                    throw new IllegalArgumentException("Cannot find nested field " + pathElement);
+                }
+                field = field.type().asStructType().caseInsensitiveField(pathElement);
+                if (field == null) {
+                    throw new IllegalArgumentException("Cannot find nested field " + pathElement);
+                }
+            }
+            icebergTable.updateSchema()
+                    .updateColumn(schema.findColumnName(field.fieldId()), toIcebergType(type).asPrimitiveType())
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_INCOMPATIBLE_COLUMN_TYPE, "Failed to set field type: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
     protected void openCreateTableTransaction(SchemaTableName tableName, Transaction transaction)
     {
         transactionContext.registerTransaction(tableName, transaction);

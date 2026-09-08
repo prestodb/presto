@@ -510,6 +510,11 @@ public interface ConnectorMetadata
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 
+    default void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting field types");
+    }
+
     /**
      * Describes statistics that must be collected during a write.
      */
