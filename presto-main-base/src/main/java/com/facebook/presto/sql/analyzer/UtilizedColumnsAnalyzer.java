@@ -271,7 +271,9 @@ public class UtilizedColumnsAnalyzer
                 process(querySpec.getGroupBy().get(), unprunableContext);
             }
             if (querySpec.getHaving().isPresent()) {
-                process(querySpec.getHaving().get(), unprunableContext);
+                // use the analyzed predicate, in which references to output aliases have been resolved
+                Expression having = analysis.getHaving(querySpec);
+                process(having != null ? having : querySpec.getHaving().get(), unprunableContext);
             }
             if (querySpec.getOrderBy().isPresent()) {
                 process(querySpec.getOrderBy().get(), context);

@@ -161,6 +161,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -241,12 +242,15 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -348,6 +352,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_MATERIA
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_WINDOW_FUNCTION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NONDETERMINISTIC_ORDER_BY_EXPRESSION_WITH_SELECT_DISTINCT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NON_NUMERIC_SAMPLE_PERCENTAGE;
@@ -3310,7 +3315,10 @@ class StatementAnalyzer
             analysis.setOrderByExpressions(node, orderByExpressions);
 
             List<Expression> sourceExpressions = new ArrayList<>(outputExpressions);
-            node.getHaving().ifPresent(sourceExpressions::add);
+            // use the analyzed HAVING predicate, in which output alias references have been resolved
+            if (node.getHaving().isPresent()) {
+                sourceExpressions.add(analysis.getHaving(node));
+            }
 
             analyzeGroupingOperations(node, sourceExpressions, orderByExpressions);
             List<FunctionCall> aggregates = analyzeAggregations(node, sourceExpressions, orderByExpressions);
@@ -4227,7 +4235,11 @@ class StatementAnalyzer
         private void analyzeHaving(QuerySpecification node, Scope scope)
         {
             if (node.getHaving().isPresent()) {
-                Expression predicate = node.getHaving().get();
+                // References to SELECT output aliases are replaced with a copy of the aliased expression.
+                // Input columns take precedence over output aliases, so this only affects names that
+                // cannot be resolved against the FROM clause.
+                HavingAliasRewriter aliasRewriter = new HavingAliasRewriter(extractNamedOutputExpressions(node.getSelect()), scope);
+                Expression predicate = ExpressionTreeRewriter.rewriteWith(aliasRewriter, node.getHaving().get());
 
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
 
@@ -4236,6 +4248,8 @@ class StatementAnalyzer
                         .ifPresent(function -> {
                             throw new SemanticException(NESTED_WINDOW, function.getNode(), "HAVING clause cannot contain window functions");
                         });
+
+                verifyNoAggregationOverOutputAlias(predicate, aliasRewriter.getSubstitutions());
 
                 analysis.recordSubqueries(node, expressionAnalysis);
 
@@ -4246,6 +4260,134 @@ class StatementAnalyzer
 
                 analysis.setHaving(node, predicate);
                 collectIndirectSources(predicate, TransformationSubtype.FILTER);
+            }
+        }
+
+        /**
+         * Rejects HAVING predicates that apply an aggregate function to an output alias that is itself
+         * an aggregate expression, e.g. {@code SELECT sum(x) AS total ... HAVING sum(total) > 1}.
+         * The nested aggregation would also be caught later by the aggregation analyzer, but the
+         * error message there would refer to the expanded expression rather than the alias.
+         */
+        private void verifyNoAggregationOverOutputAlias(Expression predicate, Map<NodeRef<Expression>, Identifier> substitutions)
+        {
+            if (substitutions.isEmpty()) {
+                return;
+            }
+            List<FunctionCall> aggregates = extractAggregateFunctions(analysis.getFunctionHandles(), ImmutableList.of(predicate), functionAndTypeResolver);
+            for (Map.Entry<NodeRef<Expression>, Identifier> substitution : substitutions.entrySet()) {
+                Expression substituted = substitution.getKey().getNode();
+                if (extractAggregateFunctions(analysis.getFunctionHandles(), ImmutableList.of(substituted), functionAndTypeResolver).isEmpty()) {
+                    continue;
+                }
+                for (FunctionCall aggregate : aggregates) {
+                    if (aggregate != substituted && AstUtils.nodeContains(aggregate, substituted)) {
+                        Identifier reference = substitution.getValue();
+                        throw new SemanticException(
+                                NESTED_AGGREGATION,
+                                reference,
+                                "Cannot nest aggregations inside aggregation '%s': output column '%s' is an aggregate expression",
+                                aggregate.getName(),
+                                reference.getValue());
+                    }
+                }
+            }
+        }
+
+        /**
+         * Resolves references to SELECT output aliases in a HAVING predicate.
+         * <p>
+         * Unlike ORDER BY, where output columns take precedence, HAVING is evaluated against the
+         * FROM scope: a name that resolves to an input column (including correlated outer columns
+         * and lambda arguments) is left untouched, and only otherwise unresolvable names are matched
+         * against the output aliases. Each matched reference is replaced with a fresh copy of the
+         * aliased expression, so that analysis state recorded for the HAVING clause (types,
+         * coercions, ...) is never shared with the SELECT item it was copied from.
+         */
+        private static class HavingAliasRewriter
+                extends ExpressionRewriter<Void>
+        {
+            private final Multimap<QualifiedName, Expression> outputAliases;
+            private final Scope scope;
+            private final Deque<Set<QualifiedName>> lambdaArguments = new ArrayDeque<>();
+            // copied expression -> alias reference it replaced
+            private final Map<NodeRef<Expression>, Identifier> substitutions = new LinkedHashMap<>();
+
+            public HavingAliasRewriter(Multimap<QualifiedName, Expression> outputAliases, Scope scope)
+            {
+                this.outputAliases = requireNonNull(outputAliases, "outputAliases is null");
+                this.scope = requireNonNull(scope, "scope is null");
+            }
+
+            public Map<NodeRef<Expression>, Identifier> getSubstitutions()
+            {
+                return ImmutableMap.copyOf(substitutions);
+            }
+
+            @Override
+            public Expression rewriteIdentifier(Identifier reference, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                QualifiedName name = QualifiedName.of(reference.getValue());
+
+                if (lambdaArguments.stream().anyMatch(arguments -> arguments.contains(name))) {
+                    return reference;
+                }
+                // input columns (including outer query columns) take precedence over output aliases
+                if (scope.tryResolveField(reference, name).isPresent()) {
+                    return reference;
+                }
+
+                Set<Expression> candidates = ImmutableSet.copyOf(outputAliases.get(name));
+                if (candidates.size() > 1) {
+                    throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in HAVING is ambiguous", name);
+                }
+                if (candidates.isEmpty()) {
+                    // not an alias either; expression analysis will report the missing attribute
+                    return reference;
+                }
+
+                Expression target = candidates.stream().collect(onlyElement());
+                if (!extractWindowFunctions(ImmutableList.of(target)).isEmpty()) {
+                    throw new SemanticException(NESTED_WINDOW, reference, "HAVING clause cannot contain window functions");
+                }
+
+                Expression copy;
+                try {
+                    copy = ExpressionTreeCopier.copy(target);
+                }
+                catch (UnsupportedOperationException e) {
+                    throw new SemanticException(NOT_SUPPORTED, reference, "Reference to output column '%s' in HAVING clause is not supported: %s", name, e.getMessage());
+                }
+                substitutions.put(NodeRef.of(copy), reference);
+                return copy;
+            }
+
+            @Override
+            public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                // a qualified column reference (e.g. t.x) must not have its base rewritten as an alias
+                if (scope.tryResolveField(node).isPresent()) {
+                    return node;
+                }
+                return null;
+            }
+
+            @Override
+            public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                lambdaArguments.push(node.getArguments().stream()
+                        .map(argument -> QualifiedName.of(argument.getName().getValue()))
+                        .collect(toImmutableSet()));
+                try {
+                    Expression body = treeRewriter.rewrite(node.getBody(), context);
+                    if (body == node.getBody()) {
+                        return node;
+                    }
+                    return new LambdaExpression(node.getLocation(), node.getArguments(), body);
+                }
+                finally {
+                    lambdaArguments.pop();
+                }
             }
         }
 
