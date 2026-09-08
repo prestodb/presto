@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Properties;
 
 public interface KafkaConsumerManager
 {
-    default KafkaConsumer<ByteBuffer, ByteBuffer> createConsumer(String threadName, HostAddress hostAddress)
+    default KafkaConsumer<ByteBuffer, ByteBuffer> createConsumer(String threadName, List<String> hostAddresses)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(KafkaPlugin.class.getClassLoader())) {
-            return new KafkaConsumer<>(configure(threadName, hostAddress));
+            return new KafkaConsumer<>(configure(threadName, hostAddresses));
         }
     }
 
-    Properties configure(String threadName, HostAddress hostAddress);
+    Properties configure(String threadName, List<String> hostAddresses);
 }

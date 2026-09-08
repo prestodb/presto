@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.kafka.server.KafkaClusterMetadataHelper;
 import com.facebook.presto.kafka.server.KafkaClusterMetadataSupplier;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -30,7 +29,6 @@ import com.google.common.io.CharStreams;
 import jakarta.inject.Inject;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
-import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 
@@ -44,6 +42,7 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_CONSUMER_ERROR;
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
@@ -89,48 +88,50 @@ public class KafkaSplitManager
         try {
             String topic = kafkaTableHandle.getTopicName();
             KafkaTableLayoutHandle layoutHandle = (KafkaTableLayoutHandle) layout;
-            HostAddress node = KafkaClusterMetadataHelper.selectRandom(clusterMetadataSupplier.getNodes(layoutHandle.getTable().getSchemaName()));
+            List<String> nodes = clusterMetadataSupplier.getNodes(layoutHandle.getTable().getSchemaName()).stream().map(HostAddress::toString).collect(Collectors.toList());
 
-            KafkaConsumer<ByteBuffer, ByteBuffer> consumer = consumerManager.createConsumer(Thread.currentThread().getName(), node);
-            List<PartitionInfo> partitions = consumer.partitionsFor(topic);
             ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+            try (KafkaConsumer<ByteBuffer, ByteBuffer> consumer = consumerManager.createConsumer(Thread.currentThread().getName(), nodes)) {
+                List<PartitionInfo> partitions = consumer.partitionsFor(topic);
+                for (PartitionInfo partition : partitions) {
+                    long startTimestamp = layoutHandle.getStartOffsetTimestamp();
+                    long endTimestamp = layoutHandle.getEndOffsetTimestamp();
 
-            for (PartitionInfo partition : partitions) {
-                Node leader = partition.leader();
-                if (leader == null) {
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Leader election in progress for Kafka topic '%s' partition %s", topic, partition.partition()));
+                    TopicPartition topicPartition = new TopicPartition(partition.topic(), partition.partition());
+                    consumer.assign(ImmutableList.of(topicPartition));
+
+                    long beginningOffset = (startTimestamp == 0) ?
+                            consumer.beginningOffsets(ImmutableList.of(topicPartition)).values().iterator().next() :
+                            findOffsetsByTimestamp(consumer, topicPartition, startTimestamp);
+                    long endOffset = (endTimestamp == Long.MAX_VALUE) ?
+                            consumer.endOffsets(ImmutableList.of(topicPartition)).values().iterator().next() :
+                            findOffsetsByTimestamp(consumer, topicPartition, endTimestamp);
+
+                /*
+                This condition is needed to ensure rows are returned in below scenarios -
+                1. When a query uses where clause with upper cap on _timestamp column {@code (where _timestamp < some_value)} such that the value supplied is greater than the recorded timestamp of last record in the topic partition.
+                findOffsetsByTimestamp() returns 0 for such cases and hence we need to take the end offset so that KafkaRecordCursor is able to iterate over existing records.
+                2. Consider a corner case where a topic partition has 5 records with timestamps 12, 15, 17, 19 and 21. A query is run using clause "where _timestamp > 17 and _timestamp < 23".
+                findOffsetsByTimestamp() returns beginningOffset corresponding to the record with timestamp 19, but the endOffset is returned as 0. The {@link KafkaRecordCursor#cursorOffset cursorOffset}
+                is set to beginningOffset, and it sees that we already reached endOfData() before processing anything since endOffset is 0.
+                 */
+                    if (endOffset == 0) {
+                        endOffset = consumer.endOffsets(ImmutableList.of(topicPartition)).values().iterator().next();
+                    }
+
+                    KafkaSplit split = new KafkaSplit(
+                            connectorId,
+                            topic,
+                            kafkaTableHandle.getKeyDataFormat(),
+                            kafkaTableHandle.getMessageDataFormat(),
+                            kafkaTableHandle.getKeyDataSchemaLocation().map(KafkaSplitManager::readSchema),
+                            kafkaTableHandle.getMessageDataSchemaLocation().map(KafkaSplitManager::readSchema),
+                            partition.partition(),
+                            beginningOffset,
+                            endOffset,
+                            nodes);
+                    splits.add(split);
                 }
-
-                HostAddress partitionLeader = HostAddress.fromParts(leader.host(), leader.port());
-                long startTimestamp = layoutHandle.getStartOffsetTimestamp();
-                long endTimestamp = layoutHandle.getEndOffsetTimestamp();
-
-                if (startTimestamp > endTimestamp) {
-                    throw new IllegalArgumentException(String.format("Invalid Kafka Offset start/end pair: %s - %s", startTimestamp, endTimestamp));
-                }
-
-                TopicPartition topicPartition = new TopicPartition(partition.topic(), partition.partition());
-                consumer.assign(ImmutableList.of(topicPartition));
-
-                long beginningOffset = (startTimestamp == 0) ?
-                        consumer.beginningOffsets(ImmutableList.of(topicPartition)).values().iterator().next() :
-                        findOffsetsByTimestamp(consumer, topicPartition, startTimestamp);
-                long endOffset = (endTimestamp == 0) ?
-                        consumer.endOffsets(ImmutableList.of(topicPartition)).values().iterator().next() :
-                        findOffsetsByTimestamp(consumer, topicPartition, endTimestamp);
-
-                KafkaSplit split = new KafkaSplit(
-                        connectorId,
-                        topic,
-                        kafkaTableHandle.getKeyDataFormat(),
-                        kafkaTableHandle.getMessageDataFormat(),
-                        kafkaTableHandle.getKeyDataSchemaLocation().map(KafkaSplitManager::readSchema),
-                        kafkaTableHandle.getMessageDataSchemaLocation().map(KafkaSplitManager::readSchema),
-                        partition.partition(),
-                        beginningOffset,
-                        endOffset,
-                        partitionLeader);
-                splits.add(split);
             }
 
             return new FixedSplitSource(splits.build());
@@ -151,6 +152,9 @@ public class KafkaSplitManager
                 return 0;
             }
             OffsetAndTimestamp offsetAndTimestamp = topicPartitionOffsets.values().iterator().next();
+            if (offsetAndTimestamp == null) {
+                return 0;
+            }
             return offsetAndTimestamp.offset();
         }
         catch (IllegalArgumentException e) {
