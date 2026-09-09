@@ -22,8 +22,10 @@ struct DeltaColumnHandle : public ColumnHandle {
   std::shared_ptr<std::string> physicalName = {};
   std::string name = {};
   std::string dataType = {};
+  std::shared_ptr<std::string> physicalType = {};
   ColumnType columnType = {};
   std::shared_ptr<Subfield> subfield = {};
+  List<String> sourceSubfieldPath = {};
 
   DeltaColumnHandle() noexcept;
 

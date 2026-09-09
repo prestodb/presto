@@ -41,6 +41,15 @@ void to_json(json& j, const DeltaColumnHandle& p) {
       "DeltaColumnHandle",
       "std::string",
       "dataType");
+  if (p.physicalType) {
+    to_json_key(
+        j,
+        "physicalType",
+        *p.physicalType,
+        "DeltaColumnHandle",
+        "std::string",
+        "physicalType");
+  }
   to_json_key(
       j,
       "columnType",
@@ -50,6 +59,15 @@ void to_json(json& j, const DeltaColumnHandle& p) {
       "columnType");
   to_json_key(
       j, "subfield", p.subfield, "DeltaColumnHandle", "Subfield", "subfield");
+  if (!p.sourceSubfieldPath.empty()) {
+    to_json_key(
+        j,
+        "sourceSubfieldPath",
+        p.sourceSubfieldPath,
+        "DeltaColumnHandle",
+        "List<String>",
+        "sourceSubfieldPath");
+  }
 }
 
 void from_json(const json& j, DeltaColumnHandle& p) {
@@ -71,6 +89,16 @@ void from_json(const json& j, DeltaColumnHandle& p) {
       "DeltaColumnHandle",
       "std::string",
       "dataType");
+  if (j.contains("physicalType")) {
+    p.physicalType = std::make_shared<std::string>();
+    from_json_key(
+        j,
+        "physicalType",
+        *p.physicalType,
+        "DeltaColumnHandle",
+        "std::string",
+        "physicalType");
+  }
   from_json_key(
       j,
       "columnType",
@@ -80,6 +108,15 @@ void from_json(const json& j, DeltaColumnHandle& p) {
       "columnType");
   from_json_key(
       j, "subfield", p.subfield, "DeltaColumnHandle", "Subfield", "subfield");
+  if (j.contains("sourceSubfieldPath")) {
+    from_json_key(
+        j,
+        "sourceSubfieldPath",
+        p.sourceSubfieldPath,
+        "DeltaColumnHandle",
+        "List<String>",
+        "sourceSubfieldPath");
+  }
 }
 
 } // namespace facebook::presto::protocol::delta

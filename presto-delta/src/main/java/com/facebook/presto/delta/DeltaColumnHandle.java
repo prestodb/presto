@@ -19,7 +19,9 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -36,8 +38,10 @@ public final class DeltaColumnHandle
     private final String physicalName;
     private final String logicalName;
     private final TypeSignature dataType;
+    private final TypeSignature physicalType;
     private final ColumnType columnType;
     private final Optional<Subfield> subfield;
+    private final List<String> sourceSubfieldPath;
 
     public enum ColumnType
     {
@@ -52,15 +56,30 @@ public final class DeltaColumnHandle
             @JsonProperty("physicalName") String physicalName,
             @JsonProperty("columnName") String logicalName,
             @JsonProperty("dataType") TypeSignature dataType,
+            @JsonProperty("physicalType") TypeSignature physicalType,
             @JsonProperty("columnType") ColumnType columnType,
-            @JsonProperty("subfield") Optional<Subfield> subfield)
+            @JsonProperty("subfield") Optional<Subfield> subfield,
+            @JsonProperty("sourceSubfieldPath") List<String> sourceSubfieldPath)
     {
         this.id = id;
         this.physicalName = physicalName;
         this.logicalName = requireNonNull(logicalName, "logicalName is null");
         this.dataType = requireNonNull(dataType, "dataType is null");
+        this.physicalType = physicalType == null ? dataType : physicalType;
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.subfield = requireNonNull(subfield, "subfield is null");
+        this.sourceSubfieldPath = sourceSubfieldPath == null ? ImmutableList.of() : ImmutableList.copyOf(sourceSubfieldPath);
+    }
+
+    public DeltaColumnHandle(
+            Long id,
+            String physicalName,
+            String logicalName,
+            TypeSignature dataType,
+            ColumnType columnType,
+            Optional<Subfield> subfield)
+    {
+        this(id, physicalName, logicalName, dataType, dataType, columnType, subfield, ImmutableList.of());
     }
 
     @JsonProperty
@@ -98,6 +117,12 @@ public final class DeltaColumnHandle
     }
 
     @JsonProperty
+    public TypeSignature getPhysicalType()
+    {
+        return physicalType;
+    }
+
+    @JsonProperty
     public ColumnType getColumnType()
     {
         return columnType;
@@ -109,6 +134,12 @@ public final class DeltaColumnHandle
         return subfield;
     }
 
+    @JsonProperty
+    public List<String> getSourceSubfieldPath()
+    {
+        return sourceSubfieldPath;
+    }
+
     @Override
     public String toString()
     {
@@ -117,10 +148,14 @@ public final class DeltaColumnHandle
                 .add("physicalName", this.physicalName)
                 .add("logicalName", this.logicalName)
                 .add("dataType", dataType)
+                .add("physicalType", physicalType)
                 .add("columnType", columnType);
 
         if (subfield.isPresent()) {
             stringHelper = stringHelper.add("subfield", subfield.get());
+        }
+        if (!sourceSubfieldPath.isEmpty()) {
+            stringHelper = stringHelper.add("sourceSubfieldPath", sourceSubfieldPath);
         }
 
         return stringHelper.toString();
@@ -142,14 +177,16 @@ public final class DeltaColumnHandle
                 Objects.equals(this.physicalName, that.physicalName) &&
                 this.logicalName.equals(that.logicalName) &&
                 dataType.equals(that.dataType) &&
+                physicalType.equals(that.physicalType) &&
                 columnType == that.columnType &&
-                subfield.equals(that.subfield);
+                subfield.equals(that.subfield) &&
+                sourceSubfieldPath.equals(that.sourceSubfieldPath);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(this.id, this.physicalName, this.logicalName, dataType, columnType, subfield);
+        return Objects.hash(this.id, this.physicalName, this.logicalName, dataType, physicalType, columnType, subfield, sourceSubfieldPath);
     }
 
     /**

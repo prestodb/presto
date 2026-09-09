@@ -37,7 +37,6 @@ public class TestPrestoNativeDeltaIntegration
         logging.setLevel("io.delta.kernel", Level.ERROR);
     }
 
-    // failing on oss-delta-lake
     @Override
     @Test
     public void readEmptyStringPartitionValue()

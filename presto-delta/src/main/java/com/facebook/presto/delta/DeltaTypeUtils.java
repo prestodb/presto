@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.DateTimeEncoding;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.JsonType;
@@ -106,6 +107,24 @@ public class DeltaTypeUtils
      */
     public static TypeSignature convertDeltaDataTypePrestoDataType(SchemaTableName tableName, String columnName, DataType deltaType)
     {
+        return convertDeltaDataTypePrestoDataType(tableName, columnName, deltaType, false);
+    }
+
+    /**
+     * Converts a Delta type to the type stored in Parquet. For column-mapped
+     * tables, ROW fields use the physical names recorded in field metadata.
+     */
+    public static TypeSignature convertDeltaDataTypePrestoPhysicalType(SchemaTableName tableName, String columnName, DataType deltaType)
+    {
+        return convertDeltaDataTypePrestoDataType(tableName, columnName, deltaType, true);
+    }
+
+    private static TypeSignature convertDeltaDataTypePrestoDataType(
+            SchemaTableName tableName,
+            String columnName,
+            DataType deltaType,
+            boolean usePhysicalNames)
+    {
         checkArgument(deltaType != null);
 
         if (deltaType instanceof StructType) {
@@ -113,30 +132,73 @@ public class DeltaTypeUtils
             ImmutableList.Builder<TypeSignatureParameter> typeSignatureBuilder = ImmutableList.builder();
             deltaStructType.fields()
                     .forEach(field -> {
-                        String rowFieldName = field.getName().toLowerCase(Locale.US);
+                        String physicalName = usePhysicalNames ? DeltaColumnMetadataUtil.getPhysicalNameFromMetadata(field.getMetadata()) : null;
+                        String rowFieldName = physicalName == null ? field.getName().toLowerCase(Locale.US) : physicalName;
                         TypeSignature rowFieldType = convertDeltaDataTypePrestoDataType(
                                 tableName,
                                 columnName + "." + field.getName(),
-                                field.getDataType());
+                                field.getDataType(),
+                                usePhysicalNames);
                         typeSignatureBuilder.add(TypeSignatureParameter.of(new NamedTypeSignature(
-                                Optional.of(new RowFieldName(rowFieldName, false)),
+                                Optional.of(new RowFieldName(rowFieldName, physicalName != null)),
                                 rowFieldType)));
                     });
             return new TypeSignature(StandardTypes.ROW, typeSignatureBuilder.build());
         }
         else if (deltaType instanceof ArrayType) {
             ArrayType deltaArrayType = (ArrayType) deltaType;
-            TypeSignature elementType = convertDeltaDataTypePrestoDataType(tableName, columnName, deltaArrayType.getElementType());
+            TypeSignature elementType = convertDeltaDataTypePrestoDataType(tableName, columnName, deltaArrayType.getElementType(), usePhysicalNames);
             return new TypeSignature(ARRAY, List.of(TypeSignatureParameter.of(elementType)));
         }
         else if (deltaType instanceof MapType) {
             MapType deltaMapType = (MapType) deltaType;
-            TypeSignature keyType = convertDeltaDataTypePrestoDataType(tableName, columnName, deltaMapType.getKeyType());
-            TypeSignature valueType = convertDeltaDataTypePrestoDataType(tableName, columnName, deltaMapType.getValueType());
+            TypeSignature keyType = convertDeltaDataTypePrestoDataType(tableName, columnName, deltaMapType.getKeyType(), usePhysicalNames);
+            TypeSignature valueType = convertDeltaDataTypePrestoDataType(tableName, columnName, deltaMapType.getValueType(), usePhysicalNames);
             return new TypeSignature(MAP,
                     List.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
         }
         return convertDeltaPrimitiveTypeToPrestoPrimitiveType(tableName, columnName, deltaType).getTypeSignature();
+    }
+
+    /**
+     * Maps a logical ROW dereference to the corresponding physical field names.
+     * Delta column mapping preserves field order and changes names only.
+     */
+    public static List<String> toPhysicalSubfieldPath(
+            DeltaColumnHandle column,
+            Subfield subfield)
+    {
+        checkArgument(subfield.getRootName().equals(column.getLogicalName()), "subfield root does not match column name");
+
+        ImmutableList.Builder<String> path = ImmutableList.builder();
+        path.add(column.getSourceName());
+        TypeSignature logicalType = column.getDataType();
+        TypeSignature physicalType = column.getPhysicalType();
+
+        for (Subfield.PathElement element : subfield.getPath()) {
+            checkArgument(element instanceof Subfield.NestedField, "only ROW dereferences can be pushed down");
+            checkArgument(logicalType.getBase().equals(StandardTypes.ROW), "dereference base is not a ROW");
+            checkArgument(physicalType.getBase().equals(StandardTypes.ROW), "physical dereference base is not a ROW");
+            checkArgument(logicalType.getParameters().size() == physicalType.getParameters().size(), "logical and physical ROW types do not match");
+
+            String fieldName = ((Subfield.NestedField) element).getName();
+            int fieldIndex = -1;
+            for (int index = 0; index < logicalType.getParameters().size(); index++) {
+                NamedTypeSignature logicalField = logicalType.getParameters().get(index).getNamedTypeSignature();
+                if (logicalField.getName().orElseThrow().equals(fieldName)) {
+                    fieldIndex = index;
+                    break;
+                }
+            }
+            checkArgument(fieldIndex >= 0, "subfield is not present in logical ROW type");
+
+            NamedTypeSignature logicalField = logicalType.getParameters().get(fieldIndex).getNamedTypeSignature();
+            NamedTypeSignature physicalField = physicalType.getParameters().get(fieldIndex).getNamedTypeSignature();
+            path.add(physicalField.getName().orElseThrow());
+            logicalType = logicalField.getTypeSignature();
+            physicalType = physicalField.getTypeSignature();
+        }
+        return path.build();
     }
 
     public static Object convertPartitionValue(
