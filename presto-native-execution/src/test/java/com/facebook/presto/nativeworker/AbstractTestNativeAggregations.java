@@ -26,6 +26,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNati
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersHll;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersTdigest;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static org.testng.Assert.assertEquals;
 
@@ -39,6 +40,7 @@ public abstract class AbstractTestNativeAggregations
         createLineitem(queryRunner);
         createOrders(queryRunner);
         createOrdersHll(queryRunner);
+        createOrdersTDigest(queryRunner);
         createOrdersEx(queryRunner);
         createNation(queryRunner);
         createRegion(queryRunner);
@@ -184,6 +186,10 @@ public abstract class AbstractTestNativeAggregations
         // Verify that Velox can read HLL binaries written by Java Presto.
         assertQuery(getSession(exchangeEncoding), "SELECT cardinality(cast(hll as hyperloglog)) FROM orders_hll");
         assertQuery(getSession(exchangeEncoding), "SELECT cardinality(merge(cast(hll as hyperloglog))) FROM orders_hll");
+
+        // Verify that Velox can read TDigest binaries written by Java Presto.
+        assertQuery(getSession(exchangeEncoding), "SELECT cast(tdigest_col as tdigest(double)) FROM orders_tdigest");
+        assertQuery(getSession(exchangeEncoding), "SELECT merge(cast(tdigest_col as tdigest)) FROM orders_tdigest");
     }
 
     @Test(dataProvider = "exchangeEncodingProvider")
