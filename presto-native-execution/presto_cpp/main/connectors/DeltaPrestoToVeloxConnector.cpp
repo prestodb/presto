@@ -39,11 +39,13 @@ const std::string& sourceName(
 std::unique_ptr<velox::connector::hive::HiveColumnHandle> makeHiveColumnHandle(
     const std::string& name,
     bool isPartitionKey,
-    const velox::TypePtr& type,
-    std::vector<velox::common::Subfield> requiredSubfields = {}) {
+    const velox::TypePtr& dataType,
+    const velox::TypePtr& physicalType,
+    std::vector<velox::common::Subfield> requiredSubfields = {},
+    std::vector<velox::connector::hive::NamedExtraction> extractions = {}) {
   velox::connector::hive::HiveColumnHandle::ColumnParseParameters
       columnParseParameters;
-  if (type->isDate()) {
+  if (dataType->isDate()) {
     // Delta Lake stores date partition values in ISO8601 format (YYYY-MM-DD).
     columnParseParameters.partitionDateValueFormat = velox::connector::hive::
         HiveColumnHandle::ColumnParseParameters::kISO8601;
@@ -54,9 +56,10 @@ std::unique_ptr<velox::connector::hive::HiveColumnHandle> makeHiveColumnHandle(
       isPartitionKey
           ? velox::connector::hive::HiveColumnHandle::ColumnType::kPartitionKey
           : velox::connector::hive::HiveColumnHandle::ColumnType::kRegular,
-      type,
-      type,
+      dataType,
+      physicalType,
       std::move(requiredSubfields),
+      std::move(extractions),
       columnParseParameters);
 }
 
@@ -101,9 +104,10 @@ velox::common::SubfieldFilters toSubfieldFilters(
     if (!canFilterOnFileValues(stringToType(column.dataType, typeParser))) {
       continue;
     }
-    subfieldFilters[velox::common::Subfield(
-        sourceName(column.physicalName, column.name))] =
-        toFilter(domain, exprConverter, typeParser);
+    auto subfield = velox::common::Subfield::create(
+        sourceName(column.physicalName, column.name));
+    subfieldFilters.emplace(
+        std::move(*subfield), toFilter(domain, exprConverter, typeParser));
   }
   return subfieldFilters;
 }
@@ -124,10 +128,9 @@ DeltaPrestoToVeloxConnector::toVeloxSplit(
   // For Delta Lake, partition values should be in ISO8601 format for dates
   std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
   for (const auto& entry : deltaSplit->partitionValues) {
-    partitionKeys.emplace(
-        entry.first,
-        entry.second.empty() ? std::nullopt
-                             : std::optional<std::string>{entry.second});
+    // DeltaSplit omits null partition values. A present empty string is a
+    // distinct, non-null partition value and must be preserved.
+    partitionKeys.emplace(entry.first, entry.second);
   }
 
   // Add Delta-specific metadata to custom split info
@@ -203,18 +206,44 @@ DeltaPrestoToVeloxConnector::toVeloxColumnHandle(
   VELOX_CHECK_NOT_NULL(
       deltaColumn, "Unexpected column handle type {}", column->_type);
 
-  auto type = stringToType(deltaColumn->dataType, typeParser);
+  auto dataType = stringToType(deltaColumn->dataType, typeParser);
+  auto physicalType = deltaColumn->physicalType
+      ? stringToType(*deltaColumn->physicalType, typeParser)
+      : dataType;
 
   std::vector<velox::common::Subfield> requiredSubfields;
-  if (deltaColumn->subfield) {
+  std::vector<velox::connector::hive::NamedExtraction> extractions;
+  const auto& sourceColumnName = deltaColumn->sourceSubfieldPath.empty()
+      ? sourceName(deltaColumn->physicalName, deltaColumn->name)
+      : deltaColumn->sourceSubfieldPath.front();
+  if (!deltaColumn->sourceSubfieldPath.empty()) {
+    std::vector<velox::connector::hive::ExtractionPathElementPtr> path;
+    path.reserve(deltaColumn->sourceSubfieldPath.size() - 1);
+    for (auto it = deltaColumn->sourceSubfieldPath.begin() + 1;
+         it != deltaColumn->sourceSubfieldPath.end();
+         ++it) {
+      path.push_back(
+          velox::connector::hive::ExtractionPathElement::structField(*it));
+    }
+    extractions.push_back({deltaColumn->name, std::move(path), dataType});
+  } else if (deltaColumn->subfield) {
     requiredSubfields.emplace_back(*deltaColumn->subfield);
+  } else if (*dataType != *physicalType) {
+    // An empty extraction is a zero-copy pass-through. It makes FileDataSource
+    // build the scan from the physical nested names while retaining the
+    // logical output type.
+    extractions.push_back({deltaColumn->name, {}, dataType});
   }
 
+  const bool isPartition =
+      deltaColumn->columnType == protocol::delta::ColumnType::PARTITION;
   return makeHiveColumnHandle(
-      sourceName(deltaColumn->physicalName, deltaColumn->name),
-      deltaColumn->columnType == protocol::delta::ColumnType::PARTITION,
-      type,
-      std::move(requiredSubfields));
+      isPartition ? deltaColumn->name : sourceColumnName,
+      isPartition,
+      dataType,
+      physicalType,
+      std::move(requiredSubfields),
+      std::move(extractions));
 }
 
 std::unique_ptr<velox::connector::ConnectorTableHandle>
@@ -239,10 +268,17 @@ DeltaPrestoToVeloxConnector::toVeloxTableHandle(
   // Build column handles from Delta table columns
   std::vector<velox::connector::hive::HiveColumnHandlePtr> columnHandles;
   for (const auto& deltaColumn : deltaTableHandle->deltaTable.columns) {
+    auto dataType = stringToType(deltaColumn.type, typeParser);
+    auto physicalType = deltaColumn.physicalType
+        ? stringToType(*deltaColumn.physicalType, typeParser)
+        : dataType;
     columnHandles.emplace_back(makeHiveColumnHandle(
-        sourceName(deltaColumn.physicalName, deltaColumn.logicalName),
+        deltaColumn.partition
+            ? deltaColumn.logicalName
+            : sourceName(deltaColumn.physicalName, deltaColumn.logicalName),
         deltaColumn.partition,
-        stringToType(deltaColumn.type, typeParser)));
+        dataType,
+        physicalType));
   }
 
   // Build dataColumns from columnHandles, excluding partition columns.
@@ -271,11 +307,9 @@ DeltaPrestoToVeloxConnector::toVeloxTableHandle(
       names.emplace_back(columnHandle->name());
       auto type = columnHandle->hiveType() ? columnHandle->hiveType()
                                            : columnHandle->dataType();
-      // The type from the metastore may have upper case letters
-      // in field names, convert them all to lower case to be
-      // compatible with Presto.
-      types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
-          fieldNamesToLowerCase, type->kind(), type));
+      // The coordinator already normalizes logical field names. Physical
+      // names must be preserved byte-for-byte to match Parquet.
+      types.push_back(type);
     }
 
     if (!names.empty()) {
