@@ -9,6 +9,7 @@ on:
     paths:
       - presto-native-execution/**
       - presto-native-sidecar-plugin/**
+      - presto-openlineage-event-listener/**
       - .github/workflows/prestocpp-linux-container-tests.yml
 
 env:
