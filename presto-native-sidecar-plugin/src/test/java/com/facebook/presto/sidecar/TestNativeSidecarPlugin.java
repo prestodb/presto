@@ -33,7 +33,6 @@ import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceMana
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.sidecar.nativechecker.NativePlanChecker;
 import com.facebook.presto.sidecar.nativechecker.NativePlanCheckerProvider;
-import com.facebook.presto.sidecar.SidecarRetryConfig;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProvider;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;

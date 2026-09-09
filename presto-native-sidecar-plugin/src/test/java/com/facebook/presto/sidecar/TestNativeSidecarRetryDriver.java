@@ -21,6 +21,11 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.io.UncheckedIOException;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -88,14 +93,14 @@ public class TestNativeSidecarRetryDriver
     @Test
     public void testTransientErrorRetriedAndEventuallySucceeds()
     {
-        // Fail twice with a RuntimeException, then succeed on the third attempt.
+        // Fail twice with IOException, then succeed on the third attempt.
         AtomicInteger attempts = new AtomicInteger();
         Backoff backoff = backoffAllowingTransients(3);
 
         String result = SidecarRetryDriver.executeWithRetry(
                 () -> {
                     if (attempts.incrementAndGet() < 3) {
-                        throw new RuntimeException("transient failure " + attempts.get());
+                        throw new IOException("transient failure " + attempts.get());
                     }
                     return "recovered";
                 },
@@ -105,6 +110,76 @@ public class TestNativeSidecarRetryDriver
 
         assertEquals(result, "recovered");
         assertEquals(attempts.get(), 3);
+    }
+
+    @Test
+    public void testTransportExceptionsRetried()
+    {
+        // Test SocketTimeoutException and ConnectException wrapped in UncheckedIOException
+        AtomicInteger attempts = new AtomicInteger();
+        Backoff backoff = backoffAllowingTransients(3);
+
+        String result = SidecarRetryDriver.executeWithRetry(
+                () -> {
+                    int count = attempts.incrementAndGet();
+                    if (count == 1) {
+                        throw new SocketTimeoutException("timeout");
+                    }
+                    if (count == 2) {
+                        throw new UncheckedIOException(new ConnectException("connection refused"));
+                    }
+                    return "recovered";
+                },
+                backoff,
+                "test",
+                new PrestoException(GENERIC_INTERNAL_ERROR, "exhausted"));
+
+        assertEquals(result, "recovered");
+        assertEquals(attempts.get(), 3);
+    }
+
+    @Test
+    public void testNonRetryableRuntimeExceptionNotRetried()
+    {
+        AtomicInteger attempts = new AtomicInteger();
+        PrestoException wrapper = new PrestoException(GENERIC_INTERNAL_ERROR, "wrapper");
+
+        PrestoException thrown = expectThrows(PrestoException.class, () ->
+                SidecarRetryDriver.executeWithRetry(
+                        () -> {
+                            attempts.incrementAndGet();
+                            throw new IllegalArgumentException("malformed json response");
+                        },
+                        instantFailingBackoff(),
+                        "test",
+                        wrapper));
+
+        assertSame(thrown, wrapper);
+        assertEquals(attempts.get(), 1, "Deterministic runtime exceptions must not be retried");
+        assertEquals(thrown.getSuppressed().length, 1);
+        assertTrue(thrown.getSuppressed()[0] instanceof IllegalArgumentException);
+    }
+
+    @Test
+    public void testInterruptedIOExceptionNotRetried()
+    {
+        AtomicInteger attempts = new AtomicInteger();
+        PrestoException wrapper = new PrestoException(GENERIC_INTERNAL_ERROR, "wrapper");
+
+        PrestoException thrown = expectThrows(PrestoException.class, () ->
+                SidecarRetryDriver.executeWithRetry(
+                        () -> {
+                            attempts.incrementAndGet();
+                            throw new InterruptedIOException("thread interrupted");
+                        },
+                        instantFailingBackoff(),
+                        "test",
+                        wrapper));
+
+        assertSame(thrown, wrapper);
+        assertEquals(attempts.get(), 1, "InterruptedIOException must not be retried");
+        assertEquals(thrown.getSuppressed().length, 1);
+        assertTrue(thrown.getSuppressed()[0] instanceof InterruptedIOException);
     }
 
     @Test
@@ -152,7 +227,7 @@ public class TestNativeSidecarRetryDriver
     @Test
     public void testPermanentFailureAccumulatesSuppressedExceptions()
     {
-        // Fail consistently — verify the wrapper is thrown with all transient failures suppressed.
+        // Fail consistently with IOException — verify the wrapper is thrown with all transient failures suppressed.
         AtomicInteger attempts = new AtomicInteger();
         PrestoException wrapper = new PrestoException(GENERIC_INTERNAL_ERROR, "exhausted");
 
@@ -160,7 +235,7 @@ public class TestNativeSidecarRetryDriver
                 SidecarRetryDriver.executeWithRetry(
                         () -> {
                             attempts.incrementAndGet();
-                            throw new RuntimeException("transient " + attempts.get());
+                            throw new IOException("transient " + attempts.get());
                         },
                         instantFailingBackoff(),
                         "test",
@@ -169,6 +244,6 @@ public class TestNativeSidecarRetryDriver
         assertSame(thrown, wrapper);
         assertEquals(thrown.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
         assertTrue(thrown.getSuppressed().length >= 1, "Expected suppressed exceptions to accumulate");
-        assertTrue(thrown.getCause() instanceof RuntimeException);
+        assertTrue(thrown.getCause() instanceof IOException);
     }
 }

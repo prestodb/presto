@@ -19,6 +19,10 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.util.Backoff;
 import com.facebook.presto.spi.PrestoException;
 
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.io.UncheckedIOException;
+import java.net.SocketTimeoutException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 
@@ -46,10 +50,12 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
  *       not a transient condition.</li>
  *   <li>{@link InterruptedException} — the planning thread was interrupted (query cancelled);
  *       re-interrupts the thread and throws a {@link PrestoException}.</li>
+ *   <li>Deterministic runtime exceptions (e.g. JSON deserialization errors, programming bugs)
+ *       — non-retryable, fail immediately.</li>
  * </ul>
  *
- * <p>All other exceptions (transport errors, SSL failures, timeouts wrapped in
- * {@code UncheckedIOException}, etc.) are treated as transient and retried.
+ * <p>Only transient transport errors (such as {@link IOException}, socket timeouts, SSL failures,
+ * or transport errors wrapped in {@link UncheckedIOException}) are retried.
  * Each transient failure is collected and added as a suppressed exception to the
  * final {@code permanentFailureWrapper} so the full retry history is visible in
  * the stack trace.
@@ -61,14 +67,14 @@ public final class SidecarRetryDriver
     private SidecarRetryDriver() {}
 
     /**
-     * @param operation              supplier that performs one attempt of the HTTP call and returns its result
-     * @param backoff                a fresh {@link Backoff} instance scoped to this logical call
-     * @param description            short description used in log/error messages (e.g. "session properties")
+     * @param operation supplier that performs one attempt of the HTTP call and returns its result
+     * @param backoff a fresh {@link Backoff} instance scoped to this logical call
+     * @param description short description used in log/error messages (e.g. "session properties")
      * @param permanentFailureWrapper exception thrown when all retries are exhausted
-     * @param <T>                    return type of the HTTP call
+     * @param <T> return type of the HTTP call
      * @return the result of the first successful {@code operation} invocation
      * @throws PrestoException if {@code operation} throws a {@link PrestoException} (propagated immediately),
-     *                         if the thread is interrupted, or if all retries are exhausted
+     * if the thread is interrupted, or if all retries are exhausted
      */
     public static <T> T executeWithRetry(Callable<T> operation, Backoff backoff, String description, PrestoException permanentFailureWrapper)
     {
@@ -83,12 +89,8 @@ public final class SidecarRetryDriver
                 backoff.success();
                 return result;
             }
-            catch (PrestoException e) {
-                // Definitive server-side error — do not retry.
-                throw e;
-            }
-            catch (CancellationException e) {
-                // Query was cancelled — do not retry, propagate as-is.
+            catch (PrestoException | CancellationException e) {
+                // Definitive server-side error or query cancellation — do not retry.
                 throw e;
             }
             catch (UnexpectedResponseException | ResponseTooLargeException e) {
@@ -103,6 +105,12 @@ public final class SidecarRetryDriver
                         format("Interrupted while waiting to retry sidecar call for '%s'", description), e);
             }
             catch (Exception e) {
+                if (!isRetryable(e)) {
+                    log.error(e, "Sidecar call for '%s' failed with non-retryable error", description);
+                    permanentFailureWrapper.addSuppressed(e);
+                    throw permanentFailureWrapper;
+                }
+
                 // Collect transient failures so the full retry history is visible in the final error.
                 permanentFailureWrapper.addSuppressed(e);
 
@@ -132,5 +140,23 @@ public final class SidecarRetryDriver
                 }
             }
         }
+    }
+
+    private static boolean isRetryable(Throwable t)
+    {
+        // If Airlift/Netty wraps the transport error in UncheckedIOException, unwrap it
+        if (t instanceof UncheckedIOException && t.getCause() != null) {
+            t = t.getCause();
+        }
+
+        if (t instanceof SocketTimeoutException) {
+            return true;
+        }
+
+        if (t instanceof InterruptedIOException) {
+            return false;
+        }
+
+        return t instanceof IOException;
     }
 }
