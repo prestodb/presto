@@ -14,8 +14,19 @@
 package com.facebook.presto.delta;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
+import io.delta.kernel.types.ArrayType;
+import io.delta.kernel.types.FieldMetadata;
+import io.delta.kernel.types.IntegerType;
+import io.delta.kernel.types.LongType;
+import io.delta.kernel.types.MapType;
+import io.delta.kernel.types.StringType;
+import io.delta.kernel.types.StructField;
+import io.delta.kernel.types.StructType;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
@@ -31,8 +42,11 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.delta.DeltaTypeUtils.convertDeltaDataTypePrestoDataType;
+import static com.facebook.presto.delta.DeltaTypeUtils.convertDeltaDataTypePrestoPhysicalType;
 import static com.facebook.presto.delta.DeltaTypeUtils.convertPartitionValue;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -40,6 +54,8 @@ import static org.testng.Assert.fail;
 
 public class TestDeltaTypeUtils
 {
+    private static final SchemaTableName TABLE = new SchemaTableName("test", "mapping");
+
     @Test
     public void partitionValueParsing()
     {
@@ -61,6 +77,35 @@ public class TestDeltaTypeUtils
         invalidPartitionValue("sdfsdf", DATE);
         invalidPartitionValue("sdfsdf", TIMESTAMP);
         invalidPartitionValue("1234567890.5", createDecimalType(1, 1)); // invalid precision in value
+    }
+
+    @Test
+    public void testPhysicalTypeIncludesNestedColumnMapping()
+    {
+        StructType leaf = new StructType(ImmutableList.of(
+                mappedField("leaf", "col-leaf", StringType.STRING)));
+        StructType value = new StructType(ImmutableList.of(
+                mappedField("value", "col-value", LongType.LONG)));
+        StructType type = new StructType(ImmutableList.of(
+                mappedField("child", "col-child", IntegerType.INTEGER),
+                mappedField("items", "col-items", new ArrayType(leaf, true)),
+                mappedField("attributes", "col-attributes", new MapType(StringType.STRING, value, true))));
+
+        TypeSignature logicalType = convertDeltaDataTypePrestoDataType(TABLE, "root", type);
+        TypeSignature physicalType = convertDeltaDataTypePrestoPhysicalType(TABLE, "root", type);
+
+        assertEquals(logicalType, parseTypeSignature("row(child integer,items array(row(leaf varchar)),attributes map(varchar,row(value bigint)))"));
+        assertEquals(physicalType, parseTypeSignature(
+                "row(\"col-child\" integer,\"col-items\" array(row(\"col-leaf\" varchar)),\"col-attributes\" map(varchar,row(\"col-value\" bigint)))"));
+    }
+
+    private static StructField mappedField(String logicalName, String physicalName, io.delta.kernel.types.DataType type)
+    {
+        FieldMetadata metadata = FieldMetadata.builder()
+                .putLong("delta.columnMapping.id", 1)
+                .putString("delta.columnMapping.physicalName", physicalName)
+                .build();
+        return new StructField(logicalName, type, true, metadata);
     }
 
     private void assertPartitionValue(String value, Type type, Object expected)

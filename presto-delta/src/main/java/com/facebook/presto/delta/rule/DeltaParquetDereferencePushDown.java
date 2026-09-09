@@ -22,11 +22,13 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.SUBFIELD;
 import static com.facebook.presto.delta.DeltaSessionProperties.isParquetDereferencePushdownEnabled;
+import static com.facebook.presto.delta.DeltaTypeUtils.toPhysicalSubfieldPath;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class DeltaParquetDereferencePushDown
@@ -57,12 +59,17 @@ public class DeltaParquetDereferencePushDown
     {
         checkArgument(baseColumnHandle instanceof DeltaColumnHandle,
                 "Expected Delta column handle, instead got: " + baseColumnHandle.getClass());
+        DeltaColumnHandle baseColumn = (DeltaColumnHandle) baseColumnHandle;
+        boolean hasColumnMapping = baseColumn.getPhysicalName() != null ||
+                !baseColumn.getDataType().equals(baseColumn.getPhysicalType());
         return new DeltaColumnHandle(
-                ((DeltaColumnHandle) baseColumnHandle).getId(),
-                ((DeltaColumnHandle) baseColumnHandle).getPhysicalName(),
+                baseColumn.getId(),
+                baseColumn.getPhysicalName(),
                 subfieldColumnName,
                 subfieldDataType.getTypeSignature(),
+                baseColumn.getPhysicalType(),
                 SUBFIELD,
-                Optional.of(subfield));
+                Optional.of(subfield),
+                hasColumnMapping ? toPhysicalSubfieldPath(baseColumn, subfield) : ImmutableList.of());
     }
 }
