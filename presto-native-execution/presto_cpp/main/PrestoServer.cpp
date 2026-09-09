@@ -1954,8 +1954,9 @@ void PrestoServer::registerSidecarEndpoints() {
       [this](
           proxygen::HTTPMessage* message,
           const std::vector<std::string>& /*pathMatch*/) {
-        // Extract header values eagerly: HTTPMessage is only valid at routing
-        // time, before the body arrives.
+        // Extract header values eagerly: the async closure must not retain a
+        // pointer into the handler object, which may be destroyed before the
+        // CPU-executor task runs.
         const auto& httpHeaders = message->getHeaders();
         auto optimizerLevel =
             httpHeaders.getSingleOrEmpty(kOptimizerLevelHeader);
@@ -1990,22 +1991,28 @@ void PrestoServer::registerSidecarEndpoints() {
                         driverExecutor_.get(),
                         nativeWorkerPool_.get());
                   })
+                  .thenValue([](auto&& result) {
+                    // Serialize on the CPU executor so the I/O thread only
+                    // transmits pre-built bytes.
+                    return util::dumpJson(json(result));
+                  })
                   .via(
                       folly::getKeepAliveToken(
                           folly::EventBaseManager::get()->getEventBase()))
-                  .thenValue([downstream, handlerState](auto&& result) {
+                  .thenValue([downstream, handlerState](std::string body) {
                     if (!handlerState->requestExpired()) {
-                      http::sendOkResponse(downstream, result);
+                      http::sendOkResponse(downstream, body);
                     }
                   })
                   .thenError(
                       folly::tag_t<std::exception>{},
                       [downstream, handlerState](auto&& e) {
+                        LOG(ERROR)
+                            << "getOptimizedExpressions error: " << e.what();
                         if (!handlerState->requestExpired()) {
                           http::sendErrorResponse(downstream, e.what());
                         }
-                      })
-                  .detach();
+                      });
             });
       });
 
@@ -2030,29 +2037,39 @@ void PrestoServer::registerSidecarEndpoints() {
                         nativeWorkerPool_.get(),
                         getVeloxPlanValidator());
                   })
+                  .thenValue([](auto&& response) {
+                    // Serialize on the CPU executor so the I/O thread only
+                    // transmits pre-built bytes.
+                    const uint16_t status = response.failures.empty()
+                        ? http::kHttpOk
+                        : http::kHttpUnprocessableContent;
+                    return std::make_pair(
+                        status, util::dumpJson(json(response)));
+                  })
                   .via(
                       folly::getKeepAliveToken(
                           folly::EventBaseManager::get()->getEventBase()))
-                  .thenValue([downstream, handlerState](auto&& response) {
+                  .thenValue([downstream, handlerState](
+                                 std::pair<uint16_t, std::string> p) {
                     if (!handlerState->requestExpired()) {
-                      if (response.failures.empty()) {
-                        http::sendOkResponse(downstream, json(response));
-                      } else {
-                        http::sendResponse(
-                            downstream,
-                            json(response),
-                            http::kHttpUnprocessableContent);
-                      }
+                      proxygen::ResponseBuilder(downstream)
+                          .status(p.first, "")
+                          .header(
+                              proxygen::HTTP_HEADER_CONTENT_TYPE,
+                              http::kMimeTypeApplicationJson)
+                          .body(p.second)
+                          .sendWithEOM();
                     }
                   })
                   .thenError(
                       folly::tag_t<std::exception>{},
                       [downstream, handlerState](auto&& e) {
+                        LOG(ERROR) << "prestoToVeloxPlanConversion error: "
+                                   << e.what();
                         if (!handlerState->requestExpired()) {
                           http::sendErrorResponse(downstream, e.what());
                         }
-                      })
-                  .detach();
+                      });
             });
       });
 }
