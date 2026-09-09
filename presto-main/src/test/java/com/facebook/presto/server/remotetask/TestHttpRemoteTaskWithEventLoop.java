@@ -359,6 +359,124 @@ public class TestHttpRemoteTaskWithEventLoop
                 SchedulerStatsTracker.NOOP);
     }
 
+    /**
+     * Creates an {@link HttpRemoteTaskFactory} backed by a raw {@link TestingHttpClient.Processor}.
+     * Useful for tests that need to stub specific HTTP responses (e.g. push-endpoint responses)
+     * without setting up a full JAX-RS resource.
+     */
+    static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingHttpClient.Processor processor)
+            throws Exception
+    {
+        Bootstrap app = new Bootstrap(
+                new JsonModule(),
+                new SmileModule(),
+                new ThriftCodecModule(),
+                new HandleJsonModule(),
+                new Module()
+                {
+                    @Override
+                    public void configure(Binder binder)
+                    {
+                        binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
+                        binder.bind(JsonMapper.class);
+                        binder.bind(ThriftMapper.class);
+                        configBinder(binder).bindConfig(FeaturesConfig.class);
+                        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+                        binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
+                        jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+                        newSetBinder(binder, Type.class);
+                        smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
+                        smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
+                        smileCodecBinder(binder).bindSmileCodec(TaskUpdateRequest.class);
+                        smileCodecBinder(binder).bindSmileCodec(PlanFragment.class);
+                        jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
+                        jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
+                        jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
+                        jsonCodecBinder(binder).bindJsonCodec(PlanFragment.class);
+                        jsonCodecBinder(binder).bindJsonCodec(TableWriteInfo.class);
+                        jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionSerializer.class);
+                        jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionDeserializer.class);
+                        jsonCodecBinder(binder).bindJsonCodec(ConnectorSplit.class);
+                        jsonCodecBinder(binder).bindJsonCodec(ConnectorTransactionHandle.class);
+                        jsonCodecBinder(binder).bindJsonCodec(ConnectorOutputTableHandle.class);
+                        jsonCodecBinder(binder).bindJsonCodec(ConnectorDeleteTableHandle.class);
+                        jsonCodecBinder(binder).bindJsonCodec(ConnectorInsertTableHandle.class);
+                        jsonCodecBinder(binder).bindJsonCodec(ConnectorMergeTableHandle.class);
+                        jsonCodecBinder(binder).bindJsonCodec(ConnectorTableHandle.class);
+                        jsonCodecBinder(binder).bindJsonCodec(ConnectorTableLayoutHandle.class);
+
+                        binder.bind(ConnectorCodecManager.class).in(Scopes.SINGLETON);
+
+                        thriftCodecBinder(binder).bindCustomThriftCodec(ConnectorSplitThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(TransactionHandleThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(OutputTableHandleThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(InsertTableHandleThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(DeleteTableHandleThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(MergeTableHandleThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(TableHandleThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(TableLayoutHandleThriftCodec.class);
+                        thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
+                        thriftCodecBinder(binder).bindThriftCodec(TaskInfo.class);
+                        thriftCodecBinder(binder).bindThriftCodec(TaskUpdateRequest.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(LocaleToLanguageTagCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(JodaDateTimeToEpochMillisThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(DurationToMillisThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(DataSizeToBytesThriftCodec.class);
+                    }
+
+                    @Provides
+                    private HttpRemoteTaskFactory createHttpRemoteTaskFactory(
+                            JsonMapper jsonMapper,
+                            ThriftMapper thriftMapper,
+                            JsonCodec<TaskStatus> taskStatusJsonCodec,
+                            SmileCodec<TaskStatus> taskStatusSmileCodec,
+                            ThriftCodec<TaskStatus> taskStatusThriftCodec,
+                            JsonCodec<TaskInfo> taskInfoJsonCodec,
+                            ThriftCodec<TaskInfo> taskInfoThriftCodec,
+                            SmileCodec<TaskInfo> taskInfoSmileCodec,
+                            JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
+                            SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
+                            ThriftCodec<TaskUpdateRequest> taskUpdateRequestThriftCodec,
+                            JsonCodec<PlanFragment> planFragmentJsonCodec,
+                            SmileCodec<PlanFragment> planFragmentSmileCodec)
+                    {
+                        TestingHttpClient testingHttpClient = new TestingHttpClient(processor);
+                        return new HttpRemoteTaskFactory(
+                                new QueryManagerConfig(),
+                                TASK_MANAGER_CONFIG,
+                                testingHttpClient,
+                                new TestSqlTaskManager.MockLocationFactory(),
+                                taskStatusJsonCodec,
+                                taskStatusSmileCodec,
+                                taskStatusThriftCodec,
+                                taskInfoJsonCodec,
+                                taskInfoSmileCodec,
+                                taskInfoThriftCodec,
+                                taskUpdateRequestJsonCodec,
+                                taskUpdateRequestSmileCodec,
+                                taskUpdateRequestThriftCodec,
+                                planFragmentJsonCodec,
+                                planFragmentSmileCodec,
+                                new RemoteTaskStats(),
+                                new InternalCommunicationConfig(),
+                                createTestMetadataManager(),
+                                new TestQueryManager(),
+                                new HandleResolver(),
+                                new DynamicFilterService(),
+                                new DynamicFilterServiceStats(),
+                                JsonCodec.jsonCodec(DynamicFilterResponse.class),
+                                JsonCodec.jsonCodec(DynamicFilterPushRequest.class));
+                    }
+                });
+        Injector injector = app
+                .doNotInitializeLogging()
+                .quiet()
+                .initialize();
+        HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
+        handleResolver.addConnectorName("test", new TestingHandleResolver());
+        return injector.getInstance(HttpRemoteTaskFactory.class);
+    }
+
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, boolean useThriftEncoding)
             throws Exception
     {

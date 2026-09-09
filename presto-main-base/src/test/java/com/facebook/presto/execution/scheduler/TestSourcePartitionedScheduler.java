@@ -434,6 +434,83 @@ public class TestSourcePartitionedScheduler
         secondStage.abort();
     }
 
+    /**
+     * Exercises the DPP deadlock-prevention branch added to SourcePartitionedScheduler:
+     *
+     *   if (anyBlockedOnPlacements
+     *       || (hasDynamicPartitionPruning && anyBlockedOnNextSplitBatch
+     *               && stage.getScheduledNodes().isEmpty())) {
+     *       overallNewTasks.addAll(finalizeTaskCreationIfNecessary());
+     *   }
+     *
+     * When hasDynamicPartitionPruning=true, scheduling is blocked waiting for the first
+     * split batch, and no tasks have been created yet, the scheduler must call
+     * finalizeTaskCreationIfNecessary() so that probe-side tasks are created immediately.
+     * Without this, the build side fills its output buffers waiting for probe consumers
+     * while the probe side waits for the build's hash table — a deadlock.
+     *
+     * The test uses a QueuedSplitSource that initially returns no splits (blocked on
+     * the next batch future). On the first schedule() call the scheduler is blocked on
+     * the split source with zero scheduled nodes; with hasDynamicPartitionPruning=true
+     * it must still create tasks on all available nodes via finalizeTaskCreationIfNecessary().
+     */
+    @Test
+    public void testDppDeadlockPreventionFinalizesTasksWhenBlockedOnSplitBatch()
+    {
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        SubPlan plan = createPlan();
+        SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
+
+        // Use a queued split source that starts empty — the scheduler will block on the
+        // next split batch future with no splits available yet.
+        QueuedSplitSource queuedSplitSource = new QueuedSplitSource(TestingSplit::createRemoteSplit);
+
+        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+                .setIncludeCoordinator(false)
+                .setMaxSplitsPerNode(20)
+                .setMaxPendingSplitsPerTask(0);
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                new LegacyNetworkTopology(),
+                nodeManager,
+                new NodeSelectionStats(),
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                new ThrowingNodeTtlFetcherManager(),
+                new NoOpQueryManager(),
+                new SimpleTtlNodeSelectorConfig());
+        SplitSource splitSource = new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(), queuedSplitSource);
+        SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(
+                nodeScheduler.createNodeSelector(TestingSession.testSessionBuilder().build(), splitSource.getConnectorId()),
+                stage::getAllTasks);
+
+        // hasDynamicPartitionPruning = true — this is the flag under test
+        StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
+                stage,
+                TABLE_SCAN_NODE_ID,
+                splitSource,
+                placementPolicy,
+                1,
+                new CTEMaterializationTracker(),
+                true);
+
+        // First schedule(): split source is empty so anyBlockedOnNextSplitBatch=true,
+        // no tasks have been scheduled yet (getScheduledNodes().isEmpty()==true).
+        // With hasDynamicPartitionPruning=true the DPP branch fires and
+        // finalizeTaskCreationIfNecessary() creates tasks on all available nodes.
+        ScheduleResult scheduleResult = scheduler.schedule();
+
+        // The result must be blocked (we are waiting for splits), not finished.
+        assertFalse(scheduleResult.isFinished());
+        assertFalse(scheduleResult.getBlocked().isDone());
+
+        // finalizeTaskCreationIfNecessary() must have created tasks on all 3 available nodes
+        // even though no splits have been assigned yet.
+        assertEquals(stage.getAllTasks().size(), 3,
+                "DPP deadlock-prevention branch must create tasks on all nodes when blocked on split batch with no scheduled nodes");
+
+        stage.abort();
+    }
+
     private static void assertPartitionedSplitCount(SqlStageExecution stage, int expectedPartitionedSplitCount)
     {
         assertEquals(stage.getAllTasks().stream().mapToInt(remoteTask -> remoteTask.getPartitionedSplitsInfo().getCount()).sum(), expectedPartitionedSplitCount);
