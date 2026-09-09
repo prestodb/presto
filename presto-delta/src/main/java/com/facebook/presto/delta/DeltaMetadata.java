@@ -321,8 +321,10 @@ public class DeltaMetadata
                             column.getPhysicalName(),
                             column.getLogicalName(),
                             column.getType(),
+                            column.getPhysicalType(),
                             column.isPartition() ? PARTITION : REGULAR,
-                            Optional.empty()));
+                            Optional.empty(),
+                            ImmutableList.of()));
         }
         return columnHandles.build();
     }

@@ -22,6 +22,7 @@ struct DeltaColumn {
   std::shared_ptr<std::string> physicalName = {};
   std::string logicalName = {};
   std::string type = {};
+  std::shared_ptr<std::string> physicalType = {};
   bool nullable = {};
   bool partition = {};
 };

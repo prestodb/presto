@@ -22,6 +22,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.delta.kernel.data.Row;
 import io.delta.kernel.internal.InternalScanFileUtils;
 import io.delta.kernel.utils.CloseableIterator;
@@ -30,14 +31,13 @@ import jakarta.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toMap;
 
 public class DeltaSplitManager
         implements ConnectorSplitManager
@@ -103,7 +103,9 @@ public class DeltaSplitManager
                         0, /* start */
                         addFileStatus.getSize() /* split length - default is read the entire file in one split */,
                         addFileStatus.getSize(),
-                        removeNullPartitionValues(InternalScanFileUtils.getPartitionValues(row)),
+                        normalizePartitionValues(
+                                InternalScanFileUtils.getPartitionValues(row),
+                                deltaTable.getColumns()),
                         deltaTable.getColumnMappingMode(),
                         getNodeSelectionStrategy(session)));
                 currentSplitCount++;
@@ -131,13 +133,36 @@ public class DeltaSplitManager
     }
 
     /**
-     * Utility method to remove the null value partition values.
-     * These null values cause problems later when used with Guava Immutable map structures.
+     * Partition values on the split are keyed by logical column name. A missing
+     * entry represents NULL; a present empty string is a real partition value.
+     * Delta Kernel versions may expose column-mapped keys by either logical or
+     * physical name, so normalize both forms here.
      */
-    private static Map<String, String> removeNullPartitionValues(Map<String, String> partitionValues)
+    private static Map<String, String> normalizePartitionValues(
+            Map<String, String> partitionValues,
+            List<DeltaColumn> columns)
     {
-        return partitionValues.entrySet().stream()
-                .filter(entry -> entry.getValue() != null)
-                .collect(toMap(Entry::getKey, Entry::getValue));
+        ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
+        for (DeltaColumn column : columns) {
+            if (!column.isPartition()) {
+                continue;
+            }
+            String logicalName = column.getLogicalName();
+            String sourceName = column.getPhysicalName() == null ? logicalName : column.getPhysicalName();
+            String value;
+            if (partitionValues.containsKey(logicalName)) {
+                value = partitionValues.get(logicalName);
+            }
+            else if (partitionValues.containsKey(sourceName)) {
+                value = partitionValues.get(sourceName);
+            }
+            else {
+                continue;
+            }
+            if (value != null) {
+                result.put(logicalName, value);
+            }
+        }
+        return result.build();
     }
 }

@@ -39,6 +39,15 @@ void to_json(json& j, const DeltaColumn& p) {
       "std::string",
       "logicalName");
   to_json_key(j, "type", p.type, "DeltaColumn", "std::string", "type");
+  if (p.physicalType) {
+    to_json_key(
+        j,
+        "physicalType",
+        *p.physicalType,
+        "DeltaColumn",
+        "std::string",
+        "physicalType");
+  }
   to_json_key(j, "nullable", p.nullable, "DeltaColumn", "bool", "nullable");
   to_json_key(j, "partition", p.partition, "DeltaColumn", "bool", "partition");
 }
@@ -68,6 +77,16 @@ void from_json(const json& j, DeltaColumn& p) {
       "std::string",
       "logicalName");
   from_json_key(j, "type", p.type, "DeltaColumn", "std::string", "type");
+  if (j.contains("physicalType")) {
+    p.physicalType = std::make_shared<std::string>();
+    from_json_key(
+        j,
+        "physicalType",
+        *p.physicalType,
+        "DeltaColumn",
+        "std::string",
+        "physicalType");
+  }
   from_json_key(j, "nullable", p.nullable, "DeltaColumn", "bool", "nullable");
   from_json_key(
       j, "partition", p.partition, "DeltaColumn", "bool", "partition");

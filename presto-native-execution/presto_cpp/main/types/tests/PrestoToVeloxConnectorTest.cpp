@@ -1773,13 +1773,17 @@ protocol::delta::DeltaColumnHandle createDeltaColumnHandle(
     const std::string& name,
     const std::string& dataType,
     protocol::delta::ColumnType columnType,
-    const std::string& physicalName = "") {
+    const std::string& physicalName = "",
+    const std::string& physicalType = "") {
   protocol::delta::DeltaColumnHandle column;
   column.name = name;
   column.dataType = dataType;
   column.columnType = columnType;
   if (!physicalName.empty()) {
     column.physicalName = std::make_shared<std::string>(physicalName);
+  }
+  if (!physicalType.empty()) {
+    column.physicalType = std::make_shared<std::string>(physicalType);
   }
   return column;
 }
@@ -1788,13 +1792,17 @@ protocol::delta::DeltaColumn createDeltaColumn(
     const std::string& logicalName,
     const std::string& type,
     bool partition,
-    const std::string& physicalName = "") {
+    const std::string& physicalName = "",
+    const std::string& physicalType = "") {
   protocol::delta::DeltaColumn column;
   column.logicalName = logicalName;
   column.type = type;
   column.partition = partition;
   if (!physicalName.empty()) {
     column.physicalName = std::make_shared<std::string>(physicalName);
+  }
+  if (!physicalType.empty()) {
+    column.physicalType = std::make_shared<std::string>(physicalType);
   }
   return column;
 }
@@ -1987,7 +1995,6 @@ TEST_F(PrestoToVeloxConnectorTest, deltaTableHandleUsesPhysicalColumnNames) {
   EXPECT_TRUE(handle->subfieldFilters().empty());
 }
 
-// failing on oss-delta-lake
 TEST_F(PrestoToVeloxConnectorTest, deltaSplitPreservesEmptyPartitionValue) {
   auto result = convertDeltaSplit(
       "s3://bucket/table", "part=empty/data.parquet", {{"part", ""}});
@@ -1999,13 +2006,19 @@ TEST_F(PrestoToVeloxConnectorTest, deltaSplitPreservesEmptyPartitionValue) {
   ASSERT_NE(partition, split->partitionKeys.end());
   ASSERT_TRUE(partition->second.has_value());
   EXPECT_EQ(partition->second.value(), "");
+
+  auto nullResult =
+      convertDeltaSplit("s3://bucket/table", "part=null/data.parquet", {});
+  auto* nullSplit =
+      dynamic_cast<connector::hive::delta::HiveDeltaSplit*>(nullResult.get());
+  ASSERT_NE(nullSplit, nullptr);
+  EXPECT_EQ(nullSplit->partitionKeys.count("part"), 0);
 }
 
 // Delta Kernel resolves AddFile.path against the table root before creating a
 // DeltaSplit. filePath is therefore an absolute URI and must be used verbatim.
 TEST_F(PrestoToVeloxConnectorTest, deltaSplitPreservesResolvedFileUri) {
-  auto result =
-      convertDeltaSplit("file:/table", "file:/data/file.parquet");
+  auto result = convertDeltaSplit("file:/table", "file:/data/file.parquet");
   auto* split =
       dynamic_cast<connector::hive::delta::HiveDeltaSplit*>(result.get());
   ASSERT_NE(split, nullptr);
@@ -2253,6 +2266,71 @@ TEST_F(PrestoToVeloxConnectorTest, deltaPushesDownLogicalNameWithoutMapping) {
   EXPECT_TRUE(findFilter(filters, "cnt")->testInt64(101));
 }
 
+TEST_F(PrestoToVeloxConnectorTest, deltaPushesDownUnicodeColumnName) {
+  const std::string columnName = "caf\xc3\xa9";
+  auto domains = std::make_shared<DeltaDomains>();
+  domains->emplace(
+      createDeltaColumnHandle(
+          columnName, "bigint", protocol::delta::ColumnType::REGULAR),
+      createBigintRangeDomain(7, pool_.get()));
+
+  auto result = convertDeltaTableHandle(domains, *exprConverter_, *typeParser_);
+  const auto& filters = asHiveTableHandle(*result).subfieldFilters();
+  ASSERT_EQ(filters.size(), 1);
+  EXPECT_EQ(filters.begin()->first.baseName(), columnName);
+  EXPECT_FALSE(filters.begin()->second->testInt64(7));
+  EXPECT_TRUE(filters.begin()->second->testInt64(8));
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaMappedComplexColumnUsesPhysicalType) {
+  auto deltaColumn = createDeltaColumnHandle(
+      "root",
+      "row(child bigint)",
+      protocol::delta::ColumnType::REGULAR,
+      "col-root",
+      "row(\"col-child\" bigint)");
+
+  DeltaPrestoToVeloxConnector deltaConnector("delta");
+  auto handle = deltaConnector.toVeloxColumnHandle(&deltaColumn, *typeParser_);
+  auto* hiveColumn =
+      dynamic_cast<connector::hive::HiveColumnHandle*>(handle.get());
+  ASSERT_NE(hiveColumn, nullptr);
+  EXPECT_EQ(hiveColumn->name(), "col-root");
+  EXPECT_TRUE(hiveColumn->dataType()->equivalent(*ROW({"child"}, {BIGINT()})));
+  EXPECT_TRUE(
+      hiveColumn->hiveType()->equivalent(*ROW({"col-child"}, {BIGINT()})));
+  ASSERT_EQ(hiveColumn->extractions().size(), 1);
+  EXPECT_TRUE(hiveColumn->extractions()[0].chain.empty());
+}
+
+TEST_F(PrestoToVeloxConnectorTest, deltaMappedSubfieldUsesPhysicalPath) {
+  auto deltaColumn = createDeltaColumnHandle(
+      "root$child",
+      "bigint",
+      protocol::delta::ColumnType::SUBFIELD,
+      "col-root",
+      "row(\"col-child\" bigint)");
+  deltaColumn.subfield = std::make_shared<protocol::Subfield>("root.child");
+  deltaColumn.sourceSubfieldPath = {"col-root", "col-child"};
+
+  DeltaPrestoToVeloxConnector deltaConnector("delta");
+  auto handle = deltaConnector.toVeloxColumnHandle(&deltaColumn, *typeParser_);
+  auto* hiveColumn =
+      dynamic_cast<connector::hive::HiveColumnHandle*>(handle.get());
+  ASSERT_NE(hiveColumn, nullptr);
+  EXPECT_EQ(hiveColumn->name(), "col-root");
+  EXPECT_EQ(hiveColumn->dataType(), BIGINT());
+  EXPECT_TRUE(
+      hiveColumn->hiveType()->equivalent(*ROW({"col-child"}, {BIGINT()})));
+  ASSERT_EQ(hiveColumn->extractions().size(), 1);
+  ASSERT_EQ(hiveColumn->extractions()[0].chain.size(), 1);
+  const auto* field =
+      dynamic_cast<const connector::hive::StructFieldExtractionPathElement*>(
+          hiveColumn->extractions()[0].chain[0].get());
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->fieldName(), "col-child");
+}
+
 TEST_F(PrestoToVeloxConnectorTest, deltaSubfieldPredicateIsNotPushedDown) {
   // A pushed-down subfield path is expressed in logical names, which column
   // mapping renames at every level, so it stays in the filter above the scan.
@@ -2441,11 +2519,14 @@ TEST_F(PrestoToVeloxConnectorTest, deltaPredicateSkipsParquetRowGroups) {
   EXPECT_EQ(withPushdown.processedStrides, 1);
 }
 
-// failing on oss-delta-lake
 TEST_F(PrestoToVeloxConnectorTest, deltaReadsNestedPhysicalColumnName) {
   auto deltaHandle = createDeltaTableHandle();
-  deltaHandle->deltaTable.columns = {
-      createDeltaColumn("root", "row(child bigint)", false, "col-root")};
+  deltaHandle->deltaTable.columns = {createDeltaColumn(
+      "root",
+      "row(child bigint)",
+      false,
+      "col-root",
+      "row(\"col-child\" bigint)")};
 
   protocol::TableHandle tableHandle;
   tableHandle.connectorId = "delta";
@@ -2499,7 +2580,8 @@ TEST_F(PrestoToVeloxConnectorTest, deltaReadsNestedPhysicalColumnName) {
 
   VectorPtr result = BaseVector::create(readType, 0, pool_.get());
   ASSERT_EQ(rowReader->next(1, result), 1);
-  auto child = result->as<RowVector>()->childAt(0)->as<RowVector>();
+  auto child =
+      result->as<RowVector>()->childAt(0)->loadedVector()->as<RowVector>();
   ASSERT_NE(child, nullptr);
   ASSERT_FALSE(child->isNullAt(0));
   auto childValue = child->childAt(0)->as<FlatVector<int64_t>>();
