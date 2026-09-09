@@ -19,6 +19,9 @@
 #include "velox/connectors/hive/delta/HiveDeltaSplit.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
+#include <cctype>
+#include <string_view>
+
 namespace facebook::presto {
 
 namespace {
@@ -31,6 +34,27 @@ const std::string& sourceName(
     const std::shared_ptr<std::string>& physicalName,
     const std::string& logicalName) {
   return (physicalName && !physicalName->empty()) ? *physicalName : logicalName;
+}
+
+/// Returns true when path begins with an RFC 3986 URI scheme. A URI does not
+/// need an authority component: both "s3://bucket/path" and
+/// "hdfs:/warehouse/path" are absolute URIs.
+bool hasUriScheme(std::string_view path) {
+  if (path.empty() ||
+      !std::isalpha(static_cast<unsigned char>(path.front()))) {
+    return false;
+  }
+
+  for (const auto character : path.substr(1)) {
+    if (character == ':') {
+      return true;
+    }
+    if (!std::isalnum(static_cast<unsigned char>(character)) &&
+        character != '+' && character != '-' && character != '.') {
+      return false;
+    }
+  }
+  return false;
 }
 
 /// Builds the Hive column handle Delta reads a column through. Shared by the
@@ -144,7 +168,7 @@ DeltaPrestoToVeloxConnector::toVeloxSplit(
   // Otherwise, combine table location with the relative file path
   std::string fullFilePath;
   const std::string& path = deltaSplit->filePath;
-  if (path.find("://") != std::string::npos || path.starts_with("file:/")) {
+  if (hasUriScheme(path)) {
     fullFilePath = path;
   } else {
     // Remove trailing slash from table location if present
