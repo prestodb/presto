@@ -143,7 +143,7 @@ public class QueryBuilder
             sql.append(" WHERE ")
                     .append(Joiner.on(" AND ").join(clauses));
         }
-        sql.append(format("/* %s : %s */", session.getUser(), session.getQueryId()));
+        sql.append(format("/* %s : %s */", sanitizeComment(session.getUser()), session.getQueryId()));
         PreparedStatement statement = client.getPreparedStatement(session, connection, sql.toString());
 
         for (int i = 0; i < accumulator.size(); i++) {
@@ -316,6 +316,13 @@ public class QueryBuilder
     {
         name = name.replace(identifierQuote, identifierQuote + identifierQuote);
         return identifierQuote + name + identifierQuote;
+    }
+
+    // The trailing comment is passed verbatim to the remote database. Break up the block comment
+    // terminator so an attacker-controlled user name cannot close the comment and append SQL.
+    private static String sanitizeComment(String value)
+    {
+        return value.replace("*/", "* /");
     }
 
     private static void bindValue(Object value, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator)
