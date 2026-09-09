@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner;
+import com.facebook.presto.sidecar.SidecarRetryConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -52,6 +53,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -82,14 +84,20 @@ public class TestNativeExpressionInterpreter
     private final NativeSidecarExpressionInterpreter rowExpressionInterpreter;
 
     public TestNativeExpressionInterpreter()
-            throws Exception
     {
-        this.queryRunner = NativeSidecarPluginQueryRunner.getQueryRunner();
-        FunctionAndTypeManager functionAndTypeManager = queryRunner.getCoordinator().getFunctionAndTypeManager();
-        this.metadata = createTestMetadataManager(functionAndTypeManager);
-        this.translator = new TestingRowExpressionTranslator(metadata);
-        this.rowExpressionInterpreter = getRowExpressionInterpreter(functionAndTypeManager, queryRunner.getCoordinator().getPluginNodeManager());
-        this.visitor = new TestVisitor();
+        try {
+            this.queryRunner = NativeSidecarPluginQueryRunner.getQueryRunner();
+            FunctionAndTypeManager functionAndTypeManager = queryRunner.getCoordinator().getFunctionAndTypeManager();
+            this.metadata = createTestMetadataManager(functionAndTypeManager);
+            this.translator = new TestingRowExpressionTranslator(metadata);
+            this.rowExpressionInterpreter = getRowExpressionInterpreter(functionAndTypeManager, queryRunner.getCoordinator().getPluginNodeManager());
+            this.visitor = new TestVisitor();
+        }
+        catch (Exception e) {
+            throw new SkipException(
+                    format("Native sidecar not available (PRESTO_SERVER=%s): %s",
+                            System.getProperty("PRESTO_SERVER"), e.getMessage()), e);
+        }
     }
 
     @AfterClass(alwaysRun = true)
@@ -421,6 +429,7 @@ public class TestNativeExpressionInterpreter
             binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
             binder.install(new ThriftCodecModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
+            configBinder(binder).bindConfig(SidecarRetryConfig.class, SidecarRetryConfig.CONFIG_PREFIX);
 
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             newSetBinder(binder, Type.class);

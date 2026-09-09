@@ -848,6 +848,19 @@ void PrestoServer::joinExecutors() {
       << driverCpuExecutor_->numThreads()
       << ", task queue: " << driverCpuExecutor_->getTaskQueueSize();
   driverCpuExecutor_->join();
+
+  // Drain httpSrvCpuExecutor_ before resetting driverExecutor_ so that any
+  // in-flight /v1/expressions tasks finish before driverExecutor_ is destroyed.
+  if (httpSrvCpuExecutor_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Joining HTTP Server CPU Executor '"
+        << httpSrvCpuExecutor_->getName()
+        << "': threads: " << httpSrvCpuExecutor_->numActiveThreads() << "/"
+        << httpSrvCpuExecutor_->numThreads()
+        << ", task queue: " << httpSrvCpuExecutor_->getTaskQueueSize();
+    httpSrvCpuExecutor_->join();
+  }
+
   // Schedule release of SessionPools held by HttpClients before the exchange
   // HTTP IO executor threads are joined.
   driverExecutor_.reset();
@@ -871,16 +884,6 @@ void PrestoServer::joinExecutors() {
         << "': threads: " << connectorIoExecutor_->numActiveThreads() << "/"
         << connectorIoExecutor_->numThreads();
     connectorIoExecutor_->join();
-  }
-
-  if (httpSrvCpuExecutor_ != nullptr) {
-    PRESTO_SHUTDOWN_LOG(INFO)
-        << "Joining HTTP Server CPU Executor '"
-        << httpSrvCpuExecutor_->getName()
-        << "': threads: " << httpSrvCpuExecutor_->numActiveThreads() << "/"
-        << httpSrvCpuExecutor_->numThreads()
-        << ", task queue: " << httpSrvCpuExecutor_->getTaskQueueSize();
-    httpSrvCpuExecutor_->join();
   }
   if (httpSrvIoExecutor_ != nullptr) {
     PRESTO_SHUTDOWN_LOG(INFO)
@@ -1994,7 +1997,7 @@ void PrestoServer::registerSidecarEndpoints() {
                   .thenValue([](auto&& result) {
                     // Serialize on the CPU executor so the I/O thread only
                     // transmits pre-built bytes.
-                    return util::dumpJson(json(result));
+                    return util::dumpJson(json(std::move(result)));
                   })
                   .via(
                       folly::getKeepAliveToken(
