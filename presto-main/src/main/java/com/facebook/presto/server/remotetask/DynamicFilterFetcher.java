@@ -18,6 +18,7 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.scheduler.DomainRuntimeFilter;
@@ -104,6 +105,13 @@ public class DynamicFilterFetcher
     // pre-loaded into filterCache from getAllFiltersForQuery().
     private final Set<String> ownedFilterIds = new HashSet<>();
     private final Map<String, JoinDynamicFilter> filterCache = new HashMap<>();
+    // Resolved once in start() from the first registered filter for this query.
+    // All JoinDynamicFilters for a query share the same RuntimeStats instance
+    // (session.getRuntimeStats()), so any filter's RuntimeStats is equivalent.
+    // Stored here to avoid the fragile filterCache.values().stream().findFirst()
+    // pattern in emitExtendedMetric, which silently emits nothing when filterCache
+    // is empty and is misleading when the fetcher has multiple filters.
+    private RuntimeStats queryRuntimeStats;
     private final Duration maxWait;
 
     private volatile boolean isFinalFetch;
@@ -151,10 +159,16 @@ public class DynamicFilterFetcher
         verify(started.compareAndSet(false, true), "start() already called");
         dynamicFilterStats.getFetchersStarted().update(1);
         dynamicFilterService.getAllFiltersForQuery(queryId).forEach(filterCache::putIfAbsent);
-        filterCache.values().stream()
+        // All JoinDynamicFilters for a query share the same session RuntimeStats instance,
+        // so we resolve it once here from any available filter. Used by emitExtendedMetric
+        // to record fetcher-lifecycle metrics without depending on filterCache at call time.
+        queryRuntimeStats = filterCache.values().stream()
                 .findFirst()
                 .map(JoinDynamicFilter::getRuntimeStats)
-                .ifPresent(rs -> rs.addMetricValue(DYNAMIC_FILTER_FETCHERS_STARTED, NONE, 1));
+                .orElse(null);
+        if (queryRuntimeStats != null) {
+            queryRuntimeStats.addMetricValue(DYNAMIC_FILTER_FETCHERS_STARTED, NONE, 1);
+        }
         taskEventLoop.execute(this::sendFetchRequest);
     }
 
@@ -459,10 +473,12 @@ public class DynamicFilterFetcher
 
     private void emitExtendedMetric(String metricName, long value)
     {
-        filterCache.values().stream()
-                .findFirst()
-                .map(JoinDynamicFilter::getRuntimeStats)
-                .ifPresent(runtimeStats -> runtimeStats.addMetricValue(metricName, NONE, value));
+        // queryRuntimeStats is the shared session RuntimeStats resolved once in start().
+        // All JoinDynamicFilters for the query share the same instance, so there is no
+        // "wrong filter" attribution — the metric lands in the correct place regardless.
+        if (queryRuntimeStats != null) {
+            queryRuntimeStats.addMetricValue(metricName, NONE, value);
+        }
     }
 
     public TaskId getTaskId()
