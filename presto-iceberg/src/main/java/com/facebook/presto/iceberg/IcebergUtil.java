@@ -535,6 +535,12 @@ public final class IcebergUtil
             return HiveType.HIVE_BINARY.toString();
         }
 
+        // Special handling for VARIANT type: stored in Hive Metastore as string
+        // (the actual column is read back as JSON via the Iceberg type mapping)
+        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.VARIANT) {
+            return HiveType.HIVE_STRING.toString();
+        }
+
         if (icebergType.isPrimitiveType()) {
             return HiveSchemaUtil.convert(icebergType).getTypeName();
         }

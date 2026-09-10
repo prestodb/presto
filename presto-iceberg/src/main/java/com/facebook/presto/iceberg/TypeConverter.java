@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.JsonType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RealType;
@@ -134,6 +135,8 @@ public final class TypeConverter
                 return VarcharType.createUnboundedVarcharType();
             case UUID:
                 return UuidType.UUID;
+            case VARIANT:
+                return JsonType.JSON;
             case LIST:
                 Types.ListType listType = (Types.ListType) type;
                 return new ArrayType(toPrestoType(listType.elementType(), typeManager));
