@@ -280,6 +280,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/ducklake">
+        <artifact id="${project.groupId}:presto-ducklake:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/hudi">
         <artifact id="${project.groupId}:presto-hudi:zip:${project.version}">
             <unpack />
