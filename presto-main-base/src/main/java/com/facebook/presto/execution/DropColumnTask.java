@@ -69,14 +69,14 @@ public class DropColumnTask
 
         TableHandle tableHandle = tableHandleOptional.get();
 
-        accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
-
-        List<String> normalizedParts = statement.getColumn().getParts().stream()
-                .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part))
+        List<String> normalizedParts = statement.getColumn().getOriginalParts().stream()
+                .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part.getValue()))
                 .collect(Collectors.toList());
 
         if (normalizedParts.size() == 1) {
             // Top-level column: use existing ColumnHandle-based path.
+            accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+
             String column = normalizedParts.get(0);
             ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
             if (columnHandle == null) {
@@ -99,6 +99,9 @@ public class DropColumnTask
         }
         else {
             // Nested field: no ColumnHandle exists for sub-fields; delegate path-based drop.
+            // Dropping a nested field alters the schema of an existing column, so it requires ALTER COLUMN.
+            accessControl.checkCanAlterColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+
             metadata.dropField(session, tableHandle, normalizedParts, statement.isColumnExists());
         }
 
