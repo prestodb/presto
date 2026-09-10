@@ -94,6 +94,10 @@
 #include "velox/experimental/cudf/expression/PrestoFunctions.h"
 #endif
 
+#ifdef PRESTO_ENABLE_UCX_EXCHANGE
+#include "velox/experimental/ucx-exchange/Communicator.h"
+#endif
+
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
 #endif
@@ -185,6 +189,61 @@ bool isSharedLibrary(const fs::path& path) {
   return pathExt == kLinuxSharedLibExt || pathExt == kMacOSSharedLibExt;
 }
 
+#ifdef PRESTO_ENABLE_UCX_EXCHANGE
+// Thread driving the UCX Communicator's progress loop. The Communicator itself
+// is a process-lifetime singleton reachable through getInstance(); this only
+// owns the thread, so stopUcxCommunicator() has something to join.
+std::unique_ptr<std::thread> ucxCommunicatorThread;
+#endif
+
+// Starts the UCX exchange listener that serves every other worker's exchange
+// connections. Called only when Velox's 'cudf.exchange' is enabled; a no-op in
+// a build without the UCX exchange, where nothing registers the UCX transport
+// and so no plan can name it.
+void startUcxCommunicator() {
+#ifdef PRESTO_ENABLE_UCX_EXCHANGE
+  if (ucxCommunicatorThread != nullptr) {
+    return;
+  }
+  auto* systemConfig = SystemConfig::instance();
+  const auto port = systemConfig->cudfExchangeServerPort();
+
+  // Take the readiness future before the listener can accept, then wait on it
+  // once the progress thread is running. Returning as soon as the thread is
+  // spawned would let a task resolve the UCX transport and have
+  // UcxExchangeSource connect before the listener exists, turning a startup
+  // ordering problem into an intermittent query failure.
+  velox::ContinueFuture ready{velox::ContinueFuture::makeEmpty()};
+  auto communicator = velox::ucx_exchange::Communicator::initAndGet(
+      port, systemConfig->discoveryUri().value_or(""), &ready);
+  VELOX_CHECK_NOT_NULL(
+      communicator,
+      "Failed to initialize the UCX exchange Communicator on port {}",
+      port);
+  ucxCommunicatorThread = std::make_unique<std::thread>(
+      &velox::ucx_exchange::Communicator::run, communicator.get());
+  if (ready.valid()) {
+    std::move(ready).wait();
+  }
+  PRESTO_STARTUP_LOG(INFO) << "UCX exchange Communicator listening on port "
+                           << port;
+#endif
+}
+
+// Stops the UCX exchange listener and joins its thread. Idempotent, and a no-op
+// when startUcxCommunicator() never ran.
+void stopUcxCommunicator() {
+#ifdef PRESTO_ENABLE_UCX_EXCHANGE
+  if (ucxCommunicatorThread == nullptr) {
+    return;
+  }
+  PRESTO_SHUTDOWN_LOG(INFO) << "Stopping the UCX exchange Communicator";
+  velox::ucx_exchange::Communicator::getInstance()->stop();
+  ucxCommunicatorThread->join();
+  ucxCommunicatorThread.reset();
+#endif
+}
+
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
   auto& cudfConfig = velox::cudf_velox::CudfConfig::getInstance();
@@ -199,6 +258,19 @@ void registerVeloxCudf() {
     if (cudfConfig.enabled) {
       velox::cudf_velox::registerCudf();
       velox::cudf_velox::registerPrestoFunctions(cudfConfig.functionNamePrefix);
+      if (cudfConfig.exchange) {
+#ifdef PRESTO_ENABLE_UCX_EXCHANGE
+        // registerCudf() has just registered the UCX transport, so a plan can
+        // name it from here on and the listener has to be up before it does.
+        startUcxCommunicator();
+#else
+        PRESTO_STARTUP_LOG(WARNING)
+            << velox::cudf_velox::CudfConfig::kUcxExchange
+            << "=true, but this worker was built without the UCX exchange "
+               "(VELOX_ENABLE_UCX_EXCHANGE=OFF). Nothing registers the UCX "
+               "transport, so exchanges use the in-memory transport.";
+#endif
+      }
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
     }
   }
@@ -211,6 +283,9 @@ void unregisterVeloxCudf() {
   if (systemConfig->values().contains(
           velox::cudf_velox::CudfConfig::kCudfEnabled) &&
       velox::cudf_velox::CudfConfig::getInstance().enabled) {
+    // Before unregisterCudf(), which drops the UCX transport registrations and
+    // resets the cuDF memory resources the Communicator's buffers come from.
+    stopUcxCommunicator();
     velox::cudf_velox::unregisterCudf();
     PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
   }
