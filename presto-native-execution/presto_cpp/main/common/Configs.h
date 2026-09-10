@@ -822,15 +822,6 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpClientConnectionReuseCounterEnabled{
       "http-client.connection-reuse-counter-enabled"};
 
-  /// Port the cuDF UCX exchange listens on for the exchange connections of the
-  /// other workers. Only read when Velox's 'cudf.exchange' is enabled and this
-  /// worker was built with the UCX exchange. Optional: it defaults to
-  /// kHttpServerHttpPort + 3, which is the port the receiving side derives from
-  /// a remote task's HTTP location, so overriding it only makes sense together
-  /// with that derivation.
-  static constexpr std::string_view kCudfExchangeServerPort{
-      "cudf.exchange.server.port"};
-
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
 
@@ -1027,8 +1018,7 @@ class SystemConfig : public ConfigBase {
 
   int httpServerHttpPort() const;
 
-  /// Returns kCudfExchangeServerPort, or httpServerHttpPort() + 3 when it is
-  /// unset. See kCudfExchangeServerPort.
+  /// Returns the UCX listener port derived from the HTTP server port.
   int cudfExchangeServerPort() const;
 
   bool httpServerReusePort() const;

@@ -36,6 +36,8 @@ namespace facebook::presto {
 
 namespace {
 
+constexpr int kUcxPortOffset = 3;
+
 // folly::to<> does not generate 'true' and 'false', so we do it ourselves.
 std::string bool2String(bool value) {
   return value ? "true" : "false";
@@ -172,7 +174,6 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kHttpsKeyPath),
           NONE_PROP(kHttpsClientCertAndKeyPath),
           NONE_PROP(kHttpsClientCaFile),
-          NONE_PROP(kCudfExchangeServerPort),
           NUM_PROP(kExchangeHttpClientNumIoThreadsHwMultiplier, 1.0),
           NUM_PROP(kExchangeHttpClientNumCpuThreadsHwMultiplier, 1.0),
           NUM_PROP(kConnectorNumCpuThreadsHwMultiplier, 0.0),
@@ -331,12 +332,9 @@ int SystemConfig::httpServerHttpPort() const {
 }
 
 int SystemConfig::cudfExchangeServerPort() const {
-  // The receiving side derives the peer's UCX port from the remote task's HTTP
-  // location by adding 3 (UcxExchangeSource::create), so httpServerHttpPort()
-  // + 3 is the only value that lets a cluster connect. Keep the property for
-  // deployments that change that derivation, but do not require it.
-  return optionalProperty<int>(kCudfExchangeServerPort)
-      .value_or(httpServerHttpPort() + 3);
+  // UcxExchangeSource derives a peer's UCX port from its advertised HTTP port
+  // using the same offset.
+  return httpServerHttpPort() + kUcxPortOffset;
 }
 
 bool SystemConfig::httpServerReusePort() const {
