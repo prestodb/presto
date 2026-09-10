@@ -71,8 +71,8 @@ public class DropColumnTask
 
         accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        List<String> normalizedParts = statement.getColumn().getParts().stream()
-                .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part))
+        List<String> normalizedParts = statement.getColumn().getOriginalParts().stream()
+                .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part.getValue()))
                 .collect(Collectors.toList());
 
         if (normalizedParts.size() == 1) {
