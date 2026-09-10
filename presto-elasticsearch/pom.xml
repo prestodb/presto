@@ -134,13 +134,20 @@
         <dependency>
             <groupId>org.apache.httpcomponents.core5</groupId>
             <artifactId>httpcore5</artifactId>
-            <version>5.2.4</version>
+            <version>5.4.3</version>
         </dependency>
 
+        <!--
+            httpclient5 5.6 is the first release whose async transport understands content
+            encodings: it adds ContentCompressionAsyncExec, and with it
+            HttpAsyncClientBuilder.disableContentCompression(). Neither exists in 5.2.x-5.5.x,
+            so this floor is required by ElasticsearchClient.createClient. Stay on 5.6.3 or
+            later for CVE-2026-64607.
+        -->
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
-            <version>5.2.1</version>
+            <version>5.6.4</version>
         </dependency>
 
         <dependency>

@@ -47,6 +47,7 @@ public class ElasticsearchConfig
     private Duration nodeRefreshInterval = new Duration(1, MINUTES);
     private int maxHttpConnections = 25;
     private int httpThreadCount = Runtime.getRuntime().availableProcessors();
+    private boolean contentCompressionEnabled;
 
     private boolean tlsEnabled;
     private File keystorePath;
@@ -224,6 +225,20 @@ public class ElasticsearchConfig
     public int getHttpThreadCount()
     {
         return httpThreadCount;
+    }
+
+    public boolean isContentCompressionEnabled()
+    {
+        return contentCompressionEnabled;
+    }
+
+    @Config("elasticsearch.content-compression-enabled")
+    @ConfigDescription("Request compressed HTTP responses from Elasticsearch. Disabled by default to match the behavior of " +
+            "earlier releases; enable it to save bandwidth on large result sets")
+    public ElasticsearchConfig setContentCompressionEnabled(boolean contentCompressionEnabled)
+    {
+        this.contentCompressionEnabled = contentCompressionEnabled;
+        return this;
     }
 
     public boolean isTlsEnabled()
