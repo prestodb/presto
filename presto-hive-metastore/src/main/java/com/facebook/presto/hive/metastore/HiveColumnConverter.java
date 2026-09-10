@@ -19,6 +19,8 @@ import com.facebook.presto.hive.HiveType;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.emptyToNull;
 
@@ -27,10 +29,32 @@ public class HiveColumnConverter
 {
     public HiveColumnConverter() {}
 
+    // Matches struct field-name tokens (before ':') in an HMS type string.
+    // Used to sanitize names with special chars (e.g. hyphens) that Hive's
+    // TypeInfoParser cannot handle.
+    private static final Pattern STRUCT_FIELD_NAME_PATTERN =
+            Pattern.compile("(?<=struct<|(?<=,))([^<>,:]+)(?=:)");
+
+    // Replaces non-[a-zA-Z0-9_] characters in struct field-name positions with '_'
+    // so that HiveType.valueOf() does not crash on HMS type strings written by external
+    // engines (e.g. Spark) with hyphenated field names. Safe because the HMS type string
+    // is not used for query execution — actual field names come from Iceberg metadata JSON.
+    static String sanitizeHmsTypeString(String typeString)
+    {
+        StringBuffer result = new StringBuffer();
+        Matcher matcher = STRUCT_FIELD_NAME_PATTERN.matcher(typeString);
+        while (matcher.find()) {
+            matcher.appendReplacement(result,
+                    Matcher.quoteReplacement(matcher.group(1).replaceAll("[^a-zA-Z0-9_]", "_")));
+        }
+        matcher.appendTail(result);
+        return result.toString();
+    }
+
     @Override
     public Column toColumn(FieldSchema fieldSchema)
     {
-        return new Column(fieldSchema.getName(), HiveType.valueOf(fieldSchema.getType()), Optional.ofNullable(emptyToNull(fieldSchema.getComment())), Optional.empty());
+        return new Column(fieldSchema.getName(), HiveType.valueOf(sanitizeHmsTypeString(fieldSchema.getType())), Optional.ofNullable(emptyToNull(fieldSchema.getComment())), Optional.empty());
     }
 
     @Override
