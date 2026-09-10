@@ -22,10 +22,6 @@ import static java.lang.Boolean.parseBoolean;
 /**
  * Runs all {@link com.facebook.presto.tests.AbstractTestFnServerAuth} test cases against a
  * Java coordinator + C++ (native) worker cluster with mTLS + JWT.
- *
- * <p>The sidecar plugin behaviour is controlled via the {@code sidecarEnabled} system property
- * (default: {@code true}).  Run the suite twice — once with the default and once with
- * {@code -DsidecarEnabled=false} — to cover both paths.
  */
 public class TestFnServerAuthWithMtlsAndJwtOnNativeCluster
         extends AbstractTestFnServerAuth

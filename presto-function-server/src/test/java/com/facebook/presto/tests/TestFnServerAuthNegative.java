@@ -40,30 +40,10 @@ import static org.testng.Assert.fail;
 /**
  * Negative-path integration tests for Function Server authentication.
  *
- * <p>Every test is fully self-contained: it starts a {@link TestingFunctionServer}
- * configured with a deliberately bad credential or mismatched scheme, builds a
- * throwaway coordinator-only {@link DistributedQueryRunner} with the corresponding
- * bad client config, and asserts that the probe query fails with the expected error.
- *
- * <p>This class does <em>not</em> extend {@link AbstractTestQueryFramework} because
- * every test manages its own runner — there is no shared cluster. Using the framework
- * would require a dummy {@code createQueryRunner()} that starts an unused server just
- * to satisfy the framework's {@code @BeforeClass}.
- *
  * <p>Coordinator-only runners (no workers) are sufficient because all rejections occur
  * at the coordinator → function-server boundary, either during function namespace
  * registration (cert/JWT failures) or at connection time (scheme mismatches), before
  * any worker is scheduled.
- *
- * <p>Covered scenarios:
- * <ul>
- *   <li>No client certificate → HTTP 401 from {@code CertificateAuthenticator}
- *   <li>Certificate signed by an untrusted CA → TLS handshake failure
- *   <li>Expired client certificate → TLS handshake failure
- *   <li>JWT token signed with the wrong shared secret → HTTP 401
- *   <li>{@code https://} URL against an HTTP-only function server → connection error
- *   <li>{@code http://} URL against an HTTPS-only function server → protocol error
- * </ul>
  */
 public class TestFnServerAuthNegative
 {
@@ -77,17 +57,8 @@ public class TestFnServerAuthNegative
             .setSystemProperty("remote_functions_enabled", "true")
             .build();
 
-    // =========================================================================
-    // Negative — Certificate tests
-    // =========================================================================
-
     /**
      * The coordinator presents no client certificate to the function server.
-     *
-     * <p>The function server requires mTLS. Airlift uses {@code setWantClientAuth(true)}
-     * so the TLS handshake itself succeeds at the network layer (a missing cert is not a
-     * fatal TLS alert), but the application-layer {@code CertificateAuthenticator}
-     * returns HTTP 401, which the REST namespace manager surfaces as a query failure.
      */
     @Test
     public void testNoCertificateIsRejected()
@@ -129,12 +100,6 @@ public class TestFnServerAuthNegative
     /**
      * The coordinator presents a certificate whose issuer is absent from the function
      * server's truststore.
-     *
-     * <p>{@code function-server/invalid-keystore.jks} was signed by a throwaway CA that
-     * is not in the function server's {@code truststore.jks}. Airlift configures the TLS
-     * listener with {@code setWantClientAuth(true)} (not NEED), so the handshake itself
-     * completes; the application-layer {@code CertificateAuthenticator} then rejects the
-     * untrusted certificate and returns HTTP 401.
      */
     @Test
     public void testUntrustedCaCertificateIsRejected()
@@ -164,10 +129,6 @@ public class TestFnServerAuthNegative
     /**
      * The coordinator presents a certificate signed by a trusted CA but with an expired
      * validity window.
-     *
-     * <p>The function server's truststore ({@code expired-truststore.jks}) contains the
-     * expired test CA so the issuer is recognised; the only rejection reason is the
-     * validity period having elapsed.
      */
     @Test
     public void testExpiredCertificateIsRejected()
@@ -195,17 +156,9 @@ public class TestFnServerAuthNegative
         }
     }
 
-    // =========================================================================
-    // Negative — JWT tests
-    // =========================================================================
-
     /**
      * JWT is enabled on the function server but the coordinator signs tokens with a
      * different shared secret.
-     *
-     * <p>{@code InternalAuthenticationFilter} on the function server rejects the
-     * mismatched token with HTTP 401, which the REST namespace manager surfaces as a
-     * query failure.
      */
     @Test
     public void testJwtWrongSecretIsRejected()
@@ -232,10 +185,6 @@ public class TestFnServerAuthNegative
             runner.close();
         }
     }
-
-    // =========================================================================
-    // Negative — Scheme-mismatch tests
-    // =========================================================================
 
     /**
      * The function namespace URL uses {@code https://} but the function server only
@@ -300,10 +249,6 @@ public class TestFnServerAuthNegative
             runner.close();
         }
     }
-
-    // =========================================================================
-    // Helper
-    // =========================================================================
 
     /**
      * Executes {@link #PROBE_QUERY} on the given runner and asserts that it throws a

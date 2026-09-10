@@ -21,8 +21,7 @@ import java.util.Optional;
 import static org.testng.Assert.assertEquals;
 
 /**
- * These tests call remote functions served by the Presto Function Server
- * (implementation: {@link com.facebook.presto.server.FunctionServer}).
+ * These tests call remote functions served by the Presto Function Server.
  */
 
 public class TestPrestoContainerMtlsRemoteFunction
@@ -37,6 +36,8 @@ public class TestPrestoContainerMtlsRemoteFunction
                 ContainerQueryRunner.TPCH_CATALOG,
                 ContainerQueryRunner.TINY_SCHEMA,
                 ContainerQueryRunner.DEFAULT_NUMBER_OF_WORKERS,
+                true,
+                false,
                 ContainerQueryRunner.DEFAULT_FUNCTION_SERVER_HTTPS_PORT,
                 true,
                 true,
