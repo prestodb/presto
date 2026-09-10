@@ -11,58 +11,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg.rest;
+package com.facebook.presto.iceberg.nessie;
 
-import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.presto.iceberg.AbstractTestIcebergIdentifierCharacters;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
-import org.assertj.core.util.Files;
+import com.facebook.presto.testing.containers.NessieContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.util.Optional;
-
-import static com.facebook.presto.iceberg.CatalogType.REST;
-import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
-import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.facebook.presto.iceberg.CatalogType.NESSIE;
+import static com.facebook.presto.iceberg.nessie.NessieTestUtil.nessieConnectorProperties;
 
 /**
- * Identifier character coverage against an Iceberg REST catalog
+ * Identifier character coverage against an Iceberg Nessie catalog
  */
 @Test(singleThreaded = true)
-public class TestIcebergRestIdentifierCharacters
+public class TestIcebergNessieIdentifierCharacters
         extends AbstractTestIcebergIdentifierCharacters
 {
-    private File warehouseLocation;
-    private TestingHttpServer restServer;
-    private String serverUri;
+    private NessieContainer nessieContainer;
 
     @BeforeClass
     @Override
     public void init()
             throws Exception
     {
-        warehouseLocation = Files.newTemporaryFolder();
-        restServer = getRestServer(warehouseLocation.getAbsolutePath());
-        restServer.start();
-        serverUri = restServer.getBaseUrl().toString();
+        nessieContainer = NessieContainer.builder().build();
+        nessieContainer.start();
         super.init();
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
-        if (restServer != null) {
-            restServer.stop();
-        }
-        if (warehouseLocation != null) {
-            deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE);
+        if (nessieContainer != null) {
+            nessieContainer.stop();
         }
     }
 
@@ -71,11 +56,21 @@ public class TestIcebergRestIdentifierCharacters
             throws Exception
     {
         return IcebergQueryRunner.builder()
-                .setCatalogType(REST)
+                .setCatalogType(NESSIE)
                 .setCreateTpchTables(false)
-                .setExtraConnectorProperties(restConnectorProperties(serverUri))
-                .setDataDirectory(Optional.of(warehouseLocation.toPath()))
+                .setExtraConnectorProperties(nessieConnectorProperties(nessieContainer.getRestApiUri()))
                 .build()
                 .getQueryRunner();
+    }
+
+    /**
+     * This catalog leaves nested namespaces disabled, so a dot in a schema name is read as nesting
+     * and refused before any character check. The only divergence here: unlike a filesystem-backed
+     * catalog, Nessie keeps namespaces in its own content model, so it takes a colon in a name.
+     */
+    @Override
+    public void testDelimitedDotInASchemaName()
+    {
+        assertQueryFails("CREATE SCHEMA \"ident.schema\"", ".*Nested namespaces are disabled\\. Schema ident\\.schema is not valid.*");
     }
 }

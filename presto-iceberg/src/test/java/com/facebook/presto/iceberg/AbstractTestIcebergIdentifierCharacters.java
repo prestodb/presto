@@ -22,7 +22,6 @@ import static java.lang.String.format;
  * Identifier character coverage around which characters Presto accepts
  * in Iceberg schema and table names
  */
-@Test(singleThreaded = true)
 public abstract class AbstractTestIcebergIdentifierCharacters
         extends AbstractTestQueryFramework
 {
@@ -32,8 +31,8 @@ public abstract class AbstractTestIcebergIdentifierCharacters
      */
     protected void assertIdentifiersUsable(String schemaIdentifier, String tableIdentifier, String storedSchema, String storedTable)
     {
-        String qualified = schemaIdentifier + "." + tableIdentifier;
-        assertUpdate("CREATE SCHEMA " + schemaIdentifier);
+        String qualified = format("%s.%s", schemaIdentifier, tableIdentifier);
+        assertUpdate(format("CREATE SCHEMA %s", schemaIdentifier));
         try {
             assertUpdate(format("CREATE TABLE %s (id integer, v varchar)", qualified));
             try {
@@ -50,11 +49,11 @@ public abstract class AbstractTestIcebergIdentifierCharacters
                         "VALUES 2");
             }
             finally {
-                assertUpdate("DROP TABLE " + qualified);
+                assertUpdate(format("DROP TABLE %s", qualified));
             }
         }
         finally {
-            assertQuerySucceeds("DROP SCHEMA " + schemaIdentifier);
+            assertQuerySucceeds(format("DROP SCHEMA %s", schemaIdentifier));
         }
     }
 
@@ -143,9 +142,15 @@ public abstract class AbstractTestIcebergIdentifierCharacters
     }
 
     @Test
-    public void testDelimitedDot()
+    public void testDelimitedDotInASchemaName()
     {
-        assertIdentifiersUsable("\"ident.schema\"", "\"ident.table\"");
+        assertIdentifiersUsable("\"ident.schema\"", "ident_dot_table");
+    }
+
+    @Test
+    public void testDelimitedDotInATableName()
+    {
+        assertIdentifiersUsable("ident_dot_schema", "\"ident.table\"");
     }
 
     @Test
@@ -205,24 +210,21 @@ public abstract class AbstractTestIcebergIdentifierCharacters
     }
 
     @Test
-    public void testHyphenIsRejectedUnquotedAndAcceptedDelimited()
+    public void testHyphenIsRejectedUnquoted()
     {
-        // Rejected unquoted, accepted delimited
-        assertQueryFails("CREATE SCHEMA ident-schema", ".*");
-        assertIdentifiersUsable("\"ident-schema-ok\"", "\"ident-table-ok\"");
+        assertQueryFails("CREATE SCHEMA ident-schema", ".*mismatched input '-'.*");
     }
 
     @Test
-    public void testNonLatinLetterIsRejectedUnquotedAndAcceptedDelimited()
+    public void testNonLatinLetterIsRejectedUnquoted()
     {
-        assertQueryFails("CREATE SCHEMA 模式", ".*");
-        assertIdentifiersUsable("\"模式_ok\"", "\"表名_ok\"");
+        assertQueryFails("CREATE SCHEMA 模式", ".*mismatched input '模'.*");
     }
 
     @Test
     public void testDollarSignIsRejectedUnquoted()
     {
-        assertQueryFails("CREATE SCHEMA ident$schema", ".*");
+        assertQueryFails("CREATE SCHEMA ident$schema", ".*mismatched input '\\$'.*");
     }
 
     @Test

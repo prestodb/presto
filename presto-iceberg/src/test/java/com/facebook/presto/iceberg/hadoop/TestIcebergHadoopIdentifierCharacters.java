@@ -11,20 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg.hive;
+package com.facebook.presto.iceberg.hadoop;
 
 import com.facebook.presto.iceberg.AbstractTestIcebergIdentifierCharacters;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.iceberg.CatalogType.HIVE;
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 
 /**
- * Identifier character coverage against an Iceberg Hive catalog
+ * Identifier character coverage against an Iceberg Hadoop catalog
  */
 @Test(singleThreaded = true)
-public class TestIcebergHiveIdentifierCharacters
+public class TestIcebergHadoopIdentifierCharacters
         extends AbstractTestIcebergIdentifierCharacters
 {
     @Override
@@ -32,33 +32,30 @@ public class TestIcebergHiveIdentifierCharacters
             throws Exception
     {
         return IcebergQueryRunner.builder()
-                .setCatalogType(HIVE)
+                .setCatalogType(HADOOP)
                 .setCreateTpchTables(false)
                 .build()
                 .getQueryRunner();
     }
 
     /**
-     * The only case where this catalog is stricter than the REST one. A Hive catalog derives the
-     * schema's warehouse directory from its name and resolves it as a URI, and a colon there reads
-     * as a scheme separator, so the schema cannot be created at all.
+     * This catalog leaves nested namespaces disabled, so a dot in a schema name is read as nesting
+     * and refused before any character check.
+     */
+    @Override
+    public void testDelimitedDotInASchemaName()
+    {
+        assertQueryFails("CREATE SCHEMA \"ident.schema\"", ".*Nested namespaces are disabled\\. Schema ident\\.schema is not valid.*");
+    }
+
+    /**
+     * {@code HadoopCatalog.createNamespace} builds the namespace directory with {@code new Path},
+     * where the leading {@code ident:} is read as a URI scheme. The table case is unaffected: it is
+     * resolved against an already absolute namespace path.
      */
     @Override
     public void testDelimitedColonInASchemaName()
     {
-        assertQueryFails("CREATE SCHEMA \"ident:schema_q\"",
-                ".*Relative path in absolute URI: ident:schema_q.*");
-    }
-
-    @Override
-    public void testDelimitedColonInATableName()
-    {
-        assertUpdate("CREATE SCHEMA ident_colon_schema");
-        try {
-            assertQueryFails("CREATE TABLE ident_colon_schema.\"ident:table_q\" (id integer)", ".*Relative path in absolute URI: ident:table_q.*");
-        }
-        finally {
-            assertQuerySucceeds("DROP SCHEMA ident_colon_schema");
-        }
+        assertQueryFails("CREATE SCHEMA \"ident:schema_q\"", ".*Relative path in absolute URI: ident:schema_q.*");
     }
 }
