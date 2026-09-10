@@ -130,7 +130,7 @@ public class NativeSidecarExpressionInterpreter
                             createJsonResponseHandler(rowExpressionOptimizationResultJsonCodec)),
                     backoff,
                     "expression optimization",
-                    new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to get optimized expressions from sidecar."));
+                    () -> new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to get optimized expressions from sidecar."));
         }
         finally {
             Duration duration = new Duration(System.nanoTime() - start, TimeUnit.NANOSECONDS);

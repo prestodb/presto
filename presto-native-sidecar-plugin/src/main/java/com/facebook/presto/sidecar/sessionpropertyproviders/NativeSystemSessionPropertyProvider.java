@@ -102,7 +102,7 @@ public class NativeSystemSessionPropertyProvider
                 },
                 backoff,
                 "session properties",
-                new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to get session properties from sidecar."));
+                () -> new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to get session properties from sidecar."));
 
         List<PropertyMetadata<?>> propertyMetadataList = new ArrayList<>();
         for (SessionPropertyMetadata sessionProperty : nativeSessionProperties) {

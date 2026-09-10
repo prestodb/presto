@@ -39,6 +39,7 @@ import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonRes
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.presto.builtin.tools.NativeSidecarFunctionRegistryTool.getSidecarLocationOnStartup;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class NativeFunctionDefinitionProvider
@@ -74,8 +75,15 @@ public class NativeFunctionDefinitionProvider
         // scoped to node discovery at startup. The SidecarRetryDriver below retries the HTTP call itself
         // and is governed by SidecarRetryConfig (maxFailureInterval).
         // Base endpoint: /v1/functions
-        URI baseUri = getSidecarLocationOnStartup(
-                nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis());
+        URI baseUri;
+        try {
+            baseUri = getSidecarLocationOnStartup(
+                    nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis());
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR,
+                    format("Failed to discover sidecar node for catalog '%s'", catalogName), e);
+        }
         // Catalog-filtered endpoint: /v1/functions/{catalog}
         URI catalogUri = HttpUriBuilder.uriBuilderFrom(baseUri).appendPath(catalogName).build();
 
@@ -88,7 +96,7 @@ public class NativeFunctionDefinitionProvider
                         },
                         backoff,
                         "function definitions for catalog " + catalogName,
-                        new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Failed to get catalog-scoped functions from sidecar for catalog '%s'", catalogName)));
+                        () -> new PrestoException(GENERIC_INTERNAL_ERROR, format("Failed to get catalog-scoped functions from sidecar for catalog '%s'", catalogName)));
 
         if (nativeFunctionSignatureMap == null) {
             return new UdfFunctionSignatureMap(ImmutableMap.of());

@@ -173,4 +173,42 @@ TEST(ShutdownOrderTest, promiseChainDispatchesSafelyDuringShutdown) {
   // call would dispatch to a freed executor.
 }
 
+// /v1/expressions tasks run on httpSrvCpuExecutor_ and pass
+// driverExecutor_.get() into QueryCtx.  httpSrvCpuExecutor_ must be drained
+// before driverExecutor_ is reset; httpSrvCpu->join() serialises the task's
+// driverRawPtr->add() against driverExecutor.reset() — swapping those two calls
+// would be use-after-free.
+TEST(ShutdownOrderTest, httpSrvTasksDrainBeforeDriverExecutorJoined) {
+  auto driverExecutor = std::make_unique<NoKeepAliveExecutor>(
+      std::make_unique<folly::CPUThreadPoolExecutor>(
+          2, std::make_shared<folly::NamedThreadFactory>("TestDriver")));
+  auto httpSrvCpu = std::make_unique<folly::CPUThreadPoolExecutor>(
+      2, std::make_shared<folly::NamedThreadFactory>("TestHttpSrvCPU"));
+
+  auto* driverRawPtr = driverExecutor.get();
+  auto sync = std::make_shared<SyncState>();
+
+  // Simulate a /v1/expressions task: runs on httpSrvCpu, dispatches to
+  // driverExecutor via raw pointer (use-after-free if driverExecutor is gone).
+  httpSrvCpu->add([sync, driverRawPtr]() {
+    sync->exchangeReadyFlag = true;
+    sync->exchangeReadyEvent.notifyAll();
+    sync->proceedEvent.await([sync]() { return sync->proceedFlag.load(); });
+    driverRawPtr->add([]() {});
+    sync->completed = true;
+  });
+
+  sync->exchangeReadyEvent.await(
+      [sync]() { return sync->exchangeReadyFlag.load(); });
+  sync->proceedFlag = true;
+  sync->proceedEvent.notifyAll();
+
+  // Correct order: drain httpSrvCpu before destroying driverExecutor.
+  httpSrvCpu->join();
+  driverExecutor.reset();
+  httpSrvCpu.reset();
+
+  EXPECT_TRUE(sync->completed);
+}
+
 } // namespace facebook::presto

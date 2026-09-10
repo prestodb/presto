@@ -830,11 +830,22 @@ void PrestoServer::stopAnnouncer() {
 }
 
 void PrestoServer::joinExecutors() {
-  // Join exchange HTTP CPU executor first. Exchange CPU threads run
-  // PrestoExchangeSource::handleDataResponse which dispatches callbacks to
-  // driverExecutor_ (MonitoredExecutor) via InMemoryExchangeClient. We must
-  // drain these threads before destroying driverExecutor_ to avoid
-  // use-after-free.
+  // Drain httpSrvCpuExecutor_ first: /v1/expressions tasks run here and pass
+  // driverExecutor_.get() into QueryCtx; they must finish before the driver
+  // pool is stopped.
+  if (httpSrvCpuExecutor_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Joining HTTP Server CPU Executor '"
+        << httpSrvCpuExecutor_->getName()
+        << "': threads: " << httpSrvCpuExecutor_->numActiveThreads() << "/"
+        << httpSrvCpuExecutor_->numThreads()
+        << ", task queue: " << httpSrvCpuExecutor_->getTaskQueueSize();
+    httpSrvCpuExecutor_->join();
+  }
+
+  // Join exchange HTTP CPU executor before the driver executor.  Exchange CPU
+  // threads dispatch callbacks to driverExecutor_ via InMemoryExchangeClient;
+  // drain them before destroying driverExecutor_ to avoid use-after-free.
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Exchange Http CPU executor '"
       << exchangeHttpCpuExecutor_->getName()
@@ -848,18 +859,6 @@ void PrestoServer::joinExecutors() {
       << driverCpuExecutor_->numThreads()
       << ", task queue: " << driverCpuExecutor_->getTaskQueueSize();
   driverCpuExecutor_->join();
-
-  // Drain httpSrvCpuExecutor_ before resetting driverExecutor_ so that any
-  // in-flight /v1/expressions tasks finish before driverExecutor_ is destroyed.
-  if (httpSrvCpuExecutor_ != nullptr) {
-    PRESTO_SHUTDOWN_LOG(INFO)
-        << "Joining HTTP Server CPU Executor '"
-        << httpSrvCpuExecutor_->getName()
-        << "': threads: " << httpSrvCpuExecutor_->numActiveThreads() << "/"
-        << httpSrvCpuExecutor_->numThreads()
-        << ", task queue: " << httpSrvCpuExecutor_->getTaskQueueSize();
-    httpSrvCpuExecutor_->join();
-  }
 
   // Schedule release of SessionPools held by HttpClients before the exchange
   // HTTP IO executor threads are joined.

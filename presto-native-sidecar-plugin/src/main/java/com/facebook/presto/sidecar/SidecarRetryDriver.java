@@ -25,6 +25,7 @@ import java.io.UncheckedIOException;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
@@ -56,9 +57,9 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
  *
  * <p>Only transient transport errors (such as {@link IOException}, socket timeouts, SSL failures,
  * or transport errors wrapped in {@link UncheckedIOException}) are retried.
- * Each transient failure is collected and added as a suppressed exception to the
- * final {@code permanentFailureWrapper} so the full retry history is visible in
- * the stack trace.
+ * To bound memory, only the first and latest transient failures are attached as suppressed
+ * exceptions on the thrown wrapper; intermediate exceptions are counted and represented by a
+ * single synthetic summary entry.
  */
 public final class SidecarRetryDriver
 {
@@ -70,18 +71,21 @@ public final class SidecarRetryDriver
      * @param operation supplier that performs one attempt of the HTTP call and returns its result
      * @param backoff a fresh {@link Backoff} instance scoped to this logical call
      * @param description short description used in log/error messages (e.g. "session properties")
-     * @param permanentFailureWrapper exception thrown when all retries are exhausted
+     * @param failureWrapperSupplier supplier invoked once on exhaustion to produce a fresh wrapper exception
      * @param <T> return type of the HTTP call
      * @return the result of the first successful {@code operation} invocation
      * @throws PrestoException if {@code operation} throws a {@link PrestoException} (propagated immediately),
      * if the thread is interrupted, or if all retries are exhausted
      */
-    public static <T> T executeWithRetry(Callable<T> operation, Backoff backoff, String description, PrestoException permanentFailureWrapper)
+    public static <T> T executeWithRetry(Callable<T> operation, Backoff backoff, String description, Supplier<PrestoException> failureWrapperSupplier)
     {
         requireNonNull(operation, "operation is null");
         requireNonNull(backoff, "backoff is null");
         requireNonNull(description, "description is null");
-        requireNonNull(permanentFailureWrapper, "permanentFailureWrapper is null");
+        requireNonNull(failureWrapperSupplier, "failureWrapperSupplier is null");
+        Exception firstTransientFailure = null;
+        Exception latestTransientFailure = null;
+        int droppedTransientCount = 0;
         while (true) {
             backoff.startRequest();
             try {
@@ -96,8 +100,9 @@ public final class SidecarRetryDriver
             catch (UnexpectedResponseException | ResponseTooLargeException e) {
                 // Non-transient HTTP-level error — retrying will not help.
                 log.error(e, "Sidecar call for '%s' failed with non-retryable HTTP error", description);
-                permanentFailureWrapper.addSuppressed(e);
-                throw permanentFailureWrapper;
+                PrestoException wrapper = failureWrapperSupplier.get();
+                wrapper.addSuppressed(e);
+                throw wrapper;
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -107,19 +112,36 @@ public final class SidecarRetryDriver
             catch (Exception e) {
                 if (!isRetryable(e)) {
                     log.error(e, "Sidecar call for '%s' failed with non-retryable error", description);
-                    permanentFailureWrapper.addSuppressed(e);
-                    throw permanentFailureWrapper;
+                    PrestoException wrapper = failureWrapperSupplier.get();
+                    wrapper.addSuppressed(e);
+                    throw wrapper;
                 }
 
-                // Collect transient failures so the full retry history is visible in the final error.
-                permanentFailureWrapper.addSuppressed(e);
+                if (firstTransientFailure == null) {
+                    firstTransientFailure = e;
+                }
+                else {
+                    if (latestTransientFailure != null) {
+                        droppedTransientCount++;
+                    }
+                    latestTransientFailure = e;
+                }
 
                 if (backoff.failure()) {
                     log.error(e, "Sidecar call for '%s' failed permanently after %s failures over %s",
                             description,
                             backoff.getFailureCount(),
                             backoff.getFailureDuration());
-                    throw permanentFailureWrapper;
+                    PrestoException wrapper = failureWrapperSupplier.get();
+                    wrapper.addSuppressed(firstTransientFailure);
+                    if (latestTransientFailure != null) {
+                        if (droppedTransientCount > 0) {
+                            wrapper.addSuppressed(new RuntimeException(
+                                    format("... %d intermediate failure(s) dropped ...", droppedTransientCount)));
+                        }
+                        wrapper.addSuppressed(latestTransientFailure);
+                    }
+                    throw wrapper;
                 }
 
                 long delayNanos = backoff.getBackoffDelayNanos();

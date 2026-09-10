@@ -84,20 +84,18 @@ public class TestNativeExpressionInterpreter
     private final NativeSidecarExpressionInterpreter rowExpressionInterpreter;
 
     public TestNativeExpressionInterpreter()
+            throws Exception
     {
-        try {
-            this.queryRunner = NativeSidecarPluginQueryRunner.getQueryRunner();
-            FunctionAndTypeManager functionAndTypeManager = queryRunner.getCoordinator().getFunctionAndTypeManager();
-            this.metadata = createTestMetadataManager(functionAndTypeManager);
-            this.translator = new TestingRowExpressionTranslator(metadata);
-            this.rowExpressionInterpreter = getRowExpressionInterpreter(functionAndTypeManager, queryRunner.getCoordinator().getPluginNodeManager());
-            this.visitor = new TestVisitor();
+        String prestoServer = System.getProperty("PRESTO_SERVER", "_build/debug/presto_cpp/main/presto_server");
+        if (System.getProperty("workerImage") == null && !java.nio.file.Files.exists(java.nio.file.Paths.get(prestoServer).toAbsolutePath())) {
+            throw new SkipException("Native sidecar not available: binary not found at '" + prestoServer + "'");
         }
-        catch (Exception e) {
-            throw new SkipException(
-                    format("Native sidecar not available (PRESTO_SERVER=%s): %s",
-                            System.getProperty("PRESTO_SERVER"), e.getMessage()), e);
-        }
+        this.queryRunner = NativeSidecarPluginQueryRunner.getQueryRunner();
+        FunctionAndTypeManager functionAndTypeManager = queryRunner.getCoordinator().getFunctionAndTypeManager();
+        this.metadata = createTestMetadataManager(functionAndTypeManager);
+        this.translator = new TestingRowExpressionTranslator(metadata);
+        this.rowExpressionInterpreter = getRowExpressionInterpreter(functionAndTypeManager, queryRunner.getCoordinator().getPluginNodeManager());
+        this.visitor = new TestVisitor();
     }
 
     @AfterClass(alwaysRun = true)

@@ -16,6 +16,8 @@ package com.facebook.presto.sidecar;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
+import jakarta.validation.constraints.NotNull;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -26,6 +28,8 @@ public class SidecarRetryConfig
 
     private Duration maxFailureInterval = new Duration(30, SECONDS);
 
+    @NotNull
+    @MinDuration("1ms")
     public Duration getMaxFailureInterval()
     {
         return maxFailureInterval;

@@ -209,7 +209,7 @@ public final class NativePlanChecker
                     },
                     backoff,
                     "plan validation",
-                    new PrestoException(NATIVEPLANCHECKER_CONNECTION_ERROR, "Error getting native plan checker response"));
+                    () -> new PrestoException(NATIVEPLANCHECKER_CONNECTION_ERROR, "Error getting native plan checker response"));
         }
         finally {
             Duration duration = new Duration(System.nanoTime() - start, TimeUnit.NANOSECONDS);
