@@ -16,7 +16,6 @@
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/common/base/GTestMacros.h"
 #include "velox/common/base/StatsReporter.h"
 
 namespace facebook::presto::prometheus {
@@ -152,8 +151,8 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
   // end.
   mutable folly::ConcurrentHashMap<std::string, StatsInfo>
       registeredMetricsMap_;
-  VELOX_FRIEND_TEST(PrometheusReporterTest, testCountAndGauge);
-  VELOX_FRIEND_TEST(PrometheusReporterTest, testHistogramSummary);
-  VELOX_FRIEND_TEST(PrometheusReporterTest, testConcurrentReporting);
+  friend class PrometheusReporterTest_testCountAndGauge_Test;
+  friend class PrometheusReporterTest_testHistogramSummary_Test;
+  friend class PrometheusReporterTest_testConcurrentReporting_Test;
 };
 } // namespace facebook::presto::prometheus
