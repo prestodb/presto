@@ -227,6 +227,7 @@ public class MaterializedViewJoinQueryRewriter
                         newWhere,
                         newGroupBy,
                         querySpecification.getHaving(),
+                        querySpecification.getWindows(),
                         newOrderBy,
                         querySpecification.getOffset(),
                         querySpecification.getLimit());

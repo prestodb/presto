@@ -206,7 +206,10 @@ import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowDefinition;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowReference;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -1169,6 +1172,7 @@ class AstBuilder
                             query.getWhere(),
                             query.getGroupBy(),
                             query.getHaving(),
+                            query.getWindows(),
                             orderBy,
                             offset,
                             limit),
@@ -1212,9 +1216,35 @@ class AstBuilder
                 visitIfPresent(context.where, Expression.class),
                 visitIfPresent(context.groupBy(), GroupBy.class),
                 visitIfPresent(context.having, Expression.class),
+                visit(context.windowDefinition(), WindowDefinition.class),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    @Override
+    public Node visitWindowSpecification(SqlBaseParser.WindowSpecificationContext context)
+    {
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        }
+
+        return new WindowSpecification(
+                getLocation(context),
+                visitIfPresent(context.existingWindowName, Identifier.class),
+                visit(context.partition, Expression.class),
+                orderBy,
+                visitIfPresent(context.windowFrame(), WindowFrame.class));
+    }
+
+    @Override
+    public Node visitWindowDefinition(SqlBaseParser.WindowDefinitionContext context)
+    {
+        return new WindowDefinition(
+                getLocation(context),
+                (Identifier) visit(context.name),
+                (WindowSpecification) visit(context.windowSpecification()));
     }
 
     @Override
@@ -2350,16 +2380,11 @@ class AstBuilder
     @Override
     public Node visitOver(SqlBaseParser.OverContext context)
     {
-        Optional<OrderBy> orderBy = Optional.empty();
-        if (context.ORDER() != null) {
-            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        if (context.windowName != null) {
+            return new WindowReference(getLocation(context), (Identifier) visit(context.windowName));
         }
 
-        return new Window(
-                getLocation(context),
-                visit(context.partition, Expression.class),
-                orderBy,
-                visitIfPresent(context.windowFrame(), WindowFrame.class));
+        return visit(context.windowSpecification());
     }
 
     @Override

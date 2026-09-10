@@ -140,6 +140,7 @@ import com.facebook.presto.sql.tree.Update;
 import com.facebook.presto.sql.tree.UpdateAssignment;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.WindowDefinition;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
@@ -157,6 +158,7 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
+import static com.facebook.presto.sql.ExpressionFormatter.formatWindowSpecification;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.MoreCollectors.onlyElement;
@@ -451,6 +453,25 @@ public final class SqlFormatter
                         .append('\n');
             }
 
+            if (!node.getWindows().isEmpty()) {
+                append(indent, "WINDOW");
+                int size = node.getWindows().size();
+                if (size == 1) {
+                    builder.append(" ")
+                            .append(formatWindowDefinition(node.getWindows().get(0)))
+                            .append('\n');
+                }
+                else {
+                    builder.append('\n');
+                    for (int i = 0; i < size - 1; i++) {
+                        append(indent + 1, formatWindowDefinition(node.getWindows().get(i)))
+                                .append(",\n");
+                    }
+                    append(indent + 1, formatWindowDefinition(node.getWindows().get(size - 1)))
+                            .append('\n');
+                }
+            }
+
             if (node.getOrderBy().isPresent()) {
                 process(node.getOrderBy().get(), indent);
             }
@@ -472,6 +493,11 @@ public final class SqlFormatter
             append(indent, "OFFSET " + node.getRowCount() + " ROWS")
                     .append('\n');
             return null;
+        }
+
+        private String formatWindowDefinition(WindowDefinition definition)
+        {
+            return formatExpression(definition.getName(), parameters) + " AS " + formatWindowSpecification(definition.getWindow(), parameters);
         }
 
         @Override

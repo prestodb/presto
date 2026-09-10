@@ -54,6 +54,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNK
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_WINDOW_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
@@ -62,9 +63,11 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_OFFSET_
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDER_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARTITION_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_REFERENCE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
@@ -841,6 +844,84 @@ public class TestAnalyzer
         analyze("SELECT array_agg(x) OVER (RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) FROM (VALUES 1) T(x)");
         // multiple sort keys and sort keys of types other than numeric or datetime are allowed
         analyze("SELECT array_agg(x) OVER (ORDER BY y, z RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) FROM (VALUES (1, 'text', true)) T(x, y, z)");
+    }
+
+    @Test
+    public void testWindowClause()
+    {
+        // reference a window declared in the WINDOW clause
+        analyze("SELECT rank() OVER w FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ORDER BY y)");
+
+        // the same window referenced by several window functions
+        analyze("SELECT rank() OVER w, count(*) OVER w FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ORDER BY y)");
+
+        // window chaining: a definition refines another definition
+        analyze("SELECT sum(y) OVER w2 FROM (VALUES (1, 2)) T(x, y) WINDOW w1 AS (PARTITION BY x), w2 AS (w1 ORDER BY y)");
+
+        // refine a named window at the point of use
+        analyze("SELECT sum(y) OVER (w ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ORDER BY y)");
+
+        // window names are matched case insensitively, like other identifiers
+        analyze("SELECT rank() OVER W FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ORDER BY y)");
+
+        // a window function in ORDER BY can reference the WINDOW clause
+        analyze("SELECT x FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ORDER BY y) ORDER BY rank() OVER w");
+
+        // an unreferenced window definition is still analyzed
+        analyze("SELECT 1 FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x)");
+
+        // window names fold case like other Presto identifiers, including when quoted
+        analyze("SELECT rank() OVER W FROM (VALUES (1, 2)) T(x, y) WINDOW \"w\" AS (PARTITION BY x)");
+
+        // a window that is never referenced is analyzed but never planned, even if it holds a subquery
+        analyze("SELECT 1 FROM (VALUES 1) T(x) WINDOW w AS (PARTITION BY (SELECT 1))");
+
+        // a named window may use aggregates and grouping columns of a grouped query
+        analyze("SELECT rank() OVER w FROM (VALUES (1, 2)) T(x, y) GROUP BY x WINDOW w AS (ORDER BY sum(y))");
+        analyze("SELECT rank() OVER w FROM (VALUES (1, 2)) T(x, y) GROUP BY x WINDOW w AS (PARTITION BY x)");
+
+        // a window name is scoped to the query specification that declares it, so a subquery
+        // resolves its own WINDOW clause rather than the enclosing one
+        analyze("SELECT (SELECT rank() OVER w FROM (VALUES 1) T2(y) WINDOW w AS (PARTITION BY y)) FROM (VALUES 1) T(x)");
+        analyze("SELECT rank() OVER w FROM (SELECT 1 AS y) T WINDOW w AS (PARTITION BY y)");
+    }
+
+    @Test
+    public void testInvalidWindowClause()
+    {
+        assertFails(INVALID_WINDOW_REFERENCE, "SELECT rank() OVER w FROM (VALUES 1) T(x)");
+        assertFails(INVALID_WINDOW_REFERENCE, "SELECT rank() OVER (w ORDER BY x) FROM (VALUES 1) T(x)");
+        assertFails(DUPLICATE_WINDOW_NAME, "SELECT 1 FROM (VALUES 1) T(x) WINDOW w AS (PARTITION BY x), w AS (ORDER BY x)");
+        assertFails(DUPLICATE_WINDOW_NAME, "SELECT 1 FROM (VALUES 1) T(x) WINDOW w AS (PARTITION BY x), W AS (ORDER BY x)");
+        assertFails(DUPLICATE_WINDOW_NAME, "SELECT 1 FROM (VALUES 1) T(x) WINDOW \"W\" AS (PARTITION BY x), \"w\" AS (ORDER BY x)");
+
+        // a window definition may only reference a window declared before it
+        assertFails(INVALID_WINDOW_REFERENCE, "SELECT 1 FROM (VALUES 1) T(x) WINDOW w1 AS (w2 ORDER BY x), w2 AS (PARTITION BY x)");
+
+        // a window declared in a subquery is not visible to the enclosing query specification
+        assertFails(INVALID_WINDOW_REFERENCE, "SELECT rank() OVER w FROM (SELECT 1 AS y FROM (VALUES 1) T2(z) WINDOW w AS (PARTITION BY z)) T");
+
+        // a specification that references a named window cannot add PARTITION BY
+        assertFails(INVALID_PARTITION_BY, "SELECT rank() OVER (w PARTITION BY y) FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x)");
+
+        // ORDER BY cannot be specified twice
+        assertFails(INVALID_ORDER_BY, "SELECT rank() OVER (w ORDER BY y) FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (ORDER BY x)");
+
+        // a referenced window with a frame cannot be refined
+        assertFails(INVALID_WINDOW_REFERENCE, "SELECT rank() OVER (w ORDER BY y) FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ROWS CURRENT ROW)");
+
+        // window functions cannot be nested inside a window specification
+        assertFails(NESTED_WINDOW, "SELECT 1 FROM (VALUES 1) T(x) WINDOW w AS (PARTITION BY rank() OVER ())");
+
+        // a named window is subject to the grouping rules, like an inline one
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT max(x) FROM (VALUES (1, 2)) T(x, y) GROUP BY y WINDOW w AS (PARTITION BY x)");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT max(x) FROM (VALUES (1, 2)) T(x, y) GROUP BY y WINDOW w AS (ORDER BY x)");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT max(x) FROM (VALUES (1, 2)) T(x, y) GROUP BY y WINDOW w AS (ORDER BY y ROWS BETWEEN x PRECEDING AND CURRENT ROW)");
+
+        // type checks still apply to a window declared in the WINDOW clause
+        assertFails(TYPE_MISMATCH, "SELECT rank() OVER w FROM (VALUES CAST(NULL AS HyperLogLog)) T(x) WINDOW w AS (PARTITION BY x)");
+        assertFails(MISSING_ORDER_BY, "SELECT array_agg(x) OVER w FROM (VALUES 1) T(x) WINDOW w AS (RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING)");
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER w FROM (VALUES 1) T(x) WINDOW w AS (ORDER BY x GROUPS UNBOUNDED FOLLOWING)");
     }
 
     @Test

@@ -2324,6 +2324,65 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testWindowClause()
+    {
+        // A named window is equivalent to the inline specification it stands for.
+        assertSameResultsAsInlineWindow(
+                "SELECT orderkey, rank() OVER w AS r FROM orders WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey) ORDER BY orderkey LIMIT 50",
+                "SELECT orderkey, rank() OVER (PARTITION BY orderstatus ORDER BY orderkey) AS r FROM orders ORDER BY orderkey LIMIT 50");
+
+        // One window shared by several window functions.
+        assertSameResultsAsInlineWindow(
+                "SELECT orderkey, rank() OVER w AS r, count(*) OVER w AS c, sum(custkey) OVER w AS s\n" +
+                        "FROM orders WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey) ORDER BY orderkey LIMIT 50",
+                "SELECT orderkey, rank() OVER (PARTITION BY orderstatus ORDER BY orderkey) AS r,\n" +
+                        "  count(*) OVER (PARTITION BY orderstatus ORDER BY orderkey) AS c,\n" +
+                        "  sum(custkey) OVER (PARTITION BY orderstatus ORDER BY orderkey) AS s\n" +
+                        "FROM orders ORDER BY orderkey LIMIT 50");
+
+        // Window chaining: w2 inherits PARTITION BY from w1 and adds an ordering.
+        assertSameResultsAsInlineWindow(
+                "SELECT orderkey, sum(custkey) OVER w1 AS total, sum(custkey) OVER w2 AS running\n" +
+                        "FROM orders WINDOW w1 AS (PARTITION BY orderstatus), w2 AS (w1 ORDER BY orderkey)\n" +
+                        "ORDER BY orderkey LIMIT 50",
+                "SELECT orderkey, sum(custkey) OVER (PARTITION BY orderstatus) AS total,\n" +
+                        "  sum(custkey) OVER (PARTITION BY orderstatus ORDER BY orderkey) AS running\n" +
+                        "FROM orders ORDER BY orderkey LIMIT 50");
+
+        // A named window refined with a frame at the point of use.
+        assertSameResultsAsInlineWindow(
+                "SELECT orderkey, sum(custkey) OVER (w ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS trailing\n" +
+                        "FROM orders WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey) ORDER BY orderkey LIMIT 50",
+                "SELECT orderkey, sum(custkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS trailing\n" +
+                        "FROM orders ORDER BY orderkey LIMIT 50");
+
+        // A window function in ORDER BY may reference the WINDOW clause.
+        assertSameResultsAsInlineWindow(
+                "SELECT orderkey FROM orders WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey)\n" +
+                        "ORDER BY rank() OVER w, orderkey LIMIT 50",
+                "SELECT orderkey FROM orders\n" +
+                        "ORDER BY rank() OVER (PARTITION BY orderstatus ORDER BY orderkey), orderkey LIMIT 50");
+
+        // A named window in a grouped query may use aggregates and grouping columns.
+        assertSameResultsAsInlineWindow(
+                "SELECT orderstatus, rank() OVER w AS r FROM orders GROUP BY orderstatus WINDOW w AS (ORDER BY sum(custkey)) ORDER BY orderstatus",
+                "SELECT orderstatus, rank() OVER (ORDER BY sum(custkey)) AS r FROM orders GROUP BY orderstatus ORDER BY orderstatus");
+
+        // WINDOW is not a reserved word.
+        assertQuery("SELECT orderkey AS window FROM orders ORDER BY 1 LIMIT 5", "SELECT orderkey FROM orders ORDER BY 1 LIMIT 5");
+    }
+
+    /**
+     * Both queries must order by a unique key, so that the two executions are row for row comparable.
+     */
+    private void assertSameResultsAsInlineWindow(String namedWindowQuery, String inlineWindowQuery)
+    {
+        MaterializedResult namedWindowResult = computeActual(namedWindowQuery);
+        assertEquals(namedWindowResult, computeActual(inlineWindowQuery));
+        assertFalse(namedWindowResult.getMaterializedRows().isEmpty(), "expected a non-empty result for: " + namedWindowQuery);
+    }
+
+    @Test
     public void testRowNumberLimit()
     {
         MaterializedResult actual = computeActual("" +

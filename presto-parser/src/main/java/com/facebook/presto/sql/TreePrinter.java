@@ -49,6 +49,8 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.WindowDefinition;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 
@@ -162,6 +164,14 @@ public class TreePrinter
                     process(node.getHaving().get(), indentLevel + 1);
                 }
 
+                if (!node.getWindows().isEmpty()) {
+                    print(indentLevel, "Window");
+                    for (WindowDefinition windowDefinition : node.getWindows()) {
+                        print(indentLevel + 1, windowDefinition.getName().getValue());
+                        process(windowDefinition.getWindow(), indentLevel + 2);
+                    }
+                }
+
                 if (node.getOrderBy().isPresent()) {
                     print(indentLevel, "OrderBy");
                     process(node.getOrderBy().get(), indentLevel + 1);
@@ -170,6 +180,27 @@ public class TreePrinter
                 if (node.getLimit().isPresent()) {
                     print(indentLevel, "Limit: " + node.getLimit().get());
                 }
+
+                return null;
+            }
+
+            public Void visitWindowSpecification(WindowSpecification node, Integer indentLevel)
+            {
+                node.getExistingWindowName().ifPresent(name -> print(indentLevel, "Reference: " + name.getValue()));
+
+                if (!node.getPartitionBy().isEmpty()) {
+                    print(indentLevel, "PartitionBy");
+                    for (Expression expression : node.getPartitionBy()) {
+                        process(expression, indentLevel + 1);
+                    }
+                }
+
+                if (node.getOrderBy().isPresent()) {
+                    print(indentLevel, "OrderBy");
+                    process(node.getOrderBy().get(), indentLevel + 1);
+                }
+
+                node.getFrame().ifPresent(frame -> print(indentLevel, "Frame: " + frame));
 
                 return null;
             }

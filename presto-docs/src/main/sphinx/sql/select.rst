@@ -13,6 +13,7 @@ Synopsis
     [ WHERE condition ]
     [ GROUP BY [ ALL | DISTINCT ] grouping_element [, ...] ]
     [ HAVING condition]
+    [ WINDOW window_definition [, ...] ]
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
     [ OFFSET count [ { ROW | ROWS } ] ]
@@ -448,6 +449,73 @@ with an account balance greater than the specified value::
       1251 | MACHINERY  |         2 |  5719140
       1247 | FURNITURE  |         8 |  5701952
     (7 rows)
+
+.. _window_clause:
+
+WINDOW Clause
+-------------
+
+The ``WINDOW`` clause names one or more window specifications so that they can be
+reused by several window functions. It appears after ``HAVING`` and before
+``ORDER BY``::
+
+    WINDOW window_name AS ( window_specification ) [, ...]
+
+where ``window_specification`` is::
+
+    [ existing_window_name ]
+    [ PARTITION BY expression [, ...] ]
+    [ ORDER BY expression [ ASC | DESC ] [, ...] ]
+    [ window_frame ]
+
+A window function refers to a named window by writing its name after ``OVER``,
+in place of a parenthesized specification. Naming a window avoids repeating the
+same specification for every function::
+
+    SELECT orderkey,
+           rank()          OVER w AS rnk,
+           sum(totalprice) OVER w AS running_total
+    FROM orders
+    WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey)
+
+This is equivalent to spelling the specification out at each use::
+
+    SELECT orderkey,
+           rank()          OVER (PARTITION BY orderstatus ORDER BY orderkey) AS rnk,
+           sum(totalprice) OVER (PARTITION BY orderstatus ORDER BY orderkey) AS running_total
+    FROM orders
+
+A window specification may build on a window declared earlier in the same
+``WINDOW`` clause by starting with that window's name. The new specification
+inherits the ``PARTITION BY`` of the referenced window and may add an
+``ORDER BY`` or a frame::
+
+    SELECT orderkey,
+           sum(totalprice) OVER w_partition AS total,
+           sum(totalprice) OVER w_ordered   AS running_total
+    FROM orders
+    WINDOW w_partition AS (PARTITION BY orderstatus),
+           w_ordered   AS (w_partition ORDER BY orderkey)
+
+The same form may be used directly in an ``OVER`` clause, which is convenient
+when only the frame differs between uses::
+
+    SELECT orderkey,
+           sum(totalprice) OVER w                                            AS running_total,
+           sum(totalprice) OVER (w ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS trailing_total
+    FROM orders
+    WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey)
+
+The following restrictions apply to a specification that references an existing
+window:
+
+* It cannot specify ``PARTITION BY``. The partitioning is always inherited.
+* It cannot specify ``ORDER BY`` if the referenced window already specifies one.
+* The referenced window cannot contain a window frame.
+
+A window name is only visible within the query specification that declares it,
+and it can only reference a window declared before it. Window names are matched
+case insensitively, the same way ``WITH`` query names are.
 
 UNION | INTERSECT | EXCEPT Clause
 ---------------------------------

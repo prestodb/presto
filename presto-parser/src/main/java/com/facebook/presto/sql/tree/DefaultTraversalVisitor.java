@@ -156,7 +156,7 @@ public abstract class DefaultTraversalVisitor<R, C>
         node.getArguments().forEach(argument -> process(argument, context));
 
         node.getOrderBy().ifPresent(orderBy -> process(orderBy, context));
-        node.getWindow().ifPresent(window -> process(window, context));
+        node.getWindow().ifPresent(window -> process((Node) window, context));
         node.getFilter().ifPresent(filter -> process(filter, context));
 
         return null;
@@ -188,12 +188,30 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    public R visitWindow(Window node, C context)
+    public R visitWindowSpecification(WindowSpecification node, C context)
     {
+        // The name of the referenced window is deliberately not traversed. It is a reference into the
+        // window namespace of the enclosing query specification, not a column reference, and visitors
+        // that collect identifiers would otherwise treat it as one.
         node.getPartitionBy().forEach(expression -> process(expression, context));
 
         node.getOrderBy().ifPresent(orderBy -> process(orderBy, context));
         node.getFrame().ifPresent(frame -> process(frame, context));
+
+        return null;
+    }
+
+    @Override
+    public R visitWindowReference(WindowReference node, C context)
+    {
+        // The window name is deliberately not traversed. See visitWindowSpecification.
+        return null;
+    }
+
+    @Override
+    public R visitWindowDefinition(WindowDefinition node, C context)
+    {
+        process(node.getWindow(), context);
 
         return null;
     }
@@ -351,6 +369,7 @@ public abstract class DefaultTraversalVisitor<R, C>
         node.getWhere().ifPresent(where -> process(where, context));
         node.getGroupBy().ifPresent(groupBy -> process(groupBy, context));
         node.getHaving().ifPresent(having -> process(having, context));
+        node.getWindows().forEach(windowDefinition -> process(windowDefinition, context));
         node.getOrderBy().ifPresent(orderBy -> process(orderBy, context));
 
         return null;
