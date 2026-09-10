@@ -59,8 +59,7 @@ RestRemoteClient::RestRemoteClient(const std::string& url) : url_(url) {
           "Set 'https-client-cert-key-path' in config.properties");
     }
 
-    const std::string caFile =
-        systemConfig->httpsClientCaFile().value_or("");
+    const std::string caFile = systemConfig->httpsClientCaFile().value_or("");
     sslContext_ = util::createSSLContext(
         optionalClientCertPath.value(),
         ciphers,

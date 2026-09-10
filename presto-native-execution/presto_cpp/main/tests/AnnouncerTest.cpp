@@ -212,7 +212,8 @@ INSTANTIATE_TEST_CASE_P(
 //   sslScheme: discovery.uri = "https://..." + sslContext provided
 //              → useSSL=true  → HTTPS client → announcements reach HTTPS server
 //   httpScheme: discovery.uri = "http://..."  + sslContext provided
-//              → useSSL=false → plain-HTTP client → announcements reach HTTP server
+//              → useSSL=false → plain-HTTP client → announcements reach HTTP
+//              server
 //
 // In both cases the Announcer is given a non-null sslContext_ to confirm that
 // the scheme, not the mere presence of an sslContext, drives the choice.
@@ -249,7 +250,9 @@ class PeriodicServiceInventoryManagerSslBySchemeTest : public ::testing::Test {
  protected:
   // Run an Announcer against a test server of the given transport type
   // and assert that at least one announcement is delivered successfully.
-  void runAndExpectAnnouncements(bool serverUsesHttps, const std::string& discoveryUriScheme) {
+  void runAndExpectAnnouncements(
+      bool serverUsesHttps,
+      const std::string& discoveryUriScheme) {
     auto [promise, future] = folly::makePromiseContract<bool>();
 
     // Counter shared between the server handler and the promise fulfiller.
@@ -275,8 +278,7 @@ class PeriodicServiceInventoryManagerSslBySchemeTest : public ::testing::Test {
             serverAddress.getAddressStr(),
             serverAddress.getPort()));
 
-    auto discoverer =
-        std::make_shared<FixedAddressDiscoverer>(serverAddress);
+    auto discoverer = std::make_shared<FixedAddressDiscoverer>(serverAddress);
 
     // Always pass sslContext_ to confirm that the scheme (not the mere presence
     // of an sslContext) determines whether TLS is used.
@@ -305,13 +307,19 @@ class PeriodicServiceInventoryManagerSslBySchemeTest : public ::testing::Test {
 
 // discovery.uri uses https:// → sslContext is passed to the HttpClient → TLS
 // handshake succeeds against the HTTPS test server.
-TEST_F(PeriodicServiceInventoryManagerSslBySchemeTest, sslUsedWhenSchemeIsHttps) {
-  runAndExpectAnnouncements(/*serverUsesHttps=*/true, /*discoveryUriScheme=*/"https");
+TEST_F(
+    PeriodicServiceInventoryManagerSslBySchemeTest,
+    sslUsedWhenSchemeIsHttps) {
+  runAndExpectAnnouncements(/*serverUsesHttps=*/true,
+                            /*discoveryUriScheme=*/"https");
 }
 
 // discovery.uri uses http:// → sslContext is withheld from the HttpClient →
 // plain-text connection succeeds against the HTTP test server, even though a
 // non-null sslContext_ was supplied to the Announcer constructor.
-TEST_F(PeriodicServiceInventoryManagerSslBySchemeTest, sslSkippedWhenSchemeIsHttp) {
-  runAndExpectAnnouncements(/*serverUsesHttps=*/false, /*discoveryUriScheme=*/"http");
+TEST_F(
+    PeriodicServiceInventoryManagerSslBySchemeTest,
+    sslSkippedWhenSchemeIsHttp) {
+  runAndExpectAnnouncements(/*serverUsesHttps=*/false,
+                            /*discoveryUriScheme=*/"http");
 }
