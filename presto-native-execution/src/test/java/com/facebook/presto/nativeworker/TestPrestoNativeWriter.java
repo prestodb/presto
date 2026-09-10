@@ -334,6 +334,30 @@ public class TestPrestoNativeWriter
     }
 
     @Test(groups = {"writer"})
+    public void testNotNullColumnEnforcementWithCreateTableAsSelect()
+    {
+        String sourceTableName = generateRandomTableName();
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT NOT NULL)", sourceTableName));
+            assertUpdate(format("INSERT INTO %s VALUES (NULL, 2)", sourceTableName), 1);
+
+            // CREATE TABLE AS has no column constraint syntax and does not carry the source table's
+            // constraints over, so every column of the new table is nullable and the write is
+            // unconstrained even where it reads a NOT NULL column.
+            assertUpdate(format("CREATE TABLE %s AS SELECT c1, c2 FROM %s", tmpTableName, sourceTableName), 1);
+            assertQuery(format("SELECT c1, c2 FROM %s", tmpTableName), "VALUES (CAST(NULL AS BIGINT), CAST(2 AS BIGINT))");
+
+            // c2 of the new table is nullable even though it reads the NOT NULL c2 of the source.
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tmpTableName), 1);
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+            dropTableIfExists(sourceTableName);
+        }
+    }
+
+    @Test(groups = {"writer"})
     public void testAlterColumnSetAndDropNotNull()
     {
         String tmpTableName = generateRandomTableName();
