@@ -13,6 +13,8 @@
  */
 package org.apache.iceberg;
 
+import org.apache.iceberg.io.CloseableIterable;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -35,5 +37,10 @@ public class IcebergLibUtils
     public static TableScanContext getScanContext(DataTableScan tableScan)
     {
         return tableScan.context();
+    }
+
+    public static <F extends ContentFile<F>> CloseableIterable<F> liveEntries(ManifestReader<F> manifestReader)
+    {
+        return CloseableIterable.transform(manifestReader.liveEntries(), ManifestEntry::file);
     }
 }

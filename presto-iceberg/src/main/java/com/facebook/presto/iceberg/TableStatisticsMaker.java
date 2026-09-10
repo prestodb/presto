@@ -40,6 +40,8 @@ import com.facebook.presto.spi.statistics.StringRange;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -47,16 +49,19 @@ import jakarta.annotation.Nullable;
 import org.apache.datasketches.memory.Memory;
 import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.ContentFile;
-import org.apache.iceberg.ContentScanTask;
+import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.GenericBlobMetadata;
 import org.apache.iceberg.GenericStatisticsFile;
 import org.apache.iceberg.HasTableOperations;
+import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableScan;
+import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.ManifestEvaluator;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
@@ -293,15 +298,41 @@ public class TableStatisticsMaker
     {
         // Iceberg's expression binder rejects predicates on metadata columns; strip them here.
         TupleDomain<IcebergColumnHandle> nonMetadataIntersection = IcebergUtil.getNonMetadataColumnConstraints(intersection);
-        TableScan tableScan = icebergTable.newScan()
-                .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
-                .filter(toIcebergExpression(nonMetadataIntersection))
-                .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
-                .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
-                .includeColumnStats();
+        Expression filter = toIcebergExpression(nonMetadataIntersection);
+        Snapshot snapshot = icebergTable.snapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
+        List<ManifestFile> manifests = snapshot.dataManifests(icebergTable.io()).stream()
+                .filter(manifest -> manifest.hasAddedFiles() || manifest.hasExistingFiles())
+                .filter(manifest -> ManifestEvaluator.forRowFilter(filter, icebergTable.specs().get(manifest.partitionSpecId()), true).eval(manifest))
+                .collect(toImmutableList());
 
-        CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(tableScan.planFiles(), ContentScanTask::file);
+        Set<Integer> columnIds = selectedColumns.stream()
+                .map(IcebergColumnHandle::getId)
+                .collect(toImmutableSet());
+        Iterable<CloseableIterable<DataFile>> dataFileIterables = manifests.stream()
+                .map(manifest -> readDataManifest(manifest, filter, columnIds))
+                .collect(toImmutableList());
+        CloseableIterable<ContentFile<?>> files = CloseableIterable.withNoopClose(Iterables.concat(dataFileIterables));
         return getSummaryFromFiles(files, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
+    }
+
+    private CloseableIterable<DataFile> readDataManifest(ManifestFile manifest, Expression filter, Set<Integer> columnIds)
+    {
+        return CloseableIterable.transform(
+                org.apache.iceberg.IcebergLibUtils.liveEntries(
+                                ManifestFiles.read(manifest, icebergTable.io(), icebergTable.specs())
+                                        .select(ImmutableSet.of(
+                                                "partition",
+                                                "file_path",
+                                                "file_size_in_bytes",
+                                                "column_sizes",
+                                                "value_counts",
+                                                "null_value_counts",
+                                                "nan_value_counts",
+                                                "lower_bounds",
+                                                "upper_bounds",
+                                                "record_count"))
+                                        .filterRows(filter)),
+                entry -> entry.copyWithStats(columnIds));
     }
 
     private Partition getEqualityDeleteTableSummary(IcebergTableHandle tableHandle,
