@@ -147,6 +147,7 @@
         <module>presto-hive-hadoop2</module>
         <module>presto-hive-metastore</module>
         <module>presto-iceberg</module>
+        <module>presto-ducklake</module>
         <module>presto-i18n-functions</module>
         <module>presto-teradata-functions</module>
         <module>presto-example-http</module>
