@@ -40,6 +40,12 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
+/**
+ * Executes {@code ALTER TABLE ... ADD COLUMN parent.field type} for nested struct fields.
+ *
+ * <p>Based on Trino's nested-field ADD COLUMN support by Yuya Ebihara (@ebyhr):
+ * https://github.com/trinodb/trino/pull/16321
+ */
 public class AddFieldTask
         implements DDLDefinitionTask<AddField>
 {

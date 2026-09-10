@@ -31,6 +31,10 @@ import static java.util.Objects.requireNonNull;
  * and everything before it is the parent struct path.
  * Example: ALTER TABLE t ADD COLUMN col.sub_field VARCHAR
  *   -> columnPath = ["col"], fieldName = "sub_field"
+ *
+
+ * <p>Based on Trino's nested-field ADD COLUMN support by Yuya Ebihara (@ebyhr):
+ * https://github.com/trinodb/trino/pull/16321
  */
 public class AddField
         extends Statement

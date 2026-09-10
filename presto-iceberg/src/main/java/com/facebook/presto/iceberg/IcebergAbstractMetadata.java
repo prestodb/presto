@@ -1365,6 +1365,8 @@ public abstract class IcebergAbstractMetadata
                 .findFirst();
     }
 
+    // Based on Trino's nested-field ADD COLUMN support by Yuya Ebihara (@ebyhr):
+    // https://github.com/trinodb/trino/pull/16321
     @Override
     public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, com.facebook.presto.common.type.Type type, boolean ignoreExisting)
     {
