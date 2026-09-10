@@ -24,6 +24,7 @@ import static com.facebook.presto.common.block.Fixed12ArrayBlock.FIXED12_BYTES;
 import static com.facebook.presto.common.block.Fixed12ArrayBlock.SIZE_IN_BYTES_PER_POSITION;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * TIMESTAMP(p) for p &gt; {@link TimestampType#MAX_SHORT_PRECISION}: the value does not fit in a
@@ -45,7 +46,7 @@ public final class LongTimestampType
     }
 
     /**
-     * Not for scan/projection hot paths — allocates a {@link LongTimestamp} per call.
+     * Not for scan/projection hot paths: allocates a {@link LongTimestamp} per call.
      */
     @Override
     public LongTimestamp getObject(Block block, int position)
@@ -56,7 +57,7 @@ public final class LongTimestampType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        LongTimestamp timestamp = (LongTimestamp) value;
+        LongTimestamp timestamp = (LongTimestamp) requireNonNull(value, "value is null");
         blockBuilder.writeLong(timestamp.getEpochMicros())
                 .writeInt(timestamp.getPicosOfMicro())
                 .closeEntry();
@@ -132,7 +133,9 @@ public final class LongTimestampType
         if (block.isNull(position)) {
             return null;
         }
-        throw unsupported("getObjectValue");
+        throw new UnsupportedOperationException(format(
+                "getObjectValue is not supported for TIMESTAMP(%d): SqlTimestamp does not yet carry sub-microsecond precision",
+                getPrecision()));
     }
 
     @Override

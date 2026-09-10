@@ -17,6 +17,8 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -121,6 +123,44 @@ public class TestFixed12ArrayBlock
         assertFalse(decoded.isNull(2));
         assertEquals(decoded.getLong(2, 0), -999_999L);
         assertEquals(decoded.getInt(2), 999_999);
+    }
+
+    @Test
+    public void testPackingOrderIsLowWordFirst()
+    {
+        // The int[] constructor is public, so the packing order is part of the API: the low 32-bit
+        // word of the long occupies the first slot, matching the little-endian wire layout.
+        Block block = new Fixed12ArrayBlock(1, Optional.empty(), new int[] {0x89ABCDEF, 0x01234567, 7});
+
+        assertEquals(block.getLong(0, 0), 0x0123456789ABCDEFL);
+        assertEquals(block.getInt(0), 7);
+    }
+
+    @Test
+    public void testEncodingRoundTripWithoutNulls()
+    {
+        // A null-free block decodes through the bulk read path. The long components below have
+        // distinct high and low words, so a packing order that disagrees with the wire layout
+        // would corrupt them.
+        long[] longValues = {0x0123456789ABCDEFL, Long.MIN_VALUE, -1L};
+
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, longValues.length);
+        for (int i = 0; i < longValues.length; i++) {
+            builder.writeLong(longValues[i]).writeInt(i).closeEntry();
+        }
+        Block original = builder.build();
+
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(256);
+        Fixed12ArrayBlockEncoding encoding = new Fixed12ArrayBlockEncoding();
+        encoding.writeBlock(null, sliceOutput, original);
+        Block decoded = encoding.readBlock(null, sliceOutput.slice().getInput());
+
+        assertEquals(decoded.getPositionCount(), longValues.length);
+        assertFalse(decoded.mayHaveNull());
+        for (int i = 0; i < longValues.length; i++) {
+            assertEquals(decoded.getLong(i, 0), longValues[i]);
+            assertEquals(decoded.getInt(i), i);
+        }
     }
 
     @Test
@@ -241,7 +281,7 @@ public class TestFixed12ArrayBlock
     public void testStoresArbitraryIntComponent()
     {
         // The block is type-agnostic: it stores whatever int it is given, including negative values
-        // and the full int range. Range checks belong to the Type that owns the layout — see
+        // and the full int range. Range checks belong to the Type that owns the layout - see
         // LongTimestamp, which validates picosOfMicro before LongTimestampType writes it here.
         Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 4);
         builder.writeLong(0L).writeInt(Integer.MIN_VALUE).closeEntry();

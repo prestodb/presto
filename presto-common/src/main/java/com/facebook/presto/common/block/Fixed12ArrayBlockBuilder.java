@@ -28,6 +28,10 @@ import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.common.block.Fixed12ArrayBlock.FIXED12_BYTES;
+import static com.facebook.presto.common.block.Fixed12ArrayBlock.INTS_PER_POSITION;
+import static com.facebook.presto.common.block.Fixed12ArrayBlock.SIZE_IN_BYTES_PER_POSITION;
+import static com.facebook.presto.common.block.Fixed12ArrayBlock.packLong;
+import static com.facebook.presto.common.block.Fixed12ArrayBlock.unpackLong;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 import static java.lang.String.format;
@@ -42,8 +46,6 @@ public class Fixed12ArrayBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Fixed12ArrayBlockBuilder.class).instanceSize();
     private static final Block NULL_VALUE_BLOCK = new Fixed12ArrayBlock(0, 1, new boolean[] {true}, new int[3]);
-
-    private static final int INTS_PER_POSITION = Fixed12ArrayBlock.INTS_PER_POSITION;
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -77,7 +79,7 @@ public class Fixed12ArrayBlockBuilder
         if (valueIsNull.length <= positionCount) {
             growCapacity();
         }
-        Fixed12ArrayBlock.packLong(values, positionCount * INTS_PER_POSITION, value);
+        packLong(values, positionCount * INTS_PER_POSITION, value);
         entryFieldCount = 1;
         hasNonNullValue = true;
         return this;
@@ -131,7 +133,7 @@ public class Fixed12ArrayBlockBuilder
     public Block build()
     {
         if (entryFieldCount != 0) {
-            throw new IllegalStateException("Current entry is not complete — call writeInt and closeEntry before building");
+            throw new IllegalStateException("Current entry is not complete: call writeInt and closeEntry before building");
         }
         if (!hasNonNullValue) {
             return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
@@ -177,25 +179,25 @@ public class Fixed12ArrayBlockBuilder
     @Override
     public long getSizeInBytes()
     {
-        return Fixed12ArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
+        return SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override
     public OptionalInt fixedSizeInBytesPerPosition()
     {
-        return OptionalInt.of(Fixed12ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
+        return OptionalInt.of(SIZE_IN_BYTES_PER_POSITION);
     }
 
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return Fixed12ArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) length;
+        return SIZE_IN_BYTES_PER_POSITION * (long) length;
     }
 
     @Override
     public long getPositionsSizeInBytes(boolean[] usedPositions, int usedPositionCount)
     {
-        return Fixed12ArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) usedPositionCount;
+        return SIZE_IN_BYTES_PER_POSITION * (long) usedPositionCount;
     }
 
     @Override
@@ -414,7 +416,7 @@ public class Fixed12ArrayBlockBuilder
 
     private long getLongValue(int position)
     {
-        return Fixed12ArrayBlock.unpackLong(values, position * INTS_PER_POSITION);
+        return unpackLong(values, position * INTS_PER_POSITION);
     }
 
     private void checkReadablePosition(int position)

@@ -15,15 +15,17 @@ package com.facebook.presto.common.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.common.block.EncoderUtil.decodeNullBits;
 import static com.facebook.presto.common.block.EncoderUtil.encodeNullsAsBits;
+import static com.facebook.presto.common.block.Fixed12ArrayBlock.INTS_PER_POSITION;
+import static com.facebook.presto.common.block.Fixed12ArrayBlock.packLong;
 
 public class Fixed12ArrayBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "FIXED12_ARRAY";
-    private static final int INTS_PER_POSITION = Fixed12ArrayBlock.INTS_PER_POSITION;
 
     @Override
     public String getName()
@@ -56,11 +58,17 @@ public class Fixed12ArrayBlockEncoding
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
 
         int[] values = new int[positionCount * INTS_PER_POSITION];
-        for (int position = 0; position < positionCount; position++) {
-            if (valueIsNull == null || !valueIsNull[position]) {
-                int base = position * INTS_PER_POSITION;
-                Fixed12ArrayBlock.packLong(values, base, sliceInput.readLong());
-                values[base + 2] = sliceInput.readInt();
+        if (valueIsNull == null) {
+            // No nulls present, read values array directly from input
+            sliceInput.readBytes(Slices.wrappedIntArray(values));
+        }
+        else {
+            for (int position = 0; position < positionCount; position++) {
+                if (!valueIsNull[position]) {
+                    int base = position * INTS_PER_POSITION;
+                    packLong(values, base, sliceInput.readLong());
+                    values[base + 2] = sliceInput.readInt();
+                }
             }
         }
 

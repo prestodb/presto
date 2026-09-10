@@ -15,7 +15,7 @@ package com.facebook.presto.common.type;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.common.TimestampConstants.MAX_PICOS_OF_MICRO;
+import static com.facebook.presto.common.type.TimestampConstants.MAX_PICOS_OF_MICRO;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.expectThrows;

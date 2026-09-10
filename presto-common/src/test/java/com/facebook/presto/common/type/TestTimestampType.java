@@ -146,7 +146,7 @@ public class TestTimestampType
     @Test
     public void testEpochComponentsIntermediatePrecision()
     {
-        // p=4: unit = 100µs (1/10,000 of a second)
+        // p=4: unit = 100us (1/10,000 of a second)
         TimestampType ts = createTimestampType(4);
         assertEquals(ts.getEpochSecond(10_000L), 1L);
         assertEquals(ts.getNanos(10_000L), 0);
@@ -163,7 +163,7 @@ public class TestTimestampType
     {
         assertEquals(createTimestampType(3).toEpochMillis(1_500L), 1_500L);
         assertEquals(createTimestampType(6).toEpochMillis(1_500_000L), 1_500L);
-        // Pre-epoch: floor division — old MICROSECONDS.toMillis(-1µs) returned 0, not -1.
+        // Pre-epoch: floor division - old MICROSECONDS.toMillis(-1us) returned 0, not -1.
         assertEquals(createTimestampType(3).toEpochMillis(-1L), -1L);
         assertEquals(createTimestampType(6).toEpochMillis(-1L), -1L);
         assertEquals(createTimestampType(6).toEpochMillis(-999L), -1L);
@@ -181,7 +181,7 @@ public class TestTimestampType
         assertEquals(createTimestampType(0).toEpochMicros(-1L), -1_000_000L);
         assertEquals(createTimestampType(3).toEpochMicros(1_500L), 1_500_000L);
         assertEquals(createTimestampType(3).toEpochMicros(0L), 0L);
-        // Pre-epoch: IcebergPageSink uses toEpochMicros for p=3 (millis → micros).
+        // Pre-epoch: IcebergPageSink uses toEpochMicros for p=3 (millis -> micros).
         assertEquals(createTimestampType(3).toEpochMicros(-1L), -1_000L);
         assertEquals(createTimestampType(3).toEpochMicros(-1_000L), -1_000_000L);
         assertEquals(createTimestampType(3).toEpochMicros(-1_001L), -1_001_000L);
@@ -211,7 +211,7 @@ public class TestTimestampType
     {
         // toEpochMillis, toEpochMicros, and fromEpochComponents require a single-long representation
         // and throw for p > MAX_SHORT_PRECISION until LongTimestamp is wired in.
-        // getEpochSecond and getNanos do not guard on precision — those guards arrive with LongTimestamp.
+        // getEpochSecond and getNanos do not guard on precision - those guards arrive with LongTimestamp.
         for (int p = TimestampType.MAX_SHORT_PRECISION + 1; p <= TimestampType.MAX_PRECISION; p++) {
             TimestampType ts = createTimestampType(p);
             expectThrows(UnsupportedOperationException.class, () -> ts.toEpochMillis(0L));
@@ -248,7 +248,7 @@ public class TestTimestampType
         assertEquals(TIMESTAMP_MICROSECONDS.getObjectValue(nonLegacy, microsBlock, 0), new SqlTimestamp(1_000_000L, MICROSECONDS));
         assertEquals(TIMESTAMP_MICROSECONDS.getObjectValue(legacy, microsBlock, 0), new SqlTimestamp(1_000_000L, TimeZoneKey.UTC_KEY, MICROSECONDS));
 
-        // Build short-precision blocks (p=1, p=4) — the precision guard fires before any block read.
+        // Build short-precision blocks (p=1, p=4) - the precision guard fires before any block read.
         BlockBuilder shortBuilder = TIMESTAMP.createBlockBuilder(null, 1);
         TIMESTAMP.writeLong(shortBuilder, 1_000L);
         Block shortBlock = shortBuilder.build();
@@ -259,7 +259,20 @@ public class TestTimestampType
         BlockBuilder p7Builder = p7.createBlockBuilder(null, 1);
         p7.writeObject(p7Builder, new LongTimestamp(1_000_000L, 0));
         Block p7Block = p7Builder.build();
-        expectThrows(UnsupportedOperationException.class, () -> p7.getObjectValue(nonLegacy, p7Block, 0));
+        UnsupportedOperationException e = expectThrows(UnsupportedOperationException.class,
+                () -> p7.getObjectValue(nonLegacy, p7Block, 0));
+        // getObject() is not a substitute for getObjectValue(), so the message must not point there.
+        assertTrue(e.getMessage().contains("SqlTimestamp"), e.getMessage());
+        assertFalse(e.getMessage().contains("getObject(block, position)"), e.getMessage());
+    }
+
+    @Test
+    public void testWriteObjectRejectsNull()
+    {
+        TimestampType p9 = createTimestampType(9);
+        BlockBuilder builder = p9.createBlockBuilder(null, 1);
+        NullPointerException e = expectThrows(NullPointerException.class, () -> p9.writeObject(builder, null));
+        assertEquals(e.getMessage(), "value is null");
     }
 
     @Test
