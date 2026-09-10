@@ -244,6 +244,6 @@ public class TestNativeSidecarRetryDriver
         assertSame(thrown, wrapper);
         assertEquals(thrown.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
         assertTrue(thrown.getSuppressed().length >= 1, "Expected suppressed exceptions to accumulate");
-        assertTrue(thrown.getCause() instanceof IOException);
+        assertTrue(thrown.getSuppressed()[0] instanceof IOException);
     }
 }
