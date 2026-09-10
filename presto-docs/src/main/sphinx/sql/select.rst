@@ -443,6 +443,22 @@ with an account balance greater than the specified value::
       1272 | AUTOMOBILE |        19 |  5856939
       1253 | FURNITURE  |        14 |  5794887
       1248 | FURNITURE  |         9 |  5784628
+
+The ``HAVING`` clause can also reference output column aliases defined in
+the ``SELECT`` list. The alias is replaced by the expression it names, so
+the following query is equivalent to the previous one::
+
+    SELECT count(*), mktsegment, nationkey,
+           CAST(sum(acctbal) AS bigint) AS totalbal
+    FROM customer
+    GROUP BY mktsegment, nationkey
+    HAVING totalbal > 5700000
+    ORDER BY totalbal DESC;
+
+Column names from the ``FROM`` clause take precedence over output aliases:
+if a name in ``HAVING`` matches both an input column and an alias, it refers
+to the input column. An alias that names an aggregate expression cannot be
+used inside another aggregate function in ``HAVING``.
       1243 | FURNITURE  |        12 |  5757371
       1231 | HOUSEHOLD  |         3 |  5753216
       1251 | MACHINERY  |         2 |  5719140

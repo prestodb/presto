@@ -317,7 +317,59 @@ public class TestAnalyzer
     @Test
     public void testHavingReferencesOutputAlias()
     {
-        assertFails(MISSING_ATTRIBUTE, "SELECT sum(a) x FROM t1 HAVING x > 5");
+        analyze("SELECT sum(a) x FROM t1 HAVING x > 5");
+        analyze("SELECT sum(a) AS total FROM t1 GROUP BY b HAVING total > 10");
+        analyze("SELECT count(*) AS cnt, sum(a) AS total FROM t1 GROUP BY b HAVING cnt > 5 AND total > 100");
+        analyze("SELECT b AS key, sum(a) AS total FROM t1 GROUP BY b HAVING key > 1 AND total > 1");
+        // alias referenced more than once, and with a coercion that differs from the SELECT item
+        analyze("SELECT count(*) AS cnt FROM t1 GROUP BY b HAVING cnt > 1.5e0 AND cnt < 10");
+        // alias used inside a lambda body (aggregations are not allowed in lambdas, so the alias must be a non-aggregate expression)
+        analyze("SELECT b + 1 AS key, sum(a) FROM t1 GROUP BY b HAVING any_match(ARRAY[1, 2], x -> x < key)");
+        // alias of an expression containing a scalar subquery
+        analyze("SELECT (SELECT max(a) FROM t2) AS m, sum(a) FROM t1 GROUP BY b HAVING m > 1");
+        // alias of a grouping operation
+        analyze("SELECT grouping(a, b) AS g, sum(c) FROM t1 GROUP BY GROUPING SETS ((a), (b)) HAVING g > 1");
+    }
+
+    @Test
+    public void testHavingInputColumnTakesPrecedenceOverOutputAlias()
+    {
+        // 'b' is an input column, so it is not replaced by the alias 'b' even though both exist
+        analyze("SELECT max(a) AS b FROM t1 GROUP BY b HAVING b > 5");
+        analyze("SELECT max(a) AS b, b FROM t1 GROUP BY b HAVING b > 5");
+        // 'c' is an input column that is not grouped, so it wins over the alias 'c' and is rejected
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT max(a) AS c FROM t1 GROUP BY b HAVING c > 5");
+        // qualified column references are never treated as aliases
+        analyze("SELECT max(a) AS b FROM t1 GROUP BY b HAVING t1.b > 5");
+        // lambda arguments shadow output aliases
+        analyze("SELECT sum(a) AS x FROM t1 GROUP BY b HAVING any_match(ARRAY[1, 2], x -> x > 1)");
+    }
+
+    @Test
+    public void testHavingAmbiguousAlias()
+    {
+        assertFails(AMBIGUOUS_ATTRIBUTE, "SELECT sum(a) AS x, count(b) AS x FROM t1 GROUP BY c HAVING x > 5");
+    }
+
+    @Test
+    public void testHavingNonExistentAlias()
+    {
+        assertFails(MISSING_ATTRIBUTE, "SELECT sum(a) AS total FROM t1 GROUP BY b HAVING unknown_alias > 5");
+    }
+
+    @Test
+    public void testHavingAggregationOverOutputAlias()
+    {
+        assertFails(NESTED_AGGREGATION, "SELECT sum(a) AS total FROM t1 GROUP BY b HAVING sum(total) > 10");
+        assertFails(NESTED_AGGREGATION, "SELECT sum(a) AS total FROM t1 GROUP BY b HAVING max(total + 1) > 10");
+        // aggregating over an alias of a non-aggregate expression is fine
+        analyze("SELECT b + 1 AS key FROM t1 GROUP BY b HAVING sum(key) > 10");
+    }
+
+    @Test
+    public void testHavingWindowFunctionViaAlias()
+    {
+        assertFails(NESTED_WINDOW, "SELECT row_number() OVER () AS rn FROM t1 GROUP BY b HAVING rn > 1");
     }
 
     @Test

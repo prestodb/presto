@@ -113,6 +113,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
@@ -2285,6 +2286,79 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT custkey, sum(totalprice) * 2 FROM orders GROUP BY custkey");
         assertQuery("SELECT custkey, avg(totalprice + 5) FROM orders GROUP BY custkey");
         assertQuery("SELECT custkey, sum(totalprice) * 2 FROM orders GROUP BY custkey HAVING avg(totalprice + 5) > 10");
+    }
+
+    @Test
+    public void testHavingReferencesOutputAlias()
+    {
+        assertQuery(
+                "SELECT custkey, sum(orderkey) AS total FROM orders GROUP BY custkey HAVING total > 400000",
+                "SELECT custkey, sum(orderkey) FROM orders GROUP BY custkey HAVING sum(orderkey) > 400000");
+        assertQuery(
+                "SELECT custkey, count(*) AS cnt, sum(totalprice) AS total FROM orders GROUP BY custkey HAVING cnt > 20 AND total > 1000000",
+                "SELECT custkey, count(*), sum(totalprice) FROM orders GROUP BY custkey HAVING count(*) > 20 AND sum(totalprice) > 1000000");
+        // alias of a non-aggregate expression
+        assertQuery(
+                "SELECT orderstatus || '_' || orderpriority AS key, count(*) FROM orders GROUP BY orderstatus, orderpriority HAVING key = 'O_1-URGENT'",
+                "SELECT orderstatus || '_' || orderpriority, count(*) FROM orders GROUP BY orderstatus, orderpriority HAVING orderstatus || '_' || orderpriority = 'O_1-URGENT'");
+        // alias referenced twice, with a coercion (bigint -> double) that the SELECT item itself does not have
+        assertQuery(
+                "SELECT custkey, count(*) AS cnt FROM orders GROUP BY custkey HAVING cnt > 20.5 AND cnt < 30",
+                "SELECT custkey, count(*) FROM orders GROUP BY custkey HAVING count(*) > 20.5 AND count(*) < 30");
+        // alias with a bounded varchar type used in a context that widens it to unbounded varchar
+        assertQuery(
+                "WITH data AS (" +
+                        "    SELECT CAST('cpu' AS varchar(25)) AS category, true AS is_cpu, 100.0 AS value " +
+                        "    UNION ALL SELECT CAST('gpu' AS varchar(25)), false, 200.0) " +
+                        "SELECT (CASE WHEN COALESCE(category, CAST(is_cpu AS varchar)) IS NULL THEN 'total' WHEN is_cpu THEN 'cpu_total' ELSE category END) AS label, sum(value) AS total_value " +
+                        "FROM data " +
+                        "GROUP BY GROUPING SETS ((), (category), (is_cpu)) " +
+                        "HAVING COALESCE(label, CAST(is_cpu AS varchar)) IS NOT NULL",
+                "VALUES ('total', 300.0), ('cpu', 100.0), ('gpu', 200.0), ('cpu_total', 100.0), (CAST(NULL AS varchar), 200.0)");
+        // the output column keeps its declared type
+        MaterializedResult result = computeActual("SELECT CAST('cpu' AS varchar(25)) AS category, count(*) FROM orders GROUP BY 1 HAVING COALESCE(category, CAST(1 AS varchar)) IS NOT NULL");
+        assertEquals(result.getTypes().get(0), createVarcharType(25));
+        // alias in a lambda body (aggregations are not allowed in lambdas, so the alias must be a non-aggregate expression)
+        assertQuery(
+                "SELECT custkey + 1 AS nextkey, count(*) FROM orders GROUP BY custkey HAVING any_match(ARRAY[1400, 1500], x -> x < nextkey)",
+                "SELECT custkey + 1, count(*) FROM orders GROUP BY custkey HAVING custkey + 1 > 1400");
+        // alias of an expression containing a scalar subquery
+        assertQuery(
+                "SELECT custkey, (SELECT max(nationkey) FROM nation) AS m, count(*) FROM orders GROUP BY custkey HAVING m > 20 AND count(*) > 30",
+                "SELECT custkey, 24, count(*) FROM orders GROUP BY custkey HAVING count(*) > 30");
+    }
+
+    @Test
+    public void testHavingInputColumnTakesPrecedenceOverOutputAlias()
+    {
+        // 'custkey' is an input column, so the HAVING condition applies to the group key and not to the alias
+        assertQuery(
+                "SELECT max(orderkey) AS custkey FROM orders GROUP BY custkey HAVING custkey > 1400",
+                "SELECT max(orderkey) FROM orders GROUP BY custkey HAVING custkey > 1400");
+        assertQuery(
+                "SELECT max(y) AS x FROM (VALUES (1, 10), (7, 3)) t(x, y) GROUP BY x HAVING x > 5",
+                "VALUES 3");
+        // qualified references are never resolved as aliases
+        assertQuery(
+                "SELECT max(orderkey) AS custkey FROM orders o GROUP BY custkey HAVING o.custkey > 1400",
+                "SELECT max(orderkey) FROM orders GROUP BY custkey HAVING custkey > 1400");
+    }
+
+    @Test
+    public void testHavingOutputAliasErrors()
+    {
+        assertQueryFails(
+                "SELECT sum(orderkey) AS x, count(*) AS x FROM orders GROUP BY custkey HAVING x > 5",
+                "line 1:\\d+: 'x' in HAVING is ambiguous");
+        assertQueryFails(
+                "SELECT sum(orderkey) AS total FROM orders GROUP BY custkey HAVING unknown_alias > 5",
+                "line 1:\\d+: Column 'unknown_alias' cannot be resolved");
+        assertQueryFails(
+                "SELECT region, sum(revenue) AS total FROM (VALUES ('us', 100), ('eu', 200), ('us', 150), ('eu', 50)) AS t(region, revenue) GROUP BY region HAVING sum(total) > 100",
+                "line 1:\\d+: Cannot nest aggregations inside aggregation 'sum': output column 'total' is an aggregate expression");
+        assertQueryFails(
+                "SELECT row_number() OVER () AS rn, count(*) FROM orders GROUP BY custkey HAVING rn > 1",
+                "line 1:\\d+: HAVING clause cannot contain window functions");
     }
 
     @Test
