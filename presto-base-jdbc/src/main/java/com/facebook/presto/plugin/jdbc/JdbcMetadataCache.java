@@ -13,17 +13,25 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import jakarta.annotation.Nullable;
+import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -34,6 +42,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -42,9 +51,11 @@ public class JdbcMetadataCache
 {
     private final JdbcClient jdbcClient;
     private final JdbcMetadataCache delegate;
+    private final ExecutorService executor;
 
     private final LoadingCache<KeyAndSession<SchemaTableName>, Optional<JdbcTableHandle>> tableHandleCache;
     private final LoadingCache<KeyAndSession<JdbcTableHandle>, List<JdbcColumnHandle>> columnHandlesCache;
+    private final LoadingCache<KeyAndSession<JdbcTableHandle>, CachedStats> tableStatisticsCache;
 
     @Inject
     public JdbcMetadataCache(JdbcClient jdbcClient, JdbcMetadataConfig config, JdbcMetadataCacheStats stats)
@@ -56,6 +67,12 @@ public class JdbcMetadataCache
                 OptionalLong.of(config.getMetadataCacheTtl().toMillis()),
                 config.getMetadataCacheRefreshInterval().toMillis() >= config.getMetadataCacheTtl().toMillis() ? OptionalLong.empty() : OptionalLong.of(config.getMetadataCacheRefreshInterval().toMillis()),
                 config.getMetadataCacheMaximumSize(),
+                OptionalLong.of(config.getTableStatisticsCacheTtl().toMillis()),
+                config.getTableStatisticsCacheRefreshInterval().toMillis() > 0
+                        && config.getTableStatisticsCacheRefreshInterval().toMillis() < config.getTableStatisticsCacheTtl().toMillis()
+                        ? OptionalLong.of(config.getTableStatisticsCacheRefreshInterval().toMillis())
+                        : OptionalLong.empty(),
+                config.getTableStatisticsCacheMaximumSize(),
                 null);
     }
 
@@ -63,39 +80,62 @@ public class JdbcMetadataCache
             ExecutorService executor,
             JdbcClient jdbcClient,
             JdbcMetadataCacheStats stats,
-            OptionalLong cacheTtl,
-            OptionalLong refreshInterval,
-            long cacheMaximumSize)
+            OptionalLong metadataCacheTtl,
+            OptionalLong metadataCacheRefreshInterval,
+            long metadataCacheMaximumSize)
     {
-        this(
-                executor,
-                jdbcClient,
-                stats,
-                cacheTtl,
-                refreshInterval,
-                cacheMaximumSize,
-                null);
+        this(executor, jdbcClient, stats, metadataCacheTtl, metadataCacheRefreshInterval, metadataCacheMaximumSize,
+                OptionalLong.of(0), OptionalLong.of(0), metadataCacheMaximumSize);
+    }
+
+    public JdbcMetadataCache(
+            ExecutorService executor,
+            JdbcClient jdbcClient,
+            JdbcMetadataCacheStats stats,
+            OptionalLong metadataCacheTtl,
+            OptionalLong metadataCacheRefreshInterval,
+            long metadataCacheMaximumSize,
+            OptionalLong statisticsCacheTtl,
+            OptionalLong statisticsCacheRefreshInterval,
+            long statisticsCacheMaximumSize)
+    {
+        this(executor, jdbcClient, stats, metadataCacheTtl, metadataCacheRefreshInterval, metadataCacheMaximumSize,
+                statisticsCacheTtl, statisticsCacheRefreshInterval, statisticsCacheMaximumSize, null);
     }
 
     private JdbcMetadataCache(
             ExecutorService executor,
             JdbcClient jdbcClient,
             JdbcMetadataCacheStats stats,
-            OptionalLong cacheTtl,
-            OptionalLong refreshInterval,
-            long cacheMaximumSize,
+            OptionalLong metadataCacheTtl,
+            OptionalLong metadataCacheRefreshInterval,
+            long metadataCacheMaximumSize,
+            OptionalLong statisticsCacheTtl,
+            OptionalLong statisticsCacheRefreshInterval,
+            long statisticsCacheMaximumSize,
             @Nullable JdbcMetadataCache delegate)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.executor = requireNonNull(executor, "executor is null");
         this.delegate = delegate;
 
-        this.tableHandleCache = newCacheBuilder(cacheTtl, refreshInterval, cacheMaximumSize)
+        this.tableHandleCache = newCacheBuilder(metadataCacheTtl, metadataCacheRefreshInterval, metadataCacheMaximumSize)
                 .build(asyncReloading(CacheLoader.from(this::loadTableHandle), executor));
         stats.setTableHandleCache(tableHandleCache);
 
-        this.columnHandlesCache = newCacheBuilder(cacheTtl, refreshInterval, cacheMaximumSize)
+        this.columnHandlesCache = newCacheBuilder(metadataCacheTtl, metadataCacheRefreshInterval, metadataCacheMaximumSize)
                 .build(asyncReloading(CacheLoader.from(this::loadColumnHandles), executor));
         stats.setColumnHandlesCache(columnHandlesCache);
+
+        this.tableStatisticsCache = newCacheBuilder(statisticsCacheTtl, statisticsCacheRefreshInterval, statisticsCacheMaximumSize)
+                .build(asyncReloading(CacheLoader.from(this::loadTableStatistics), executor));
+        stats.setTableStatisticsCache(tableStatisticsCache);
+    }
+
+    @PreDestroy
+    public void shutdown()
+    {
+        executor.shutdownNow();
     }
 
     public static JdbcMetadataCache createTransactionCache(JdbcMetadataCache delegate, long maximumSize)
@@ -110,6 +150,9 @@ public class JdbcMetadataCache
                 newDirectExecutorService(),
                 delegate.jdbcClient,
                 stats,
+                OptionalLong.empty(),
+                OptionalLong.empty(),
+                maximumSize,
                 OptionalLong.empty(),
                 OptionalLong.empty(),
                 maximumSize,
@@ -131,10 +174,26 @@ public class JdbcMetadataCache
         return get(columnHandlesCache, new KeyAndSession<>(session, jdbcTableHandle));
     }
 
+    public TableStatistics getTableStatistics(
+            ConnectorSession session,
+            JdbcTableHandle handle,
+            List<JdbcColumnHandle> columnHandles,
+            TupleDomain<ColumnHandle> tupleDomain)
+    {
+        CachedStats cached = getCachedStats(session, handle);
+        return buildSlice(cached, columnHandles);
+    }
+
+    CachedStats getCachedStats(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return get(tableStatisticsCache, new KeyAndSession<>(session, handle));
+    }
+
     public void invalidateTable(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         tableHandleCache.invalidate(new KeyAndSession<>(session, tableHandle.getSchemaTableName()));
         columnHandlesCache.invalidate(new KeyAndSession<>(session, tableHandle));
+        tableStatisticsCache.invalidate(new KeyAndSession<>(session, tableHandle));
         if (delegate != null) {
             delegate.invalidateTable(session, tableHandle);
         }
@@ -165,6 +224,39 @@ public class JdbcMetadataCache
         return jdbcClient.getColumns(tableHandle.getSession(), tableHandle.getKey());
     }
 
+    private CachedStats loadTableStatistics(KeyAndSession<JdbcTableHandle> key)
+    {
+        if (delegate != null) {
+            return delegate.getCachedStats(key.getSession(), key.getKey());
+        }
+
+        // emptyList() signals "return stats for ALL columns", the connector must honour this.
+        TableStatistics full = jdbcClient.getTableStatistics(key.getSession(), key.getKey(), emptyList(), TupleDomain.all());
+
+        ImmutableMap.Builder<String, ColumnStatistics> byName = ImmutableMap.builder();
+        for (Map.Entry<ColumnHandle, ColumnStatistics> entry : full.getColumnStatistics().entrySet()) {
+            if (entry.getKey() instanceof JdbcColumnHandle) {
+                byName.put(((JdbcColumnHandle) entry.getKey()).getColumnName(), entry.getValue());
+            }
+        }
+        return new CachedStats(full.getRowCount(), byName.build());
+    }
+
+    private static TableStatistics buildSlice(CachedStats cached, List<JdbcColumnHandle> columnHandles)
+    {
+        if (cached.getRowCount().isUnknown() && cached.getAllColumnStats().isEmpty()) {
+            return TableStatistics.empty();
+        }
+        ImmutableMap.Builder<ColumnHandle, ColumnStatistics> result = ImmutableMap.builder();
+        for (JdbcColumnHandle column : columnHandles) {
+            result.put(column, cached.getAllColumnStats().getOrDefault(column.getColumnName(), ColumnStatistics.empty()));
+        }
+        return TableStatistics.builder()
+                .setRowCount(cached.getRowCount())
+                .setColumnStatistics(result.build())
+                .build();
+    }
+
     private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, long maximumSize)
     {
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder();
@@ -185,6 +277,28 @@ public class JdbcMetadataCache
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw e;
+        }
+    }
+
+    static final class CachedStats
+    {
+        private final Estimate rowCount;
+        private final ImmutableMap<String, ColumnStatistics> allColumnStats;
+
+        CachedStats(Estimate rowCount, Map<String, ColumnStatistics> allColumnStats)
+        {
+            this.rowCount = requireNonNull(rowCount, "rowCount is null");
+            this.allColumnStats = ImmutableMap.copyOf(requireNonNull(allColumnStats, "allColumnStats is null"));
+        }
+
+        Estimate getRowCount()
+        {
+            return rowCount;
+        }
+
+        ImmutableMap<String, ColumnStatistics> getAllColumnStats()
+        {
+            return allColumnStats;
         }
     }
 
@@ -209,6 +323,8 @@ public class JdbcMetadataCache
             return key;
         }
 
+        // Session object changes for every query. For caching to be effective across multiple queries,
+        // we should NOT include session in equals() and hashCode() methods below.
         @Override
         public boolean equals(Object o)
         {
