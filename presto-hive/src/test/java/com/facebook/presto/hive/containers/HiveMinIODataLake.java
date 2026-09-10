@@ -57,10 +57,10 @@ public class HiveMinIODataLake
 
     public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
     {
-        this(bucketName, hiveHadoopFilesToMount, HiveHadoopContainer.DEFAULT_IMAGE, false);
+        this(bucketName, hiveHadoopFilesToMount, HiveHadoopContainer.DEFAULT_IMAGE, false, false);
     }
 
-    public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, boolean isSslEnabledTest)
+    public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, boolean isSslEnabledTest, boolean isHttpEnabledTest)
     {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         Network network = closer.register(newNetwork());
@@ -109,6 +109,9 @@ public class HiveMinIODataLake
             catch (IOException e) {
                 throw new UncheckedIOException("Failed to prepare keystore files for Testcontainers", e);
             }
+        }
+        if (isHttpEnabledTest) {
+            filesToMount.put("hive_http_enable/hive-site.xml", "/opt/hive/conf/hive-site.xml");
         }
         this.hiveHadoopContainer = closer.register(
                 HiveHadoopContainer.builder()

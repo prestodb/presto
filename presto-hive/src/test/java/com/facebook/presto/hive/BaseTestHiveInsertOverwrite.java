@@ -55,7 +55,7 @@ public abstract class BaseTestHiveInsertOverwrite
             throws Exception
     {
         this.bucketName = "test-hive-insert-overwrite-" + randomTableSuffix();
-        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), hiveHadoopImage, false);
+        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), hiveHadoopImage, false, false);
         this.dockerizedS3DataLake.start();
         return S3HiveQueryRunner.create(
                 this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
