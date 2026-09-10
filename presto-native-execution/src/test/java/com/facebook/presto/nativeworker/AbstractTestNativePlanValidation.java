@@ -16,14 +16,14 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
+import static org.testng.Assert.fail;
+
 public abstract class AbstractTestNativePlanValidation
         extends AbstractTestQueryFramework
 {
     @Test
     public void testNestedLoopJoinPlainValidationFailure()
     {
-        assertQueryFails(
-                "SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) " +
-                        "FROM lineitem l LIMIT 1", ".*Plan uses nested join loop which isn't supported.*");
+        fail("This test is not executed.");
     }
 }
