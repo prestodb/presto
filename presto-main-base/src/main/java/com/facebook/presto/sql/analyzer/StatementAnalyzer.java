@@ -287,6 +287,7 @@ import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_CREATE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_DELETE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_INSERT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.UNKNOWN_COLUMN_TYPE;
 import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
@@ -833,13 +834,14 @@ class StatementAnalyzer
             Scope queryScope = process(node.getQuery(), scope);
 
             ImmutableList.Builder<OutputColumnMetadata> outputColumns = ImmutableList.builder();
+            boolean allowUnknownColumnType = supportsUnknownColumnType(targetTable);
 
             if (node.getColumnAliases().isPresent()) {
                 validateColumnAliases(node.getColumnAliases().get(), queryScope.getRelationType().getVisibleFieldCount());
                 int aliasPosition = 0;
                 // analyze only column types in subquery if column alias exists
                 for (Field field : queryScope.getRelationType().getVisibleFields()) {
-                    if (field.getType().equals(UNKNOWN)) {
+                    if (!allowUnknownColumnType && field.getType().equals(UNKNOWN)) {
                         throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
                     String columnName = node.getColumnAliases().get().get(aliasPosition).getValue();
@@ -848,7 +850,7 @@ class StatementAnalyzer
                 }
             }
             else {
-                validateColumns(node, queryScope.getRelationType());
+                validateColumns(node, queryScope.getRelationType(), allowUnknownColumnType);
                 queryScope.getRelationType().getVisibleFields().stream()
                         .map(this::createOutputColumn)
                         .forEach(outputColumns::add);
@@ -1605,6 +1607,11 @@ class StatementAnalyzer
 
         private void validateColumns(Statement node, RelationType descriptor)
         {
+            validateColumns(node, descriptor, false);
+        }
+
+        private void validateColumns(Statement node, RelationType descriptor, boolean allowUnknownColumnType)
+        {
             // verify that all column names are specified and unique
             // TODO: collect errors and return them all at once
             Set<String> names = new HashSet<>();
@@ -1616,10 +1623,20 @@ class StatementAnalyzer
                 if (!names.add(fieldName.get())) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, node, "Column name '%s' specified more than once", fieldName.get());
                 }
-                if (field.getType().equals(UNKNOWN)) {
+                if (!allowUnknownColumnType && field.getType().equals(UNKNOWN)) {
                     throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown: %s", fieldName.get());
                 }
             }
+        }
+
+        /**
+         * A connector that can store a column of the unknown type keeps a null column of a CREATE TABLE AS SELECT as
+         * such, instead of requiring it to be cast to a concrete type.
+         */
+        private boolean supportsUnknownColumnType(QualifiedObjectName tableName)
+        {
+            ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getCatalogName());
+            return metadata.getConnectorCapabilities(session, connectorId).contains(UNKNOWN_COLUMN_TYPE);
         }
 
         private void validateColumnAliases(List<Identifier> columnAliases, int sourceColumnSize)

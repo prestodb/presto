@@ -196,7 +196,12 @@ public final class MetadataReader
                 blockMetaData.setRowCount(rowGroup.getNum_rows());
                 blockMetaData.setTotalByteSize(rowGroup.getTotal_byte_size());
                 List<ColumnChunk> columns = rowGroup.getColumns();
-                validateParquet(!columns.isEmpty(), "No columns in row group: %s", rowGroup);
+                if (columns.isEmpty()) {
+                    // Zero-column row group: valid for Iceberg V3 all-UNKNOWN tables where no
+                    // columns are stored in the data file. The row count is still meaningful.
+                    blocks.add(blockMetaData);
+                    continue;
+                }
                 String filePath = columns.get(0).getFile_path();
                 int columnOrdinal = -1;
                 for (ColumnChunk columnChunk : columns) {

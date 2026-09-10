@@ -162,6 +162,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTa
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.UnknownFieldTypes.readType;
 import static com.facebook.presto.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
 import static com.facebook.presto.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -339,6 +340,19 @@ public class IcebergPageSourceProvider
                     }
                     nextStart += block.getRowCount();
                 }
+                else if (block.getColumns().isEmpty()) {
+                    // Zero-column row group from an all-UNKNOWN Iceberg V3 table. There is no
+                    // data page offset to use for split-range filtering; the file has no data
+                    // pages so it always falls within the single split covering the full file.
+                    blocks.add(block);
+                    blockIndexStores.add(null);
+                    blockStarts.add(nextStart);
+                    if (!startRowPosition.isPresent()) {
+                        startRowPosition = Optional.of(nextStart);
+                    }
+                    endRowPosition = Optional.of(nextStart + block.getRowCount());
+                    nextStart += block.getRowCount();
+                }
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
@@ -400,7 +414,7 @@ public class IcebergPageSourceProvider
                         if (!parquetField.get().isPrimitive()) {
                             MessageType parquetMessageType = new MessageType("", parquetField.get());
                             Schema icebergSchema = ParquetSchemaUtil.convert(parquetMessageType);
-                            type = toPrestoType(icebergSchema.columns().get(0).type(), typeManager);
+                            type = readType(column.getType(), toPrestoType(icebergSchema.columns().get(0).type(), typeManager));
                         }
                         internalFields.add(constructField(type, lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
                     }

@@ -465,4 +465,30 @@ public class TestIcebergUtil
         assertThat(hiveColumns.get(2).getName()).isEqualTo("name");
         assertThat(hiveColumns.get(2).getType()).isEqualTo(HiveType.HIVE_STRING);
     }
+
+    /**
+     * Hive has no equivalent of the Iceberg V3 unknown type, so it is recorded as Hive's all-null
+     * type, which is also what Spark records for its NullType.
+     */
+    @Test
+    public void testToHiveColumnsWithUnknownType()
+    {
+        List<Types.NestedField> icebergColumns = ImmutableList.of(
+                Types.NestedField.required(1, "id", Types.LongType.get()),
+                Types.NestedField.optional(2, "unknown_column", Types.UnknownType.get()),
+                Types.NestedField.optional(3, "nested", Types.StructType.of(
+                        Types.NestedField.optional(4, "unknown_field", Types.UnknownType.get()))));
+
+        List<Column> hiveColumns = IcebergUtil.toHiveColumns(icebergColumns);
+        assertThat(hiveColumns).hasSize(3);
+
+        assertThat(hiveColumns.get(0).getName()).isEqualTo("id");
+        assertThat(hiveColumns.get(0).getType()).isEqualTo(HiveType.HIVE_LONG);
+
+        assertThat(hiveColumns.get(1).getName()).isEqualTo("unknown_column");
+        assertThat(hiveColumns.get(1).getType()).isEqualTo(HiveType.valueOf("void"));
+
+        assertThat(hiveColumns.get(2).getName()).isEqualTo("nested");
+        assertThat(hiveColumns.get(2).getType()).isEqualTo(HiveType.valueOf("struct<unknown_field:void>"));
+    }
 }
