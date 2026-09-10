@@ -2086,29 +2086,40 @@ public abstract class IcebergAbstractMetadata
     {
         requireNonNull(tableName, "tableName is null");
         ImmutableList.Builder<SchemaTableName> referencingViews = ImmutableList.builder();
-        List<SchemaTableName> candidateViews;
+
+        List<String> schemas;
         try {
-            candidateViews = listMaterializedViews(session, tableName.getSchemaName());
+            schemas = listSchemaNames(session);
         }
         catch (Exception e) {
-            log.warn(e, "Failed to list materialized views in schema: %s", tableName.getSchemaName());
-            return Optional.empty();
+            log.warn(e, "Failed to list schema names. Falling back to the table's schema: %s", tableName.getSchemaName());
+            schemas = ImmutableList.of(tableName.getSchemaName());
         }
 
-        for (SchemaTableName mvName : candidateViews) {
+        for (String schemaName : schemas) {
+            List<SchemaTableName> candidateViews;
             try {
-                Optional<MaterializedViewDefinition> mvDefinition = getMaterializedView(session, mvName);
-                if (mvDefinition.isPresent() && mvDefinition.get().getBaseTables().contains(tableName)) {
-                    referencingViews.add(mvName);
-                }
+                candidateViews = listMaterializedViews(session, schemaName);
             }
             catch (Exception e) {
-                log.warn(e, "Failed to get materialized view definition for: %s", mvName);
+                log.warn(e, "Failed to list materialized views in schema: %s", schemaName);
+                continue;
+            }
+
+            for (SchemaTableName mvName : candidateViews) {
+                try {
+                    Optional<MaterializedViewDefinition> mvDefinition = getMaterializedView(session, mvName);
+                    if (mvDefinition.isPresent() && mvDefinition.get().getBaseTables().contains(tableName)) {
+                        referencingViews.add(mvName);
+                    }
+                }
+                catch (Exception e) {
+                    log.warn(e, "Failed to get materialized view definition for candidate: %s", mvName);
+                }
             }
         }
 
-        List<SchemaTableName> result = referencingViews.build();
-        return result.isEmpty() ? Optional.empty() : Optional.of(result);
+        return Optional.of(referencingViews.build());
     }
 
     @Override
