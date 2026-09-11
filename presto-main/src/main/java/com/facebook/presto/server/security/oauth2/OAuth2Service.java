@@ -241,8 +241,8 @@ public class OAuth2Service
     {
         try {
             return jwtParser
-                    .parseClaimsJws(state)
-                    .getBody();
+                    .parseSignedClaims(state)
+                    .getPayload();
         }
         catch (RuntimeException e) {
             throw new ChallengeFailedException("State validation failed", e);

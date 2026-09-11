@@ -93,6 +93,8 @@ public class JweTokenSerializer
                 .requireIssuer(this.issuer)
                 .requireAudience(this.audience)
                 .setCompressionCodecResolver(JweTokenSerializer::resolveCompressionCodec)
+                .unsecured()
+                .unsecuredDecompression()
                 .build();
     }
 
@@ -119,7 +121,7 @@ public class JweTokenSerializer
         try {
             JWEObject jwe = JWEObject.parse(token);
             jwe.decrypt(jweDecrypter);
-            Claims claims = parser.parseClaimsJwt(jwe.getPayload().toString()).getBody();
+            Claims claims = parser.parseUnsecuredClaims(jwe.getPayload().toString()).getPayload();
             return TokenPair.accessAndRefreshTokens(
                     claims.get(ACCESS_TOKEN_KEY, String.class),
                     claims.get(EXPIRATION_TIME_KEY, Date.class),
