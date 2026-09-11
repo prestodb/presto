@@ -48,6 +48,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.spi.ColumnMetadata.DEFAULT_VALUE_PROPERTY;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.UNKNOWN_COLUMN_TYPE;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
@@ -99,8 +100,11 @@ public class AddColumnTask
         catch (IllegalArgumentException | UnknownTypeException e) {
             throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
-        if (type.equals(UNKNOWN)) {
+        if (type.equals(UNKNOWN) && !metadata.getConnectorCapabilities(session, connectorId).contains(UNKNOWN_COLUMN_TYPE)) {
             throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
+        }
+        if (type.equals(UNKNOWN) && !element.isNullable()) {
+            throw new SemanticException(TYPE_MISMATCH, element, "Column '%s' of type unknown cannot be declared NOT NULL: the unknown type only holds null values", element.getName());
         }
         String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), element.getName().getValue());
         if (columnHandles.containsKey(name)) {
