@@ -84,8 +84,6 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.sql.tree.WindowDefinition;
-import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -118,7 +116,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -508,6 +505,13 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitQuerySpecification(QuerySpecification node, Void context)
         {
+            // A WINDOW clause is carried over unchanged, so its expressions and frame bounds would keep
+            // referring to base table columns. Decline rather than rewrite it only in part. Window
+            // functions are declined separately, in MaterializedViewExpressionRewriter.
+            if (!node.getWindows().isEmpty()) {
+                throw new IllegalStateException("Query with WINDOW clause is not rewritable by materialized view");
+            }
+
             if (!node.getFrom().isPresent()) {
                 throw new IllegalArgumentException("visitQuerySpecification should not be invoked for an empty FROM clause");
             }
@@ -596,28 +600,10 @@ public class MaterializedViewQueryOptimizer
                     node.getWhere().map(where -> (Expression) process(where, context)),
                     node.getGroupBy().map(groupBy -> (GroupBy) process(groupBy, context)),
                     node.getHaving().map(having -> (Expression) process(having, context)),
-                    node.getWindows().stream()
-                            .map(window -> (WindowDefinition) process(window, context))
-                            .collect(toImmutableList()),
+                    node.getWindows(),
                     node.getOrderBy().map(orderBy -> (OrderBy) process(orderBy, context)),
                     node.getOffset(),
                     node.getLimit());
-        }
-
-        @Override
-        protected Node visitWindowDefinition(WindowDefinition node, Void context)
-        {
-            return new WindowDefinition(node.getName(), (WindowSpecification) process(node.getWindow(), context));
-        }
-
-        @Override
-        protected Node visitWindowSpecification(WindowSpecification node, Void context)
-        {
-            return new WindowSpecification(
-                    node.getExistingWindowName(),
-                    node.getPartitionBy().stream().map(partition -> (Expression) process(partition, context)).collect(toImmutableList()),
-                    node.getOrderBy().map(orderBy -> (OrderBy) process(orderBy, context)),
-                    node.getFrame());
         }
 
         @Override

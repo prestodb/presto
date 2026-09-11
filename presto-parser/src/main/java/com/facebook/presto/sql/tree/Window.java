@@ -13,13 +13,18 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 /**
- * Marker for the two forms a window can take in an OVER clause: an inline
- * {@link WindowSpecification}, or a {@link WindowReference} to a window
- * declared in the WINDOW clause of the enclosing query specification.
- * <p>
- * Both implementations also extend {@link Node}.
+ * The two forms a window can take in an OVER clause: an inline {@link WindowSpecification},
+ * or a {@link WindowReference} to a window declared in the WINDOW clause of the enclosing
+ * query specification.
  */
-public interface Window
+public abstract class Window
+        extends Node
 {
+    protected Window(Optional<NodeLocation> location)
+    {
+        super(location);
+    }
 }

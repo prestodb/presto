@@ -468,6 +468,11 @@ where ``window_specification`` is::
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
     [ window_frame ]
 
+``existing_window_name`` is the name of a window declared earlier in the same
+``WINDOW`` clause. Naming one makes the specification start from that window's
+``PARTITION BY``, which it can then extend with an ``ORDER BY`` or a frame. See
+`Restrictions`_ below.
+
 A window function refers to a named window by writing its name after ``OVER``,
 in place of a parenthesized specification. Naming a window avoids repeating the
 same specification for every function::
@@ -505,6 +510,9 @@ when only the frame differs between uses::
            sum(totalprice) OVER (w ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS trailing_total
     FROM orders
     WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey)
+
+Restrictions
+^^^^^^^^^^^^
 
 The following restrictions apply to a specification that references an existing
 window:
