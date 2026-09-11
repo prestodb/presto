@@ -311,7 +311,7 @@ public class KafkaRecordSet
                     String threadName = Thread.currentThread().getName();
 
                     if (consumer == null) {
-                        consumer = consumerManager.createConsumer(threadName, split.getLeader());
+                        consumer = consumerManager.createConsumer(threadName, split.getNodes());
                     }
 
                     TopicPartition topicPartition = new TopicPartition(split.getTopicName(), split.getPartitionId());
@@ -328,12 +328,12 @@ public class KafkaRecordSet
                 throw new PrestoException(
                         KAFKA_SPLIT_ERROR,
                         format(
-                                "Cannot read data from topic '%s', partition '%s', startOffset %s, endOffset %s, leader %s ",
+                                "Cannot read data from topic '%s', partition '%s', startOffset %s, endOffset %s, bootstrap servers %s ",
                                 split.getTopicName(),
                                 split.getPartitionId(),
                                 split.getStart(),
                                 split.getEnd(),
-                                split.getLeader()),
+                                split.getNodes()),
                         e);
             }
         }
