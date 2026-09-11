@@ -17,6 +17,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          # Full history is required so codenotify can diff <base>...<head>;
+          # a shallow clone lacks the PR base commit and fails with exit 128.
+          fetch-depth: 0
           show-progress: false
           persist-credentials: false
           allow-unsafe-pr-checkout: true
