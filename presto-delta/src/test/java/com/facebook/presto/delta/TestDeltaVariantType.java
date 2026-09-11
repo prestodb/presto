@@ -22,6 +22,39 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
+/**
+ * Integration tests for reading Delta tables whose {@code data} column has type {@code variant}.
+ *
+ * <p>The {@code test_variant} table (delta_v3/test_variant) consists of three Parquet files:
+ *
+ * <p><b>File 1</b> — {@code part-00000-0ff28d95-...c000.snappy.parquet} (5 non-null rows):
+ * <pre>
+ *   id=1:  {"active":true,  "age":30, "user":"alice"}
+ *   id=2:  {"age":25, "tags":["admin","dev"], "user":"bob"}
+ *   id=3:  {"address":{"city":"NYC","zip":"10001"}, "age":35, "user":"charlie"}
+ *   id=4:  {"age":28, "scores":[95,87,92], "user":"diana"}
+ *   id=5:  {"active":false, "age":42, "role":"manager", "user":"eve"}
+ * </pre>
+ *
+ * <p><b>File 2</b> — {@code part-00001-variant-mixed-null.c000.snappy.parquet} (3 non-null + 2 NULL rows):
+ * <pre>
+ *   id=6:  {"active":false, "age":22, "user":"frank"}
+ *   id=7:  NULL
+ *   id=8:  {"age":25, "tags":["admin","dev"], "user":"bob"}   (bob repeated)
+ *   id=9:  NULL
+ *   id=10: {"age":28, "scores":[95,87,92], "user":"diana"}   (diana repeated)
+ * </pre>
+ *
+ * <p><b>File 3</b> — {@code part-00002-variant-all-null.c000.snappy.parquet} (all NULL rows):
+ * <pre>
+ *   id=11: NULL
+ *   id=12: NULL
+ * </pre>
+ *
+ * <p>Total: 12 rows — 8 non-null variants and 4 NULLs.
+ * The repeated bob (age=25, tags) and diana (age=28, scores) rows make aggregate
+ * and join tests produce non-trivial results.
+ */
 public class TestDeltaVariantType
         extends AbstractDeltaDistributedQueryTestBase
 {
@@ -44,17 +77,47 @@ public class TestDeltaVariantType
         String query = format("SELECT * FROM \"%s\".\"%s\" ORDER BY id", PATH_SCHEMA,
                 goldenTablePathWithPrefix(DELTA_V3, "test_variant"));
         MaterializedResult result = computeActual(session, query);
-        assertEquals(result.getMaterializedRows().size(), 5);
+        // 12 rows total: 5 non-null (file 1) + 3 non-null + 2 null (file 2) + 2 null (file 3)
+        assertEquals(result.getMaterializedRows().size(), 12);
 
-        // Verify the data values
+        // File 1 — 5 non-null rows
         assertEquals(result.getMaterializedRows().get(0).getField(0), 1);
         assertEquals(result.getMaterializedRows().get(0).getField(1), "{\"active\":true,\"age\":30,\"user\":\"alice\"}");
 
         assertEquals(result.getMaterializedRows().get(1).getField(0), 2);
         assertEquals(result.getMaterializedRows().get(1).getField(1), "{\"age\":25,\"tags\":[\"admin\",\"dev\"],\"user\":\"bob\"}");
 
+        assertEquals(result.getMaterializedRows().get(2).getField(0), 3);
+        assertEquals(result.getMaterializedRows().get(2).getField(1), "{\"address\":{\"city\":\"NYC\",\"zip\":\"10001\"},\"age\":35,\"user\":\"charlie\"}");
+
         assertEquals(result.getMaterializedRows().get(3).getField(0), 4);
         assertEquals(result.getMaterializedRows().get(3).getField(1), "{\"age\":28,\"scores\":[95,87,92],\"user\":\"diana\"}");
+
+        assertEquals(result.getMaterializedRows().get(4).getField(0), 5);
+        assertEquals(result.getMaterializedRows().get(4).getField(1), "{\"active\":false,\"age\":42,\"role\":\"manager\",\"user\":\"eve\"}");
+
+        // File 2 — non-null, NULL, non-null (bob repeat), NULL, non-null (diana repeat)
+        assertEquals(result.getMaterializedRows().get(5).getField(0), 6);
+        assertEquals(result.getMaterializedRows().get(5).getField(1), "{\"active\":false,\"age\":22,\"user\":\"frank\"}");
+
+        assertEquals(result.getMaterializedRows().get(6).getField(0), 7);
+        assertNull(result.getMaterializedRows().get(6).getField(1));
+
+        assertEquals(result.getMaterializedRows().get(7).getField(0), 8);
+        assertEquals(result.getMaterializedRows().get(7).getField(1), "{\"age\":25,\"tags\":[\"admin\",\"dev\"],\"user\":\"bob\"}");
+
+        assertEquals(result.getMaterializedRows().get(8).getField(0), 9);
+        assertNull(result.getMaterializedRows().get(8).getField(1));
+
+        assertEquals(result.getMaterializedRows().get(9).getField(0), 10);
+        assertEquals(result.getMaterializedRows().get(9).getField(1), "{\"age\":28,\"scores\":[95,87,92],\"user\":\"diana\"}");
+
+        // File 3 — all NULL
+        assertEquals(result.getMaterializedRows().get(10).getField(0), 11);
+        assertNull(result.getMaterializedRows().get(10).getField(1));
+
+        assertEquals(result.getMaterializedRows().get(11).getField(0), 12);
+        assertNull(result.getMaterializedRows().get(11).getField(1));
     }
 
     @Test
@@ -65,7 +128,7 @@ public class TestDeltaVariantType
                 goldenTablePathWithPrefix(DELTA_V3, "test_variant"));
         MaterializedResult result = computeActual(session, query);
         assertEquals(result.getMaterializedRows().size(), 1);
-        assertEquals(result.getMaterializedRows().get(0).getField(0), 5L);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), 12L);
     }
 
     @Test
@@ -83,28 +146,83 @@ public class TestDeltaVariantType
                 goldenTablePathWithPrefix(DELTA_V3, "test_variant"));
         MaterializedResult result = computeActual(session, query);
 
-        assertEquals(result.getMaterializedRows().size(), 5);
+        // 12 total rows; json_extract_scalar on NULL variant rows returns NULL for all fields
+        assertEquals(result.getMaterializedRows().size(), 12);
 
-        // Row 1: alice with active flag
+        // File 1 — non-null rows (id=1..5)
         MaterializedRow row1 = result.getMaterializedRows().get(0);
         assertEquals(row1.getField(0), 1);
         assertEquals(row1.getField(1), "alice");
         assertEquals(row1.getField(2), 30);
         assertEquals(row1.getField(3), true);
 
-        // Row 2: bob without active flag
         MaterializedRow row2 = result.getMaterializedRows().get(1);
         assertEquals(row2.getField(0), 2);
         assertEquals(row2.getField(1), "bob");
         assertEquals(row2.getField(2), 25);
         assertNull(row2.getField(3));
 
-        // Row 4: diana without active flag
+        MaterializedRow row3 = result.getMaterializedRows().get(2);
+        assertEquals(row3.getField(0), 3);
+        assertEquals(row3.getField(1), "charlie");
+        assertEquals(row3.getField(2), 35);
+        assertNull(row3.getField(3));
+
         MaterializedRow row4 = result.getMaterializedRows().get(3);
         assertEquals(row4.getField(0), 4);
         assertEquals(row4.getField(1), "diana");
         assertEquals(row4.getField(2), 28);
         assertNull(row4.getField(3));
+
+        MaterializedRow row5 = result.getMaterializedRows().get(4);
+        assertEquals(row5.getField(0), 5);
+        assertEquals(row5.getField(1), "eve");
+        assertEquals(row5.getField(2), 42);
+        assertEquals(row5.getField(3), false);
+
+        // File 2 — frank (non-null), NULL, bob repeat (non-null), NULL, diana repeat (non-null)
+        MaterializedRow row6 = result.getMaterializedRows().get(5);
+        assertEquals(row6.getField(0), 6);
+        assertEquals(row6.getField(1), "frank");
+        assertEquals(row6.getField(2), 22);
+        assertEquals(row6.getField(3), false);
+
+        MaterializedRow row7 = result.getMaterializedRows().get(6);
+        assertEquals(row7.getField(0), 7);
+        assertNull(row7.getField(1));
+        assertNull(row7.getField(2));
+        assertNull(row7.getField(3));
+
+        MaterializedRow row8 = result.getMaterializedRows().get(7);
+        assertEquals(row8.getField(0), 8);
+        assertEquals(row8.getField(1), "bob");
+        assertEquals(row8.getField(2), 25);
+        assertNull(row8.getField(3));
+
+        MaterializedRow row9 = result.getMaterializedRows().get(8);
+        assertEquals(row9.getField(0), 9);
+        assertNull(row9.getField(1));
+        assertNull(row9.getField(2));
+        assertNull(row9.getField(3));
+
+        MaterializedRow row10 = result.getMaterializedRows().get(9);
+        assertEquals(row10.getField(0), 10);
+        assertEquals(row10.getField(1), "diana");
+        assertEquals(row10.getField(2), 28);
+        assertNull(row10.getField(3));
+
+        // File 3 — all NULL (id=11..12)
+        MaterializedRow row11 = result.getMaterializedRows().get(10);
+        assertEquals(row11.getField(0), 11);
+        assertNull(row11.getField(1));
+        assertNull(row11.getField(2));
+        assertNull(row11.getField(3));
+
+        MaterializedRow row12 = result.getMaterializedRows().get(11);
+        assertEquals(row12.getField(0), 12);
+        assertNull(row12.getField(1));
+        assertNull(row12.getField(2));
+        assertNull(row12.getField(3));
     }
 
     @Test
@@ -124,9 +242,10 @@ public class TestDeltaVariantType
                 goldenTablePathWithPrefix(DELTA_V3, "test_variant"));
         MaterializedResult result = computeActual(session, query);
 
-        assertEquals(result.getMaterializedRows().size(), 5);
+        // 12 total; json_extract on NULL variant returns NULL for all extracted fields
+        assertEquals(result.getMaterializedRows().size(), 12);
 
-        // Row 1: alice - no tags or scores
+        // File 1 — id=1..5, non-null
         MaterializedRow row1 = result.getMaterializedRows().get(0);
         assertEquals(row1.getField(0), 1);
         assertEquals(row1.getField(1), "alice");
@@ -135,7 +254,6 @@ public class TestDeltaVariantType
         assertNull(row1.getField(4));
         assertNull(row1.getField(5));
 
-        // Row 2: bob - has tags
         MaterializedRow row2 = result.getMaterializedRows().get(1);
         assertEquals(row2.getField(0), 2);
         assertEquals(row2.getField(1), "bob");
@@ -144,7 +262,14 @@ public class TestDeltaVariantType
         assertEquals(row2.getField(4), "[\"admin\",\"dev\"]");
         assertNull(row2.getField(5));
 
-        // Row 4: diana - has scores
+        MaterializedRow row3 = result.getMaterializedRows().get(2);
+        assertEquals(row3.getField(0), 3);
+        assertEquals(row3.getField(1), "charlie");
+        assertEquals(row3.getField(2), "35");
+        assertNull(row3.getField(3));
+        assertNull(row3.getField(4));
+        assertNull(row3.getField(5));
+
         MaterializedRow row4 = result.getMaterializedRows().get(3);
         assertEquals(row4.getField(0), 4);
         assertEquals(row4.getField(1), "diana");
@@ -152,6 +277,72 @@ public class TestDeltaVariantType
         assertNull(row4.getField(3));
         assertNull(row4.getField(4));
         assertEquals(row4.getField(5), "[95,87,92]");
+
+        MaterializedRow row5 = result.getMaterializedRows().get(4);
+        assertEquals(row5.getField(0), 5);
+        assertEquals(row5.getField(1), "eve");
+        assertEquals(row5.getField(2), "42");
+        assertEquals(row5.getField(3), "false");
+        assertNull(row5.getField(4));
+        assertNull(row5.getField(5));
+
+        // File 2 — id=6 frank, id=7 NULL, id=8 bob, id=9 NULL, id=10 diana
+        MaterializedRow row6 = result.getMaterializedRows().get(5);
+        assertEquals(row6.getField(0), 6);
+        assertEquals(row6.getField(1), "frank");
+        assertEquals(row6.getField(2), "22");
+        assertEquals(row6.getField(3), "false");
+        assertNull(row6.getField(4));
+        assertNull(row6.getField(5));
+
+        MaterializedRow row7 = result.getMaterializedRows().get(6);
+        assertEquals(row7.getField(0), 7);
+        assertNull(row7.getField(1));
+        assertNull(row7.getField(2));
+        assertNull(row7.getField(3));
+        assertNull(row7.getField(4));
+        assertNull(row7.getField(5));
+
+        MaterializedRow row8 = result.getMaterializedRows().get(7);
+        assertEquals(row8.getField(0), 8);
+        assertEquals(row8.getField(1), "bob");
+        assertEquals(row8.getField(2), "25");
+        assertNull(row8.getField(3));
+        assertEquals(row8.getField(4), "[\"admin\",\"dev\"]");
+        assertNull(row8.getField(5));
+
+        MaterializedRow row9 = result.getMaterializedRows().get(8);
+        assertEquals(row9.getField(0), 9);
+        assertNull(row9.getField(1));
+        assertNull(row9.getField(2));
+        assertNull(row9.getField(3));
+        assertNull(row9.getField(4));
+        assertNull(row9.getField(5));
+
+        MaterializedRow row10 = result.getMaterializedRows().get(9);
+        assertEquals(row10.getField(0), 10);
+        assertEquals(row10.getField(1), "diana");
+        assertEquals(row10.getField(2), "28");
+        assertNull(row10.getField(3));
+        assertNull(row10.getField(4));
+        assertEquals(row10.getField(5), "[95,87,92]");
+
+        // File 3 — id=11..12, all NULL
+        MaterializedRow row11 = result.getMaterializedRows().get(10);
+        assertEquals(row11.getField(0), 11);
+        assertNull(row11.getField(1));
+        assertNull(row11.getField(2));
+        assertNull(row11.getField(3));
+        assertNull(row11.getField(4));
+        assertNull(row11.getField(5));
+
+        MaterializedRow row12 = result.getMaterializedRows().get(11);
+        assertEquals(row12.getField(0), 12);
+        assertNull(row12.getField(1));
+        assertNull(row12.getField(2));
+        assertNull(row12.getField(3));
+        assertNull(row12.getField(4));
+        assertNull(row12.getField(5));
     }
 
     @Test
@@ -170,26 +361,22 @@ public class TestDeltaVariantType
                 goldenTablePathWithPrefix(DELTA_V3, "test_variant"));
         MaterializedResult result = computeActual(session, query);
 
-        // Only rows 2 and 3 have tags (bob)
+        // id=2 (bob) and id=8 (bob repeat) both have tags — 2 tags × 2 rows = 4
         assertEquals(result.getMaterializedRows().size(), 4);
 
-        // Row 1: bob id=2, tag=admin
         assertEquals(result.getMaterializedRows().get(0).getField(0), 2);
         assertEquals(result.getMaterializedRows().get(0).getField(1), "bob");
         assertEquals(result.getMaterializedRows().get(0).getField(2), "admin");
 
-        // Row 2: bob id=2, tag=dev
         assertEquals(result.getMaterializedRows().get(1).getField(0), 2);
         assertEquals(result.getMaterializedRows().get(1).getField(1), "bob");
         assertEquals(result.getMaterializedRows().get(1).getField(2), "dev");
 
-        // Row 3: bob id=3, tag=admin
-        assertEquals(result.getMaterializedRows().get(2).getField(0), 3);
+        assertEquals(result.getMaterializedRows().get(2).getField(0), 8);
         assertEquals(result.getMaterializedRows().get(2).getField(1), "bob");
         assertEquals(result.getMaterializedRows().get(2).getField(2), "admin");
 
-        // Row 4: bob id=3, tag=dev
-        assertEquals(result.getMaterializedRows().get(3).getField(0), 3);
+        assertEquals(result.getMaterializedRows().get(3).getField(0), 8);
         assertEquals(result.getMaterializedRows().get(3).getField(1), "bob");
         assertEquals(result.getMaterializedRows().get(3).getField(2), "dev");
     }
@@ -209,19 +396,30 @@ public class TestDeltaVariantType
                 goldenTablePathWithPrefix(DELTA_V3, "test_variant"));
         MaterializedResult result = computeActual(session, query);
 
-        assertEquals(result.getMaterializedRows().size(), 3);
+        // 7 groups: alice, bob (id=2+8 count=2), charlie, diana (id=4+10 count=2), eve, frank, NULL (id=7,9,11,12 count=4)
+        // ORDER BY user_name: NULLs sort last in Presto default ASC ordering
+        assertEquals(result.getMaterializedRows().size(), 7);
 
-        // alice: 1 occurrence
         assertEquals(result.getMaterializedRows().get(0).getField(0), "alice");
         assertEquals(result.getMaterializedRows().get(0).getField(1), 1L);
 
-        // bob: 2 occurrences
         assertEquals(result.getMaterializedRows().get(1).getField(0), "bob");
         assertEquals(result.getMaterializedRows().get(1).getField(1), 2L);
 
-        // diana: 2 occurrences
-        assertEquals(result.getMaterializedRows().get(2).getField(0), "diana");
-        assertEquals(result.getMaterializedRows().get(2).getField(1), 2L);
+        assertEquals(result.getMaterializedRows().get(2).getField(0), "charlie");
+        assertEquals(result.getMaterializedRows().get(2).getField(1), 1L);
+
+        assertEquals(result.getMaterializedRows().get(3).getField(0), "diana");
+        assertEquals(result.getMaterializedRows().get(3).getField(1), 2L);
+
+        assertEquals(result.getMaterializedRows().get(4).getField(0), "eve");
+        assertEquals(result.getMaterializedRows().get(4).getField(1), 1L);
+
+        assertEquals(result.getMaterializedRows().get(5).getField(0), "frank");
+        assertEquals(result.getMaterializedRows().get(5).getField(1), 1L);
+
+        assertNull(result.getMaterializedRows().get(6).getField(0));
+        assertEquals(result.getMaterializedRows().get(6).getField(1), 4L);
     }
 
     @Test
@@ -241,25 +439,44 @@ public class TestDeltaVariantType
                 goldenTablePathWithPrefix(DELTA_V3, "test_variant"));
         MaterializedResult result = computeActual(session, query);
 
-        assertEquals(result.getMaterializedRows().size(), 3);
+        // 7 groups including NULL (from NULL-variant rows); NULL user has NULL age → AVG/MIN/MAX are all NULL
+        // bob (id=2,8): avg/min/max=25; diana (id=4,10): avg/min/max=28; NULLs sort last
+        assertEquals(result.getMaterializedRows().size(), 7);
 
-        // alice: age 30
         assertEquals(result.getMaterializedRows().get(0).getField(0), "alice");
         assertEquals(result.getMaterializedRows().get(0).getField(1), 30.0);
         assertEquals(result.getMaterializedRows().get(0).getField(2), 30);
         assertEquals(result.getMaterializedRows().get(0).getField(3), 30);
 
-        // bob: age 25
         assertEquals(result.getMaterializedRows().get(1).getField(0), "bob");
         assertEquals(result.getMaterializedRows().get(1).getField(1), 25.0);
         assertEquals(result.getMaterializedRows().get(1).getField(2), 25);
         assertEquals(result.getMaterializedRows().get(1).getField(3), 25);
 
-        // diana: age 28
-        assertEquals(result.getMaterializedRows().get(2).getField(0), "diana");
-        assertEquals(result.getMaterializedRows().get(2).getField(1), 28.0);
-        assertEquals(result.getMaterializedRows().get(2).getField(2), 28);
-        assertEquals(result.getMaterializedRows().get(2).getField(3), 28);
+        assertEquals(result.getMaterializedRows().get(2).getField(0), "charlie");
+        assertEquals(result.getMaterializedRows().get(2).getField(1), 35.0);
+        assertEquals(result.getMaterializedRows().get(2).getField(2), 35);
+        assertEquals(result.getMaterializedRows().get(2).getField(3), 35);
+
+        assertEquals(result.getMaterializedRows().get(3).getField(0), "diana");
+        assertEquals(result.getMaterializedRows().get(3).getField(1), 28.0);
+        assertEquals(result.getMaterializedRows().get(3).getField(2), 28);
+        assertEquals(result.getMaterializedRows().get(3).getField(3), 28);
+
+        assertEquals(result.getMaterializedRows().get(4).getField(0), "eve");
+        assertEquals(result.getMaterializedRows().get(4).getField(1), 42.0);
+        assertEquals(result.getMaterializedRows().get(4).getField(2), 42);
+        assertEquals(result.getMaterializedRows().get(4).getField(3), 42);
+
+        assertEquals(result.getMaterializedRows().get(5).getField(0), "frank");
+        assertEquals(result.getMaterializedRows().get(5).getField(1), 22.0);
+        assertEquals(result.getMaterializedRows().get(5).getField(2), 22);
+        assertEquals(result.getMaterializedRows().get(5).getField(3), 22);
+
+        assertNull(result.getMaterializedRows().get(6).getField(0));
+        assertNull(result.getMaterializedRows().get(6).getField(1));
+        assertNull(result.getMaterializedRows().get(6).getField(2));
+        assertNull(result.getMaterializedRows().get(6).getField(3));
     }
 
     @Test
@@ -278,14 +495,18 @@ public class TestDeltaVariantType
                 goldenTablePathWithPrefix(DELTA_V3, "test_variant"));
         MaterializedResult result = computeActual(session, query);
 
-        // Only bob and diana have count > 1
-        assertEquals(result.getMaterializedRows().size(), 2);
+        // bob (id=2,8 count=2), diana (id=4,10 count=2), and NULL (id=7,9,11,12 count=4) have count > 1
+        // NULLs sort last in Presto default ASC ordering
+        assertEquals(result.getMaterializedRows().size(), 3);
 
         assertEquals(result.getMaterializedRows().get(0).getField(0), "bob");
         assertEquals(result.getMaterializedRows().get(0).getField(1), 2L);
 
         assertEquals(result.getMaterializedRows().get(1).getField(0), "diana");
         assertEquals(result.getMaterializedRows().get(1).getField(1), 2L);
+
+        assertNull(result.getMaterializedRows().get(2).getField(0));
+        assertEquals(result.getMaterializedRows().get(2).getField(1), 4L);
     }
 
     @Test
@@ -304,19 +525,23 @@ public class TestDeltaVariantType
                 goldenTablePathWithPrefix(DELTA_V3, "test_variant"));
         MaterializedResult result = computeActual(session, query);
 
-        assertEquals(result.getMaterializedRows().size(), 3);
+        // ages >= 25: 22 is excluded (frank); bob age=25 appears twice (id=2,8); diana age=28 appears twice (id=4,10)
+        assertEquals(result.getMaterializedRows().size(), 5);
 
-        // Age 25: 2 occurrences
         assertEquals(result.getMaterializedRows().get(0).getField(0), 25);
-        assertEquals(result.getMaterializedRows().get(0).getField(1), 2L);
+        assertEquals(result.getMaterializedRows().get(0).getField(1), 2L);  // bob x2
 
-        // Age 28: 2 occurrences
         assertEquals(result.getMaterializedRows().get(1).getField(0), 28);
-        assertEquals(result.getMaterializedRows().get(1).getField(1), 2L);
+        assertEquals(result.getMaterializedRows().get(1).getField(1), 2L);  // diana x2
 
-        // Age 30: 1 occurrence
         assertEquals(result.getMaterializedRows().get(2).getField(0), 30);
-        assertEquals(result.getMaterializedRows().get(2).getField(1), 1L);
+        assertEquals(result.getMaterializedRows().get(2).getField(1), 1L);  // alice
+
+        assertEquals(result.getMaterializedRows().get(3).getField(0), 35);
+        assertEquals(result.getMaterializedRows().get(3).getField(1), 1L);  // charlie
+
+        assertEquals(result.getMaterializedRows().get(4).getField(0), 42);
+        assertEquals(result.getMaterializedRows().get(4).getField(1), 1L);  // eve
     }
 
     @Test
@@ -340,20 +565,17 @@ public class TestDeltaVariantType
                 goldenTablePathWithPrefix(DELTA_V3, "test_variant"));
         MaterializedResult result = computeActual(session, query);
 
-        // bob: id 2 and 3
-        // diana: id 4 and 5
+        // bob: id=2 pairs with id=8; diana: id=4 pairs with id=10
         assertEquals(result.getMaterializedRows().size(), 2);
 
-        // bob 2-3
         assertEquals(result.getMaterializedRows().get(0).getField(0), 2);
         assertEquals(result.getMaterializedRows().get(0).getField(1), "bob");
-        assertEquals(result.getMaterializedRows().get(0).getField(2), 3);
+        assertEquals(result.getMaterializedRows().get(0).getField(2), 8);
         assertEquals(result.getMaterializedRows().get(0).getField(3), "bob");
 
-        // diana 4-5
         assertEquals(result.getMaterializedRows().get(1).getField(0), 4);
         assertEquals(result.getMaterializedRows().get(1).getField(1), "diana");
-        assertEquals(result.getMaterializedRows().get(1).getField(2), 5);
+        assertEquals(result.getMaterializedRows().get(1).getField(2), 10);
         assertEquals(result.getMaterializedRows().get(1).getField(3), "diana");
     }
 
@@ -379,21 +601,18 @@ public class TestDeltaVariantType
                 goldenTablePathWithPrefix(DELTA_V3, "test_variant"));
         MaterializedResult result = computeActual(session, query);
 
-        // age 25: bob 2-3
-        // age 28: diana 4-5
+        // age=25: bob id=2 joins bob id=8; age=28: diana id=4 joins diana id=10
         assertEquals(result.getMaterializedRows().size(), 2);
 
-        // bob 2-3, age 25
         assertEquals(result.getMaterializedRows().get(0).getField(0), 2);
         assertEquals(result.getMaterializedRows().get(0).getField(1), "bob");
-        assertEquals(result.getMaterializedRows().get(0).getField(2), 3);
+        assertEquals(result.getMaterializedRows().get(0).getField(2), 8);
         assertEquals(result.getMaterializedRows().get(0).getField(3), "bob");
         assertEquals(result.getMaterializedRows().get(0).getField(4), 25);
 
-        // diana 4-5, age 28
         assertEquals(result.getMaterializedRows().get(1).getField(0), 4);
         assertEquals(result.getMaterializedRows().get(1).getField(1), "diana");
-        assertEquals(result.getMaterializedRows().get(1).getField(2), 5);
+        assertEquals(result.getMaterializedRows().get(1).getField(2), 10);
         assertEquals(result.getMaterializedRows().get(1).getField(3), "diana");
         assertEquals(result.getMaterializedRows().get(1).getField(4), 28);
     }
@@ -412,7 +631,9 @@ public class TestDeltaVariantType
         MaterializedResult result = computeActual(session, query);
 
         assertEquals(result.getMaterializedRows().size(), 1);
-        assertEquals(result.getMaterializedRows().get(0).getField(0), 3L); // alice, bob, diana
-        assertEquals(result.getMaterializedRows().get(0).getField(1), 3L); // 25, 28, 30
+        // 6 distinct users: alice, bob, charlie, diana, eve, frank (NULL rows excluded by COUNT DISTINCT)
+        // 6 distinct ages: 22, 25, 28, 30, 35, 42
+        assertEquals(result.getMaterializedRows().get(0).getField(0), 6L);
+        assertEquals(result.getMaterializedRows().get(0).getField(1), 6L);
     }
 }
