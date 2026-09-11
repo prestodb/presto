@@ -22,6 +22,7 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.Type;
@@ -97,7 +98,6 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.io.LocationProvider;
-import org.apache.iceberg.parquet.ParquetSchemaUtil;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
@@ -161,7 +161,6 @@ import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTable;
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
 import static com.facebook.presto.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -396,13 +395,15 @@ public class IcebergPageSourceProvider
                                 .ifPresent(value -> defaultValues.put(column.getId(), value));
                     }
                     else {
-                        Type type = column.getType();
-                        if (!parquetField.get().isPrimitive()) {
-                            MessageType parquetMessageType = new MessageType("", parquetField.get());
-                            Schema icebergSchema = ParquetSchemaUtil.convert(parquetMessageType);
-                            type = toPrestoType(icebergSchema.columns().get(0).type(), typeManager);
-                        }
-                        internalFields.add(constructField(type, lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
+                        // Use a Parquet-compatible version of the column type so that constructField()
+                        // can resolve ROW sub-field names against the hex-encoded Parquet column names
+                        // (e.g. "field-two" in the Presto type must match "field_x2dtwo" in the file).
+                        // We do NOT derive the type from the Parquet schema here because doing so
+                        // would produce the old file schema for schema-evolved tables and cause a
+                        // "field N has unexpected position count" error when new fields were added.
+                        Type parquetCompatibleType = encodeFieldNamesForParquet(column.getType());
+                        ColumnIO fieldColumnIO = lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()));
+                        internalFields.add(constructField(parquetCompatibleType, fieldColumnIO));
                     }
                 }
                 if (column.isRowPositionColumn()) {
@@ -1178,6 +1179,32 @@ public class IcebergPageSourceProvider
                         dwrfEncryptionProvider);
         }
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
+    }
+
+    /**
+     * Returns a copy of {@code type} where every ROW field name has been encoded with
+     * {@link AvroSchemaUtil#makeCompatibleName} so that
+     * {@link org.apache.parquet.io.ColumnIOConverter#constructField} can resolve
+     * sub-field children by name against a Parquet {@code GroupColumnIO} whose columns
+     * use the same hex-encoded names (e.g. {@code "field-two"} → {@code "field_x2dtwo"}).
+     * Non-ROW types and names that contain no special characters are returned unchanged.
+     * The method is recursive so deeply-nested ROW types are also handled.
+     */
+    private static Type encodeFieldNamesForParquet(Type type)
+    {
+        if (!(type instanceof RowType)) {
+            return type;
+        }
+        RowType rowType = (RowType) type;
+        List<RowType.Field> encodedFields = rowType.getFields().stream()
+                .map(field -> {
+                    Type encodedFieldType = encodeFieldNamesForParquet(field.getType());
+                    return field.getName().isPresent()
+                            ? RowType.field(AvroSchemaUtil.makeCompatibleName(field.getName().get()), encodedFieldType)
+                            : RowType.field(encodedFieldType);
+                })
+                .collect(Collectors.toList());
+        return RowType.from(encodedFields);
     }
 
     private static Optional<Object> getInitialDefaultValue(IcebergColumnHandle column)
