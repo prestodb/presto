@@ -366,6 +366,24 @@ public final class ExpressionUtils
         return expression;
     }
 
+    public static Expression deepRemoveExpressionPrefix(Expression expression, Optional<Identifier> removablePrefix)
+    {
+        if (!removablePrefix.isPresent()) {
+            return expression;
+        }
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        {
+            @Override
+            public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                if (removablePrefix.get().equals(node.getBase())) {
+                    return node.getField();
+                }
+                return treeRewriter.defaultRewrite(node, context);
+            }
+        }, expression);
+    }
+
     private static Expression removeDereferenceExpressionElementPrefix(DereferenceExpression dereferenceExpression, Optional<Identifier> removablePrefix)
     {
         if (removablePrefix.isPresent() && removablePrefix.get().equals(dereferenceExpression.getBase())) {

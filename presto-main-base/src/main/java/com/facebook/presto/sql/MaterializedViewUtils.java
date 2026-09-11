@@ -92,8 +92,9 @@ public final class MaterializedViewUtils
     public static final QualifiedName MERGE = QualifiedName.of("MERGE");
     public static final QualifiedName APPROX_DISTINCT = QualifiedName.of("APPROX_DISTINCT");
     public static final QualifiedName APPROX_SET = QualifiedName.of("APPROX_SET");
+    public static final QualifiedName SET_UNION = QualifiedName.of("SET_UNION");
 
-    public static final Set<QualifiedName> ASSOCIATIVE_REWRITE_FUNCTIONS = ImmutableSet.of(MIN, MAX, SUM, COUNT);
+    public static final Set<QualifiedName> ASSOCIATIVE_REWRITE_FUNCTIONS = ImmutableSet.of(MIN, MAX, SUM, COUNT, SET_UNION);
 
     // TODO: Add count to NonAssociativeFunctionHandler, add more functions
     public static final Map<QualifiedName, MaterializedViewUtils.NonAssociativeFunctionHandler> NON_ASSOCIATIVE_REWRITE_FUNCTIONS = ImmutableMap.of(
