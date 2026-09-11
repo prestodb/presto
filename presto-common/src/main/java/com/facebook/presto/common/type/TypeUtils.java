@@ -106,6 +106,7 @@ public final class TypeUtils
         if (block.isNull(position)) {
             return null;
         }
+        // TODO(#27934 Phase 2): check TimestampType.isShort() and return LongTimestamp for p=7–12; type.getLong() throws for those precisions.
         if (javaType == long.class) {
             return type.getLong(block, position);
         }
@@ -135,6 +136,7 @@ public final class TypeUtils
         else if (type.getJavaType() == double.class) {
             type.writeDouble(blockBuilder, ((Number) value).doubleValue());
         }
+        // TODO(#27934 Phase 2): check TimestampType.isShort() and dispatch to writeLongTimestamp for p=7–12; type.writeLong() throws for those precisions.
         else if (type.getJavaType() == long.class) {
             if (value instanceof BigDecimal) {
                 type.writeLong(blockBuilder, ((BigDecimal) value).unscaledValue().longValue());

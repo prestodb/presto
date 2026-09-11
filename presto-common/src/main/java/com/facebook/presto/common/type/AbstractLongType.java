@@ -23,6 +23,21 @@ import io.airlift.slice.Slice;
 
 import static java.lang.Long.rotateLeft;
 
+/**
+ * Base class for fixed-width types whose SPI Java type ({@link #getJavaType()}) is {@code long.class}.
+ * The physical block layout may still be wider (e.g. {@code TimestampType} p=7–12 uses a 12-byte
+ * Fixed12ArrayBlock); such subclasses may override these non-final methods:
+ * <ul>
+ *   <li>{@link #getFixedSize()}, {@link #getLong(Block, int)}, {@link #writeLong(BlockBuilder, long)}</li>
+ *   <li>{@link #appendTo(Block, int, BlockBuilder)}</li>
+ *   <li>{@link #createBlockBuilder} / {@link #createFixedSizeBlockBuilder}</li>
+ * </ul>
+ *
+ * <p>{@link #getLongUnchecked} stays {@code final} and reads only the first {@code long} word;
+ * do not rely on it for wider storage.
+ * TODO(#27934 Phase 2): {@code TypeUtils.readNativeValue} must check {@code isShort()} before
+ * dispatching {@code getJavaType() == long.class} to {@code getLong()} for p=7–12.
+ */
 public abstract class AbstractLongType
         extends AbstractPrimitiveType
         implements FixedWidthType
@@ -33,7 +48,7 @@ public abstract class AbstractLongType
     }
 
     @Override
-    public final int getFixedSize()
+    public int getFixedSize()
     {
         return Long.BYTES;
     }
@@ -51,11 +66,12 @@ public abstract class AbstractLongType
     }
 
     @Override
-    public final long getLong(Block block, int position)
+    public long getLong(Block block, int position)
     {
         return block.getLong(position);
     }
 
+    // TODO(#27934 Phase 3): returns only epochMicros for Fixed12ArrayBlock; fix vectorized operators before p=7–12 is SQL-reachable.
     @Override
     public final long getLongUnchecked(UncheckedBlock block, int internalPosition)
     {
@@ -69,13 +85,13 @@ public abstract class AbstractLongType
     }
 
     @Override
-    public final void writeLong(BlockBuilder blockBuilder, long value)
+    public void writeLong(BlockBuilder blockBuilder, long value)
     {
         blockBuilder.writeLong(value).closeEntry();
     }
 
     @Override
-    public final void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {
             blockBuilder.appendNull();
@@ -108,7 +124,7 @@ public abstract class AbstractLongType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         int maxBlockSizeInBytes;
         if (blockBuilderStatus == null) {
@@ -123,13 +139,13 @@ public abstract class AbstractLongType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, Long.BYTES);
     }
 
     @Override
-    public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new LongArrayBlockBuilder(null, positionCount);
     }
