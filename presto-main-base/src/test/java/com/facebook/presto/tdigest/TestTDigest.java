@@ -209,6 +209,26 @@ public class TestTDigest
     }
 
     @Test
+    public void testMergeWithLargeTotalWeight()
+    {
+        // Reproduces production failure where floating-point rounding at
+        // large totalWeight (~1E19) exceeded the fixed absolute epsilon (0.001) in merge().
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+
+        double largeWeight = 1e17;
+        for (int i = 0; i < 100; i++) {
+            tDigest.add(i * 0.01, largeWeight);
+        }
+
+        TDigest other = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        for (int i = 0; i < 100; i++) {
+            other.add(i * 0.01 + 50, largeWeight);
+        }
+
+        tDigest.merge(other);
+    }
+
+    @Test
     public void testLargeScalePreservesWeights()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
