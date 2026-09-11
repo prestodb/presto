@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner;
+import com.facebook.presto.sidecar.SidecarRetryConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -52,6 +53,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -84,6 +86,10 @@ public class TestNativeExpressionInterpreter
     public TestNativeExpressionInterpreter()
             throws Exception
     {
+        String prestoServer = System.getProperty("PRESTO_SERVER", "_build/debug/presto_cpp/main/presto_server");
+        if (System.getProperty("workerImage") == null && !java.nio.file.Files.exists(java.nio.file.Paths.get(prestoServer).toAbsolutePath())) {
+            throw new SkipException("Native sidecar not available: binary not found at '" + prestoServer + "'");
+        }
         this.queryRunner = NativeSidecarPluginQueryRunner.getQueryRunner();
         FunctionAndTypeManager functionAndTypeManager = queryRunner.getCoordinator().getFunctionAndTypeManager();
         this.metadata = createTestMetadataManager(functionAndTypeManager);
@@ -421,6 +427,7 @@ public class TestNativeExpressionInterpreter
             binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
             binder.install(new ThriftCodecModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
+            configBinder(binder).bindConfig(SidecarRetryConfig.class, SidecarRetryConfig.CONFIG_PREFIX);
 
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             newSetBinder(binder, Type.class);

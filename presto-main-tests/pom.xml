@@ -80,11 +80,5 @@
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
         </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>units</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 </project>
