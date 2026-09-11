@@ -754,6 +754,7 @@ public class PrestoNativeQueryRunnerUtils
         private String prestoServerPath;
         private int cacheMaxSize;
         private Optional<String> remoteFunctionServerUds = Optional.empty();
+        private Optional<String> remoteFunctionServerRestUrl = Optional.empty();
         private Optional<String> pluginDirectory = Optional.empty();
         private boolean failOnNestedLoopJoin;
         private boolean coordinatorSidecarEnabled;
@@ -762,10 +763,16 @@ public class PrestoNativeQueryRunnerUtils
         private boolean enableSsdCache;
         private boolean implicitCastCharNToVarchar;
         private boolean enableCudf;
+        private Optional<HttpsClientConfig> httpsClientConfig = Optional.empty();
         private Optional<String> workerImage = Optional.empty();
         private Path dataDirectory;
 
         private ExternalWorkerLauncherBuilder() {}
+
+        public static ExternalWorkerLauncherBuilder builder()
+        {
+            return new ExternalWorkerLauncherBuilder();
+        }
 
         public ExternalWorkerLauncherBuilder setCatalogName(String catalogName)
         {
@@ -794,6 +801,12 @@ public class PrestoNativeQueryRunnerUtils
         public ExternalWorkerLauncherBuilder setRemoteFunctionServerUds(Optional<String> remoteFunctionServerUds)
         {
             this.remoteFunctionServerUds = requireNonNull(remoteFunctionServerUds, "remoteFunctionServerUds is null");
+            return this;
+        }
+
+        public ExternalWorkerLauncherBuilder setRemoteFunctionServerRestUrl(String remoteFunctionServerRestUrl)
+        {
+            this.remoteFunctionServerRestUrl = Optional.of(requireNonNull(remoteFunctionServerRestUrl, "remoteFunctionServerRestUrl is null"));
             return this;
         }
 
@@ -845,6 +858,12 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public ExternalWorkerLauncherBuilder setHttpsClientConfig(HttpsClientConfig httpsClientConfig)
+        {
+            this.httpsClientConfig = Optional.of(requireNonNull(httpsClientConfig, "httpsClientConfig is null"));
+            return this;
+        }
+
         public ExternalWorkerLauncherBuilder setWorkerImage(Optional<String> workerImage)
         {
             this.workerImage = requireNonNull(workerImage, "workerImage is null");
@@ -885,11 +904,14 @@ public class PrestoNativeQueryRunnerUtils
                         }
                     }
 
-                    // Write config file - use an ephemeral port (0) for bare-metal, pre-allocated port for container.
+                    String useMmapAllocator = System.getProperty("os.name", "").toLowerCase().contains("mac")
+                            ? "use-mmap-allocator=false%n"
+                            : "";
                     String configProperties = format("discovery.uri=%s%n" +
                             "presto.version=testversion%n" +
                             "plan-consistency-check-enabled=true%n" +
                             "system-memory-gb=4%n" +
+                            useMmapAllocator +
                             "http-server.http.port=%d%n", discoveryUri, workerPort);
 
                     if (coordinatorSidecarEnabled) {
@@ -921,6 +943,36 @@ public class PrestoNativeQueryRunnerUtils
                                         "remote-function-server.serde=presto_page%n" +
                                         "remote-function-server.signature.files.directory.path=%s%n",
                                 configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
+                    }
+
+                    if (remoteFunctionServerRestUrl.isPresent()) {
+                        configProperties = format("%s%n" +
+                                        "remote-function-server.rest.url=%s%n",
+                                configProperties, remoteFunctionServerRestUrl.get());
+                    }
+
+                    if (httpsClientConfig.isPresent()) {
+                        HttpsClientConfig https = httpsClientConfig.get();
+                        configProperties = format("%s%n" +
+                                        "http-server.https.enabled=true%n" +
+                                        "http-server.http2.enabled=false%n" +
+                                        "http-server.https.port=0%n" +
+                                        "https-cert-path=%s%n" +
+                                        "https-key-path=%s%n" +
+                                        "https-client-cert-key-path=%s%n" +
+                                        "https-client-ca-file=%s%n",
+                                configProperties,
+                                https.getCertPath(),
+                                https.getKeyPath(),
+                                https.getClientCertKeyPath(),
+                                https.getCaCertPath());
+
+                        if (https.getJwtSharedSecret().isPresent()) {
+                            configProperties = format("%s%n" +
+                                            "internal-communication.jwt.enabled=true%n" +
+                                            "internal-communication.shared-secret=%s%n",
+                                    configProperties, https.getJwtSharedSecret().get());
+                        }
                     }
 
                     if (pluginDirectory.isPresent()) {
@@ -1076,9 +1128,66 @@ public class PrestoNativeQueryRunnerUtils
         }
     }
 
+    /**
+     * HTTPS client certificate configuration for native workers.
+     */
+    public static class HttpsClientConfig
+    {
+        private final String certPath;
+        private final String keyPath;
+        private final String clientCertKeyPath;
+        private final String caCertPath;
+        private final Optional<String> jwtSharedSecret;
+
+        private HttpsClientConfig(
+                String certPath,
+                String keyPath,
+                String clientCertKeyPath,
+                String caCertPath,
+                Optional<String> jwtSharedSecret)
+        {
+            this.certPath = requireNonNull(certPath, "certPath is null");
+            this.keyPath = requireNonNull(keyPath, "keyPath is null");
+            this.clientCertKeyPath = requireNonNull(clientCertKeyPath, "clientCertKeyPath is null");
+            this.caCertPath = requireNonNull(caCertPath, "caCertPath is null");
+            this.jwtSharedSecret = requireNonNull(jwtSharedSecret, "jwtSharedSecret is null");
+        }
+
+        public static HttpsClientConfig of(String certPath, String keyPath, String clientCertKeyPath, String caCertPath)
+        {
+            return new HttpsClientConfig(certPath, keyPath, clientCertKeyPath, caCertPath, Optional.empty());
+        }
+
+        public HttpsClientConfig withJwt(String sharedSecret)
+        {
+            return new HttpsClientConfig(certPath, keyPath, clientCertKeyPath, caCertPath, Optional.of(sharedSecret));
+        }
+
+        public String getCertPath()
+        {
+            return certPath;
+        }
+        public String getKeyPath()
+        {
+            return keyPath;
+        }
+        public String getClientCertKeyPath()
+        {
+            return clientCertKeyPath;
+        }
+        public String getCaCertPath()
+        {
+            return caCertPath;
+        }
+        public Optional<String> getJwtSharedSecret()
+        {
+            return jwtSharedSecret;
+        }
+    }
+
     public static ExternalWorkerLauncherBuilder externalWorkerLauncherBuilder()
     {
-        return new ExternalWorkerLauncherBuilder();
+        return ExternalWorkerLauncherBuilder.builder();
     }
 
     public static void setupJsonFunctionNamespaceManager(QueryRunner queryRunner, String jsonFileName, String catalogName)

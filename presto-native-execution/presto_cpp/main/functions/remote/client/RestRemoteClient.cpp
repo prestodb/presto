@@ -15,9 +15,9 @@
 #include "presto_cpp/main/functions/remote/client/RestRemoteClient.h"
 
 #include <folly/Uri.h>
-#include <proxygen/lib/http/HTTPMessage.h>
 
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/functions/remote/utils/ContentTypes.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/memory/Memory.h"
@@ -36,12 +36,37 @@ inline std::string getContentType(velox::functions::remote::PageFormat fmt) {
 RestRemoteClient::RestRemoteClient(const std::string& url) : url_(url) {
   memPool_ = memory::MemoryManager::getInstance()->addLeafPool();
   folly::Uri uri(url_);
-  proxygen::Endpoint endpoint(uri.host(), uri.port(), uri.scheme() == "https");
+  const bool useTls = uri.scheme() == "https";
+  proxygen::Endpoint endpoint(uri.host(), uri.port(), useTls);
   folly::SocketAddress addr(uri.host().c_str(), uri.port(), true);
 
   evbThread_ = std::make_unique<folly::ScopedEventBaseThread>("rest-client");
   auto systemConfig = SystemConfig::instance();
   auto httpClientOptions = systemConfig->httpClientOptions();
+
+  if (useTls) {
+    const std::string ciphers = systemConfig->httpsSupportedCiphers();
+    if (ciphers.empty()) {
+      VELOX_USER_FAIL(
+          "HTTPS is enabled for remote function server but ciphers are not configured. "
+          "Set 'https-supported-ciphers' in config.properties");
+    }
+
+    auto optionalClientCertPath = systemConfig->httpsClientCertAndKeyPath();
+    if (!optionalClientCertPath.has_value()) {
+      VELOX_USER_FAIL(
+          "HTTPS client certificates are not configured correctly. "
+          "Set 'https-client-cert-key-path' in config.properties");
+    }
+
+    const std::string caFile = systemConfig->httpsClientCaFile().value_or("");
+    sslContext_ = util::createSSLContext(
+        optionalClientCertPath.value(),
+        ciphers,
+        systemConfig->httpClientHttp2Enabled(),
+        caFile);
+  }
+
   httpClient_ = std::make_shared<http::HttpClient>(
       evbThread_->getEventBase(),
       nullptr,
@@ -50,8 +75,10 @@ RestRemoteClient::RestRemoteClient(const std::string& url) : url_(url) {
       requestTimeoutMs,
       connectTimeoutMs,
       memPool_,
-      nullptr,
+      sslContext_,
       std::move(httpClientOptions));
+
+  jwtOptions_ = systemConfig->jwtOptions();
 }
 
 RestRemoteClient::~RestRemoteClient() {
@@ -69,17 +96,18 @@ std::unique_ptr<folly::IOBuf> RestRemoteClient::invokeFunction(
   try {
     folly::Uri uri(fullUrl);
     const std::string contentType = getContentType(serdeFormat);
-    auto message = std::make_unique<proxygen::HTTPMessage>();
-    message->setMethod(proxygen::HTTPMethod::POST);
-    message->setURL(uri.path());
-    message->setHTTPVersion(1, 1);
-    message->getHeaders().add("Content-Type", contentType);
-    message->getHeaders().add("Accept", contentType);
 
     requestPayload->coalesce();
     std::string requestBody = requestPayload->moveToFbString().toStdString();
 
-    auto sendFuture = httpClient_->sendRequest(*message, requestBody);
+    // Use RequestBuilder to automatically add JWT token
+    auto sendFuture = http::RequestBuilder()
+                          .jwtOptions(jwtOptions_)
+                          .method(proxygen::HTTPMethod::POST)
+                          .url(uri.path())
+                          .header("Content-Type", contentType)
+                          .header("Accept", contentType)
+                          .send(httpClient_.get(), requestBody);
     sendFuture.wait();
 
     VELOX_CHECK(

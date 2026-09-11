@@ -39,12 +39,17 @@ DateTime toISOTimestamp(uint64_t timeMilli) {
 std::shared_ptr<folly::SSLContext> createSSLContext(
     const std::string& clientCertAndKeyPath,
     const std::string& ciphers,
-    bool http2Enabled) {
+    bool http2Enabled,
+    const std::string& caCertPath) {
   try {
     auto sslContext = std::make_shared<folly::SSLContext>();
     sslContext->loadCertKeyPairFromFiles(
         clientCertAndKeyPath.c_str(), clientCertAndKeyPath.c_str());
     sslContext->setCiphersOrThrow(ciphers);
+    if (!caCertPath.empty()) {
+      sslContext->loadTrustedCertificates(caCertPath.c_str());
+      sslContext->authenticate(true, true);
+    }
     if (http2Enabled) {
       sslContext->setAdvertisedNextProtocols({"h2", "http/1.1"});
     } else {

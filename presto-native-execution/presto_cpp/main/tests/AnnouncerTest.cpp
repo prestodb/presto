@@ -15,8 +15,11 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <gtest/gtest.h>
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
+#include "velox/common/file/FileSystems.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
 
@@ -189,3 +192,134 @@ INSTANTIATE_TEST_CASE_P(
     AnnouncerTest,
     AnnouncerTestSuite,
     ::testing::Values(true, false));
+
+// ============================================================================
+// PeriodicServiceInventoryManager SSL-by-scheme tests
+//
+// The logic under test is in PeriodicServiceInventoryManager::sendRequest():
+//
+//   bool useSSL = false;
+//   if (sslContext_ != nullptr) {
+//     auto discoveryUri = systemConfig->discoveryUri();
+//     if (discoveryUri.has_value()) {
+//       useSSL = (folly::Uri(discoveryUri.value()).scheme() == "https");
+//     }
+//   }
+//   client_ = std::make_shared<http::HttpClient>(...,
+//       useSSL ? sslContext_ : nullptr, ...);
+//
+// Two cases:
+//   sslScheme: discovery.uri = "https://..." + sslContext provided
+//              → useSSL=true  → HTTPS client → announcements reach HTTPS server
+//   httpScheme: discovery.uri = "http://..."  + sslContext provided
+//              → useSSL=false → plain-HTTP client → announcements reach HTTP
+//              server
+//
+// In both cases the Announcer is given a non-null sslContext_ to confirm that
+// the scheme, not the mere presence of an sslContext, drives the choice.
+// ============================================================================
+
+// Simple one-shot discoverer that returns a fixed address.
+class FixedAddressDiscoverer : public CoordinatorDiscoverer {
+ public:
+  explicit FixedAddressDiscoverer(folly::SocketAddress address)
+      : address_(std::move(address)) {}
+
+  folly::SocketAddress updateAddress() override {
+    return address_;
+  }
+
+ private:
+  folly::SocketAddress address_;
+};
+
+class PeriodicServiceInventoryManagerSslBySchemeTest : public ::testing::Test {
+ public:
+  void SetUp() override {
+    FLAGS_velox_memory_leak_check_enabled = true;
+    facebook::velox::filesystems::registerLocalFileSystem();
+    // setupMutableSystemConfig() writes a config.properties file and calls
+    // SystemConfig::instance()->initialize(), making setValue() available.
+    test::setupMutableSystemConfig();
+
+    std::string keyPath = getCertsPath("client_ca.pem");
+    std::string ciphers = "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384";
+    sslContext_ = util::createSSLContext(keyPath, ciphers, false);
+  }
+
+ protected:
+  // Run an Announcer against a test server of the given transport type
+  // and assert that at least one announcement is delivered successfully.
+  void runAndExpectAnnouncements(
+      bool serverUsesHttps,
+      const std::string& discoveryUriScheme) {
+    auto [promise, future] = folly::makePromiseContract<bool>();
+
+    // Counter shared between the server handler and the promise fulfiller.
+    std::atomic<int> announcementCnt{0};
+    auto onAnnouncement = [&announcementCnt,
+                           holder = std::make_shared<PromiseHolder<bool>>(
+                               std::move(promise))]() mutable {
+      if (++announcementCnt == 3) {
+        holder->get().setValue(true);
+      }
+    };
+
+    auto discoveryServer = makeDiscoveryServer(onAnnouncement, serverUsesHttps);
+    folly::SocketAddress serverAddress = discoveryServer->start().get();
+
+    // Set discovery.uri to the chosen scheme so PeriodicServiceInventoryManager
+    // picks the right transport when it creates the HttpClient.
+    SystemConfig::instance()->setValue(
+        std::string(SystemConfig::kDiscoveryUri),
+        fmt::format(
+            "{}://{}:{}",
+            discoveryUriScheme,
+            serverAddress.getAddressStr(),
+            serverAddress.getPort()));
+
+    auto discoverer = std::make_shared<FixedAddressDiscoverer>(serverAddress);
+
+    // Always pass sslContext_ to confirm that the scheme (not the mere presence
+    // of an sslContext) determines whether TLS is used.
+    Announcer announcer(
+        "127.0.0.1",
+        serverUsesHttps,
+        1234,
+        discoverer,
+        "testversion",
+        "testing",
+        "test-node",
+        "test-node-location",
+        "DEFAULT",
+        /*sidecar=*/false,
+        {"tpch"},
+        200 /*frequencyMs*/,
+        sslContext_);
+
+    announcer.start();
+    ASSERT_TRUE(std::move(future).getTry().hasValue());
+    announcer.stop();
+  }
+
+  folly::SSLContextPtr sslContext_;
+};
+
+// discovery.uri uses https:// → sslContext is passed to the HttpClient → TLS
+// handshake succeeds against the HTTPS test server.
+TEST_F(
+    PeriodicServiceInventoryManagerSslBySchemeTest,
+    sslUsedWhenSchemeIsHttps) {
+  runAndExpectAnnouncements(/*serverUsesHttps=*/true,
+                            /*discoveryUriScheme=*/"https");
+}
+
+// discovery.uri uses http:// → sslContext is withheld from the HttpClient →
+// plain-text connection succeeds against the HTTP test server, even though a
+// non-null sslContext_ was supplied to the Announcer constructor.
+TEST_F(
+    PeriodicServiceInventoryManagerSslBySchemeTest,
+    sslSkippedWhenSchemeIsHttp) {
+  runAndExpectAnnouncements(/*serverUsesHttps=*/false,
+                            /*discoveryUriScheme=*/"http");
+}

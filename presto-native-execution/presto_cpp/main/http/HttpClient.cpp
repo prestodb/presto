@@ -16,6 +16,7 @@
 #include <jwt-cpp/jwt.h> // @manual
 #include <jwt-cpp/traits/nlohmann-json/traits.h> //@manual
 #endif // PRESTO_ENABLE_JWT
+#include <folly/IPAddress.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/synchronization/Latch.h>
 #include <proxygen/lib/http/codec/CodecProtocol.h>
@@ -329,7 +330,8 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
       uint32_t http2SessionWindow,
       folly::EventBase* eventBase,
       const folly::SocketAddress& address,
-      folly::SSLContextPtr sslContext)
+      folly::SSLContextPtr sslContext,
+      std::string serverName)
       : responseHandler_(responseHandler),
         sessionPool_(sessionPool),
         transactionTimer_(std::move(transactionTimeout)),
@@ -341,7 +343,8 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
         http2SessionWindow_(http2SessionWindow),
         eventBase_(eventBase),
         address_(address),
-        sslContext_(std::move(sslContext)) {}
+        sslContext_(std::move(sslContext)),
+        serverName_(std::move(serverName)) {}
 
   bool useHttps() const {
     return sslContext_ != nullptr;
@@ -350,11 +353,23 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   void connect() {
     connector_ =
         std::make_unique<proxygen::HTTPConnector>(this, transactionTimer_);
-    if (useHttps()) {
-      connector_->connectSSL(
-          eventBase_, address_, sslContext_, nullptr, connectTimeout_);
-    } else {
-      connector_->connect(eventBase_, address_, connectTimeout_);
+    try {
+      if (useHttps()) {
+        connector_->connectSSL(
+            eventBase_,
+            address_,
+            sslContext_,
+            nullptr,
+            connectTimeout_,
+            folly::emptySocketOptionMap,
+            folly::AsyncSocket::anyAddress(),
+            serverName_);
+      } else {
+        connector_->connect(eventBase_, address_, connectTimeout_);
+      }
+    } catch (...) {
+      delete this;
+      throw;
     }
   }
 
@@ -392,6 +407,7 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   folly::EventBase* const eventBase_;
   const folly::SocketAddress address_;
   const folly::SSLContextPtr sslContext_;
+  const std::string serverName_;
   std::unique_ptr<proxygen::HTTPConnector> connector_;
 };
 
@@ -564,7 +580,13 @@ void HttpClient::sendRequest(std::shared_ptr<ResponseHandler> responseHandler) {
         options_.http2SessionWindow,
         eventBase_,
         address_,
-        sslContext_);
+        sslContext_,
+        // Only pass a DNS hostname as the SNI server name. RFC 6066 §3
+        // forbids IP literals in SNI; some TLS stacks reject such handshakes.
+        (sslContext_ != nullptr &&
+         !folly::IPAddress::validate(endpoint_.getHostname()))
+            ? endpoint_.getHostname()
+            : std::string{});
     connectionHandler->connect();
   };
   if (txnFuture.isReady()) {
@@ -579,6 +601,22 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
     const std::string& body,
     int64_t delayMs) {
   request.setDstAddress(this->address_);
+  // For HTTPS connections with a DNS hostname endpoint, pre-fill the Host
+  // header so it matches the SNI value sent during the TLS handshake. Jetty
+  // (used by the Java function server) compares SNI against the Host header
+  // and returns HTTP 400 if they differ. ensureHostHeader() falls back to the
+  // resolved IP address, which would not match the SNI hostname.
+  const auto& epHost = endpoint_.getHostname();
+  if (sslContext_ != nullptr && !epHost.empty() &&
+      !folly::IPAddress::validate(epHost) &&
+      !request.getHeaders().exists(proxygen::HTTP_HEADER_HOST)) {
+    // Include the port to satisfy RFC 7230 §5.4, which requires host:port
+    // when the port is not the default (443 for HTTPS).
+    const auto port = endpoint_.getPort();
+    const std::string hostHeader =
+        (port == 443) ? epHost : folly::to<std::string>(epHost, ":", port);
+    request.getHeaders().set(proxygen::HTTP_HEADER_HOST, hostHeader);
+  }
   request.ensureHostHeader();
   auto responseHandler = std::make_shared<ResponseHandler>(
       request,
