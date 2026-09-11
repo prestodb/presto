@@ -2196,16 +2196,23 @@ public class TestSqlParser
         assertStatement("ALTER TABLE foo.t ALTER COLUMN c SET DATA TYPE BIGINT", new SetColumnType(
                 new NodeLocation(1, 1),
                 QualifiedName.of("foo", "t"),
-                new Identifier("c"),
+                QualifiedName.of("c"),
                 "BIGINT",
                 false));
 
         assertStatement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b SET DATA TYPE DOUBLE", new SetColumnType(
                 new NodeLocation(1, 1),
                 QualifiedName.of("foo", "t"),
-                new Identifier("b"),
+                QualifiedName.of("b"),
                 "DOUBLE",
                 true));
+
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN info.age SET DATA TYPE BIGINT", new SetColumnType(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                QualifiedName.of("info", "age"),
+                "BIGINT",
+                false));
     }
 
     @Test

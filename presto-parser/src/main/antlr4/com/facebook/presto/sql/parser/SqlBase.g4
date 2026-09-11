@@ -85,7 +85,7 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP TAG (IF EXISTS)? name=string                              #dropTag
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ALTER COLUMN columnName=identifier SET DATA TYPE type          #setColumnType
+        ALTER COLUMN columnName=qualifiedName SET DATA TYPE type          #setColumnType
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
         '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
