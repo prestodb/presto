@@ -70,6 +70,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableFunctionInvocation;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
@@ -143,6 +144,12 @@ public class Analysis
     private final Map<NodeRef<Node>, List<Expression>> orderByExpressions = new LinkedHashMap<>();
     private final Set<NodeRef<OrderBy>> redundantOrderBy = new HashSet<>();
     private final Map<NodeRef<Node>, List<Expression>> outputExpressions = new LinkedHashMap<>();
+    // Resolved window specifications declared in the WINDOW clause, keyed by query specification and window name
+    private final Map<NodeRef<QuerySpecification>, Map<String, ResolvedWindow>> windowDefinitions = new LinkedHashMap<>();
+
+    // Resolved window specification for each window function
+    private final Map<NodeRef<FunctionCall>, ResolvedWindow> windows = new LinkedHashMap<>();
+
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> windowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<Offset>, Long> offset = new LinkedHashMap<>();
@@ -526,6 +533,32 @@ public class Analysis
     public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries(Node node)
     {
         return unmodifiableList(quantifiedComparisonSubqueries.get(NodeRef.of(node)));
+    }
+
+    public void addWindowDefinition(QuerySpecification query, String name, ResolvedWindow window)
+    {
+        windowDefinitions.computeIfAbsent(NodeRef.of(query), key -> new LinkedHashMap<>())
+                .put(name, window);
+    }
+
+    public ResolvedWindow getWindowDefinition(QuerySpecification query, String name)
+    {
+        Map<String, ResolvedWindow> windows = windowDefinitions.get(NodeRef.of(query));
+        if (windows != null) {
+            return windows.get(name);
+        }
+
+        return null;
+    }
+
+    public void setWindow(FunctionCall functionCall, ResolvedWindow window)
+    {
+        windows.put(NodeRef.of(functionCall), window);
+    }
+
+    public ResolvedWindow getWindow(FunctionCall functionCall)
+    {
+        return windows.get(NodeRef.of(functionCall));
     }
 
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
@@ -1409,6 +1442,68 @@ public class Analysis
     public boolean isPolymorphicTableFunction(TableFunctionInvocation invocation)
     {
         return polymorphicTableFunctions.contains(NodeRef.of(invocation));
+    }
+
+    /**
+     * A window specification with any properties inherited from a referenced named window resolved in place.
+     * The {@code *Inherited} flags record which properties came from the referenced window, so that they are
+     * analyzed once where the window is declared rather than again at every use.
+     */
+    @Immutable
+    public static class ResolvedWindow
+    {
+        private final List<Expression> partitionBy;
+        private final Optional<OrderBy> orderBy;
+        private final Optional<WindowFrame> frame;
+        private final boolean partitionByInherited;
+        private final boolean orderByInherited;
+        private final boolean frameInherited;
+
+        public ResolvedWindow(
+                List<Expression> partitionBy,
+                Optional<OrderBy> orderBy,
+                Optional<WindowFrame> frame,
+                boolean partitionByInherited,
+                boolean orderByInherited,
+                boolean frameInherited)
+        {
+            this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
+            this.orderBy = requireNonNull(orderBy, "orderBy is null");
+            this.frame = requireNonNull(frame, "frame is null");
+            this.partitionByInherited = partitionByInherited;
+            this.orderByInherited = orderByInherited;
+            this.frameInherited = frameInherited;
+        }
+
+        public List<Expression> getPartitionBy()
+        {
+            return partitionBy;
+        }
+
+        public Optional<OrderBy> getOrderBy()
+        {
+            return orderBy;
+        }
+
+        public Optional<WindowFrame> getFrame()
+        {
+            return frame;
+        }
+
+        public boolean isPartitionByInherited()
+        {
+            return partitionByInherited;
+        }
+
+        public boolean isOrderByInherited()
+        {
+            return orderByInherited;
+        }
+
+        public boolean isFrameInherited()
+        {
+            return frameInherited;
+        }
     }
 
     @Immutable

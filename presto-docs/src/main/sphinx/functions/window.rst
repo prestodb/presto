@@ -13,6 +13,11 @@ clause to specify the window as follows::
         [frame]
     )
 
+The window may instead be given by name, when it is declared in the
+:ref:`WINDOW clause <window_clause>` of the query::
+
+    function(args) OVER window_name
+
 A ``frame`` is one of:
 
     {RANGE|ROWS|GROUPS} frame_start 

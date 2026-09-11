@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,6 +56,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -321,8 +323,10 @@ public class FunctionCallRewriter
                 identifierToArgumentMap.put(identifier, instanceOrderBys.get(i).getSortKey());
             }
 
-            List<Expression> patternWindowPartitionBys = originalPattern.getWindow().map(Window::getPartitionBy).orElse(ImmutableList.of());
-            List<Expression> instanceWindowPartitionBys = originalInstance.getWindow().map(Window::getPartitionBy).orElse(ImmutableList.of());
+            List<Expression> patternWindowPartitionBys = windowSpecification(originalPattern.getWindow()).map(WindowSpecification::getPartitionBy).orElse(ImmutableList.of());
+            List<Expression> instanceWindowPartitionBys = windowSpecification(originalInstance.getWindow()).map(WindowSpecification::getPartitionBy).orElse(ImmutableList.of());
+            checkArgument(patternWindowPartitionBys.size() <= instanceWindowPartitionBys.size(),
+                    "Function call substitute declares more window PARTITION BY fields than the query it matched");
             for (int i = 0; i < patternWindowPartitionBys.size(); i++) {
                 Identifier identifier = (Identifier) patternWindowPartitionBys.get(i);
                 if (OMIT_IDENTIFIER.equals(identifier.getValue())) {
@@ -331,8 +335,10 @@ public class FunctionCallRewriter
                 identifierToArgumentMap.put(identifier, instanceWindowPartitionBys.get(i));
             }
 
-            List<SortItem> patternWindowOrderBys = originalPattern.getWindow().flatMap(Window::getOrderBy).map(OrderBy::getSortItems).orElse(ImmutableList.of());
-            List<SortItem> instanceWindowOrderBys = originalInstance.getWindow().flatMap(Window::getOrderBy).map(OrderBy::getSortItems).orElse(ImmutableList.of());
+            List<SortItem> patternWindowOrderBys = windowSpecification(originalPattern.getWindow()).flatMap(WindowSpecification::getOrderBy).map(OrderBy::getSortItems).orElse(ImmutableList.of());
+            List<SortItem> instanceWindowOrderBys = windowSpecification(originalInstance.getWindow()).flatMap(WindowSpecification::getOrderBy).map(OrderBy::getSortItems).orElse(ImmutableList.of());
+            checkArgument(patternWindowOrderBys.size() <= instanceWindowOrderBys.size(),
+                    "Function call substitute declares more window ORDER BY fields than the query it matched");
             for (int i = 0; i < patternWindowOrderBys.size(); i++) {
                 Identifier identifier = (Identifier) patternWindowOrderBys.get(i).getSortKey();
                 if (OMIT_IDENTIFIER.equals(identifier.getValue())) {
@@ -391,12 +397,16 @@ public class FunctionCallRewriter
                     Optional<OrderBy> rewrittenOrderBy = defaultRewrite.getOrderBy().isPresent() ? defaultRewrite.getOrderBy() : originalInstance.getOrderBy();
 
                     Optional<Window> rewrittenWindow;
-                    if (defaultRewrite.getWindow().isPresent() && originalInstance.getWindow().isPresent()) {
-                        Window defaultWindow = defaultRewrite.getWindow().get();
-                        Window originalWindow = originalInstance.getWindow().get();
-                        rewrittenWindow = Optional.of(new Window(!defaultWindow.getPartitionBy().isEmpty() ? defaultWindow.getPartitionBy() : originalWindow.getPartitionBy(),
-                                defaultWindow.getOrderBy().isPresent() ? defaultWindow.getOrderBy() : originalWindow.getOrderBy(), defaultWindow.getFrame().isPresent() ?
-                                defaultWindow.getFrame() : originalWindow.getFrame()));
+                    Optional<WindowSpecification> defaultSpecification = windowSpecification(defaultRewrite.getWindow());
+                    Optional<WindowSpecification> originalSpecification = windowSpecification(originalInstance.getWindow());
+                    if (defaultSpecification.isPresent() && originalSpecification.isPresent()) {
+                        WindowSpecification defaultWindow = defaultSpecification.get();
+                        WindowSpecification originalWindow = originalSpecification.get();
+                        rewrittenWindow = Optional.of(new WindowSpecification(
+                                defaultWindow.getExistingWindowName().isPresent() ? defaultWindow.getExistingWindowName() : originalWindow.getExistingWindowName(),
+                                !defaultWindow.getPartitionBy().isEmpty() ? defaultWindow.getPartitionBy() : originalWindow.getPartitionBy(),
+                                defaultWindow.getOrderBy().isPresent() ? defaultWindow.getOrderBy() : originalWindow.getOrderBy(),
+                                defaultWindow.getFrame().isPresent() ? defaultWindow.getFrame() : originalWindow.getFrame()));
                     }
                     else {
                         rewrittenWindow = defaultRewrite.getWindow().isPresent() ? defaultRewrite.getWindow() : originalInstance.getWindow();
@@ -443,6 +453,16 @@ public class FunctionCallRewriter
         }
     }
 
+    /**
+     * A substitution pattern is parsed standalone, so its window is always an inline specification.
+     * A query instance may instead reference a window declared in the WINDOW clause, which has no
+     * fields to match against.
+     */
+    private static Optional<WindowSpecification> windowSpecification(Optional<Window> window)
+    {
+        return window.filter(WindowSpecification.class::isInstance).map(WindowSpecification.class::cast);
+    }
+
     private static Expression parseOriginalFunctionCall(String functionCallSpec)
     {
         SqlParser sqlParser = new SqlParser();
@@ -463,8 +483,8 @@ public class FunctionCallRewriter
 
             Stream<Expression> arguments = functionCall.getArguments().stream();
             arguments = Stream.concat(arguments, functionCall.getOrderBy().map(OrderBy::getSortItems).orElse(ImmutableList.of()).stream().map(SortItem::getSortKey));
-            arguments = Stream.concat(arguments, functionCall.getWindow().map(Window::getPartitionBy).orElse(ImmutableList.of()).stream());
-            arguments = Stream.concat(arguments, functionCall.getWindow().flatMap(Window::getOrderBy).map(OrderBy::getSortItems).orElse(ImmutableList.of()).stream().map(SortItem::getSortKey));
+            arguments = Stream.concat(arguments, windowSpecification(functionCall.getWindow()).map(WindowSpecification::getPartitionBy).orElse(ImmutableList.of()).stream());
+            arguments = Stream.concat(arguments, windowSpecification(functionCall.getWindow()).flatMap(WindowSpecification::getOrderBy).map(OrderBy::getSortItems).orElse(ImmutableList.of()).stream().map(SortItem::getSortKey));
 
             arguments.forEach(argument -> {
                 if (argument instanceof Identifier || argument instanceof Literal) {
