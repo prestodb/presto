@@ -15,11 +15,13 @@ package com.facebook.presto.password.file;
 
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.password.file.EncryptionUtil.doesBCryptPasswordMatch;
 import static com.facebook.presto.password.file.EncryptionUtil.getHashingAlgorithm;
 import static com.facebook.presto.password.file.HashingAlgorithm.BCRYPT;
 import static com.facebook.presto.password.file.HashingAlgorithm.PBKDF2;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestEncryptionUtil
 {
@@ -43,6 +45,14 @@ public class TestEncryptionUtil
     {
         String password = "1000:5b4240333032306164:acac1637d8219b50218fa2e1b82156dd73701f5fa6144a9178327226a1b3448bd1fc8e56c4a8a0ac582a4b02c5368a36663a03476e2e9be7c44680920c661c0f";
         assertEquals(getHashingAlgorithm(password), PBKDF2);
+    }
+
+    @Test
+    public void testBCryptPasswordExceedingMaxLength()
+    {
+        String hashedPassword = "$2y$10$BqTb8hScP5DfcpmHo5PeyugxHz5Ky/qf3wrpD7SNm8sWuA3VlGqsa";
+        String longPassword = new String(new char[100]).replace('\0', 'a');
+        assertFalse(doesBCryptPasswordMatch(longPassword, hashedPassword));
     }
 
     @Test

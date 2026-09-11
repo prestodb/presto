@@ -48,6 +48,14 @@ public class TestPasswordStore
     }
 
     @Test
+    public void testAuthenticateWithTooLongPassword()
+    {
+        PasswordStore store = createStore("userbcrypt:" + BCRYPT_PASSWORD);
+        String longPassword = new String(new char[100]).replace('\0', 'a');
+        assertFalse(store.authenticate("userbcrypt", longPassword));
+    }
+
+    @Test
     public void testEmptyFile()
     {
         createStore();
