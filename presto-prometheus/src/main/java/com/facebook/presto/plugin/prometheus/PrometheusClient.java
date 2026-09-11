@@ -24,6 +24,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import jakarta.inject.Inject;
+import okhttp3.Credentials;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -57,6 +58,7 @@ import static com.facebook.presto.plugin.prometheus.PrometheusColumn.mapType;
 import static com.facebook.presto.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_SECURE_COMMUNICATION_ERROR;
 import static com.facebook.presto.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR;
 import static com.facebook.presto.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
+import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -161,7 +163,7 @@ public class PrometheusClient
     public byte[] fetchUri(URI uri)
     {
         Request.Builder requestBuilder = new Request.Builder().url(uri.toString());
-        getBearerAuthInfoFromFile().map(bearerToken -> requestBuilder.header("Authorization", "Bearer " + bearerToken));
+        getAuthorizationHeaderValue().ifPresent(authorization -> requestBuilder.header(AUTHORIZATION, authorization));
         Response response;
         try {
             if (config.isTlsEnabled()) {
@@ -212,6 +214,14 @@ public class PrometheusClient
         }
 
         throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + response.message());
+    }
+
+    private Optional<String> getAuthorizationHeaderValue()
+    {
+        if (config.getBasicAuthUser().isPresent() && config.getBasicAuthPassword().isPresent()) {
+            return Optional.of(Credentials.basic(config.getBasicAuthUser().get(), config.getBasicAuthPassword().get()));
+        }
+        return getBearerAuthInfoFromFile().map(bearerToken -> "Bearer " + bearerToken);
     }
 
     private Optional<String> getBearerAuthInfoFromFile()
