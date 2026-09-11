@@ -526,8 +526,13 @@ public final class Session
     public SqlFunctionProperties getSqlFunctionProperties()
     {
         boolean legacyJsonCast = this.sessionPropertyManager.decodeSystemPropertyValue(LEGACY_JSON_CAST, null, Boolean.class);
+        // Check if time_zone_id session property is set, otherwise use session's default timeZoneKey
+        TimeZoneKey effectiveTimeZoneKey = getSystemProperty("time_zone_id", TimeZoneKey.class);
+        if (effectiveTimeZoneKey == null) {
+            effectiveTimeZoneKey = timeZoneKey;
+        }
         return SqlFunctionProperties.builder()
-                .setTimeZoneKey(timeZoneKey)
+                .setTimeZoneKey(effectiveTimeZoneKey)
                 .setLegacyRowFieldOrdinalAccessEnabled(isLegacyRowFieldOrdinalAccessEnabled(this))
                 .setLegacyTimestamp(isLegacyTimestamp(this))
                 .setLegacyMapSubscript(isLegacyMapSubscript(this))
