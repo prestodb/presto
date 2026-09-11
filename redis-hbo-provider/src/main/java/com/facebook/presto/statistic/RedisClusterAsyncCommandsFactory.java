@@ -16,8 +16,12 @@ package com.facebook.presto.statistic;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import io.lettuce.core.AbstractRedisClient;
 import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
+
+import java.net.URI;
+import java.util.Optional;
 
 public class RedisClusterAsyncCommandsFactory
 {
@@ -30,7 +34,24 @@ public class RedisClusterAsyncCommandsFactory
 
     public static RedisClient getRedisClient(RedisProviderConfig redisProviderConfig)
     {
-        return RedisClient.create(redisProviderConfig.getServerUri());
+        URI serverUri = URI.create(redisProviderConfig.getServerUri());
+        RedisURI.Builder redisUriBuilder = RedisURI.builder()
+                .withHost(serverUri.getHost())
+                .withPort(serverUri.getPort());
+
+        Optional<String> username = Optional.ofNullable(redisProviderConfig.getRedisUsername());
+        Optional<String> password = Optional.ofNullable(redisProviderConfig.getRedisPassword());
+
+        if (password.isPresent()) {
+            if (username.isPresent()) {
+                redisUriBuilder.withAuthentication(username.get(), password.get());
+            }
+            else {
+                redisUriBuilder.withPassword(password.get());
+            }
+        }
+
+        return RedisClient.create(redisUriBuilder.build());
     }
 
     public static RedisClusterAsyncCommands<String, HistoricalPlanStatistics> getRedisClusterAsyncCommands(RedisProviderConfig redisProviderConfig,
