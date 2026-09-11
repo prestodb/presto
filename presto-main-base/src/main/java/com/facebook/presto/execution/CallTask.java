@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -42,11 +43,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
@@ -69,6 +72,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Locale.ENGLISH;
 
 public class CallTask
         implements DDLDefinitionTask<Call>
@@ -147,17 +151,38 @@ public class CallTask
             throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, call, "Named and positional arguments cannot be mixed");
         }
 
+        Map<String, Integer> canonicalPositions = new HashMap<>();
+        Set<String> ambiguousCanonicalPositions = new HashSet<>();
+        if (anyNamed) {
+            for (int i = 0; i < procedure.getArguments().size(); i++) {
+                String name = procedure.getArguments().get(i).getName();
+                String canonicalName = name.toUpperCase(ENGLISH);
+                if (canonicalPositions.putIfAbsent(canonicalName, i) != null) {
+                    ambiguousCanonicalPositions.add(canonicalName);
+                }
+            }
+        }
+
         // get the argument names in call order
         Map<String, CallArgument> names = new LinkedHashMap<>();
+        Set<String> canonicalNames = new HashSet<>();
         for (int i = 0; i < call.getArguments().size(); i++) {
             CallArgument argument = call.getArguments().get(i);
-            if (argument.getName().isPresent()) {
-                String name = argument.getName().get();
-                if (names.put(name, argument) != null) {
-                    throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, argument, "Duplicate procedure argument: %s", name);
+            if (argument.getNameIdentifier().isPresent()) {
+                Identifier name = argument.getNameIdentifier().get();
+                if (!canonicalNames.add(name.getCanonicalValue())) {
+                    throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, argument, "Duplicate procedure argument: %s", name.getValue());
                 }
-                if (!positions.containsKey(name)) {
-                    throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, argument, "Unknown argument name: %s", name);
+                if (!name.isDelimited() && ambiguousCanonicalPositions.contains(name.getCanonicalValue())) {
+                    throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, argument, "Ambiguous argument name: %s", name.getValue());
+                }
+                Integer position = name.isDelimited() ? positions.get(name.getValue()) : canonicalPositions.get(name.getCanonicalValue());
+                if (position == null) {
+                    throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, argument, "Unknown argument name: %s", name.getValue());
+                }
+                String declaredName = procedure.getArguments().get(position).getName();
+                if (names.put(declaredName, argument) != null) {
+                    throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, argument, "Duplicate procedure argument: %s", name.getValue());
                 }
             }
             else if (i < procedure.getArguments().size()) {
