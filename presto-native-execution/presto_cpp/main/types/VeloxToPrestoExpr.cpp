@@ -633,6 +633,11 @@ RowExpressionPtr VeloxToPrestoExprConverter::getRowExpression(
           expr->asUnchecked<velox::core::LambdaTypedExpr>();
       return getLambdaExpression(lambdaExpr);
     }
+    case velox::core::ExprKind::kNullIf: {
+      auto callExpr = std::make_shared<velox::core::CallTypedExpr>(
+          expr->type(), expr->inputs(), "null_if");
+      return getSpecialFormExpression(callExpr.get());
+    }
     // Presto does not have a RowExpression type for kConcat and kInput Velox
     // expressions. Presto to Velox expression conversion should not generate
     // Velox expressions of these types.

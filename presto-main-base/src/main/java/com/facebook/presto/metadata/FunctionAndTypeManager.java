@@ -844,7 +844,7 @@ public class FunctionAndTypeManager
 
     public boolean nullIfSpecialFormEnabled()
     {
-        return !nativeExecution;
+        return true;
     }
 
     /**
