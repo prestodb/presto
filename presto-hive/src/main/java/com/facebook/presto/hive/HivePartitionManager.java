@@ -477,6 +477,9 @@ public class HivePartitionManager
 
     private Table getTable(ConnectorSession session, SemiTransactionalHiveMetastore metastore, HiveTableHandle hiveTableHandle, boolean offlineDataDebugModeEnabled)
     {
+        if (hiveTableHandle.getSyntheticTable().isPresent()) {
+            return hiveTableHandle.getSyntheticTable().get();
+        }
         MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getClientTags(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
         Optional<Table> target = metastore.getTable(context, hiveTableHandle);
         if (!target.isPresent()) {

@@ -29,6 +29,7 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
+import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -63,6 +64,7 @@ public class HiveConnector
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
+    private final Set<ConnectorTableFunction> tableFunctions;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
@@ -84,6 +86,7 @@ public class HiveConnector
             ConnectorNodePartitioningProvider nodePartitioningProvider,
             Set<SystemTable> systemTables,
             Set<Procedure> procedures,
+            Set<ConnectorTableFunction> tableFunctions,
             List<PropertyMetadata<?>> sessionProperties,
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
@@ -101,6 +104,7 @@ public class HiveConnector
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
+        this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
@@ -158,6 +162,12 @@ public class HiveConnector
     public Set<Procedure> getProcedures()
     {
         return procedures;
+    }
+
+    @Override
+    public Set<ConnectorTableFunction> getTableFunctions()
+    {
+        return tableFunctions;
     }
 
     @Override

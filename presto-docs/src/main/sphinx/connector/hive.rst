@@ -1516,6 +1516,65 @@ Drop a schema::
 
     DROP SCHEMA hive.web
 
+Table Functions
+---------------
+
+``read_files``
+^^^^^^^^^^^^^^
+
+Polymorphic table function that scans a storage path, inferring the
+output schema from the files' footers. Supports ``PARQUET`` only.
+
+Syntax::
+
+    SELECT * FROM TABLE(
+      hive.system.read_files(
+        location => '<path>',
+        format   => 'parquet'));
+
+Arguments:
+
+``LOCATION`` (``VARCHAR``, required)
+  Storage path. Any URI reachable through the Hive catalog's
+  filesystem configuration. Listing is recursive. Hidden files
+  (``_*``, ``.*``) and zero-length files are skipped.
+
+``FORMAT`` (``VARCHAR``, required)
+  Case-insensitive. Only ``parquet`` is accepted.
+
+``MAX_FILE_COUNT`` (``INTEGER``, default ``100``)
+  Caps the number of files sampled at analyze time and scanned at
+  execution time. Listing stops once this many files have been
+  collected. Must be positive.
+
+CTAS::
+
+    CREATE TABLE my_table AS
+    SELECT * FROM TABLE(hive.system.read_files('s3://bucket/prefix/', 'parquet'));
+
+``INSERT``::
+
+    INSERT INTO my_table
+    SELECT * FROM TABLE(hive.system.read_files('s3://bucket/prefix/', 'parquet'));
+
+Schema unification across files (footers read at analyze time):
+
+* Column key by name, case-insensitive.
+* Column missing from some files: nullable in the merged schema.
+* Pairwise widening: integer chain
+  (``TINYINT`` → ``SMALLINT`` → ``INTEGER`` → ``BIGINT``); integer +
+  floating → ``DOUBLE``; ``DECIMAL(p,s)`` rescaled to fit both inputs
+  (fail if widened precision exceeds 38); ``VARCHAR(n)`` +
+  ``VARCHAR(m)`` → ``VARCHAR(max(n,m))`` (unbounded prevails);
+  ``CHAR`` analogously. ``ROW`` / ``ARRAY`` / ``MAP`` recurse
+  element-wise.
+* Type conflict fails with the column and both file paths in the
+  error. No silent ``VARCHAR`` fallback.
+
+Listing is always recursive from ``LOCATION``; subdirectory files
+are sampled at analyze time and scanned at execution time. No
+glob/pattern argument is supported.
+
 Hive Connector Limitations
 --------------------------
 
