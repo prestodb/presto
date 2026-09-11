@@ -19,6 +19,7 @@
       "typeVariableConstraints": [
         {
           "comparableRequired": false,
+          "hashableRequired": false,
           "name": "t",
           "nonDecimalNumericRequired": false,
           "orderableRequired": false,
@@ -46,6 +47,7 @@
       "typeVariableConstraints": [
         {
           "comparableRequired": false,
+          "hashableRequired": false,
           "name": "t",
           "nonDecimalNumericRequired": false,
           "orderableRequired": false,
@@ -73,6 +75,7 @@
       "typeVariableConstraints": [
         {
           "comparableRequired": false,
+          "hashableRequired": false,
           "name": "v",
           "nonDecimalNumericRequired": false,
           "orderableRequired": false,
@@ -80,6 +83,7 @@
         },
         {
           "comparableRequired": false,
+          "hashableRequired": false,
           "name": "k",
           "nonDecimalNumericRequired": false,
           "orderableRequired": false,

@@ -19,6 +19,7 @@
       "typeVariableConstraints": [
         {
           "comparableRequired": false,
+          "hashableRequired": false,
           "name": "v",
           "nonDecimalNumericRequired": false,
           "orderableRequired": false,
@@ -26,6 +27,7 @@
         },
         {
           "comparableRequired": false,
+          "hashableRequired": false,
           "name": "k2",
           "nonDecimalNumericRequired": false,
           "orderableRequired": false,
@@ -33,6 +35,7 @@
         },
         {
           "comparableRequired": false,
+          "hashableRequired": false,
           "name": "k1",
           "nonDecimalNumericRequired": false,
           "orderableRequired": false,

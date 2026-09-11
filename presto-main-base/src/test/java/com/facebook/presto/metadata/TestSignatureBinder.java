@@ -41,6 +41,7 @@ import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
+import static com.facebook.presto.spi.function.Signature.hashableTypeParameter;
 import static com.facebook.presto.spi.function.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
@@ -1091,6 +1092,62 @@ public class TestSignatureBinder
         catch (RuntimeException e) {
             // Expected
         }
+    }
+
+    @Test
+    public void testBindHashableTypeParameter()
+    {
+        Signature function = functionSignature()
+                .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
+                .argumentTypes(parseTypeSignature("T"))
+                .typeVariableConstraints(ImmutableList.of(hashableTypeParameter("T")))
+                .build();
+
+        assertThat(function)
+                .boundTo("bigint")
+                .succeeds();
+
+        assertThat(function)
+                .boundTo("varchar")
+                .succeeds();
+
+        assertThat(function)
+                .boundTo("boolean")
+                .succeeds();
+
+        // map is comparable but not hashable, which a comparable constraint would miss.
+        assertThat(function)
+                .boundTo("map(bigint,bigint)")
+                .fails();
+
+        assertThat(function)
+                .boundTo("array(bigint)")
+                .fails();
+
+        assertThat(function)
+                .boundTo("row(bigint)")
+                .fails();
+    }
+
+    @Test
+    public void testBindHashableTypeParameterCommonSuperType()
+    {
+        Signature function = functionSignature()
+                .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
+                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("T"))
+                .typeVariableConstraints(ImmutableList.of(hashableTypeParameter("T")))
+                .build();
+
+        assertThat(function)
+                .boundTo("bigint", "integer")
+                .withCoercion()
+                .succeeds();
+
+        // The hashable check also runs on the common supertype, not only the first bind.
+        assertThat(function)
+                .boundTo("unknown", "map(bigint,bigint)")
+                .withCoercion()
+                .fails();
     }
 
     private static void assertThat(String typeSignature, BoundVariables boundVariables, String expectedTypeSignature)
