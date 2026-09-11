@@ -33,6 +33,7 @@ public final class FilterNode
 {
     private final PlanNode source;
     private final RowExpression predicate;
+    private final boolean doNotMerge;
 
     @JsonCreator
     public FilterNode(
@@ -41,7 +42,7 @@ public final class FilterNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("predicate") RowExpression predicate)
     {
-        this(sourceLocation, id, Optional.empty(), source, predicate);
+        this(sourceLocation, id, Optional.empty(), source, predicate, false);
     }
 
     public FilterNode(
@@ -51,10 +52,32 @@ public final class FilterNode
             PlanNode source,
             RowExpression predicate)
     {
+        this(sourceLocation, id, statsEquivalentPlanNode, source, predicate, false);
+    }
+
+    public FilterNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            PlanNode source,
+            RowExpression predicate,
+            boolean doNotMerge)
+    {
+        this(sourceLocation, id, Optional.empty(), source, predicate, doNotMerge);
+    }
+
+    public FilterNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            RowExpression predicate,
+            boolean doNotMerge)
+    {
         super(sourceLocation, id, statsEquivalentPlanNode);
 
         this.source = source;
         this.predicate = predicate;
+        this.doNotMerge = doNotMerge;
     }
 
     /**
@@ -65,6 +88,12 @@ public final class FilterNode
     public RowExpression getPredicate()
     {
         return predicate;
+    }
+
+    @JsonProperty
+    public boolean isDoNotMerge()
+    {
+        return doNotMerge;
     }
 
     /**
@@ -97,7 +126,7 @@ public final class FilterNode
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new FilterNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, predicate);
+        return new FilterNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, predicate, doNotMerge);
     }
 
     @Override
@@ -107,7 +136,7 @@ public final class FilterNode
         if (newChildren == null || newChildren.size() != 1) {
             throw new IllegalArgumentException("Expect exactly one child to replace");
         }
-        return new FilterNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), predicate);
+        return new FilterNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), predicate, doNotMerge);
     }
 
     @Override
@@ -127,13 +156,14 @@ public final class FilterNode
             return false;
         }
         FilterNode that = (FilterNode) o;
-        return Objects.equals(source, that.source) &&
+        return doNotMerge == that.doNotMerge &&
+                Objects.equals(source, that.source) &&
                 Objects.equals(predicate, that.predicate);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(source, predicate);
+        return Objects.hash(source, predicate, doNotMerge);
     }
 }

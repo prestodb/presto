@@ -356,6 +356,9 @@ public class TransformCorrelatedInPredicateToJoin
         @Override
         public Optional<Decorrelated> visitFilter(FilterNode node, PlanNode reference)
         {
+            if (node.isDoNotMerge()) {
+                return Optional.empty();
+            }
             Optional<Decorrelated> result = decorrelate(node.getSource());
             return result.map(decorrelated ->
                     new Decorrelated(
