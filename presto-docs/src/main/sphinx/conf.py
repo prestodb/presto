@@ -15,18 +15,12 @@
 #
 # Presto documentation build configuration file
 #
-# This file is execfile()d with the current directory set to its containing dir.
-#
 
 import os
 import sys
 import xml.dom.minidom
 
-try:
-    sys.dont_write_bytecode = True
-except:
-    pass
-
+sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.abspath("ext"))
 
 
@@ -55,8 +49,8 @@ def maven_version(pom):
 
 
 def get_version():
-    version = os.environ.get("PRESTO_VERSION", "").strip()
-    return version or maven_version("../../../pom.xml")
+    presto_version = os.environ.get("PRESTO_VERSION", "").strip()
+    return presto_version or maven_version("../../../pom.xml")
 
 # -- General configuration -----------------------------------------------------
 
@@ -77,9 +71,7 @@ templates_path = ["_templates"]
 
 source_suffix = ".rst"
 
-master_doc = "index"
-
-project = u"Presto"
+project = "Presto"
 
 # Set Author blank to avoid default value of "unknown"
 author = ""
@@ -95,7 +87,7 @@ rst_epilog = f"""
 .. |presto_server_release| replace:: ``presto-server-{release}``
 .. |presto_router_release| replace:: ``presto-router-{release}``
 .. |presto_flight_shim_release| replace:: ``presto-flight-shim-{release}``
-""".replace("{release}", release)
+"""
 
 # "xelatex" natively supports Unicode
 latex_engine = "xelatex"
@@ -117,8 +109,6 @@ html_static_path = ["."]
 # the theme errors when functions are not available in a python module
 primary_domain = "js"
 
-html_add_permalinks = "#"
-html_show_copyright = True
 html_show_sphinx = False
 
 object_description_options = [
@@ -160,11 +150,8 @@ html_theme_options = {
         },
     ],
     "edit_uri": "blob/master/presto-docs/src/main/sphinx",
-
-    # "base_url": "/",
     "repo_url": "https://github.com/prestodb/presto",
     "repo_name": "Presto",
-
     # If true, TOC entries that are not ancestors of the current page are collapsed
     "globaltoc_collapse": True,
     "social": [
