@@ -717,6 +717,16 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
+    /**
+     * Begin update query, carrying the update predicate scope: the {@code UPDATE}
+     * {@code WHERE} predicate captured at analysis time ({@code Optional.empty()} when there is no WHERE).
+     * Connectors that want to restrict the conflict detection scope should override this;
+     */
+    default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope)
+    {
+        return beginUpdate(session, tableHandle, updatedColumns);
+    }
+
     default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support update");

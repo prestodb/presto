@@ -392,9 +392,11 @@ public interface Metadata
     void finishCallDistributedProcedure(Session session, DistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments);
 
     /**
-     * Begin update query
+     * Begin update query, carrying the update predicate scope (the analysis-time WHERE predicate;
+     * {@code Optional.empty()} when there is no WHERE) so the engine/connector can restrict the
+     * conflict detection scope if needed.
      */
-    TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
+    TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope);
 
     /**
      * Finish update query

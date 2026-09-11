@@ -758,4 +758,118 @@ public abstract class TestIcebergDistributedQueries
 
         assertUpdate("drop table " + tableName);
     }
+
+    @Test
+    public void testMultipleConcurrentUpdatesWithNoConflicts()
+    {
+        Session session = getQueryRunner().getDefaultSession();
+        String tableName = "multiple_concurrent_updates_with_no_conflicts";
+        assertUpdate(session, format("create table %s(a int, b varchar) with(partitioning = ARRAY['a'])", tableName));
+        assertUpdate(session, format("insert into %s values(1, '1001'), (2, '1002')", tableName), 2);
+
+        Session txnSession1 = assertStartTransaction(session, "START TRANSACTION");
+        Session txnSession2 = assertStartTransaction(session, "START TRANSACTION");
+
+        assertUpdate(txnSession1, format("update %s set b = '1101' where a = 1", tableName), 1);
+        assertUpdate(txnSession2, format("update %s set b = '1102' where a = 2", tableName), 1);
+
+        // transaction1 can just read its own writes
+        assertQuery(txnSession1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+        // transaction2 can just read its own writes
+        assertQuery(txnSession2, "select * from " + tableName, "values(1, '1001'), (2, '1102')");
+        // Cannot read any change outside transaction1 and transaction2
+        assertQuery(getSession(), "select * from " + tableName, "values(1, '1001'), (2, '1002')");
+
+        // transaction1 commit successfully
+        Session session1 = assertEndTransaction(txnSession1, "commit");
+        // Can read the writes of transaction1 from outside
+        assertQuery(session1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+        assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+        // transaction2 can just read its own writes, unaware of outside change
+        assertQuery(txnSession2, "select * from " + tableName, "values(1, '1001'), (2, '1102')");
+
+        // transaction2 commit successfully
+        Session session2 = assertEndTransaction(txnSession2, "commit");
+        assertQuery(session1, "select * from " + tableName, "values(1, '1101'), (2, '1102')");
+        assertQuery(session2, "select * from " + tableName, "values(1, '1101'), (2, '1102')");
+        assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1102')");
+
+        assertUpdate("drop table " + tableName);
+    }
+
+    @Test
+    public void testMultipleConcurrentUpdatesWithConflictsOnNonPartitionedTable()
+    {
+        Session session = getQueryRunner().getDefaultSession();
+        String tableName = "multiple_concurrent_updates_with_conflicts_non_part";
+        assertUpdate(session, format("create table %s(a int, b varchar)", tableName));
+        assertUpdate(session, format("insert into %s values(1, '1001'), (2, '1002')", tableName), 2);
+
+        Session txnSession1 = assertStartTransaction(session, "START TRANSACTION");
+        Session txnSession2 = assertStartTransaction(session, "START TRANSACTION");
+
+        assertUpdate(txnSession1, format("update %s set b = '1101' where a = 1", tableName), 1);
+        assertUpdate(txnSession2, format("update %s set b = '1102' where a = 2", tableName), 1);
+
+        // transaction1 can just read its own writes
+        assertQuery(txnSession1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+        // transaction2 can just read its own writes
+        assertQuery(txnSession2, "select * from " + tableName, "values(1, '1001'), (2, '1102')");
+        // Cannot read any change outside transaction1 and transaction2
+        assertQuery(getSession(), "select * from " + tableName, "values(1, '1001'), (2, '1002')");
+
+        // transaction1 commit successfully
+        Session session1 = assertEndTransaction(txnSession1, "commit");
+        // Can read the writes of transaction1 from outside
+        assertQuery(session1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+        assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+        // transaction2 can just read its own writes, unaware of outside change
+        assertQuery(txnSession2, "select * from " + tableName, "values(1, '1001'), (2, '1102')");
+
+        // transaction2 commission failed with conflicting delete files
+        assertQueryFails(txnSession2, "commit",
+                "Found new conflicting delete files that can apply to records matching .*");
+
+        assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+
+        assertUpdate("drop table " + tableName);
+    }
+
+    @Test
+    public void testMultipleConcurrentUpdatesWithConflictsOnPartitionedTable()
+    {
+        Session session = getQueryRunner().getDefaultSession();
+        String tableName = "test_multiple_concurrent_updates_with_conflicts";
+        assertUpdate(session, format("create table %s(a int, b varchar) with(partitioning = ARRAY['a'])", tableName));
+        assertUpdate(session, format("insert into %s values(1, '1001'), (2, '1002')", tableName), 2);
+
+        Session txnSession1 = assertStartTransaction(session, "START TRANSACTION");
+        Session txnSession2 = assertStartTransaction(session, "START TRANSACTION");
+
+        assertUpdate(txnSession1, format("update %s set b = '1101' where b = '1001'", tableName), 1);
+        assertUpdate(txnSession2, format("update %s set b = '1102' where b = '1002'", tableName), 1);
+
+        // transaction1 can just read its own writes
+        assertQuery(txnSession1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+        // transaction2 can just read its own writes
+        assertQuery(txnSession2, "select * from " + tableName, "values(1, '1001'), (2, '1102')");
+        // Cannot read any change outside transaction1 and transaction2
+        assertQuery(getSession(), "select * from " + tableName, "values(1, '1001'), (2, '1002')");
+
+        // transaction1 commit successfully
+        Session session1 = assertEndTransaction(txnSession1, "commit");
+        // Can read the writes of transaction1 from outside
+        assertQuery(session1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+        assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+        // transaction2 can just read its own writes, unaware of outside change
+        assertQuery(txnSession2, "select * from " + tableName, "values(1, '1001'), (2, '1102')");
+
+        // transaction2 commission failed with conflicting delete files
+        assertQueryFails(txnSession2, "commit",
+                "Found new conflicting delete files that can apply to records matching .*");
+
+        assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+
+        assertUpdate("drop table " + tableName);
+    }
 }
