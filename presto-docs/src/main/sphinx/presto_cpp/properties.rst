@@ -139,6 +139,18 @@ Worker Properties
 
 The configuration properties of Presto C++ workers are described here, in alphabetical order.
 
+``gpu.status-update-interval-ms``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``integer``
+* **Default value:** ``1000``
+
+  Period, in milliseconds, of the background task that samples the GPU memory
+  and utilization values reported by the worker status endpoint. Sampling runs
+  on this task rather than on the status path so that a stalled CUDA or NVML
+  call cannot delay the resource manager heartbeat. Set to ``0`` to disable
+  sampling, leaving the GPU fields at ``-1``. Only effective on cuDF-enabled
+  builds with cuDF enabled at run time.
+
 ``runtime-metrics-collection-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * **Type:** ``boolean``
