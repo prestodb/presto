@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.mysql;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
@@ -30,8 +31,13 @@ import com.facebook.presto.plugin.jdbc.QueryBuilder;
 import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.cj.jdbc.JdbcStatement;
 import com.mysql.jdbc.Driver;
@@ -43,6 +49,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
+import java.sql.Statement;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -61,10 +68,12 @@ import static com.facebook.presto.plugin.jdbc.QueryBuilder.quote;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.geometryReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public class MySqlClient
@@ -77,12 +86,20 @@ public class MySqlClient
      * @see <a href="https://dev.mysql.com/doc/connector-j/en/connector-j-reference-error-sqlstates.html">MySQL documentation</a>
      */
     private static final String SQL_STATE_ER_TABLE_EXISTS_ERROR = "42S01";
+    private final JsonCodec<ViewDefinition> viewCodec;
+    private final boolean datasourceManagedViewsEnabled;
 
     @Inject
-    public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
+    public MySqlClient(
+            JdbcConnectorId connectorId,
+            BaseJdbcConfig config,
+            MySqlConfig mySqlConfig,
+            JsonCodec<ViewDefinition> viewCodec)
             throws SQLException
     {
         super(connectorId, config, "`", connectionFactory(config, mySqlConfig));
+        this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
+        this.datasourceManagedViewsEnabled = requireNonNull(mySqlConfig, "mySqlConfig is null").isDatasourceManagedViewsEnabled();
     }
 
     private static ConnectionFactory connectionFactory(BaseJdbcConfig config, MySqlConfig mySqlConfig)
@@ -294,5 +311,182 @@ public class MySqlClient
     public String normalizeIdentifier(ConnectorSession session, String identifier)
     {
         return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        // When datasource-managed views are enabled, Presto does not analyze the view
+        // definition — MySQL resolves it natively. Return empty so views appear as tables.
+        if (datasourceManagedViewsEnabled) {
+            return ImmutableMap.of();
+        }
+
+        List<SchemaTableName> tableNames;
+        if (prefix.getTableName() != null) {
+            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        }
+        else {
+            tableNames = listViews(session, Optional.ofNullable(prefix.getSchemaName()));
+        }
+
+        JdbcIdentity identity = new JdbcIdentity(session.getUser(), session.getIdentity().getExtraCredentials());
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            for (SchemaTableName schemaTableName : tableNames) {
+                String schemaName = schemaTableName.getSchemaName();
+                String tableName = schemaTableName.getTableName();
+
+                String sql = format(
+                        "SELECT * FROM INFORMATION_SCHEMA.VIEWS " +
+                                "WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                        schemaName, tableName);
+
+                try (Statement statement = connection.createStatement();
+                        ResultSet resultSet = statement.executeQuery(sql)) {
+                    while (resultSet.next()) {
+                        String owner = resultSet.getString("DEFINER");
+                        ViewDefinition viewDefinition = getViewDefinition(resultSet, session, connectorId, schemaTableName, owner);
+
+                        SchemaTableName viewName = new SchemaTableName(schemaName, tableName);
+                        String viewData = viewCodec.toJson(viewDefinition);
+
+                        views.put(viewName, new ConnectorViewDefinition(
+                                viewName,
+                                Optional.of(owner),
+                                viewData));
+                    }
+                }
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+        return views.build();
+    }
+
+    private ViewDefinition getViewDefinition(ResultSet resultSet, ConnectorSession session, String connectorId, SchemaTableName schemaTableName, String owner)
+            throws SQLException
+    {
+        boolean runAsInvoker = "INVOKER".equals(resultSet.getString("SECURITY_TYPE"));
+        // StatementAnalyzer can't parse sql with back ticks, so we replace them here
+        String viewSql = resultSet.getString("VIEW_DEFINITION").replace('`', '"');
+        String schemaName = schemaTableName.getSchemaName();
+        String tableName = schemaTableName.getTableName();
+
+        List<JdbcColumnHandle> jdbcColumns = super.getColumns(session, new JdbcTableHandle(
+                connectorId,
+                schemaTableName,
+                null,
+                schemaName,
+                tableName));
+
+        List<ViewDefinition.ViewColumn> columns = jdbcColumns.stream()
+                .map(jdbcColumn -> new ViewDefinition.ViewColumn(jdbcColumn.getColumnName(), jdbcColumn.getColumnType()))
+                .collect(toImmutableList());
+
+        return new ViewDefinition(
+                viewSql,
+                Optional.of(connectorId),
+                Optional.of(schemaName),
+                columns,
+                Optional.of(owner),
+                runAsInvoker);
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        JdbcIdentity identity = JdbcIdentity.from(session);
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            DatabaseMetaData metadata = connection.getMetaData();
+            Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
+            try (ResultSet resultSet = metadata.getTables(
+                    schemaName.orElse(null),
+                    null,
+                    escapeNamePattern(Optional.empty(), escape).orElse(null),
+                    new String[] {"VIEW"})) {
+                ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
+                while (resultSet.next()) {
+                    String tableName = resultSet.getString("TABLE_NAME");
+                    String schema = schemaName.orElse(resultSet.getString("TABLE_CAT"));
+                    builder.add(new SchemaTableName(
+                            normalizeIdentifier(session, schema),
+                            normalizeIdentifier(session, tableName)));
+                }
+                return builder.build();
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
+    {
+        SchemaTableName viewName = viewMetadata.getTable();
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        // Deserialize the Presto-internal ViewDefinition JSON to extract originalSql
+        String originalSql = viewCodec.fromJson(viewData).getOriginalSql();
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String schema = toRemoteSchemaName(session, identity, connection, viewName.getSchemaName());
+            String view = toRemoteTableName(session, identity, connection, schema, viewName.getTableName());
+            String catalog = connection.getCatalog();
+
+            if (!replace) {
+                try (ResultSet resultSet = getTables(connection, Optional.ofNullable(schema), Optional.ofNullable(view))) {
+                    if (resultSet.next()) {
+                        throw new PrestoException(ALREADY_EXISTS, format("The view/table '%s' already exists", viewName.getTableName()));
+                    }
+                }
+            }
+
+            String sql = format(
+                    "%s VIEW %s AS %s",
+                    replace ? "CREATE OR REPLACE" : "CREATE",
+                    quoted(catalog, schema, view),
+                    originalSql);
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String sql = format(
+                    "RENAME TABLE %s TO %s",
+                    quoted(null, viewName.getSchemaName(), viewName.getTableName()),
+                    quoted(null, newViewName.getSchemaName(), newViewName.getTableName()));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String sql = format(
+                    "DROP VIEW %s",
+                    quoted(null, viewName.getSchemaName(), viewName.getTableName()));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 }
