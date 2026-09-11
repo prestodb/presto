@@ -52,7 +52,7 @@ public final class BatchStreamReaders
             case TIMESTAMP:
             case TIMESTAMP_MICROSECONDS:
                 boolean enableMicroPrecision = type == TIMESTAMP_MICROSECONDS;
-                return new TimestampBatchStreamReader(type, streamDescriptor, enableMicroPrecision);
+                return new TimestampBatchStreamReader(type, streamDescriptor, enableMicroPrecision, options.isReadNullForOutOfBoundsTimestamp());
             case LIST:
                 return new ListBatchStreamReader(type, streamDescriptor, options, systemMemoryContext);
             case STRUCT:
