@@ -38,6 +38,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -97,14 +98,26 @@ public final class RowExpressionDomainTranslator
     private final LogicalRowExpressions logicalRowExpressions;
     private final StandardFunctionResolution functionResolution;
     private final Metadata metadata;
+    // When present, constant-folding during predicate-to-domain extraction goes through the session's
+    // pluggable optimizer so the native/sidecar optimizer evaluates expressions instead of the hardcoded
+    // Java interpreter. Null on callers that don't run on native-optimized plans (e.g. materialized-view
+    // rewriting, tests), which keep the Java interpreter.
+    @Nullable
+    private final ExpressionOptimizerProvider expressionOptimizerProvider;
 
     @Inject
     public RowExpressionDomainTranslator(Metadata metadata)
+    {
+        this(metadata, null);
+    }
+
+    public RowExpressionDomainTranslator(Metadata metadata, @Nullable ExpressionOptimizerProvider expressionOptimizerProvider)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
         this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()), functionAndTypeManager);
         this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+        this.expressionOptimizerProvider = expressionOptimizerProvider;
     }
 
     @Override
@@ -128,7 +141,7 @@ public final class RowExpressionDomainTranslator
     @Override
     public <T> ExtractionResult<T> fromPredicate(ConnectorSession session, RowExpression predicate, ColumnExtractor<T> columnExtractor)
     {
-        return predicate.accept(new Visitor<>(metadata, session, columnExtractor), false);
+        return predicate.accept(new Visitor<>(metadata, session, columnExtractor, expressionOptimizerProvider), false);
     }
 
     public RowExpression toPredicate(Domain domain, RowExpression reference)
@@ -294,8 +307,10 @@ public final class RowExpressionDomainTranslator
         private final DeterminismEvaluator determinismEvaluator;
         private final StandardFunctionResolution resolution;
         private final ColumnExtractor<T> columnExtractor;
+        @Nullable
+        private final ExpressionOptimizerProvider expressionOptimizerProvider;
 
-        private Visitor(Metadata metadata, ConnectorSession session, ColumnExtractor<T> columnExtractor)
+        private Visitor(Metadata metadata, ConnectorSession session, ColumnExtractor<T> columnExtractor, @Nullable ExpressionOptimizerProvider expressionOptimizerProvider)
         {
             this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
             this.metadata = metadata;
@@ -305,6 +320,18 @@ public final class RowExpressionDomainTranslator
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
             this.resolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
             this.columnExtractor = requireNonNull(columnExtractor, "columnExtractor is null");
+            this.expressionOptimizerProvider = expressionOptimizerProvider;
+        }
+
+        private Object optimize(RowExpression expression)
+        {
+            if (expressionOptimizerProvider != null) {
+                RowExpression optimized = expressionOptimizerProvider.getExpressionOptimizer(session).optimize(expression, OPTIMIZED, session);
+                // Downstream logic expects a raw constant value for a fully-folded expression and a
+                // RowExpression otherwise; unwrap a ConstantExpression to match the interpreter's contract.
+                return optimized instanceof ConstantExpression ? ((ConstantExpression) optimized).getValue() : optimized;
+            }
+            return new RowExpressionInterpreter(expression, functionAndTypeManager, session, OPTIMIZED).optimize();
         }
 
         @Override
@@ -636,13 +663,13 @@ public final class RowExpressionDomainTranslator
                 left = leftExpression;
             }
             else {
-                left = new RowExpressionInterpreter(leftExpression, metadata.getFunctionAndTypeManager(), session, OPTIMIZED).optimize();
+                left = optimize(leftExpression);
             }
             if (rightExpression instanceof VariableReferenceExpression) {
                 right = rightExpression;
             }
             else {
-                right = new RowExpressionInterpreter(rightExpression, metadata.getFunctionAndTypeManager(), session, OPTIMIZED).optimize();
+                right = optimize(rightExpression);
             }
 
             if (left instanceof RowExpression == right instanceof RowExpression) {

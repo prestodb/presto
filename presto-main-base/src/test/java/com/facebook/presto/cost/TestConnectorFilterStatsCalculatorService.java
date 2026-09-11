@@ -62,7 +62,8 @@ public class TestConnectorFilterStatsCalculatorService
                 new ScalarStatsCalculator(
                         metadata,
                         new InMemoryExpressionOptimizerProvider(metadata)),
-                new StatsNormalizer());
+                new StatsNormalizer(),
+                new InMemoryExpressionOptimizerProvider(metadata));
         statsCalculatorService = new ConnectorFilterStatsCalculatorService(statsCalculator);
         xStats = ColumnStatistics.builder()
                 .setDistinctValuesCount(Estimate.of(40))

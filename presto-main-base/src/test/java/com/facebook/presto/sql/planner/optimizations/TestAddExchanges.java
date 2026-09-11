@@ -17,6 +17,9 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +44,8 @@ import static com.facebook.presto.sql.planner.optimizations.ActualProperties.bui
 import static com.facebook.presto.sql.planner.optimizations.AddExchanges.streamingExecutionPreference;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 /**
  * These are unit test for the internal logic in AddExchanges.
@@ -743,6 +748,57 @@ public class TestAddExchanges
                         .build())
                 .build();
         assertEquals(stableSort(input, preference), expected);
+    }
+
+    // ----------------------------------------------------------------------------------------
+    // Regression coverage for the native-optimizer partitioning divergence. AddExchanges decides whether
+    // to insert a repartitioning exchange under a partitioned join by asking whether a child is already
+    // node-partitioned on the join keys (AddExchanges.planPartitionedJoin ->
+    // ActualProperties.isNodePartitionedOn). When the native expression optimizer folds the
+    // rolled-up grouping columns of a ROLLUP rewrite to NULL literals, the probe side is
+    // node-partitioned on HASH[joinKey, null, null, ...]. Because isNodePartitionedOn ignores
+    // constant partition arguments, the probe is reported as partitioned on just [joinKey] and
+    // the exchange is skipped -- even though the build side is really hash-partitioned on
+    // HASH[joinKey, g1, g2] and therefore uses a different hash. These tests operate on the real
+    // ActualProperties the rule consults.
+    // ----------------------------------------------------------------------------------------
+
+    private static ActualProperties nodePartitionedOn(RowExpression... arguments)
+    {
+        Partitioning partitioning = Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.copyOf(arguments));
+        return builder().global(partitionedOn(partitioning, Optional.of(partitioning))).build();
+    }
+
+    @Test
+    public void testProbeWithNullConstantPartitionColumnsReportedPartitionedOnJoinKey()
+    {
+        VariableReferenceExpression joinKey = variable("field_337");
+        ConstantExpression nullConstant = new ConstantExpression(null, BIGINT);
+
+        // Native probe side: hash-partitioned on the join key plus folded NULL rollup columns.
+        ActualProperties probe = nodePartitionedOn(joinKey, nullConstant, nullConstant);
+
+        // AddExchanges asks exactly this (see AddExchanges.planPartitionedJoin, isNodePartitionedOn
+        // on the right/probe child). It answers true, so no repartition exchange is added under the
+        // join -- this is the root cause of the dropped exchange.
+        assertTrue(probe.isNodePartitionedOn(ImmutableList.of(joinKey), false));
+    }
+
+    @Test
+    public void testBuildWithVariablePartitionColumnsNotReportedPartitionedOnJoinKey()
+    {
+        VariableReferenceExpression joinKey = variable("field");
+        VariableReferenceExpression g1 = variable("expr_147");
+        VariableReferenceExpression g2 = variable("expr_148");
+
+        // Build side (and the probe side under the DEFAULT optimizer): the trailing columns are
+        // real grouping variables, not constants.
+        ActualProperties build = nodePartitionedOn(joinKey, g1, g2);
+
+        // Correctly reported as NOT partitioned on the join key alone, so a repartition exchange is
+        // required. The only difference from the probe above is variables vs. NULL constants in the
+        // trailing partition positions -- yet the exchange decision flips.
+        assertFalse(build.isNodePartitionedOn(ImmutableList.of(joinKey), false));
     }
 
     private static <T> List<T> stableSort(List<T> list, Comparator<T> comparator)

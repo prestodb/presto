@@ -179,7 +179,7 @@ public abstract class AbstractTestFilterStatsCalculator
                 .build());
 
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, new InMemoryExpressionOptimizerProvider(metadata)), new StatsNormalizer());
+        statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, new InMemoryExpressionOptimizerProvider(metadata)), new StatsNormalizer(), new InMemoryExpressionOptimizerProvider(metadata));
         translator = new TestingRowExpressionTranslator(MetadataManager.createTestMetadataManager());
     }
 

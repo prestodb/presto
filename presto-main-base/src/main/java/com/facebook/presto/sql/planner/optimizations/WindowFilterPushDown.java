@@ -32,6 +32,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -67,10 +68,10 @@ public class WindowFilterPushDown
     private final RowExpressionDomainTranslator domainTranslator;
     private final LogicalRowExpressions logicalRowExpressions;
 
-    public WindowFilterPushDown(Metadata metadata)
+    public WindowFilterPushDown(Metadata metadata, ExpressionOptimizerProvider expressionOptimizerProvider)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.domainTranslator = new RowExpressionDomainTranslator(metadata);
+        this.domainTranslator = new RowExpressionDomainTranslator(metadata, requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null"));
         this.logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
                 new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),

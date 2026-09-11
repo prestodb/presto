@@ -39,6 +39,7 @@ import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
@@ -81,10 +82,12 @@ public class IndexJoinOptimizer
         implements PlanOptimizer
 {
     private final Metadata metadata;
+    private final ExpressionOptimizerProvider expressionOptimizerProvider;
 
-    public IndexJoinOptimizer(Metadata metadata)
+    public IndexJoinOptimizer(Metadata metadata, ExpressionOptimizerProvider expressionOptimizerProvider)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
     }
 
     @Override
@@ -103,10 +106,10 @@ public class IndexJoinOptimizer
 
         IndexJoinRewriter rewriter;
         if (isNativeExecutionEnabled(session)) {
-            rewriter = new NativeIndexJoinRewriter(idAllocator, metadata, session);
+            rewriter = new NativeIndexJoinRewriter(idAllocator, metadata, session, expressionOptimizerProvider);
         }
         else {
-            rewriter = new DefaultIndexJoinRewriter(idAllocator, metadata, session);
+            rewriter = new DefaultIndexJoinRewriter(idAllocator, metadata, session, expressionOptimizerProvider);
         }
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
@@ -118,13 +121,15 @@ public class IndexJoinOptimizer
         protected final PlanNodeIdAllocator idAllocator;
         protected final Metadata metadata;
         protected final Session session;
+        protected final ExpressionOptimizerProvider expressionOptimizerProvider;
         protected boolean planChanged;
 
-        protected IndexJoinRewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
+        protected IndexJoinRewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, ExpressionOptimizerProvider expressionOptimizerProvider)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
+            this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
         }
 
         public boolean isPlanChanged()
@@ -177,9 +182,9 @@ public class IndexJoinOptimizer
     private static class DefaultIndexJoinRewriter
             extends IndexJoinRewriter
     {
-        private DefaultIndexJoinRewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
+        private DefaultIndexJoinRewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, ExpressionOptimizerProvider expressionOptimizerProvider)
         {
-            super(idAllocator, metadata, session);
+            super(idAllocator, metadata, session, expressionOptimizerProvider);
         }
 
         @Override
@@ -197,7 +202,8 @@ public class IndexJoinOptimizer
                         ImmutableSet.copyOf(leftJoinVariables),
                         idAllocator,
                         metadata,
-                        session);
+                        session,
+                        expressionOptimizerProvider);
                 if (leftIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
                     Map<VariableReferenceExpression, VariableReferenceExpression> trace
@@ -210,7 +216,8 @@ public class IndexJoinOptimizer
                         ImmutableSet.copyOf(rightJoinVariables),
                         idAllocator,
                         metadata,
-                        session);
+                        session,
+                        expressionOptimizerProvider);
                 if (rightIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
                     Map<VariableReferenceExpression, VariableReferenceExpression> trace
@@ -327,9 +334,9 @@ public class IndexJoinOptimizer
     private static class NativeIndexJoinRewriter
             extends IndexJoinRewriter
     {
-        private NativeIndexJoinRewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
+        private NativeIndexJoinRewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, ExpressionOptimizerProvider expressionOptimizerProvider)
         {
-            super(idAllocator, metadata, session);
+            super(idAllocator, metadata, session, expressionOptimizerProvider);
         }
 
         @Override
@@ -389,7 +396,8 @@ public class IndexJoinOptimizer
                         leftLookupVariables,
                         idAllocator,
                         metadata,
-                        session);
+                        session,
+                        expressionOptimizerProvider);
             }
             else {
                 leftIndexCandidate = Optional.empty();
@@ -408,7 +416,8 @@ public class IndexJoinOptimizer
                         rightLookupVariables,
                         idAllocator,
                         metadata,
-                        session);
+                        session,
+                        expressionOptimizerProvider);
             }
             else {
                 rightIndexCandidate = Optional.empty();
@@ -532,10 +541,10 @@ public class IndexJoinOptimizer
         private final LogicalRowExpressions logicalRowExpressions;
         private final Session session;
 
-        private IndexSourceRewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
+        private IndexSourceRewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, ExpressionOptimizerProvider expressionOptimizerProvider)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.domainTranslator = new RowExpressionDomainTranslator(metadata);
+            this.domainTranslator = new RowExpressionDomainTranslator(metadata, requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null"));
             this.logicalRowExpressions = new LogicalRowExpressions(
                     new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
                     new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
@@ -549,10 +558,11 @@ public class IndexJoinOptimizer
                 Set<VariableReferenceExpression> lookupVariables,
                 PlanNodeIdAllocator idAllocator,
                 Metadata metadata,
-                Session session)
+                Session session,
+                ExpressionOptimizerProvider expressionOptimizerProvider)
         {
             AtomicBoolean success = new AtomicBoolean();
-            IndexSourceRewriter indexSourceRewriter = new IndexSourceRewriter(idAllocator, metadata, session);
+            IndexSourceRewriter indexSourceRewriter = new IndexSourceRewriter(idAllocator, metadata, session, expressionOptimizerProvider);
             PlanNode rewritten = SimplePlanRewriter.rewriteWith(indexSourceRewriter, planNode, new Context(lookupVariables, success));
             if (success.get()) {
                 return Optional.of(rewritten);

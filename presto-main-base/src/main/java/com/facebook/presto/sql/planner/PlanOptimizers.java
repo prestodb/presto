@@ -804,7 +804,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new PickTableLayout(metadata).rules()),
+                        new PickTableLayout(metadata, expressionOptimizerManager).rules()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         metadata,
@@ -844,7 +844,7 @@ public class PlanOptimizers
                 // Run inlineProjections and PruneUnreferencedOutputs to simplify the plan after ReplaceConstantVariableReferencesWithConstants optimization
                 inlineProjections,
                 new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
-                new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
+                new IndexJoinOptimizer(metadata, expressionOptimizerManager), // Run this after projections and filters have been fully simplified and pushed down
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
@@ -866,7 +866,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new MinMaxByToWindowFunction(metadata.getFunctionAndTypeManager()))),
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
-                new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
+                new WindowFilterPushDown(metadata, expressionOptimizerManager), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 prefilterForLimitingAggregation,
                 new IterativeOptimizer(
                         metadata,
@@ -933,7 +933,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                new PickTableLayout(metadata).rules()));
+                new PickTableLayout(metadata, expressionOptimizerManager).rules()));
 
         // PlanRemoteProjections only handles RowExpression so this need to run after TranslateExpressions
         // Rules applied after this need to handle locality of ProjectNode properly.
@@ -1105,7 +1105,7 @@ public class PlanOptimizers
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
             builder.add(new CteProjectionAndPredicatePushDown(metadata, expressionOptimizerManager)); // must run before PhysicalCteOptimizer
             builder.add(new PhysicalCteOptimizer(metadata)); // Must run before AddExchanges
-            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled())));
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled(), expressionOptimizerManager)));
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchangesForSingleNodeExecution(metadata)));
         }
 

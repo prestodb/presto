@@ -24,6 +24,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -33,6 +34,8 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
@@ -46,6 +49,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import jakarta.annotation.Nullable;
 
 import java.util.Map;
 import java.util.Objects;
@@ -77,10 +81,21 @@ import static java.util.Objects.requireNonNull;
 public class PickTableLayout
 {
     private final Metadata metadata;
+    // When present, constant-folding during partition pruning goes through the session's pluggable
+    // optimizer so the native/sidecar optimizer evaluates predicates instead of the hardcoded Java
+    // interpreter. Null on callers that don't run on native-optimized plans (e.g. tests).
+    @Nullable
+    private final ExpressionOptimizerProvider expressionOptimizerProvider;
 
     public PickTableLayout(Metadata metadata)
     {
+        this(metadata, null);
+    }
+
+    public PickTableLayout(Metadata metadata, @Nullable ExpressionOptimizerProvider expressionOptimizerProvider)
+    {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.expressionOptimizerProvider = expressionOptimizerProvider;
     }
 
     public Set<Rule<?>> rules()
@@ -93,7 +108,7 @@ public class PickTableLayout
 
     public PickTableLayoutForPredicate pickTableLayoutForPredicate()
     {
-        return new PickTableLayoutForPredicate(metadata);
+        return new PickTableLayoutForPredicate(metadata, expressionOptimizerProvider);
     }
 
     public PickTableLayoutWithoutPredicate pickTableLayoutWithoutPredicate()
@@ -105,10 +120,13 @@ public class PickTableLayout
             implements Rule<FilterNode>
     {
         private final Metadata metadata;
+        @Nullable
+        private final ExpressionOptimizerProvider expressionOptimizerProvider;
 
-        private PickTableLayoutForPredicate(Metadata metadata)
+        private PickTableLayoutForPredicate(Metadata metadata, @Nullable ExpressionOptimizerProvider expressionOptimizerProvider)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.expressionOptimizerProvider = expressionOptimizerProvider;
         }
 
         private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
@@ -142,7 +160,8 @@ public class PickTableLayout
                     false,
                     context.getSession(),
                     context.getIdAllocator(),
-                    metadata);
+                    metadata,
+                    expressionOptimizerProvider);
 
             if (arePlansSame(filterNode, tableScan, rewritten)) {
                 return Result.empty();
@@ -247,12 +266,24 @@ public class PickTableLayout
             PlanNodeIdAllocator idAllocator,
             Metadata metadata)
     {
+        return pushPredicateIntoTableScan(node, predicate, pruneWithPredicateExpression, session, idAllocator, metadata, null);
+    }
+
+    public static PlanNode pushPredicateIntoTableScan(
+            TableScanNode node,
+            RowExpression predicate,
+            boolean pruneWithPredicateExpression,
+            Session session,
+            PlanNodeIdAllocator idAllocator,
+            Metadata metadata,
+            @Nullable ExpressionOptimizerProvider expressionOptimizerProvider)
+    {
         if (!metadata.isLegacyGetLayoutSupported(session, node.getTable())) {
             return node;
         }
 
-        DomainTranslator translator = new RowExpressionDomainTranslator(metadata);
-        return pushPredicateIntoTableScan(node, predicate, pruneWithPredicateExpression, session, idAllocator, metadata, translator);
+        DomainTranslator translator = new RowExpressionDomainTranslator(metadata, expressionOptimizerProvider);
+        return pushPredicateIntoTableScan(node, predicate, pruneWithPredicateExpression, session, idAllocator, metadata, translator, expressionOptimizerProvider);
     }
 
     /**
@@ -265,7 +296,8 @@ public class PickTableLayout
             Session session,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
-            DomainTranslator domainTranslator)
+            DomainTranslator domainTranslator,
+            @Nullable ExpressionOptimizerProvider expressionOptimizerProvider)
     {
         // don't include non-deterministic predicates
         LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
@@ -304,7 +336,8 @@ public class PickTableLayout
                             deterministicPredicate,
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
-                            domainTranslator.toPredicate(newDomain.simplify().transform(column -> assignments.getOrDefault(column, null)))));
+                            domainTranslator.toPredicate(newDomain.simplify().transform(column -> assignments.getOrDefault(column, null)))),
+                    expressionOptimizerProvider);
             constraint = new Constraint<>(newDomain, evaluator::isCandidate);
         }
         else {
@@ -363,14 +396,30 @@ public class PickTableLayout
     private static class LayoutConstraintEvaluatorForRowExpression
     {
         private final Map<VariableReferenceExpression, ColumnHandle> assignments;
+        private final RowExpression expression;
+        private final ConnectorSession session;
         private final RowExpressionInterpreter evaluator;
+        // When present, per-partition constant-folding goes through the session's pluggable optimizer so
+        // the native/sidecar optimizer evaluates the predicate; the resolved optimizer is captured once
+        // to avoid a lookup per partition. Null keeps the hardcoded Java interpreter.
+        @Nullable
+        private final ExpressionOptimizer expressionOptimizer;
         private final Set<ColumnHandle> arguments;
 
-        public LayoutConstraintEvaluatorForRowExpression(Metadata metadata, Session session, Map<VariableReferenceExpression, ColumnHandle> assignments, RowExpression expression)
+        public LayoutConstraintEvaluatorForRowExpression(Metadata metadata, Session session, Map<VariableReferenceExpression, ColumnHandle> assignments, RowExpression expression, @Nullable ExpressionOptimizerProvider expressionOptimizerProvider)
         {
             this.assignments = assignments;
+            this.expression = expression;
+            this.session = session.toConnectorSession();
 
-            evaluator = new RowExpressionInterpreter(expression, metadata.getFunctionAndTypeManager(), session.toConnectorSession(), OPTIMIZED);
+            if (expressionOptimizerProvider != null) {
+                this.expressionOptimizer = expressionOptimizerProvider.getExpressionOptimizer(this.session);
+                this.evaluator = null;
+            }
+            else {
+                this.expressionOptimizer = null;
+                this.evaluator = new RowExpressionInterpreter(expression, metadata.getFunctionAndTypeManager(), this.session, OPTIMIZED);
+            }
             arguments = VariablesExtractor.extractUnique(expression).stream()
                     .map(assignments::get)
                     .collect(toImmutableSet());
@@ -385,10 +434,21 @@ public class PickTableLayout
 
             // Skip pruning if evaluation fails in a recoverable way. Failing here can cause
             // spurious query failures for partitions that would otherwise be filtered out.
-            Object optimized = TryFunction.evaluate(() -> evaluator.optimize(inputs), true);
+            Object optimized = TryFunction.evaluate(() -> optimize(inputs), true);
 
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
             return !Boolean.FALSE.equals(optimized) && optimized != null && (!(optimized instanceof ConstantExpression) || !((ConstantExpression) optimized).isNull());
+        }
+
+        private Object optimize(LookupVariableResolver inputs)
+        {
+            if (expressionOptimizer != null) {
+                RowExpression result = expressionOptimizer.optimize(expression, OPTIMIZED, session, inputs::getValue);
+                // Match the interpreter's contract: a fully-folded expression returns a raw constant
+                // value (so the FALSE/null checks in isCandidate apply), otherwise a RowExpression.
+                return result instanceof ConstantExpression ? ((ConstantExpression) result).getValue() : result;
+            }
+            return evaluator.optimize(inputs);
         }
     }
 
