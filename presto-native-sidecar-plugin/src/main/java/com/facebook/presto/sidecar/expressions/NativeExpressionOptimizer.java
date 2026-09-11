@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.sidecar.expressions;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -34,6 +39,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -46,9 +53,12 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.EVALUATED;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
@@ -62,6 +72,7 @@ public class NativeExpressionOptimizer
     private final StandardFunctionResolution resolution;
     private final NativeSidecarExpressionInterpreter rowExpressionInterpreterService;
     private final CastInsertionVisitor castInsertionVisitor;
+    private final LikeToEqualityVisitor likeToEqualityVisitor;
 
     @Inject
     public NativeExpressionOptimizer(
@@ -74,11 +85,19 @@ public class NativeExpressionOptimizer
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.resolution = requireNonNull(resolution, "resolution is null");
         this.castInsertionVisitor = new CastInsertionVisitor(resolution, requireNonNull(typeManager, "typeManager is null"));
+        this.likeToEqualityVisitor = new LikeToEqualityVisitor(resolution);
     }
 
     @Override
     public RowExpression optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver)
     {
+        // Rewrite LIKE predicates before sending to the sidecar:
+        //   col LIKE '%' [ESCAPE c]  →  col IS NOT NULL   (match-all pattern)
+        //   col LIKE 'literal'       →  col = 'literal'   (no real wildcards)
+        // On the native execution path RowExpressionInterpreter.tryHandleLike is never invoked,
+        // so this visitor fills that gap and enables connector predicate pushdown.
+        expression = expression.accept(likeToEqualityVisitor, null);
+
         // Collect expressions to optimize
         CollectingVisitor collectingVisitor = new CollectingVisitor(functionMetadataManager, level, resolution);
         expression = expression.accept(castInsertionVisitor, null);
@@ -503,6 +522,267 @@ public class NativeExpressionOptimizer
         }
     }
 
+    /**
+     * Rewrites LIKE predicates throughout the expression tree to simpler forms, enabling
+     * connector predicate pushdown on the native execution path.
+     * <p>
+     * Three rewrites are performed :
+     * <ol>
+     *   <li><b>Match-all</b>: {@code col LIKE '%' [ESCAPE c]} → {@code col IS NOT NULL}</li>
+     *   <li><b>Literal equality</b>: {@code col LIKE 'no_wildcards' [ESCAPE c]} → {@code col = 'unescaped'}</li>
+     *   <li><b>No rewrite</b>: pattern contains real wildcards, non-constant args, or non-varchar column — left unchanged.</li>
+     * </ol>
+     * Because {@code supportsLikePatternFunction()} is false in native mode, the optimizer always
+     * emits the raw VARCHAR forms:
+     * <ul>
+     *   <li>2-arg: {@code LIKE(col, patternConst)} — no ESCAPE clause</li>
+     *   <li>3-arg: {@code LIKE(col, patternConst, escapeConst)} — with ESCAPE clause</li>
+     * </ul>
+     * This mirrors {@code RowExpressionInterpreter.tryHandleLike}, which is never invoked on
+     * the native execution path.
+     */
+    private static class LikeToEqualityVisitor
+            implements RowExpressionVisitor<RowExpression, Void>
+    {
+        private final StandardFunctionResolution resolution;
+
+        public LikeToEqualityVisitor(StandardFunctionResolution resolution)
+        {
+            this.resolution = requireNonNull(resolution, "resolution is null");
+        }
+
+        @Override
+        public RowExpression visitCall(CallExpression call, Void context)
+        {
+            // Recurse into all arguments first — this covers NOT (a CallExpression) and any
+            // other call that may contain a LIKE node somewhere inside it.
+            List<RowExpression> processedArgs = call.getArguments().stream()
+                    .map(arg -> arg.accept(this, context))
+                    .collect(toImmutableList());
+            CallExpression visited = new CallExpression(
+                    call.getSourceLocation(),
+                    call.getDisplayName(),
+                    call.getFunctionHandle(),
+                    call.getType(),
+                    processedArgs);
+
+            if (!resolution.isLikeFunction(visited.getFunctionHandle())) {
+                return visited;
+            }
+
+            return tryRewriteLike(visited);
+        }
+
+        @Override
+        public RowExpression visitSpecialForm(SpecialFormExpression specialForm, Void context)
+        {
+            List<RowExpression> processedArgs = specialForm.getArguments().stream()
+                    .map(arg -> arg.accept(this, context))
+                    .collect(toImmutableList());
+            return new SpecialFormExpression(specialForm.getSourceLocation(), specialForm.getForm(), specialForm.getType(), processedArgs);
+        }
+
+        @Override
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            RowExpression processedBody = lambda.getBody().accept(this, context);
+            return new LambdaDefinitionExpression(lambda.getSourceLocation(), lambda.getArgumentTypes(), lambda.getArguments(), processedBody);
+        }
+
+        @Override
+        public RowExpression visitVariableReference(VariableReferenceExpression variable, Void context)
+        {
+            return variable;
+        }
+
+        @Override
+        public RowExpression visitConstant(ConstantExpression constant, Void context)
+        {
+            return constant;
+        }
+
+        @Override
+        public RowExpression visitExpression(RowExpression expression, Void context)
+        {
+            return expression;
+        }
+
+        /**
+         * Attempts to rewrite a confirmed LIKE call to a simpler form, performing all argument
+         * validation exactly once and dispatching to the right rewrite:
+         * <ul>
+         *   <li>{@code col LIKE '%' [ESCAPE c]} — pattern is pure match-all → {@code col IS NOT NULL}</li>
+         *   <li>{@code col LIKE 'literal'} (no real wildcards) → {@code col = 'literal'}</li>
+         *   <li>anything else — non-constant args, wildcards, non-varchar col → original call unchanged</li>
+         * </ul>
+         */
+        private RowExpression tryRewriteLike(CallExpression call)
+        {
+            List<RowExpression> args = call.getArguments();
+            if (args.size() < 2 || args.size() > 3) {
+                return call;
+            }
+            if (!(args.get(0).getType() instanceof VarcharType)) {
+                return call;
+            }
+            if (!(args.get(1) instanceof ConstantExpression)
+                    || !(((ConstantExpression) args.get(1)).getValue() instanceof Slice)) {
+                return call; // non-constant or null pattern — leave null-propagation to runtime
+            }
+            if (args.size() == 3
+                    && (!(args.get(2) instanceof ConstantExpression)
+                    || !(((ConstantExpression) args.get(2)).getValue() instanceof Slice))) {
+                return call; // non-constant or null escape — leave null-propagation to runtime
+            }
+
+            Slice pattern = (Slice) ((ConstantExpression) args.get(1)).getValue();
+            Slice escape = args.size() == 3 ? (Slice) ((ConstantExpression) args.get(2)).getValue() : null;
+
+            // col LIKE '%' [ESCAPE c] matches every non-null value — rewrite to IS NOT NULL.
+            if (isMatchAll(pattern, escape)) {
+                return buildIsNotNull(call, args.get(0));
+            }
+
+            if (hasLikeWildcards(pattern, escape)) {
+                return call;
+            }
+
+            return buildEquality(call, args.get(0), stripEscapes(pattern, escape));
+        }
+
+        /**
+         * Returns true when the pattern is a single unescaped {@code '%'}, i.e. it matches any
+         * non-null string. The escape character (if present) is validated but cannot affect the
+         * result because {@code '%'} is the only character in the pattern.
+         */
+        private boolean isMatchAll(Slice pattern, Slice escape)
+        {
+            String stringPattern = pattern.toStringUtf8();
+            if (!stringPattern.equals("%")) {
+                return false;
+            }
+            if (escape != null) {
+                String stringEscape = escape.toStringUtf8();
+                checkCondition(stringEscape.length() == 1, INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
+            }
+            return true;
+        }
+
+        /**
+         * Builds {@code NOT(IS_NULL(col))} — the row-expression equivalent of {@code col IS NOT NULL}.
+         * Uses {@code lookupJavaBuiltInFunction()} directly to guarantee the built-in
+         * {@code presto.default.not} handle, enabling pushdown when the default namespace is
+         * overridden to {@code native.default}.
+         */
+        private RowExpression buildIsNotNull(CallExpression originalCall, RowExpression col)
+        {
+            RowExpression isNull = new SpecialFormExpression(
+                    originalCall.getSourceLocation(),
+                    IS_NULL,
+                    BooleanType.BOOLEAN,
+                    ImmutableList.of(col));
+            return new CallExpression(
+                    originalCall.getSourceLocation(),
+                    "not",
+                    resolution.lookupJavaBuiltInFunction("not", ImmutableList.of(BooleanType.BOOLEAN)),
+                    BooleanType.BOOLEAN,
+                    ImmutableList.of(isNull));
+        }
+
+        /**
+         * Returns true if the pattern contains any unescaped '%' or '_' wildcard.
+         * Mirrors {@code LikeFunctions.isLikePattern}.
+         */
+        private boolean hasLikeWildcards(Slice pattern, Slice escape)
+        {
+            String stringPattern = pattern.toStringUtf8();
+            if (escape == null) {
+                return stringPattern.contains("%") || stringPattern.contains("_");
+            }
+
+            String stringEscape = escape.toStringUtf8();
+            checkCondition(stringEscape.length() == 1, INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
+
+            char escapeChar = stringEscape.charAt(0);
+            boolean escaped = false;
+            boolean hasWildcards = false;
+            for (int currentChar : stringPattern.codePoints().toArray()) {
+                if (!escaped && currentChar == escapeChar) {
+                    escaped = true;
+                }
+                else if (escaped) {
+                    checkEscape(currentChar == '%' || currentChar == '_' || currentChar == escapeChar);
+                    escaped = false;
+                }
+                else if (currentChar == '%' || currentChar == '_') {
+                    hasWildcards = true;
+                }
+            }
+            checkEscape(!escaped);
+            return hasWildcards;
+        }
+
+        /**
+         * Strips escape prefixes from a pattern that has no wildcards, returning the literal string.
+         * Mirrors {@code LikeFunctions.unescapeLiteralLikePattern}.
+         */
+        private Slice stripEscapes(Slice pattern, Slice escape)
+        {
+            if (escape == null) {
+                return pattern;
+            }
+
+            String stringEscape = escape.toStringUtf8();
+            checkCondition(stringEscape.length() == 1, INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
+            char escapeChar = stringEscape.charAt(0);
+            String stringPattern = pattern.toStringUtf8();
+            StringBuilder unescapedPattern = new StringBuilder(stringPattern.length());
+            boolean escaped = false;
+            for (int currentChar : stringPattern.codePoints().toArray()) {
+                if (!escaped && currentChar == escapeChar) {
+                    escaped = true;
+                }
+                else {
+                    unescapedPattern.append(Character.toChars(currentChar));
+                    escaped = false;
+                }
+            }
+            return Slices.utf8Slice(unescapedPattern.toString());
+        }
+
+        /**
+         * Builds EQUAL(col, literal), widening both sides to a common varchar type if needed.
+         */
+        private RowExpression buildEquality(CallExpression originalCall, RowExpression col, Slice literal)
+        {
+            VarcharType colType = (VarcharType) col.getType();
+            VarcharType literalType = createVarcharType(literal.length());
+            Type commonType = (colType.isUnbounded() || literalType.isUnbounded())
+                    ? VarcharType.createUnboundedVarcharType()
+                    : createVarcharType(Math.max(colType.getLengthSafe(), literalType.getLengthSafe()));
+
+            RowExpression lhs = widen(col, colType, commonType);
+            RowExpression rhs = widen(
+                    new ConstantExpression(originalCall.getArguments().get(1).getSourceLocation(), literal, literalType),
+                    literalType, commonType);
+
+            return new CallExpression(
+                    originalCall.getSourceLocation(), "EQUAL",
+                    resolution.comparisonFunction(OperatorType.EQUAL, commonType, commonType),
+                    BooleanType.BOOLEAN,
+                    ImmutableList.of(lhs, rhs));
+        }
+
+        private RowExpression widen(RowExpression expr, Type from, Type to)
+        {
+            if (from.equals(to)) {
+                return expr;
+            }
+            return new CallExpression(expr.getSourceLocation(), "CAST",
+                    resolution.lookupCast("CAST", from, to), to, ImmutableList.of(expr));
+        }
+    }
+
     private static RowExpression toRowExpression(Optional<SourceLocation> sourceLocation, Object object, Type type)
     {
         requireNonNull(type, "type is null");
@@ -558,5 +838,17 @@ public class NativeExpressionOptimizer
         }
 
         return false;
+    }
+
+    private static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
+    {
+        if (!condition) {
+            throw new PrestoException(errorCode, format(formatString, args));
+        }
+    }
+
+    private static void checkEscape(boolean condition)
+    {
+        checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%%', '_' or the escape character itself");
     }
 }
