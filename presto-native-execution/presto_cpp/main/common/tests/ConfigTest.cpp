@@ -236,6 +236,12 @@ TEST_F(ConfigTest, optionalSystemConfigsWithDefault) {
   ASSERT_EQ(config.maxDriversPerTask(), 1024);
 }
 
+TEST_F(ConfigTest, cudfExchangeServerPort) {
+  SystemConfig config;
+  init(config, {{std::string(SystemConfig::kHttpServerHttpPort), "7777"}});
+  ASSERT_EQ(config.cudfExchangeServerPort(), 7780);
+}
+
 TEST_F(ConfigTest, asyncCacheNumShards) {
   SystemConfig config;
   init(config, {});

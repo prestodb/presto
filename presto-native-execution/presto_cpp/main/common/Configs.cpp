@@ -36,6 +36,8 @@ namespace facebook::presto {
 
 namespace {
 
+constexpr int kUcxPortOffset = 3;
+
 // folly::to<> does not generate 'true' and 'false', so we do it ourselves.
 std::string bool2String(bool value) {
   return value ? "true" : "false";
@@ -327,6 +329,12 @@ SystemConfig* SystemConfig::instance() {
 
 int SystemConfig::httpServerHttpPort() const {
   return requiredProperty<int>(kHttpServerHttpPort);
+}
+
+int SystemConfig::cudfExchangeServerPort() const {
+  // UcxExchangeSource derives a peer's UCX port from its advertised HTTP port
+  // using the same offset.
+  return httpServerHttpPort() + kUcxPortOffset;
 }
 
 bool SystemConfig::httpServerReusePort() const {
