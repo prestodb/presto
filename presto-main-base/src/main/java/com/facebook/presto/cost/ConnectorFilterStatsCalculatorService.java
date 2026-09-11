@@ -34,6 +34,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.StatsUtil.toVariableStatsEstimate;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel;
 import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static java.util.Objects.requireNonNull;
 
@@ -71,8 +72,7 @@ public class ConnectorFilterStatsCalculatorService
         filteredStatsWithSize.setRowCount(filteredStatistics.getRowCount());
         filteredStatistics.getColumnStatistics().forEach(filteredStatsWithSize::setColumnStatistics);
         // If the rowCount before or after filter is zero, totalSize will also be zero
-        if (!tableStatistics.getRowCount().isUnknown() && tableStatistics.getRowCount().getValue() == 0
-                || !filteredStatistics.getRowCount().isUnknown() && filteredStatistics.getRowCount().getValue() == 0) {
+        if (isKnownZero(tableStatistics.getRowCount()) || isKnownZero(filteredStatistics.getRowCount())) {
             filteredStatsWithSize.setTotalSize(Estimate.of(0));
         }
         else if (!tableStatistics.getTotalSize().isUnknown()
@@ -84,7 +84,15 @@ public class ConnectorFilterStatsCalculatorService
         if (!tableStatistics.getParallelismFactor().isUnknown()) {
             filteredStatsWithSize.setParallelismFactor(tableStatistics.getParallelismFactor());
         }
-        return filteredStatsWithSize.setConfidenceLevel(LOW).build();
+        // Filtering zero rows provably yields zero rows, so there is no estimation uncertainty to
+        // downgrade here; keep the incoming confidence instead of unconditionally reporting LOW.
+        ConfidenceLevel confidenceLevel = isKnownZero(tableStatistics.getRowCount()) ? tableStatistics.getConfidence() : LOW;
+        return filteredStatsWithSize.setConfidenceLevel(confidenceLevel).build();
+    }
+
+    private static boolean isKnownZero(Estimate estimate)
+    {
+        return !estimate.isUnknown() && estimate.getValue() == 0;
     }
 
     private static PlanNodeStatsEstimate toPlanNodeStats(

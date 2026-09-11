@@ -29,12 +29,19 @@ import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.TestingExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.DateStatistics;
 import com.facebook.presto.hive.metastore.DecimalStatistics;
 import com.facebook.presto.hive.metastore.DoubleStatistics;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.IntegerStatistics;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
+import com.facebook.presto.hive.metastore.PrincipalPrivileges;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
@@ -44,15 +51,18 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -65,8 +75,10 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
@@ -78,6 +90,8 @@ import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDate
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.calculateAverageRowsPerPartition;
 import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.calculateAverageSizePerPartition;
 import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.calculateDataSize;
@@ -92,12 +106,17 @@ import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvide
 import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.createDataColumnStatistics;
 import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.getPartitionsSample;
 import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.validatePartitionStatistics;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.lang.Double.NaN;
 import static java.lang.String.format;
+import static java.util.Collections.emptySet;
+import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestMetastoreHiveStatisticsProvider
@@ -809,6 +828,271 @@ public class TestMetastoreHiveStatisticsProvider
                         ImmutableMap.of(),
                         ImmutableList.of(partition(partitionName))),
                 TableStatistics.empty());
+    }
+
+    /**
+     * A provably-zero partition estimate must survive aggregation as
+     * {@code TableStatistics.rowCount = 0}, not NaN, on the partitioned path.
+     */
+    @Test
+    public void testZeroRowCountSurvivesAggregationPartitioned()
+    {
+        String partitionName = "p1=string1/p2=1234";
+        PartitionStatistics provablyEmpty = PartitionQuickStats.convertToPartitionStatistics(PartitionQuickStats.PROVABLY_EMPTY, true);
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider(
+                (session, table, hivePartitions) -> ImmutableMap.of(partitionName, provablyEmpty), quickStatsProvider);
+
+        TableStatistics statistics = statisticsProvider.getTableStatistics(
+                defaultSession(),
+                TABLE,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableList.of(partition(partitionName)));
+
+        assertFalse(statistics.getRowCount().isUnknown(), "A provable zero must not degrade to unknown/NaN");
+        assertEquals(statistics.getRowCount(), Estimate.of(0));
+        assertEquals(statistics.getTotalSize(), Estimate.of(0));
+        assertNotEquals(statistics, TableStatistics.empty());
+    }
+
+    /**
+     * The same, on the unpartitioned path.
+     */
+    @Test
+    public void testZeroRowCountSurvivesAggregationUnpartitioned()
+    {
+        PartitionStatistics provablyEmpty = PartitionQuickStats.convertToPartitionStatistics(PartitionQuickStats.PROVABLY_EMPTY, true);
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider(
+                (session, table, hivePartitions) -> ImmutableMap.of(UNPARTITIONED_ID.getPartitionName(), provablyEmpty), quickStatsProvider);
+
+        TableStatistics statistics = statisticsProvider.getTableStatistics(
+                defaultSession(),
+                TABLE,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableList.of(new HivePartition(TABLE)));
+
+        assertFalse(statistics.getRowCount().isUnknown());
+        assertEquals(statistics.getRowCount(), Estimate.of(0));
+        assertEquals(statistics.getTotalSize(), Estimate.of(0));
+    }
+
+    /**
+     * An UNKNOWN quick stats answer must not be merged over a row count the metastore
+     * did report. This is the real defect at the merge sites: it applies to <b>every</b> row count, not
+     * only zero, and it is what turns a known value into NaN at
+     * {@code calculateAverageRowsPerPartition}.
+     * <p>
+     * Note what is deliberately <i>not</i> asserted here: nothing suppresses the quick stats request
+     * itself. A metastore-reported zero is still handed to quick stats, so a file-count proof can
+     * correct it -- the trust boundary stays on the proof, never on metastore {@code numRows}.
+     */
+    @Test
+    public void testUnknownQuickStatsDoesNotOverwriteKnownRowCount()
+    {
+        String partitionName = "p1=string1/p2=1234";
+        // rowsCount(...) has a present basic rowCount and NO column statistics, so it is classified as
+        // wanting quick stats -- and the QuickStatsProvider below has no strategies, so it answers
+        // UNKNOWN (PartitionStatistics.empty()).
+        for (long metastoreRowCount : new long[] {0L, 1000L}) {
+            PartitionStatistics metastoreStats = rowsCount(metastoreRowCount);
+
+            QuickStatsProvider unpartitionedQuickStats = newQuickStatsProvider();
+            TableStatistics unpartitioned = statisticsProviderFor(metastoreStats, unpartitionedQuickStats).getTableStatistics(
+                    quickStatsSession(true),
+                    TABLE,
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    ImmutableList.of(new HivePartition(TABLE)));
+            assertEquals(unpartitionedQuickStats.getRequestCount(), 1L, "quick stats must still be asked");
+            assertFalse(unpartitioned.getRowCount().isUnknown(), "unpartitioned, metastoreRowCount=" + metastoreRowCount);
+            assertEquals(unpartitioned.getRowCount(), Estimate.of(metastoreRowCount));
+
+            QuickStatsProvider partitionedQuickStats = newQuickStatsProvider();
+            TableStatistics partitioned = statisticsProviderFor(metastoreStats, partitionedQuickStats).getTableStatistics(
+                    quickStatsSession(true),
+                    TABLE,
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    ImmutableList.of(partition(partitionName)));
+            assertEquals(partitionedQuickStats.getRequestCount(), 1L, "quick stats must still be asked");
+            assertFalse(partitioned.getRowCount().isUnknown(), "partitioned, metastoreRowCount=" + metastoreRowCount);
+            assertEquals(partitioned.getRowCount(), Estimate.of(metastoreRowCount));
+        }
+    }
+
+    /**
+     * With the kill-switch off, the merge reverts to the pre-change unconditional
+     * overwrite -- an UNKNOWN quick stats answer replaces the metastore's row count with NaN, exactly
+     * as it did before this change. This is the byte-identical-legacy half of the test above.
+     */
+    @Test
+    public void testKillSwitchRestoresUnconditionalMerge()
+    {
+        String partitionName = "p1=string1/p2=1234";
+        PartitionStatistics metastoreStats = rowsCount(1000);
+
+        TableStatistics unpartitioned = statisticsProviderFor(metastoreStats, newQuickStatsProvider()).getTableStatistics(
+                quickStatsSession(false),
+                TABLE,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableList.of(new HivePartition(TABLE)));
+        assertEquals(unpartitioned, TableStatistics.empty(), "kill-switch off must reproduce the pre-change overwrite");
+
+        TableStatistics partitioned = statisticsProviderFor(metastoreStats, newQuickStatsProvider()).getTableStatistics(
+                quickStatsSession(false),
+                TABLE,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableList.of(partition(partitionName)));
+        assertEquals(partitioned, TableStatistics.empty(), "kill-switch off must reproduce the pre-change overwrite");
+    }
+
+    /**
+     * The {@code isInformative} predicate itself. An UNKNOWN quick stats result is
+     * not informative when the switch is on; everything else is; and with the switch off everything is,
+     * which is what makes the merge byte-identical to the pre-change behavior.
+     */
+    @Test
+    public void testIsInformativeRejectsOnlyUnknown()
+    {
+        PartitionStatistics provablyEmpty = PartitionQuickStats.convertToPartitionStatistics(PartitionQuickStats.PROVABLY_EMPTY, true);
+        PartitionStatistics realStats = PartitionStatistics.builder()
+                .setBasicStatistics(new HiveBasicStatistics(1, 1000, 0, 0))
+                .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setNullsCount(0).build()))
+                .build();
+
+        TestingConnectorSession enabled = sessionWithProvableEmpty(true);
+        assertFalse(MetastoreHiveStatisticsProvider.isInformative(enabled, PartitionStatistics.empty()), "UNKNOWN carries no information");
+        assertTrue(MetastoreHiveStatisticsProvider.isInformative(enabled, provablyEmpty), "A proven zero is information");
+        assertTrue(MetastoreHiveStatisticsProvider.isInformative(enabled, realStats));
+
+        TestingConnectorSession disabled = sessionWithProvableEmpty(false);
+        for (PartitionStatistics statistics : ImmutableList.of(PartitionStatistics.empty(), provablyEmpty, realStats)) {
+            assertTrue(MetastoreHiveStatisticsProvider.isInformative(disabled, statistics), "kill-switch off: everything merges");
+        }
+    }
+
+    /**
+     * Mixed-sample behaviour: the provable-zero path emits {@code inMemoryDataSizeInBytes = 0} for a provably-empty
+     * partition, while footer-derived quick stats leave it absent
+     * ({@code PartitionQuickStats#convertToPartitionStatistics}). {@code calculateAverageSizePerPartition}
+     * averages over present values only, so a sample mixing the two yields a total size of 0 for a table
+     * that does have rows. Pinned rather than changed: the row count -- which is what join distribution
+     * actually reads, via {@code PlanNodeStatsEstimate#getOutputSizeInBytes} recomputing from variables --
+     * is unaffected, and the all-zero basic statistics are what the provable-zero path emits.
+     */
+    @Test
+    public void testMixedEmptyAndUnsizedSampleTotalSize()
+    {
+        PartitionStatistics provablyEmpty = PartitionQuickStats.convertToPartitionStatistics(PartitionQuickStats.PROVABLY_EMPTY, true);
+        assertEquals(provablyEmpty.getBasicStatistics().getInMemoryDataSizeInBytes(), OptionalLong.of(0));
+
+        // A footer-derived partition: rowCount known, size absent.
+        PartitionStatistics footerDerived = new PartitionStatistics(
+                new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.of(1000), OptionalLong.empty(), OptionalLong.empty()),
+                ImmutableMap.of());
+
+        assertEquals(calculateAverageRowsPerPartition(ImmutableList.of(provablyEmpty, footerDerived)), OptionalDouble.of(500));
+        // Only the provably-empty partition contributes a size, so the average is 0 rather than unknown.
+        assertEquals(calculateAverageSizePerPartition(ImmutableList.of(provablyEmpty, footerDerived)), OptionalDouble.of(0));
+    }
+
+    private static QuickStatsProvider newQuickStatsProvider()
+    {
+        return new QuickStatsProvider(new TestingExtendedHiveMetastore(), HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of());
+    }
+
+    /**
+     * A statistics provider wired through the production constructor, over a metastore that reports
+     * {@code statistics} for both the table and any requested partition.
+     */
+    private static MetastoreHiveStatisticsProvider statisticsProviderFor(PartitionStatistics statistics, QuickStatsProvider quickStatsProvider)
+    {
+        ExtendedHiveMetastore delegate = new TestingExtendedHiveMetastore()
+        {
+            @Override
+            public PartitionStatistics getTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName)
+            {
+                return statistics;
+            }
+
+            @Override
+            public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
+            {
+                return partitionNames.stream().collect(toImmutableMap(identity(), name -> statistics));
+            }
+        };
+        // SemiTransactionalHiveMetastore#getPartitionStatistics resolves the table first and returns an
+        // empty map when it is missing, so the table has to exist for the partitioned path to be
+        // exercised at all.
+        delegate.createTable(
+                new MetastoreContext(
+                        SESSION.getUser(),
+                        SESSION.getQueryId(),
+                        Optional.empty(),
+                        emptySet(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                        SESSION.getWarningCollector(),
+                        SESSION.getRuntimeStats()),
+                new Table(
+                        Optional.of("catalogName"),
+                        TABLE.getSchemaName(),
+                        TABLE.getTableName(),
+                        "owner",
+                        MANAGED_TABLE,
+                        Storage.builder().setStorageFormat(fromHiveStorageFormat(PARQUET)).setLocation("location").build(),
+                        ImmutableList.of(),
+                        ImmutableList.of(new Column("p1", HIVE_STRING, Optional.empty(), Optional.empty()), new Column("p2", HIVE_LONG, Optional.empty(), Optional.empty())),
+                        ImmutableMap.of(),
+                        Optional.empty(),
+                        Optional.empty()),
+                new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()),
+                ImmutableList.of());
+        SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
+                HDFS_ENVIRONMENT,
+                delegate,
+                newDirectExecutorService(),
+                false,
+                false,
+                true,
+                DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        return new MetastoreHiveStatisticsProvider(metastore, quickStatsProvider);
+    }
+
+    private static TestingConnectorSession quickStatsSession(boolean provableEmptyEnabled)
+    {
+        return new TestingConnectorSession(
+                new HiveSessionProperties(
+                        new HiveClientConfig()
+                                .setQuickStatsEnabled(true)
+                                .setQuickStatsProvableEmptyEnabled(provableEmptyEnabled),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
+    }
+
+    private static TestingConnectorSession defaultSession()
+    {
+        return new TestingConnectorSession(new HiveSessionProperties(
+                new HiveClientConfig(),
+                new OrcFileWriterConfig(),
+                new ParquetFileWriterConfig(),
+                new CacheConfig()).getSessionProperties());
+    }
+
+    private static TestingConnectorSession sessionWithProvableEmpty(boolean provableEmptyEnabled)
+    {
+        return new TestingConnectorSession(
+                new HiveSessionProperties(
+                        new HiveClientConfig().setQuickStatsProvableEmptyEnabled(provableEmptyEnabled),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
     }
 
     private static void assertInvalidStatistics(PartitionStatistics partitionStatistics, String expectedMessage)

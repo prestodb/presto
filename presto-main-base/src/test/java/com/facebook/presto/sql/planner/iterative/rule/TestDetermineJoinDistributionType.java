@@ -2173,6 +2173,243 @@ public class TestDetermineJoinDistributionType
         assertEquals(result.getDynamicFilters().size(), 1);
     }
 
+    // ------------------------------------------------------------------------------------------------
+    // A truthful zero row count on the probe side of a LEFT join must flip the join to RIGHT, putting
+    // the provably-empty side on the build. This is the planner half of the provable-zero change (see
+    // "provable zero" in the Hive statistics provider): once the empty side is the build side, an
+    // execution engine can finish the join as soon as the build is known to be empty and abort the
+    // huge probe-side producer without reading it.
+    //
+    // The shape mirrors a real plan: LEFT join, probe = an empty derived table, build = a
+    // 17.3e9-row exploding join result.
+    //
+    // WARNING, and the reason these tests look the way they do: emptiness must be expressed ONLY through
+    // statistics, never structurally. QueryCardinalityUtil.visitValues returns
+    // Range.singleton(rows.size()), so a 0-row ValuesNode makes isAtMostScalar true, which makes
+    // mustReplicate true, which -- combined with mustPartition being true for RIGHT -- silently excludes
+    // the flipped candidate. An earlier measurement was invalidated by exactly that and concluded the
+    // flip never happens. Hence: >= 2 structural rows on every arm, emptiness only via overrideStats.
+    // Wrapping in a Project or Filter does not help, because visitProject/visitFilter inherit the
+    // source's bound.
+    // ------------------------------------------------------------------------------------------------
+
+    private static PlanNodeStatsEstimate rowCountWithSize(String variable, double rowCount, VarcharType type, double averageRowSize)
+    {
+        return PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(rowCount)
+                .setConfidence(HIGH)
+                .addVariableStatistics(ImmutableMap.of(
+                        new VariableReferenceExpression(Optional.empty(), variable, type),
+                        VariableStatsEstimate.builder()
+                                .setNullsFraction(0)
+                                .setDistinctValuesCount(rowCount)
+                                .setAverageRowSize(averageRowSize)
+                                .build()))
+                .build();
+    }
+
+    /**
+     * Probe = 0 rows at HIGH confidence (what the provable-zero path emits for an empty partition), build =
+     * 17.3e9 rows. The join must flip to RIGHT with the empty side as the build, and RIGHT must be
+     * PARTITIONED ({@code JoinType.mustPartition}).
+     * <p>
+     * Per-row size is deliberately identical on both sides here so that the zero is the only thing
+     * that can make the probe side the cheaper build. With different per-row sizes this assertion is
+     * satisfied by any sufficiently narrow probe and stops testing the zero -- verified by mutation:
+     * replacing the 0 with 20e9 rows at the same per-row size makes this test fail, which is the
+     * property {@link #testNoFlipWhenProbeEstimateIsLargerThanBuild()} pins permanently.
+     */
+    @Test
+    public void testTruthfulZeroOnProbeSideFlipsJoin()
+    {
+        VarcharType variableType = createUnboundedVarcharType();
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .overrideStats("emptyProbe", rowCountWithSize("EMPTY1", 0, variableType, 24))
+                .overrideStats("hugeBuild", rowCountWithSize("HUGE1", 17_304_050_169d, variableType, 24))
+                .on(p -> {
+                    VariableReferenceExpression empty1 = p.variable("EMPTY1", variableType);
+                    VariableReferenceExpression huge1 = p.variable("HUGE1", variableType);
+                    return p.join(
+                            LEFT,
+                            p.values(new PlanNodeId("emptyProbe"), 2, empty1),
+                            p.values(new PlanNodeId("hugeBuild"), 1000, huge1),
+                            ImmutableList.of(new EquiJoinClause(empty1, huge1)),
+                            ImmutableList.of(empty1, huge1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        RIGHT,
+                        ImmutableList.of(equiJoinClause("HUGE1", "EMPTY1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("HUGE1", 0)),
+                        values(ImmutableMap.of("EMPTY1", 0))));
+    }
+
+    /**
+     * The same, with build-side memory weighted 1000x in the cost comparator. The flip
+     * must not depend on the weights happening to be equal.
+     */
+    @Test
+    public void testFlipUnderMemoryHeavyCostComparator()
+    {
+        VarcharType variableType = createUnboundedVarcharType();
+
+        assertDetermineJoinDistributionType(new CostComparator(1, 1000, 1))
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .overrideStats("emptyProbe", rowCountWithSize("EMPTY1", 0, variableType, 24))
+                .overrideStats("hugeBuild", rowCountWithSize("HUGE1", 17_304_050_169d, variableType, 24))
+                .on(p -> {
+                    VariableReferenceExpression empty1 = p.variable("EMPTY1", variableType);
+                    VariableReferenceExpression huge1 = p.variable("HUGE1", variableType);
+                    return p.join(
+                            LEFT,
+                            p.values(new PlanNodeId("emptyProbe"), 2, empty1),
+                            p.values(new PlanNodeId("hugeBuild"), 1000, huge1),
+                            ImmutableList.of(new EquiJoinClause(empty1, huge1)),
+                            ImmutableList.of(empty1, huge1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        RIGHT,
+                        ImmutableList.of(equiJoinClause("HUGE1", "EMPTY1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("HUGE1", 0)),
+                        values(ImmutableMap.of("EMPTY1", 0))));
+    }
+
+    /**
+     * The case that matters most: the empty probe side is itself a {@code JoinNode}, as a real subtree
+     * would be, not a bare {@code Values}.
+     * <p>
+     * {@code getSourceTablesSizeInBytes} returns NaN unconditionally when an expanding node
+     * (Join/Unnest) is present, so {@code isBelowBroadcastLimit(left)} is false and the
+     * {@code getSizeBasedJoin} fallback flip cannot fire. The flip therefore has to be won on the
+     * <b>cost-based</b> path -- which is the only path such a plan can use. A version of this test that
+     * only proved the fallback flips would prove the wrong mechanism.
+     * <p>
+     * Note the inner join's cardinality is <i>derived</i>, not overridden.
+     */
+    @Test
+    public void testFlipWhenEmptyProbeSideContainsAnExpandingNode()
+    {
+        VarcharType variableType = createUnboundedVarcharType();
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .overrideStats("emptyProbeLeft", rowCountWithSize("EMPTY1", 0, variableType, 8))
+                .overrideStats("emptyProbeRight", rowCountWithSize("EMPTY2", 0, variableType, 8))
+                .overrideStats("hugeBuild", rowCountWithSize("HUGE1", 17_304_050_169d, variableType, 24))
+                .on(p -> {
+                    VariableReferenceExpression empty1 = p.variable("EMPTY1", variableType);
+                    VariableReferenceExpression empty2 = p.variable("EMPTY2", variableType);
+                    VariableReferenceExpression huge1 = p.variable("HUGE1", variableType);
+                    return p.join(
+                            LEFT,
+                            p.join(
+                                    INNER,
+                                    p.values(new PlanNodeId("emptyProbeLeft"), 2, empty1),
+                                    p.values(new PlanNodeId("emptyProbeRight"), 2, empty2),
+                                    ImmutableList.of(new EquiJoinClause(empty1, empty2)),
+                                    ImmutableList.of(empty1),
+                                    Optional.empty()),
+                            p.values(new PlanNodeId("hugeBuild"), 1000, huge1),
+                            ImmutableList.of(new EquiJoinClause(empty1, huge1)),
+                            ImmutableList.of(empty1, huge1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        RIGHT,
+                        ImmutableList.of(equiJoinClause("HUGE1", "EMPTY1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("HUGE1", 0)),
+                        join(INNER, ImmutableList.of(equiJoinClause("EMPTY1", "EMPTY2")),
+                                values(ImmutableMap.of("EMPTY1", 0)),
+                                values(ImmutableMap.of("EMPTY2", 0)))));
+    }
+
+    /**
+     * Statistical control on magnitude: a <b>known, non-zero</b> probe estimate that is
+     * larger than the build must not flip. Same structural cardinality, same per-row size, same
+     * session as {@link #testTruthfulZeroOnProbeSideFlipsJoin()} -- only the row count differs.
+     * <p>
+     * This is the arm that makes the flip attributable to the row count rather than to the shape: it is
+     * exactly the mutation of the primary test (0 rows -> 20e9 rows) that must fail, encoded so it
+     * cannot silently start passing.
+     */
+    @Test
+    public void testNoFlipWhenProbeEstimateIsLargerThanBuild()
+    {
+        VarcharType variableType = createUnboundedVarcharType();
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .overrideStats("emptyProbe", rowCountWithSize("EMPTY1", 20_000_000_000d, variableType, 24))
+                .overrideStats("hugeBuild", rowCountWithSize("HUGE1", 17_304_050_169d, variableType, 24))
+                .on(p -> {
+                    VariableReferenceExpression empty1 = p.variable("EMPTY1", variableType);
+                    VariableReferenceExpression huge1 = p.variable("HUGE1", variableType);
+                    return p.join(
+                            LEFT,
+                            p.values(new PlanNodeId("emptyProbe"), 2, empty1),
+                            p.values(new PlanNodeId("hugeBuild"), 1000, huge1),
+                            ImmutableList.of(new EquiJoinClause(empty1, huge1)),
+                            ImmutableList.of(empty1, huge1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        LEFT,
+                        ImmutableList.of(equiJoinClause("EMPTY1", "HUGE1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("EMPTY1", 0)),
+                        values(ImmutableMap.of("HUGE1", 0))));
+    }
+
+    /**
+     * Statistical control on knownness: the pre-change behaviour. The empty probe reports
+     * UNKNOWN, which is what quick stats yields for a zero-file table today, and there is no flip. This
+     * is the counterfactual this change actually alters -- identical structural cardinality in both arms,
+     * {@code unknown()} produces no flip, a truthful {@code 0} produces one.
+     */
+    @Test
+    public void testUnknownProbeSideDoesNotFlip()
+    {
+        VarcharType variableType = createUnboundedVarcharType();
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .overrideStats("emptyProbe", PlanNodeStatsEstimate.unknown())
+                .overrideStats("hugeBuild", rowCountWithSize("HUGE1", 17_304_050_169d, variableType, 24))
+                .on(p -> {
+                    VariableReferenceExpression empty1 = p.variable("EMPTY1", variableType);
+                    VariableReferenceExpression huge1 = p.variable("HUGE1", variableType);
+                    return p.join(
+                            LEFT,
+                            p.values(new PlanNodeId("emptyProbe"), 2, empty1),
+                            p.values(new PlanNodeId("hugeBuild"), 1000, huge1),
+                            ImmutableList.of(new EquiJoinClause(empty1, huge1)),
+                            ImmutableList.of(empty1, huge1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        LEFT,
+                        ImmutableList.of(equiJoinClause("EMPTY1", "HUGE1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("EMPTY1", 0)),
+                        values(ImmutableMap.of("HUGE1", 0))));
+    }
+
     private RuleAssert assertDetermineJoinDistributionType()
     {
         return assertDetermineJoinDistributionType(COST_COMPARATOR);
