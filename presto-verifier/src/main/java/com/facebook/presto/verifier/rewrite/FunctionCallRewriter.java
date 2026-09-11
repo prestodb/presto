@@ -23,6 +23,7 @@ import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -39,6 +40,7 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowReference;
 import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -56,7 +58,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -280,6 +281,9 @@ public class FunctionCallRewriter
                 if (i < originalArguments.size()) {
                     continue;
                 }
+                if (!windowFieldsMatch((FunctionCall) substitution.originalExpression, instance)) {
+                    continue;
+                }
                 return Optional.of(substitution);
             }
 
@@ -325,8 +329,6 @@ public class FunctionCallRewriter
 
             List<Expression> patternWindowPartitionBys = windowSpecification(originalPattern.getWindow()).map(WindowSpecification::getPartitionBy).orElse(ImmutableList.of());
             List<Expression> instanceWindowPartitionBys = windowSpecification(originalInstance.getWindow()).map(WindowSpecification::getPartitionBy).orElse(ImmutableList.of());
-            checkArgument(patternWindowPartitionBys.size() <= instanceWindowPartitionBys.size(),
-                    "Function call substitute declares more window PARTITION BY fields than the query it matched");
             for (int i = 0; i < patternWindowPartitionBys.size(); i++) {
                 Identifier identifier = (Identifier) patternWindowPartitionBys.get(i);
                 if (OMIT_IDENTIFIER.equals(identifier.getValue())) {
@@ -337,8 +339,6 @@ public class FunctionCallRewriter
 
             List<SortItem> patternWindowOrderBys = windowSpecification(originalPattern.getWindow()).flatMap(WindowSpecification::getOrderBy).map(OrderBy::getSortItems).orElse(ImmutableList.of());
             List<SortItem> instanceWindowOrderBys = windowSpecification(originalInstance.getWindow()).flatMap(WindowSpecification::getOrderBy).map(OrderBy::getSortItems).orElse(ImmutableList.of());
-            checkArgument(patternWindowOrderBys.size() <= instanceWindowOrderBys.size(),
-                    "Function call substitute declares more window ORDER BY fields than the query it matched");
             for (int i = 0; i < patternWindowOrderBys.size(); i++) {
                 Identifier identifier = (Identifier) patternWindowOrderBys.get(i).getSortKey();
                 if (OMIT_IDENTIFIER.equals(identifier.getValue())) {
@@ -454,13 +454,63 @@ public class FunctionCallRewriter
     }
 
     /**
-     * A substitution pattern is parsed standalone, so its window is always an inline specification.
-     * A query instance may instead reference a window declared in the WINDOW clause, which has no
-     * fields to match against.
+     * A pattern binds window fields positionally, so it cannot match an instance that has fewer of them.
+     * An instance whose window names another window is never matched, in either form: the named window
+     * can carry partitioning, ordering and a frame that the pattern cannot see, so substituting could
+     * drop them.
+     */
+    private static boolean windowFieldsMatch(FunctionCall pattern, FunctionCall instance)
+    {
+        Optional<WindowSpecification> patternWindow = windowSpecification(pattern.getWindow());
+        Optional<WindowSpecification> instanceWindow = windowSpecification(instance.getWindow());
+
+        if (instance.getWindow().isPresent() && namesAnotherWindow(instance.getWindow().get())) {
+            return false;
+        }
+
+        int patternPartitionBys = patternWindow.map(window -> window.getPartitionBy().size()).orElse(0);
+        int instancePartitionBys = instanceWindow.map(window -> window.getPartitionBy().size()).orElse(0);
+        int patternOrderBys = patternWindow.flatMap(WindowSpecification::getOrderBy).map(orderBy -> orderBy.getSortItems().size()).orElse(0);
+        int instanceOrderBys = instanceWindow.flatMap(WindowSpecification::getOrderBy).map(orderBy -> orderBy.getSortItems().size()).orElse(0);
+
+        return patternPartitionBys <= instancePartitionBys && patternOrderBys <= instanceOrderBys;
+    }
+
+    /**
+     * Returns the window only when it is a self contained inline specification, so its fields can be
+     * bound positionally.
      */
     private static Optional<WindowSpecification> windowSpecification(Optional<Window> window)
     {
         return window.filter(WindowSpecification.class::isInstance).map(WindowSpecification.class::cast);
+    }
+
+    /**
+     * A window names another window either as a bare {@code OVER w} or as {@code OVER (w ...)}. Both hide
+     * the partitioning, ordering and frame that the named window carries, so neither can be matched or
+     * emitted safely.
+     */
+    private static boolean namesAnotherWindow(Window window)
+    {
+        if (window instanceof WindowReference) {
+            return true;
+        }
+        return ((WindowSpecification) window).getExistingWindowName().isPresent();
+    }
+
+    private static void rejectNamedWindows(Expression expression, String spec)
+    {
+        new DefaultTraversalVisitor<Void, Void>()
+        {
+            @Override
+            protected Void visitFunctionCall(FunctionCall node, Void context)
+            {
+                if (node.getWindow().isPresent() && namesAnotherWindow(node.getWindow().get())) {
+                    throw new IllegalArgumentException(String.format("Function call spec %s must not reference a named window.", spec));
+                }
+                return super.visitFunctionCall(node, context);
+            }
+        }.process(expression, null);
     }
 
     private static Expression parseOriginalFunctionCall(String functionCallSpec)
@@ -477,6 +527,9 @@ public class FunctionCallRewriter
         if (SUPPORTED_ORIGINAL_FUNCTIONS.stream().noneMatch(clazz -> clazz.equals(expression.getClass()))) {
             throw new IllegalArgumentException(String.format("Substituting %s in %s is not supported.", expression.getClass().getSimpleName(), functionCallSpec));
         }
+
+        // A spec is parsed on its own, so a window name in it has nothing to resolve against.
+        rejectNamedWindows(expression, functionCallSpec);
 
         if (expression instanceof FunctionCall) {
             FunctionCall functionCall = (FunctionCall) expression;
@@ -515,6 +568,9 @@ public class FunctionCallRewriter
         if (SUPPORTED_SUBSTITUTE_EXPRESSIONS.stream().noneMatch(clazz -> clazz.isAssignableFrom(expression.getClass()))) {
             throw new IllegalArgumentException(String.format("Substitution of with from %s is not supported.", expression.getClass().getSimpleName()));
         }
+
+        // A substitute is emitted verbatim, so a window name in it would be unresolved in the rewritten query.
+        rejectNamedWindows(expression, expressionSpec);
 
         return expression;
     }

@@ -23,8 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class WindowReference
-        extends Node
-        implements Window
+        extends Window
 {
     private final Identifier name;
 

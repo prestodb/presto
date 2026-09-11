@@ -97,6 +97,13 @@ public class MaterializedViewExpressionRewriter
 
     public Expression rewriteFunctionCall(FunctionCall node, Function<Expression, Expression> argRewriter)
     {
+        // Only the arguments of a call are rewritten, so a window would keep referring to base table
+        // columns. This is checked here rather than in isScalarFunction because an associative
+        // aggregate such as SUM never reaches that check.
+        if (node.getWindow().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, node, "Window function is not supported for materialized view rewrite: " + node.getName());
+        }
+
         Map<Expression, Identifier> baseToViewColumnMap = mvInfo.getBaseToViewColumnMap();
 
         if (NON_ASSOCIATIVE_REWRITE_FUNCTIONS.containsKey(node.getName())) {

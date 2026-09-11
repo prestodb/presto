@@ -248,6 +248,12 @@ public class MaterializedViewJoinQueryRewriter
                 log.debug("JOIN MV rewrite rejected: query has HAVING. MV=%s", materializedViewName);
                 return false;
             }
+            // A WINDOW clause is carried over unchanged, so its expressions would still reference the
+            // relation the rewrite replaces.
+            if (!querySpecification.getWindows().isEmpty()) {
+                log.debug("JOIN MV rewrite rejected: query has WINDOW clause. MV=%s", materializedViewName);
+                return false;
+            }
             if (mvInfo.getGroupBy().isPresent()) {
                 if (!querySpecification.getGroupBy().isPresent()) {
                     if (!isAggregateOnlySelect(querySpecification)) {

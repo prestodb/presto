@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingSets;
@@ -50,6 +51,8 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.WindowDefinition;
+import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowReference;
 import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
@@ -184,6 +187,7 @@ public class TreePrinter
                 return null;
             }
 
+            @Override
             public Void visitWindowSpecification(WindowSpecification node, Integer indentLevel)
             {
                 node.getExistingWindowName().ifPresent(name -> print(indentLevel, "Reference: " + name.getValue()));
@@ -200,7 +204,37 @@ public class TreePrinter
                     process(node.getOrderBy().get(), indentLevel + 1);
                 }
 
-                node.getFrame().ifPresent(frame -> print(indentLevel, "Frame: " + frame));
+                if (node.getFrame().isPresent()) {
+                    print(indentLevel, "Frame");
+                    process(node.getFrame().get(), indentLevel + 1);
+                }
+
+                return null;
+            }
+
+            @Override
+            public Void visitWindowReference(WindowReference node, Integer indentLevel)
+            {
+                print(indentLevel, "Reference: " + node.getName().getValue());
+
+                return null;
+            }
+
+            @Override
+            public Void visitWindowFrame(WindowFrame node, Integer indentLevel)
+            {
+                print(indentLevel, node.getType().toString());
+                process(node.getStart(), indentLevel + 1);
+                node.getEnd().ifPresent(end -> process(end, indentLevel + 1));
+
+                return null;
+            }
+
+            @Override
+            public Void visitFrameBound(FrameBound node, Integer indentLevel)
+            {
+                print(indentLevel, node.getType().toString());
+                node.getValue().ifPresent(value -> process(value, indentLevel + 1));
 
                 return null;
             }

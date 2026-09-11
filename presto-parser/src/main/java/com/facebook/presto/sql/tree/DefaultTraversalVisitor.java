@@ -156,7 +156,7 @@ public abstract class DefaultTraversalVisitor<R, C>
         node.getArguments().forEach(argument -> process(argument, context));
 
         node.getOrderBy().ifPresent(orderBy -> process(orderBy, context));
-        node.getWindow().ifPresent(window -> process((Node) window, context));
+        node.getWindow().ifPresent(window -> process(window, context));
         node.getFilter().ifPresent(filter -> process(filter, context));
 
         return null;

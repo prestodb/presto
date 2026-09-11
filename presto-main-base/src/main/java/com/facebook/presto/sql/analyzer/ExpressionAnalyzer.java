@@ -1008,7 +1008,7 @@ public class ExpressionAnalyzer
                     // Analyzers created outside of statement analysis only ever see a self-contained specification.
                     Window unresolved = node.getWindow().get();
                     if (unresolved instanceof WindowReference) {
-                        throw new SemanticException(NOT_SUPPORTED, (Node) unresolved, "Cannot resolve WINDOW name %s", ((WindowReference) unresolved).getName());
+                        throw new SemanticException(NOT_SUPPORTED, unresolved, "Cannot resolve WINDOW name %s", ((WindowReference) unresolved).getName());
                     }
                     WindowSpecification specification = (WindowSpecification) unresolved;
                     if (specification.getExistingWindowName().isPresent()) {
@@ -1017,7 +1017,7 @@ public class ExpressionAnalyzer
                     window = new ResolvedWindow(specification.getPartitionBy(), specification.getOrderBy(), specification.getFrame(), false, false, false);
                 }
 
-                analyzeWindow(window, context, (Node) node.getWindow().get());
+                analyzeWindow(window, context, node.getWindow().get());
 
                 windowFunctions.add(NodeRef.of(node));
             }
