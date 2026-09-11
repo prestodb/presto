@@ -17,6 +17,7 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.ChangeKindPageSource;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
@@ -642,6 +643,36 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorTableVersion> getCurrentTableVersion(ConnectorSession session, ConnectorTableHandle table)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getCurrentTableVersion(session, table);
+        }
+    }
+
+    @Override
+    public ChangeKindPageSource getChangeSet(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            ConnectorTableVersion from,
+            ConnectorTableVersion to,
+            List<ColumnHandle> projectedDataColumns,
+            TupleDomain<ColumnHandle> filter)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getChangeSet(session, table, from, to, projectedDataColumns, filter);
+        }
+    }
+
+    @Override
+    public OptionalLong estimateChangeSetSize(ConnectorSession session, ConnectorTableHandle table, ConnectorTableVersion from, ConnectorTableVersion to)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.estimateChangeSetSize(session, table, from, to);
         }
     }
 

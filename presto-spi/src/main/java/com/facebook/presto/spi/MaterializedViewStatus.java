@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.common.predicate.TupleDomain;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,6 +27,7 @@ import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewSta
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.TOO_MANY_PARTITIONS_MISSING;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class MaterializedViewStatus
@@ -88,6 +90,8 @@ public class MaterializedViewStatus
     private final MaterializedViewState materializedViewState;
     private final Map<SchemaTableName, MaterializedDataPredicates> partitionsFromBaseTables;
     private final Optional<Long> lastFreshTime;
+    private final Map<SchemaTableName, ConnectorTableHandle> recordedBaseTableHandles;
+    private final Map<SchemaTableName, ChangedRowsPredicate> changedRowsPredicates;
 
     public MaterializedViewStatus(MaterializedViewState materializedViewState)
     {
@@ -104,9 +108,21 @@ public class MaterializedViewStatus
             Map<SchemaTableName, MaterializedDataPredicates> partitionsFromBaseTables,
             Optional<Long> lastFreshTime)
     {
+        this(materializedViewState, partitionsFromBaseTables, lastFreshTime, emptyMap(), emptyMap());
+    }
+
+    public MaterializedViewStatus(
+            MaterializedViewState materializedViewState,
+            Map<SchemaTableName, MaterializedDataPredicates> partitionsFromBaseTables,
+            Optional<Long> lastFreshTime,
+            Map<SchemaTableName, ConnectorTableHandle> recordedBaseTableHandles,
+            Map<SchemaTableName, ChangedRowsPredicate> changedRowsPredicates)
+    {
         this.materializedViewState = requireNonNull(materializedViewState, "materializedViewState is null");
         this.partitionsFromBaseTables = requireNonNull(partitionsFromBaseTables, "partitionsFromBaseTables is null");
         this.lastFreshTime = requireNonNull(lastFreshTime, "lastFreshTime is null");
+        this.recordedBaseTableHandles = unmodifiableMap(new HashMap<>(requireNonNull(recordedBaseTableHandles, "recordedBaseTableHandles is null")));
+        this.changedRowsPredicates = unmodifiableMap(new HashMap<>(requireNonNull(changedRowsPredicates, "changedRowsPredicates is null")));
     }
 
     public MaterializedViewState getMaterializedViewState()
@@ -134,6 +150,13 @@ public class MaterializedViewStatus
         return materializedViewState == PARTIALLY_MATERIALIZED;
     }
 
+    /**
+     * @deprecated superseded by {@link #getChangedRowsPredicates()}, whose disjuncts express
+     *         partition-level and row-level staleness in one form. Still the only mechanism for a
+     *         base table without row lineage, and still the input to partition-level stitching, so
+     *         it cannot be removed until every connector reports changed rows.
+     */
+    @Deprecated
     public Map<SchemaTableName, MaterializedDataPredicates> getPartitionsFromBaseTables()
     {
         return partitionsFromBaseTables;
@@ -142,5 +165,15 @@ public class MaterializedViewStatus
     public Optional<Long> getLastFreshTime()
     {
         return lastFreshTime;
+    }
+
+    public Map<SchemaTableName, ConnectorTableHandle> getRecordedBaseTableHandles()
+    {
+        return recordedBaseTableHandles;
+    }
+
+    public Map<SchemaTableName, ChangedRowsPredicate> getChangedRowsPredicates()
+    {
+        return changedRowsPredicates;
     }
 }

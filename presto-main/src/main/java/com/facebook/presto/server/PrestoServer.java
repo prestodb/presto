@@ -71,6 +71,7 @@ import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderMana
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManagerModule;
+import com.facebook.presto.type.ChangeKindEnumType;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
@@ -192,6 +193,7 @@ public class PrestoServer
             //  Currently, when sidecar plugin is installed, the serving type manager is NativeTypeManager and we need to ensure
             //  any types loaded from plugins are added to the serving type manager.
             injector.getInstance(StaticTypeManagerStore.class).loadTypeManagers();
+            injector.getInstance(FunctionAndTypeManager.class).addUserDefinedType(ChangeKindEnumType.USER_DEFINED_TYPE);
 
             // Load remaining service providers (Plugin and RouterPlugin)
             pluginManager.loadRemainingPlugins();
