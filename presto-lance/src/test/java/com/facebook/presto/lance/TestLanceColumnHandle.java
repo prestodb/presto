@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableMap;
@@ -62,6 +63,37 @@ public class TestLanceColumnHandle
         assertEquals(LanceColumnHandle.toPrestoType(field("d2", new ArrowType.FloatingPoint(FloatingPointPrecision.HALF))), REAL);
         assertEquals(LanceColumnHandle.toPrestoType(field("e", new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE))), DOUBLE);
         assertEquals(LanceColumnHandle.toPrestoType(field("f", ArrowType.Utf8.INSTANCE)), VARCHAR);
+    }
+
+    @Test
+    public void testHalfFloatMapsToReal()
+    {
+        // Presto has no float16 type, so half-precision floats widen to REAL (float32)
+        assertEquals(LanceColumnHandle.toPrestoType(field("h", new ArrowType.FloatingPoint(FloatingPointPrecision.HALF))), REAL);
+    }
+
+    @Test
+    public void testUnsignedInt32MapsToBigint()
+    {
+        // Unsigned int32 can exceed Integer.MAX_VALUE, so it must widen to BIGINT
+        assertEquals(LanceColumnHandle.toPrestoType(field("u", new ArrowType.Int(32, false))), BIGINT);
+        // Signed int32 stays INTEGER
+        assertEquals(LanceColumnHandle.toPrestoType(field("s", new ArrowType.Int(32, true))), INTEGER);
+    }
+
+    @Test
+    public void testStructMapsToRowType()
+    {
+        Field structField = new Field(
+                "person",
+                new FieldType(true, ArrowType.Struct.INSTANCE, null),
+                java.util.Arrays.asList(
+                        field("name", ArrowType.Utf8.INSTANCE),
+                        field("age", new ArrowType.Int(32, true))));
+        RowType expected = RowType.from(java.util.Arrays.asList(
+                RowType.field("name", VARCHAR),
+                RowType.field("age", INTEGER)));
+        assertEquals(LanceColumnHandle.toPrestoType(structField), expected);
     }
 
     @Test

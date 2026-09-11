@@ -37,6 +37,8 @@ import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -104,6 +106,14 @@ public class LanceColumnHandle
             return new ArrayType(elementType);
         }
 
+        if (type instanceof ArrowType.Struct) {
+            List<RowType.Field> rowFields = new ArrayList<>();
+            for (Field child : field.getChildren()) {
+                rowFields.add(RowType.field(child.getName(), toPrestoType(child)));
+            }
+            return RowType.from(rowFields);
+        }
+
         if (type instanceof ArrowType.Bool) {
             return BooleanType.BOOLEAN;
         }
@@ -115,18 +125,19 @@ public class LanceColumnHandle
                 case 16:
                     return SmallintType.SMALLINT;
                 case 32:
-                    return IntegerType.INTEGER;
+                    // Unsigned int32 can exceed Integer.MAX_VALUE, so map it to BIGINT
+                    return intType.getIsSigned() ? IntegerType.INTEGER : BigintType.BIGINT;
                 case 64:
                     return BigintType.BIGINT;
             }
         }
         else if (type instanceof ArrowType.FloatingPoint) {
             ArrowType.FloatingPoint fpType = (ArrowType.FloatingPoint) type;
-            if (fpType.getPrecision() == FloatingPointPrecision.HALF
-                    || fpType.getPrecision() == FloatingPointPrecision.SINGLE) {
-                return RealType.REAL;
+            // Presto has no float16 type, so HALF (and SINGLE) map to REAL; only DOUBLE maps to DOUBLE
+            if (fpType.getPrecision() == FloatingPointPrecision.DOUBLE) {
+                return DoubleType.DOUBLE;
             }
-            return DoubleType.DOUBLE;
+            return RealType.REAL;
         }
         else if (type instanceof ArrowType.Utf8 || type instanceof ArrowType.LargeUtf8) {
             return VarcharType.VARCHAR;
@@ -139,6 +150,10 @@ public class LanceColumnHandle
         }
         else if (type instanceof ArrowType.Timestamp) {
             return TimestampType.TIMESTAMP;
+        }
+        else if (type instanceof ArrowType.Decimal) {
+            ArrowType.Decimal decType = (ArrowType.Decimal) type;
+            return com.facebook.presto.common.type.DecimalType.createDecimalType(decType.getPrecision(), decType.getScale());
         }
         throw new UnsupportedOperationException("Unsupported Arrow type: " + type);
     }
@@ -180,6 +195,10 @@ public class LanceColumnHandle
         }
         else if (prestoType instanceof ArrayType) {
             return ArrowType.List.INSTANCE;
+        }
+        else if (prestoType instanceof com.facebook.presto.common.type.DecimalType) {
+            com.facebook.presto.common.type.DecimalType decType = (com.facebook.presto.common.type.DecimalType) prestoType;
+            return new ArrowType.Decimal(decType.getPrecision(), decType.getScale(), 128);
         }
         else if (prestoType instanceof RowType) {
             return ArrowType.Struct.INSTANCE;
