@@ -1,0 +1,34 @@
+# Staging Branch Manifest
+# This file describes how this staging branch was created
+
+metadata:
+  generated_at: "2026-09-08T21:11:06Z"
+  target_repository: "karthikeyann/presto"
+  target_branch: "staging"
+  dated_branch: "staging_09-08-2026"
+
+base:
+  repository: "prestodb/presto"
+  branch: "master"
+  commit: "08afc9a2f65308e7b1d4a543a6318991d847f643"
+  url: "https://github.com/prestodb/presto/tree/08afc9a2f65308e7b1d4a543a6318991d847f643"
+
+additional_merge:
+  null  # No additional repository merged
+
+merged_prs:
+  - number: 28398
+    commit: "3b4e11f999ae2993cff875cb6bb35a98b05a26ec"
+    author: "dan13bauer"
+    title: "feat(native): Select the cuDF UCX exchange transport per edge and start its Communicator"
+    url: "https://github.com/prestodb/presto/pull/28398"
+  - number: 27719
+    commit: "038707a78a4dbe89727cf0f9cf33cc57cadbca63"
+    author: "dan13bauer"
+    title: "fix: Fall back to HTTP when consumer fragment runs on coordinator"
+    url: "https://github.com/prestodb/presto/pull/27719"
+  - number: 27975
+    commit: "8eddfc2cdddb54bbefbf86b024586603559cf63f"
+    author: "lga-zurich"
+    title: "build(native): Use rapids-cmake to configure CUDA architectures for GPU builds"
+    url: "https://github.com/prestodb/presto/pull/27975"

@@ -55,10 +55,15 @@ MaterializedExchange::MaterializedExchange(
     : Exchange(
           operatorId,
           ctx,
+          // Stand-in node for the Exchange base class. Materialized exchange
+          // reads from durable storage, not a worker-to-worker transport, so it
+          // names the in-memory one explicitly rather than inheriting a
+          // default.
           std::make_shared<core::ExchangeNode>(
               materializedExchangeNode->id(),
               materializedExchangeNode->outputType(),
-              "CompactRow"),
+              "CompactRow",
+              std::string{core::TransportKind::kInMemory}),
           exchangeClient,
           "MaterializedExchange") {}
 
