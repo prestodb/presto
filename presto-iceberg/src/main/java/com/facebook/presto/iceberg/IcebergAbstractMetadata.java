@@ -1365,6 +1365,46 @@ public abstract class IcebergAbstractMetadata
                 .findFirst();
     }
 
+    // Based on Trino's nested-field ADD COLUMN support by Yuya Ebihara (@ebyhr):
+    // https://github.com/trinodb/trino/pull/16321
+    @Override
+    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, com.facebook.presto.common.type.Type type, boolean ignoreExisting)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have fields added");
+        validateNoBranchSpecified(handle, "ADD COLUMN");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        // Resolve parent using case-insensitive lookup, then recover its canonical name —
+        // Iceberg's addColumn() is case-sensitive when locating the parent.
+        String parentName = String.join(".", parentPath);
+        Types.NestedField parentField = icebergTable.schema().caseInsensitiveFindField(parentName);
+        if (parentField == null) {
+            throw new PrestoException(COLUMN_NOT_FOUND,
+                    format("Cannot find parent field '%s' in table '%s'", parentName, handle.getSchemaTableName()));
+        }
+        String canonicalParentName = icebergTable.schema().findColumnName(parentField.fieldId());
+
+        // Check existence now; Iceberg's commit() gives a poor error if we skip this.
+        Types.NestedField existingField = icebergTable.schema().caseInsensitiveFindField(canonicalParentName + "." + fieldName);
+        if (existingField != null) {
+            if (ignoreExisting) {
+                return;
+            }
+            throw new PrestoException(ALREADY_EXISTS, format("Field '%s' already exists in '%s'", fieldName, canonicalParentName));
+        }
+
+        org.apache.iceberg.types.Type icebergType = toIcebergType(type);
+        try {
+            icebergTable.updateSchema()
+                    .addColumn(canonicalParentName, fieldName, icebergType)
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to add field: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
     @Override
     public void setColumnDefault(ConnectorSession session, ConnectorTableHandle tableHandle, String columnName, Object defaultValue)
     {
@@ -1385,6 +1425,66 @@ public abstract class IcebergAbstractMetadata
         icebergTable.updateSchema()
                 .updateColumnDefault(columnName, defaultLiteral)
                 .commit();
+    }
+
+    @Override
+    public void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have fields dropped");
+        validateNoBranchSpecified(handle, "DROP COLUMN");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        // Resolve field using case-insensitive lookup, then recover its canonical name —
+        // Iceberg's deleteColumn() is case-sensitive when locating the field.
+        String dottedPath = String.join(".", fieldPath);
+        Types.NestedField field = icebergTable.schema().caseInsensitiveFindField(dottedPath);
+        if (field == null) {
+            if (ignoreNonExistent) {
+                return;
+            }
+            throw new PrestoException(COLUMN_NOT_FOUND,
+                    format("Field '%s' does not exist in table '%s'", dottedPath, handle.getSchemaTableName()));
+        }
+        String canonicalPath = icebergTable.schema().findColumnName(field.fieldId());
+
+        // Reject dropping the last field from a nested struct. Iceberg permits empty structs but
+        // Presto's RowType requires at least one field — the table would become permanently
+        // unreadable (DESCRIBE and SELECT both throw) after such a drop.
+        // Mirrors Trino commit 873bfad8: containingType.getFields().size() == 1 check in
+        // DropColumnTask. We perform it here because our architecture delegates the full path
+        // to the connector without a Java type-walk in the task layer.
+        int lastDot = canonicalPath.lastIndexOf('.');
+        if (lastDot > 0) {
+            String parentPath = canonicalPath.substring(0, lastDot);
+            Types.NestedField parentField = icebergTable.schema().findField(parentPath);
+            if (parentField != null && parentField.type().isStructType() &&
+                    parentField.type().asStructType().fields().size() == 1) {
+                throw new PrestoException(NOT_SUPPORTED,
+                        format("Cannot drop the only field '%s' in row type: %s",
+                                fieldPath.get(fieldPath.size() - 1), parentPath));
+            }
+        }
+
+        // Reject dropping a field referenced by any partition spec (current or historical).
+        // Mirrors Trino commit f11bb3ce which separately checks spec() and older specs().
+        // Our existing dropColumn() uses the same single-stream pattern across all specs.
+        // See https://github.com/apache/iceberg/issues/4563
+        long fieldId = field.fieldId();
+        boolean isPartitionField = icebergTable.specs().values().stream()
+                .flatMap(spec -> spec.fields().stream())
+                .anyMatch(partField -> partField.sourceId() == fieldId);
+        if (isPartitionField) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("Cannot drop field '%s' which is used by a partition spec", dottedPath));
+        }
+
+        try {
+            icebergTable.updateSchema().deleteColumn(canonicalPath).commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to drop field: " + firstNonNull(e.getMessage(), e), e);
+        }
     }
 
     @Override

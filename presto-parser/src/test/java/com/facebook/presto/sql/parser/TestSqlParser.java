@@ -15,6 +15,7 @@ package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
+import com.facebook.presto.sql.tree.AddField;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterColumnNotNull;
@@ -2191,6 +2192,108 @@ public class TestSqlParser
     }
 
     @Test
+    public void testAddField()
+    {
+        // Single-level struct: ADD COLUMN parent.new_field type
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "VARCHAR",
+                        true,
+                        Optional.empty(),
+                        false,
+                        false));
+
+        // IF EXISTS on table
+        assertStatement(
+                "ALTER TABLE IF EXISTS foo.t ADD COLUMN col.new_field BIGINT",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "BIGINT",
+                        true,
+                        Optional.empty(),
+                        true,
+                        false));
+
+        // IF NOT EXISTS on field
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS col.new_field INTEGER",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "INTEGER",
+                        true,
+                        Optional.empty(),
+                        false,
+                        true));
+
+        // NOT NULL
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR NOT NULL",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "VARCHAR",
+                        false,
+                        Optional.empty(),
+                        false,
+                        false));
+
+        // COMMENT
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR COMMENT 'a comment'",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "VARCHAR",
+                        true,
+                        Optional.of("a comment"),
+                        false,
+                        false));
+
+        // Multi-level nesting: parent path has two parts
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN outer_col.inner_col.new_field DOUBLE",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("outer_col", "inner_col"),
+                        identifier("new_field"),
+                        "DOUBLE",
+                        true,
+                        Optional.empty(),
+                        false,
+                        false));
+
+        // Quoted field name: isDelimited must be preserved through the round-trip
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.\"new field\" VARCHAR",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        quotedIdentifier("new field"),
+                        "VARCHAR",
+                        true,
+                        Optional.empty(),
+                        false,
+                        false));
+    }
+
+    @Test
     public void testAlterColumnSetDataType()
     {
         assertStatement("ALTER TABLE foo.t ALTER COLUMN c SET DATA TYPE BIGINT", new SetColumnType(
@@ -2211,11 +2314,19 @@ public class TestSqlParser
     @Test
     public void testDropColumn()
     {
-        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, false));
-        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), quotedIdentifier("c d"), false, false));
-        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, false));
-        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, true));
-        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, true));
+        // top-level columns — column is a single-part QualifiedName
+        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), false, false));
+        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), QualifiedName.of(ImmutableList.of(quotedIdentifier("c d"))), false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), true, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), true, true));
+
+        // nested fields — column is a multi-part QualifiedName; no path component may be silently dropped
+        assertStatement("ALTER TABLE foo.t DROP COLUMN info.age", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("info", "age"), false, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN outer_col.inner_col.age", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("outer_col", "inner_col", "age"), false, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS info.age", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("info", "age"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN info.age", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("info", "age"), true, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN \"info\".age", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of(ImmutableList.of(quotedIdentifier("info"), identifier("age"))), false, false));
     }
 
     @Test
