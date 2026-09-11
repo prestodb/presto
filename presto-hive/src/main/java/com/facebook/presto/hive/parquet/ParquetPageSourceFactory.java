@@ -475,7 +475,7 @@ public class ParquetPageSourceFactory
             case FLOAT:
                 return prestoType.equals(REAL) || prestoType.equals(StandardTypes.DOUBLE);
             case DOUBLE:
-                return prestoType.equals(StandardTypes.DOUBLE);
+                return prestoType.equals(StandardTypes.DOUBLE) || prestoType.equals(VARCHAR) || prestoType.startsWith(CHAR);
             case BINARY:
                 return prestoType.equals(VARBINARY) || prestoType.equals(VARCHAR) || prestoType.startsWith(CHAR) || prestoType.equals(DECIMAL);
             case INT96:

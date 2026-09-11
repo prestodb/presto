@@ -17,6 +17,12 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 
+import static com.facebook.presto.common.type.Chars.isCharType;
+import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
+import static com.facebook.presto.common.type.Varchars.truncateToLength;
+import static io.airlift.slice.Slices.utf8Slice;
+
 public class DoubleColumnReader
         extends AbstractColumnReader
 {
@@ -29,7 +35,16 @@ public class DoubleColumnReader
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            type.writeDouble(blockBuilder, valuesReader.readDouble());
+            double value = valuesReader.readDouble();
+            if (isVarcharType(type)) {
+                type.writeSlice(blockBuilder, truncateToLength(utf8Slice(String.valueOf(value)), type));
+                return;
+            }
+            if (isCharType(type)) {
+                type.writeSlice(blockBuilder, truncateToLengthAndTrimSpaces(utf8Slice(String.valueOf(value)), type));
+                return;
+            }
+            type.writeDouble(blockBuilder, value);
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();

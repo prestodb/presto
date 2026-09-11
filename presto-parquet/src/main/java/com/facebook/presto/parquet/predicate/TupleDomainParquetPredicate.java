@@ -202,6 +202,10 @@ public class TupleDomainParquetPredicate
         }
 
         if (isVarcharType(type)) {
+            // Hive type coercion from Double to Varchar: Fall back to Domain.all to safely handle physical/logical type mismatches
+            if (column.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.DOUBLE) {
+                return Domain.create(ValueSet.all(type), hasNullValue);
+            }
             for (int i = 0; i < minimums.size(); i++) {
                 Slice min = Slices.wrappedBuffer(((Binary) minimums.get(i)).toByteBuffer());
                 Slice max = Slices.wrappedBuffer(((Binary) maximums.get(i)).toByteBuffer());
