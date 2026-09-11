@@ -31,6 +31,7 @@ PeriodicServiceInventoryManager::PeriodicServiceInventoryManager(
       id_(std::move(id)),
       frequencyMs_(frequencyMs),
       pool_(velox::memory::deprecatedAddDefaultLeafMemoryPool(id_)),
+      jwtOptions_(SystemConfig::instance()->jwtOptions()),
       eventBaseThread_(false /*autostart*/) {}
 
 void PeriodicServiceInventoryManager::start() {
@@ -111,6 +112,16 @@ void PeriodicServiceInventoryManager::sendRequest() {
   }
 
   auto [request, body] = httpRequest();
+
+  // Subclasses hand-build their request instead of going through
+  // RequestBuilder::send(), so this is the one place the cluster-internal JWT
+  // gets attached to them. Without it a coordinator that authenticates the
+  // announcement and heartbeat endpoints rejects both with 401 and the node
+  // never registers. httpRequest() returns the subclass's message by value, so
+  // the stored request is left untouched.
+  if (auto token = http::makeInternalJwt(jwtOptions_)) {
+    request.getHeaders().set(http::kPrestoInternalBearer, *token);
+  }
 
   client_->sendRequest(request, body)
       .via(eventBaseThread_.getEventBase())

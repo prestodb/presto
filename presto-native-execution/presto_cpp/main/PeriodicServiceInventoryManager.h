@@ -70,6 +70,11 @@ class PeriodicServiceInventoryManager {
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
   /// jitter value for backoff delay time in case of failure
   const double backOffjitterParam_{0.1};
+  /// Snapshot of the internal-JWT settings, cached the same way
+  /// PrestoExchangeSource caches them: no shipped path mutates the shared
+  /// secret at runtime. The token itself is still minted per request, because
+  /// it carries an expiry.
+  const http::JwtOptions jwtOptions_;
 
   folly::EventBaseThread eventBaseThread_;
   folly::SocketAddress serviceAddress_;
