@@ -5,6 +5,8 @@ Connectors
 This chapter describes the connectors available in Presto to access data
 from different data sources.
 
+See :doc:`sql/connector-statement-support` for an overview and compatibility matrix of SQL statement support across all connectors.
+
 .. toctree::
     :maxdepth: 1
 
