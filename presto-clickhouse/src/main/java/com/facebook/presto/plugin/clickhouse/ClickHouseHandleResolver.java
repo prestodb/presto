@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -34,7 +36,7 @@ public class ClickHouseHandleResolver
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
-        return ClickHouseTableHandle.class;
+        return JdbcTableHandle.class;
     }
 
     @Override
@@ -58,12 +60,12 @@ public class ClickHouseHandleResolver
     @Override
     public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
-        return ClickHouseOutputTableHandle.class;
+        return JdbcOutputTableHandle.class;
     }
 
     @Override
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
-        return ClickHouseOutputTableHandle.class;
+        return JdbcOutputTableHandle.class;
     }
 }
