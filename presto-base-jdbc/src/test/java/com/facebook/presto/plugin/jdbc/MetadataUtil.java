@@ -16,8 +16,16 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorCodec;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.thrift.codec.ThriftCodecProvider;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableMap;
@@ -34,17 +42,28 @@ final class MetadataUtil
 {
     private MetadataUtil() {}
 
-    public static final JsonCodec<JdbcColumnHandle> COLUMN_CODEC;
-    public static final JsonCodec<JdbcTableHandle> TABLE_CODEC;
-    public static final JsonCodec<JdbcOutputTableHandle> OUTPUT_TABLE_CODEC;
+    public static final JsonCodec<JdbcColumnHandle> COLUMN_JSON_CODEC;
+    public static final JsonCodec<JdbcTableHandle> TABLE_JSON_CODEC;
+    public static final JsonCodec<JdbcOutputTableHandle> OUTPUT_TABLE_JSON_CODEC;
+
+    public static final ConnectorCodec<ColumnHandle> COLUMN_THRIFT_CODEC;
+    public static final ConnectorCodec<ConnectorTableHandle> TABLE_THRIFT_CODEC;
+    public static final ConnectorCodec<ConnectorOutputTableHandle> OUTPUT_TABLE_THRIFT_CODEC;
+    public static final ConnectorCodec<ConnectorSplit> SPLIT_THRIFT_CODEC;
 
     static {
-        JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
-        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer()));
-        JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
-        COLUMN_CODEC = codecFactory.jsonCodec(JdbcColumnHandle.class);
-        TABLE_CODEC = codecFactory.jsonCodec(JdbcTableHandle.class);
-        OUTPUT_TABLE_CODEC = codecFactory.jsonCodec(JdbcOutputTableHandle.class);
+        JsonObjectMapperProvider jsonProvider = new JsonObjectMapperProvider();
+        jsonProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer()));
+        JsonCodecFactory codecFactory = new JsonCodecFactory(jsonProvider);
+        COLUMN_JSON_CODEC = codecFactory.jsonCodec(JdbcColumnHandle.class);
+        TABLE_JSON_CODEC = codecFactory.jsonCodec(JdbcTableHandle.class);
+        OUTPUT_TABLE_JSON_CODEC = codecFactory.jsonCodec(JdbcOutputTableHandle.class);
+        ThriftCodecProvider thriftProvider = JdbcConnector.createCodecProvider(
+                FunctionAndTypeManager.createTestFunctionAndTypeManager(), new BlockEncodingManager());
+        COLUMN_THRIFT_CODEC = thriftProvider.getColumnHandleCodec().get();
+        TABLE_THRIFT_CODEC = thriftProvider.getConnectorTableHandleCodec().get();
+        OUTPUT_TABLE_THRIFT_CODEC = thriftProvider.getConnectorOutputTableHandleCodec().get();
+        SPLIT_THRIFT_CODEC = thriftProvider.getConnectorSplitCodec().get();
     }
 
     public static final class TestingTypeDeserializer
@@ -72,6 +91,13 @@ final class MetadataUtil
     {
         String json = codec.toJson(object);
         T copy = codec.fromJson(json);
+        assertEquals(copy, object);
+    }
+
+    public static <T> void assertThriftRoundTrip(ConnectorCodec<T> codec, T object)
+    {
+        byte[] data = codec.serialize(object);
+        T copy = codec.deserialize(data);
         assertEquals(copy, object);
     }
 }
