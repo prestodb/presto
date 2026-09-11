@@ -232,7 +232,6 @@ public class TestNativeSidecarRetryDriver
     @Test
     public void testPermanentFailureAttachesFirstTransientAsSuppressed()
     {
-        // Single transient failure before permanent: only the first (and only) IOException suppressed.
         AtomicInteger attempts = new AtomicInteger();
 
         PrestoException thrown = expectThrows(PrestoException.class, () ->
@@ -245,14 +244,16 @@ public class TestNativeSidecarRetryDriver
                         "test",
                         () -> new PrestoException(GENERIC_INTERNAL_ERROR, "exhausted")));
 
-        assertEquals(thrown.getSuppressed().length, 1);
+        assertEquals(thrown.getSuppressed().length, 2);
         assertTrue(thrown.getSuppressed()[0] instanceof IOException);
+        assertEquals(thrown.getSuppressed()[0].getMessage(), "transient 1", "first failure");
+        assertTrue(thrown.getSuppressed()[1] instanceof IOException);
+        assertEquals(thrown.getSuppressed()[1].getMessage(), "transient 2", "latest failure");
     }
 
     @Test
     public void testBoundedSuppressedHistoryFirstLatestAndDropSummary()
     {
-        // 4 transient failures: expect suppressed = [first, summary, latest] — 3 entries total.
         AtomicInteger attempts = new AtomicInteger();
 
         PrestoException thrown = expectThrows(PrestoException.class, () ->
@@ -270,15 +271,14 @@ public class TestNativeSidecarRetryDriver
         assertTrue(suppressed[0] instanceof IOException);
         assertEquals(suppressed[0].getMessage(), "transient 1", "first failure");
         assertTrue(suppressed[1] instanceof RuntimeException);
-        assertTrue(suppressed[1].getMessage().contains("2 intermediate failure(s) dropped"));
+        assertTrue(suppressed[1].getMessage().contains("3 intermediate failure(s) dropped"));
         assertTrue(suppressed[2] instanceof IOException);
-        assertEquals(suppressed[2].getMessage(), "transient 4", "latest failure");
+        assertEquals(suppressed[2].getMessage(), "transient 5", "latest failure");
     }
 
     @Test
     public void testBoundedSuppressedHistoryTwoFailuresNoDropSummary()
     {
-        // 2 transient failures: expect suppressed = [first, latest] — no drop summary.
         AtomicInteger attempts = new AtomicInteger();
 
         PrestoException thrown = expectThrows(PrestoException.class, () ->
@@ -292,10 +292,12 @@ public class TestNativeSidecarRetryDriver
                         () -> new PrestoException(GENERIC_INTERNAL_ERROR, "exhausted")));
 
         Throwable[] suppressed = thrown.getSuppressed();
-        assertEquals(suppressed.length, 2);
+        assertEquals(suppressed.length, 3);
         assertTrue(suppressed[0] instanceof IOException);
         assertEquals(suppressed[0].getMessage(), "transient 1", "first failure");
-        assertTrue(suppressed[1] instanceof IOException);
-        assertEquals(suppressed[1].getMessage(), "transient 2", "latest failure");
+        assertTrue(suppressed[1] instanceof RuntimeException);
+        assertTrue(suppressed[1].getMessage().contains("1 intermediate failure(s) dropped"));
+        assertTrue(suppressed[2] instanceof IOException);
+        assertEquals(suppressed[2].getMessage(), "transient 3", "latest failure");
     }
 }
