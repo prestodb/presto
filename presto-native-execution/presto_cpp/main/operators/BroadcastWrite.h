@@ -29,11 +29,13 @@ class BroadcastWriteNode : public velox::core::PlanNode {
       const velox::core::PlanNodeId& id,
       const std::string& basePath,
       uint64_t maxBroadcastBytes,
+      uint64_t targetFileSize,
       velox::RowTypePtr serdeRowType,
       velox::core::PlanNodePtr source)
       : velox::core::PlanNode(id),
         basePath_{basePath},
         maxBroadcastBytes_{maxBroadcastBytes},
+        targetFileSize_{targetFileSize},
         serdeRowType_{std::move(serdeRowType)},
         sources_{std::move(source)} {}
 
@@ -64,6 +66,10 @@ class BroadcastWriteNode : public velox::core::PlanNode {
     return maxBroadcastBytes_;
   }
 
+  uint64_t targetFileSize() const {
+    return targetFileSize_;
+  }
+
   /// The desired schema of the serialized data. May include a subset of input
   /// columns, some columns may be duplicated, some columns may be missing,
   /// columns may appear in different order.
@@ -80,6 +86,7 @@ class BroadcastWriteNode : public velox::core::PlanNode {
 
   const std::string basePath_;
   const uint64_t maxBroadcastBytes_;
+  const uint64_t targetFileSize_;
   const velox::RowTypePtr serdeRowType_;
   const std::vector<velox::core::PlanNodePtr> sources_;
 };
