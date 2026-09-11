@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.spi.ConnectorCodec;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -39,15 +38,15 @@ public class MergeTableHandleJacksonModule
                 handleResolver::getId,
                 handleResolver::getMergeTableHandleClass,
                 featuresConfig.isUseConnectorProvidedSerializationCodecs(),
-                connectorId -> connectorManagerProvider.get()
-                        .getConnectorCodecProvider(connectorId)
+                connectorName -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorName)
                         .flatMap(ConnectorCodecProvider::getConnectorMergeTableHandleCodec));
     }
 
     public MergeTableHandleJacksonModule(
             HandleResolver handleResolver,
             FeaturesConfig featuresConfig,
-            Function<ConnectorId, Optional<ConnectorCodec<ConnectorMergeTableHandle>>> codecExtractor)
+            Function<String, Optional<ConnectorCodec<ConnectorMergeTableHandle>>> codecExtractor)
     {
         super(ConnectorMergeTableHandle.class,
                 handleResolver::getId,

@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.spi.ConnectorCodec;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -38,8 +37,8 @@ public class SplitJacksonModule
                 handleResolver::getId,
                 handleResolver::getSplitClass,
                 featuresConfig.isUseConnectorProvidedSerializationCodecs(),
-                connectorId -> connectorManagerProvider.get()
-                        .getConnectorCodecProvider(connectorId)
+                connectorName -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorName)
                         .flatMap(ConnectorCodecProvider::getConnectorSplitCodec));
     }
 
@@ -50,7 +49,7 @@ public class SplitJacksonModule
     public SplitJacksonModule(
             HandleResolver handleResolver,
             FeaturesConfig featuresConfig,
-            Function<ConnectorId, Optional<ConnectorCodec<ConnectorSplit>>> codecExtractor)
+            Function<String, Optional<ConnectorCodec<ConnectorSplit>>> codecExtractor)
     {
         super(ConnectorSplit.class,
                 handleResolver::getId,

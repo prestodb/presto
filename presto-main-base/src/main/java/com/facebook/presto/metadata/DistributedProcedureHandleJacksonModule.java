@@ -16,7 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Provider;
@@ -39,15 +38,15 @@ public class DistributedProcedureHandleJacksonModule
                 handleResolver::getId,
                 handleResolver::getDistributedProcedureHandleClass,
                 featuresConfig.isUseConnectorProvidedSerializationCodecs(),
-                connectorId -> connectorManagerProvider.get()
-                        .getConnectorCodecProvider(connectorId)
+                connectorName -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorName)
                         .flatMap(ConnectorCodecProvider::getConnectorDistributedProcedureHandleCodec));
     }
 
     public DistributedProcedureHandleJacksonModule(
             HandleResolver handleResolver,
             FeaturesConfig featuresConfig,
-            Function<ConnectorId, Optional<ConnectorCodec<ConnectorDistributedProcedureHandle>>> codecExtractor)
+            Function<String, Optional<ConnectorCodec<ConnectorDistributedProcedureHandle>>> codecExtractor)
     {
         super(ConnectorDistributedProcedureHandle.class,
                 handleResolver::getId,

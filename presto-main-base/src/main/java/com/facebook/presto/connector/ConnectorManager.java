@@ -290,6 +290,9 @@ public class ConnectorManager
 
         try {
             addConnectorInternal(connector);
+            // Keyed by connector name, which is what a handle carries as its type id.
+            connector.getConnectorCodecProvider()
+                    .ifPresent(codecProvider -> connectorCodecManager.addConnectorCodecProvider(connectorName, codecProvider));
             addConnectorInternal(informationSchemaConnector);
             addConnectorInternal(systemConnector);
             catalogManager.registerCatalog(catalog);
@@ -326,7 +329,6 @@ public class ConnectorManager
             connector.getPlanOptimizerProvider()
                     .ifPresent(planOptimizerProvider -> connectorPlanOptimizerManager.addPlanOptimizerProvider(connectorId, planOptimizerProvider));
         }
-        connector.getConnectorCodecProvider().ifPresent(connectorCodecProvider -> connectorCodecManager.addConnectorCodecProvider(connectorId, connectorCodecProvider));
         metadataManager.getProcedureRegistry().addProcedures(connectorId,
                 connector.getProcedures());
         Set<Class<?>> systemFunctions = connector.getSystemFunctions();
@@ -415,14 +417,9 @@ public class ConnectorManager
         }
     }
 
-    public Optional<ConnectorCodecProvider> getConnectorCodecProvider(ConnectorId connectorId)
+    public Optional<ConnectorCodecProvider> getConnectorCodecProvider(String connectorName)
     {
-        requireNonNull(connectorId, "connectorId is null");
-        MaterializedConnector materializedConnector = connectors.get(connectorId);
-        if (materializedConnector == null) {
-            return Optional.empty();
-        }
-        return materializedConnector.getConnectorCodecProvider();
+        return connectorCodecManager.getConnectorCodecProvider(connectorName);
     }
 
     private static class MaterializedConnector
