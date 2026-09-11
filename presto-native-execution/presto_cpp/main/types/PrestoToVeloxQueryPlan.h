@@ -13,6 +13,8 @@
  */
 #pragma once
 
+#include <folly/container/F14Set.h>
+
 #include <map>
 #include <memory>
 #include <optional>
@@ -354,4 +356,20 @@ void parseIndexLookupCondition(
     bool acceptConstant,
     std::vector<velox::core::IndexLookupConditionPtr>& joinConditionPtrs,
     std::vector<velox::core::TypedExprPtr>& unsupportedConditions);
+
+/// Translates 'notNullSourceVariables' to the target table column names that
+/// core::InsertTableHandle::notNullColumns() and the TableWriter operator match
+/// against. 'sourceVariables' and 'targetTableColumnNames' are parallel: the
+/// value of 'sourceVariables[i]' is written to target table column
+/// 'targetTableColumnNames[i]'. A source variable may feed several target table
+/// columns, in which case all of those column names are returned. Raises a
+/// system error if a not-null source variable is absent from 'sourceVariables',
+/// since enforcement for that column would otherwise be dropped. Exposed for
+/// testing.
+folly::F14FastSet<std::string> toNotNullColumnNames(
+    const protocol::List<protocol::VariableReferenceExpression>&
+        notNullSourceVariables,
+    const protocol::List<protocol::VariableReferenceExpression>&
+        sourceVariables,
+    const protocol::List<protocol::String>& targetTableColumnNames);
 } // namespace facebook::presto

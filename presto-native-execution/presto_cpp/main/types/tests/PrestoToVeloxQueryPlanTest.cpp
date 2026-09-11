@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/types/HyperLogLogRegistration.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/IPAddressRegistration.h"
@@ -43,6 +44,15 @@ void validateSqlFunctionHandleParsing(
   for (int i = 0; i < expectedRawInputTypes.size(); i++) {
     EXPECT_EQ(*expectedRawInputTypes[i], *actualRawInputTypes[i]);
   }
+}
+
+protocol::VariableReferenceExpression makeVariable(
+    const std::string& name,
+    const std::string& type = "bigint") {
+  protocol::VariableReferenceExpression variable;
+  variable.name = name;
+  variable.type = type;
+  return variable;
 }
 } // namespace
 
@@ -310,4 +320,53 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseIndexJoinNode) {
   ASSERT_NE(indexJoinNode->filter, nullptr);
   ASSERT_EQ(indexJoinNode->probeSource, nullptr);
   ASSERT_EQ(indexJoinNode->indexSource, nullptr);
+}
+
+TEST_F(PrestoToVeloxQueryPlanTest, notNullColumnNamesEmpty) {
+  EXPECT_TRUE(
+      toNotNullColumnNames({}, {makeVariable("expr_1")}, {"c1"}).empty());
+}
+
+TEST_F(PrestoToVeloxQueryPlanTest, notNullColumnNamesTranslatesToTargetNames) {
+  // Source variable order need not match the target table column order.
+  const protocol::List<protocol::VariableReferenceExpression> sourceVariables{
+      makeVariable("expr_1"), makeVariable("expr_2"), makeVariable("expr_3")};
+  const protocol::List<protocol::String> targetTableColumnNames{
+      "c3", "c1", "c2"};
+
+  EXPECT_EQ(
+      toNotNullColumnNames(
+          {makeVariable("expr_3"), makeVariable("expr_1")},
+          sourceVariables,
+          targetTableColumnNames),
+      (folly::F14FastSet<std::string>{"c2", "c3"}));
+}
+
+TEST_F(PrestoToVeloxQueryPlanTest, notNullColumnNamesSharedSourceVariable) {
+  // One source variable can be written to several target table columns, for
+  // example when the planner collapses identical projections in
+  // 'INSERT INTO t (c1, c2) SELECT x, x'. Every constrained target table
+  // column must be returned, not just one of them.
+  EXPECT_EQ(
+      toNotNullColumnNames(
+          {makeVariable("expr_1")},
+          {makeVariable("expr_1"), makeVariable("expr_1")},
+          {"c1", "c2"}),
+      (folly::F14FastSet<std::string>{"c1", "c2"}));
+}
+
+// An unknown variable means the coordinator sent an inconsistent plan, so it
+// is reported as a system error rather than a user error.
+TEST_F(PrestoToVeloxQueryPlanTest, notNullColumnNamesUnknownVariable) {
+  VELOX_ASSERT_THROW(
+      toNotNullColumnNames(
+          {makeVariable("expr_2")}, {makeVariable("expr_1")}, {"c1"}),
+      "NOT NULL column variable is not among the TableWriter source variables: expr_2");
+}
+
+TEST_F(PrestoToVeloxQueryPlanTest, notNullColumnNamesSizeMismatch) {
+  VELOX_ASSERT_USER_THROW(
+      toNotNullColumnNames(
+          {makeVariable("expr_1")}, {makeVariable("expr_1")}, {"c1", "c2"}),
+      "TableWriter source variables and target table column names must have the same size");
 }

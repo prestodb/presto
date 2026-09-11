@@ -1567,6 +1567,54 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
+folly::F14FastSet<std::string> toNotNullColumnNames(
+    const protocol::List<protocol::VariableReferenceExpression>&
+        notNullSourceVariables,
+    const protocol::List<protocol::VariableReferenceExpression>&
+        sourceVariables,
+    const protocol::List<protocol::String>& targetTableColumnNames) {
+  folly::F14FastSet<std::string> notNullTargetTableColumnNames;
+  if (notNullSourceVariables.empty()) {
+    return notNullTargetTableColumnNames;
+  }
+
+  VELOX_USER_CHECK_EQ(
+      sourceVariables.size(),
+      targetTableColumnNames.size(),
+      "TableWriter source variables and target table column names must have the same size");
+
+  folly::F14FastSet<std::string> notNullSourceVariableNames;
+  notNullSourceVariableNames.reserve(notNullSourceVariables.size());
+  for (const auto& variable : notNullSourceVariables) {
+    notNullSourceVariableNames.insert(variable.name);
+  }
+
+  // A source variable can feed more than one target table column, so translate
+  // by position: every constrained source variable contributes the name of each
+  // target table column it is written to.
+  folly::F14FastSet<std::string> translatedSourceVariableNames;
+  translatedSourceVariableNames.reserve(notNullSourceVariableNames.size());
+  notNullTargetTableColumnNames.reserve(sourceVariables.size());
+  for (size_t i = 0; i < sourceVariables.size(); ++i) {
+    if (notNullSourceVariableNames.contains(sourceVariables[i].name)) {
+      notNullTargetTableColumnNames.insert(targetTableColumnNames[i]);
+      translatedSourceVariableNames.insert(sourceVariables[i].name);
+    }
+  }
+
+  // The planner derives notNullColumnVariables from the same list as the
+  // TableWriter source variables, so a miss is an inconsistent plan from the
+  // coordinator rather than bad user input. Fail loudly instead of dropping the
+  // constraint silently.
+  for (const auto& name : notNullSourceVariableNames) {
+    VELOX_CHECK(
+        translatedSourceVariableNames.contains(name),
+        "NOT NULL column variable is not among the TableWriter source variables: {}",
+        name);
+  }
+  return notNullTargetTableColumnNames;
+}
+
 std::shared_ptr<const core::TableWriteNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::TableWriterNode>& node,
@@ -1602,7 +1650,10 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle, folly::F14FastSet<std::string>{});
+      connectorId,
+      connectorInsertHandle,
+      toNotNullColumnNames(
+          node->notNullColumnVariables, node->columns, node->columnNames));
 
   const auto outputType = toRowType(
       generateOutputVariables(
@@ -1663,7 +1714,10 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle, folly::F14FastSet<std::string>{});
+      connectorId,
+      connectorInsertHandle,
+      toNotNullColumnNames(
+          node->notNullColumnVariables, node->columns, node->columnNames));
 
   const auto outputType = toRowType(
       generateOutputVariables(
