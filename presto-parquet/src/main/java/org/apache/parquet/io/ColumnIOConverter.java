@@ -102,11 +102,21 @@ public class ColumnIOConverter
                 if (groupColumnIO.getChildrenCount() != 2) {
                     return Optional.empty();
                 }
-                Optional<Field> value = constructField(VarbinaryType.VARBINARY, groupColumnIO.getChild(0));
+                // Look up by name: the physical column order is not guaranteed
+                // (Iceberg / Spark write metadata first, value second)
+                ColumnIO valueColumnIO = lookupColumnByName(groupColumnIO, "value");
+                ColumnIO metadataColumnIO = lookupColumnByName(groupColumnIO, "metadata");
+                if (valueColumnIO == null) {
+                    throw new IllegalArgumentException("Value field is missing for variant type: " + type);
+                }
+                if (metadataColumnIO == null) {
+                    throw new IllegalArgumentException("Metadata field is missing for variant type: " + type);
+                }
+                Optional<Field> value = constructField(VarbinaryType.VARBINARY, valueColumnIO);
                 if (!value.isPresent()) {
                     throw new IllegalArgumentException("Value field is missing for variant type: " + type);
                 }
-                Optional<Field> metadata = constructField(VarbinaryType.VARBINARY, groupColumnIO.getChild(1));
+                Optional<Field> metadata = constructField(VarbinaryType.VARBINARY, metadataColumnIO);
                 if (!metadata.isPresent()) {
                     throw new IllegalArgumentException("Metadata field is missing for variant type: " + type);
                 }
