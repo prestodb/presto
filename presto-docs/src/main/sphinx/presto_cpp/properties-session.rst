@@ -150,6 +150,18 @@ This should only be used for debugging purposes.
 Temporary flag to control whether selective Nimble reader should be used in this
 query or not.
 
+``native_hash_probe_finish_early_on_empty_build``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. When the hash join build side is empty and the join type cannot produce output
+without matched build rows, finish the hash probe operator immediately and close the probe-side
+``ExchangeClient``. This cancels upstream producer tasks whose output would otherwise be received and
+dropped. Applies to inner, left semi filter, right semi filter, right, and non-null-aware right semi
+project joins.
+
 ``native_join_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

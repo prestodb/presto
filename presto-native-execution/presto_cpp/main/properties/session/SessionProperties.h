@@ -51,6 +51,14 @@ class SessionProperties : public SessionPropertiesProvider {
   /// Enable join spilling on native engine.
   static constexpr const char* kJoinSpillEnabled = "native_join_spill_enabled";
 
+  /// Finish hash probe early on empty build for join types where an empty
+  /// build guarantees no join output (inner, left/right semi filter, right,
+  /// non-null-aware right semi project). When enabled, HashProbe also closes
+  /// the probe-side ExchangeClient, which sends abortResults to upstream
+  /// producer tasks so they stop generating output that would be discarded.
+  static constexpr const char* kHashProbeFinishEarlyOnEmptyBuild =
+      "native_hash_probe_finish_early_on_empty_build";
+
   /// The maximum allowed spilling level for hash join build.
   static constexpr const char* kMaxSpillLevel = "native_max_spill_level";
 

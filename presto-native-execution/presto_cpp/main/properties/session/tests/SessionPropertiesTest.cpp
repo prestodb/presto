@@ -59,6 +59,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
        core::QueryConfig::kHashJoinSpillFileCreateConfig},
       {SessionProperties::kJoinSpillEnabled,
        core::QueryConfig::kJoinSpillEnabled},
+      {SessionProperties::kHashProbeFinishEarlyOnEmptyBuild,
+       core::QueryConfig::kHashProbeFinishEarlyOnEmptyBuild},
       {SessionProperties::kWindowSpillEnabled,
        core::QueryConfig::kWindowSpillEnabled},
       {SessionProperties::kWriterSpillEnabled,
