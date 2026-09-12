@@ -18,6 +18,7 @@ import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
@@ -26,6 +27,7 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.server.remotetask.DynamicFilterResponse;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -51,6 +53,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -300,6 +303,35 @@ public class TaskResource
         requireNonNull(remoteSourceTaskId, "remoteSourceTaskId is null");
 
         taskManager.removeRemoteSource(taskId, remoteSourceTaskId);
+    }
+
+    @GET
+    @Path("{taskId}/dynamicFilters")
+    @Produces(APPLICATION_JSON)
+    public Response getDynamicFilters(
+            @PathParam("taskId") TaskId taskId,
+            @QueryParam("since") @DefaultValue("0") long sinceVersion)
+    {
+        requireNonNull(taskId, "taskId is null");
+        // Java workers do not populate dynamicFilters; the write path lives in the native Presto
+        // worker (worktree-dpp-upstream-native-extraction). This endpoint is a Java-side stub so
+        // that DynamicFilterFetcher can safely long-poll against all task types without 404.
+        // The response echoes sinceVersion as the response version — the fetcher advances its
+        // lastFetchedVersion only when the response version is greater.
+        Map<String, TupleDomain<String>> filters = taskManager.getDynamicFiltersSince(taskId, sinceVersion);
+        return Response.ok(DynamicFilterResponse.incomplete(filters, sinceVersion)).build();
+    }
+
+    @DELETE
+    @Path("{taskId}/dynamicFilters")
+    public Response deleteDynamicFilters(
+            @PathParam("taskId") TaskId taskId,
+            @QueryParam("through") @DefaultValue("0") long through)
+    {
+        // Java-side stub: no in-memory filter state to release. The native worker implementation
+        // (worktree-dpp-upstream-native-extraction) will honour the `through` watermark to free
+        // per-partition filter data after the coordinator has acknowledged receipt.
+        return Response.noContent().build();
     }
 
     private static boolean shouldSummarize(UriInfo uriInfo)
