@@ -77,7 +77,7 @@ static std::unique_ptr<http::HttpServer> createHttpServer(
 }
 
 std::unique_ptr<facebook::presto::test::HttpServerWrapper> makeDiscoveryServer(
-    std::function<void()> onAnnouncement,
+    std::function<void(const std::string&)> onAnnouncement,
     bool useHttps) {
   auto httpServer = createHttpServer(useHttps);
 
@@ -85,9 +85,16 @@ std::unique_ptr<facebook::presto::test::HttpServerWrapper> makeDiscoveryServer(
       R"(/v1/announcement/(.+))",
       [onAnnouncement](
           proxygen::HTTPMessage* /*message*/,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
           proxygen::ResponseHandler* downstream) mutable {
-        onAnnouncement();
+        std::string announcement;
+        for (const auto& buf : body) {
+          if (buf != nullptr) {
+            announcement +=
+                std::string((const char*)buf->data(), buf->length());
+          }
+        }
+        onAnnouncement(announcement);
         proxygen::ResponseBuilder(downstream)
             .status(http::kHttpAccepted, "Accepted")
             .sendWithEOM();
@@ -117,13 +124,15 @@ class TestCoordinatorDiscoverer : public CoordinatorDiscoverer {
       folly::Promise<bool> announcementPromise,
       bool useHttps)
       : announcementCnt(0), addressLookupCnt(0), useHttps(useHttps) {
-    onAnnouncement = [this,
-                      promiseHolder = std::make_shared<PromiseHolder<bool>>(
-                          std::move(announcementPromise))]() {
-      if (++announcementCnt == 5) {
-        promiseHolder->get().setValue(true);
-      }
-    };
+    onAnnouncement =
+        [this,
+         promiseHolder = std::make_shared<PromiseHolder<bool>>(
+             std::move(announcementPromise))](const std::string& body) {
+          lastAnnouncementBody = body;
+          if (++announcementCnt == 5) {
+            promiseHolder->get().setValue(true);
+          }
+        };
     discoveryServer = makeDiscoveryServer(onAnnouncement, useHttps);
     serverAddress = discoveryServer->start().get();
   }
@@ -151,7 +160,8 @@ class TestCoordinatorDiscoverer : public CoordinatorDiscoverer {
 
   std::unique_ptr<test::HttpServerWrapper> discoveryServer;
   folly::SocketAddress serverAddress;
-  std::function<void()> onAnnouncement;
+  std::function<void(const std::string&)> onAnnouncement;
+  std::string lastAnnouncementBody;
   std::atomic_int announcementCnt;
   std::atomic_int addressLookupCnt;
   bool useHttps;
@@ -164,10 +174,16 @@ TEST_P(AnnouncerTestSuite, basic) {
   auto coordinatorDiscoverer =
       std::make_shared<TestCoordinatorDiscoverer>(std::move(promise), useHttps);
 
+  // When HTTPS is enabled the main announcement port is the HTTPS port and a
+  // separate plaintext HTTP port is also advertised; when disabled only the
+  // HTTP port exists.
+  constexpr int kMainPort = 1234;
+  constexpr int kHttpPort = 5678;
   Announcer announcer(
       "127.0.0.1",
       useHttps,
-      1234,
+      kMainPort,
+      useHttps ? std::optional<int>(kHttpPort) : std::nullopt,
       coordinatorDiscoverer,
       "testversion",
       "testing",
@@ -182,6 +198,27 @@ TEST_P(AnnouncerTestSuite, basic) {
   announcer.start();
   ASSERT_TRUE(std::move(future).getTry().hasValue());
   ASSERT_GE(coordinatorDiscoverer->addressLookupCnt, 8);
+
+  // Verify the announced URI properties. A node must advertise the "http"
+  // property whenever a plaintext port exists so it stays discoverable when the
+  // coordinator has internal-communication.https.required=false; when HTTPS is
+  // enabled it advertises both "http" and "https".
+  const auto properties = nlohmann::json::parse(
+      coordinatorDiscoverer->lastAnnouncementBody)["services"][0]["properties"];
+  if (useHttps) {
+    EXPECT_EQ(
+        properties.value("https", ""),
+        fmt::format("https://127.0.0.1:{}", kMainPort));
+    EXPECT_EQ(
+        properties.value("http", ""),
+        fmt::format("http://127.0.0.1:{}", kHttpPort));
+  } else {
+    EXPECT_EQ(
+        properties.value("http", ""),
+        fmt::format("http://127.0.0.1:{}", kMainPort));
+    EXPECT_FALSE(properties.contains("https"));
+  }
+
   announcer.stop();
 }
 
