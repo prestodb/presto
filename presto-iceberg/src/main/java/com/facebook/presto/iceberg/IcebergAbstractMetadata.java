@@ -2082,6 +2082,47 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
+    {
+        requireNonNull(tableName, "tableName is null");
+        ImmutableList.Builder<SchemaTableName> referencingViews = ImmutableList.builder();
+
+        List<String> schemas;
+        try {
+            schemas = listSchemaNames(session);
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to list schema names. Falling back to the table's schema: %s", tableName.getSchemaName());
+            schemas = ImmutableList.of(tableName.getSchemaName());
+        }
+
+        for (String schemaName : schemas) {
+            List<SchemaTableName> candidateViews;
+            try {
+                candidateViews = listMaterializedViews(session, schemaName);
+            }
+            catch (Exception e) {
+                log.warn(e, "Failed to list materialized views in schema: %s", schemaName);
+                continue;
+            }
+
+            for (SchemaTableName mvName : candidateViews) {
+                try {
+                    Optional<MaterializedViewDefinition> mvDefinition = getMaterializedView(session, mvName);
+                    if (mvDefinition.isPresent() && mvDefinition.get().getBaseTables().contains(tableName)) {
+                        referencingViews.add(mvName);
+                    }
+                }
+                catch (Exception e) {
+                    log.warn(e, "Failed to get materialized view definition for candidate: %s", mvName);
+                }
+            }
+        }
+
+        return Optional.of(referencingViews.build());
+    }
+
+    @Override
     public Optional<MaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         Optional<IcebergViewMetadata> viewMetadata = getViewMetadata(session, viewName);
