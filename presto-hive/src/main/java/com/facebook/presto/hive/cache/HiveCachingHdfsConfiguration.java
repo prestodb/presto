@@ -62,6 +62,13 @@ public class HiveCachingHdfsConfiguration
     public Configuration getConfiguration(HdfsContext context, URI uri)
     {
         Configuration defaultConfig = hiveHdfsConfiguration.getConfiguration(context, uri);
+        // Pin the plugin ClassLoader on the Configuration so that class resolution via
+        // conf.getClassByName() (e.g. PrestoS3FileSystem set as "fs.s3.impl") succeeds
+        // regardless of which thread calls getConfiguration(). Without this, calls from
+        // the Presto query-planning thread—whose context ClassLoader is the System
+        // ClassLoader, not the plugin ClassLoader—cause ClassNotFoundException when
+        // CachingJobConf.createFileSystem() later resolves the filesystem implementation.
+        defaultConfig.setClassLoader(getClass().getClassLoader());
         @SuppressWarnings("resource")
         Configuration config = new CachingJobConf((factoryConfig, factoryUri) -> {
             try {
