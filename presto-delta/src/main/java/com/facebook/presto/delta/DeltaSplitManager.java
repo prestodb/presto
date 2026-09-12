@@ -93,10 +93,12 @@ public class DeltaSplitManager
             while (rowIterator.hasNext() && currentSplitCount < maxSize && currentSplitCount < maxBatchSize) {
                 Row row = rowIterator.next();
                 FileStatus addFileStatus = InternalScanFileUtils.getAddFileStatus(row);
+
                 splitBuilder.add(new DeltaSplit(
                         connectorId,
                         deltaTable.getSchemaName(),
                         deltaTable.getTableName(),
+                        deltaTable.getTableLocation(),
                         addFileStatus.getPath(),
                         0, /* start */
                         addFileStatus.getSize() /* split length - default is read the entire file in one split */,

@@ -101,7 +101,7 @@ public class PrestoNativeQueryRunnerUtils
     private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
     private static final String SYMLINK_FOLDER = "symlink_tables_manifests";
-    private static final PrincipalPrivileges PRINCIPAL_PRIVILEGES = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
+    public static final PrincipalPrivileges PRINCIPAL_PRIVILEGES = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
     private static final ErrorCode CREATE_ERROR_CODE = new ErrorCode(123, "CREATE_ERROR_CODE", INTERNAL_ERROR);
 
     private static final StorageFormat STORAGE_FORMAT_SYMLINK_TABLE = StorageFormat.create(
@@ -601,8 +601,14 @@ public class PrestoNativeQueryRunnerUtils
                 externalWorkerLauncher = getExternalWorkerLauncher("delta", "delta", serverBinary, cacheMaxSize, remoteFunctionServerUds,
                         Optional.empty(), false, false, false, false, false, false, false, workerImage, dataDirectory);
             }
+
+            // Set legacy_timestamp to true to adjust timestamps to timezone for Delta queries
+            // This ensures timestamps are properly adjusted in native execution
+            Map<String, String> sessionProperties = ImmutableMap.of("legacy_timestamp", "true");
+
             DeltaQueryRunner.Builder builder = DeltaQueryRunner.builder()
                     .setExtraProperties(extraProperties)
+                    .setSessionProperties(sessionProperties)
                     .setNodeCount(OptionalInt.of(workerCount))
                     .setExternalWorkerLauncher(externalWorkerLauncher)
                     .setTimeZoneKey(timeZoneKey);
@@ -886,10 +892,16 @@ public class PrestoNativeQueryRunnerUtils
                     }
 
                     // Write config file - use an ephemeral port (0) for bare-metal, pre-allocated port for container.
+                    // On macOS (Apple Silicon), the OS page size is 16KB which trips Velox's MmapAllocator
+                    // page-size check. Fall back to the malloc allocator so the native worker starts.
+                    String mmapAllocatorProperty = System.getProperty("os.name").toLowerCase().contains("mac")
+                            ? "use-mmap-allocator=false%n"
+                            : "";
                     String configProperties = format("discovery.uri=%s%n" +
                             "presto.version=testversion%n" +
                             "plan-consistency-check-enabled=true%n" +
                             "system-memory-gb=4%n" +
+                            mmapAllocatorProperty +
                             "http-server.http.port=%d%n", discoveryUri, workerPort);
 
                     if (coordinatorSidecarEnabled) {
