@@ -77,6 +77,9 @@ import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_T
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METADATA_FOLDER_NAME;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.getFileSystem;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.resolveLatestMetadataLocation;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -3140,6 +3143,50 @@ public abstract class IcebergDistributedSmokeTestBase
             resultWithAggregatePushDown = getQueryRunner().execute(aggregatePushDownEnabled, queryWithFilter);
             resultWithoutAggregatePushDown = getQueryRunner().execute(aggregatePushDownDisabled, queryWithFilter);
             Assert.assertEquals(resultWithAggregatePushDown, resultWithoutAggregatePushDown);
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    /**
+     * COUNT(*) on its own needs no column metrics: it folds from each file's record count, so the
+     * scan asks for no per-file bounds at all. That is a different code path from an aggregate list
+     * that mixes "*" with named columns, and it is only correct if the record counts alone are
+     * enough. Both the unconstrained and the filtered form are covered, because a predicate changes
+     * which files the fold walks.
+     */
+    @Test
+    public void testAggregatePushDownForCountStarOnly()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session aggregatePushDownEnabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "true")
+                .build();
+        Session aggregatePushDownDisabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "false")
+                .build();
+
+        String tableName = "test_lineitem_count_star_only";
+        try {
+            queryRunner.execute("CREATE TABLE " + tableName +
+                    " with (partitioning = ARRAY['suppkey'])" +
+                    " as select * from tpch.tiny.lineitem");
+
+            @Language("SQL") String query = "select count(*) from " + tableName;
+            Assert.assertEquals(
+                    queryRunner.execute(aggregatePushDownEnabled, query),
+                    queryRunner.execute(aggregatePushDownDisabled, query));
+            // The results above match whether or not the aggregate was pushed down, so pin the
+            // plans too: pushed down, the table scan is gone and the count is a constant, while
+            // with pushdown off the scan is still there.
+            assertPlan(aggregatePushDownEnabled, query, anyTree(values(1)));
+            assertPlan(aggregatePushDownDisabled, query, anyTree(tableScan(tableName)));
+
+            @Language("SQL") String queryWithFilter = "select count(*) from " + tableName + " where suppkey > 50";
+            Assert.assertEquals(
+                    queryRunner.execute(aggregatePushDownEnabled, queryWithFilter),
+                    queryRunner.execute(aggregatePushDownDisabled, queryWithFilter));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
