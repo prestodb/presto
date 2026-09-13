@@ -453,6 +453,14 @@ Property Name                                           Description             
 ``iceberg.max-statistics-file-cache-size``              Maximum size in bytes that should be consumed by the          ``256MB``                          Yes                 Yes, only needed on coordinator
                                                         statistics file cache.
 
+``iceberg.manifest-summary-cache-enabled``              Set to ``true`` to reuse the folded manifest summary across   ``false``                          Yes                 Yes, only needed on coordinator
+                                                        queries. Entries are keyed on the snapshot, so a hit is
+                                                        never stale.
+
+``iceberg.max-manifest-summary-cache-size``             Maximum size in bytes that should be consumed by the          ``64MB``                           Yes                 Yes, only needed on coordinator
+                                                        manifest summary cache. Sized rather than counted because
+                                                        one entry grows with the table's column count.
+
 ``iceberg.aggregate-push-down-enabled``                 Controls whether to push down aggregate (MIN/MAX/COUNT) to    ``true``                           Yes                 Yes
                                                         Iceberg based on data file stats.
 
@@ -715,6 +723,13 @@ Session properties set behavior changes for queries executed within the given se
        ``iceberg.aggregate-push-down-enabled`` in the current session.
      - Yes
      - Yes
+   * - .. _iceberg-sess-manifest-summary-cache-enabled:
+
+       ``manifest_summary_cache_enabled``
+     - Overrides the behavior of the connector property
+       ``iceberg.manifest-summary-cache-enabled`` in the current session.
+     - Yes
+     - Yes
 
 Caching Support
 ---------------
@@ -727,6 +742,29 @@ Support for Puffin-based statistics caching. It is enabled by default.
 JMX query to get the metrics and verify the cache usage::
 
     SELECT * FROM jmx.current."com.facebook.presto.iceberg.statistics:name=iceberg,type=statisticsfilecache";
+
+Manifest Summary Caching
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Reuse of the manifest summary that the coordinator folds while planning. Producing
+that summary walks every data file in the snapshot and decodes its per-file column
+bounds, and a single query asks for it more than once, because a new statistics
+provider is built for each optimizer pass.
+
+Each entry is keyed on the snapshot, schema and partition spec ids, the pushed-down
+predicate, and the columns whose metrics were requested. Those inputs are immutable,
+so an entry can be shared by any query, session or user and can never be stale: a
+commit produces a new snapshot id, and therefore a new entry rather than a stale hit.
+
+It is disabled by default, because it is an additional consumer of coordinator memory.
+Enable it with ``iceberg.manifest-summary-cache-enabled``, bound its memory with
+``iceberg.max-manifest-summary-cache-size``, and override it for a single session with
+the ``manifest_summary_cache_enabled`` session property.
+
+JMX query to get the metrics and verify the cache usage. ``foldedfiles`` counts the data
+files read on a miss, so it stops growing once the summaries a workload needs are cached::
+
+    SELECT * FROM jmx.current."com.facebook.presto.iceberg:name=iceberg,type=manifestsummarycache";
 
 Manifest File Caching
 ^^^^^^^^^^^^^^^^^^^^^
@@ -1476,6 +1514,18 @@ Manifest file cache invalidation procedure
 * Invalidate Manifest file cache: ::
 
     CALL <catalog-name>.system.invalidate_manifest_file_cache();
+
+Manifest summary cache invalidation procedure
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Entries in the manifest summary cache are keyed on the snapshot, so they do not need to
+be invalidated after a normal commit. This procedure exists for the cases that break
+that assumption, such as metadata rolled back outside of Presto or a table re-registered
+against different metadata.
+
+* Invalidate Manifest summary cache: ::
+
+    CALL <catalog-name>.system.invalidate_manifest_summary_cache();
 
 Set Table Property
 ^^^^^^^^^^^^^^^^^^

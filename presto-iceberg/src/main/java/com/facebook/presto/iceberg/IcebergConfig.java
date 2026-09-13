@@ -69,6 +69,8 @@ public class IcebergConfig
     private boolean metadataDeleteAfterCommit = METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
     private int metricsMaxInferredColumn = METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
     private int statisticsKllSketchKParameter = 1024;
+    private boolean manifestSummaryCacheEnabled;
+    private DataSize maxManifestSummaryCacheSize = succinctDataSize(64, MEGABYTE);
 
     private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
     private String fileIOImpl = HadoopFileIO.class.getName();
@@ -472,6 +474,34 @@ public class IcebergConfig
     public IcebergConfig setMetricsMaxInferredColumn(int metricsMaxInferredColumn)
     {
         this.metricsMaxInferredColumn = metricsMaxInferredColumn;
+        return this;
+    }
+
+    public boolean isManifestSummaryCacheEnabled()
+    {
+        return manifestSummaryCacheEnabled;
+    }
+
+    @Config("iceberg.manifest-summary-cache-enabled")
+    @ConfigDescription("Reuse the folded manifest summary across queries. Off by default: entries are keyed on the "
+            + "snapshot and so are never stale, but the cache is a new source of coordinator memory pressure")
+    public IcebergConfig setManifestSummaryCacheEnabled(boolean manifestSummaryCacheEnabled)
+    {
+        this.manifestSummaryCacheEnabled = manifestSummaryCacheEnabled;
+        return this;
+    }
+
+    public DataSize getMaxManifestSummaryCacheSize()
+    {
+        return maxManifestSummaryCacheSize;
+    }
+
+    @Config("iceberg.max-manifest-summary-cache-size")
+    @ConfigDescription("The maximum size in bytes the manifest summary cache should consume. Sized rather than "
+            + "counted because one entry grows with the table's column count")
+    public IcebergConfig setMaxManifestSummaryCacheSize(DataSize maxManifestSummaryCacheSize)
+    {
+        this.maxManifestSummaryCacheSize = maxManifestSummaryCacheSize;
         return this;
     }
 

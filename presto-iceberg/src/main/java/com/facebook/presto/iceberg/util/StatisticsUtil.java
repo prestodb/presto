@@ -21,6 +21,7 @@ import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
+import com.facebook.presto.iceberg.ManifestSummaryCache;
 import com.facebook.presto.iceberg.TableStatisticsMaker;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.ColumnHandle;
@@ -232,6 +233,7 @@ public final class StatisticsUtil
             TypeManager typeManager,
             ConnectorSession session,
             StatisticsFileCache statisticsFileCache,
+            ManifestSummaryCache manifestSummaryCache,
             IcebergTableHandle tableHandle,
             Optional<ConnectorTableLayoutHandle> tableLayoutHandle,
             List<ColumnHandle> columnHandles,
@@ -245,6 +247,7 @@ public final class StatisticsUtil
                 tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast));
         return TableStatisticsMaker.getTableStatistics(session, typeManager,
                 statisticsFileCache,
+                manifestSummaryCache,
                 tableLayoutHandle
                         .map(IcebergTableLayoutHandle.class::cast)
                         .map(IcebergTableLayoutHandle::getValidPredicate),

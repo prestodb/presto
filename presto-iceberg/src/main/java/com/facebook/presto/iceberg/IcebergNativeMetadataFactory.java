@@ -47,6 +47,7 @@ public class IcebergNativeMetadataFactory
     final NodeVersion nodeVersion;
     final FilterStatsCalculatorService filterStatsCalculatorService;
     final StatisticsFileCache statisticsFileCache;
+    final ManifestSummaryCache manifestSummaryCache;
     final IcebergTableProperties tableProperties;
 
     @Inject
@@ -63,6 +64,7 @@ public class IcebergNativeMetadataFactory
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             StatisticsFileCache statisticsFileCache,
+            ManifestSummaryCache manifestSummaryCache,
             IcebergTableProperties tableProperties)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
@@ -77,6 +79,7 @@ public class IcebergNativeMetadataFactory
         this.catalogType = config.getCatalogType();
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
+        this.manifestSummaryCache = requireNonNull(manifestSummaryCache, "manifestSummaryCache is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
     }
 
@@ -89,6 +92,6 @@ public class IcebergNativeMetadataFactory
     {
         return new IcebergNativeMetadata(catalogFactory, typeManager, procedureRegistry, functionResolution,
                 rowExpressionService, commitTaskCodec, columnMappingsCodec, schemaTableNamesCodec, catalogType, nodeVersion,
-                filterStatsCalculatorService, statisticsFileCache, tableProperties, isolationLevel, autoCommitContext);
+                filterStatsCalculatorService, statisticsFileCache, manifestSummaryCache, tableProperties, isolationLevel, autoCommitContext);
     }
 }

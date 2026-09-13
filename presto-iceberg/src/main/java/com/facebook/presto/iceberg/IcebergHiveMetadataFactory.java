@@ -54,6 +54,7 @@ public class IcebergHiveMetadataFactory
     final FilterStatsCalculatorService filterStatsCalculatorService;
     final IcebergHiveTableOperationsConfig operationsConfig;
     final StatisticsFileCache statisticsFileCache;
+    final ManifestSummaryCache manifestSummaryCache;
     final ManifestFileCache manifestFileCache;
     final IcebergTableProperties tableProperties;
     final ConnectorSystemConfig connectorSystemConfig;
@@ -77,6 +78,7 @@ public class IcebergHiveMetadataFactory
             FilterStatsCalculatorService filterStatsCalculatorService,
             IcebergHiveTableOperationsConfig operationsConfig,
             StatisticsFileCache statisticsFileCache,
+            ManifestSummaryCache manifestSummaryCache,
             ManifestFileCache manifestFileCache,
             IcebergTableProperties tableProperties,
             ConnectorSystemConfig connectorSystemConfig,
@@ -96,6 +98,7 @@ public class IcebergHiveMetadataFactory
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.operationsConfig = requireNonNull(operationsConfig, "operationsConfig is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
+        this.manifestSummaryCache = requireNonNull(manifestSummaryCache, "manifestSummaryCache is null");
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "icebergTableProperties is null");
         this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
@@ -129,6 +132,7 @@ public class IcebergHiveMetadataFactory
                 filterStatsCalculatorService,
                 operationsConfig,
                 statisticsFileCache,
+                manifestSummaryCache,
                 manifestFileCache,
                 tableProperties,
                 connectorSystemConfig,
