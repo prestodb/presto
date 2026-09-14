@@ -1792,49 +1792,95 @@ frequently used together in query predicates.
 SQL Support
 -----------
 
-======================================== ============= ============ ============================================================================
-SQL Operation                            Presto Java   Presto C++   Comments
-======================================== ============= ============ ============================================================================
-``CREATE SCHEMA``                        Yes           Yes
+.. list-table::
+   :header-rows: 1
+   :widths: 30 10 10 50
 
-``CREATE TABLE``                         Yes           Yes
-
-``CREATE VIEW``                          Yes           Yes
-
-``INSERT INTO``                          Yes           No
-
-``CREATE TABLE AS SELECT``               Yes           No
-
-``SELECT``                               Yes           Yes          Read is supported in Presto C++ including those with positional delete files.
-
-``ALTER TABLE``                              Yes           Yes
-
-``ALTER TABLE ADD COLUMN DEFAULT``           Yes           Yes
-
-``ALTER TABLE ALTER COLUMN SET DEFAULT``     Yes           Yes
-
-``ALTER VIEW``                               Yes           Yes
-
-``TRUNCATE``                             Yes           Yes
-
-``DELETE``                               Yes           No
-
-``DROP TABLE``                           Yes           Yes
-
-``DROP VIEW``                            Yes           Yes
-
-``DROP SCHEMA``                          Yes           Yes
-
-``SHOW CREATE TABLE``                    Yes           Yes
-
-``SHOW COLUMNS``                         Yes           Yes
-
-``DESCRIBE``                             Yes           Yes
-
-``UPDATE``                               Yes           No
-
-``MERGE``                                Yes           No
-======================================== ============= ============ ============================================================================
+   * - SQL Operation
+     - Presto Java
+     - Presto C++
+     - Comments
+   * - ``CREATE SCHEMA``
+     - Yes
+     - Yes
+     -
+   * - ``CREATE TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``CREATE VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``INSERT INTO``
+     - Yes
+     - No
+     -
+   * - ``CREATE TABLE AS SELECT``
+     - Yes
+     - No
+     -
+   * - ``SELECT``
+     - Yes
+     - Yes
+     - Read is supported in Presto C++ including those with positional delete
+       files.
+   * - ``ALTER TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ADD COLUMN DEFAULT``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN SET DEFAULT``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``TRUNCATE``
+     - Yes
+     - Yes
+     -
+   * - ``DELETE``
+     - Yes
+     - No
+     -
+   * - ``DROP TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``DROP VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``DROP SCHEMA``
+     - Yes
+     - Yes
+     -
+   * - ``SHOW CREATE TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``SHOW COLUMNS``
+     - Yes
+     - Yes
+     -
+   * - ``DESCRIBE``
+     - Yes
+     - Yes
+     -
+   * - ``UPDATE``
+     - Yes
+     - No
+     -
+   * - ``MERGE``
+     - Yes
+     - No
+     -
 
 The Iceberg connector supports querying and manipulating Iceberg tables and schemas
 (databases). Here are some examples of the SQL operations supported by Presto:
