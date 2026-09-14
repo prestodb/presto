@@ -87,6 +87,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.SystemSessionProperties.EXPERIMENTAL_DETERMINISTIC_BOUNDED_SPLITS;
 import static com.facebook.presto.SystemSessionProperties.MAX_UNACKNOWLEDGED_SPLITS_PER_TASK;
 import static com.facebook.presto.SystemSessionProperties.RESOURCE_AWARE_SCHEDULING_STRATEGY;
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
@@ -104,6 +105,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -596,6 +598,100 @@ public class TestNodeScheduler
         Set<InternalNode> internalNodes = splitPlacementResult.getAssignments().keySet();
         // Split doesn't support affinity schedule, fall back to random schedule
         assertEquals(internalNodes.size(), 2);
+    }
+
+    @Test
+    public void testDeterministicPlacementIsOptInAndRequiresPreparation()
+    {
+        assertFalse(nodeSelector.requiresFullSplitSet());
+        NodeSelector candidate = boundedSelector();
+        assertTrue(candidate.requiresFullSplitSet());
+        expectThrows(IllegalStateException.class, () -> candidate.computeAssignments(affinitySplits(15), ImmutableList.of()));
+    }
+
+    @Test
+    public void testDeterministicOwnersSurviveNewSelectorAndAdmissionBatches()
+    {
+        Set<Split> splits = affinitySplits(15);
+        NodeSelector first = boundedSelector();
+        first.prepareForSplits(splits);
+        Multimap<InternalNode, Split> firstAssignments = first.computeAssignments(splits, ImmutableList.of()).getAssignments();
+        assertEquals(firstAssignments.size(), 15);
+        assertTrue(firstAssignments.asMap().values().stream().allMatch(assigned -> assigned.size() <= 5));
+        assertTrue(firstAssignments.values().stream().allMatch(split -> split.getSplitContext().isCacheable()));
+
+        NodeSelector second = boundedSelector();
+        second.prepareForSplits(affinitySplits(15));
+        Map<String, String> repeatedOwners = new HashMap<>();
+        // Queue timing changes which subset is submitted, not its planned owner.
+        for (Split split : splits) {
+            repeatedOwners.putAll(owners(second.computeAssignments(ImmutableSet.of(split), ImmutableList.of()).getAssignments()));
+        }
+        assertEquals(repeatedOwners, owners(firstAssignments));
+    }
+
+    @Test
+    public void testDeterministicOwnerIsNotChangedByQueuePressure()
+    {
+        NodeSelector candidate = boundedSelector(1);
+        Set<Split> splits = affinitySplits(1);
+        candidate.prepareForSplits(splits);
+        InternalNode owner = candidate.computeAssignments(splits, ImmutableList.of()).getAssignments().keySet().iterator().next();
+        TaskId taskId = new TaskId("busy", 1, 0, 1, 0);
+        MockRemoteTaskFactory.MockRemoteTask task = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor)
+                .createTableScanTask(taskId, owner, ImmutableList.of(), nodeTaskMap.createTaskStatsTracker(owner, taskId));
+        task.setUnacknowledgedSplits(1);
+        assertTrue(candidate.computeAssignments(splits, ImmutableList.of(task)).getAssignments().isEmpty());
+        task.setUnacknowledgedSplits(0);
+        assertEquals(candidate.computeAssignments(splits, ImmutableList.of(task)).getAssignments().keySet(), ImmutableSet.of(owner));
+        task.abort();
+    }
+
+    @Test
+    public void testDeterministicPlacementRejectsUnsupportedAffinityAndDoublePreparation()
+    {
+        NodeSelector candidate = boundedSelector();
+        ConnectorSplit unsupported = new TestAffinitySplitRemote(1)
+        {
+            @Override
+            public Optional<String> getCacheAffinityKey()
+            {
+                return Optional.empty();
+            }
+        };
+        expectThrows(com.facebook.presto.spi.PrestoException.class,
+                () -> candidate.prepareForSplits(ImmutableSet.of(new Split(CONNECTOR_ID, TestingTransactionHandle.create(), unsupported))));
+        candidate.prepareForSplits(affinitySplits(1));
+        expectThrows(IllegalStateException.class, () -> candidate.prepareForSplits(affinitySplits(1)));
+    }
+
+    private NodeSelector boundedSelector()
+    {
+        return boundedSelector(1000);
+    }
+
+    private NodeSelector boundedSelector(int maxUnacknowledged)
+    {
+        Session bounded = TestingSession.testSessionBuilder()
+                .setSystemProperty(EXPERIMENTAL_DETERMINISTIC_BOUNDED_SPLITS, "true")
+                .setSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.toString(maxUnacknowledged))
+                .build();
+        return nodeScheduler.createNodeSelector(bounded, CONNECTOR_ID);
+    }
+
+    private static Set<Split> affinitySplits(int count)
+    {
+        return IntStream.range(0, count)
+                .mapToObj(i -> new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestAffinitySplitRemote(i)))
+                .collect(toImmutableSet());
+    }
+
+    private static Map<String, String> owners(Multimap<InternalNode, Split> assignments)
+    {
+        Map<String, String> owners = new HashMap<>();
+        assignments.entries().forEach(entry -> owners.put(
+                entry.getValue().getConnectorSplit().getCacheAffinityKey().get(), entry.getKey().getNodeIdentifier()));
+        return owners;
     }
 
     @Test
@@ -1468,6 +1564,12 @@ public class TestNodeScheduler
         public Object getSplitIdentifier()
         {
             return scheduleIdentifierId;
+        }
+
+        @Override
+        public Optional<String> getCacheAffinityKey()
+        {
+            return Optional.of("file-" + scheduleIdentifierId);
         }
 
         @Override
