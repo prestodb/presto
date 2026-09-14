@@ -172,6 +172,12 @@ public class HiveSplit
         return addresses;
     }
 
+    @Override
+    public Optional<String> getCacheAffinityKey()
+    {
+        return Optional.of(fileSplit.getPath() + "#" + fileSplit.getAffinitySchedulingFileSectionIndex());
+    }
+
     @JsonProperty
     public OptionalInt getReadBucketNumber()
     {
