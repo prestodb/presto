@@ -365,6 +365,10 @@ TaskManager::TaskManager(
           std::make_unique<QueryContextManager>(
               driverExecutor,
               spillerExecutor)),
+      taskSyncTerminateEnabled_(
+          SystemConfig::instance()->taskSyncTerminateEnabled()),
+      taskSyncTerminateTimeoutMs_(
+          SystemConfig::instance()->taskSyncTerminateTimeoutMs()),
       bufferManager_(velox::exec::DefaultOutputBufferManager::getInstanceRef()),
       httpSrvCpuExecutor_(httpSrvCpuExecutor),
       lastNotOverloadedTimeInSecs_(velox::getCurrentTimeSec()) {
@@ -398,6 +402,15 @@ bool TaskManager::emptyBaseSpillDirectory() const {
 void TaskManager::setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs) {
   VELOX_CHECK_GE(oldTaskCleanUpMs, 0);
   oldTaskCleanUpMs_ = oldTaskCleanUpMs;
+}
+
+void TaskManager::setTaskSyncTerminateEnabled(bool taskSyncTerminateEnabled) {
+  taskSyncTerminateEnabled_ = taskSyncTerminateEnabled;
+}
+
+void TaskManager::setTaskSyncTerminateTimeoutMs(
+    uint64_t taskSyncTerminateTimeoutMs) {
+  taskSyncTerminateTimeoutMs_ = taskSyncTerminateTimeoutMs;
 }
 
 TaskMap TaskManager::tasks() const {
@@ -928,16 +941,14 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
 
   std::unique_ptr<TaskInfo> taskInfo;
   bool dropTask{false};
+  velox::ContinueFuture taskDrainFuture = velox::ContinueFuture::makeEmpty();
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     prestoTask->updateHeartbeatLocked();
     prestoTask->updateCoordinatorHeartbeatLocked();
     auto execTask = prestoTask->task;
     if (execTask) {
-      auto state = execTask->state();
-      if (state == exec::TaskState::kRunning) {
-        execTask->requestAbort();
-      }
+      taskDrainFuture = execTask->requestAbort();
       prestoTask->info.stats.endTimeInMillis = velox::getCurrentTimeMs();
       prestoTask->updateInfoLocked(summarize);
 
@@ -971,6 +982,18 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
   // with.
   if (dropTask) {
     taskMap_.withWLock([&](auto& taskMap) { taskMap.erase(taskId); });
+  }
+  if (taskSyncTerminateEnabled_) {
+    const auto taskSyncTerminateTimeout =
+        std::chrono::milliseconds(taskSyncTerminateTimeoutMs_);
+    try {
+      std::move(taskDrainFuture).within(taskSyncTerminateTimeout).get();
+    } catch (const folly::FutureTimeout&) {
+      VELOX_FAIL(
+          "Task could not be terminated within {} ms. Task ID: {}",
+          taskSyncTerminateTimeout.count(),
+          taskId);
+    }
   }
 
   return taskInfo;

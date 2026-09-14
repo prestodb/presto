@@ -784,6 +784,14 @@ class SystemConfig : public ConfigBase {
   /// cleanup.
   static constexpr std::string_view kOldTaskCleanUpMs{"old-task-cleanup-ms"};
 
+  /// If true, wait for task Drivers to stop after aborting a dropped task.
+  static constexpr std::string_view kTaskSyncTerminateEnabled{
+      "task.sync-terminate-enabled"};
+
+  /// Maximum time to wait for task Drivers to stop after abort.
+  static constexpr std::string_view kTaskSyncTerminateTimeoutMs{
+      "task.sync-terminate-timeout-ms"};
+
   /// Enable periodic old task clean up. Typically enabled for presto (default)
   /// and disabled for presto-on-spark.
   static constexpr std::string_view kEnableOldTaskCleanUp{
@@ -1337,6 +1345,10 @@ class SystemConfig : public ConfigBase {
   bool includeNodeInSpillPath() const;
 
   int32_t oldTaskCleanUpMs() const;
+
+  bool taskSyncTerminateEnabled() const;
+
+  uint64_t taskSyncTerminateTimeoutMs() const;
 
   bool enableOldTaskCleanUp() const;
 
