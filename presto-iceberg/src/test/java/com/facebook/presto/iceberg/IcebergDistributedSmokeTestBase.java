@@ -834,7 +834,7 @@ public abstract class IcebergDistributedSmokeTestBase
         // schema, so it is not a usable target; the engine rejects it before the connector is reached
         assertQueryFails(
                 "ALTER TABLE test_add_column_position_errors ADD COLUMN c INTEGER AFTER \"$path\"",
-                ".*Cannot add a column after hidden column '\\$path'");
+                ".*Cannot position a column after hidden column '\\$path'");
         assertEquals(columnNames("test_add_column_position_errors"), ImmutableList.of("a", "b"));
 
         // IF NOT EXISTS makes the same statement a no-op, which must not reorder the existing column either
@@ -843,6 +843,96 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuery(session, "SELECT * FROM test_add_column_position_errors", "VALUES (1, 2)");
 
         dropTable(session, "test_add_column_position_errors");
+    }
+
+    @Test
+    public void testSetColumnPosition()
+    {
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_set_column_position (a INTEGER, b INTEGER, c INTEGER)");
+        assertUpdate(session, "INSERT INTO test_set_column_position VALUES (1, 2, 3)", 1);
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("a", "b", "c"));
+
+        // Moving a column moves its values with it, so reading by name is unaffected while SELECT *, which
+        // expands in table order, reflects the new order. Every column holds a distinct value, so the two
+        // assertions together fail unless the engine and the connector agree on where each column now is
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c FIRST");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("c", "a", "b"));
+        assertQuery(session, "SELECT * FROM test_set_column_position", "VALUES (3, 1, 2)");
+        assertQuery(session, "SELECT a, b, c FROM test_set_column_position", "VALUES (1, 2, 3)");
+
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c AFTER a");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("a", "c", "b"));
+        assertQuery(session, "SELECT * FROM test_set_column_position", "VALUES (1, 3, 2)");
+
+        // With no LAST keyword, a column is moved to the end by naming the column that is currently last
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN a AFTER b");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("c", "b", "a"));
+        assertQuery(session, "SELECT * FROM test_set_column_position", "VALUES (3, 2, 1)");
+
+        // A move to where the column already is has nothing to do, rather than being an error
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN a AFTER b");
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c FIRST");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("c", "b", "a"));
+
+        // Several moves in sequence, restoring the original order
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN a FIRST");
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN b AFTER a");
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c AFTER b");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("a", "b", "c"));
+        assertQuery(session, "SELECT * FROM test_set_column_position", "VALUES (1, 2, 3)");
+
+        // Rows written after the moves round-trip in the current order
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c FIRST");
+        assertUpdate(session, "INSERT INTO test_set_column_position VALUES (30, 10, 20)", 1);
+        assertQuery(session, "SELECT a, b, c FROM test_set_column_position WHERE a = 10", "VALUES (10, 20, 30)");
+        assertQueryOrdered(session, "SELECT * FROM test_set_column_position ORDER BY a", "VALUES (3, 1, 2), (30, 10, 20)");
+
+        dropTable(session, "test_set_column_position");
+    }
+
+    @Test
+    public void testSetColumnPositionErrors()
+    {
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_set_column_position_errors (a INTEGER, b INTEGER)");
+        assertUpdate(session, "INSERT INTO test_set_column_position_errors VALUES (1, 2)", 1);
+
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN does_not_exist FIRST",
+                ".*Column 'does_not_exist' does not exist");
+
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN a AFTER does_not_exist",
+                ".*Column 'does_not_exist' does not exist");
+
+        // Iceberg rejects a move of a column after itself, and the engine rejects it for every connector
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN a AFTER a",
+                ".*Column 'a' cannot be moved after itself");
+
+        // A synthesized column is not part of the table's column order, so it can be neither moved nor a
+        // target. Both are rejected by the engine, so no connector has to guard against them, and the
+        // target is rejected with the same message as for ADD COLUMN
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN \"$path\" FIRST",
+                ".*Cannot move hidden column");
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN a AFTER \"$path\"",
+                ".*Cannot position a column after hidden column '\\$path'");
+
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_missing_table ALTER COLUMN a FIRST",
+                ".*Table '.*test_set_column_position_missing_table' does not exist");
+
+        // IF EXISTS suppresses the missing table, as it does for the other ALTER TABLE statements
+        assertUpdate(session, "ALTER TABLE IF EXISTS test_set_column_position_missing_table ALTER COLUMN a FIRST");
+
+        // No failed statement moved anything
+        assertEquals(columnNames("test_set_column_position_errors"), ImmutableList.of("a", "b"));
+        assertQuery(session, "SELECT * FROM test_set_column_position_errors", "VALUES (1, 2)");
+
+        dropTable(session, "test_set_column_position_errors");
     }
 
     @Test
