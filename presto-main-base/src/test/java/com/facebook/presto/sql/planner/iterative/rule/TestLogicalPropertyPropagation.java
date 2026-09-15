@@ -32,6 +32,7 @@ import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.LogicalProperties;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -2182,6 +2183,261 @@ public class TestLogicalPropertyPropagation
                             tester().getTableConstraints(customerTableHandle));
 
                     return p.topN(1, ImmutableList.of(customerCustKeyVariable), customerTableScan);
+                })
+                .matches(expectedLogicalProperties);
+
+        //INVARIANT: A FINAL TopN enforces its count globally, so it does limit the maxcard of its source.
+        expectedLogicalProperties = new LogicalPropertiesImpl(
+                new EquivalenceClassProperty(),
+                new MaxCardProperty(6L),
+                new KeyProperty());
+
+        tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
+                .on(p -> {
+                    VariableReferenceExpression var = p.variable("c");
+                    return p.topN(6, ImmutableList.of(var), TopNNode.Step.FINAL, p.values(10, var));
+                })
+                .matches(expectedLogicalProperties);
+    }
+
+    @Test
+    public void testPartialLimitNodeLogicalProperties()
+    {
+        //A PARTIAL LimitNode only bounds the rows produced per driver, so its count is not a bound on the
+        //cardinality of the overall result. It must propagate its source properties unchanged.
+
+        //INVARIANT: source maxcard is unknown and a PARTIAL Limit(6) comes along. Maxcard should remain unknown
+        //and the key property of the source should still propagate.
+        EquivalenceClassProperty equivalenceClasses = new EquivalenceClassProperty();
+        equivalenceClasses = equivalenceClasses.combineWith(ordersCustKeyVariable, customerCustKeyVariable);
+
+        LogicalProperties expectedLogicalProperties = new LogicalPropertiesImpl(
+                equivalenceClasses,
+                new MaxCardProperty(),
+                new KeyProperty(ImmutableSet.of(new Key(ImmutableSet.of(ordersOrderKeyVariable)))));
+
+        tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
+                .on(p -> {
+                    TableScanNode customerTableScan = p.tableScan(
+                            customerTableHandle,
+                            ImmutableList.of(customerCustKeyVariable),
+                            ImmutableMap.of(customerCustKeyVariable, customerCustKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(customerTableHandle));
+
+                    TableScanNode ordersTableScan = p.tableScan(
+                            ordersTableHandle,
+                            ImmutableList.of(ordersCustKeyVariable, ordersOrderKeyVariable),
+                            ImmutableMap.of(ordersCustKeyVariable, ordersCustKeyColumn, ordersOrderKeyVariable, ordersOrderKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(ordersTableHandle));
+
+                    JoinNode ordersCustomerJoin = p.join(JoinType.INNER, ordersTableScan, customerTableScan,
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+
+                    return p.limit(6, LimitNode.Step.PARTIAL, ordersCustomerJoin);
+                })
+                .matches(expectedLogicalProperties);
+
+        //INVARIANT: the count of a PARTIAL Limit must not clamp the maxcard of its parent. The n to 1 join
+        //propagates the properties of its left source, which are those of the orders table scan.
+        tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
+                .on(p -> {
+                    TableScanNode customerTableScan = p.tableScan(
+                            customerTableHandle,
+                            ImmutableList.of(customerCustKeyVariable),
+                            ImmutableMap.of(customerCustKeyVariable, customerCustKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(customerTableHandle));
+
+                    TableScanNode ordersTableScan = p.tableScan(
+                            ordersTableHandle,
+                            ImmutableList.of(ordersCustKeyVariable, ordersOrderKeyVariable),
+                            ImmutableMap.of(ordersCustKeyVariable, ordersCustKeyColumn, ordersOrderKeyVariable, ordersOrderKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(ordersTableHandle));
+
+                    return p.join(JoinType.INNER, p.limit(5, LimitNode.Step.PARTIAL, ordersTableScan), customerTableScan,
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+                })
+                .matches(expectedLogicalProperties);
+
+        //INVARIANT: maxcard is set to K by Values and a PARTIAL Limit(N<K) comes along. Should still be set to K.
+        expectedLogicalProperties = new LogicalPropertiesImpl(
+                new EquivalenceClassProperty(),
+                new MaxCardProperty(10L),
+                new KeyProperty());
+
+        tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
+                .on(p -> p.limit(6, LimitNode.Step.PARTIAL, p.values(10, p.variable("c"))))
+                .matches(expectedLogicalProperties);
+
+        //INVARIANT: TableScan with key (A) and a PARTIAL Limit(1) comes along. Maxcard should remain unknown
+        //and the key property should not be emptied.
+        expectedLogicalProperties = new LogicalPropertiesImpl(
+                new EquivalenceClassProperty(),
+                new MaxCardProperty(),
+                new KeyProperty(ImmutableSet.of(new Key(ImmutableSet.of(customerCustKeyVariable)))));
+
+        tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
+                .on(p -> {
+                    TableScanNode customerTableScan = p.tableScan(
+                            customerTableHandle,
+                            ImmutableList.of(customerCustKeyVariable),
+                            ImmutableMap.of(customerCustKeyVariable, customerCustKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(customerTableHandle));
+
+                    return p.limit(1, LimitNode.Step.PARTIAL, customerTableScan);
+                })
+                .matches(expectedLogicalProperties);
+
+        //INVARIANT: a FINAL Limit above a PARTIAL Limit does enforce its count globally.
+        expectedLogicalProperties = new LogicalPropertiesImpl(
+                new EquivalenceClassProperty(),
+                new MaxCardProperty(1L),
+                new KeyProperty());
+
+        tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
+                .on(p -> {
+                    TableScanNode customerTableScan = p.tableScan(
+                            customerTableHandle,
+                            ImmutableList.of(customerCustKeyVariable),
+                            ImmutableMap.of(customerCustKeyVariable, customerCustKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(customerTableHandle));
+
+                    return p.limit(1, p.limit(1, LimitNode.Step.PARTIAL, customerTableScan));
+                })
+                .matches(expectedLogicalProperties);
+    }
+
+    @Test
+    public void testPartialTopNNodeLogicalProperties()
+    {
+        //Mirror the PARTIAL Limit tests. A PARTIAL TopN also does not bound the cardinality of the overall result.
+
+        //INVARIANT: source maxcard is unknown and a PARTIAL TopN(6) comes along. Maxcard should remain unknown
+        //and the key property of the source should still propagate.
+        EquivalenceClassProperty equivalenceClasses = new EquivalenceClassProperty();
+        equivalenceClasses = equivalenceClasses.combineWith(ordersCustKeyVariable, customerCustKeyVariable);
+
+        LogicalProperties expectedLogicalProperties = new LogicalPropertiesImpl(
+                equivalenceClasses,
+                new MaxCardProperty(),
+                new KeyProperty(ImmutableSet.of(new Key(ImmutableSet.of(ordersOrderKeyVariable)))));
+
+        tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
+                .on(p -> {
+                    TableScanNode customerTableScan = p.tableScan(
+                            customerTableHandle,
+                            ImmutableList.of(customerCustKeyVariable),
+                            ImmutableMap.of(customerCustKeyVariable, customerCustKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(customerTableHandle));
+
+                    TableScanNode ordersTableScan = p.tableScan(
+                            ordersTableHandle,
+                            ImmutableList.of(ordersCustKeyVariable, ordersOrderKeyVariable),
+                            ImmutableMap.of(ordersCustKeyVariable, ordersCustKeyColumn, ordersOrderKeyVariable, ordersOrderKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(ordersTableHandle));
+
+                    JoinNode ordersCustomerJoin = p.join(JoinType.INNER, ordersTableScan, customerTableScan,
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+
+                    return p.topN(6, ImmutableList.of(ordersCustKeyVariable, ordersOrderKeyVariable), TopNNode.Step.PARTIAL,
+                            ordersCustomerJoin);
+                })
+                .matches(expectedLogicalProperties);
+
+        //INVARIANT: the count of a PARTIAL TopN must not clamp the maxcard of its parent. The n to 1 join
+        //propagates the properties of its left source, which are those of the orders table scan.
+        tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
+                .on(p -> {
+                    TableScanNode customerTableScan = p.tableScan(
+                            customerTableHandle,
+                            ImmutableList.of(customerCustKeyVariable),
+                            ImmutableMap.of(customerCustKeyVariable, customerCustKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(customerTableHandle));
+
+                    TableScanNode ordersTableScan = p.tableScan(
+                            ordersTableHandle,
+                            ImmutableList.of(ordersCustKeyVariable, ordersOrderKeyVariable),
+                            ImmutableMap.of(ordersCustKeyVariable, ordersCustKeyColumn, ordersOrderKeyVariable, ordersOrderKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(ordersTableHandle));
+
+                    return p.join(JoinType.INNER,
+                            p.topN(5, ImmutableList.of(ordersCustKeyVariable), TopNNode.Step.PARTIAL, ordersTableScan),
+                            customerTableScan,
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+                })
+                .matches(expectedLogicalProperties);
+
+        //INVARIANT: maxcard is set to K by Values and a PARTIAL TopN(N<K) comes along. Should still be set to K.
+        expectedLogicalProperties = new LogicalPropertiesImpl(
+                new EquivalenceClassProperty(),
+                new MaxCardProperty(10L),
+                new KeyProperty());
+
+        tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
+                .on(p -> {
+                    VariableReferenceExpression var = p.variable("c");
+                    return p.topN(6, ImmutableList.of(var), TopNNode.Step.PARTIAL, p.values(10, var));
+                })
+                .matches(expectedLogicalProperties);
+
+        //INVARIANT: TableScan with key (A) and a PARTIAL TopN(1) comes along. Maxcard should remain unknown
+        //and the key property should not be emptied.
+        expectedLogicalProperties = new LogicalPropertiesImpl(
+                new EquivalenceClassProperty(),
+                new MaxCardProperty(),
+                new KeyProperty(ImmutableSet.of(new Key(ImmutableSet.of(customerCustKeyVariable)))));
+
+        tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
+                .on(p -> {
+                    TableScanNode customerTableScan = p.tableScan(
+                            customerTableHandle,
+                            ImmutableList.of(customerCustKeyVariable),
+                            ImmutableMap.of(customerCustKeyVariable, customerCustKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(customerTableHandle));
+
+                    return p.topN(1, ImmutableList.of(customerCustKeyVariable), TopNNode.Step.PARTIAL, customerTableScan);
+                })
+                .matches(expectedLogicalProperties);
+
+        //INVARIANT: a FINAL TopN above a PARTIAL TopN does enforce its count globally.
+        expectedLogicalProperties = new LogicalPropertiesImpl(
+                new EquivalenceClassProperty(),
+                new MaxCardProperty(1L),
+                new KeyProperty());
+
+        tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
+                .on(p -> {
+                    TableScanNode customerTableScan = p.tableScan(
+                            customerTableHandle,
+                            ImmutableList.of(customerCustKeyVariable),
+                            ImmutableMap.of(customerCustKeyVariable, customerCustKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(customerTableHandle));
+
+                    return p.topN(1, ImmutableList.of(customerCustKeyVariable), TopNNode.Step.FINAL,
+                            p.topN(1, ImmutableList.of(customerCustKeyVariable), TopNNode.Step.PARTIAL, customerTableScan));
                 })
                 .matches(expectedLogicalProperties);
     }

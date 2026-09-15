@@ -54,6 +54,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.Analysis.ResolvedWindow;
 import com.facebook.presto.sql.analyzer.ExpressionTreeUtils;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldId;
@@ -111,7 +112,6 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.Update;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -174,6 +174,7 @@ import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -1610,7 +1611,8 @@ public class QueryPlanner
         }
 
         for (FunctionCall windowFunction : windowFunctions) {
-            Window window = windowFunction.getWindow().get();
+            ResolvedWindow window = analysis.getWindow(windowFunction);
+            checkState(window != null, "no resolved window for: %s", windowFunction);
 
             // Extract frame
             WindowFrame.Type frameType = RANGE;
@@ -1783,7 +1785,7 @@ public class QueryPlanner
         return subPlan;
     }
 
-    private FrameBoundPlanAndSymbols planFrameBound(PlanBuilder subPlan, PlanAndMappings coercions, Optional<Expression> frameOffset, Window window, Map<Type, VariableReferenceExpression> sortKeyCoercions)
+    private FrameBoundPlanAndSymbols planFrameBound(PlanBuilder subPlan, PlanAndMappings coercions, Optional<Expression> frameOffset, ResolvedWindow window, Map<Type, VariableReferenceExpression> sortKeyCoercions)
     {
         Optional<FunctionHandle> frameBoundCalculationFunction = frameOffset.map(analysis::getFrameBoundCalculation);
 
@@ -1812,7 +1814,7 @@ public class QueryPlanner
                                 ImmutableList.of(new Cast(new StringLiteral("Window frame offset value must not be negative or null"), VARCHAR.getTypeSignature().toString()))),
                         BOOLEAN.getTypeSignature().toString()));
         subPlan = subPlan.withNewRoot(new FilterNode(
-                getSourceLocation(window),
+                getSourceLocation(frameOffset.get()),
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 rowExpression(predicate, sqlPlannerContext)));

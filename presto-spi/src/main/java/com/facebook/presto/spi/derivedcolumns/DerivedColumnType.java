@@ -11,20 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.tree;
+package com.facebook.presto.spi.derivedcolumns;
 
-import java.util.Optional;
-
-/**
- * The two forms a window can take in an OVER clause: an inline {@link WindowSpecification},
- * or a {@link WindowReference} to a window declared in the WINDOW clause of the enclosing
- * query specification.
- */
-public abstract class Window
-        extends Node
+public enum DerivedColumnType
 {
-    protected Window(Optional<NodeLocation> location)
-    {
-        super(location);
-    }
+    /**
+     * Column data is persisted to storage.
+     */
+    PERSISTENT,
+    /**
+     * Column data is not actually stored.
+     */
+    VIRTUAL,
+    /**
+     * GENERATED ALWAYS ensures USER's insert is not permitted and the column data is persisted to storage
+     */
+    GENERATED_ALWAYS_PERSISTENT
 }

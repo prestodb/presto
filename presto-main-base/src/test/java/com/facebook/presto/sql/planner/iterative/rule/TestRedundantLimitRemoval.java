@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.TestingColumnHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -117,6 +118,29 @@ public class TestRedundantLimitRemoval
                     return p.limit(
                             10,
                             p.values(12, c));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void doesNotFireThroughPartialLimit()
+    {
+        // A PARTIAL limit only bounds the rows produced per driver, it does not enforce its count globally, so the
+        // FINAL limit above it is not redundant even though both have the same count. This plan shape shows up when
+        // LimitPushDown pushes a PARTIAL limit into the branches of a union, and all but one of those branches is
+        // then removed by SimplifyPlanWithEmptyInput because a filter proved its input empty.
+        // See https://github.com/prestodb/presto/issues/28166
+        tester().assertThat(new RemoveRedundantLimit(), logicalPropertiesProvider)
+                .on(p -> {
+                    VariableReferenceExpression shipmode = p.variable("shipmode");
+                    return p.limit(
+                            30000,
+                            p.limit(
+                                    30000,
+                                    LimitNode.Step.PARTIAL,
+                                    p.tableScan(
+                                            ImmutableList.of(shipmode),
+                                            ImmutableMap.of(shipmode, new TestingColumnHandle("shipmode")))));
                 })
                 .doesNotFire();
     }

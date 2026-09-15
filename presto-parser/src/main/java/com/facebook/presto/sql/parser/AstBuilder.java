@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnType;
 import com.facebook.presto.spi.security.ViewSecurity;
+import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -206,7 +209,10 @@ import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowDefinition;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowReference;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -1169,6 +1175,7 @@ class AstBuilder
                             query.getWhere(),
                             query.getGroupBy(),
                             query.getHaving(),
+                            query.getWindows(),
                             orderBy,
                             offset,
                             limit),
@@ -1212,9 +1219,35 @@ class AstBuilder
                 visitIfPresent(context.where, Expression.class),
                 visitIfPresent(context.groupBy(), GroupBy.class),
                 visitIfPresent(context.having, Expression.class),
+                visit(context.windowDefinition(), WindowDefinition.class),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    @Override
+    public Node visitWindowSpecification(SqlBaseParser.WindowSpecificationContext context)
+    {
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        }
+
+        return new WindowSpecification(
+                getLocation(context),
+                visitIfPresent(context.existingWindowName, Identifier.class),
+                visit(context.partition, Expression.class),
+                orderBy,
+                visitIfPresent(context.windowFrame(), WindowFrame.class));
+    }
+
+    @Override
+    public Node visitWindowDefinition(SqlBaseParser.WindowDefinitionContext context)
+    {
+        return new WindowDefinition(
+                getLocation(context),
+                (Identifier) visit(context.name),
+                (WindowSpecification) visit(context.windowSpecification()));
     }
 
     @Override
@@ -2350,16 +2383,11 @@ class AstBuilder
     @Override
     public Node visitOver(SqlBaseParser.OverContext context)
     {
-        Optional<OrderBy> orderBy = Optional.empty();
-        if (context.ORDER() != null) {
-            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        if (context.windowName != null) {
+            return new WindowReference(getLocation(context), (Identifier) visit(context.windowName));
         }
 
-        return new Window(
-                getLocation(context),
-                visit(context.partition, Expression.class),
-                orderBy,
-                visitIfPresent(context.windowFrame(), WindowFrame.class));
+        return visit(context.windowSpecification());
     }
 
     @Override
@@ -2377,14 +2405,52 @@ class AstBuilder
 
         boolean nullable = context.NOT() == null;
 
-        Optional<Expression> defaultExpression = Optional.empty();
-        if (context.DEFAULT() != null && context.expression() != null) {
-            defaultExpression = Optional.of((Expression) visit(context.expression()));
+        if (context.DEFAULT() != null && (context.GENERATED() != null || context.AS() != null)) {
+            throw new ParsingException("Setting a default expression on a derived column is not supported.", getLocation(context));
         }
 
+        Optional<Expression> defaultExpression = Optional.empty();
+        if (context.DEFAULT() != null && context.expression() != null) {
+            defaultExpression = Optional.of((Expression) visit(context.expression().get(0)));
+        }
+
+        Optional<DerivedColumnSpec> derivedColumnExpressionSpec = Optional.empty();
+        Identifier columnIdentifier = (Identifier) visit(context.identifier());
+        Optional<Expression> derivedColumnExpression = Optional.empty();
+        if (context.AS() != null && !context.expression().isEmpty()) {
+            SqlBaseParser.ExpressionContext tree = context.expression().get(0);
+            check(tree != null, "expression is null ", context);
+            Expression validatedDerivedColumnExpression = (Expression) visit(tree);
+            DerivedColumnType derivedColumnType = DerivedColumnType.PERSISTENT;
+            if (context.GENERATED() != null && context.ALWAYS() != null) {
+                derivedColumnType = DerivedColumnType.GENERATED_ALWAYS_PERSISTENT;
+            }
+            if (context.VIRTUAL() != null) {
+                derivedColumnType = DerivedColumnType.VIRTUAL;
+            }
+            derivedColumnExpression = Optional.of(validatedDerivedColumnExpression);
+            // tree.getText() gets the expression as text, but messes it up by removing spaces. e.g. (CAST(c1 AS decimal) * DECIMAL '10.5') becomes (CAST(c1ASdecimal)*DECIMAL'10.5')
+            derivedColumnExpressionSpec = Optional.of(
+                    new DerivedColumnSpec(derivedColumnType,
+                            ExpressionFormatter.formatExpression(validatedDerivedColumnExpression, Optional.empty()),
+                            columnIdentifier.getValue(),
+                            -1,
+                            getType(context.type())));
+        }
+
+        if (derivedColumnExpressionSpec.isPresent()) {
+            return new ColumnDefinition(Optional.of(getLocation(context)),
+                    columnIdentifier,
+                    getType(context.type()),
+                    nullable,
+                    properties,
+                    comment,
+                    derivedColumnExpression,
+                    derivedColumnExpressionSpec);
+        }
         return new ColumnDefinition(
                 getLocation(context),
-                (Identifier) visit(context.identifier()),
+                columnIdentifier,
                 getType(context.type()),
                 nullable, properties,
                 comment,

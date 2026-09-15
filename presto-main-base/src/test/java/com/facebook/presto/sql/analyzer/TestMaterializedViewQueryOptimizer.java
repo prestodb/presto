@@ -112,6 +112,41 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
+    public void testWithWindowClause()
+    {
+        // A WINDOW clause is left alone rather than partially rewritten, so the base query is kept.
+        // A window function is declined separately, see testWithWindowFunction.
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+
+        String baseQuerySql = format("SELECT a FROM %s WINDOW w AS (PARTITION BY b)", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        baseQuerySql = format("SELECT a FROM %s WINDOW w AS (ORDER BY b)", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // The frame bound is the part that a partial rewrite would have missed.
+        baseQuerySql = format("SELECT a FROM %s WINDOW w AS (ORDER BY a ROWS b PRECEDING)", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testWithWindowFunction()
+    {
+        // Only the arguments of a call are rewritten, so rewriting a window function would leave the
+        // window referring to base table columns. Aliased columns make that visible.
+        String originalViewSql = format("SELECT a AS mv_a, b AS mv_b FROM %s", BASE_TABLE_1);
+
+        String baseQuerySql = format("SELECT SUM(a) OVER (ORDER BY b) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        baseQuerySql = format("SELECT SUM(a) OVER (PARTITION BY b) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        baseQuerySql = format("SELECT COUNT(a) OVER (ORDER BY a ROWS b PRECEDING) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
     public void testWithAlias()
     {
         String originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
@@ -2227,6 +2262,32 @@ public class TestMaterializedViewQueryOptimizer
                 VIEW_1, BASE_TABLE_2, VIEW_1_QUALIFIED, BASE_TABLE_2, VIEW_1, BASE_TABLE_2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithWindowFunction()
+    {
+        // The join path shares the expression rewriter, so a window function is declined there too.
+        // Aliased columns make an incorrect rewrite visible: the window would keep referring to b.
+        String originalViewSql = format("SELECT a AS mv_a, b AS mv_b, c AS mv_c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT SUM(%s.a) OVER (ORDER BY %s.b) FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithWindowClause()
+    {
+        // The join rewrite carries a WINDOW clause over unchanged, so its expressions would still
+        // reference the relation being replaced. The base query is kept instead.
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a FROM %s JOIN %s ON %s.a = %s.a WINDOW w AS (PARTITION BY %s.b)",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
     @Test

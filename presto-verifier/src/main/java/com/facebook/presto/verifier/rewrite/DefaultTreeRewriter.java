@@ -70,8 +70,9 @@ import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
-import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowDefinition;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -446,9 +447,10 @@ public class DefaultTreeRewriter<C>
         Optional<GroupBy> groupBy = process(node.getGroupBy(), context);
         Optional<Expression> having = process(node.getHaving(), context);
         Optional<OrderBy> orderBy = process(node.getOrderBy(), context);
+        List<WindowDefinition> windows = process(node.getWindows(), context);
         if (node.getSelect() ==
                 select && sameElement(node.getFrom(), from) && sameElement(node.getWhere(), where) && sameElement(node.getGroupBy(), groupBy) && sameElement(node.getHaving(),
-                having) && sameElement(node.getOrderBy(), orderBy)) {
+                having) && sameElements(node.getWindows(), windows) && sameElement(node.getOrderBy(), orderBy)) {
             return node;
         }
 
@@ -458,6 +460,7 @@ public class DefaultTreeRewriter<C>
                 where,
                 groupBy,
                 having,
+                windows,
                 orderBy,
                 node.getOffset(),
                 node.getLimit());
@@ -627,7 +630,18 @@ public class DefaultTreeRewriter<C>
     }
 
     @Override
-    protected Node visitWindow(Window node, C context)
+    protected Node visitWindowDefinition(WindowDefinition node, C context)
+    {
+        Node window = process(node.getWindow(), context);
+        if (node.getWindow() == window) {
+            return node;
+        }
+
+        return new WindowDefinition(node.getName(), (WindowSpecification) window);
+    }
+
+    @Override
+    protected Node visitWindowSpecification(WindowSpecification node, C context)
     {
         List<Expression> partitionBy = process(node.getPartitionBy(), context);
         Optional<OrderBy> orderBy = process(node.getOrderBy(), context);
@@ -636,7 +650,7 @@ public class DefaultTreeRewriter<C>
             return node;
         }
 
-        return new Window(partitionBy, orderBy, frame);
+        return new WindowSpecification(node.getExistingWindowName(), partitionBy, orderBy, frame);
     }
 
     @Override
