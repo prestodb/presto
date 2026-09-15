@@ -23,8 +23,6 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestMySqlConfig
 {
@@ -55,15 +53,5 @@ public class TestMySqlConfig
                 .setDatasourceManagedViewsEnabled(true);
 
         assertFullMapping(properties, expected);
-    }
-
-    @Test
-    public void testDatasourceManagedViewsConfiguration()
-    {
-        MySqlConfig config = new MySqlConfig();
-        assertFalse(config.isDatasourceManagedViewsEnabled());
-
-        config.setDatasourceManagedViewsEnabled(true);
-        assertTrue(config.isDatasourceManagedViewsEnabled());
     }
 }
