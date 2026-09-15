@@ -20,12 +20,12 @@ namespace facebook::presto::functions::aggregate {
 
 velox::exec::AggregateRegistrationResult registerKllSketchAggregate(
     const std::string& prefix,
-    bool withCompanionFunctions = true,
+    bool withCompanionFunctions = false,
     bool overwrite = false);
 
 velox::exec::AggregateRegistrationResult registerKllSketchWithKAggregate(
     const std::string& prefix,
-    bool withCompanionFunctions = true,
+    bool withCompanionFunctions = false,
     bool overwrite = false);
 
 } // namespace facebook::presto::functions::aggregate

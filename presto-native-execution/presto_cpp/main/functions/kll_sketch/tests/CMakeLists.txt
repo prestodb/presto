@@ -21,7 +21,7 @@ add_test(
 target_link_libraries(
   presto_kll_sketch_test
   presto_kll_sketch_functions
-  velox_exec
+  velox
   velox_exec_test_lib
   velox_functions_aggregates_test_lib
   GTest::gtest

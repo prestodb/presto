@@ -69,9 +69,10 @@ struct KllSketchAggregateBase {
   using SketchType = typename SketchTypeMapper<T>::type;
 
   static constexpr bool default_null_behavior_ = false;
-  static constexpr bool use_external_memory_ = true;
 
   struct AccumulatorType {
+    static constexpr bool use_external_memory_ = true;
+
     std::unique_ptr<datasketches::kll_sketch<SketchType>> sketch;
 
     typename std::conditional<WithK, int, std::monostate>::type k_storage;
