@@ -102,4 +102,28 @@ public class MetadataUtils
 
         return new TableColumnMetadata(tableHandle, columnHandles, columnsMetadata);
     }
+
+    /**
+     * The column handles and the column metadata of a table handle.
+     *
+     * Use this when the caller already holds a handle and the name is not enough. A handle for a
+     * versioned read carries the version, and the columns of that version can differ from the
+     * current ones.
+     *
+     * Pre-processed metadata cannot answer this. It is keyed by table name, and it is prepared
+     * before any version is resolved, so the resolver is asked directly here. Both calls are timed
+     * the same way as the ones made by name.
+     */
+    public static TableColumnMetadata getTableColumnsMetadataByHandle(Session session, MetadataResolver metadataResolver, TableHandle tableHandle)
+    {
+        Map<String, ColumnHandle> columnHandles = session.getRuntimeStats().recordWallTime(
+                GET_COLUMN_HANDLE_TIME_NANOS,
+                () -> metadataResolver.getColumnHandles(tableHandle));
+
+        List<ColumnMetadata> columnsMetadata = session.getRuntimeStats().recordWallTime(
+                GET_COLUMN_METADATA_TIME_NANOS,
+                () -> metadataResolver.getColumns(tableHandle));
+
+        return new TableColumnMetadata(Optional.of(tableHandle), columnHandles, columnsMetadata);
+    }
 }

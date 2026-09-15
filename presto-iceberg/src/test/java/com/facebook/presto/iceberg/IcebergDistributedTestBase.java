@@ -2636,12 +2636,52 @@ public abstract class IcebergDistributedTestBase
         assertUpdate("ALTER TABLE test_table_references DROP COLUMN id2");
         assertUpdate("ALTER TABLE test_table_references ADD COLUMN id2_new BIGINT");
 
-        // since current table schema is changed from col id2 to id2_new
+        // The current table schema changed from id2 to id2_new.
         assertQuery("SELECT * FROM test_table_references where id1=1", "VALUES(1, NULL)");
+        // A branch is still being written to, so reading one uses the current schema.
         assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testBranch' where id1=1", "VALUES(1, NULL)");
-        // Currently Presto returns current table schema for any previous snapshot access https://github.com/prestodb/presto/issues/23553
-        // otherwise querying a tag uses the snapshot's schema https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
-        assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag' where id1=1", "VALUES(1, NULL)");
+        // A tag marks a point in history, so reading one uses the schema its snapshot was written
+        // with, which still had id2.
+        // https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
+        assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag' where id1=1", "VALUES(1, 10)");
+    }
+
+    @Test
+    public void testTimeTravelWithNestedSchemaEvolution()
+    {
+        String tableName = "test_time_travel_nested_evolution";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, s ROW(a INTEGER, b INTEGER))");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(10, 20))", 1);
+            Table icebergTable = loadTable(tableName);
+            long snapshotId = icebergTable.currentSnapshot().snapshotId();
+
+            // Presto's ALTER TABLE only changes top-level columns, so the fields inside s are
+            // changed through the Iceberg API. None of these changes creates a new snapshot.
+            icebergTable.updateSchema().deleteColumn("s.b").commit();
+            icebergTable.updateSchema().addColumn("s", "c", Types.IntegerType.get()).commit();
+            icebergTable.updateSchema().renameColumn("s.a", "a_renamed").commit();
+
+            // A plain read uses the current schema: s is now (a_renamed, c). Only the names are
+            // checked here, not the value of a_renamed, because that value comes from how the
+            // reader matches renamed nested fields in data files, which is not what this test
+            // is about.
+            assertQuery("SELECT s.c FROM " + tableName, "VALUES NULL");
+            assertQuerySucceeds("SELECT s.a_renamed FROM " + tableName);
+            assertQueryFails("SELECT s.a FROM " + tableName, ".*cannot be resolved.*");
+            assertQueryFails("SELECT s.b FROM " + tableName, ".*cannot be resolved.*");
+
+            // A read of the old snapshot uses the schema it was written with: s is still (a, b),
+            // so the dropped field b can be read, and the added field c and the new name
+            // a_renamed are unknown.
+            String oldSnapshot = tableName + " FOR VERSION AS OF " + snapshotId;
+            assertQuery("SELECT s.a, s.b FROM " + oldSnapshot, "VALUES (10, 20)");
+            assertQueryFails("SELECT s.c FROM " + oldSnapshot, ".*cannot be resolved.*");
+            assertQueryFails("SELECT s.a_renamed FROM " + oldSnapshot, ".*cannot be resolved.*");
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test

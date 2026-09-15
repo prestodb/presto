@@ -252,6 +252,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.supportsRowLineage;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetLocation;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
+import static com.facebook.presto.iceberg.IcebergUtil.tryGetReadSchema;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetSchema;
 import static com.facebook.presto.iceberg.IcebergUtil.validateBranchExists;
 import static com.facebook.presto.iceberg.IcebergUtil.validateMinimumFormatVersion;
@@ -626,16 +627,27 @@ public abstract class IcebergAbstractMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;
-        return getTableOrViewMetadata(session, icebergTableHandle.getSchemaTableName(), icebergTableHandle.getIcebergTableName());
+        return getTableOrViewMetadata(
+                session,
+                icebergTableHandle.getSchemaTableName(),
+                icebergTableHandle.getIcebergTableName(),
+                icebergTableHandle.getTableSchemaJson().map(SchemaParser::fromJson));
     }
 
-    protected ConnectorTableMetadata getTableOrViewMetadata(ConnectorSession session, SchemaTableName table, IcebergTableName icebergTableName)
+    /**
+     * @param readSchema the schema this read should use, empty to use the table's current schema
+     */
+    protected ConnectorTableMetadata getTableOrViewMetadata(
+            ConnectorSession session,
+            SchemaTableName table,
+            IcebergTableName icebergTableName,
+            Optional<Schema> readSchema)
     {
         SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName());
         try {
             Table icebergTable = getIcebergTable(session, schemaTableName);
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-            columns.addAll(getColumnMetadata(session, icebergTable));
+            columns.addAll(getColumnMetadata(session, icebergTable, readSchema.orElseGet(icebergTable::schema)));
             if (icebergTableName.getTableType() == CHANGELOG) {
                 return ChangelogUtil.getChangelogTableMeta(table, typeManager, columns.build());
             }
@@ -669,7 +681,8 @@ public abstract class IcebergAbstractMetadata
             try {
                 IcebergTableName tableName = IcebergTableName.from(table.getTableName());
                 if (!tableName.isSystemTable()) {
-                    columns.put(table, getTableOrViewMetadata(session, table, tableName).getColumns());
+                    // Listing columns has no version expression to honor, so use the current schema.
+                    columns.put(table, getTableOrViewMetadata(session, table, tableName, Optional.empty()).getColumns());
                 }
             }
             catch (TableNotFoundException e) {
@@ -1013,6 +1026,11 @@ public abstract class IcebergAbstractMetadata
 
     protected List<ColumnMetadata> getColumnMetadata(ConnectorSession session, Table table)
     {
+        return getColumnMetadata(session, table, table.schema());
+    }
+
+    protected List<ColumnMetadata> getColumnMetadata(ConnectorSession session, Table table, Schema schema)
+    {
         Map<String, List<String>> partitionFields = getPartitionFields(table.spec(), ALL);
         DerivedColumnSpecList derivedColumnSpecList = IcebergUtil.getDerivedColumnSpec(table);
         List<String> derivedColumnNames = derivedColumnSpecList.getDerivedColumnSpecs().stream().map(DerivedColumnSpec::getDerivedColumnName).collect(toImmutableList());
@@ -1021,7 +1039,7 @@ public abstract class IcebergAbstractMetadata
         Map<String, DerivedColumnSpec> derivedColumnSpecMap =
                 derivedColumnSpecList.getDerivedColumnSpecs().stream()
                         .collect(toImmutableMap(DerivedColumnSpec::getDerivedColumnName, derivedColumnSpec -> derivedColumnSpec));
-        return table.schema().columns().stream()
+        return schema.columns().stream()
                 .map(column -> ColumnMetadata.builder()
                         .setName(normalizeIdentifier(session, column.name()))
                         .setType(toPrestoType(column.type(), typeManager))
@@ -1535,7 +1553,8 @@ public abstract class IcebergAbstractMetadata
             schema = ChangelogUtil.changelogTableSchema(getRowTypeFromColumnMeta(getColumnMetadata(session, icebergTable)));
         }
         else {
-            schema = icebergTable.schema();
+            // The correct schema was already worked out and stored as tableSchemaJson in table.
+            schema = table.getTableSchemaJson().map(SchemaParser::fromJson).orElseGet(icebergTable::schema);
         }
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
@@ -1617,7 +1636,7 @@ public abstract class IcebergAbstractMetadata
         // Get Iceberg tables schema, properties, and location with missing
         // filesystem metadata will fail.
         // See https://github.com/prestodb/presto/pull/21181
-        Optional<Schema> tableSchema = tryGetSchema(table);
+        Optional<Schema> tableSchema = tryGetReadSchema(table, name, tableVersion, tableSnapshotId);
         Optional<String> tableSchemaJson = tableSchema.map(SchemaParser::toJson);
 
         return new IcebergTableHandle(
