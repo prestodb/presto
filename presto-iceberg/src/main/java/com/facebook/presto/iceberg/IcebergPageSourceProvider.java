@@ -22,6 +22,8 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeType;
@@ -1192,19 +1194,33 @@ public class IcebergPageSourceProvider
      */
     private static Type encodeFieldNamesForParquet(Type type)
     {
-        if (!(type instanceof RowType)) {
-            return type;
+        if (type instanceof RowType) {
+            RowType rowType = (RowType) type;
+            List<RowType.Field> encodedFields = rowType.getFields().stream()
+                    .map(field -> {
+                        Type encodedFieldType = encodeFieldNamesForParquet(field.getType());
+                        return field.getName().isPresent()
+                                ? RowType.field(AvroSchemaUtil.makeCompatibleName(field.getName().get()), encodedFieldType)
+                                : RowType.field(encodedFieldType);
+                    })
+                    .collect(Collectors.toList());
+            return RowType.from(encodedFields);
         }
-        RowType rowType = (RowType) type;
-        List<RowType.Field> encodedFields = rowType.getFields().stream()
-                .map(field -> {
-                    Type encodedFieldType = encodeFieldNamesForParquet(field.getType());
-                    return field.getName().isPresent()
-                            ? RowType.field(AvroSchemaUtil.makeCompatibleName(field.getName().get()), encodedFieldType)
-                            : RowType.field(encodedFieldType);
-                })
-                .collect(Collectors.toList());
-        return RowType.from(encodedFields);
+        if (type instanceof ArrayType) {
+            Type elementType = ((ArrayType) type).getElementType();
+            return new ArrayType(encodeFieldNamesForParquet(elementType));
+        }
+        if (type instanceof MapType) {
+            MapType mapType = (MapType) type;
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
+            return new MapType(
+                    encodeFieldNamesForParquet(keyType),
+                    encodeFieldNamesForParquet(valueType),
+                    mapType.getKeyBlockEquals(),
+                    mapType.getKeyBlockHashCode());
+        }
+        return type;
     }
 
     private static Optional<Object> getInitialDefaultValue(IcebergColumnHandle column)

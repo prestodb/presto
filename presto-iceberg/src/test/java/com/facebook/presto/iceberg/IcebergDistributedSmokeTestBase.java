@@ -1172,6 +1172,41 @@ public abstract class IcebergDistributedSmokeTestBase
                 "ALTER TABLE test_nested_add_bad ADD COLUMN nonexistent.new_field VARCHAR",
                 ".*Cannot find parent field.*|.*Failed to add field.*");
         dropTable(session, "test_nested_add_bad");
+
+        // --- Error: child field already exists without IF NOT EXISTS ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_already_exists (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_already_exists ADD COLUMN info.name VARCHAR",
+                ".*Field 'name' already exists.*");
+        dropTable(session, "test_nested_add_already_exists");
+
+        // --- Error: NOT NULL or COMMENT not supported on nested field ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_unsupported (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT NOT NULL",
+                ".*NOT NULL constraint is not supported for nested ADD COLUMN.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT COMMENT 'user age'",
+                ".*COMMENT is not supported for nested ADD COLUMN.*");
+        dropTable(session, "test_nested_add_unsupported");
+
+        // --- Parent lookup with case-colliding sibling columns in table ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_case_collision (" +
+                "id BIGINT, " +
+                "\"info\" ROW(name VARCHAR), " +
+                "\"INFO_LOG\" VARCHAR" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "ALTER TABLE test_nested_add_case_collision ADD COLUMN info.email VARCHAR");
+        assertUpdate(session, "INSERT INTO test_nested_add_case_collision VALUES (1, ROW('alice', 'alice@test.com'), 'log1')", 1);
+        assertQuery(session, "SELECT id, info.name, info.email, \"INFO_LOG\" FROM test_nested_add_case_collision",
+                "VALUES (1, 'alice', 'alice@test.com', 'log1')");
+        dropTable(session, "test_nested_add_case_collision");
     }
 
     @Test

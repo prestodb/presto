@@ -1162,7 +1162,13 @@ public class StatsRecordingMetadataManager
     @Override
     public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
     {
-        delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+        long startTime = System.nanoTime();
+        try {
+            delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+        }
+        finally {
+            stats.recordAddColumnCall(System.nanoTime() - startTime);
+        }
     }
 
     @Override

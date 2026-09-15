@@ -1456,19 +1456,24 @@ public abstract class IcebergAbstractMetadata
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
-        // Resolve parent using case-insensitive lookup, then recover its canonical name —
-        // Iceberg's addColumn() is case-sensitive when locating the parent.
+        // Resolve parent using step-by-step traversal (exact-then-case-insensitive), avoiding Schema.caseInsensitiveFindField
+        // which builds a whole-schema lowercase index and fails on case-colliding fields elsewhere in the table.
         String parentName = String.join(".", parentPath);
-        Types.NestedField parentField = icebergTable.schema().caseInsensitiveFindField(parentName);
-        if (parentField == null) {
-            throw new PrestoException(COLUMN_NOT_FOUND,
-                    format("Cannot find parent field '%s' in table '%s'", parentName, handle.getSchemaTableName()));
+        NestedField parentField = findNestedField(icebergTable.schema(), parentPath)
+                .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND,
+                        format("Cannot find parent field '%s' in table '%s'", parentName, handle.getSchemaTableName())));
+
+        if (!parentField.type().isStructType()) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("Parent field '%s' in table '%s' is not a struct/ROW type", parentName, handle.getSchemaTableName()));
         }
+
         String canonicalParentName = icebergTable.schema().findColumnName(parentField.fieldId());
 
-        // Check existence now; Iceberg's commit() gives a poor error if we skip this.
-        Types.NestedField existingField = icebergTable.schema().caseInsensitiveFindField(canonicalParentName + "." + fieldName);
-        if (existingField != null) {
+        // Check child existence within the parent struct's field list.
+        Types.StructType parentStruct = parentField.type().asStructType();
+        Optional<NestedField> existingField = findFieldInStruct(parentStruct, fieldName);
+        if (existingField.isPresent()) {
             if (ignoreExisting) {
                 return;
             }
@@ -1484,6 +1489,44 @@ public abstract class IcebergAbstractMetadata
         catch (RuntimeException e) {
             throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to add field: " + firstNonNull(e.getMessage(), e), e);
         }
+    }
+
+    private static Optional<NestedField> findNestedField(Schema schema, List<String> path)
+    {
+        if (path.isEmpty()) {
+            return Optional.empty();
+        }
+        NestedField topLevel;
+        try {
+            topLevel = findTopLevelColumn(schema, path.get(0));
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode().equals(COLUMN_NOT_FOUND.toErrorCode())) {
+                return Optional.empty();
+            }
+            throw e;
+        }
+        Optional<NestedField> current = Optional.of(topLevel);
+        for (int i = 1; i < path.size() && current.isPresent(); i++) {
+            if (!current.get().type().isStructType()) {
+                return Optional.empty();
+            }
+            current = findFieldInStruct(current.get().type().asStructType(), path.get(i));
+        }
+        return current;
+    }
+
+    private static Optional<NestedField> findFieldInStruct(Types.StructType structType, String fieldName)
+    {
+        Optional<NestedField> exactMatch = structType.fields().stream()
+                .filter(field -> field.name().equals(fieldName))
+                .findFirst();
+        if (exactMatch.isPresent()) {
+            return exactMatch;
+        }
+        return structType.fields().stream()
+                .filter(field -> field.name().equalsIgnoreCase(fieldName))
+                .findFirst();
     }
 
     @Override
