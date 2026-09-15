@@ -49,7 +49,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
-import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +72,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -314,44 +315,29 @@ public class MySqlClient
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        List<SchemaTableName> tableNames;
-        if (prefix.getTableName() != null) {
-            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
-        }
-        else {
-            // A prefix with no table name, and possibly no schema name either, comes from queries
-            // such as SELECT * FROM information_schema.views. Every matching schema has to be
-            // walked, so the cost grows with the number of views on the server.
-            tableNames = listViews(session, Optional.ofNullable(prefix.getSchemaName()));
-        }
-
         JdbcIdentity identity = new JdbcIdentity(session.getUser(), session.getIdentity().getExtraCredentials());
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
 
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            for (SchemaTableName schemaTableName : tableNames) {
-                String schemaName = schemaTableName.getSchemaName();
-                String tableName = schemaTableName.getTableName();
+        try (Connection connection = connectionFactory.openConnection(identity);
+                PreparedStatement statement = connection.prepareStatement(viewsQuery(prefix))) {
+            int parameterIndex = 1;
+            if (prefix.getSchemaName() != null) {
+                statement.setString(parameterIndex++, prefix.getSchemaName());
+            }
+            if (prefix.getTableName() != null) {
+                statement.setString(parameterIndex, prefix.getTableName());
+            }
 
-                String sql = format(
-                        "SELECT * FROM INFORMATION_SCHEMA.VIEWS " +
-                                "WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
-                        schemaName, tableName);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    SchemaTableName viewName = viewName(session, prefix, resultSet);
+                    String owner = resultSet.getString("DEFINER");
+                    ViewDefinition viewDefinition = getViewDefinition(resultSet, session, connectorId, viewName, owner);
 
-                try (Statement statement = connection.createStatement();
-                        ResultSet resultSet = statement.executeQuery(sql)) {
-                    while (resultSet.next()) {
-                        String owner = resultSet.getString("DEFINER");
-                        ViewDefinition viewDefinition = getViewDefinition(resultSet, session, connectorId, schemaTableName, owner);
-
-                        SchemaTableName viewName = new SchemaTableName(schemaName, tableName);
-                        String viewData = viewCodec.toJson(viewDefinition);
-
-                        views.put(viewName, new ConnectorViewDefinition(
-                                viewName,
-                                Optional.of(owner),
-                                viewData));
-                    }
+                    views.put(viewName, new ConnectorViewDefinition(
+                            viewName,
+                            Optional.of(owner),
+                            viewCodec.toJson(viewDefinition)));
                 }
             }
         }
@@ -359,6 +345,46 @@ public class MySqlClient
             throw new PrestoException(JDBC_ERROR, e);
         }
         return views.build();
+    }
+
+    /**
+     * Builds the INFORMATION_SCHEMA.VIEWS lookup for a prefix, binding the names as parameters:
+     * they arrive from user SQL and may contain quotes. A prefix with no table name, and possibly
+     * no schema name either, comes from queries such as SELECT * FROM information_schema.views,
+     * and is answered by this one statement, so the row count rather than the query count grows
+     * with the number of views on the server. The parameters have to be bound in the same order
+     * the conditions are appended here.
+     */
+    private static String viewsQuery(SchemaTablePrefix prefix)
+    {
+        String sql = "SELECT TABLE_SCHEMA, TABLE_NAME, VIEW_DEFINITION, DEFINER, SECURITY_TYPE FROM INFORMATION_SCHEMA.VIEWS";
+        List<String> conditions = new ArrayList<>();
+        if (prefix.getSchemaName() != null) {
+            conditions.add("TABLE_SCHEMA = ?");
+        }
+        if (prefix.getTableName() != null) {
+            conditions.add("TABLE_NAME = ?");
+        }
+        if (conditions.isEmpty()) {
+            return sql;
+        }
+        return sql + " WHERE " + join(" AND ", conditions);
+    }
+
+    private SchemaTableName viewName(ConnectorSession session, SchemaTablePrefix prefix, ResultSet resultSet)
+            throws SQLException
+    {
+        // A prefix naming one table is keyed by the requested name rather than the name MySQL
+        // reports. MySQL compares schema and table names here under the collation of
+        // INFORMATION_SCHEMA, so a row can come back in a different case than was asked for, and
+        // the caller looks the view up by the name it passed in.
+        if (prefix.getTableName() != null) {
+            return new SchemaTableName(prefix.getSchemaName(), prefix.getTableName());
+        }
+        String schemaName = prefix.getSchemaName() != null ? prefix.getSchemaName() : resultSet.getString("TABLE_SCHEMA");
+        return new SchemaTableName(
+                normalizeIdentifier(session, schemaName),
+                normalizeIdentifier(session, resultSet.getString("TABLE_NAME")));
     }
 
     private ViewDefinition getViewDefinition(ResultSet resultSet, ConnectorSession session, String connectorId, SchemaTableName schemaTableName, String owner)
