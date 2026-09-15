@@ -2636,12 +2636,14 @@ public abstract class IcebergDistributedTestBase
         assertUpdate("ALTER TABLE test_table_references DROP COLUMN id2");
         assertUpdate("ALTER TABLE test_table_references ADD COLUMN id2_new BIGINT");
 
-        // since current table schema is changed from col id2 to id2_new
+        // The current table schema changed from id2 to id2_new.
         assertQuery("SELECT * FROM test_table_references where id1=1", "VALUES(1, NULL)");
+        // A branch is still being written to, so reading one uses the current schema.
         assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testBranch' where id1=1", "VALUES(1, NULL)");
-        // Currently Presto returns current table schema for any previous snapshot access https://github.com/prestodb/presto/issues/23553
-        // otherwise querying a tag uses the snapshot's schema https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
-        assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag' where id1=1", "VALUES(1, NULL)");
+        // A tag marks a point in history, so reading one uses the schema its snapshot was written
+        // with, which still had id2.
+        // https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
+        assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag' where id1=1", "VALUES(1, 10)");
     }
 
     @Test

@@ -53,7 +53,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
+import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
 import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpecList;
 import com.google.common.collect.ImmutableList;
@@ -124,6 +126,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -899,6 +902,68 @@ public final class IcebergUtil
     {
         try {
             return Optional.ofNullable(table.schema());
+        }
+        catch (TableNotFoundException e) {
+            log.warn(String.format("Unable to fetch schema for table %s: %s", table.name(), e.getMessage()));
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * The schema a read should use.
+     *
+     * Iceberg keeps data history and schema apart. A snapshot is a set of data files; the schema
+     * lives in the table metadata. ALTER TABLE writes new table metadata and makes no new
+     * snapshot, so the newest snapshot and the current schema can disagree.
+     *
+     * A read of a point in history must use the schema its snapshot was written with. Otherwise
+     * it loses a column that was dropped later, even though that column's values are in the
+     * snapshot's data files, and it gains a column that was added later, which that snapshot
+     * never had. Every other read uses the current schema.
+     *
+     * Which kind of read this is cannot be told from the snapshot id alone, because a plain read
+     * carries the current snapshot id too, so the version expression and the table name decide it.
+     */
+    public static Optional<Schema> tryGetReadSchema(Table table, IcebergTableName name, Optional<ConnectorTableVersion> tableVersion, Optional<Long> snapshotId)
+    {
+        // A changelog reports its rows as one "rowdata" column, and that column, its column
+        // handles and its splits are all built from the current schema, so a changelog read is
+        // left on the current schema as well. See getColumnHandles and ChangelogSplitSource.
+        if (name.getTableType() == IcebergTableType.CHANGELOG) {
+            return tryGetSchema(table);
+        }
+
+        if (tableVersion.isPresent()) {
+            ConnectorTableVersion version = tableVersion.get();
+            // FOR SYSTEM_VERSION AS OF 'name' takes a branch or a tag, and Iceberg tells the two
+            // apart itself: a tag marks a point in history and is read with the schema of its
+            // snapshot, while a branch is still being written to and is read with the current
+            // schema. An unknown name also gives the current schema.
+            // See https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
+            if (version.getVersionType() == VersionType.VERSION && version.getVersionExpressionType() instanceof VarcharType) {
+                return tryGetSchemaFor(table, () -> SnapshotUtil.schemaFor(table, ((Slice) version.getTableVersion()).toStringUtf8()));
+            }
+        }
+        else if (!name.getSnapshotId().isPresent()) {
+            // A plain read, or "table.branch_x": the newest data of a ref, read with the current
+            // schema.
+            return tryGetSchema(table);
+        }
+
+        // What is left names one snapshot: "table@123", FOR VERSION AS OF <id>, or FOR TIMESTAMP
+        // AS OF <time>, which was already resolved to a snapshot id.
+        if (!snapshotId.isPresent()) {
+            return tryGetSchema(table);
+        }
+        // Falls back to the current schema for a snapshot that recorded none, which is how tables
+        // written by older Iceberg versions look.
+        return tryGetSchemaFor(table, () -> SnapshotUtil.schemaFor(table, snapshotId.get()));
+    }
+
+    private static Optional<Schema> tryGetSchemaFor(Table table, Supplier<Schema> schema)
+    {
+        try {
+            return Optional.ofNullable(schema.get());
         }
         catch (TableNotFoundException e) {
             log.warn(String.format("Unable to fetch schema for table %s: %s", table.name(), e.getMessage()));

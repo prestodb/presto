@@ -338,4 +338,34 @@ public class TestIcebergTableChangelog
                 "SELECT presto.default.apply_changelog(1, 'INSERT', 'test_value')",
                 "line 1:8: Function apply_changelog not registered");
     }
+
+    @Test
+    public void testChangelogOfAnOldSnapshotUsesTheCurrentSchema()
+    {
+        // A changelog reports its rows as one "rowdata" column, and that column, its column
+        // handles and its splits are all built from the table's current schema. A changelog of an
+        // old snapshot therefore reports the current schema as well: were it to report the schema
+        // recorded on that snapshot, a column dropped since would be advertised and then not read.
+        assertQuerySucceeds("CREATE TABLE changelog_schema_evolution (a integer, b integer)");
+        try {
+            assertUpdate("INSERT INTO changelog_schema_evolution VALUES (1, 2)", 1);
+            assertUpdate("INSERT INTO changelog_schema_evolution VALUES (3, 4)", 1);
+            long firstSnapshot = (long) getQueryRunner()
+                    .execute("SELECT snapshot_id FROM \"changelog_schema_evolution$snapshots\" ORDER BY committed_at LIMIT 1")
+                    .getOnlyValue();
+
+            assertQuerySucceeds("ALTER TABLE changelog_schema_evolution DROP COLUMN b");
+
+            assertQuery(String.format("SHOW COLUMNS FROM \"changelog_schema_evolution@%d$changelog\"", firstSnapshot),
+                    "VALUES" +
+                            "('operation', 'varchar', '', '', null, null, 2147483647)," +
+                            "('ordinal', 'bigint', '', '', 19, null, null)," +
+                            "('snapshotid', 'bigint', '', '', 19, null, null)," +
+                            "('rowdata', 'row(\"a\" integer)', '', '', null, null, null)");
+            assertQuerySucceeds(String.format("SELECT rowdata, rowdata.a FROM \"changelog_schema_evolution@%d$changelog\"", firstSnapshot));
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS changelog_schema_evolution");
+        }
+    }
 }
