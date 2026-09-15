@@ -402,6 +402,7 @@ import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionTy
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.facebook.presto.util.MetadataUtils.getMaterializedViewDefinition;
 import static com.facebook.presto.util.MetadataUtils.getTableColumnsMetadata;
+import static com.facebook.presto.util.MetadataUtils.getTableColumnsMetadataByHandle;
 import static com.facebook.presto.util.MetadataUtils.getViewDefinition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -2477,10 +2478,19 @@ class StatementAnalyzer
                 }
             }
 
+            // The lookup by name reports a missing catalog, schema or table, and gives the handle
+            // of a read without a version.
             TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, analysis.getMetadataHandle(), name);
-            List<ColumnMetadata> columnsMetadata = tableColumnsMetadata.getColumnsMetadata();
             Optional<TableHandle> tableHandle = getTableHandle(tableColumnsMetadata, table, name, scope);
 
+            if (table.getTableVersionExpression().isPresent() && tableHandle.isPresent()) {
+                // The columns of the version asked for can differ from the current ones, because a
+                // connector is free to record a schema per version and a schema change need not
+                // produce a new version. Only the handle knows the version, so ask through it.
+                tableColumnsMetadata = getTableColumnsMetadataByHandle(session, metadataResolver, tableHandle.get());
+            }
+
+            List<ColumnMetadata> columnsMetadata = tableColumnsMetadata.getColumnsMetadata();
             Map<String, ColumnHandle> columnHandles = tableColumnsMetadata.getColumnHandles();
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
