@@ -82,12 +82,19 @@ public class SetColumnTypeTask
         accessControl.checkCanAlterColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
         TableHandle tableHandleOptional = tableHandle.get();
+        List<String> columnPath = statement.getColumnName().getParts();
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandleOptional);
-        ColumnHandle column = columnHandles.get(statement.getColumnName().getValue());
+        ColumnHandle column = columnHandles.get(columnPath.get(0));
         if (column == null) {
             throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", statement.getColumnName());
         }
-        metadata.setColumnType(session, tableHandleOptional, column, getColumnType(statement));
+        Type type = getColumnType(statement);
+        if (columnPath.size() == 1) {
+            metadata.setColumnType(session, tableHandleOptional, column, type);
+        }
+        else {
+            metadata.setFieldType(session, tableHandleOptional, column, columnPath.subList(1, columnPath.size()), type);
+        }
 
         return immediateFuture(null);
     }

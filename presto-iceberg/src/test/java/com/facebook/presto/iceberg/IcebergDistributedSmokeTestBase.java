@@ -1543,6 +1543,69 @@ public abstract class IcebergDistributedSmokeTestBase
         });
     }
 
+    @Test
+    public void testAlterNestedFieldType()
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_nested_field_type_" + fileFormat.name().toLowerCase(ENGLISH);
+            String schemaName = session.getSchema().get();
+            try {
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                                "id BIGINT, " +
+                                "info ROW(age INTEGER, name VARCHAR)" +
+                                ") WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                // Insert rows before widening
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                                "(1, ROW(25, 'alice')), " +
+                                "(2, ROW(30, 'bob'))",
+                        tableName), 2);
+
+                // Verify initial data
+                assertQuery(session,
+                        format("SELECT info.age FROM %s WHERE id = 1", tableName),
+                        "VALUES 25");
+
+                // Widen info.age: INTEGER → BIGINT
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN info.age SET DATA TYPE BIGINT", tableName));
+
+                // Verify schema reflects the widened type
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("id", "bigint"),
+                                columnDefinition("info", "ROW(\"age\" bigint,\"name\" varchar)")),
+                        null,
+                        null);
+
+                // Old rows still readable after widening
+                assertQuery(session,
+                        format("SELECT info.age, typeof(info.age) FROM %s WHERE id = 1", tableName),
+                        "VALUES (CAST(25 AS BIGINT), 'bigint')");
+                assertQuery(session,
+                        format("SELECT info.age FROM %s WHERE id = 2", tableName),
+                        "VALUES CAST(30 AS BIGINT)");
+
+                // Insert new row after widening with a value that fits only in BIGINT
+                assertUpdate(session, format("INSERT INTO %s VALUES (3, ROW(CAST(9999999999 AS BIGINT), 'carol'))", tableName), 1);
+                assertQuery(session,
+                        format("SELECT info.age FROM %s WHERE id = 3", tableName),
+                        "VALUES CAST(9999999999 AS BIGINT)");
+
+                // Narrowing (BIGINT → INTEGER) must be rejected by Iceberg
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN info.age SET DATA TYPE INTEGER", tableName),
+                        "Failed to set field type: Cannot change column type.*");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
+    }
+
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
     {
         test.accept(getSession(), FileFormat.PARQUET);

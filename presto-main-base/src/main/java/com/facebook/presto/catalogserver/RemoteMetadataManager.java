@@ -113,6 +113,9 @@ public class RemoteMetadataManager
     public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type) {}
 
     @Override
+    public void setFieldType(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type) {}
+
+    @Override
     public List<QualifiedObjectName> listViews(Session session, QualifiedTablePrefix prefix)
     {
         String viewsListJson = catalogServerClient.get().listViews(

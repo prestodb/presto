@@ -1018,4 +1018,12 @@ public class ClassLoaderSafeConnectorMetadata
             delegate.setColumnType(session, tableHandle, columnHandle, type);
         }
     }
+
+    @Override
+    public void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, List<String> fieldPath, Type type)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setFieldType(session, tableHandle, columnHandle, fieldPath, type);
+        }
+    }
 }
