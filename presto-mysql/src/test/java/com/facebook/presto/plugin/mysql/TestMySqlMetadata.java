@@ -252,6 +252,62 @@ public class TestMySqlMetadata
     }
 
     @Test
+    public void testGetViewsWithQuoteInViewName()
+            throws SQLException
+    {
+        // MySQL allows a quote inside a back tick quoted identifier, so the name reaches
+        // INFORMATION_SCHEMA.VIEWS as a value and has to be bound as a parameter rather than
+        // interpolated into the lookup
+        String viewName = "test_o'brien_view";
+
+        executeOnMySql("DROP VIEW IF EXISTS tpch.`" + viewName + "`");
+        executeOnMySql("CREATE VIEW tpch.`" + viewName + "` AS SELECT orderkey FROM tpch.orders");
+
+        // the table_name predicate narrows the prefix to a single view, the same path a reference
+        // to the view in a query takes
+        MaterializedResult singleView = computeActual(
+                "SELECT table_name FROM information_schema.views " +
+                        "WHERE table_schema = 'tpch' AND table_name = 'test_o''brien_view'");
+        assertEquals(singleView.getRowCount(), 1);
+        assertEquals(singleView.getMaterializedRows().get(0).getField(0), viewName);
+
+        // without the predicate the whole schema is listed, which reads the name back out of MySQL
+        List<Object> schemaViews = computeActual(
+                "SELECT table_name FROM information_schema.views WHERE table_schema = 'tpch'")
+                .getOnlyColumn()
+                .collect(ImmutableList.toImmutableList());
+        assertTrue(schemaViews.contains(viewName), "Quoted view name should be listed, was: " + schemaViews);
+
+        executeOnMySql("DROP VIEW IF EXISTS tpch.`" + viewName + "`");
+    }
+
+    @Test
+    public void testGetViewsListsEveryViewInSchema()
+            throws SQLException
+    {
+        String view1 = "test_get_views_schema_1";
+        String view2 = "test_get_views_schema_2";
+        String viewDefinition = "SELECT orderkey FROM tpch.orders";
+
+        dropViewIfExists(new String[]{view1, view2});
+
+        assertUpdate("CREATE VIEW " + view1 + " AS " + viewDefinition);
+        assertUpdate("CREATE VIEW " + view2 + " AS " + viewDefinition);
+
+        // a prefix carrying a schema but no table name is answered by one lookup covering every
+        // view in the schema, so both views have to come back keyed by their own name
+        List<Object> views = computeActual(
+                "SELECT table_name FROM information_schema.views WHERE table_schema = 'tpch'")
+                .getOnlyColumn()
+                .collect(ImmutableList.toImmutableList());
+
+        assertTrue(views.contains(view1), "View 1 should be listed, was: " + views);
+        assertTrue(views.contains(view2), "View 2 should be listed, was: " + views);
+
+        dropViewIfExists(new String[]{view1, view2});
+    }
+
+    @Test
     public void testViewWithComplexQuery()
             throws SQLException
     {
@@ -356,12 +412,18 @@ public class TestMySqlMetadata
     private void dropViewIfExists(String viewName)
             throws SQLException
     {
+        executeOnMySql("DROP VIEW IF EXISTS tpch." + viewName);
+    }
+
+    private void executeOnMySql(String sql)
+            throws SQLException
+    {
         try (Connection connection = DriverManager.getConnection(
                 mysqlContainer.getJdbcUrl(),
                 mysqlContainer.getUsername(),
                 mysqlContainer.getPassword());
                 Statement statement = connection.createStatement()) {
-            statement.execute("DROP VIEW IF EXISTS tpch." + viewName);
+            statement.execute(sql);
         }
     }
 }
