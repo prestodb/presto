@@ -1608,6 +1608,8 @@ TEST_P(TaskManagerTest, deleteTaskDropTaskOnDeleteUrlParam) {
 // a task whose Drivers have not finished unwinding. Park a Driver inside the
 // operator to hold 'DriverCtx::task' across the delete and pin that state.
 DEBUG_ONLY_TEST_P(TaskManagerTest, dropTaskOnDeleteWithBlockedDriver) {
+  taskManager_->setTaskSyncTerminateEnabled(true);
+
   // Held by shared_ptr and captured by value: the parked Driver can still be
   // inside the callback when TestBody() returns, so these must not live on the
   // test's stack.
@@ -1641,12 +1643,27 @@ DEBUG_ONLY_TEST_P(TaskManagerTest, dropTaskOnDeleteWithBlockedDriver) {
   std::weak_ptr<exec::Task> weakTask = taskManager_->tasks().at(taskId)->task;
   block->enteredWait.await([&]() { return block->entered.load(); });
 
-  taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/true);
+  folly::ThreadedExecutor deleteExecutor;
+  folly::EventCount deleteStartedWait;
+  std::atomic<bool> deleteStarted{false};
+  auto deleteFuture = folly::via(&deleteExecutor, [&]() {
+    deleteStarted = true;
+    deleteStartedWait.notifyAll();
+    return taskManager_->deleteTask(
+        taskId, true, true, /*shouldDropTask=*/true);
+  });
+  deleteStartedWait.await([&]() { return deleteStarted.load(); });
+  for (int i = 0; i < 30'000 && taskManager_->tasks().count(taskId) != 0 &&
+       !deleteFuture.isReady();
+       ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
 
-  // The task is no longer findable, but the parked Driver still owns the Velox
-  // Task, so dropping the map entry cannot free it out from under running work.
+  // The task is no longer findable, but DELETE must not acknowledge cleanup
+  // while the parked Driver still owns the Velox Task.
   EXPECT_EQ(taskManager_->tasks().count(taskId), 0);
   EXPECT_FALSE(weakTask.expired());
+  EXPECT_FALSE(deleteFuture.isReady());
 
   // A read arriving after the erase must never be told the task completed;
   // findOrCreateTask() gives it an un-started task and it comes back empty.
@@ -1664,6 +1681,58 @@ DEBUG_ONLY_TEST_P(TaskManagerTest, dropTaskOnDeleteWithBlockedDriver) {
 
   block->released = true;
   block->releaseWait.notifyAll();
+  EXPECT_NE(std::move(deleteFuture).get(), nullptr);
+}
+
+DEBUG_ONLY_TEST_P(TaskManagerTest, syncTerminateTimesOutForBlockedDriver) {
+  taskManager_->setTaskSyncTerminateEnabled(true);
+  taskManager_->setTaskSyncTerminateTimeoutMs(10);
+
+  struct BlockState {
+    folly::EventCount enteredWait;
+    std::atomic<bool> entered{false};
+    folly::EventCount releaseWait;
+    std::atomic<bool> released{false};
+  };
+  auto block = std::make_shared<BlockState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const velox::exec::Values*)>(
+          [block](const velox::exec::Values* /*values*/) {
+            block->entered = true;
+            block->enteredWait.notifyAll();
+            block->releaseWait.await([&]() { return block->released.load(); });
+          }));
+
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .values(makeVectors(1, 1'000))
+          .partitionedOutputArbitrary({"c0", "c1"}, GetParam())
+          .planFragment();
+  const protocol::TaskId taskId = "eager-cleanup-timeout.0.0.0.0";
+  createOrUpdateTask(taskId, {}, planFragment);
+  block->enteredWait.await([&]() { return block->entered.load(); });
+
+  folly::ThreadedExecutor deleteExecutor;
+  auto deleteFuture = folly::via(&deleteExecutor, [&]() {
+    return taskManager_->deleteTask(
+        taskId, true, true, /*shouldDropTask=*/false);
+  });
+  deleteFuture.wait(std::chrono::seconds(30));
+  const bool deleteTimedOut = deleteFuture.isReady();
+
+  block->released = true;
+  block->releaseWait.notifyAll();
+
+  EXPECT_TRUE(deleteTimedOut);
+  if (deleteTimedOut) {
+    VELOX_ASSERT_THROW(
+        std::move(deleteFuture).get(),
+        "Task could not be terminated within 10 ms");
+  } else {
+    EXPECT_NE(std::move(deleteFuture).get(), nullptr);
+  }
+  EXPECT_EQ(taskManager_->tasks().count(taskId), 1);
 }
 
 TEST_P(TaskManagerTest, getResultsFromAbortedTask) {
