@@ -18,6 +18,7 @@ import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.spi.ConnectorSession;
@@ -377,7 +378,8 @@ public class TestIcebergTableVersion
      * is being read.
      *
      * The question used to be answered correctly by the handle for "t@123" but not for
-     * FOR VERSION AS OF, so the second way was refused while the first way was not.
+     * FOR VERSION AS OF, so a delete through "t@123" was refused while one through
+     * FOR VERSION AS OF was not.
      *
      * The two methods are called directly by this test. A DELETE statement cannot be used, because
      * AS OF is allowed by the grammar only on a table that is selected from, never on DELETE, UPDATE
@@ -466,6 +468,73 @@ public class TestIcebergTableVersion
         Field delegate = ClassLoaderSafeConnectorMetadata.class.getDeclaredField("delegate");
         delegate.setAccessible(true);
         return (IcebergAbstractMetadata) delegate.get(catalogMetadata.getMetadataFor(handle.getConnectorId()));
+    }
+
+    @Test
+    public void testTableVersionWithSchemaEvolution()
+    {
+        String dropTable = "test_tt_evolution_drop";
+        String addTable = "test_tt_evolution_add";
+        String renameTable = "test_tt_evolution_rename";
+
+        try {
+            // A schema change writes new table metadata without creating a new snapshot, so the
+            // snapshots below are the ones taken before each ALTER, and each records its own schema.
+            assertUpdate("CREATE TABLE " + schemaName + "." + dropTable + " (a integer, b integer)");
+            assertUpdate("INSERT INTO " + schemaName + "." + dropTable + " VALUES (1, 2)", 1);
+            long dropVersion = getLatestSnapshotId(dropTable);
+            assertUpdate("ALTER TABLE " + schemaName + "." + dropTable + " DROP COLUMN b");
+
+            assertUpdate("CREATE TABLE " + schemaName + "." + addTable + " (a integer)");
+            assertUpdate("INSERT INTO " + schemaName + "." + addTable + " VALUES 1", 1);
+            long addVersion = getLatestSnapshotId(addTable);
+            assertUpdate("ALTER TABLE " + schemaName + "." + addTable + " ADD COLUMN c integer");
+
+            assertUpdate("CREATE TABLE " + schemaName + "." + renameTable + " (a integer, b integer)");
+            assertUpdate("INSERT INTO " + schemaName + "." + renameTable + " VALUES (1, 2)", 1);
+            long renameVersion = getLatestSnapshotId(renameTable);
+            assertUpdate("ALTER TABLE " + schemaName + "." + renameTable + " RENAME COLUMN b TO b_renamed");
+
+            // Iceberg keeps data history and schema apart. A snapshot is a set of data files;
+            // the schema lives in the table metadata. ALTER TABLE writes new table metadata and
+            // makes no new snapshot, so the table still has exactly the one snapshot the INSERT
+            // made, and that snapshot is still the newest one.
+            assertQuery("SELECT count(*) FROM " + schemaName + ".\"" + dropTable + "$snapshots\"", "VALUES 1");
+            assertEquals(getLatestSnapshotId(dropTable), dropVersion, "DROP COLUMN must not create a snapshot");
+
+            // Control: the current schema of each table reflects the ALTER.
+            assertQuery("SELECT * FROM " + schemaName + "." + dropTable, "VALUES 1");
+            assertQuery("SELECT * FROM " + schemaName + "." + addTable, "VALUES (1, null)");
+            assertQuery("SELECT b_renamed FROM " + schemaName + "." + renameTable, "VALUES 2");
+
+            // A dropped column is still part of the schema of the snapshot that predates the drop,
+            // and its values are still in that snapshot's data files.
+            assertColumnCount("SELECT * FROM " + schemaName + "." + dropTable + " FOR VERSION AS OF " + dropVersion, 2,
+                    "snapshot " + dropVersion + " was written with columns (a, b)");
+            assertQuery("SELECT * FROM " + schemaName + "." + dropTable + " FOR VERSION AS OF " + dropVersion, "VALUES (1, 2)");
+            assertQuery("SELECT b FROM " + schemaName + "." + dropTable + " FOR VERSION AS OF " + dropVersion, "VALUES 2");
+
+            // A column added after a snapshot is not part of that snapshot's schema.
+            assertColumnCount("SELECT * FROM " + schemaName + "." + addTable + " FOR VERSION AS OF " + addVersion, 1,
+                    "column c did not exist yet at snapshot " + addVersion);
+            assertQuery("SELECT * FROM " + schemaName + "." + addTable + " FOR VERSION AS OF " + addVersion, "VALUES 1");
+            assertQueryFails("SELECT c FROM " + schemaName + "." + addTable + " FOR VERSION AS OF " + addVersion, ".*Column 'c' cannot be resolved.*");
+
+            // A snapshot that predates a rename knows the column by its old name only.
+            assertQuery("SELECT b FROM " + schemaName + "." + renameTable + " FOR VERSION AS OF " + renameVersion, "VALUES 2");
+            assertQueryFails("SELECT b_renamed FROM " + schemaName + "." + renameTable + " FOR VERSION AS OF " + renameVersion, ".*Column 'b_renamed' cannot be resolved.*");
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + schemaName + "." + dropTable);
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + schemaName + "." + addTable);
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + schemaName + "." + renameTable);
+        }
+    }
+
+    private void assertColumnCount(String sql, int expected, String why)
+    {
+        List<Type> types = computeActual(sql).getTypes();
+        assertEquals(types.size(), expected, why + ", but the read returned " + types);
     }
 
     @Test
