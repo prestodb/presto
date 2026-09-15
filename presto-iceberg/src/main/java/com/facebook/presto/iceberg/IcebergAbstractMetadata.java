@@ -1623,7 +1623,7 @@ public abstract class IcebergAbstractMetadata
         return new IcebergTableHandle(
                 tableNameToLoad.getSchemaName(),
                 new IcebergTableName(tableNameToLoad.getTableName(), name.getTableType(), tableSnapshotId, name.getBranchName(), name.getChangelogEndSnapshot()),
-                name.getSnapshotId().isPresent(),
+                tableVersion.isPresent() || name.getSnapshotId().isPresent(),
                 tryGetLocation(table),
                 tryGetProperties(table),
                 tableSchemaJson,
