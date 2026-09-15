@@ -78,7 +78,15 @@ public class AddFieldTask
             return immediateFuture(null);
         }
 
-        accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+        accessControl.checkCanAlterColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+
+        if (!statement.isNullable()) {
+            throw new SemanticException(NOT_SUPPORTED, statement, "NOT NULL constraint is not supported for nested ADD COLUMN");
+        }
+
+        if (statement.getComment().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, statement, "COMMENT is not supported for nested ADD COLUMN");
+        }
 
         // Parse the field type
         Type type;
