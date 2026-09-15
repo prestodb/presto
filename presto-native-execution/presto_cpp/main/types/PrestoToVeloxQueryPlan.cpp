@@ -12,6 +12,9 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+#include <cctype>
+
 // clang-format off
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
@@ -44,7 +47,6 @@
 #include "velox/exec/TraceUtil.h"
 // RPC plan nodes for single-operator async RPC execution
 #include <folly/json.h>
-#include "presto_cpp/presto_protocol/Base64Util.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -2344,77 +2346,155 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
 namespace {
 
-// Parses streaming mode and dispatch batch size from the options JSON
-// argument (arg[3]) of an RPC function call. The valueBlock.data is a
-// Base64-encoded Presto serialized block; we use protocol::readBlock()
-// to deserialize it into a Velox vector before extracting the string.
-void parseRpcOptionsFromConstant(
-    const std::shared_ptr<const protocol::ConstantExpression>& constantExpr,
-    velox::memory::MemoryPool* pool,
+// Uses nullopt when no source expression exists, nullptr when an authoritative
+// source expression is dynamic or unsafe, and a non-null expression when it is
+// safe to evaluate during plan conversion.
+using RpcConstantResolution = std::optional<core::TypedExprPtr>;
+
+RpcConstantResolution resolveRpcConstantColumn(
+    const core::PlanNodePtr& source,
+    std::string_view column);
+
+bool isSafeRpcConstantCall(std::string_view functionName) {
+  const SystemConfig* systemConfig = SystemConfig::instance();
+  VELOX_CHECK_NOT_NULL(systemConfig);
+  const std::string concatFunctionName = util::addDefaultNamespacePrefix(
+      systemConfig->prestoDefaultNamespacePrefix(), "concat");
+  const std::string replaceFunctionName = util::addDefaultNamespacePrefix(
+      systemConfig->prestoDefaultNamespacePrefix(), "replace");
+  return functionName == concatFunctionName ||
+      functionName == replaceFunctionName;
+}
+
+core::TypedExprPtr resolveRpcConstantExpression(
+    const core::PlanNodePtr& source,
+    const core::TypedExprPtr& expression) {
+  if (dynamic_cast<const core::ConstantTypedExpr*>(expression.get()) !=
+      nullptr) {
+    return expression;
+  }
+
+  if (const auto* field =
+          dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get())) {
+    if (!field->inputs().empty()) {
+      return nullptr;
+    }
+    const auto resolution = resolveRpcConstantColumn(source, field->name());
+    return resolution.value_or(nullptr);
+  }
+
+  if (const auto* cast =
+          dynamic_cast<const core::CastTypedExpr*>(expression.get())) {
+    if (cast->inputs().size() != 1) {
+      return nullptr;
+    }
+    auto input = resolveRpcConstantExpression(source, cast->inputs().front());
+    if (input == nullptr) {
+      return nullptr;
+    }
+    return std::make_shared<core::CastTypedExpr>(
+        cast->type(), std::move(input), cast->isTryCast());
+  }
+
+  const auto* call = dynamic_cast<const core::CallTypedExpr*>(expression.get());
+  if (call == nullptr || !isSafeRpcConstantCall(call->name())) {
+    return nullptr;
+  }
+
+  std::vector<core::TypedExprPtr> inputs;
+  inputs.reserve(call->inputs().size());
+  for (const auto& input : call->inputs()) {
+    auto resolvedInput = resolveRpcConstantExpression(source, input);
+    if (resolvedInput == nullptr) {
+      return nullptr;
+    }
+    inputs.push_back(std::move(resolvedInput));
+  }
+  return std::make_shared<core::CallTypedExpr>(
+      call->type(), std::move(inputs), call->name());
+}
+
+RpcConstantResolution resolveRpcConstantColumn(
+    const core::PlanNodePtr& source,
+    std::string_view column) {
+  if (source == nullptr) {
+    return std::nullopt;
+  }
+
+  if (const auto* localPartition =
+          dynamic_cast<const core::LocalPartitionNode*>(source.get())) {
+    if (localPartition->sources().size() != 1) {
+      return std::nullopt;
+    }
+    return resolveRpcConstantColumn(localPartition->sources().front(), column);
+  }
+
+  if (const auto* rpcNode = dynamic_cast<const core::RPCNode*>(source.get())) {
+    if (rpcNode->outputColumn() == column) {
+      return core::TypedExprPtr{};
+    }
+    const auto& rpcSource = rpcNode->source();
+    if (rpcSource == nullptr ||
+        !rpcSource->outputType()->getChildIdxIfExists(column)) {
+      return std::nullopt;
+    }
+    return resolveRpcConstantColumn(rpcSource, column);
+  }
+
+  if (const auto* project =
+          dynamic_cast<const core::ProjectNode*>(source.get())) {
+    const auto channel = project->outputType()->getChildIdxIfExists(column);
+    if (!channel.has_value()) {
+      return std::nullopt;
+    }
+    return RpcConstantResolution{resolveRpcConstantExpression(
+        project->sources().front(),
+        project->projections().at(channel.value()))};
+  }
+
+  return std::nullopt;
+}
+
+// Reads worker-resolved constant RPC options so transport selection and the
+// operator's execution mode use the same value.
+void parseRpcOptions(
+    const std::vector<VectorPtr>& constantInputs,
     rpc::RPCStreamingMode& streamingMode,
     int32_t& dispatchBatchSize) {
+  if (constantInputs.size() < 4 || constantInputs[3] == nullptr ||
+      constantInputs[3]->isNullAt(0)) {
+    return;
+  }
+
   try {
-    auto valueVector = protocol::readBlock(
-        velox::VARCHAR(), constantExpr->valueBlock.data, pool);
-    if (valueVector->isNullAt(0)) {
+    const auto* simpleVector =
+        constantInputs[3]->as<velox::SimpleVector<velox::StringView>>();
+    if (simpleVector == nullptr) {
       return;
     }
-    auto* simpleVec = valueVector->as<velox::SimpleVector<velox::StringView>>();
-    if (!simpleVec) {
+    auto optionsJson = folly::parseJson(simpleVector->valueAt(0).str());
+    if (!optionsJson.isObject()) {
       return;
     }
-    auto optionsStr = simpleVec->valueAt(0).str();
-    auto parsed = folly::parseJson(optionsStr);
-    if (!parsed.isObject()) {
-      return;
-    }
-    if (parsed.count("streaming_mode")) {
-      auto mode = parsed["streaming_mode"].asString();
-      std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
-      if (mode == "batch") {
+    if (optionsJson.contains("streaming_mode")) {
+      std::string streamingModeOption =
+          optionsJson["streaming_mode"].asString();
+      std::transform(
+          streamingModeOption.begin(),
+          streamingModeOption.end(),
+          streamingModeOption.begin(),
+          ::tolower);
+      if (streamingModeOption == "batch") {
         streamingMode = rpc::RPCStreamingMode::kBatch;
       }
     }
-    if (parsed.count("dispatch_batch_size")) {
+    if (optionsJson.contains("dispatch_batch_size")) {
       dispatchBatchSize =
-          static_cast<int32_t>(parsed["dispatch_batch_size"].asInt());
+          static_cast<int32_t>(optionsJson["dispatch_batch_size"].asInt());
     }
+    // Invalid options are validated later by the RPC function.
+    // @lint-ignore CLANGTIDY facebook-hte-SuspiciousCatchBlockIssue
   } catch (const std::exception&) {
-  }
-}
-
-// Parses RPC options from the 4th argument expression, handling both
-// direct ConstantExpression and CallExpression (e.g., CAST) wrappers.
-void parseRpcOptions(
-    const std::vector<std::shared_ptr<protocol::RowExpression>>& arguments,
-    velox::memory::MemoryPool* pool,
-    rpc::RPCStreamingMode& streamingMode,
-    int32_t& dispatchBatchSize) {
-  if (arguments.size() < 4) {
-    return;
-  }
-  auto optionsExpr = arguments[3];
-
-  // Case 1: Direct ConstantExpression.
-  if (auto constantExpr =
-          std::dynamic_pointer_cast<const protocol::ConstantExpression>(
-              optionsExpr)) {
-    parseRpcOptionsFromConstant(
-        constantExpr, pool, streamingMode, dispatchBatchSize);
-    return;
-  }
-  // Case 2: CallExpression (e.g., CAST) — look for constant in arguments.
-  if (auto callExpr = std::dynamic_pointer_cast<const protocol::CallExpression>(
-          optionsExpr)) {
-    for (const auto& arg : callExpr->arguments) {
-      if (auto innerConstant =
-              std::dynamic_pointer_cast<const protocol::ConstantExpression>(
-                  arg)) {
-        parseRpcOptionsFromConstant(
-            innerConstant, pool, streamingMode, dispatchBatchSize);
-        return;
-      }
-    }
   }
 }
 
@@ -2424,6 +2504,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::RPCNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
+  VELOX_CHECK_NOT_NULL(node);
+
   // Convert the single source.
   auto sourceNode = toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
 
@@ -2437,29 +2519,30 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   // Parse the result type from the protocol output variable.
   auto resultType = typeParser_.parse(node->outputVariable.type);
 
-  // Extract constant values from the protocol argument expressions. The Java
-  // planner sends both `arguments` (original expressions, used here to detect
-  // constant literals) and `argumentColumns` (column names for runtime reads by
-  // RPCOperator). Column-argument types come from the source schema below, not
-  // from the argument expression's declared type.
+  // Use the expression that materializes each argument column because it is
+  // authoritative for what RPCOperator reads. Evaluate literals, casts, and
+  // explicitly allowlisted pure string calls only; arbitrary input-independent
+  // calls may perform RPCs and must run in the operator. Accept direct protocol
+  // literals only when no source expression materializes the argument.
+  VELOX_CHECK_EQ(node->argumentColumns.size(), node->arguments.size());
   std::vector<VectorPtr> constantInputs;
   constantInputs.reserve(node->arguments.size());
-  for (const auto& arg : node->arguments) {
-    auto veloxExpr = exprConverter_.toVeloxExpr(arg);
-
-    // Extract constant value. Unwrap CastTypedExpr if present — the Java
-    // planner wraps string literals in CAST(x AS VARCHAR) which hides the
-    // inner ConstantTypedExpr from a direct dynamic_cast.
-    const core::ITypedExpr* innerExpr = veloxExpr.get();
-    if (auto* castExpr = dynamic_cast<const core::CastTypedExpr*>(innerExpr)) {
-      if (!castExpr->inputs().empty()) {
-        innerExpr = castExpr->inputs()[0].get();
-      }
+  for (size_t i = 0; i < node->arguments.size(); ++i) {
+    const auto resolution =
+        resolveRpcConstantColumn(sourceNode, node->argumentColumns[i]);
+    core::TypedExprPtr expression = resolution.value_or(nullptr);
+    if (!resolution.has_value() &&
+        std::dynamic_pointer_cast<protocol::ConstantExpression>(
+            node->arguments[i]) != nullptr) {
+      expression = exprConverter_.toVeloxExpr(node->arguments[i]);
     }
-    if (auto* constExpr =
-            dynamic_cast<const core::ConstantTypedExpr*>(innerExpr)) {
-      constantInputs.push_back(constExpr->toConstantVector(pool_));
-    } else {
+    if (expression == nullptr) {
+      constantInputs.push_back(nullptr);
+      continue;
+    }
+    try {
+      constantInputs.push_back(evaluateConstantExpression(expression));
+    } catch (const std::exception&) {
       constantInputs.push_back(nullptr);
     }
   }
@@ -2467,8 +2550,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   // Read argument column names from the protocol node.
   std::vector<std::string> argumentColumns;
   argumentColumns.reserve(node->argumentColumns.size());
-  for (const auto& col : node->argumentColumns) {
-    argumentColumns.push_back(col);
+  for (const auto& column : node->argumentColumns) {
+    argumentColumns.push_back(column);
   }
 
   // Determine streaming mode.
@@ -2483,8 +2566,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   // (arg[3]) for robustness, in case the Java protocol path has issues.
   // The Java->protocol path for streamingMode can fail when the options
   // argument is wrapped in CAST, so we parse the options here as a fallback.
-  parseRpcOptions(
-      node->arguments, pool_, veloxStreamingMode, dispatchBatchSize);
+  parseRpcOptions(constantInputs, veloxStreamingMode, dispatchBatchSize);
 
   // Build explicit output type: source columns + RPC result column.
   // Specified explicitly to support column pruning optimizations.
@@ -2499,9 +2581,9 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   outputTypes.push_back(resultType);
   auto outputType = ROW(std::move(outputNames), std::move(outputTypes));
 
-  // Build CallTypedExpr inputs: FieldAccess for columns, Constant for literals
-  // (Velox #18267 folds RPCNode args into CallTypedExpr: field refs vs
-  // constants)
+  // Build CallTypedExpr inputs: FieldAccess for columns, Constant for
+  // input-independent expressions (Velox #18267 folds RPCNode args into
+  // CallTypedExpr: field refs vs constants).
   // argumentColumns and constantInputs are parallel per-argument arrays; the
   // loop indexes both, so they must stay aligned.
   VELOX_CHECK_EQ(argumentColumns.size(), constantInputs.size());
@@ -2516,14 +2598,15 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       // type, not the argument expression's declared type: RPCOperator reads
       // this column by name at runtime, so a CAST-wrapped argument would
       // otherwise misdeclare the vector that is actually read.
-      const auto childIdx = sourceType->getChildIdxIfExists(argumentColumns[i]);
+      const auto childIndex =
+          sourceType->getChildIdxIfExists(argumentColumns[i]);
       VELOX_CHECK(
-          childIdx.has_value(),
+          childIndex.has_value(),
           "RPCNode argument column '{}' not found in source schema",
           argumentColumns[i]);
       callInputs.push_back(
           std::make_shared<core::FieldAccessTypedExpr>(
-              sourceType->childAt(*childIdx), argumentColumns[i]));
+              sourceType->childAt(*childIndex), argumentColumns[i]));
     }
   }
   auto call = std::make_shared<core::CallTypedExpr>(

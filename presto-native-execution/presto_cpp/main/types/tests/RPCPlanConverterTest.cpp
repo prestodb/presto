@@ -11,13 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cstdint>
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/common/rpc/RPCTypes.h"
+#include "velox/expression/RegisterSpecialForm.h"
 #include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -74,12 +82,331 @@ std::shared_ptr<protocol::RPCNode> makeRPCNode(
   return node;
 }
 
+std::shared_ptr<protocol::ConstantExpression> makeDirectConstantOptions() {
+  const json serialized = json::parse(R"(
+      {
+        "@type": "constant",
+        "type": "varchar",
+        "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAE8AAAAATwAAAHsiaW5mZXJlbmNlX2JhY2tlbmQiOiJpcG5leHQiLCJzdHJlYW1pbmdfbW9kZSI6ImJhdGNoIiwiZGlzcGF0Y2hfYmF0Y2hfc2l6ZSI6N30="
+      }
+  )");
+  return serialized;
+}
+
+std::shared_ptr<protocol::RowExpression> makeCastConstantOptions() {
+  const json serialized = json::parse(R"(
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "varchar",
+                "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAE8AAAAATwAAAHsiaW5mZXJlbmNlX2JhY2tlbmQiOiJpcG5leHQiLCJzdHJlYW1pbmdfbW9kZSI6ImJhdGNoIiwiZGlzcGF0Y2hfYmF0Y2hfc2l6ZSI6N30="
+              }
+            ],
+            "displayName": "CAST",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": ["varchar"],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.$operator$cast",
+                "returnType": "varchar",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              },
+              "builtInFunctionKind": "ENGINE"
+            },
+            "returnType": "varchar"
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": ["varchar"],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "varchar",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          },
+          "builtInFunctionKind": "ENGINE"
+        },
+        "returnType": "varchar"
+      }
+  )");
+  return serialized;
+}
+
+std::shared_ptr<protocol::CallExpression> makeNestedRpcArgument() {
+  const json serialized = json::parse(R"(
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "varchar",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAE8AAAAATwAAAHsiaW5mZXJlbmNlX2JhY2tlbmQiOiJpcG5leHQiLCJzdHJlYW1pbmdfbW9kZSI6ImJhdGNoIiwiZGlzcGF0Y2hfYmF0Y2hfc2l6ZSI6N30="
+          }
+        ],
+        "displayName": "nested_rpc_test",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": ["varchar"],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.nested_rpc_test",
+            "returnType": "varchar",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          },
+          "builtInFunctionKind": "ENGINE"
+        },
+        "returnType": "varchar"
+      }
+  )");
+  return serialized;
+}
+
+std::shared_ptr<protocol::CallExpression> makeCastInnerRpcResult() {
+  const json serialized = json::parse(
+      R"(
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "variable",
+            "name": "__inner_rpc_result",
+            "type": "varchar"
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": ["varchar"],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "varchar",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          },
+          "builtInFunctionKind": "ENGINE"
+        },
+        "returnType": "varchar"
+      }
+  )");
+  return serialized;
+}
+
+std::shared_ptr<protocol::CallExpression> makeBigintToVarcharCast() {
+  const json serialized = json::parse(R"(
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "bigint",
+            "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAAAoAAAAAAAAA"
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": ["bigint"],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "varchar",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          },
+          "builtInFunctionKind": "ENGINE"
+        },
+        "returnType": "varchar"
+      }
+  )");
+  return serialized;
+}
+
+std::shared_ptr<protocol::CallExpression> makeNestedStringOptions() {
+  const json serialized = json::parse(R"(
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "call",
+            "arguments": [
+              {"@type": "variable", "name": "expr_14", "type": "varchar"},
+              {"@type": "variable", "name": "expr_14", "type": "varchar"}
+            ],
+            "displayName": "concat",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": ["varchar", "varchar"],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.concat",
+                "returnType": "varchar",
+                "typeVariableConstraints": [],
+                "variableArity": true
+              },
+              "builtInFunctionKind": "ENGINE"
+            },
+            "returnType": "varchar"
+          },
+          {
+            "@type": "call",
+            "arguments": [
+              {"@type": "variable", "name": "expr_14", "type": "varchar"},
+              {"@type": "variable", "name": "expr_14", "type": "varchar"}
+            ],
+            "displayName": "concat",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": ["varchar", "varchar"],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.concat",
+                "returnType": "varchar",
+                "typeVariableConstraints": [],
+                "variableArity": true
+              },
+              "builtInFunctionKind": "ENGINE"
+            },
+            "returnType": "varchar"
+          },
+          {"@type": "variable", "name": "expr_14", "type": "varchar"}
+        ],
+        "displayName": "replace",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": ["varchar", "varchar", "varchar"],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.replace",
+            "returnType": "varchar",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          },
+          "builtInFunctionKind": "ENGINE"
+        },
+        "returnType": "varchar"
+      }
+  )");
+  return serialized;
+}
+
+std::shared_ptr<protocol::ProjectNode> makeProjectedSource(
+    std::shared_ptr<protocol::PlanNode> source,
+    std::string outputName,
+    std::shared_ptr<protocol::RowExpression> expression) {
+  auto projectNode = std::make_shared<protocol::ProjectNode>();
+  projectNode->_type = "com.facebook.presto.sql.planner.plan.ProjectNode";
+  projectNode->id = "project";
+  projectNode->source = std::move(source);
+
+  protocol::VariableReferenceExpression output;
+  output.name = std::move(outputName);
+  output.type = "varchar";
+  projectNode->assignments.assignments.emplace(
+      std::move(output), std::move(expression));
+  return projectNode;
+}
+
+std::shared_ptr<protocol::ProjectNode> makeProjectedOptionsSource() {
+  auto valuesNode = makeValuesNode();
+  VELOX_CHECK_NOT_NULL(valuesNode);
+  auto projectNode =
+      makeProjectedSource(valuesNode, "__rpc_arg", makeCastConstantOptions());
+  VELOX_CHECK_NOT_NULL(projectNode);
+  const auto& comment = valuesNode->outputVariables.front();
+  projectNode->assignments.assignments.emplace(
+      comment,
+      std::make_shared<protocol::VariableReferenceExpression>(comment));
+  return projectNode;
+}
+
+std::shared_ptr<protocol::ExchangeNode> makeGatheredOptionsSource() {
+  auto source = makeProjectedOptionsSource();
+  VELOX_CHECK_NOT_NULL(source);
+  auto exchange = std::make_shared<protocol::ExchangeNode>();
+  exchange->_type = "com.facebook.presto.sql.planner.plan.ExchangeNode";
+  exchange->id = "gather";
+  exchange->type = protocol::ExchangeNodeType::GATHER;
+  exchange->scope = protocol::ExchangeNodeScope::LOCAL;
+
+  protocol::VariableReferenceExpression comment;
+  comment.name = "comment";
+  comment.type = "varchar";
+  protocol::VariableReferenceExpression options;
+  options.name = "__rpc_arg";
+  options.type = "varchar";
+  exchange->partitioningScheme.outputLayout = {comment, options};
+  exchange->sources = {std::move(source)};
+  exchange->inputs = {{std::move(comment), std::move(options)}};
+  return exchange;
+}
+
+std::shared_ptr<protocol::ProjectNode> makeOptionsAfterRpcSource() {
+  auto valuesNode = makeValuesNode();
+  VELOX_CHECK_NOT_NULL(valuesNode);
+  auto optionsProject =
+      makeProjectedSource(valuesNode, "expr_14", makeDirectConstantOptions());
+  VELOX_CHECK_NOT_NULL(optionsProject);
+  const auto& commentVariable = valuesNode->outputVariables.front();
+  optionsProject->assignments.assignments.emplace(
+      commentVariable,
+      std::make_shared<protocol::VariableReferenceExpression>(commentVariable));
+
+  auto localExchange = std::make_shared<protocol::ExchangeNode>();
+  localExchange->_type = "com.facebook.presto.sql.planner.plan.ExchangeNode";
+  localExchange->id = "gather_before_rpc";
+  localExchange->type = protocol::ExchangeNodeType::GATHER;
+  localExchange->scope = protocol::ExchangeNodeScope::LOCAL;
+  protocol::VariableReferenceExpression optionsVariable;
+  optionsVariable.name = "expr_14";
+  optionsVariable.type = "varchar";
+  localExchange->partitioningScheme.outputLayout = {
+      commentVariable, optionsVariable};
+  localExchange->sources = {std::move(optionsProject)};
+  localExchange->inputs = {{commentVariable, optionsVariable}};
+
+  auto innerRpcNode = makeRPCNode(std::move(localExchange));
+  VELOX_CHECK_NOT_NULL(innerRpcNode);
+  innerRpcNode->id = "inner_rpc";
+  innerRpcNode->outputVariable.name = "__inner_rpc_result";
+
+  auto computedOptions = makeProjectedSource(
+      std::move(innerRpcNode), "__rpc_options", makeNestedStringOptions());
+  VELOX_CHECK_NOT_NULL(computedOptions);
+  computedOptions->id = "project_after_rpc";
+  computedOptions->assignments.assignments.emplace(
+      commentVariable,
+      std::make_shared<protocol::VariableReferenceExpression>(commentVariable));
+  return computedOptions;
+}
+
 } // namespace
 
 class RPCPlanConverterTest : public ::testing::Test {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+    exec::registerFunctionCallToSpecialForms();
+    functions::prestosql::registerAllScalarFunctions("presto.default.");
   }
 
   void SetUp() override {
@@ -169,6 +496,217 @@ TEST_F(RPCPlanConverterTest, rpcNodeWithRegisteredFunction) {
   ASSERT_NE(field, nullptr);
   EXPECT_EQ(field->name(), "comment");
   EXPECT_EQ(field->type()->kind(), TypeKind::VARCHAR);
+}
+
+TEST_F(RPCPlanConverterTest, foldsInputIndependentRpcOptions) {
+  auto valuesNode = makeValuesNode();
+  VELOX_CHECK_NOT_NULL(valuesNode);
+  auto rpcNode = makeRPCNode(valuesNode);
+  VELOX_CHECK_NOT_NULL(rpcNode);
+  for (int32_t i = 0; i < 2; ++i) {
+    rpcNode->arguments.push_back(rpcNode->arguments.front());
+    rpcNode->argumentColumns.push_back("comment");
+  }
+  rpcNode->arguments.push_back(makeDirectConstantOptions());
+  rpcNode->argumentColumns.push_back("comment");
+
+  VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+  const auto veloxPlan = converter.toVeloxQueryPlan(
+      std::dynamic_pointer_cast<protocol::PlanNode>(rpcNode),
+      nullptr,
+      "20260124_042527_00001_gp3te.1.0.0.0");
+  VELOX_CHECK_NOT_NULL(veloxPlan);
+  const auto* veloxRpcNode =
+      dynamic_cast<const core::RPCNode*>(veloxPlan.get());
+  ASSERT_NE(veloxRpcNode, nullptr);
+
+  const auto& call = veloxRpcNode->call();
+  VELOX_CHECK_NOT_NULL(call);
+  ASSERT_EQ(call->inputs().size(), 4);
+  const auto* options =
+      dynamic_cast<const core::ConstantTypedExpr*>(call->inputs()[3].get());
+  ASSERT_NE(options, nullptr);
+  const auto value = options->toConstantVector(pool_.get());
+  VELOX_CHECK_NOT_NULL(value);
+  const auto* strings = value->as<SimpleVector<StringView>>();
+  ASSERT_NE(strings, nullptr);
+  EXPECT_EQ(
+      strings->valueAt(0).str(),
+      R"({"inference_backend":"ipnext","streaming_mode":"batch","dispatch_batch_size":7})");
+  EXPECT_EQ(veloxRpcNode->streamingMode(), exec_rpc::RPCStreamingMode::kBatch);
+  EXPECT_EQ(veloxRpcNode->dispatchBatchSize(), 7);
+}
+
+TEST_F(RPCPlanConverterTest, readsConstantRpcOptionsFromSourceProjection) {
+  const std::vector<std::shared_ptr<protocol::PlanNode>> sources{
+      makeProjectedOptionsSource(),
+      makeGatheredOptionsSource(),
+  };
+
+  for (const auto& source : sources) {
+    auto rpcNode = makeRPCNode(source);
+    VELOX_CHECK_NOT_NULL(rpcNode);
+    for (int32_t i = 0; i < 2; ++i) {
+      rpcNode->arguments.push_back(rpcNode->arguments.front());
+      rpcNode->argumentColumns.push_back("comment");
+    }
+    auto options = std::make_shared<protocol::VariableReferenceExpression>();
+    options->_type = "variable";
+    options->name = "__rpc_arg";
+    options->type = "varchar";
+    rpcNode->arguments.push_back(std::move(options));
+    rpcNode->argumentColumns.push_back("__rpc_arg");
+
+    VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+    const auto veloxPlan = converter.toVeloxQueryPlan(
+        std::dynamic_pointer_cast<protocol::PlanNode>(rpcNode),
+        nullptr,
+        "20260124_042527_00001_gp3te.1.0.0.0");
+    VELOX_CHECK_NOT_NULL(veloxPlan);
+    const auto* veloxRpcNode =
+        dynamic_cast<const core::RPCNode*>(veloxPlan.get());
+    ASSERT_NE(veloxRpcNode, nullptr);
+
+    const auto& call = veloxRpcNode->call();
+    VELOX_CHECK_NOT_NULL(call);
+    const auto* constantOptions = dynamic_cast<const core::ConstantTypedExpr*>(
+        call->inputs().at(3).get());
+    ASSERT_NE(constantOptions, nullptr);
+    EXPECT_EQ(
+        veloxRpcNode->streamingMode(), exec_rpc::RPCStreamingMode::kBatch);
+    EXPECT_EQ(veloxRpcNode->dispatchBatchSize(), 7);
+  }
+}
+
+TEST_F(RPCPlanConverterTest, foldsOptionsAcrossPriorRpcNode) {
+  auto rpcNode = makeRPCNode(makeOptionsAfterRpcSource());
+  VELOX_CHECK_NOT_NULL(rpcNode);
+  for (int32_t i = 0; i < 2; ++i) {
+    rpcNode->arguments.push_back(rpcNode->arguments.front());
+    rpcNode->argumentColumns.push_back("comment");
+  }
+  auto optionsVariable =
+      std::make_shared<protocol::VariableReferenceExpression>();
+  optionsVariable->_type = "variable";
+  optionsVariable->name = "__rpc_options";
+  optionsVariable->type = "varchar";
+  rpcNode->arguments.push_back(std::move(optionsVariable));
+  rpcNode->argumentColumns.push_back("__rpc_options");
+  rpcNode->streamingMode = protocol::RPCNodeStreamingMode::BATCH;
+
+  VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+  const auto veloxPlan = converter.toVeloxQueryPlan(
+      std::dynamic_pointer_cast<protocol::PlanNode>(rpcNode),
+      nullptr,
+      "20260124_042527_00001_gp3te.1.0.0.0");
+  VELOX_CHECK_NOT_NULL(veloxPlan);
+  const auto* veloxRpcNode =
+      dynamic_cast<const core::RPCNode*>(veloxPlan.get());
+  ASSERT_NE(veloxRpcNode, nullptr);
+
+  const auto& call = veloxRpcNode->call();
+  VELOX_CHECK_NOT_NULL(call);
+  const auto* constantOptions =
+      dynamic_cast<const core::ConstantTypedExpr*>(call->inputs().at(3).get());
+  ASSERT_NE(constantOptions, nullptr);
+  const auto value = constantOptions->toConstantVector(pool_.get());
+  VELOX_CHECK_NOT_NULL(value);
+  const auto* strings = value->as<SimpleVector<StringView>>();
+  ASSERT_NE(strings, nullptr);
+  const std::string expectedOptions =
+      R"({"inference_backend":"ipnext","streaming_mode":"batch","dispatch_batch_size":7})";
+  EXPECT_EQ(strings->valueAt(0).str(), expectedOptions);
+}
+
+TEST_F(RPCPlanConverterTest, doesNotFoldUnallowlistedProjectedCall) {
+  auto rpcNode = makeRPCNode(makeProjectedSource(
+      makeValuesNode(), "__rpc_arg", makeNestedRpcArgument()));
+  VELOX_CHECK_NOT_NULL(rpcNode);
+  rpcNode->arguments = {makeDirectConstantOptions()};
+  rpcNode->argumentColumns = {"__rpc_arg"};
+
+  VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+  const auto veloxPlan = converter.toVeloxQueryPlan(
+      std::dynamic_pointer_cast<protocol::PlanNode>(rpcNode),
+      nullptr,
+      "20260124_042527_00001_gp3te.1.0.0.0");
+  VELOX_CHECK_NOT_NULL(veloxPlan);
+  const auto* veloxRpcNode =
+      dynamic_cast<const core::RPCNode*>(veloxPlan.get());
+  ASSERT_NE(veloxRpcNode, nullptr);
+
+  const auto& call = veloxRpcNode->call();
+  VELOX_CHECK_NOT_NULL(call);
+  const auto* field = dynamic_cast<const core::FieldAccessTypedExpr*>(
+      call->inputs().front().get());
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->name(), "__rpc_arg");
+}
+
+TEST_F(RPCPlanConverterTest, preservesProjectedCastSemantics) {
+  auto rpcNode = makeRPCNode(makeProjectedSource(
+      makeValuesNode(), "__rpc_arg", makeBigintToVarcharCast()));
+  VELOX_CHECK_NOT_NULL(rpcNode);
+  auto argument = std::make_shared<protocol::VariableReferenceExpression>();
+  argument->_type = "variable";
+  argument->name = "__rpc_arg";
+  argument->type = "varchar";
+  rpcNode->arguments = {std::move(argument)};
+  rpcNode->argumentColumns = {"__rpc_arg"};
+
+  VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+  const auto veloxPlan = converter.toVeloxQueryPlan(
+      std::dynamic_pointer_cast<protocol::PlanNode>(rpcNode),
+      nullptr,
+      "20260124_042527_00001_gp3te.1.0.0.0");
+  VELOX_CHECK_NOT_NULL(veloxPlan);
+  const auto* veloxRpcNode =
+      dynamic_cast<const core::RPCNode*>(veloxPlan.get());
+  ASSERT_NE(veloxRpcNode, nullptr);
+
+  const auto& call = veloxRpcNode->call();
+  VELOX_CHECK_NOT_NULL(call);
+  const auto* constant = dynamic_cast<const core::ConstantTypedExpr*>(
+      call->inputs().front().get());
+  ASSERT_NE(constant, nullptr);
+  EXPECT_EQ(constant->type(), VARCHAR());
+  const auto value = constant->toConstantVector(pool_.get());
+  VELOX_CHECK_NOT_NULL(value);
+  const auto* strings = value->as<SimpleVector<StringView>>();
+  ASSERT_NE(strings, nullptr);
+  EXPECT_EQ(strings->valueAt(0).str(), "10");
+}
+
+TEST_F(RPCPlanConverterTest, doesNotEvaluateNestedRpcArgument) {
+  auto innerRpcNode = makeRPCNode(makeValuesNode());
+  VELOX_CHECK_NOT_NULL(innerRpcNode);
+  innerRpcNode->functionName = "nested_rpc_test";
+  innerRpcNode->outputVariable.name = "__inner_rpc_result";
+
+  auto projectedSource = makeProjectedSource(
+      innerRpcNode, "__projected_inner_rpc_result", makeCastInnerRpcResult());
+  auto outerRpcNode = makeRPCNode(std::move(projectedSource));
+  VELOX_CHECK_NOT_NULL(outerRpcNode);
+  outerRpcNode->functionName = "nested_rpc_test";
+  outerRpcNode->arguments = {makeDirectConstantOptions()};
+  outerRpcNode->argumentColumns = {"__projected_inner_rpc_result"};
+  outerRpcNode->outputVariable.name = "__outer_rpc_result";
+
+  VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+  const auto veloxPlan = converter.toVeloxQueryPlan(
+      std::dynamic_pointer_cast<protocol::PlanNode>(outerRpcNode),
+      nullptr,
+      "20260124_042527_00001_gp3te.1.0.0.0");
+  VELOX_CHECK_NOT_NULL(veloxPlan);
+  const auto* veloxRpcNode =
+      dynamic_cast<const core::RPCNode*>(veloxPlan.get());
+  ASSERT_NE(veloxRpcNode, nullptr);
+  const auto& call = veloxRpcNode->call();
+  VELOX_CHECK_NOT_NULL(call);
+  const auto* field = dynamic_cast<const core::FieldAccessTypedExpr*>(
+      call->inputs().front().get());
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->name(), "__projected_inner_rpc_result");
 }
 
 // A column argument's FieldAccess must carry the SOURCE column's actual type,
