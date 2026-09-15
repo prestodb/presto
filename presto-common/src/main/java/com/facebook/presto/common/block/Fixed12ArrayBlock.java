@@ -328,13 +328,15 @@ public class Fixed12ArrayBlock
     static long unpackLong(int[] values, int base)
     {
         // & 0xFFFFFFFFL prevents sign extension of the low 32-bit word.
-        return ((long) values[base] << 32) | (values[base + 1] & 0xFFFFFFFFL);
+        return (values[base] & 0xFFFFFFFFL) | ((long) values[base + 1] << 32);
     }
 
+    // The low 32-bit word occupies the first slot, matching the little-endian wire layout so that
+    // Fixed12ArrayBlockEncoding can decode a null-free block with a single bulk read.
     static void packLong(int[] values, int base, long value)
     {
-        values[base] = (int) (value >>> 32);
-        values[base + 1] = (int) value;
+        values[base] = (int) value;
+        values[base + 1] = (int) (value >>> 32);
     }
 
     private void checkReadablePosition(int position)
@@ -344,7 +346,10 @@ public class Fixed12ArrayBlock
         }
     }
 
-    // Same equals/hashCode shape as LongArrayBlock, IntArrayBlock, and Int128ArrayBlock.
+    // Equality is physical, not logical: two blocks are equal only when they share the same
+    // position offset, position count and backing array contents, so the same logical values in a
+    // differently shaped backing array compare unequal. Matches LongArrayBlock, IntArrayBlock and
+    // Int128ArrayBlock.
     @Override
     public boolean equals(Object obj)
     {

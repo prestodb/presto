@@ -17,6 +17,14 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static com.facebook.presto.common.block.Fixed12ArrayBlock.FIXED12_BYTES;
+import static com.facebook.presto.common.block.Fixed12ArrayBlock.SIZE_IN_BYTES_PER_POSITION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -94,7 +102,7 @@ public class TestFixed12ArrayBlock
             builder.writeLong((long) i * 1000).writeInt(i).closeEntry();
         }
         Block block = builder.build();
-        assertEquals(block.getSizeInBytes(), Fixed12ArrayBlock.SIZE_IN_BYTES_PER_POSITION * 4L);
+        assertEquals(block.getSizeInBytes(), SIZE_IN_BYTES_PER_POSITION * 4L);
     }
 
     @Test
@@ -121,6 +129,44 @@ public class TestFixed12ArrayBlock
         assertFalse(decoded.isNull(2));
         assertEquals(decoded.getLong(2, 0), -999_999L);
         assertEquals(decoded.getInt(2), 999_999);
+    }
+
+    @Test
+    public void testPackingOrderIsLowWordFirst()
+    {
+        // The int[] constructor is public, so the packing order is part of the API: the low 32-bit
+        // word of the long occupies the first slot, matching the little-endian wire layout.
+        Block block = new Fixed12ArrayBlock(1, Optional.empty(), new int[] {0x89ABCDEF, 0x01234567, 7});
+
+        assertEquals(block.getLong(0, 0), 0x0123456789ABCDEFL);
+        assertEquals(block.getInt(0), 7);
+    }
+
+    @Test
+    public void testEncodingRoundTripWithoutNulls()
+    {
+        // A null-free block decodes through the bulk read path. The long components below have
+        // distinct high and low words, so a packing order that disagrees with the wire layout
+        // would corrupt them.
+        long[] longValues = {0x0123456789ABCDEFL, Long.MIN_VALUE, -1L};
+
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, longValues.length);
+        for (int i = 0; i < longValues.length; i++) {
+            builder.writeLong(longValues[i]).writeInt(i).closeEntry();
+        }
+        Block original = builder.build();
+
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(256);
+        Fixed12ArrayBlockEncoding encoding = new Fixed12ArrayBlockEncoding();
+        encoding.writeBlock(null, sliceOutput, original);
+        Block decoded = encoding.readBlock(null, sliceOutput.slice().getInput());
+
+        assertEquals(decoded.getPositionCount(), longValues.length);
+        assertFalse(decoded.mayHaveNull());
+        for (int i = 0; i < longValues.length; i++) {
+            assertEquals(decoded.getLong(i, 0), longValues[i]);
+            assertEquals(decoded.getInt(i), i);
+        }
     }
 
     @Test
@@ -241,7 +287,7 @@ public class TestFixed12ArrayBlock
     public void testStoresArbitraryIntComponent()
     {
         // The block is type-agnostic: it stores whatever int it is given, including negative values
-        // and the full int range. Range checks belong to the Type that owns the layout — see
+        // and the full int range. Range checks belong to the Type that owns the layout - see
         // LongTimestamp, which validates picosOfMicro before LongTimestampType writes it here.
         Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 4);
         builder.writeLong(0L).writeInt(Integer.MIN_VALUE).closeEntry();
@@ -463,6 +509,184 @@ public class TestFixed12ArrayBlock
         Block region2 = block.getRegion(1, 2);
 
         assertNotEquals(region1, region2);
+    }
+
+    @Test
+    public void testEqualsComparesPhysicalLayout()
+    {
+        // Equality is physical: a builder block whose backing array is over-allocated is not equal
+        // to a compacted block holding the same logical value.
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 8);
+        builder.writeLong(100L).writeInt(1).closeEntry();
+        Block overAllocated = builder.build();
+
+        Block compact = new Fixed12ArrayBlock(1, Optional.empty(), new int[] {100, 0, 1});
+
+        assertEquals(overAllocated.getPositionCount(), compact.getPositionCount());
+        assertEquals(overAllocated.getLong(0, 0), compact.getLong(0, 0));
+        assertEquals(overAllocated.getInt(0), compact.getInt(0));
+        assertNotEquals(overAllocated, compact);
+    }
+
+    @Test
+    public void testGrowCapacityKeepsValuesAndNullsInSync()
+    {
+        // An initial capacity of 1 forces repeated growth, where values must gain three int slots
+        // for every valueIsNull slot.
+        int entries = 100;
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 1);
+        for (int i = 0; i < entries; i++) {
+            if (i % 3 == 0) {
+                builder.appendNull();
+            }
+            else {
+                builder.writeLong(Long.MIN_VALUE + i).writeInt(i).closeEntry();
+            }
+        }
+
+        Block block = builder.build();
+        assertEquals(block.getPositionCount(), entries);
+        for (int i = 0; i < entries; i++) {
+            if (i % 3 == 0) {
+                assertTrue(block.isNull(i));
+            }
+            else {
+                assertFalse(block.isNull(i));
+                assertEquals(block.getLong(i, 0), Long.MIN_VALUE + i);
+                assertEquals(block.getInt(i), i);
+            }
+        }
+    }
+
+    @Test
+    public void testUncheckedAccessorsOnBuilder()
+    {
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 3);
+        builder.writeLong(10L).writeInt(100).closeEntry();
+        builder.appendNull();
+        builder.writeLong(-30L).writeInt(300).closeEntry();
+
+        assertEquals(builder.getOffsetBase(), 0);
+        assertEquals(builder.getLongUnchecked(0), 10L);
+        assertEquals(builder.getLongUnchecked(0, 0), 10L);
+        assertEquals(builder.getIntUnchecked(0), 100);
+        assertEquals(builder.getLongUnchecked(2), -30L);
+        assertEquals(builder.getIntUnchecked(2), 300);
+        assertFalse(builder.isNullUnchecked(0));
+        assertTrue(builder.isNullUnchecked(1));
+    }
+
+    @Test
+    public void testUncheckedAccessorsOnBlockAndRegion()
+    {
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 3);
+        builder.writeLong(10L).writeInt(100).closeEntry();
+        builder.appendNull();
+        builder.writeLong(-30L).writeInt(300).closeEntry();
+        Block block = builder.build();
+
+        assertEquals(block.getOffsetBase(), 0);
+        assertEquals(block.getLongUnchecked(0), 10L);
+        assertEquals(block.getLongUnchecked(0, 0), 10L);
+        assertEquals(block.getIntUnchecked(0), 100);
+        assertTrue(block.isNullUnchecked(1));
+
+        // A region shifts getOffsetBase(), and unchecked indexing is relative to it.
+        Block region = block.getRegion(1, 2);
+        assertEquals(region.getOffsetBase(), 1);
+        assertTrue(region.isNullUnchecked(1));
+        assertFalse(region.isNullUnchecked(2));
+        assertEquals(region.getLongUnchecked(2), -30L);
+        assertEquals(region.getLongUnchecked(2, 0), -30L);
+        assertEquals(region.getIntUnchecked(2), 300);
+    }
+
+    @Test
+    public void testBlockBuilderStatusByteAccounting()
+    {
+        PageBuilderStatus pageBuilderStatus = new PageBuilderStatus();
+        BlockBuilderStatus blockBuilderStatus = pageBuilderStatus.createBlockBuilderStatus();
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(blockBuilderStatus, 4);
+        assertTrue(pageBuilderStatus.isEmpty());
+
+        // A partially written entry costs nothing until closeEntry commits it.
+        builder.writeLong(1L).writeInt(1);
+        assertTrue(pageBuilderStatus.isEmpty());
+
+        builder.closeEntry();
+        builder.appendNull();
+
+        // A null costs a full position, same as a value.
+        assertEquals(pageBuilderStatus.getSizeInBytes(), 2L * SIZE_IN_BYTES_PER_POSITION);
+        assertTrue(builder.getRetainedSizeInBytes() > BlockBuilderStatus.INSTANCE_SIZE);
+    }
+
+    @Test
+    public void testNewBlockBuilderLike()
+    {
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 2);
+        builder.writeLong(1L).writeInt(1).closeEntry();
+        builder.writeLong(2L).writeInt(2).closeEntry();
+
+        BlockBuilder like = builder.newBlockBuilderLike(null);
+        assertTrue(like instanceof Fixed12ArrayBlockBuilder);
+        assertEquals(like.getPositionCount(), 0);
+        like.writeLong(7L).writeInt(70).closeEntry();
+        assertEquals(like.getLong(0, 0), 7L);
+        assertEquals(like.getInt(0), 70);
+
+        BlockBuilder likeWithExpectedEntries = builder.newBlockBuilderLike(null, 1024);
+        assertTrue(likeWithExpectedEntries instanceof Fixed12ArrayBlockBuilder);
+        assertEquals(likeWithExpectedEntries.getPositionCount(), 0);
+    }
+
+    @Test
+    public void testSizeAccountingOnBlock()
+    {
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 2);
+        builder.writeLong(1L).writeInt(1).closeEntry();
+        builder.appendNull();
+        Block block = builder.build();
+
+        assertEquals(block.fixedSizeInBytesPerPosition(), OptionalInt.of(SIZE_IN_BYTES_PER_POSITION));
+        assertEquals(block.getRegionSizeInBytes(0, 1), (long) SIZE_IN_BYTES_PER_POSITION);
+        assertEquals(block.getPositionsSizeInBytes(new boolean[] {true, false}, 1), (long) SIZE_IN_BYTES_PER_POSITION);
+        assertEquals(block.getEstimatedDataSizeForStats(0), FIXED12_BYTES);
+        assertEquals(block.getEstimatedDataSizeForStats(1), 0L);
+
+        List<Object> parts = new ArrayList<>();
+        AtomicLong reportedBytes = new AtomicLong();
+        block.retainedBytesForEachPart((part, size) -> {
+            parts.add(part);
+            reportedBytes.addAndGet(size);
+        });
+        // values, valueIsNull and the block itself.
+        assertEquals(parts.size(), 3);
+        assertEquals(reportedBytes.get(), block.getRetainedSizeInBytes());
+    }
+
+    @Test
+    public void testSizeAccountingOnBuilder()
+    {
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 2);
+        builder.writeLong(1L).writeInt(1).closeEntry();
+        builder.appendNull();
+
+        assertEquals(builder.fixedSizeInBytesPerPosition(), OptionalInt.of(SIZE_IN_BYTES_PER_POSITION));
+        assertEquals(builder.getSizeInBytes(), 2L * SIZE_IN_BYTES_PER_POSITION);
+        assertEquals(builder.getRegionSizeInBytes(0, 2), 2L * SIZE_IN_BYTES_PER_POSITION);
+        assertEquals(builder.getPositionsSizeInBytes(new boolean[] {true, true}, 2), 2L * SIZE_IN_BYTES_PER_POSITION);
+        assertEquals(builder.getEstimatedDataSizeForStats(0), FIXED12_BYTES);
+        assertEquals(builder.getEstimatedDataSizeForStats(1), 0L);
+
+        List<Object> parts = new ArrayList<>();
+        AtomicLong reportedBytes = new AtomicLong();
+        builder.retainedBytesForEachPart((part, size) -> {
+            parts.add(part);
+            reportedBytes.addAndGet(size);
+        });
+        assertEquals(parts.size(), 3);
+        assertEquals(reportedBytes.get(), builder.getRetainedSizeInBytes());
     }
 
     @Test

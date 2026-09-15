@@ -31,7 +31,7 @@ import static java.lang.String.format;
  * {@link #getJavaType()} lands on {@code getLong}/{@code writeLong} for short precisions and on
  * {@code getObject}/{@code writeObject} for long precisions.
  *
- * <p>SQL grammar, operator registration, and connector I/O for p=7–12 are tracked in
+ * <p>SQL grammar, operator registration, and connector I/O for p=7-12 are tracked in
  * <a href="https://github.com/prestodb/presto/issues/27934">#27934</a>.
  */
 public abstract class TimestampType
