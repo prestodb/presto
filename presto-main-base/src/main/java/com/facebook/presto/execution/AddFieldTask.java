@@ -92,6 +92,15 @@ public class AddFieldTask
             throw new SemanticException(TYPE_MISMATCH, statement, "Unknown type '%s' for column '%s'", statement.getType(), statement.getFieldName());
         }
 
+        // NOT NULL and COMMENT are not propagated through the nested-field SPI; reject them
+        // explicitly so the user gets a clear error rather than a silently wrong result.
+        if (!statement.isNullable()) {
+            throw new SemanticException(NOT_SUPPORTED, statement, "NOT NULL constraint is not supported for nested ADD COLUMN");
+        }
+        if (statement.getComment().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, statement, "COMMENT is not supported for nested ADD COLUMN");
+        }
+
         // columnPath is the parent struct path (e.g. ["col"] or ["col", "nested"])
         // fieldName is the new field being added inside that struct.
         // Normalize identifiers through the catalog's case rules, matching what AddColumnTask does.

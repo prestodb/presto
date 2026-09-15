@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.iceberg.ColumnIdentity;
 import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergTableHandle;
@@ -32,11 +33,13 @@ import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getSynthesizedIcebergColumnHandle;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.resolveSubfieldIdentity;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isParquetDereferencePushdownEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -101,17 +104,32 @@ public class IcebergParquetDereferencePushDown
         Type type = icebergBaseColumnHandle.getType();
         checkArgument(type instanceof RowType, "%s must be type of RowType", subfield.getRootName());
 
-        Optional<HiveType> nestedColumnHiveType = toHiveType(type)
-                .findChildType(subfield.getPath()
-                        .stream()
-                        .map(p -> ((Subfield.NestedField) p).getName())
-                        .collect(Collectors.toList()));
+        List<String> namePath = subfield.getPath()
+                .stream()
+                .map(p -> ((Subfield.NestedField) p).getName())
+                .collect(Collectors.toList());
+
+        Optional<HiveType> nestedColumnHiveType = toHiveType(type).findChildType(namePath);
 
         if (!nestedColumnHiveType.isPresent()) {
             throw new IllegalArgumentException("nested column [" + subfield + "] type is not present in Hive column type");
         }
 
         Type pushdownColumnType = nestedColumnHiveType.get().getType(typeManager);
+
+        // Pass the base column's full ColumnIdentity (which carries real Iceberg field IDs
+        // at every level of the struct tree) to the synthesized handle. The Parquet page
+        // source can then traverse the struct by stable field ID rather than by logical
+        // name, which is required for reading historical files after a nested field rename.
+        ColumnIdentity baseIdentity = icebergBaseColumnHandle.getColumnIdentity();
+        if (!baseIdentity.getChildren().isEmpty()) {
+            // Base column is a struct — verify the subfield path is resolvable before committing
+            // to the ID-based handle. Fall back to the name-based placeholder if it is not.
+            Optional<ColumnIdentity> leafIdentity = resolveSubfieldIdentity(baseIdentity, namePath);
+            if (leafIdentity.isPresent()) {
+                return getSynthesizedIcebergColumnHandle(baseIdentity, pushdownColumnType, ImmutableList.of(subfield));
+            }
+        }
 
         return getSynthesizedIcebergColumnHandle(subfieldColumnName, pushdownColumnType, ImmutableList.of(subfield));
     }

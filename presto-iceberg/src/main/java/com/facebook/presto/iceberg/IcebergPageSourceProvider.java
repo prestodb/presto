@@ -149,6 +149,7 @@ import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DELETE_FILE_PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.resolveSubfieldIdPath;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUMN;
@@ -166,6 +167,7 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimp
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcReader.MODIFICATION_TIME_NOT_SET;
+import static com.facebook.presto.parquet.ParquetTypeUtils.findNestedColumnIOById;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
@@ -373,17 +375,44 @@ public class IcebergPageSourceProvider
                 if (column.getColumnType() == IcebergColumnHandle.ColumnType.SYNTHESIZED &&
                         !column.isUpdateRowIdColumn() && !column.isMergeTargetTableRowIdColumn()) {
                     Subfield pushedDownSubfield = getPushedDownSubfield(column);
-                    List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield).stream()
-                            .map(AvroSchemaUtil::makeCompatibleName)
-                            .collect(Collectors.toList());
-                    Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName())), nestedColumnPath);
-                    if (columnIO.isPresent()) {
-                        internalFields.add(constructField(prestoType, columnIO.get()));
+                    ColumnIO rootColumnIO = lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName()));
+
+                    // When the synthesized handle carries a real struct ColumnIdentity (a non-empty
+                    // children list, meaning the optimizer resolved the base column's identity tree),
+                    // derive the field-ID path for the pushed-down subfield and traverse the Parquet
+                    // ColumnIO tree by those IDs. This is required to read historical Parquet files
+                    // correctly after a nested field rename: the physical child name in the file
+                    // still reflects the pre-rename name, but the Iceberg field ID is stable.
+                    ColumnIdentity columnIdentity = column.getColumnIdentity();
+                    List<String> namePathList = nestedColumnPath(pushedDownSubfield);
+                    Optional<List<Integer>> idPath = resolveSubfieldIdPath(columnIdentity, namePathList);
+
+                    if (idPath.isPresent() && rootColumnIO != null) {
+                        Optional<ColumnIO> columnIO = findNestedColumnIOById(rootColumnIO, idPath.get());
+                        if (columnIO.isPresent()) {
+                            internalFields.add(constructField(prestoType, columnIO.get()));
+                        }
+                        else {
+                            internalFields.add(Optional.empty());
+                            getInitialDefaultValue(column)
+                                    .ifPresent(value -> defaultValues.put(column.getId(), value));
+                        }
                     }
                     else {
-                        internalFields.add(Optional.empty());
-                        getInitialDefaultValue(column)
-                                .ifPresent(value -> defaultValues.put(column.getId(), value));
+                        // Fall back to name-based traversal when no ID path is available
+                        // (placeholder identity with id == -1, or root column IO absent).
+                        List<String> nestedColumnPath = namePathList.stream()
+                                .map(AvroSchemaUtil::makeCompatibleName)
+                                .collect(Collectors.toList());
+                        Optional<ColumnIO> columnIO = findNestedColumnIO(rootColumnIO, nestedColumnPath);
+                        if (columnIO.isPresent()) {
+                            internalFields.add(constructField(prestoType, columnIO.get()));
+                        }
+                        else {
+                            internalFields.add(Optional.empty());
+                            getInitialDefaultValue(column)
+                                    .ifPresent(value -> defaultValues.put(column.getId(), value));
+                        }
                     }
                 }
                 else {
@@ -394,7 +423,10 @@ public class IcebergPageSourceProvider
                                 .ifPresent(value -> defaultValues.put(column.getId(), value));
                     }
                     else {
-                        internalFields.add(constructField(column.getType(), lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
+                        internalFields.add(IcebergParquetColumnIOConverter.constructField(
+                                column.getColumnIdentity(),
+                                column.getType(),
+                                lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
                     }
                 }
                 if (column.isRowPositionColumn()) {

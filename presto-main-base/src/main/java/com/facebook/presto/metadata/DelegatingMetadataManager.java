@@ -274,6 +274,18 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    {
+        delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+    }
+
+    @Override
+    public void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        delegate.dropField(session, tableHandle, fieldPath, ignoreNonExistent);
+    }
+
+    @Override
     public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         delegate.addColumn(session, tableHandle, column, position);

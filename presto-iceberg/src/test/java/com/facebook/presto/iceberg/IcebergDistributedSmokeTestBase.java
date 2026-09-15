@@ -66,6 +66,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.iceberg.IcebergTableProperties.COMMIT_RETRIES;
 import static com.facebook.presto.iceberg.IcebergTableProperties.DELETE_MODE;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -1317,6 +1318,7 @@ public abstract class IcebergDistributedSmokeTestBase
     public void testRenameNestedField()
     {
         testWithAllFileFormats(this::testRenameNestedField);
+        testRenameNestedFieldHistoricalData();
     }
 
     private void testRenameNestedField(Session session, FileFormat fileFormat)
@@ -1402,6 +1404,109 @@ public abstract class IcebergDistributedSmokeTestBase
                 "ALTER TABLE test_nested_rename_collision RENAME COLUMN info.age TO name",
                 ".*name.*already exists.*|.*Failed to rename field.*");
         dropTable(session, "test_nested_rename_collision");
+    }
+
+    /**
+     * Regression test for reading pre-rename Parquet files after a nested field rename.
+     *
+     * Covers both the regular read path (dereference pushdown disabled) and the
+     * dereference-pushdown path (enabled, the default for Parquet). Both paths must
+     * return correct values — not NULL — for fields read from historical Parquet files
+     * written before the rename. The acceptance criterion is that users should not
+     * need to disable dereference pushdown to correctly read historical data.
+     */
+    private void testRenameNestedFieldHistoricalData()
+    {
+        String format = "\"write.format.default\" = 'PARQUET'";
+
+        // Run the same body with dereference pushdown both disabled and enabled.
+        // "disabled" exercises IcebergParquetColumnIOConverter (ID-based struct traversal).
+        // "enabled" exercises the SYNTHESIZED column path via IcebergParquetDereferencePushDown
+        //           with the real base ColumnIdentity stored on the handle.
+        for (boolean pushdownEnabled : new boolean[]{false, true}) {
+            Session session = Session.builder(getSession())
+                    .setCatalogSessionProperty(ICEBERG_CATALOG, PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
+                            String.valueOf(pushdownEnabled))
+                    .build();
+
+            // ---- Single-level struct rename ----
+            assertUpdate(session, "CREATE TABLE test_rename_hist (" +
+                    "id BIGINT, " +
+                    "info ROW(name VARCHAR, age INTEGER)" +
+                    ") WITH (" + format + ")");
+
+            // id=1 is written BEFORE the rename — this row is in a historical Parquet file.
+            assertUpdate(session, "INSERT INTO test_rename_hist VALUES (1, ROW('alice', 30))", 1);
+
+            // Sanity-check pre-rename reads.
+            assertQuery(session, "SELECT id, info.name, info.age FROM test_rename_hist",
+                    "VALUES (1, 'alice', 30)");
+            MaterializedResult priorStruct = computeActual(session,
+                    "SELECT info FROM test_rename_hist");
+            assertEquals(priorStruct.getRowCount(), 1);
+            assertEquals(priorStruct.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30));
+
+            // Rename the nested field — schema evolves, old file is untouched.
+            assertUpdate(session, "ALTER TABLE test_rename_hist RENAME COLUMN info.age TO years");
+
+            // id=2 is written AFTER the rename — this row is in a post-rename Parquet file.
+            assertUpdate(session, "INSERT INTO test_rename_hist VALUES (2, ROW('bob', 25))", 1);
+
+            // Direct subfield projection — exercises dereference pushdown path when enabled.
+            // id=1 comes from the pre-rename file; must NOT be NULL.
+            assertQuery(session, "SELECT id, info.years FROM test_rename_hist ORDER BY id",
+                    "VALUES (1, 30), (2, 25)");
+
+            // Non-renamed sibling must also be correct.
+            assertQuery(session, "SELECT id, info.name FROM test_rename_hist ORDER BY id",
+                    "VALUES (1, 'alice'), (2, 'bob')");
+
+            // Both subfields at once.
+            assertQuery(session, "SELECT id, info.name, info.years FROM test_rename_hist ORDER BY id",
+                    "VALUES (1, 'alice', 30), (2, 'bob', 25)");
+
+            // Whole-struct projection — exercises the regular (non-pushdown) path.
+            // The renamed field in the old row must not be NULL.
+            MaterializedResult result = computeActual(session,
+                    "SELECT info FROM test_rename_hist ORDER BY id");
+            assertEquals(result.getRowCount(), 2);
+            assertEquals(result.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30));
+            assertEquals(result.getMaterializedRows().get(1).getField(0), Arrays.asList("bob", 25));
+
+            dropTable(session, "test_rename_hist");
+
+            // ---- Deeply nested struct rename ----
+            assertUpdate(session, "CREATE TABLE test_rename_hist_deep (" +
+                    "id BIGINT, " +
+                    "outer_col ROW(inner_col ROW(a VARCHAR, b BIGINT))" +
+                    ") WITH (" + format + ")");
+
+            // id=1 written BEFORE the rename.
+            assertUpdate(session, "INSERT INTO test_rename_hist_deep VALUES (1, ROW(ROW('hello', 42)))", 1);
+
+            assertUpdate(session, "ALTER TABLE test_rename_hist_deep RENAME COLUMN outer_col.inner_col.b TO value");
+
+            // id=2 written AFTER the rename.
+            assertUpdate(session, "INSERT INTO test_rename_hist_deep VALUES (2, ROW(ROW('world', 99)))", 1);
+
+            // Direct deep subfield projection.
+            // id=1 was written before the rename — must return 42, not NULL.
+            assertQuery(session,
+                    "SELECT outer_col.inner_col.value FROM test_rename_hist_deep ORDER BY id",
+                    "VALUES (42), (99)");
+
+            // Non-renamed sibling.
+            assertQuery(session,
+                    "SELECT outer_col.inner_col.a FROM test_rename_hist_deep ORDER BY id",
+                    "VALUES ('hello'), ('world')");
+
+            // Both subfields together.
+            assertQuery(session,
+                    "SELECT outer_col.inner_col.a, outer_col.inner_col.value FROM test_rename_hist_deep ORDER BY id",
+                    "VALUES ('hello', 42), ('world', 99)");
+
+            dropTable(session, "test_rename_hist_deep");
+        }
     }
 
     @Test
