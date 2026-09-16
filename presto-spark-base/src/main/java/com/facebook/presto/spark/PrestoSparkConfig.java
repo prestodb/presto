@@ -32,6 +32,7 @@ import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class PrestoSparkConfig
 {
@@ -74,6 +75,7 @@ public class PrestoSparkConfig
     private String nativeExecutionBroadcastBasePath;
     private boolean nativeTerminateWithCoreWhenUnresponsiveEnabled;
     private Duration nativeTerminateWithCoreTimeout = new Duration(5, MINUTES);
+    private Duration nativeTerminateForciblyTimeout = new Duration(3, SECONDS);
     private boolean isDynamicPrestoMemoryPoolTuningEnabled;
     private double dynamicPrestoMemoryPoolTuningFraction = 0.7;
     private int attemptNumberToApplyDynamicMemoryPoolTuning = 1;
@@ -555,6 +557,20 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setNativeTerminateWithCoreTimeout(Duration nativeTerminateWithCoreTimeout)
     {
         this.nativeTerminateWithCoreTimeout = nativeTerminateWithCoreTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getNativeTerminateForciblyTimeout()
+    {
+        return nativeTerminateForciblyTimeout;
+    }
+
+    @Config("native-terminate-forcibly-timeout")
+    @ConfigDescription("Maximum time to wait for a forcefully terminated native execution process to exit")
+    public PrestoSparkConfig setNativeTerminateForciblyTimeout(Duration nativeTerminateForciblyTimeout)
+    {
+        this.nativeTerminateForciblyTimeout = nativeTerminateForciblyTimeout;
         return this;
     }
 

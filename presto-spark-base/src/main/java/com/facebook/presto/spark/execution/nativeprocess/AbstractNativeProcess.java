@@ -463,6 +463,39 @@ public abstract class AbstractNativeProcess
         }
     }
 
+    /** Terminates this process and waits for it to exit. */
+    public void terminateForcibly(Duration timeout)
+    {
+        requireNonNull(timeout, "timeout is null");
+        Process running = getProcess();
+        if (running == null || !running.isAlive()) {
+            return;
+        }
+        log.warn("Force killing native execution process: %s", getPid(running));
+        try {
+            running.destroyForcibly();
+            if (!running.waitFor(timeout.toMillis(), MILLISECONDS)) {
+                throw new PrestoSparkFatalException(
+                        format("Native execution process did not terminate within %s", timeout),
+                        null);
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PrestoSparkFatalException("Interrupted while terminating native execution process", e);
+        }
+        catch (RuntimeException e) {
+            throw new PrestoSparkFatalException("Failed to terminate native execution process", e);
+        }
+    }
+
+    /** Returns the underlying process. */
+    @VisibleForTesting
+    protected Process getProcess()
+    {
+        return process;
+    }
+
     public boolean isAlive()
     {
         return process != null && process.isAlive();

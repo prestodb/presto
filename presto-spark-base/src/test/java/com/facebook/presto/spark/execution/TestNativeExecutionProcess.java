@@ -33,7 +33,11 @@ import okhttp3.OkHttpClient;
 import org.apache.spark.SparkConf;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -80,6 +84,49 @@ public class TestNativeExecutionProcess
         // Expecting the factory re-created a new process object so that the process and process2
         // should be two different objects
         assertNotSame(process2, process);
+    }
+
+    @Test
+    public void testForceTerminationWaitsForProcessExit()
+    {
+        TestingProcess process = new TestingProcess(true, false);
+        TestingNativeExecutionProcess nativeProcess = createTestingNativeExecutionProcess("10", "8", "8GB", null);
+        nativeProcess.setProcessForTesting(process);
+
+        nativeProcess.terminateForcibly(new Duration(3, TimeUnit.SECONDS));
+
+        assertTrue(process.isDestroyForciblyCalled());
+        assertEquals(process.getWaitTimeoutMillis(), 3_000);
+    }
+
+    @Test
+    public void testForceTerminationTimeoutIsFatal()
+    {
+        TestingProcess process = new TestingProcess(false, false);
+        TestingNativeExecutionProcess nativeProcess = createTestingNativeExecutionProcess("10", "8", "8GB", null);
+        nativeProcess.setProcessForTesting(process);
+
+        Throwable exception = expectThrows(
+                PrestoSparkFatalException.class,
+                () -> nativeProcess.terminateForcibly(new Duration(3, TimeUnit.SECONDS)));
+
+        assertTrue(exception.getMessage().contains("did not terminate within 3.00s"));
+        assertTrue(process.isDestroyForciblyCalled());
+        assertEquals(process.getWaitTimeoutMillis(), 3_000);
+    }
+
+    @Test
+    public void testForceTerminationFailureIsFatal()
+    {
+        TestingProcess process = new TestingProcess(false, true);
+        TestingNativeExecutionProcess nativeProcess = createTestingNativeExecutionProcess("10", "8", "8GB", null);
+        nativeProcess.setProcessForTesting(process);
+
+        Throwable exception = expectThrows(
+                PrestoSparkFatalException.class,
+                () -> nativeProcess.terminateForcibly(new Duration(3, TimeUnit.SECONDS)));
+
+        assertTrue(exception.getMessage().contains("Failed to terminate native execution process"));
     }
 
     @Test
@@ -258,6 +305,89 @@ public class TestNativeExecutionProcess
         }
     }
 
+    private static class TestingProcess
+            extends Process
+    {
+        private final boolean exits;
+        private final boolean destroyFails;
+        private boolean destroyForciblyCalled;
+        private long waitTimeoutMillis;
+
+        private TestingProcess(boolean exits, boolean destroyFails)
+        {
+            this.exits = exits;
+            this.destroyFails = destroyFails;
+        }
+
+        @Override
+        public Process destroyForcibly()
+        {
+            destroyForciblyCalled = true;
+            if (destroyFails) {
+                throw new RuntimeException("force termination failed");
+            }
+            return this;
+        }
+
+        @Override
+        public boolean waitFor(long timeout, TimeUnit unit)
+        {
+            waitTimeoutMillis = unit.toMillis(timeout);
+            return exits;
+        }
+
+        public boolean isDestroyForciblyCalled()
+        {
+            return destroyForciblyCalled;
+        }
+
+        public long getWaitTimeoutMillis()
+        {
+            return waitTimeoutMillis;
+        }
+
+        @Override
+        public boolean isAlive()
+        {
+            return true;
+        }
+
+        @Override
+        public OutputStream getOutputStream()
+        {
+            return new ByteArrayOutputStream();
+        }
+
+        @Override
+        public InputStream getInputStream()
+        {
+            return new ByteArrayInputStream(new byte[0]);
+        }
+
+        @Override
+        public InputStream getErrorStream()
+        {
+            return new ByteArrayInputStream(new byte[0]);
+        }
+
+        @Override
+        public int waitFor()
+        {
+            return 0;
+        }
+
+        @Override
+        public int exitValue()
+        {
+            return 0;
+        }
+
+        @Override
+        public void destroy()
+        {
+        }
+    }
+
     /**
      * Testing subclass that allows injection of custom SparkConf for testing
      */
@@ -266,6 +396,7 @@ public class TestNativeExecutionProcess
     {
         private static final Logger log = Logger.get(TestingNativeExecutionProcess.class);
         private final SparkConf testSparkConf;
+        private Process testingProcess;
         public TestingNativeExecutionProcess(
                 String executablePath,
                 String programArguments,
@@ -294,6 +425,17 @@ public class TestNativeExecutionProcess
         public PrestoSparkWorkerProperty getWorkerProperty()
         {
             return super.getWorkerProperty();
+        }
+
+        public void setProcessForTesting(Process testingProcess)
+        {
+            this.testingProcess = testingProcess;
+        }
+
+        @Override
+        protected Process getProcess()
+        {
+            return testingProcess == null ? super.getProcess() : testingProcess;
         }
 
         @Override

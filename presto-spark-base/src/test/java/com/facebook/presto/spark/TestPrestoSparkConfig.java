@@ -27,6 +27,7 @@ import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestPrestoSparkConfig
 {
@@ -70,6 +71,7 @@ public class TestPrestoSparkConfig
                 .setNativeExecutionBroadcastBasePath(null)
                 .setNativeTerminateWithCoreWhenUnresponsiveEnabled(false)
                 .setNativeTerminateWithCoreTimeout(new Duration(5, MINUTES))
+                .setNativeTerminateForciblyTimeout(new Duration(3, SECONDS))
                 .setDynamicPrestoMemoryPoolTuningEnabled(false)
                 .setDynamicPrestoMemoryPoolTuningFraction(0.7)
                 .setAttemptNumberToApplyDynamicMemoryPoolTuning(1));
@@ -115,6 +117,7 @@ public class TestPrestoSparkConfig
                 .put("native-execution-broadcast-base-path", "/tmp/broadcast_path")
                 .put("native-terminate-with-core-when-unresponsive-enabled", "true")
                 .put("native-terminate-with-core-timeout", "1m")
+                .put("native-terminate-forcibly-timeout", "7s")
                 .put("spark.dynamic-presto-memory-pool-tuning-enabled", "true")
                 .put("spark.dynamic-presto-memory-pool-tuning-fraction", "0.8")
                 .put("spark.attempt-number-to-apply-dynamic-memory-pool-tuning", "0")
@@ -156,6 +159,7 @@ public class TestPrestoSparkConfig
                 .setNativeExecutionBroadcastBasePath("/tmp/broadcast_path")
                 .setNativeTerminateWithCoreWhenUnresponsiveEnabled(true)
                 .setNativeTerminateWithCoreTimeout(new Duration(1, MINUTES))
+                .setNativeTerminateForciblyTimeout(new Duration(7, SECONDS))
                 .setDynamicPrestoMemoryPoolTuningEnabled(true)
                 .setDynamicPrestoMemoryPoolTuningFraction(0.8)
                 .setAttemptNumberToApplyDynamicMemoryPoolTuning(0);

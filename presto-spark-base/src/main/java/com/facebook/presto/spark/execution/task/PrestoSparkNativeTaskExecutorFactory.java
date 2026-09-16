@@ -160,6 +160,7 @@ public class PrestoSparkNativeTaskExecutorFactory
     private final PagesSerde pagesSerde;
     private final TempStorageManager tempStorageManager;
     private final String nativeTempStorage;
+    private final Duration nativeTerminateForciblyTimeout;
     private NativeExecutionProcess nativeExecutionProcess;
 
     private static class CpuTracker
@@ -222,6 +223,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         this.pagesSerde = PrestoSparkUtils.createPagesSerde(requireNonNull(blockEncodingManager, "blockEncodingManager is null"));
         this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
         this.nativeTempStorage = requireNonNull(featureConfig, "featureConfig is null").getSpillerTempStorage();
+        this.nativeTerminateForciblyTimeout = requireNonNull(prestoSparkConfig, "prestoSparkConfig is null").getNativeTerminateForciblyTimeout();
     }
 
     @Override
@@ -335,7 +337,13 @@ public class PrestoSparkNativeTaskExecutorFactory
                 processTaskInfoForErrorsOrCompletion(taskInfo);
             }
             catch (RuntimeException e) {
-                task.stop(false);
+                try {
+                    task.stop(false);
+                }
+                catch (RuntimeException cleanupFailure) {
+                    nativeExecutionProcess.terminateForcibly(nativeTerminateForciblyTimeout);
+                    e.addSuppressed(cleanupFailure);
+                }
                 throw e;
             }
 
@@ -349,6 +357,7 @@ public class PrestoSparkNativeTaskExecutorFactory
                     executionExceptionFactory,
                     cpuTracker,
                     nativeExecutionProcess,
+                    nativeTerminateForciblyTimeout,
                     terminateWithCoreWhenUnresponsive,
                     terminateWithCoreTimeout);
         }
@@ -365,7 +374,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         }
     }
 
-    private static void completeTask(boolean success, CollectionAccumulator<SerializedTaskInfo> taskInfoCollector, NativeExecutionTask task, Codec<TaskInfo> taskInfoCodec, CpuTracker cpuTracker)
+    private static void completeTask(boolean success, CollectionAccumulator<SerializedTaskInfo> taskInfoCollector, NativeExecutionTask task, Codec<TaskInfo> taskInfoCodec, CpuTracker cpuTracker, NativeExecutionProcess nativeExecutionProcess, Duration nativeTerminateForciblyTimeout)
     {
         try {
             OptionalLong processCpuTime = cpuTracker.get();
@@ -390,7 +399,13 @@ public class PrestoSparkNativeTaskExecutorFactory
         }
         finally {
             // Stop after fetching final task info so task cleanup does not race with stats collection.
-            task.stop(success);
+            try {
+                task.stop(success);
+            }
+            catch (RuntimeException e) {
+                nativeExecutionProcess.terminateForcibly(nativeTerminateForciblyTimeout);
+                throw e;
+            }
         }
     }
 
@@ -548,6 +563,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
         private final CpuTracker cpuTracker;
         private final NativeExecutionProcess nativeExecutionProcess;
+        private final Duration nativeTerminateForciblyTimeout;
         private final boolean terminateWithCoreWhenUnresponsive;
         private final Duration terminateWithCoreTimeout;
 
@@ -560,6 +576,7 @@ public class PrestoSparkNativeTaskExecutorFactory
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory,
                 CpuTracker cpuTracker,
                 NativeExecutionProcess nativeExecutionProcess,
+                Duration nativeTerminateForciblyTimeout,
                 boolean terminateWithCoreWhenUnresponsive,
                 Duration terminateWithCoreTimeout)
         {
@@ -571,6 +588,7 @@ public class PrestoSparkNativeTaskExecutorFactory
             this.executionExceptionFactory = executionExceptionFactory;
             this.cpuTracker = cpuTracker;
             this.nativeExecutionProcess = requireNonNull(nativeExecutionProcess, "nativeExecutionProcess is null");
+            this.nativeTerminateForciblyTimeout = requireNonNull(nativeTerminateForciblyTimeout, "nativeTerminateForciblyTimeout is null");
             this.terminateWithCoreWhenUnresponsive = terminateWithCoreWhenUnresponsive;
             this.terminateWithCoreTimeout = requireNonNull(terminateWithCoreTimeout, "terminateWithCoreTimeout is null");
         }
@@ -650,7 +668,12 @@ public class PrestoSparkNativeTaskExecutorFactory
             }
             catch (RuntimeException ex) {
                 // For a failed task, if taskInfo is present we still want to log the metrics
-                completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
+                try {
+                    completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker, nativeExecutionProcess, nativeTerminateForciblyTimeout);
+                }
+                catch (RuntimeException cleanupFailure) {
+                    ex.addSuppressed(cleanupFailure);
+                }
                 throw executionExceptionFactory.toPrestoSparkExecutionException(processFailure(
                         ex,
                         nativeExecutionProcess,
@@ -663,7 +686,7 @@ public class PrestoSparkNativeTaskExecutorFactory
                 // ever sent, and the worker keeps the task and everything it pins.
                 RuntimeException failure = new RuntimeException(e);
                 try {
-                    completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
+                    completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker, nativeExecutionProcess, nativeTerminateForciblyTimeout);
                 }
                 catch (RuntimeException completionFailure) {
                     // Keep the interrupt as the reported cause. A failure to complete is
@@ -677,7 +700,16 @@ public class PrestoSparkNativeTaskExecutorFactory
             }
 
             // Reaching here marks the end of task processing
-            completeTask(true, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
+            try {
+                completeTask(true, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker, nativeExecutionProcess, nativeTerminateForciblyTimeout);
+            }
+            catch (RuntimeException cleanupFailure) {
+                throw executionExceptionFactory.toPrestoSparkExecutionException(processFailure(
+                        cleanupFailure,
+                        nativeExecutionProcess,
+                        terminateWithCoreWhenUnresponsive,
+                        terminateWithCoreTimeout));
+            }
             return Optional.empty();
         }
 
