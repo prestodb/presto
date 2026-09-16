@@ -37,6 +37,8 @@ public interface FunctionAndTypeResolver
 
     FunctionHandle lookupFunction(String functionName, List<TypeSignatureProvider> fromTypes);
 
+    FunctionHandle lookupJavaBuiltInFunction(String functionName, List<TypeSignatureProvider> fromTypes);
+
     FunctionHandle resolveFunction(
             Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
             Optional<TransactionId> transactionId,

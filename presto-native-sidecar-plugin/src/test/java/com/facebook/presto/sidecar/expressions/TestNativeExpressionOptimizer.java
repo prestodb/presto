@@ -144,6 +144,55 @@ public class TestNativeExpressionOptimizer
                 session);
     }
 
+    @Test
+    public void testLikeToEqualityRewrite()
+    {
+        // escaped '_' is a literal, not a wildcard — must rewrite to equality
+        assertOptimizedEquals(
+                "unbound_string LIKE 'curre\\_nt' ESCAPE '\\'",
+                "unbound_string = CAST('curre_nt' AS VARCHAR)");
+
+        // Escaped '%' is a literal — rewrite to equality
+        assertOptimizedEquals(
+                "unbound_string LIKE '100\\%' ESCAPE '\\'",
+                "unbound_string = CAST('100%' AS VARCHAR)");
+
+        // Escaped '_' and escaped escapeChar in same pattern
+        assertOptimizedEquals(
+                "unbound_string LIKE 'a#_##b' ESCAPE '#'",
+                "unbound_string = CAST('a_#b' AS VARCHAR)");
+
+        // No escape clause, no wildcards — rewrite to equality
+        assertOptimizedEquals(
+                "unbound_string LIKE 'abc'",
+                "unbound_string = CAST('abc' AS VARCHAR)");
+
+        // Real '%' wildcard — must NOT rewrite, leave as LIKE
+        assertOptimizedEquals(
+                "unbound_string LIKE 'abc%' ESCAPE '\\'",
+                "unbound_string LIKE 'abc%' ESCAPE '\\'");
+
+        // Real unescaped '_' wildcard — must NOT rewrite
+        assertOptimizedEquals(
+                "unbound_string LIKE 'a_b' ESCAPE '\\'",
+                "unbound_string LIKE 'a_b' ESCAPE '\\'");
+
+        // Escaped '_' but also an unescaped '_' — has real wildcard, must NOT rewrite
+        assertOptimizedEquals(
+                "unbound_string LIKE 'a#__b' ESCAPE '#'",
+                "unbound_string LIKE 'a#__b' ESCAPE '#'");
+
+        // LIKE inside AND — nested rewrite must fire
+        assertOptimizedEquals(
+                "unbound_string LIKE 'abc' AND unbound_string LIKE 'x\\_y' ESCAPE '\\'",
+                "unbound_string = CAST('abc' AS VARCHAR) AND unbound_string = CAST('x_y' AS VARCHAR)");
+
+        // LIKE inside NOT — nested rewrite via CallExpression recursion must fire
+        assertOptimizedEquals(
+                "NOT (unbound_string LIKE 'abc')",
+                "NOT (unbound_string = CAST('abc' AS VARCHAR))");
+    }
+
     private void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         assertOptimizedEquals(actual, expected, TEST_SESSION);

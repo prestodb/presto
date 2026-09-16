@@ -870,6 +870,61 @@ public class TestNativeSidecarPlugin
 
         // Verify UNKNOWN type expressions produce a structured error instead of crashing the sidecar.
         assertQueryFails(session, "SELECT array_except(ARRAY[], ARRAY[])", ".*Errors encountered while optimizing expressions\\..*", true);
+
+        // LikeToEqualityVisitor must rewrite LIKE with no real wildcards into a constant equality, enabling
+        // connector predicate pushdown (ScanFilterProject). We assert structural properties of the native
+        // EXPLAIN directly — PlanNodeIds and cost estimates differ between runners, so cross-runner string
+        // comparison is not viable.
+
+        // Escaped '_': LIKE 'curre\_nt' ESCAPE '\' → equality on 'curre_nt'
+        @Language("SQL") String likeEscapeQuery = "EXPLAIN SELECT * FROM system.jdbc.columns WHERE table_schem LIKE 'curre\\_nt' ESCAPE '\\'";
+        String likeEscapePlan = (String) computeActual(session, likeEscapeQuery).getOnlyValue();
+        assertTrue(likeEscapePlan.contains("ScanFilterProject"),
+                "Expected ScanFilterProject (predicate pushed into scan), but got:\n" + likeEscapePlan);
+        assertFalse(likeEscapePlan.contains("- Filter[") && likeEscapePlan.contains("LIKE"),
+                "Expected no Filter+LIKE node above the scan, but got:\n" + likeEscapePlan);
+        assertTrue(likeEscapePlan.contains("VARCHAR'curre_nt'"),
+                "Expected constant VARCHAR'curre_nt' in the scan projection, but got:\n" + likeEscapePlan);
+
+        // Escaped '%': LIKE '100\%' ESCAPE '\' → equality on '100%'
+        @Language("SQL") String likeEscapePercentQuery = "EXPLAIN SELECT * FROM system.jdbc.columns WHERE table_name LIKE '100\\%' ESCAPE '\\'";
+        String likeEscapePercentPlan = (String) computeActual(session, likeEscapePercentQuery).getOnlyValue();
+        assertTrue(likeEscapePercentPlan.contains("ScanFilterProject"),
+                "Expected ScanFilterProject (predicate pushed into scan), but got:\n" + likeEscapePercentPlan);
+        assertFalse(likeEscapePercentPlan.contains("- Filter[") && likeEscapePercentPlan.contains("LIKE"),
+                "Expected no Filter+LIKE node above the scan, but got:\n" + likeEscapePercentPlan);
+        assertTrue(likeEscapePercentPlan.contains("VARCHAR'100%'"),
+                "Expected constant VARCHAR'100%' in the scan projection, but got:\n" + likeEscapePercentPlan);
+
+        // LIKE '%' (no escape) — match-all → IS NOT NULL: LIKE must vanish and IS_NULL must appear.
+        @Language("SQL") String likeMatchAllQuery = "EXPLAIN SELECT * FROM system.jdbc.columns WHERE table_schem LIKE '%'";
+        String likeMatchAllPlan = (String) computeActual(session, likeMatchAllQuery).getOnlyValue();
+        assertFalse(likeMatchAllPlan.contains("LIKE"),
+                "Expected LIKE '%' to be rewritten away (IS NOT NULL), but LIKE remained in the plan:\n" + likeMatchAllPlan);
+        assertTrue(likeMatchAllPlan.contains("IS_NULL") || likeMatchAllPlan.contains("not"),
+                "Expected IS_NULL / not node from IS NOT NULL rewrite, but got:\n" + likeMatchAllPlan);
+
+        // LIKE '%' ESCAPE '\' — match-all with escape → IS NOT NULL: same as above.
+        @Language("SQL") String likeMatchAllEscapeQuery = "EXPLAIN SELECT * FROM system.jdbc.columns WHERE table_schem LIKE '%' ESCAPE '\\'";
+        String likeMatchAllEscapePlan = (String) computeActual(session, likeMatchAllEscapeQuery).getOnlyValue();
+        assertFalse(likeMatchAllEscapePlan.contains("LIKE"),
+                "Expected LIKE '%' ESCAPE '\\' to be rewritten away (IS NOT NULL), but LIKE remained in the plan:\n" + likeMatchAllEscapePlan);
+        assertTrue(likeMatchAllEscapePlan.contains("IS_NULL") || likeMatchAllEscapePlan.contains("not"),
+                "Expected IS_NULL / not node from IS NOT NULL rewrite, but got:\n" + likeMatchAllEscapePlan);
+
+        // --- Negative cases for IS NOT NULL branch: patterns that are NOT pure match-all must preserve LIKE ---
+
+        // '%%' — two unescaped '%' chars — not match-all, LIKE must remain
+        @Language("SQL") String likeDoublePercentQuery = "EXPLAIN SELECT * FROM system.jdbc.columns WHERE table_schem LIKE '%%'";
+        String likeDoublePercentPlan = (String) computeActual(session, likeDoublePercentQuery).getOnlyValue();
+        assertTrue(likeDoublePercentPlan.contains("LIKE"),
+                "Expected LIKE '%%' to be preserved (not IS NOT NULL), but LIKE was rewritten:\n" + likeDoublePercentPlan);
+
+        // '%abc%' — '%' is not the only character — LIKE must remain
+        @Language("SQL") String likeContainsQuery = "EXPLAIN SELECT * FROM system.jdbc.columns WHERE table_schem LIKE '%abc%'";
+        String likeContainsPlan = (String) computeActual(session, likeContainsQuery).getOnlyValue();
+        assertTrue(likeContainsPlan.contains("LIKE"),
+                "Expected LIKE '%abc%' to be preserved (not IS NOT NULL), but LIKE was rewritten:\n" + likeContainsPlan);
     }
 
     @Test
