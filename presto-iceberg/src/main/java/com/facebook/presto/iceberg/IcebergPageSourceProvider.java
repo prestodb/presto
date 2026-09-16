@@ -22,6 +22,7 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.Type;
@@ -456,10 +457,19 @@ public class IcebergPageSourceProvider
     {
         if (isPushedDownSubfield(column)) {
             Subfield pushedDownSubfield = getPushedDownSubfield(column);
+            String rootName = AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName());
             List<String> encodedPath = nestedColumnPath(pushedDownSubfield).stream()
                     .map(AvroSchemaUtil::makeCompatibleName)
                     .collect(Collectors.toList());
-            return getSubfieldType(messageType, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName()), encodedPath);
+            Optional<org.apache.parquet.schema.Type> subfieldType = getSubfieldType(messageType, rootName, encodedPath);
+            if (subfieldType.isPresent()) {
+                return subfieldType;
+            }
+            // The sub-field name in the Parquet file may differ from the current logical name
+            // (e.g. after a nested field rename, old files still have the pre-rename physical name).
+            // Fall back to including the root struct column so that its GroupColumnIO is available
+            // for ID-based sub-field traversal in resolveColumnIOByFieldIds.
+            return Optional.ofNullable(getParquetTypeByName(rootName, messageType));
         }
 
         if (parquetIdToField.isEmpty()) {
@@ -609,6 +619,7 @@ public class IcebergPageSourceProvider
                     runtimeStats,
                     MODIFICATION_TIME_NOT_SET);
 
+            List<OrcType> orcTypes = reader.getFooter().getTypes();
             List<HiveColumnHandle> physicalColumnHandles = new ArrayList<>(regularColumns.size());
             ImmutableMap.Builder<Integer, Object> defaultValues = ImmutableMap.builder();
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -650,8 +661,11 @@ public class IcebergPageSourceProvider
                             Optional.empty());
 
                     physicalColumnHandles.add(columnHandle);
-                    includedColumns.put(columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature()));
-                    columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature())));
+                    // Use physical field names so StructBatchStreamReader can match nested streams
+                    // by name even after a nested field has been renamed (schema evolution).
+                    Type physicalType = toPhysicalOrcType(column.getType(), column.getColumnIdentity(), orcTypes, icebergOrcColumn.getOrcFieldTypeIndex());
+                    includedColumns.put(columnHandle.getHiveColumnIndex(), physicalType);
+                    columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), physicalType));
                 }
                 else {
                     // Missing columns are treated as REGULAR at the physical ORC-reader level.
@@ -760,6 +774,98 @@ public class IcebergPageSourceProvider
             }
             throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    /**
+     * Recursively rewrites the logical Presto {@link Type} for an ORC struct column so that
+     * each nested field name matches the <em>physical</em> name stored in the ORC file rather
+     * than the current logical name in the Iceberg schema.
+     *
+     * <p>This is necessary after a nested field rename: the logical type will have the new name
+     * (e.g. {@code years}) but the physical ORC stream still uses the original name (e.g.
+     * {@code age}).  {@link com.facebook.presto.orc.reader.StructBatchStreamReader} matches
+     * nested streams by name, so without this rewrite the renamed sub-field would always read
+     * as {@code null} from pre-rename files.
+     *
+     * <p>The mapping at each level is: logical name → Iceberg field ID (from
+     * {@code columnIdentity.getChildren()}) → physical name (from the ORC type's
+     * {@code iceberg.id} attribute on each nested sub-type).  Recursion handles arbitrarily
+     * deep struct nesting.
+     *
+     * <p>Non-struct types are returned unchanged.  When the ORC file has no {@code iceberg.id}
+     * attributes (migrated tables) all names are left as-is, which preserves the existing
+     * behaviour.
+     */
+    private static Type toPhysicalOrcType(Type logicalType, ColumnIdentity columnIdentity, List<OrcType> orcTypes, int physicalStructTypeIndex)
+    {
+        if (!(logicalType instanceof RowType)) {
+            return logicalType;
+        }
+        if (physicalStructTypeIndex >= orcTypes.size()) {
+            return logicalType;
+        }
+        OrcType physicalStructType = orcTypes.get(physicalStructTypeIndex);
+        if (physicalStructType.getOrcTypeKind() != OrcType.OrcTypeKind.STRUCT) {
+            return logicalType;
+        }
+
+        // Build icebergFieldId -> (physicalFieldName, physicalSubTypeIndex) for this struct level.
+        Map<Integer, String> icebergIdToPhysicalName = new java.util.HashMap<>();
+        Map<Integer, Integer> icebergIdToSubTypeIndex = new java.util.HashMap<>();
+        for (int i = 0; i < physicalStructType.getFieldCount(); i++) {
+            int subTypeIndex = physicalStructType.getFieldTypeIndex(i);
+            String physicalName = physicalStructType.getFieldName(i);
+            if (subTypeIndex < orcTypes.size()) {
+                String icebergIdStr = orcTypes.get(subTypeIndex).getAttributes().get(ORC_ICEBERG_ID_KEY);
+                if (icebergIdStr != null) {
+                    int icebergId = Integer.parseInt(icebergIdStr);
+                    icebergIdToPhysicalName.put(icebergId, physicalName);
+                    icebergIdToSubTypeIndex.put(icebergId, subTypeIndex);
+                }
+            }
+        }
+        if (icebergIdToPhysicalName.isEmpty()) {
+            // No iceberg.id attributes – migrated table, leave names as-is.
+            return logicalType;
+        }
+
+        // Build logicalFieldName -> ColumnIdentity child for this struct level.
+        Map<String, ColumnIdentity> logicalNameToChildIdentity = new java.util.HashMap<>();
+        for (ColumnIdentity child : columnIdentity.getChildren()) {
+            logicalNameToChildIdentity.put(child.getName().toLowerCase(ENGLISH), child);
+        }
+
+        // Rewrite each RowType field: replace logical name with physical name, and recurse
+        // into nested struct sub-types to handle arbitrarily deep renames.
+        RowType rowType = (RowType) logicalType;
+        ImmutableList.Builder<RowType.Field> rewrittenFields = ImmutableList.builder();
+        for (RowType.Field field : rowType.getFields()) {
+            String logicalName = field.getName()
+                    .map(n -> n.toLowerCase(ENGLISH))
+                    .orElse(null);
+            ColumnIdentity childIdentity = logicalName != null ? logicalNameToChildIdentity.get(logicalName) : null;
+            Integer icebergId = childIdentity != null ? childIdentity.getId() : null;
+            String physicalName = icebergId != null ? icebergIdToPhysicalName.get(icebergId) : null;
+
+            // Recursively rewrite nested struct sub-types.
+            Type fieldType = field.getType();
+            if (childIdentity != null && icebergId != null && fieldType instanceof RowType) {
+                Integer subTypeIndex = icebergIdToSubTypeIndex.get(icebergId);
+                if (subTypeIndex != null) {
+                    fieldType = toPhysicalOrcType(fieldType, childIdentity, orcTypes, subTypeIndex);
+                }
+            }
+
+            if (physicalName != null) {
+                rewrittenFields.add(RowType.field(physicalName, fieldType));
+            }
+            else {
+                rewrittenFields.add(field.getName().isPresent()
+                        ? RowType.field(field.getName().get(), fieldType)
+                        : RowType.field(fieldType));
+            }
+        }
+        return RowType.from(rewrittenFields.build());
     }
 
     private static List<IcebergOrcColumn> getFileOrcColumns(OrcReader reader)

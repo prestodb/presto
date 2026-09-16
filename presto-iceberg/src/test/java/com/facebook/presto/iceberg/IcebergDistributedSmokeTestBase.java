@@ -1344,7 +1344,7 @@ public abstract class IcebergDistributedSmokeTestBase
         // Old name is no longer accessible
         assertQueryFails(session,
                 "SELECT info.age FROM test_nested_rename_field",
-                ".*Column 'info.age' cannot be resolved.*|.*Field 'age' does not exist.*");
+                ".*'info.age' cannot be resolved.*|.*Field 'age' does not exist.*");
 
         // Whole-struct read after field rename
         MaterializedResult infoAfterRename = computeActual(session,
