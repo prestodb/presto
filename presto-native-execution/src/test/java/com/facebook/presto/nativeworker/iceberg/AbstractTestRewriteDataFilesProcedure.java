@@ -29,6 +29,34 @@ public abstract class AbstractTestRewriteDataFilesProcedure
         extends AbstractTestQueryFramework
 {
     @Test
+    public void testRewriteDataFilesOnTableWithNotNullColumn()
+    {
+        String tableName = "example_not_null_column_table";
+        String schemaName = getSession().getSchema().get();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar NOT NULL)");
+
+            // create 3 files
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'bar')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(3, 'foo'), (4, 'bar')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(5, 'foo'), (6, 'bar')", 2);
+            validateDataFilesAndDeleteFiles(tableName, 3L, 0L);
+
+            // The procedure writes through a CallDistributedProcedureNode, which carries the
+            // table's NOT NULL columns like any other write. Rows already satisfy the constraint,
+            // so rewriting them keeps every row.
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 6);
+
+            validateDataFilesAndDeleteFiles(tableName, 1L, 0L);
+            assertQuery("select * from " + tableName,
+                    "values(1, 'foo'), (2, 'bar'), (3, 'foo'), (4, 'bar'), (5, 'foo'), (6, 'bar')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
     public void testRewriteDataFilesInEmptyTable()
     {
         String tableName = "default_empty_table";
