@@ -80,7 +80,6 @@ public class AddFieldTask
 
         accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        // Parse the field type
         Type type;
         try {
             type = metadata.getType(parseTypeSignature(statement.getType()));
@@ -101,9 +100,6 @@ public class AddFieldTask
             throw new SemanticException(NOT_SUPPORTED, statement, "COMMENT is not supported for nested ADD COLUMN");
         }
 
-        // columnPath is the parent struct path (e.g. ["col"] or ["col", "nested"])
-        // fieldName is the new field being added inside that struct.
-        // Normalize identifiers through the catalog's case rules, matching what AddColumnTask does.
         List<String> parentPath = statement.getColumnPath().getParts().stream()
                 .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part))
                 .collect(Collectors.toList());

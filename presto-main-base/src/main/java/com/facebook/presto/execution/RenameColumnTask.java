@@ -72,8 +72,8 @@ public class RenameColumnTask
 
         TableHandle tableHandle = tableHandleOptional.get();
 
-        List<String> normalizedSourceParts = statement.getSource().getParts().stream()
-                .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part))
+        List<String> normalizedSourceParts = statement.getSource().getOriginalParts().stream()
+                .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part.getValue()))
                 .collect(Collectors.toList());
         String target = metadata.normalizeIdentifier(session, tableName.getCatalogName(), statement.getTarget().getValue());
 

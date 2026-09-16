@@ -1534,9 +1534,6 @@ public abstract class IcebergAbstractMetadata
         // Reject dropping the last field from a nested struct. Iceberg permits empty structs but
         // Presto's RowType requires at least one field — the table would become permanently
         // unreadable (DESCRIBE and SELECT both throw) after such a drop.
-        // Mirrors Trino commit 873bfad8: containingType.getFields().size() == 1 check in
-        // DropColumnTask. We perform it here because our architecture delegates the full path
-        // to the connector without a Java type-walk in the task layer.
         int lastDot = canonicalPath.lastIndexOf('.');
         if (lastDot > 0) {
             String parentPath = canonicalPath.substring(0, lastDot);
@@ -1550,9 +1547,7 @@ public abstract class IcebergAbstractMetadata
         }
 
         // Reject dropping a field referenced by any partition spec (current or historical).
-        // Mirrors Trino commit f11bb3ce which separately checks spec() and older specs().
-        // Our existing dropColumn() uses the same single-stream pattern across all specs.
-        // See https://github.com/apache/iceberg/issues/4563
+        // This mirrors the same protection applied in dropColumn() above.
         long fieldId = field.fieldId();
         boolean isPartitionField = icebergTable.specs().values().stream()
                 .flatMap(spec -> spec.fields().stream())
