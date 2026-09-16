@@ -74,6 +74,15 @@ std::shared_ptr<protocol::RPCNode> makeRPCNode(
   return node;
 }
 
+// The registry requires a signature at registration. The RPCNode built above
+// calls fb_llm_inference with one varchar column and produces varchar.
+exec_rpc::AsyncRPCFunctionRegistry::Signatures signatures() {
+  return {exec::FunctionSignatureBuilder()
+              .returnType("varchar")
+              .argumentType("varchar")
+              .build()};
+}
+
 } // namespace
 
 class RPCPlanConverterTest : public ::testing::Test {
@@ -133,11 +142,13 @@ TEST_F(RPCPlanConverterTest, rpcNodeWithRegisteredFunction) {
 
   // Register a mock function for testing.
   exec_rpc::AsyncRPCFunctionRegistry::registerFunction(
-      "fb_llm_inference", []() {
+      "fb_llm_inference",
+      []() {
         // Return nullptr — the factory is not called during plan conversion
         // (only during operator initialization).
         return nullptr;
-      });
+      },
+      signatures());
 
   // Build the protocol plan: Values -> RPCNode
   auto valuesNode = makeValuesNode();
@@ -182,7 +193,7 @@ TEST_F(RPCPlanConverterTest, rpcNodeWithRegisteredFunction) {
 TEST_F(RPCPlanConverterTest, columnArgUsesSourceColumnType) {
   exec_rpc::AsyncRPCFunctionRegistry::testingClear();
   exec_rpc::AsyncRPCFunctionRegistry::registerFunction(
-      "fb_llm_inference", []() { return nullptr; });
+      "fb_llm_inference", []() { return nullptr; }, signatures());
 
   // Source produces column "num" of type BIGINT.
   auto valuesNode = std::make_shared<protocol::ValuesNode>();
@@ -237,7 +248,7 @@ TEST_F(RPCPlanConverterTest, columnArgUsesSourceColumnType) {
 TEST_F(RPCPlanConverterTest, columnArgNotInSourceThrows) {
   exec_rpc::AsyncRPCFunctionRegistry::testingClear();
   exec_rpc::AsyncRPCFunctionRegistry::registerFunction(
-      "fb_llm_inference", []() { return nullptr; });
+      "fb_llm_inference", []() { return nullptr; }, signatures());
 
   // Source produces column "comment"; the RPC column argument names a column
   // that does not exist in the source schema.
