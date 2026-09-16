@@ -1848,6 +1848,14 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE ADD/RENAME/DROP COLUMN`` (nested struct field)
+     - Yes
+     - No
+     -
+   * - ``ALTER TABLE ALTER COLUMN SET DATA TYPE``
+     - Yes
+     - No
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2242,6 +2250,74 @@ value automatically.
 
 This feature requires Iceberg Format Version 3. Attempting to use ``ALTER COLUMN SET DEFAULT`` on
 a table with format version 2 or lower will result in an error.
+
+.. _iceberg-alter-table-schema-evolution:
+
+ALTER TABLE Schema Evolution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+    The operations described in this section are supported only in **Presto Java**.
+    **Presto C++** does not support nested struct field operations or column type widening.
+
+**Nested struct field operations**
+
+The Iceberg connector supports adding, renaming, and dropping fields within a ``ROW`` column
+using a dotted path to identify the parent struct and target field. All three operations are
+metadata-only changes — no data files are rewritten.
+
+Example — Add a field to a struct column::
+
+     ALTER TABLE iceberg.web.orders ADD COLUMN address.zip VARCHAR;
+
+The optional ``IF NOT EXISTS`` clause suppresses the error if the field already exists::
+
+     ALTER TABLE iceberg.web.orders ADD COLUMN IF NOT EXISTS address.zip VARCHAR;
+
+Example — Rename a field within a struct column::
+
+     ALTER TABLE iceberg.web.orders RENAME COLUMN address.zip TO address.postal_code;
+
+The optional ``IF EXISTS`` clause suppresses the error if the field does not exist::
+
+     ALTER TABLE iceberg.web.orders RENAME COLUMN IF EXISTS address.zip TO address.postal_code;
+
+Example — Drop a field from a struct column::
+
+     ALTER TABLE iceberg.web.orders DROP COLUMN address.postal_code;
+
+The optional ``IF EXISTS`` clause suppresses the error if the field does not exist::
+
+     ALTER TABLE iceberg.web.orders DROP COLUMN IF EXISTS address.postal_code;
+
+The dotted path may refer to arbitrarily nested fields. ``NOT NULL`` and ``COMMENT`` are not
+supported for nested ``ADD COLUMN`` and will result in an error. Dropping the last field from a
+nested struct or a field used by a partition spec is not permitted.
+
+**Column type widening**
+
+The Iceberg connector supports widening a top-level column's type using
+``ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE``. This is a metadata-only change —
+no data files are rewritten. Only the following promotions are supported:
+
+* ``INTEGER`` to ``BIGINT``
+* ``REAL`` to ``DOUBLE``
+* ``DECIMAL(p, s)`` to ``DECIMAL(p', s)`` where ``p' > p`` and the scale is unchanged
+
+Narrowing conversions and scale changes are rejected with an error.
+
+Example — Widen an ``INTEGER`` column to ``BIGINT``::
+
+     ALTER TABLE iceberg.web.orders ALTER COLUMN quantity SET DATA TYPE BIGINT;
+
+Example — Widen a ``REAL`` column to ``DOUBLE``::
+
+     ALTER TABLE iceberg.web.orders ALTER COLUMN price SET DATA TYPE DOUBLE;
+
+Example — Increase the precision of a ``DECIMAL`` column::
+
+     ALTER TABLE iceberg.web.orders ALTER COLUMN amount SET DATA TYPE DECIMAL(20, 2);
 
 ALTER VIEW
 ^^^^^^^^^^
