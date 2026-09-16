@@ -58,6 +58,11 @@ public final class ConfigurationUtils
             return new CopyOnFirstWriteConfiguration(copy(((CopyOnFirstWriteConfiguration) configuration).getConfig()));
         }
         Configuration copy = new Configuration(false);
+        // new Configuration() captures Thread.currentThread().getContextClassLoader(), and the
+        // copy below carries key/value entries only, so the source's ClassLoader has to be
+        // carried over explicitly. Otherwise a copy taken on a thread that cannot see plugin
+        // classes loses the ClassLoader pinned by HiveHdfsConfiguration.
+        copy.setClassLoader(configuration.getClassLoader());
         copy(configuration, copy);
         return copy;
     }
