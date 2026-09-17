@@ -2275,8 +2275,6 @@ public class TestSqlParser
                         QualifiedName.of("col"),
                         identifier("new_field"),
                         "VARCHAR",
-                        true,
-                        Optional.empty(),
                         false,
                         false));
 
@@ -2290,8 +2288,6 @@ public class TestSqlParser
                         identifier("new_field"),
                         "BIGINT",
                         true,
-                        Optional.empty(),
-                        true,
                         false));
 
         // IF NOT EXISTS on field
@@ -2303,38 +2299,18 @@ public class TestSqlParser
                         QualifiedName.of("col"),
                         identifier("new_field"),
                         "INTEGER",
-                        true,
-                        Optional.empty(),
                         false,
                         true));
 
-        // NOT NULL
-        assertStatement(
+        // NOT NULL is not accepted in the nested ADD COLUMN grammar
+        assertInvalidStatement(
                 "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR NOT NULL",
-                new AddField(
-                        new NodeLocation(1, 1),
-                        QualifiedName.of("foo", "t"),
-                        QualifiedName.of("col"),
-                        identifier("new_field"),
-                        "VARCHAR",
-                        false,
-                        Optional.empty(),
-                        false,
-                        false));
+                ".*");
 
-        // COMMENT
-        assertStatement(
+        // COMMENT is not accepted in the nested ADD COLUMN grammar
+        assertInvalidStatement(
                 "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR COMMENT 'a comment'",
-                new AddField(
-                        new NodeLocation(1, 1),
-                        QualifiedName.of("foo", "t"),
-                        QualifiedName.of("col"),
-                        identifier("new_field"),
-                        "VARCHAR",
-                        true,
-                        Optional.of("a comment"),
-                        false,
-                        false));
+                ".*");
 
         // Multi-level nesting: parent path has two parts
         assertStatement(
@@ -2345,8 +2321,6 @@ public class TestSqlParser
                         QualifiedName.of("outer_col", "inner_col"),
                         identifier("new_field"),
                         "DOUBLE",
-                        true,
-                        Optional.empty(),
                         false,
                         false));
 
@@ -2359,8 +2333,6 @@ public class TestSqlParser
                         QualifiedName.of("col"),
                         quotedIdentifier("new field"),
                         "VARCHAR",
-                        true,
-                        Optional.empty(),
                         false,
                         false));
     }

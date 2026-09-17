@@ -60,8 +60,7 @@ statement
         ADD COLUMN (IF NOT EXISTS)? column=columnDefinition
         (FIRST | AFTER after=identifier)?                              #addColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ADD COLUMN (IF NOT EXISTS)? columnPath=qualifiedName type
-        (NOT NULL)? (COMMENT string)?                                  #addField
+        ADD COLUMN (IF NOT EXISTS)? columnPath=qualifiedName type      #addField
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ADD constraintSpecification                                    #addConstraint
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName

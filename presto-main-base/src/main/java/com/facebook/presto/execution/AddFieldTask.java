@@ -30,7 +30,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
@@ -38,6 +37,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class AddFieldTask
@@ -80,14 +80,6 @@ public class AddFieldTask
 
         accessControl.checkCanAlterColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        if (!statement.isNullable()) {
-            throw new SemanticException(NOT_SUPPORTED, statement, "NOT NULL constraint is not supported for nested ADD COLUMN");
-        }
-
-        if (statement.getComment().isPresent()) {
-            throw new SemanticException(NOT_SUPPORTED, statement, "COMMENT is not supported for nested ADD COLUMN");
-        }
-
         // Parse the field type
         Type type;
         try {
@@ -105,7 +97,7 @@ public class AddFieldTask
         // Normalize identifiers through the catalog's case rules, matching what AddColumnTask does.
         List<String> parentPath = statement.getColumnPath().getParts().stream()
                 .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
         String fieldName = metadata.normalizeIdentifier(session, tableName.getCatalogName(), statement.getFieldName().getValue());
 
         metadata.addField(session, tableHandle.get(), parentPath, fieldName, type, statement.isFieldNotExists());

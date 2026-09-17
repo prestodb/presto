@@ -1496,17 +1496,7 @@ public abstract class IcebergAbstractMetadata
         if (path.isEmpty()) {
             return Optional.empty();
         }
-        NestedField topLevel;
-        try {
-            topLevel = findTopLevelColumn(schema, path.get(0));
-        }
-        catch (PrestoException e) {
-            if (e.getErrorCode().equals(COLUMN_NOT_FOUND.toErrorCode())) {
-                return Optional.empty();
-            }
-            throw e;
-        }
-        Optional<NestedField> current = Optional.of(topLevel);
+        Optional<NestedField> current = findFieldInStruct(schema.asStruct(), path.get(0));
         for (int i = 1; i < path.size() && current.isPresent(); i++) {
             if (!current.get().type().isStructType()) {
                 return Optional.empty();
