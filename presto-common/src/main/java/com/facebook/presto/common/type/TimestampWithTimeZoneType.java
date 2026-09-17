@@ -18,15 +18,57 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static java.lang.String.format;
 
+// TODO(#27934 Phase 1): Add parameterized precision registry (p=0–12), isShort() dispatch, and a LongTimestamp analogue for p=7–12.
 public final class TimestampWithTimeZoneType
         extends AbstractLongType
 {
-    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = new TimestampWithTimeZoneType();
+    public static final int MAX_PRECISION = 12;
+    public static final int DEFAULT_PRECISION = 3;
 
-    private TimestampWithTimeZoneType()
+    private static final TimestampWithTimeZoneType[] INSTANCES = new TimestampWithTimeZoneType[MAX_PRECISION + 1];
+
+    static {
+        for (int p = 0; p <= MAX_PRECISION; p++) {
+            INSTANCES[p] = new TimestampWithTimeZoneType(p);
+        }
+    }
+
+    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = INSTANCES[DEFAULT_PRECISION];
+
+    private final int precision;
+
+    // Only p=3 is registered in the type manager; other precisions tracked in #27934.
+    public static TimestampWithTimeZoneType createTimestampWithTimeZoneType(int precision)
     {
-        super(parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE));
+        if (precision < 0 || precision > MAX_PRECISION) {
+            throw new IllegalArgumentException(format(
+                    "TIMESTAMP WITH TIME ZONE precision must be in range [0, %d]: %d", MAX_PRECISION, precision));
+        }
+        return INSTANCES[precision];
+    }
+
+    private TimestampWithTimeZoneType(int precision)
+    {
+        super(buildTypeSignature(precision));
+        this.precision = precision;
+    }
+
+    private static TypeSignature buildTypeSignature(int precision)
+    {
+        if (precision == DEFAULT_PRECISION) {
+            // Preserve "timestamp with time zone" (no parameter) so existing serialized metadata continues to parse.
+            return parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
+        }
+        // The type registry does not yet recognize the "timestamp with time zone(p)" string form,
+        // so these instances are created directly rather than parsed.
+        return new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeSignatureParameter.of((long) precision));
+    }
+
+    public int getPrecision()
+    {
+        return precision;
     }
 
     /**
@@ -42,16 +84,23 @@ public final class TimestampWithTimeZoneType
         return false;
     }
 
+    // SqlTimestampWithTimeZone has no sub-millisecond representation yet, so silently accepting other
+    // precisions here would truncate values without any indication.
     @Override
     public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
         }
+        if (precision != DEFAULT_PRECISION) {
+            throw new UnsupportedOperationException(
+                    "getObjectValue is not supported for TIMESTAMP(" + precision + ") WITH TIME ZONE");
+        }
 
         return new SqlTimestampWithTimeZone(block.getLong(position));
     }
 
+    // TODO(#27934 Phase 2): equalTo/hash/compareTo assume DEFAULT_PRECISION encoding; add precision-aware dispatch.
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
@@ -74,16 +123,16 @@ public final class TimestampWithTimeZoneType
         return Long.compare(leftValue, rightValue);
     }
 
+    // Interned per precision, so reference equality is correct; overridden only for checkstyle.
     @Override
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object other)
     {
-        return other == TIMESTAMP_WITH_TIME_ZONE;
+        return this == other;
     }
 
     @Override
     public int hashCode()
     {
-        return getClass().hashCode();
+        return System.identityHashCode(this);
     }
 }

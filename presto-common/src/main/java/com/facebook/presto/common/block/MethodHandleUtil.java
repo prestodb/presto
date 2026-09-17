@@ -129,6 +129,7 @@ public final class MethodHandleUtil
         Class<?> javaType = type.getJavaType();
 
         MethodHandle methodHandle;
+        // TODO(#27934 Phase 2): GET_LONG binds to Type.getLong(Block, int), which throws for TimestampType p=7–12.
         if (javaType == long.class) {
             methodHandle = GET_LONG;
         }
@@ -156,6 +157,7 @@ public final class MethodHandleUtil
         Class<?> javaType = type.getJavaType();
 
         MethodHandle methodHandle;
+        // TODO(#27934 Phase 2): WRITE_LONG binds to Type.writeLong(BlockBuilder, long), which throws for TimestampType p=7–12.
         if (javaType == long.class) {
             methodHandle = WRITE_LONG;
         }
