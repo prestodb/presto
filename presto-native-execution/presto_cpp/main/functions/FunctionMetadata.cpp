@@ -73,13 +73,19 @@ const exec::VectorFunctionMetadata getScalarMetadata(const std::string& name) {
   VELOX_UNREACHABLE("Metadata for function {} not found", name);
 }
 
+// 'scalarMetadata', when set, is used instead of looking the function up in
+// the scalar registry.  An RPC function is not registered there -- its
+// determinism and null behaviour come from AsyncRPCFunctionRegistry.
 const protocol::RoutineCharacteristics getRoutineCharacteristics(
     const std::string& name,
-    const protocol::FunctionKind& kind) {
+    const protocol::FunctionKind& kind,
+    const std::optional<exec::VectorFunctionMetadata>& scalarMetadata =
+        std::nullopt) {
   protocol::Determinism determinism;
   protocol::NullCallClause nullCallClause;
   if (kind == protocol::FunctionKind::SCALAR) {
-    auto metadata = getScalarMetadata(name);
+    auto metadata =
+        scalarMetadata.has_value() ? *scalarMetadata : getScalarMetadata(name);
     determinism = metadata.deterministic
         ? protocol::Determinism::DETERMINISTIC
         : protocol::Determinism::NOT_DETERMINISTIC;
@@ -144,7 +150,9 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
     const protocol::FunctionKind& kind,
     const FunctionSignature& signature,
     bool isRpcFunction = false,
-    const AggregateFunctionSignaturePtr& aggregateSignature = nullptr) {
+    const AggregateFunctionSignaturePtr& aggregateSignature = nullptr,
+    const std::optional<exec::VectorFunctionMetadata>& scalarMetadata =
+        std::nullopt) {
   protocol::JsonBasedUdfFunctionMetadata metadata;
   metadata.docString = name;
   metadata.functionKind = kind;
@@ -166,7 +174,8 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
   metadata.paramTypes = paramTypes;
   metadata.schema = schema;
   metadata.variableArity = signature.variableArity();
-  metadata.routineCharacteristics = getRoutineCharacteristics(name, kind);
+  metadata.routineCharacteristics =
+      getRoutineCharacteristics(name, kind, scalarMetadata);
   metadata.typeVariableConstraints =
       std::make_shared<std::vector<protocol::TypeVariableConstraint>>(
           getTypeVariableConstraints(signature));
@@ -190,7 +199,9 @@ json buildScalarMetadata(
     const std::string& name,
     const std::string& schema,
     const std::vector<const FunctionSignature*>& signatures,
-    bool isRpcFunction = false) {
+    bool isRpcFunction = false,
+    const std::optional<exec::VectorFunctionMetadata>& scalarMetadata =
+        std::nullopt) {
   json j = json::array();
   json tj;
   for (const auto& signature : signatures) {
@@ -199,7 +210,9 @@ json buildScalarMetadata(
             schema,
             protocol::FunctionKind::SCALAR,
             *signature,
-            isRpcFunction)) {
+            isRpcFunction,
+            /*aggregateSignature=*/nullptr,
+            scalarMetadata)) {
       protocol::to_json(tj, functionMetadata.value());
       j.push_back(tj);
     }
@@ -267,10 +280,45 @@ json buildWindowMetadata(
   return j;
 }
 
+// Adds the async RPC functions, which live in a registry of their own and are
+// absent from the Velox function registries walked below.
+void addRpcFunctionsMetadata(
+    json& j,
+    const std::string& namespacePrefix,
+    const std::optional<std::string>& catalog) {
+  // An RPC function is registered under its plain name; the Presto namespace
+  // is applied here, where the sidecar reports what the coordinator can call.
+  for (const auto& entry :
+       velox::exec::rpc::AsyncRPCFunctionRegistry::functions()) {
+    const auto name = namespacePrefix + entry.name;
+    const auto parts = util::getFunctionNameParts(name);
+    if (catalog.has_value() && parts[0] != catalog.value()) {
+      continue;
+    }
+    std::vector<const FunctionSignature*> signatures;
+    signatures.reserve(entry.signatures.size());
+    for (const auto& signature : entry.signatures) {
+      signatures.push_back(signature.get());
+    }
+    // The function is absent from the scalar registry, so its determinism and
+    // null behaviour are supplied rather than looked up there.
+    j[parts[2]] = buildScalarMetadata(
+        name,
+        parts[1],
+        signatures,
+        /*isRpcFunction=*/true,
+        entry.metadata);
+  }
+}
+
 } // namespace
 
-json getFunctionsMetadata(const std::optional<std::string>& catalog) {
+json getFunctionsMetadata(
+    const std::string& namespacePrefix,
+    const std::optional<std::string>& catalog) {
   json j;
+
+  addRpcFunctionsMetadata(j, namespacePrefix, catalog);
 
   // Lambda to check if a function should be skipped based on catalog filter
   auto skipCatalog = [&catalog](const std::string& functionCatalog) {
@@ -299,9 +347,7 @@ json getFunctionsMetadata(const std::optional<std::string>& catalog) {
     }
     const auto schema = parts[1];
     const auto function = parts[2];
-    const bool isRpc =
-        velox::exec::rpc::AsyncRPCFunctionRegistry::isRegistered(function);
-    j[function] = buildScalarMetadata(name, schema, entry.second, isRpc);
+    j[function] = buildScalarMetadata(name, schema, entry.second);
   }
 
   // Get metadata for all registered aggregate functions in velox.
