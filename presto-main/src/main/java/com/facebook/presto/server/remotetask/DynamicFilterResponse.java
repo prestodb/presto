@@ -24,8 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Map;
 import java.util.Set;
 
-import static java.util.Objects.requireNonNull;
-
 public class DynamicFilterResponse
 {
     private final Map<String, RuntimeFilter> filters;
@@ -40,7 +38,7 @@ public class DynamicFilterResponse
             @JsonProperty("operatorCompleted") boolean operatorCompleted,
             @JsonProperty("completedFilterIds") Set<String> completedFilterIds)
     {
-        this.filters = ImmutableMap.copyOf(requireNonNull(filters, "filters is null"));
+        this.filters = filters == null ? ImmutableMap.of() : ImmutableMap.copyOf(filters);
         this.version = version;
         this.operatorCompleted = operatorCompleted;
         this.completedFilterIds = completedFilterIds == null ? ImmutableSet.of() : ImmutableSet.copyOf(completedFilterIds);

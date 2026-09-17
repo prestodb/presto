@@ -65,8 +65,10 @@ import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.thrift.ThriftHttpResponseHandler;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitWeight;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
@@ -518,6 +520,12 @@ public final class HttpRemoteTaskWithEventLoop
                 queryManager,
                 handleResolver,
                 thriftProtocol);
+        // Collect the dynamic filter IDs declared on JoinNode/SemiJoinNode build sides
+        // within this fragment. These are the filters this task's build side PRODUCES —
+        // not filters that prune this task's probe scans. Scoping the final-fetch failure
+        // fallback to these IDs ensures we only deliver all() for filters this task owns,
+        // never for filters produced by other build-stage tasks.
+        Set<String> taskOwnedFilterIds = collectBuildSideDynamicFilterIds(planFragment.getRoot());
         this.dynamicFilterFetcher = new DynamicFilterFetcher(
                 taskId,
                 location,
@@ -529,6 +537,7 @@ public final class HttpRemoteTaskWithEventLoop
                 dynamicFilterResponseCodec,
                 dynamicFilterService,
                 session.getQueryId(),
+                taskOwnedFilterIds,
                 dynamicFilterStats,
                 isVerboseRuntimeStatsEnabled(session),
                 this::failTask);
@@ -1633,6 +1642,32 @@ public final class HttpRemoteTaskWithEventLoop
         }
         catch (NumberFormatException e) {
             return 1_000;
+        }
+    }
+
+    /**
+     * Collects all dynamic filter IDs declared on the build side of JoinNode and SemiJoinNode
+     * within the given plan subtree. These are the filter IDs this fragment PRODUCES on the
+     * build side — the correct scope for the final-fetch-failure fallback in DynamicFilterFetcher.
+     * Package-private for testing.
+     */
+    static Set<String> collectBuildSideDynamicFilterIds(PlanNode root)
+    {
+        ImmutableSet.Builder<String> filterIds = ImmutableSet.builder();
+        collectBuildSideDynamicFilterIds(root, filterIds);
+        return filterIds.build();
+    }
+
+    private static void collectBuildSideDynamicFilterIds(PlanNode node, ImmutableSet.Builder<String> filterIds)
+    {
+        if (node instanceof JoinNode) {
+            filterIds.addAll(((JoinNode) node).getDynamicFilters().keySet());
+        }
+        else if (node instanceof SemiJoinNode) {
+            filterIds.addAll(((SemiJoinNode) node).getDynamicFilters().keySet());
+        }
+        for (PlanNode child : node.getSources()) {
+            collectBuildSideDynamicFilterIds(child, filterIds);
         }
     }
 }

@@ -32,6 +32,7 @@ import com.facebook.presto.server.SimpleHttpResponseHandler;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.netty.channel.EventLoop;
@@ -99,11 +100,11 @@ public class DynamicFilterFetcher
     // (one fetcher per build-side task), enforcing the single-contribution-per-task contract
     // of JoinDynamicFilter's partition counting.
     private final Set<String> deliveredFilterIds = new HashSet<>();
-    // Tracks filter IDs that this task has reported in at least one response (via the filters
-    // map or completedFilterIds). Used to scope the final-fetch failure fallback: we must only
-    // deliver all() for filters this task actually owns, not for every query filter that was
-    // pre-loaded into filterCache from getAllFiltersForQuery().
-    private final Set<String> ownedFilterIds = new HashSet<>();
+    // Filter IDs this task's build side produces — collected from JoinNode/SemiJoinNode
+    // getDynamicFilters().keySet() in this fragment's plan tree at construction time.
+    // Scopes the final-fetch failure fallback: we only deliver all() for filters this
+    // task produces, never for filters owned by other build-stage tasks.
+    private final Set<String> ownedFilterIds;
     private final Map<String, JoinDynamicFilter> filterCache = new HashMap<>();
     // Resolved once in start() from the first registered filter for this query.
     // All JoinDynamicFilters for a query share the same RuntimeStats instance
@@ -129,12 +130,14 @@ public class DynamicFilterFetcher
             JsonCodec<DynamicFilterResponse> filterCodec,
             DynamicFilterService dynamicFilterService,
             QueryId queryId,
+            Set<String> ownedFilterIds,
             DynamicFilterServiceStats dynamicFilterStats,
             boolean extendedMetrics,
             Consumer<Throwable> onFatal)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
+        this.ownedFilterIds = ImmutableSet.copyOf(requireNonNull(ownedFilterIds, "ownedFilterIds is null"));
         this.taskLocation = requireNonNull(taskLocation, "taskLocation is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.taskEventLoop = requireNonNull(taskEventLoop, "taskEventLoop is null");
@@ -254,7 +257,6 @@ public class DynamicFilterFetcher
             for (Map.Entry<String, RuntimeFilter> entry : filters.entrySet()) {
                 String filterId = entry.getKey();
                 RuntimeFilter filterDomain = entry.getValue();
-                ownedFilterIds.add(filterId);
                 if (deliveredFilterIds.add(filterId)) {
                     resolveFilter(filterId)
                             .ifPresent(f -> f.addPartitionByFilterId(filterDomain));
@@ -273,7 +275,6 @@ public class DynamicFilterFetcher
 
         // Empty build: deliver none() so this task's partition counts toward quorum.
         for (String filterId : response.getCompletedFilterIds()) {
-            ownedFilterIds.add(filterId);
             if (deliveredFilterIds.add(filterId)) {
                 if (extendedMetrics) {
                     emitExtendedMetric(format("%s[%s][%s]", DYNAMIC_FILTER_COMPLETED_ID_DELIVERED, filterId, taskSuffix), 1);
@@ -342,22 +343,17 @@ public class DynamicFilterFetcher
         }
 
         if (isFinalFetch) {
-            // The final fetch failed for a non-cancellation reason. Log a warning and deliver
-            // TupleDomain.all() for any undelivered filters so their JoinDynamicFilter reaches
-            // quorum rather than waiting indefinitely.
-            //
-            // Scope the fallback to ownedFilterIds — filter IDs that this task actually reported
-            // in at least one response. filterCache is pre-populated with ALL query filters from
-            // getAllFiltersForQuery(), so iterating it would deliver a spurious all() partition to
-            // filters owned by other build stages/tasks, potentially resolving them to all() early
-            // and disabling pruning even though their own build tasks succeeded.
+            // The final fetch failed for a non-cancellation reason. Deliver TupleDomain.all()
+            // for owned filter IDs this fetcher has not yet delivered, so their JoinDynamicFilter
+            // reaches quorum rather than waiting for the full max-wait timeout.
+            // Scoped to ownedFilterIds — JoinNode/SemiJoinNode dynamic filter IDs from this
+            // fragment's plan tree, computed at construction time — so we never touch filters
+            // owned by other build-stage tasks regardless of their completion state.
             log.warn(cause, "Final dynamic filter fetch failed for task %s; undelivered filters will not be pruned", taskId);
             for (String filterId : ownedFilterIds) {
                 if (deliveredFilterIds.add(filterId)) {
-                    JoinDynamicFilter filter = filterCache.get(filterId);
-                    if (filter != null) {
-                        filter.addPartitionByFilterId(new DomainRuntimeFilter(TupleDomain.all()));
-                    }
+                    resolveFilter(filterId)
+                            .ifPresent(f -> f.addPartitionByFilterId(new DomainRuntimeFilter(TupleDomain.all())));
                 }
             }
             stop();

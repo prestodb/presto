@@ -51,6 +51,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
@@ -740,28 +741,29 @@ public class TestDynamicFilterFetcher
     }
 
     /**
-     * Regression guard for the final-fetch-failure fallback scoping.
+     * Regression guard: the final-fetch-failure fallback must deliver all() only for filter
+     * IDs in ownedFilterIds (this task's scan-level filter mapping), never for filters owned
+     * by other build tasks — regardless of whether those foreign filters are complete or not.
      *
-     * <p>Setup: two filters are registered under the same query, so both are pre-loaded into
-     * {@code filterCache} by {@code start()} via {@code getAllFiltersForQuery()}. Only
-     * {@code ownedId} is ever reported in a task response (via {@code completedFilterIds}),
-     * so only it enters {@code ownedFilterIds}. {@code foreignId} is owned by a different
-     * task's fetcher and never appears in any response from this task.
+     * <p>Setup: two filters under the same query. {@code ownedId} is in this fetcher's
+     * ownedFilterIds (passed at construction). {@code foreignId} is registered in the service
+     * so it enters filterCache via getAllFiltersForQuery(), but is NOT in ownedFilterIds.
+     * foreignFilter has expectedPartitions=2 and has received 1 real partition (in-progress),
+     * so isComplete()==false — the previous isComplete() guard would not protect it.
      *
      * <p>Flow:
      * <ol>
-     *   <li>Regular poll succeeds and reports {@code ownedId} in {@code completedFilterIds}
-     *       → {@code none()} is delivered and {@code ownedFilterIds = {"ownedId"}}.</li>
-     *   <li>{@code stopAfterFinalFetch()} is called.</li>
-     *   <li>Final fetch throws an {@code IOException} → {@code failed(isFinalFetch=true)}.</li>
-     *   <li>The fallback iterates {@code ownedFilterIds}, not {@code filterCache.keySet()}.
-     *       {@code ownedId} is already in {@code deliveredFilterIds}, so it is skipped.
-     *       {@code foreignId} is never in {@code ownedFilterIds}, so it is never touched.</li>
+     *   <li>foreignFilter receives 1 real none() from its healthy peer (partitionsReceived=1,
+     *       expectedPartitions=2 → not yet complete).</li>
+     *   <li>The final fetch throws → failed(isFinalFetch=true).</li>
+     *   <li>Fallback iterates ownedFilterIds = {"ownedId"} only.
+     *       ownedId: not delivered → all() delivered (quorum recovery).
+     *       foreignId: not in ownedFilterIds → never touched.</li>
      * </ol>
      *
-     * <p>Regression: reverting the loop to {@code filterCache.keySet()} would deliver a
-     * spurious {@code all()} to {@code foreignFilter}, making {@code foreignFilter.hasData()}
-     * true and causing the assertion below to fail.
+     * <p>Regression: if the fallback iterated getAllFiltersForQuery or filterCache instead of
+     * ownedFilterIds, foreignFilter would receive a spurious all() as its second partition,
+     * complete to all(), and silently disable pruning even though its build succeeded.
      */
     @Test(timeOut = 30000)
     public void testFinalFetchFailureScopedToOwnedFilterIds()
@@ -773,77 +775,67 @@ public class TestDynamicFilterFetcher
 
         DynamicFilterService dynamicFilterService = new DynamicFilterService();
 
-        // ownedFilter: this task owns it — will be reported via completedFilterIds.
+        // ownedFilter: wired to this task's scan. The fallback should deliver all() for it.
         JoinDynamicFilter ownedFilter = new JoinDynamicFilter(
                 ownedId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterServiceStats(), new RuntimeStats(), false);
         ownedFilter.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, ownedId, ownedFilter);
 
-        // foreignFilter: owned by a different task. It is registered in the service (so
-        // getAllFiltersForQuery() will return it and it enters filterCache), but this task
-        // never reports it in any response. expectedPartitions=1 so that if all() is
-        // spuriously delivered the filter will complete and hasData() will return true.
+        // foreignFilter: owned by a different build task. expectedPartitions=2 and has received
+        // 1 real none() (in-progress, isComplete()==false). A spurious all() from the fallback
+        // would complete it early to all(), disabling pruning. It is registered so it appears
+        // in filterCache via getAllFiltersForQuery(), but NOT in ownedFilterIds.
         JoinDynamicFilter foreignFilter = new JoinDynamicFilter(
                 foreignId, "col2", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterServiceStats(), new RuntimeStats(), false);
-        foreignFilter.setExpectedPartitions(1);
+        foreignFilter.setExpectedPartitions(2);
         dynamicFilterService.registerFilter(queryId, foreignId, foreignFilter);
 
-        // First regular poll reports ownedId via completedFilterIds (empty build path).
-        // foreignId never appears in any response from this task.
-        DynamicFilterResponse firstResponse = new DynamicFilterResponse(
-                ImmutableMap.of(),
-                1L,
-                false,
-                ImmutableSet.of(ownedId));
+        // Deliver 1 real none() to foreignFilter (its healthy peer's first contribution).
+        foreignFilter.addPartitionByFilterId(new DomainRuntimeFilter(TupleDomain.none()));
+        assertFalse(foreignFilter.isComplete(), "foreignFilter should not be complete yet (1 of 2 partitions)");
 
-        AtomicInteger fetchCount = new AtomicInteger();
-        // The final fetch is the second GET; it throws so failed() is invoked with isFinalFetch=true.
+        // This fetcher owns only ownedId — foreignId is not in its scan-level mapping.
         TestingHttpClient httpClient = new TestingHttpClient(request -> {
-            if ("DELETE".equals(request.getMethod())) {
-                return new TestingResponse(OK, ImmutableListMultimap.of(), new byte[0]);
-            }
-            int count = fetchCount.incrementAndGet();
-            if (count == 1) {
-                // Regular poll — succeeds and delivers none() for ownedId.
-                return new TestingResponse(OK, contentType(JSON_UTF_8), codec.toJsonBytes(firstResponse));
-            }
-            // Final fetch — simulates a network error to exercise the isFinalFetch failure path.
             throw new IOException("Final fetch network error");
         });
 
-        fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
+        fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService, ImmutableSet.of(ownedId));
         fetcher.start();
 
-        // Wait for the first successful poll to deliver ownedId (none()).
-        poll(() -> ownedFilter.hasData());
-
-        // Trigger stopAfterFinalFetch from the event loop, exactly as cleanUpTask does.
+        // Trigger stopAfterFinalFetch — the final fetch fires and fails immediately.
         eventLoop.execute(() -> fetcher.stopAfterFinalFetch());
 
-        // Wait until the fetcher has fully stopped (running=false, isFinalFetch=true, failed() returned).
-        poll(() -> fetchCount.get() >= 2);
+        // ownedFilter must receive all() from the fallback so it reaches quorum.
+        poll(() -> ownedFilter.hasData());
         drainEventLoop();
 
-        // ownedFilter already received none() from the regular poll — it should still have data.
         assertTrue(ownedFilter.hasData(),
-                "ownedFilter should have received none() from the first successful poll");
+                "ownedFilter should receive all() from the final-fetch-failure fallback");
+        assertTrue(ownedFilter.getCurrentConstraintByColumnName().isAll(),
+                "ownedFilter constraint should be all() from the fallback");
 
-        // The critical assertion: foreignFilter must NOT have received a spurious all().
-        // If the fallback loop were to iterate filterCache instead of ownedFilterIds, it
-        // would call foreignFilter.addPartitionByFilterId(all()), making hasData() true.
-        assertFalse(foreignFilter.hasData(),
-                "foreignFilter must not receive a spurious all() from the final-fetch-failure fallback — "
-                        + "it is owned by a different task and was never reported by this task");
+        // Critical: foreignFilter must NOT receive a spurious all() from this fetcher.
+        // It is in-progress (isComplete()==false), so the old isComplete() guard would not
+        // protect it. Only the ownedFilterIds scope prevents poisoning here.
+        assertFalse(foreignFilter.isComplete(),
+                "foreignFilter must still be in-progress — the fallback must not have touched it");
+        assertFalse(foreignFilter.getCurrentConstraintByColumnName().isAll(),
+                "foreignFilter must not have been widened to all() by the fallback");
     }
 
     private DynamicFilterFetcher createFetcher(TestingHttpClient httpClient, Duration maxErrorDuration)
     {
-        return createFetcher(httpClient, maxErrorDuration, new DynamicFilterService());
+        return createFetcher(httpClient, maxErrorDuration, new DynamicFilterService(), ImmutableSet.of());
     }
 
     private DynamicFilterFetcher createFetcher(TestingHttpClient httpClient, Duration maxErrorDuration, DynamicFilterService dynamicFilterService)
+    {
+        return createFetcher(httpClient, maxErrorDuration, dynamicFilterService, ImmutableSet.of());
+    }
+
+    private DynamicFilterFetcher createFetcher(TestingHttpClient httpClient, Duration maxErrorDuration, DynamicFilterService dynamicFilterService, Set<String> ownedFilterIds)
     {
         fetcher = new DynamicFilterFetcher(
                 new TaskId("test", 1, 0, 2, 0),
@@ -856,6 +848,7 @@ public class TestDynamicFilterFetcher
                 codec,
                 dynamicFilterService,
                 new QueryId("test"),
+                ownedFilterIds,
                 new DynamicFilterServiceStats(),
                 false,
                 throwable -> {});

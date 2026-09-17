@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.cost.StatsAndCosts;
@@ -27,7 +28,10 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanFragmentId;
@@ -35,6 +39,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.split.SplitSource;
@@ -724,6 +729,103 @@ public class TestDynamicFilterService
         assertTrue(service.hasFilter(queryId, filterId));
         assertEquals(service.getFilterIdsForScan(queryId, factScanId), ImmutableSet.of(filterId),
                 "Same-fragment filter should match probe-side scan even when root project strips probe column");
+    }
+
+    @Test
+    public void testDynamicFilterNotPushedThroughUnsafeNodesLikeTopNOrLimit()
+    {
+        String filterId = "600";
+        VariableReferenceExpression orderIdVar = new VariableReferenceExpression(Optional.empty(), "order_id", BigintType.BIGINT);
+        VariableReferenceExpression buildVar = new VariableReferenceExpression(Optional.empty(), "order_id_0", BigintType.BIGINT);
+
+        PlanNodeId scanId = new PlanNodeId("scan_under_topn");
+        TableScanNode scan = createTableScan(scanId,
+                ImmutableList.of(orderIdVar),
+                ImmutableMap.of(orderIdVar, "order_id"));
+
+        // TopN node between join and scan: pushing dynamic filter through TopN is unsafe!
+        TopNNode topN = new TopNNode(
+                Optional.empty(),
+                new PlanNodeId("topn"),
+                scan,
+                1L,
+                new OrderingScheme(ImmutableList.of(new Ordering(orderIdVar, SortOrder.ASC_NULLS_FIRST))),
+                TopNNode.Step.SINGLE);
+
+        RemoteSourceNode buildSource = new RemoteSourceNode(
+                Optional.empty(), new PlanNodeId("build_source"), new PlanFragmentId(2),
+                ImmutableList.of(buildVar), false, Optional.empty(), REPARTITION);
+        JoinNode joinNode = new JoinNode(
+                Optional.empty(), new PlanNodeId("join_1"), INNER,
+                topN, buildSource,
+                ImmutableList.of(new EquiJoinClause(orderIdVar, buildVar)),
+                ImmutableList.of(orderIdVar, buildVar),
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                ImmutableMap.of(filterId, buildVar));
+
+        PlanFragment fragment = new PlanFragment(
+                new PlanFragmentId(1), joinNode,
+                ImmutableSet.of(orderIdVar), SOURCE_DISTRIBUTION, ImmutableList.of(scanId),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(orderIdVar)),
+                Optional.empty(), StageExecutionDescriptor.ungroupedExecution(), false,
+                Optional.of(StatsAndCosts.empty()), Optional.empty());
+
+        Session session = createDppSession();
+        QueryId queryId = session.getQueryId();
+        SplitSourceFactory factory = createSplitSourceFactory();
+
+        factory.registerDynamicFilters(new StreamingSubPlan(fragment, ImmutableList.of()), session);
+
+        assertTrue(service.hasFilter(queryId, filterId));
+        assertTrue(service.getFilterIdsForScan(queryId, scanId).isEmpty(),
+                "Dynamic filter must NOT be wired to scan under TopN node because it changes query semantics");
+    }
+
+    @Test
+    public void testDynamicFilterPushedThroughFilterNode()
+    {
+        String filterId = "700";
+        VariableReferenceExpression orderIdVar = new VariableReferenceExpression(Optional.empty(), "order_id", BigintType.BIGINT);
+        VariableReferenceExpression buildVar = new VariableReferenceExpression(Optional.empty(), "order_id_0", BigintType.BIGINT);
+
+        PlanNodeId scanId = new PlanNodeId("scan_under_filter");
+        TableScanNode scan = createTableScan(scanId,
+                ImmutableList.of(orderIdVar),
+                ImmutableMap.of(orderIdVar, "order_id"));
+
+        FilterNode filterNode = new FilterNode(
+                Optional.empty(),
+                new PlanNodeId("filter_between"),
+                scan,
+                com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT);
+
+        RemoteSourceNode buildSource = new RemoteSourceNode(
+                Optional.empty(), new PlanNodeId("build_source"), new PlanFragmentId(2),
+                ImmutableList.of(buildVar), false, Optional.empty(), REPARTITION);
+        JoinNode joinNode = new JoinNode(
+                Optional.empty(), new PlanNodeId("join_1"), INNER,
+                filterNode, buildSource,
+                ImmutableList.of(new EquiJoinClause(orderIdVar, buildVar)),
+                ImmutableList.of(orderIdVar, buildVar),
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                ImmutableMap.of(filterId, buildVar));
+
+        PlanFragment fragment = new PlanFragment(
+                new PlanFragmentId(1), joinNode,
+                ImmutableSet.of(orderIdVar), SOURCE_DISTRIBUTION, ImmutableList.of(scanId),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(orderIdVar)),
+                Optional.empty(), StageExecutionDescriptor.ungroupedExecution(), false,
+                Optional.of(StatsAndCosts.empty()), Optional.empty());
+
+        Session session = createDppSession();
+        QueryId queryId = session.getQueryId();
+        SplitSourceFactory factory = createSplitSourceFactory();
+
+        factory.registerDynamicFilters(new StreamingSubPlan(fragment, ImmutableList.of()), session);
+
+        assertTrue(service.hasFilter(queryId, filterId));
+        assertEquals(service.getFilterIdsForScan(queryId, scanId), ImmutableSet.of(filterId),
+                "Dynamic filter should be wired through FilterNode");
     }
 
     private JoinNode joinNodeWithRemoteBuild(String filterId, ExchangeNode.Type buildExchangeType)

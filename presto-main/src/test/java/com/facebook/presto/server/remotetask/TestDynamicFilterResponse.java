@@ -202,6 +202,29 @@ public class TestDynamicFilterResponse
         assertEquals(varcharDomain.getSingleValue(), utf8Slice("test_value"));
     }
 
+    @Test
+    public void testOmittedFieldsDeserializeAsEmpty()
+    {
+        // When JSON omits 'filters' or 'completedFilterIds', deserialization should produce empty collections instead of NPE
+        String jsonWithOmittedFilters = "{\"version\":1,\"operatorCompleted\":false,\"completedFilterIds\":[\"f1\"]}";
+        DynamicFilterResponse response = codec.fromJson(jsonWithOmittedFilters);
+        assertNotNull(response.getFilters());
+        assertTrue(response.getFilters().isEmpty());
+        assertEquals(response.getCompletedFilterIds().size(), 1);
+
+        String jsonWithOmittedCompletedFilterIds = "{\"filters\":{},\"version\":1,\"operatorCompleted\":false}";
+        DynamicFilterResponse response2 = codec.fromJson(jsonWithOmittedCompletedFilterIds);
+        assertNotNull(response2.getCompletedFilterIds());
+        assertTrue(response2.getCompletedFilterIds().isEmpty());
+
+        String jsonWithOnlyVersion = "{\"version\":1}";
+        DynamicFilterResponse response3 = codec.fromJson(jsonWithOnlyVersion);
+        assertNotNull(response3.getFilters());
+        assertTrue(response3.getFilters().isEmpty());
+        assertNotNull(response3.getCompletedFilterIds());
+        assertTrue(response3.getCompletedFilterIds().isEmpty());
+    }
+
     private static TupleDomain<String> asDomain(Object filter)
     {
         return ((DomainRuntimeFilter) filter).getDomain();
