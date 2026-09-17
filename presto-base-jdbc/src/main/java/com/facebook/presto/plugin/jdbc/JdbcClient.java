@@ -113,12 +113,6 @@ public interface JdbcClient
 
     String normalizeIdentifier(ConnectorSession session, String identifier);
 
-    /**
-     * View support is optional for a JDBC client. {@link JdbcMetadata} delegates the view
-     * operations here, and the defaults below mirror
-     * {@link com.facebook.presto.spi.connector.ConnectorMetadata}, so a client that does not
-     * override them behaves as if the underlying database exposed no views at all.
-     */
     default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
         return emptyList();

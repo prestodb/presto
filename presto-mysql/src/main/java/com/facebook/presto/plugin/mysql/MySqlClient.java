@@ -458,14 +458,6 @@ public class MySqlClient
             String view = toRemoteTableName(session, identity, connection, schema, viewName.getTableName());
             String catalog = connection.getCatalog();
 
-            if (!replace) {
-                try (ResultSet resultSet = getTables(connection, Optional.ofNullable(schema), Optional.ofNullable(view))) {
-                    if (resultSet.next()) {
-                        throw new PrestoException(ALREADY_EXISTS, format("The view/table '%s' already exists", viewName.getTableName()));
-                    }
-                }
-            }
-
             String sql = format(
                     "%s VIEW %s AS %s",
                     replace ? "CREATE OR REPLACE" : "CREATE",
@@ -474,6 +466,9 @@ public class MySqlClient
             execute(connection, sql);
         }
         catch (SQLException e) {
+            if (SQL_STATE_ER_TABLE_EXISTS_ERROR.equals(e.getSQLState())) {
+                throw new PrestoException(ALREADY_EXISTS, e);
+            }
             throw new PrestoException(JDBC_ERROR, e);
         }
     }
