@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.ArrayBlock;
 import com.facebook.presto.common.block.Block;
@@ -27,7 +26,6 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.iceberg.delete.DeleteFilter;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
@@ -44,7 +42,6 @@ import org.apache.iceberg.util.Pair;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -66,9 +63,11 @@ import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUMN;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.transformGeometryBlock;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -235,7 +234,9 @@ public class IcebergUpdateablePageSource
 
     private Boolean needDataTransform(Type type)
     {
-        if (type == GEOMETRY) {
+        // Iceberg stores both geometry and geography as well-known binary, while
+        // Presto expects its own serialization for GEOMETRY and SPHERICAL_GEOGRAPHY.
+        if (type == GEOMETRY || type == SPHERICAL_GEOGRAPHY) {
             return true;
         }
         else if (type.getClass() == ArrayType.class) {
@@ -432,7 +433,7 @@ public class IcebergUpdateablePageSource
 
     private Block transformBlock(Block block, Type type)
     {
-        if (type == GEOMETRY) {
+        if (type == GEOMETRY || type == SPHERICAL_GEOGRAPHY) {
             return transformGeometryBlock(block, type);
         }
         else if (type.getClass() == ArrayType.class) {
@@ -447,29 +448,6 @@ public class IcebergUpdateablePageSource
         else {
             return block;
         }
-    }
-
-    private Block transformGeometryBlock(Block block, Type type)
-    {
-        block = block.getLoadedBlock();
-        int positionCount = block.getPositionCount();
-        BlockBuilder builder = type.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            if (block.isNull(position)) {
-                builder.appendNull();
-            }
-            else {
-                try {
-                    OGCGeometry geometry = OGCGeometry.fromBinary(ByteBuffer.wrap(type.getSlice(block, position).getBytes()));
-                    geometry.setSpatialReference(null);
-                    type.writeSlice(builder, EsriGeometrySerde.serialize(geometry));
-                }
-                catch (Exception e) {
-                    throw new PrestoException(ICEBERG_BAD_DATA, format("Failed to parse WKB geometry at position %d", position), e);
-                }
-            }
-        }
-        return builder.build();
     }
 
     private Block transformArrayBlock(Block block, ArrayType type)

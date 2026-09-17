@@ -69,6 +69,7 @@ import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.getSupportedSortFields;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.validateGeospatialWrite;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.Z_ORDER;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergUtil.RewriteStrategy;
@@ -199,6 +200,7 @@ public class RewriteDataFilesProcedure
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Table icebergTable = procedureContext.getTable();
+            validateGeospatialWrite(icebergTable);
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
             // Parsed and validated when the procedure context was created
