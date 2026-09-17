@@ -37,6 +37,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
+import com.facebook.presto.spi.plan.SetOperationNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -48,6 +49,7 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.EffectivePredicateExtractor;
@@ -108,6 +110,9 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
@@ -192,6 +197,7 @@ public class PredicatePushDown
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
         private final LogicalRowExpressions logicalRowExpressions;
         private final FunctionAndTypeManager functionAndTypeManager;
+        private final FunctionResolution functionResolution;
         private final ExternalCallExpressionChecker externalCallExpressionChecker;
         private boolean planChanged;
 
@@ -217,6 +223,7 @@ public class PredicatePushDown
             this.expressionEquivalence = new ExpressionEquivalence(metadata, sqlParser);
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
             this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()), metadata.getFunctionAndTypeManager());
+            this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
             this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
             this.externalCallExpressionChecker = new ExternalCallExpressionChecker(functionAndTypeManager);
         }
@@ -458,9 +465,48 @@ public class PredicatePushDown
         public PlanNode visitJoin(JoinNode node, RewriteContext<RowExpression> context)
         {
             RowExpression inheritedPredicate = context.get();
+            JoinType originalType = node.getType();
 
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToOuterToInnerJoin(node, inheritedPredicate);
+
+            // If an outer join was just converted to INNER, withhold null-sensitive conjuncts over
+            // scan-backed inner-side symbols from below-join pushdown. The verdict behind the conversion
+            // is sound, but these shapes must stay engine-evaluated above the join instead of being baked
+            // into a connector scan with no residual.
+            RowExpression pushdownPredicate = inheritedPredicate;
+            RowExpression withheldPredicate = TRUE_CONSTANT;
+            if (node.getType() == INNER && originalType != INNER) {
+                Set<VariableReferenceExpression> scanBackedVariables;
+                if (originalType == LEFT) {
+                    scanBackedVariables = collectScanBackedVariables(node.getRight());
+                }
+                else if (originalType == RIGHT) {
+                    scanBackedVariables = collectScanBackedVariables(node.getLeft());
+                }
+                else {
+                    // FULL join: either side could have supplied nulls
+                    scanBackedVariables = ImmutableSet.<VariableReferenceExpression>builder()
+                            .addAll(collectScanBackedVariables(node.getLeft()))
+                            .addAll(collectScanBackedVariables(node.getRight()))
+                            .build();
+                }
+                ImmutableList.Builder<RowExpression> pushableConjuncts = ImmutableList.builder();
+                ImmutableList.Builder<RowExpression> withheldConjuncts = ImmutableList.builder();
+                for (RowExpression conjunct : extractConjuncts(inheritedPredicate)) {
+                    if (determinismEvaluator.isDeterministic(conjunct) && isNullSensitiveOverVariables(conjunct, scanBackedVariables)) {
+                        withheldConjuncts.add(conjunct);
+                    }
+                    else {
+                        pushableConjuncts.add(conjunct);
+                    }
+                }
+                List<RowExpression> withheld = withheldConjuncts.build();
+                if (!withheld.isEmpty()) {
+                    pushdownPredicate = logicalRowExpressions.combineConjuncts(pushableConjuncts.build());
+                    withheldPredicate = logicalRowExpressions.combineConjuncts(withheld);
+                }
+            }
 
             RowExpression leftEffectivePredicate = effectivePredicateExtractor.extract(node.getLeft());
             RowExpression rightEffectivePredicate = effectivePredicateExtractor.extract(node.getRight());
@@ -473,7 +519,7 @@ public class PredicatePushDown
 
             switch (node.getType()) {
                 case INNER:
-                    InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(inheritedPredicate,
+                    InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(pushdownPredicate,
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
@@ -481,7 +527,7 @@ public class PredicatePushDown
                             shouldInferInequalityPredicates(session));
                     leftPredicate = innerJoinPushDownResult.getLeftPredicate();
                     rightPredicate = innerJoinPushDownResult.getRightPredicate();
-                    postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
+                    postJoinPredicate = logicalRowExpressions.combineConjuncts(innerJoinPushDownResult.getPostJoinPredicate(), withheldPredicate);
                     newJoinPredicate = innerJoinPushDownResult.getJoinPredicate();
                     break;
                 case LEFT:
@@ -1446,6 +1492,116 @@ public class PredicatePushDown
                 }
             }
             return false;
+        }
+
+        /**
+         * Returns true when the expression contains null-sensitive constructs (IF, IS NULL, CASE) over any
+         * of the given variables. Such conjuncts are withheld from below-join pushdown: while the verdict
+         * behind an outer-to-inner conversion is sound for them, their scan-baked form must stay
+         * engine-evaluated above the join. Negation parity is tracked so that IS NOT NULL is not flagged:
+         * it rejects null inputs and is safe to push. Plain COALESCE comparisons are deliberately not
+         * flagged: {@code COALESCE(x, c) <op> k} with a failing default is equivalent to a plain
+         * null-rejecting comparison, so both conversion and pushdown are safe for it.
+         */
+        private boolean isNullSensitiveOverVariables(RowExpression expression, Set<VariableReferenceExpression> variables)
+        {
+            return isNullSensitive(expression, variables, false);
+        }
+
+        private boolean isNullSensitive(RowExpression expression, Set<VariableReferenceExpression> variables, boolean negated)
+        {
+            if (expression instanceof VariableReferenceExpression || expression instanceof ConstantExpression) {
+                return false;
+            }
+            if (expression instanceof SpecialFormExpression) {
+                SpecialFormExpression specialForm = (SpecialFormExpression) expression;
+                SpecialFormExpression.Form form = specialForm.getForm();
+                if ((form == IF || form == SWITCH || (form == IS_NULL && !negated)) &&
+                        variables.stream().anyMatch(extractUnique(expression)::contains)) {
+                    return true;
+                }
+                for (RowExpression argument : specialForm.getArguments()) {
+                    if (isNullSensitive(argument, variables, negated)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            if (expression instanceof CallExpression) {
+                CallExpression call = (CallExpression) expression;
+                boolean childNegated = negated;
+                if (call.getArguments().size() == 1 && functionResolution.isNotFunction(call.getFunctionHandle())) {
+                    childNegated = !negated;
+                }
+                for (RowExpression argument : call.getArguments()) {
+                    if (isNullSensitive(argument, variables, childNegated)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            return false;
+        }
+
+        /**
+         * Collects output symbols of the given subtree that trace back to {@link TableScanNode} outputs,
+         * following transparent projections transitively. The inner side of an outer join does not have to be
+         * a bare scan: it can be a project over a scan, a union or exchange over scans, a join, an
+         * aggregation, and so on. Only symbols in the returned set can ever be baked into a connector scan
+         * layout; anything else produced below the join (join markers, aggregations, dynamic filters) stays
+         * engine-evaluated. Nodes that remap their inputs to new outputs (set operations, exchanges) are
+         * translated through their output-to-input mappings; collecting child symbols by identity would miss
+         * the remapped outputs and wrongly allow conversion.
+         */
+        private Set<VariableReferenceExpression> collectScanBackedVariables(PlanNode node)
+        {
+            if (node instanceof TableScanNode) {
+                return ImmutableSet.copyOf(node.getOutputVariables());
+            }
+            if (node instanceof ProjectNode) {
+                Set<VariableReferenceExpression> sourceVariables = collectScanBackedVariables(((ProjectNode) node).getSource());
+                ImmutableSet.Builder<VariableReferenceExpression> result = ImmutableSet.builder();
+                for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : ((ProjectNode) node).getAssignments().entrySet()) {
+                    if (extractUnique(assignment.getValue()).stream().anyMatch(sourceVariables::contains)) {
+                        result.add(assignment.getKey());
+                    }
+                }
+                return result.build();
+            }
+            if (node instanceof SetOperationNode) {
+                SetOperationNode setOperationNode = (SetOperationNode) node;
+                Set<VariableReferenceExpression> sourceVariables = setOperationNode.getSources().stream()
+                        .map(this::collectScanBackedVariables)
+                        .flatMap(Set::stream)
+                        .collect(Collectors.toSet());
+                ImmutableSet.Builder<VariableReferenceExpression> result = ImmutableSet.builder();
+                for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> mapping : setOperationNode.getVariableMapping().entrySet()) {
+                    if (mapping.getValue().stream().anyMatch(sourceVariables::contains)) {
+                        result.add(mapping.getKey());
+                    }
+                }
+                return result.build();
+            }
+            if (node instanceof ExchangeNode) {
+                ExchangeNode exchangeNode = (ExchangeNode) node;
+                ImmutableSet.Builder<VariableReferenceExpression> result = ImmutableSet.builder();
+                for (int sourceIndex = 0; sourceIndex < exchangeNode.getSources().size(); sourceIndex++) {
+                    Set<VariableReferenceExpression> sourceVariables = collectScanBackedVariables(exchangeNode.getSources().get(sourceIndex));
+                    List<VariableReferenceExpression> sourceInputs = exchangeNode.getInputs().get(sourceIndex);
+                    List<VariableReferenceExpression> outputs = exchangeNode.getOutputVariables();
+                    for (int outputIndex = 0; outputIndex < outputs.size(); outputIndex++) {
+                        if (sourceVariables.contains(sourceInputs.get(outputIndex))) {
+                            result.add(outputs.get(outputIndex));
+                        }
+                    }
+                }
+                return result.build();
+            }
+            ImmutableSet.Builder<VariableReferenceExpression> result = ImmutableSet.builder();
+            for (PlanNode source : node.getSources()) {
+                result.addAll(collectScanBackedVariables(source));
+            }
+            return result.build();
         }
 
         // Temporary implementation for joins because the SimplifyExpressions optimizers can not run properly on join clauses
