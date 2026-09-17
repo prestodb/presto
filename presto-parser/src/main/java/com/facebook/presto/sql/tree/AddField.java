@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * AST node for:
- *   ALTER TABLE [IF EXISTS] tbl ADD COLUMN [IF NOT EXISTS] parent.field type [NOT NULL] [COMMENT '...']
+ *   ALTER TABLE [IF EXISTS] tbl ADD COLUMN [IF NOT EXISTS] parent.field type
  *
  * The column name is a dotted path: the last identifier is the new field name
  * and everything before it is the parent struct path.
@@ -39,8 +39,6 @@ public class AddField
     private final QualifiedName columnPath;   // parent struct path, e.g. ["col"] or ["col", "nested"]
     private final Identifier fieldName;       // the new field being added
     private final String type;
-    private final boolean nullable;
-    private final Optional<String> comment;
     private final boolean tableExists;
     private final boolean fieldNotExists;
 
@@ -50,8 +48,6 @@ public class AddField
             QualifiedName columnPath,
             Identifier fieldName,
             String type,
-            boolean nullable,
-            Optional<String> comment,
             boolean tableExists,
             boolean fieldNotExists)
     {
@@ -60,8 +56,6 @@ public class AddField
         this.columnPath = requireNonNull(columnPath, "columnPath is null");
         this.fieldName = requireNonNull(fieldName, "fieldName is null");
         this.type = requireNonNull(type, "type is null");
-        this.nullable = nullable;
-        this.comment = requireNonNull(comment, "comment is null");
         this.tableExists = tableExists;
         this.fieldNotExists = fieldNotExists;
     }
@@ -86,16 +80,6 @@ public class AddField
         return type;
     }
 
-    public boolean isNullable()
-    {
-        return nullable;
-    }
-
-    public Optional<String> getComment()
-    {
-        return comment;
-    }
-
     public boolean isTableExists()
     {
         return tableExists;
@@ -115,7 +99,7 @@ public class AddField
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of();
+        return ImmutableList.of(fieldName);
     }
 
     @Override
@@ -127,7 +111,7 @@ public class AddField
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, columnPath, fieldName, type, nullable, comment, tableExists, fieldNotExists);
+        return Objects.hash(tableName, columnPath, fieldName, type, tableExists, fieldNotExists);
     }
 
     @Override
@@ -144,8 +128,6 @@ public class AddField
                 Objects.equals(columnPath, o.columnPath) &&
                 Objects.equals(fieldName, o.fieldName) &&
                 Objects.equals(type, o.type) &&
-                nullable == o.nullable &&
-                Objects.equals(comment, o.comment) &&
                 tableExists == o.tableExists &&
                 fieldNotExists == o.fieldNotExists;
     }
@@ -158,8 +140,6 @@ public class AddField
                 .add("columnPath", columnPath)
                 .add("fieldName", fieldName)
                 .add("type", type)
-                .add("nullable", nullable)
-                .add("comment", comment)
                 .add("tableExists", tableExists)
                 .add("fieldNotExists", fieldNotExists)
                 .toString();

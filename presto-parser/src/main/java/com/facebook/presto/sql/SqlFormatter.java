@@ -1632,14 +1632,9 @@ public final class SqlFormatter
             }
             builder.append(formatName(node.getColumnPath()))
                     .append(".")
-                    .append(formatExpression(node.getFieldName(), parameters))
+                    .append(formatName(node.getFieldName()))
                     .append(" ")
                     .append(node.getType());
-            if (!node.isNullable()) {
-                builder.append(" NOT NULL");
-            }
-            node.getComment().ifPresent(comment ->
-                    builder.append(" COMMENT ").append(formatStringLiteral(comment)));
 
             return null;
         }
