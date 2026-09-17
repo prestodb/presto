@@ -1,0 +1,26 @@
+{
+  "mappings": [
+    {
+      "user": "analyst",
+      "s3Prefix": "s3a://bucket-a/sales/",
+      "accessKey": "sales-access-key",
+      "secretKey": "sales-secret-key"
+    },
+    {
+      "s3Prefix": "s3a://bucket-a/",
+      "iamRole": "arn:aws:iam::123456789101:role/bucket_a_role"
+    },
+    {
+      "s3Prefix": ["s3a://shared-bucket/", "s3://shared-bucket/", "s3a://other-shared-bucket/"],
+      "accessKey": "shared-access-key",
+      "secretKey": "shared-secret-key"
+    },
+    {
+      "s3Prefix": "s3a://bucket-c/",
+      "iamRole": "arn:aws:iam::123456789101:role/bucket_c_role"
+    },
+    {
+      "iamRole": "arn:aws:iam::123456789101:role/default_role"
+    }
+  ]
+}
