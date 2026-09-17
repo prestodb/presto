@@ -209,9 +209,8 @@ public class TestTimestampType
     @Test
     public void testLongPrecisionEpochHelpersThrow()
     {
-        // toEpochMillis, toEpochMicros, and fromEpochComponents require a single-long representation
-        // and throw for p > MAX_SHORT_PRECISION until LongTimestamp is wired in.
-        // getEpochSecond and getNanos do not guard on precision - those guards arrive with LongTimestamp.
+        // toEpochMillis, toEpochMicros, and fromEpochComponents take a single long, which cannot
+        // represent a long-precision value, so LongTimestampType throws for every precision here.
         for (int p = TimestampType.MAX_SHORT_PRECISION + 1; p <= TimestampType.MAX_PRECISION; p++) {
             TimestampType ts = createTimestampType(p);
             expectThrows(UnsupportedOperationException.class, () -> ts.toEpochMillis(0L));

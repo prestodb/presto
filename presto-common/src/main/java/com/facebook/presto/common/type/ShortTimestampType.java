@@ -136,7 +136,6 @@ public final class ShortTimestampType
         return new LongArrayBlockBuilder(null, positionCount);
     }
 
-    // TODO(#27934 Phase 2): Implement for p=0-2 and p=4-5 once SqlTimestamp carries a precision.
     @Override
     public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
@@ -189,6 +188,7 @@ public final class ShortTimestampType
         return epochSecond * scale + nanos / (1_000_000_000L / scale);
     }
 
+    // TODO(#27934 Phase 2): Map p=0-2 and p=4-5 once SqlTimestamp carries a precision.
     private static TimeUnit toTimeUnit(int precision)
     {
         // Only p=3 (millis) and p=6 (micros) map directly to a TimeUnit.
