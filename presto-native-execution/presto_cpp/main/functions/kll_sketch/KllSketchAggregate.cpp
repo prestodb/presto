@@ -14,7 +14,6 @@
 
 #include "presto_cpp/main/functions/kll_sketch/KllSketchRegistration.h"
 #include "presto_cpp/main/functions/kll_sketch/KllSketchTypeTraits.h"
-#include "presto_cpp/main/types/KllSketchType.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/SimpleAggregateAdapter.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
@@ -304,57 +303,26 @@ velox::exec::AggregateRegistrationResult registerKllSketchAggregate(
         VELOX_USER_CHECK_EQ(
             argTypes.size(), 1, "{} takes exactly one argument", name);
         auto inputType = argTypes[0];
-        if (velox::exec::isRawInput(step)) {
-          switch (inputType->kind()) {
-            case velox::TypeKind::BIGINT:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchAggregate<int64_t>>>(step, argTypes, resultType);
-            case velox::TypeKind::DOUBLE:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchAggregate<double>>>(step, argTypes, resultType);
-            case velox::TypeKind::VARCHAR:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchAggregate<velox::StringView>>>(
-                  step, argTypes, resultType);
-            case velox::TypeKind::BOOLEAN:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchAggregate<bool>>>(step, argTypes, resultType);
-            default:
-              VELOX_FAIL(
-                  "Unknown input type for {} aggregation {}",
-                  name,
-                  inputType->kindName());
-          }
-        } else {
-          auto kllType =
-              std::dynamic_pointer_cast<const KllSketchType>(resultType);
-          VELOX_USER_CHECK_NOT_NULL(kllType, "Result type must be kllsketch");
-          VELOX_USER_CHECK_EQ(
-              kllType->parameters().size(),
-              1,
-              "kllsketch must have exactly one type parameter");
-          auto elementType = kllType->parameters()[0].type;
-
-          switch (elementType->kind()) {
-            case velox::TypeKind::BIGINT:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchAggregate<int64_t>>>(step, argTypes, resultType);
-            case velox::TypeKind::DOUBLE:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchAggregate<double>>>(step, argTypes, resultType);
-            case velox::TypeKind::VARCHAR:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchAggregate<velox::StringView>>>(
-                  step, argTypes, resultType);
-            case velox::TypeKind::BOOLEAN:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchAggregate<bool>>>(step, argTypes, resultType);
-            default:
-              VELOX_FAIL(
-                  "Unknown element type for {} aggregation {}",
-                  name,
-                  elementType->kindName());
-          }
+        switch (inputType->kind()) {
+          case velox::TypeKind::BIGINT:
+            return std::make_unique<velox::exec::SimpleAggregateAdapter<
+                KllSketchAggregate<int64_t>>>(step, argTypes, resultType);
+          case velox::TypeKind::DOUBLE:
+            return std::make_unique<velox::exec::SimpleAggregateAdapter<
+                KllSketchAggregate<double>>>(step, argTypes, resultType);
+          case velox::TypeKind::VARCHAR:
+            return std::make_unique<velox::exec::SimpleAggregateAdapter<
+                KllSketchAggregate<velox::StringView>>>(
+                step, argTypes, resultType);
+          case velox::TypeKind::BOOLEAN:
+            return std::make_unique<
+                velox::exec::SimpleAggregateAdapter<KllSketchAggregate<bool>>>(
+                step, argTypes, resultType);
+          default:
+            VELOX_FAIL(
+                "Unknown input type for {} aggregation {}",
+                name,
+                inputType->kindName());
         }
       },
       withCompanionFunctions,
@@ -394,59 +362,25 @@ velox::exec::AggregateRegistrationResult registerKllSketchWithKAggregate(
         VELOX_USER_CHECK_EQ(
             argTypes.size(), 2, "{} takes exactly two arguments", name);
         auto inputType = argTypes[0];
-        if (velox::exec::isRawInput(step)) {
-          switch (inputType->kind()) {
-            case velox::TypeKind::BIGINT:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchWithKAggregate<int64_t>>>(
-                  step, argTypes, resultType);
-            case velox::TypeKind::DOUBLE:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchWithKAggregate<double>>>(step, argTypes, resultType);
-            case velox::TypeKind::VARCHAR:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchWithKAggregate<velox::StringView>>>(
-                  step, argTypes, resultType);
-            case velox::TypeKind::BOOLEAN:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchWithKAggregate<bool>>>(step, argTypes, resultType);
-            default:
-              VELOX_FAIL(
-                  "Unknown input type for {} aggregation {}",
-                  name,
-                  inputType->kindName());
-          }
-        } else {
-          auto kllType =
-              std::dynamic_pointer_cast<const KllSketchType>(resultType);
-          VELOX_USER_CHECK_NOT_NULL(kllType, "Result type must be kllsketch");
-          VELOX_USER_CHECK_EQ(
-              kllType->parameters().size(),
-              1,
-              "kllsketch must have exactly one type parameter");
-          auto elementType = kllType->parameters()[0].type;
-
-          switch (elementType->kind()) {
-            case velox::TypeKind::BIGINT:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchWithKAggregate<int64_t>>>(
-                  step, argTypes, resultType);
-            case velox::TypeKind::DOUBLE:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchWithKAggregate<double>>>(step, argTypes, resultType);
-            case velox::TypeKind::VARCHAR:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchWithKAggregate<velox::StringView>>>(
-                  step, argTypes, resultType);
-            case velox::TypeKind::BOOLEAN:
-              return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchWithKAggregate<bool>>>(step, argTypes, resultType);
-            default:
-              VELOX_FAIL(
-                  "Unknown element type for {} aggregation {}",
-                  name,
-                  elementType->kindName());
-          }
+        switch (inputType->kind()) {
+          case velox::TypeKind::BIGINT:
+            return std::make_unique<velox::exec::SimpleAggregateAdapter<
+                KllSketchWithKAggregate<int64_t>>>(step, argTypes, resultType);
+          case velox::TypeKind::DOUBLE:
+            return std::make_unique<velox::exec::SimpleAggregateAdapter<
+                KllSketchWithKAggregate<double>>>(step, argTypes, resultType);
+          case velox::TypeKind::VARCHAR:
+            return std::make_unique<velox::exec::SimpleAggregateAdapter<
+                KllSketchWithKAggregate<velox::StringView>>>(
+                step, argTypes, resultType);
+          case velox::TypeKind::BOOLEAN:
+            return std::make_unique<velox::exec::SimpleAggregateAdapter<
+                KllSketchWithKAggregate<bool>>>(step, argTypes, resultType);
+          default:
+            VELOX_FAIL(
+                "Unknown input type for {} aggregation {}",
+                name,
+                inputType->kindName());
         }
       },
       withCompanionFunctions,
