@@ -1183,17 +1183,17 @@ public abstract class IcebergDistributedSmokeTestBase
                 ".*Field 'name' already exists.*");
         dropTable(session, "test_nested_add_already_exists");
 
-        // --- Error: NOT NULL or COMMENT not supported on nested field ---
+        // --- Error: NOT NULL or COMMENT are rejected at parse time (not accepted by the grammar) ---
         assertUpdate(session, "CREATE TABLE test_nested_add_unsupported (" +
                 "id BIGINT, " +
                 "info ROW(name VARCHAR)" +
                 ") WITH (" + format + ")");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT NOT NULL",
-                ".*NOT NULL constraint is not supported for nested ADD COLUMN.*");
+                ".*mismatched input 'NOT'.*");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT COMMENT 'user age'",
-                ".*COMMENT is not supported for nested ADD COLUMN.*");
+                ".*mismatched input 'COMMENT'.*");
         dropTable(session, "test_nested_add_unsupported");
 
         // --- Parent lookup with case-colliding sibling columns in table ---

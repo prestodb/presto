@@ -685,8 +685,6 @@ class AstBuilder
                 parentPath,
                 fieldName,
                 getType(context.type()),
-                context.NULL() == null,
-                Optional.ofNullable(context.string() != null ? ((StringLiteral) visit(context.string())).getValue() : null),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }

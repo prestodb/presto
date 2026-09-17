@@ -261,8 +261,7 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> regularColumns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            ParquetMetadataSource parquetMetadataSource,
-            TypeManager typeManager)
+            ParquetMetadataSource parquetMetadataSource)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -1145,8 +1144,7 @@ public class IcebergPageSourceProvider
                         dataColumns,
                         predicate,
                         fileFormatDataSourceStats,
-                        parquetMetadataSource,
-                        typeManager);
+                        parquetMetadataSource);
             case ORC:
                 OrcReaderOptions readerOptions = OrcReaderOptions.builder()
                         .withMaxMergeDistance(getOrcMaxMergeDistance(session))
@@ -1200,10 +1198,10 @@ public class IcebergPageSourceProvider
                     .map(field -> {
                         Type encodedFieldType = encodeFieldNamesForParquet(field.getType());
                         return field.getName().isPresent()
-                                ? RowType.field(AvroSchemaUtil.makeCompatibleName(field.getName().get()), encodedFieldType)
+                                ? RowType.field(AvroSchemaUtil.makeCompatibleName(field.getName().get()), encodedFieldType, field.isDelimited())
                                 : RowType.field(encodedFieldType);
                     })
-                    .collect(Collectors.toList());
+                    .collect(toImmutableList());
             return RowType.from(encodedFields);
         }
         if (type instanceof ArrayType) {
