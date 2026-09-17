@@ -67,7 +67,11 @@ public class DeltaParquetDereferencePushDown
                 baseColumn.getPhysicalName(),
                 subfieldColumnName,
                 subfieldDataType.getTypeSignature(),
-                baseColumn.getPhysicalType(),
+                // The root physical type is needed to resolve renamed nested
+                // fields only when column mapping is active. Otherwise, keep
+                // the leaf type so the regular required-subfield path follows
+                // the same HiveColumnHandle contract as the CPU reader.
+                hasColumnMapping ? baseColumn.getPhysicalType() : subfieldDataType.getTypeSignature(),
                 SUBFIELD,
                 Optional.of(subfield),
                 hasColumnMapping ? toPhysicalSubfieldPath(baseColumn, subfield) : ImmutableList.of());
