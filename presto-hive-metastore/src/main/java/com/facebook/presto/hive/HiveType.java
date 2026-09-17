@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UuidType;
+import com.facebook.presto.geospatial.SphericalGeographyType;
 import com.facebook.presto.geospatial.type.GeometryType;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -50,6 +51,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.GEOMETRY;
+import static com.facebook.presto.common.type.StandardTypes.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.common.type.StandardTypes.UUID;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
@@ -172,6 +174,47 @@ public final class HiveType
         public String toString()
         {
             return GEOMETRY;
+        }
+    });
+    public static final HiveType HIVE_SPHERICAL_GEOGRAPHY = new HiveType(new TypeInfo()
+    {
+        @Override
+        public Category getCategory()
+        {
+            return PRIMITIVE;
+        }
+
+        @Override
+        public String getTypeName()
+        {
+            return SPHERICAL_GEOGRAPHY;
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            if (this == other) {
+                return true;
+            }
+            if (other == null || getClass() != other.getClass()) {
+                return false;
+            }
+
+            TypeInfo ti = (TypeInfo) other;
+
+            return SPHERICAL_GEOGRAPHY.equals(ti.getTypeName());
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return SPHERICAL_GEOGRAPHY.hashCode();
+        }
+
+        @Override
+        public String toString()
+        {
+            return SPHERICAL_GEOGRAPHY;
         }
     });
 
@@ -314,6 +357,9 @@ public final class HiveType
             case PRIMITIVE:
                 if (typeInfo.getTypeName().equals(GEOMETRY)) {
                     return GeometryType.GEOMETRY.getTypeSignature();
+                }
+                if (typeInfo.getTypeName().equals(SPHERICAL_GEOGRAPHY)) {
+                    return SphericalGeographyType.SPHERICAL_GEOGRAPHY.getTypeSignature();
                 }
                 if (typeInfo.getTypeName().equals(UUID)) {
                     return UuidType.UUID.getTypeSignature();

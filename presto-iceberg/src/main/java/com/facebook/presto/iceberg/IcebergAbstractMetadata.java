@@ -197,6 +197,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMA
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_MATERIALIZED_VIEW;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TRANSACTION_CONFLICT_ERROR;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.validateGeospatialWrite;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getMaxSnapshotsPerRefresh;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getRefreshType;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStaleReadBehavior;
@@ -718,6 +719,7 @@ public abstract class IcebergAbstractMetadata
     protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable, List<String> insertColumnNames)
     {
         validateBranchExists(table, icebergTable);
+        validateGeospatialWrite(icebergTable);
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
@@ -2723,6 +2725,7 @@ public abstract class IcebergAbstractMetadata
         SchemaTableName storageTableName = icebergTableHandle.getSchemaTableName();
         IcebergTableHandle storageTableHandle = getTableHandle(session, storageTableName);
         Table storageTable = getIcebergTable(session, storageTableName);
+        validateGeospatialWrite(storageTable);
         SchemaTableName materializedViewName = icebergTableHandle.getMaterializedViewName().get();
         MaterializedViewStatus status = getMaterializedViewStatus(session, materializedViewName, TupleDomain.all());
         boolean fullRefreshRequired = !status.isFullyMaterialized()

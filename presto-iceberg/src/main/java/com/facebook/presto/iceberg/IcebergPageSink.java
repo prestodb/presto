@@ -78,6 +78,7 @@ import static com.facebook.presto.iceberg.FileContent.DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.containsGeospatialType;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.Z_ORDER;
 import static com.facebook.presto.iceberg.IcebergUtil.deserializeIcebergValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
@@ -115,6 +116,7 @@ public class IcebergPageSink
     private final Table table;
     private final long targetMaxFileSize;
     private final List<IcebergColumnHandle> inputColumns;
+    private final Set<Integer> geospatialChannels;
     private final Set<String> insertedColumns;
 
     private final List<WriteContext> writers = new ArrayList<>();
@@ -154,6 +156,15 @@ public class IcebergPageSink
         requireNonNull(insertedColumns, "insertedColumns is null");
         this.inputColumns = ImmutableList.copyOf(inputColumns);
         this.insertedColumns = ImmutableSet.copyOf(insertedColumns);
+        // Channels holding Presto geospatial values, which are converted to the well-known
+        // binary Iceberg stores before they reach a file writer.
+        ImmutableSet.Builder<Integer> geospatialChannels = ImmutableSet.builder();
+        for (int channel = 0; channel < inputColumns.size(); channel++) {
+            if (containsGeospatialType(inputColumns.get(channel).getType())) {
+                geospatialChannels.add(channel);
+            }
+        }
+        this.geospatialChannels = geospatialChannels.build();
         this.table = requireNonNull(table, "table is null");
         this.outputSchema = table.schema();
         this.partitionSpec = table.spec();
@@ -302,7 +313,7 @@ public class IcebergPageSink
 
     private void writePage(Page page)
     {
-        Page pageWithWriteDefaults = fillWriteDefaults(page);
+        Page pageWithWriteDefaults = toWellKnownBinary(fillWriteDefaults(page));
         int[] writerIndexes = getWriterIndexes(pageWithWriteDefaults);
 
         // position count for each writer
@@ -354,6 +365,27 @@ public class IcebergPageSink
                 writers.set(index, null);
             }
         }
+    }
+
+    /**
+     * Converts Presto's geospatial serialization into the well-known binary Iceberg stores.
+     * Iceberg has no geospatial partition transform, so no partition value is derived from
+     * these columns and the conversion can happen before the page is split across writers.
+     */
+    private Page toWellKnownBinary(Page page)
+    {
+        if (geospatialChannels.isEmpty()) {
+            return page;
+        }
+        Block[] blocks = new Block[page.getChannelCount()];
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            Block block = page.getBlock(channel);
+            if (geospatialChannels.contains(channel)) {
+                block = IcebergGeospatialUtils.toWellKnownBinary(block, inputColumns.get(channel).getType());
+            }
+            blocks[channel] = block;
+        }
+        return new Page(page.getPositionCount(), blocks);
     }
 
     private Page fillWriteDefaults(Page page)
