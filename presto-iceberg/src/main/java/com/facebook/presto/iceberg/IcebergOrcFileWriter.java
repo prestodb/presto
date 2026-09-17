@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.OrcFileWriter;
@@ -47,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static com.google.common.base.Verify.verify;
@@ -61,6 +63,7 @@ public class IcebergOrcFileWriter
 {
     private final Schema icebergSchema;
     private final List<OrcType> orcColumn;
+    private final Optional<UnaryOperator<Page>> pagePruner;
 
     public IcebergOrcFileWriter(
             Schema icebergSchema,
@@ -73,6 +76,7 @@ public class IcebergOrcFileWriter
             CompressionKind compression,
             OrcWriterOptions options,
             int[] fileInputColumnIndexes,
+            Optional<UnaryOperator<Page>> pagePruner,
             Map<String, String> metadata,
             ZoneId hiveStorageTimeZone,
             Optional<Supplier<OrcDataSource>> validationInputFactory,
@@ -84,6 +88,13 @@ public class IcebergOrcFileWriter
         super(dataSink, rollbackAction, orcEncoding, columnNames, fileColumnTypes, Optional.ofNullable(fileColumnOrcTypes), compression, options, fileInputColumnIndexes, metadata, hiveStorageTimeZone, validationInputFactory, validationMode, stats, dwrfEncryptionProvider, dwrfWriterEncryption);
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
         this.orcColumn = fileColumnOrcTypes;
+        this.pagePruner = requireNonNull(pagePruner, "pagePruner is null");
+    }
+
+    @Override
+    public void appendRows(Page dataPage)
+    {
+        super.appendRows(pagePruner.map(pruner -> pruner.apply(dataPage)).orElse(dataPage));
     }
 
     @Override

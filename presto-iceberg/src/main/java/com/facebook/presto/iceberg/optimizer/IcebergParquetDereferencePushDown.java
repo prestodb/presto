@@ -39,6 +39,7 @@ import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getSynthesizedIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isParquetDereferencePushdownEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
+import static com.facebook.presto.iceberg.UnknownFieldTypes.hasUnknownType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -100,6 +101,12 @@ public class IcebergParquetDereferencePushDown
         IcebergColumnHandle icebergBaseColumnHandle = (IcebergColumnHandle) baseColumnHandle;
         Type type = icebergBaseColumnHandle.getType();
         checkArgument(type instanceof RowType, "%s must be type of RowType", subfield.getRootName());
+
+        // A Hive type is of no use for a subfield of the unknown type, which it cannot represent, and
+        // of no need either: the type of the subfield is the type the dereference resolved to
+        if (hasUnknownType(subfieldDataType)) {
+            return getSynthesizedIcebergColumnHandle(subfieldColumnName, subfieldDataType, ImmutableList.of(subfield));
+        }
 
         Optional<HiveType> nestedColumnHiveType = toHiveType(type)
                 .findChildType(subfield.getPath()
