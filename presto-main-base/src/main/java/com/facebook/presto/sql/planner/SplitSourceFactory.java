@@ -837,11 +837,15 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, Map<String, String>> visitPlan(PlanNode node, Map<String, Set<String>> context)
         {
-            ImmutableMap.Builder<PlanNodeId, Map<String, String>> result = ImmutableMap.builder();
-            for (PlanNode child : node.getSources()) {
-                result.putAll(child.accept(this, context));
-            }
-            return result.build();
+            // Default: do not push dynamic filters through unhandled plan operators (e.g. TopN, Limit,
+            // Aggregation, Window, etc.) where filtering underlying scan rows would change query semantics.
+            return ImmutableMap.of();
+        }
+
+        @Override
+        public Map<PlanNodeId, Map<String, String>> visitFilter(FilterNode node, Map<String, Set<String>> context)
+        {
+            return node.getSource().accept(this, context);
         }
 
         @Override
@@ -921,6 +925,16 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, Map<String, String>> visitRemoteSource(RemoteSourceNode node, Map<String, Set<String>> context)
         {
+            return ImmutableMap.of();
+        }
+
+        @Override
+        public Map<PlanNodeId, Map<String, String>> visitExchange(ExchangeNode node, Map<String, Set<String>> context)
+        {
+            // Local exchanges (e.g. GATHER or REPARTITION within fragment) preserve rows; probe chain is on source(0)
+            if (node.getScope().isLocal() && !node.getSources().isEmpty()) {
+                return node.getSources().get(0).accept(this, context);
+            }
             return ImmutableMap.of();
         }
     }

@@ -99,11 +99,13 @@ public class DynamicFilterFetcher
     // (one fetcher per build-side task), enforcing the single-contribution-per-task contract
     // of JoinDynamicFilter's partition counting.
     private final Set<String> deliveredFilterIds = new HashSet<>();
-    // Tracks filter IDs that this task has reported in at least one response (via the filters
-    // map or completedFilterIds). Used to scope the final-fetch failure fallback: we must only
-    // deliver all() for filters this task actually owns, not for every query filter that was
-    // pre-loaded into filterCache from getAllFiltersForQuery().
-    private final Set<String> ownedFilterIds = new HashSet<>();
+    // Seeded at start() from all registered query filters; entries are removed as deliveries
+    // succeed. On final-fetch failure, the fallback delivers all() for any remaining entry
+    // so their JoinDynamicFilter reaches quorum without waiting for the max-wait timeout.
+    // Foreign-filter poisoning is prevented at the call site by checking isComplete() before
+    // calling addPartitionByFilterId: a filter already completed by its healthy peer fetcher
+    // is skipped, preserving the real pruning result.
+    private final Set<String> undeliveredFilterIds = new HashSet<>();
     private final Map<String, JoinDynamicFilter> filterCache = new HashMap<>();
     // Resolved once in start() from the first registered filter for this query.
     // All JoinDynamicFilters for a query share the same RuntimeStats instance
@@ -159,6 +161,13 @@ public class DynamicFilterFetcher
         verify(started.compareAndSet(false, true), "start() already called");
         dynamicFilterStats.getFetchersStarted().update(1);
         dynamicFilterService.getAllFiltersForQuery(queryId).forEach(filterCache::putIfAbsent);
+        // undeliveredFilterIds is seeded from all registered query filters so the final-fetch
+        // failure fallback can deliver all() for any filter this fetcher never completed.
+        // Filters owned by other healthy tasks are guarded against poisoning by checking
+        // JoinDynamicFilter.isComplete() before calling addPartitionByFilterId: a filter
+        // that is already complete received all its real partitions and the spurious all()
+        // call is blocked by the isDone() guard inside tryCompleteResolution().
+        undeliveredFilterIds.addAll(filterCache.keySet());
         // All JoinDynamicFilters for a query share the same session RuntimeStats instance,
         // so we resolve it once here from any available filter. Used by emitExtendedMetric
         // to record fetcher-lifecycle metrics without depending on filterCache at call time.
@@ -254,8 +263,8 @@ public class DynamicFilterFetcher
             for (Map.Entry<String, RuntimeFilter> entry : filters.entrySet()) {
                 String filterId = entry.getKey();
                 RuntimeFilter filterDomain = entry.getValue();
-                ownedFilterIds.add(filterId);
                 if (deliveredFilterIds.add(filterId)) {
+                    undeliveredFilterIds.remove(filterId);
                     resolveFilter(filterId)
                             .ifPresent(f -> f.addPartitionByFilterId(filterDomain));
                 }
@@ -273,8 +282,8 @@ public class DynamicFilterFetcher
 
         // Empty build: deliver none() so this task's partition counts toward quorum.
         for (String filterId : response.getCompletedFilterIds()) {
-            ownedFilterIds.add(filterId);
             if (deliveredFilterIds.add(filterId)) {
+                undeliveredFilterIds.remove(filterId);
                 if (extendedMetrics) {
                     emitExtendedMetric(format("%s[%s][%s]", DYNAMIC_FILTER_COMPLETED_ID_DELIVERED, filterId, taskSuffix), 1);
                 }
@@ -342,24 +351,25 @@ public class DynamicFilterFetcher
         }
 
         if (isFinalFetch) {
-            // The final fetch failed for a non-cancellation reason. Log a warning and deliver
-            // TupleDomain.all() for any undelivered filters so their JoinDynamicFilter reaches
-            // quorum rather than waiting indefinitely.
-            //
-            // Scope the fallback to ownedFilterIds — filter IDs that this task actually reported
-            // in at least one response. filterCache is pre-populated with ALL query filters from
-            // getAllFiltersForQuery(), so iterating it would deliver a spurious all() partition to
-            // filters owned by other build stages/tasks, potentially resolving them to all() early
-            // and disabling pruning even though their own build tasks succeeded.
+            // The final fetch failed for a non-cancellation reason. Deliver TupleDomain.all()
+            // for any filter this fetcher has not yet delivered, so their JoinDynamicFilter
+            // reaches quorum rather than waiting for the full max-wait timeout.
+            // undeliveredFilterIds starts as all query filters and shrinks as deliveries succeed,
+            // so it captures filters this task never completed regardless of whether their ID
+            // ever appeared in a response. Foreign-filter poisoning is prevented by checking
+            // JoinDynamicFilter.isComplete() before calling addPartitionByFilterId: if the
+            // healthy peer fetcher already contributed all expected partitions the filter is
+            // complete and the tryCompleteResolution() isDone() guard inside addPartitionByFilterId
+            // discards the spurious all() without merging it into the result.
             log.warn(cause, "Final dynamic filter fetch failed for task %s; undelivered filters will not be pruned", taskId);
-            for (String filterId : ownedFilterIds) {
+            for (String filterId : undeliveredFilterIds) {
                 if (deliveredFilterIds.add(filterId)) {
-                    JoinDynamicFilter filter = filterCache.get(filterId);
-                    if (filter != null) {
-                        filter.addPartitionByFilterId(new DomainRuntimeFilter(TupleDomain.all()));
-                    }
+                    resolveFilter(filterId)
+                            .filter(f -> !f.isComplete())
+                            .ifPresent(f -> f.addPartitionByFilterId(new DomainRuntimeFilter(TupleDomain.all())));
                 }
             }
+            undeliveredFilterIds.clear();
             stop();
             return;
         }
