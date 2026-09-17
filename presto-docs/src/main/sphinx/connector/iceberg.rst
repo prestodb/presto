@@ -3062,9 +3062,24 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``GEOMETRY``
   * - ``VARIANT``
     - ``JSON``
+  * - ``GEOGRAPHY``
+    - ``SphericalGeography``
 
 
 No other types are supported.
+
+``GEOGRAPHY`` columns are supported for reading and writing, and require WGS84
+longitude-latitude coordinates with the default ``spherical`` edge interpolation
+algorithm -- the semantics Presto's ``SphericalGeography`` type models. The CRS may be
+either ``OGC:CRS84`` (the Iceberg default) or its equivalent ``EPSG:4326``; a
+``GEOGRAPHY`` column declaring any other CRS or algorithm fails with ``NOT_SUPPORTED``.
+Tables created by Presto record the column as ``geography`` with the default CRS and
+algorithm. Writes require format version 3 and the ``PARQUET`` file format::
+
+    CREATE TABLE iceberg.default.places (
+        name VARCHAR,
+        location SphericalGeography)
+    WITH (format_version = '3')
 
 PrestoDB to Iceberg type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -3113,6 +3128,8 @@ Map of PrestoDB types to the relevant Iceberg types:
     - ``MAP``
   * - ``ROW``
     - ``STRUCT``
+  * - ``SphericalGeography``
+    - ``GEOGRAPHY``
 
 
 No other types are supported.
