@@ -141,6 +141,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -166,6 +167,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOI
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -3482,14 +3484,17 @@ public abstract class IcebergDistributedTestBase
     @Test
     public void testUpdateWithSemiJoinWhereCondition()
     {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                .build();
         String tableName = "test_update_with_semi_join_where_condition_" + randomTableSuffix();
         try {
-            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar)");
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'first'), (2, 'second'), (3, 'third')", 3);
+            assertUpdate(session, "CREATE TABLE " + tableName + "(a int, b varchar)");
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, 'first'), (2, 'second'), (3, 'third')", 3);
 
-            assertUpdate("UPDATE " + tableName + " SET a = a + 100 WHERE b IN" +
+            assertUpdate(session, "UPDATE " + tableName + " SET a = a + 100 WHERE b IN" +
                     " (SELECT col FROM (VALUES('first'), ('third'), ('fourth')) AS t(col))", 2);
-            assertQuery("SELECT  * FROM " + tableName, "VALUES(101, 'first'), (2, 'second'), (103, 'third')");
+            assertQuery(session, "SELECT  * FROM " + tableName, "VALUES(101, 'first'), (2, 'second'), (103, 'third')");
         }
         finally {
             dropTable(getSession(), tableName);
