@@ -1848,6 +1848,14 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE ALTER COLUMN SET NOT NULL``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN DROP NOT NULL``
+     - Yes
+     - Yes
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2242,6 +2250,53 @@ value automatically.
 
 This feature requires Iceberg Format Version 3. Attempting to use ``ALTER COLUMN SET DEFAULT`` on
 a table with format version 2 or lower will result in an error.
+
+ALTER COLUMN SET NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports adding a ``NOT NULL`` constraint on an existing column
+via ``ALTER COLUMN``.
+
+.. code-block:: sql
+
+    ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id SET NOT NULL;
+
+**Important:** ``SET NOT NULL`` is a metadata-only operation in Iceberg. It updates the column's
+required/optional flag in the schema without rewriting data files. This means:
+
+* The operation succeeds even if existing rows contain ``NULL`` values for that column.
+* Existing rows with ``NULL`` values remain readable after the constraint is set.
+* ``NOT NULL`` is enforced only on subsequent writes.
+
+.. warning::
+
+    Iceberg classifies promoting a column from optional to required as an *incompatible*
+    schema change, and Presto applies it without first validating that the column contains
+    no ``NULL`` values. A table can therefore end up advertising a ``required`` field while
+    its data files still contain ``NULL`` values for that column. Other engines reading the
+    table may treat ``required`` as a guarantee and optimize on it, so only use ``SET NOT NULL``
+    on a column you know contains no ``NULL`` values. Verify with
+    ``SELECT count(*) FROM <table> WHERE <column> IS NULL`` before running it.
+
+ALTER COLUMN DROP NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports removing a ``NOT NULL`` constraint from an existing column
+via ``ALTER COLUMN``.
+
+.. code-block:: sql
+
+    ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id DROP NOT NULL;
+
+**Important:** ``DROP NOT NULL`` is a metadata-only operation in Iceberg. It relaxes the column's
+required/optional flag in the schema without rewriting data files. This means:
+
+* The operation succeeds immediately, regardless of the amount of existing data.
+* Dropping ``NOT NULL`` on a column that is already nullable is idempotent and does not change the schema.
+* After the constraint is dropped, ``NULL`` values are accepted for that column on subsequent writes.
+
+Unlike ``SET NOT NULL``, relaxing a column from required to optional is a compatible schema
+change in Iceberg, so this direction is always safe.
 
 ALTER VIEW
 ^^^^^^^^^^

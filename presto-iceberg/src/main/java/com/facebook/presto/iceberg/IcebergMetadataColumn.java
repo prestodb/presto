@@ -50,6 +50,11 @@ public enum IcebergMetadataColumn
             Stream.of(values()).map(IcebergMetadataColumn::getId),
             Stream.of(
                     MetadataColumns.SPEC_ID.fieldId())).collect(toImmutableSet());
+
+    private static final Set<String> SYNTHESIZED_COLUMN_NAMES = Stream.of(values())
+            .map(IcebergMetadataColumn::getColumnName)
+            .filter(name -> name.startsWith("$"))
+            .collect(toImmutableSet());
     private final int id;
     private final String columnName;
     private final Type type;
@@ -86,5 +91,15 @@ public enum IcebergMetadataColumn
     public static boolean isMetadataColumnId(int id)
     {
         return COLUMN_IDS.contains(id);
+    }
+
+    /**
+     * Returns whether {@code name} is one of the Presto-synthesized columns the Iceberg connector
+     * exposes in addition to the table's own columns. Only the {@code "$"}-prefixed names count:
+     * {@code partition_data} is a name a real table column could have.
+     */
+    public static boolean isSynthesizedColumnName(String name)
+    {
+        return SYNTHESIZED_COLUMN_NAMES.contains(name);
     }
 }
