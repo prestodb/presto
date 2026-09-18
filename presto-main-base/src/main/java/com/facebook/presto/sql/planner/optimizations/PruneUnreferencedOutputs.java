@@ -572,7 +572,8 @@ public class PruneUnreferencedOutputs
                     node.getArgumentColumns(),
                     node.getOutputVariable(),
                     node.getStreamingMode(),
-                    node.getDispatchBatchSize());
+                    node.getDispatchBatchSize(),
+                    node.getRiftTier());
         }
 
         @Override
