@@ -1575,17 +1575,6 @@ void PrestoServer::registerFunctions() {
   functions::aggregate::theta_sketch::registerAllThetaSketchFunctions(
       prestoBuiltinFunctionPrefix_);
 #endif
-
-  // Register RPC function stubs so the sidecar's /v1/functions endpoint
-  // exposes them to the coordinator for function discovery.
-  LOG(INFO) << "[RPC] Registering RPC function stubs "
-            << "with namespace prefix '" << prestoBuiltinFunctionPrefix_ << "'";
-  velox::exec::rpc::AsyncRPCFunctionRegistry::registerStubs(
-      prestoBuiltinFunctionPrefix_);
-  LOG(INFO) << "[RPC] Registered stubs for "
-            << velox::exec::rpc::AsyncRPCFunctionRegistry::registeredFunctions()
-                   .size()
-            << " RPC function(s).";
 }
 
 void PrestoServer::registerRemoteFunctions() {
@@ -1932,21 +1921,25 @@ void PrestoServer::registerSidecarEndpoints() {
       });
   httpServer_->registerGet(
       "/v1/functions",
-      [](proxygen::HTTPMessage* /*message*/,
-         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-         proxygen::ResponseHandler* downstream) {
-        http::sendOkResponse(downstream, getFunctionsMetadata());
+      [prefix = prestoBuiltinFunctionPrefix_](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        http::sendOkResponse(
+            downstream, getFunctionsMetadata(prefix, /*catalog=*/std::nullopt));
       });
   httpServer_->registerGet(
       R"(/v1/functions/([^/]+))",
-      [](proxygen::HTTPMessage* /*message*/,
-         const std::vector<std::string>& pathMatch) {
+      [prefix = prestoBuiltinFunctionPrefix_](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::string>& pathMatch) {
         return new http::CallbackRequestHandler(
-            [catalog = pathMatch[1]](
+            [catalog = pathMatch[1], prefix](
                 proxygen::HTTPMessage* /*message*/,
                 std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
                 proxygen::ResponseHandler* downstream) {
-              http::sendOkResponse(downstream, getFunctionsMetadata(catalog));
+              http::sendOkResponse(
+                  downstream, getFunctionsMetadata(prefix, catalog));
             });
       });
   httpServer_->registerPost(
