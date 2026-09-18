@@ -59,6 +59,9 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_N
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_FAILED;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.geospatialFieldIds;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.toFileType;
+import static com.facebook.presto.iceberg.IcebergParquetSchemaUtil.convert;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcOptimizedWriterMaxStripeRows;
@@ -77,7 +80,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
 
 public class IcebergFileWriterFactory
 {
@@ -139,8 +141,11 @@ public class IcebergFileWriterFactory
         List<String> fileColumnNames = icebergSchema.columns().stream()
                 .map(Types.NestedField::name)
                 .collect(toImmutableList());
+        // Geospatial columns reach the writer as well-known binary, so the writer is given
+        // VARBINARY while the Parquet schema keeps the geospatial logical annotation.
         List<Type> fileColumnTypes = icebergSchema.columns().stream()
                 .map(column -> toPrestoType(column.type(), typeManager))
+                .map(type -> toFileType(type, typeManager))
                 .collect(toImmutableList());
 
         try {
@@ -172,7 +177,8 @@ public class IcebergFileWriterFactory
                     hdfsContext,
                     metricsConfig,
                     writerTimezone,
-                    nodeVersion.toString());
+                    nodeVersion.toString(),
+                    geospatialFieldIds(icebergSchema));
         }
         catch (IOException e) {
             throw new PrestoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);

@@ -538,8 +538,10 @@ public final class IcebergUtil
             return HiveType.HIVE_LONG.toString();
         }
 
-        // Special handling for GEOMETRY type: geometry stored as well-known binary in iceberg
-        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.GEOMETRY) {
+        // Special handling for GEOMETRY and GEOGRAPHY types: both are stored as
+        // well-known binary in iceberg
+        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.GEOMETRY ||
+                icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.GEOGRAPHY) {
             return HiveType.HIVE_BINARY.toString();
         }
 
