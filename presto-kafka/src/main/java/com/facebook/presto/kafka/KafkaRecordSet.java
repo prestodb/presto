@@ -140,25 +140,27 @@ public class KafkaRecordSet
         public boolean advanceNextPosition()
         {
             while (true) {
-                if (cursorOffset >= split.getEnd()) {
+                /*
+                Consider a case where the split is generated to only contain the first message in a particular partition. endOfData() is reached only when cursorOffset
+                crosses split endOffset since both will be equal in this case.
+                 */
+                if (cursorOffset > split.getEnd()) {
                     return endOfData();
                 }
                 // Create a fetch request
                 openFetchRequest();
 
-                while (messageAndOffsetIterator.hasNext()) {
+                if (!messageAndOffsetIterator.hasNext()) {
+                    return endOfData();
+                }
+                else {
                     ConsumerRecord<ByteBuffer, ByteBuffer> currentMessageAndOffset = messageAndOffsetIterator.next();
                     long messageOffset = currentMessageAndOffset.offset();
-
-                    if (messageOffset >= split.getEnd()) {
-                        return endOfData();
-                    }
 
                     if (messageOffset >= cursorOffset) {
                         return nextRow(currentMessageAndOffset);
                     }
                 }
-                messageAndOffsetIterator = null;
             }
         }
 
@@ -169,6 +171,7 @@ public class KafkaRecordSet
                         totalMessages, totalBytes, split.getEnd() - split.getStart(),
                         cursorOffset, split.getStart(), split.getEnd());
             }
+            messageAndOffsetIterator = null;
             return false;
         }
 
@@ -311,7 +314,7 @@ public class KafkaRecordSet
                     String threadName = Thread.currentThread().getName();
 
                     if (consumer == null) {
-                        consumer = consumerManager.createConsumer(threadName, split.getLeader());
+                        consumer = consumerManager.createConsumer(threadName, split.getNodes());
                     }
 
                     TopicPartition topicPartition = new TopicPartition(split.getTopicName(), split.getPartitionId());
@@ -328,12 +331,12 @@ public class KafkaRecordSet
                 throw new PrestoException(
                         KAFKA_SPLIT_ERROR,
                         format(
-                                "Cannot read data from topic '%s', partition '%s', startOffset %s, endOffset %s, leader %s ",
+                                "Cannot read data from topic '%s', partition '%s', startOffset %s, endOffset %s, bootstrap servers %s ",
                                 split.getTopicName(),
                                 split.getPartitionId(),
                                 split.getStart(),
                                 split.getEnd(),
-                                split.getLeader()),
+                                split.getNodes()),
                         e);
             }
         }
