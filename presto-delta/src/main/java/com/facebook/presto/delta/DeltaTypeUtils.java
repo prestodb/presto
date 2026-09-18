@@ -170,6 +170,7 @@ public class DeltaTypeUtils
     {
         checkArgument(subfield.getRootName().equals(column.getLogicalName()), "subfield root does not match column name");
 
+        // Map the logical root and nested fields to the physical names stored in Parquet.
         ImmutableList.Builder<String> path = ImmutableList.builder();
         path.add(column.getSourceName());
         TypeSignature logicalType = column.getDataType();
