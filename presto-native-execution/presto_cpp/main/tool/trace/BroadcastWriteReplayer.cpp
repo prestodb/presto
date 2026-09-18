@@ -60,6 +60,7 @@ core::PlanNodePtr BroadcastWriteReplayer::createPlanNode(
       nodeId,
       replayOutputDir_,
       broadcastWriteNode->maxBroadcastBytes(),
+      broadcastWriteNode->targetFileSize(),
       broadcastWriteNode->serdeRowType(),
       source);
 }
