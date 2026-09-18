@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.spi.ChangeKindPageSource;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -166,6 +167,24 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<TableHandle> getHandleVersion(Session session, QualifiedObjectName tableName, Optional<ConnectorTableVersion> tableVersion)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<ConnectorTableVersion> getCurrentTableVersion(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ChangeKindPageSource getChangeSet(Session session, TableHandle tableHandle, ConnectorTableVersion from, ConnectorTableVersion to, List<ColumnHandle> projectedDataColumns, TupleDomain<ColumnHandle> filter)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public OptionalLong estimateChangeSetSize(Session session, TableHandle tableHandle, ConnectorTableVersion from, ConnectorTableVersion to)
     {
         throw new UnsupportedOperationException();
     }
