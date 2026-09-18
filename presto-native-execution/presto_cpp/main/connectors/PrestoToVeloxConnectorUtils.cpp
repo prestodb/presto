@@ -118,6 +118,12 @@ std::unique_ptr<common::Filter> bigintRangeToFilter(
     }
     high--;
   }
+  if (low > high) {
+    return nullAllowed
+        ? std::unique_ptr<common::Filter>(std::make_unique<common::IsNull>())
+        : std::unique_ptr<common::Filter>(
+              std::make_unique<common::AlwaysFalse>());
+  }
   return std::make_unique<common::BigintRange>(low, high, nullAllowed);
 }
 
