@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -22,7 +26,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -30,18 +36,25 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_11;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
+import static com.facebook.presto.orc.OrcTester.assertBlockEquals;
 import static com.facebook.presto.orc.OrcTester.assertFileContentsPresto;
+import static com.facebook.presto.orc.OrcTester.createCustomOrcRecordReaderWithNullForOutOfBoundsTimestamp;
+import static com.facebook.presto.orc.OrcTester.createCustomOrcSelectiveRecordReaderWithNullForOutOfBoundsTimestamp;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnsPresto;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static java.lang.Math.floorDiv;
+import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 public class TestTimestampWriteAndRead
 {
@@ -129,6 +142,245 @@ public class TestTimestampWriteAndRead
         // Overflows while reading with micro precision
         assertThrows(TimestampOutOfBoundsException.class,
                 () -> testPrestoRoundTrip(TIMESTAMP, millisecondValuesOverflow, TIMESTAMP_MICROSECONDS, valuesInMicroOverflow));
+    }
+
+    // When readNullForOutOfBoundsTimestamp is enabled, out-of-bounds timestamps are read back as null
+    // instead of failing the read with a TimestampOutOfBoundsException.
+    @Test
+    public void testOverflowReadingMicrosReturnsNullWhenConfigured()
+            throws Exception
+    {
+        List<SqlTimestamp> millisecondValuesOverflow = ImmutableList.of(
+                sqlTimestampOf(9_223_372_036_855_000L, SESSION, MILLISECONDS),
+                sqlTimestampOf(-9_223_372_036_855_000L, SESSION, MILLISECONDS));
+
+        for (OrcTester.Format format : FORMATS) {
+            try (TempFile tempFile = new TempFile()) {
+                writeOrcColumnsPresto(
+                        tempFile.getFile(),
+                        format,
+                        CompressionKind.ZLIB,
+                        Optional.empty(),
+                        ImmutableList.of(TIMESTAMP),
+                        ImmutableList.of(millisecondValuesOverflow),
+                        NOOP_WRITER_STATS);
+
+                try (OrcBatchRecordReader recordReader = createCustomOrcRecordReaderWithNullForOutOfBoundsTimestamp(
+                        tempFile,
+                        format.getOrcEncoding(),
+                        OrcPredicate.TRUE,
+                        ImmutableList.of(TIMESTAMP_MICROSECONDS),
+                        MAX_BATCH_SIZE)) {
+                    int rowsProcessed = 0;
+                    for (int batchSize = toIntExact(recordReader.nextBatch()); batchSize >= 0; batchSize = toIntExact(recordReader.nextBatch())) {
+                        Block block = recordReader.readBlock(0);
+                        assertEquals(block.getPositionCount(), batchSize);
+                        for (int position = 0; position < batchSize; position++) {
+                            assertTrue(block.isNull(position), "Expected out-of-bounds timestamp to be read back as null");
+                        }
+                        rowsProcessed += batchSize;
+                    }
+                    assertEquals(rowsProcessed, millisecondValuesOverflow.size());
+                }
+            }
+        }
+    }
+
+    // Same as above, but through the selective reader (OrcSelectiveRecordReader) — this is the exact
+    // path that failed in production (TimestampSelectiveStreamReader.readNoFilter).
+    @Test
+    public void testOverflowReadingMicrosReturnsNullWhenConfiguredSelective()
+            throws Exception
+    {
+        List<SqlTimestamp> millisecondValuesOverflow = ImmutableList.of(
+                sqlTimestampOf(9_223_372_036_855_000L, SESSION, MILLISECONDS),
+                sqlTimestampOf(-9_223_372_036_855_000L, SESSION, MILLISECONDS));
+        List<SqlTimestamp> expectedNulls = Arrays.asList((SqlTimestamp) null, null);
+
+        for (OrcTester.Format format : FORMATS) {
+            try (TempFile tempFile = new TempFile()) {
+                writeOrcColumnsPresto(
+                        tempFile.getFile(),
+                        format,
+                        CompressionKind.ZLIB,
+                        Optional.empty(),
+                        ImmutableList.of(TIMESTAMP),
+                        ImmutableList.of(millisecondValuesOverflow),
+                        NOOP_WRITER_STATS);
+
+                try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReaderWithNullForOutOfBoundsTimestamp(
+                        tempFile,
+                        format.getOrcEncoding(),
+                        OrcPredicate.TRUE,
+                        ImmutableList.of(TIMESTAMP_MICROSECONDS),
+                        MAX_BATCH_SIZE,
+                        ImmutableMap.of())) {
+                    assertFileContentsPresto(
+                            ImmutableList.of(TIMESTAMP_MICROSECONDS),
+                            recordReader,
+                            ImmutableList.of(expectedNulls),
+                            ImmutableList.of(0));
+                }
+            }
+        }
+    }
+
+    // Interleaves in-range, out-of-bounds, and explicitly-null timestamps to verify that only the
+    // out-of-bounds rows become null while valid values are still decoded correctly. Exercises both
+    // the batch reader (readNullBlock) and the selective reader (readNoFilter + present stream).
+    @Test
+    public void testMixedValidNullAndOverflowMicrosReturnsNullWhenConfigured()
+            throws Exception
+    {
+        SqlTimestamp valid1 = sqlTimestampOf(1_650_483_250_507L, SESSION, MILLISECONDS);
+        SqlTimestamp valid2 = sqlTimestampOf(-60_000_000_000_789L, SESSION, MILLISECONDS);
+        SqlTimestamp overflow1 = sqlTimestampOf(9_223_372_036_855_000L, SESSION, MILLISECONDS);
+        SqlTimestamp overflow2 = sqlTimestampOf(-9_223_372_036_855_000L, SESSION, MILLISECONDS);
+
+        // Written as millisecond timestamps: valid, overflow, null, valid, overflow.
+        List<SqlTimestamp> writeValues = Arrays.asList(valid1, overflow1, null, valid2, overflow2);
+
+        // Read as micros: valid values survive, overflow -> null, explicit null stays null.
+        List<SqlTimestamp> expectedValues = Arrays.asList(
+                new SqlTimestamp(valid1.getMillis() * 1000, MICROSECONDS),
+                null,
+                null,
+                new SqlTimestamp(valid2.getMillis() * 1000, MICROSECONDS),
+                null);
+
+        for (OrcTester.Format format : FORMATS) {
+            try (TempFile tempFile = new TempFile()) {
+                writeOrcColumnsPresto(
+                        tempFile.getFile(),
+                        format,
+                        CompressionKind.ZLIB,
+                        Optional.empty(),
+                        ImmutableList.of(TIMESTAMP),
+                        ImmutableList.of(writeValues),
+                        NOOP_WRITER_STATS);
+
+                // Selective reader (the path from the reported failure).
+                try (OrcSelectiveRecordReader selectiveReader = createCustomOrcSelectiveRecordReaderWithNullForOutOfBoundsTimestamp(
+                        tempFile,
+                        format.getOrcEncoding(),
+                        OrcPredicate.TRUE,
+                        ImmutableList.of(TIMESTAMP_MICROSECONDS),
+                        MAX_BATCH_SIZE,
+                        ImmutableMap.of())) {
+                    assertFileContentsPresto(
+                            ImmutableList.of(TIMESTAMP_MICROSECONDS),
+                            selectiveReader,
+                            ImmutableList.of(expectedValues),
+                            ImmutableList.of(0));
+                }
+
+                // Batch reader.
+                try (OrcBatchRecordReader batchReader = createCustomOrcRecordReaderWithNullForOutOfBoundsTimestamp(
+                        tempFile,
+                        format.getOrcEncoding(),
+                        OrcPredicate.TRUE,
+                        ImmutableList.of(TIMESTAMP_MICROSECONDS),
+                        MAX_BATCH_SIZE)) {
+                    int rowsProcessed = 0;
+                    for (int batchSize = toIntExact(batchReader.nextBatch()); batchSize >= 0; batchSize = toIntExact(batchReader.nextBatch())) {
+                        Block block = batchReader.readBlock(0);
+                        assertEquals(block.getPositionCount(), batchSize);
+                        assertBlockEquals(TIMESTAMP_MICROSECONDS, block, expectedValues, rowsProcessed);
+                        rowsProcessed += batchSize;
+                    }
+                    assertEquals(rowsProcessed, expectedValues.size());
+                }
+            }
+        }
+    }
+
+    // Explicitly non-nullable data: a column written with no nulls (no present stream) that contains
+    // out-of-bounds values. Verifies the reader still allocates its nulls buffer when the flag is on,
+    // decodes in-range values correctly, and reads only the overflow rows back as null.
+    @Test
+    public void testNonNullableColumnValidAndOverflowMicrosReturnsNullWhenConfigured()
+            throws Exception
+    {
+        SqlTimestamp valid1 = sqlTimestampOf(1_650_483_250_507L, SESSION, MILLISECONDS);
+        SqlTimestamp valid2 = sqlTimestampOf(-60_000_000_000_789L, SESSION, MILLISECONDS);
+        SqlTimestamp overflow = sqlTimestampOf(9_223_372_036_855_000L, SESSION, MILLISECONDS);
+
+        // No nulls written -> no present stream in the file.
+        List<SqlTimestamp> writeValues = ImmutableList.of(valid1, overflow, valid2);
+        List<SqlTimestamp> expectedValues = Arrays.asList(
+                new SqlTimestamp(valid1.getMillis() * 1000, MICROSECONDS),
+                null,
+                new SqlTimestamp(valid2.getMillis() * 1000, MICROSECONDS));
+
+        for (OrcTester.Format format : FORMATS) {
+            try (TempFile tempFile = new TempFile()) {
+                writeOrcColumnsPresto(
+                        tempFile.getFile(),
+                        format,
+                        CompressionKind.ZLIB,
+                        Optional.empty(),
+                        ImmutableList.of(TIMESTAMP),
+                        ImmutableList.of(writeValues),
+                        NOOP_WRITER_STATS);
+
+                try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReaderWithNullForOutOfBoundsTimestamp(
+                        tempFile,
+                        format.getOrcEncoding(),
+                        OrcPredicate.TRUE,
+                        ImmutableList.of(TIMESTAMP_MICROSECONDS),
+                        MAX_BATCH_SIZE,
+                        ImmutableMap.of())) {
+                    assertFileContentsPresto(
+                            ImmutableList.of(TIMESTAMP_MICROSECONDS),
+                            recordReader,
+                            ImmutableList.of(expectedValues),
+                            ImmutableList.of(0));
+                }
+            }
+        }
+    }
+
+    // Exercises the selective reader's filter path (readWithFilter). The filter admits nulls, so
+    // out-of-bounds timestamps (treated as null when configured) are retained as null.
+    @Test
+    public void testOverflowReadingMicrosWithFilterReturnsNullWhenConfigured()
+            throws Exception
+    {
+        List<SqlTimestamp> millisecondValuesOverflow = ImmutableList.of(
+                sqlTimestampOf(9_223_372_036_855_000L, SESSION, MILLISECONDS),
+                sqlTimestampOf(-9_223_372_036_855_000L, SESSION, MILLISECONDS));
+        List<SqlTimestamp> expectedNulls = Arrays.asList((SqlTimestamp) null, null);
+
+        Map<Integer, Map<Subfield, TupleDomainFilter>> filters = ImmutableMap.of(
+                0,
+                ImmutableMap.of(new Subfield("c"), BigintRange.of(Long.MIN_VALUE, Long.MAX_VALUE, true)));
+
+        for (OrcTester.Format format : FORMATS) {
+            try (TempFile tempFile = new TempFile()) {
+                writeOrcColumnsPresto(
+                        tempFile.getFile(),
+                        format,
+                        CompressionKind.ZLIB,
+                        Optional.empty(),
+                        ImmutableList.of(TIMESTAMP),
+                        ImmutableList.of(millisecondValuesOverflow),
+                        NOOP_WRITER_STATS);
+
+                try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReaderWithNullForOutOfBoundsTimestamp(
+                        tempFile,
+                        format.getOrcEncoding(),
+                        OrcPredicate.TRUE,
+                        ImmutableList.of(TIMESTAMP_MICROSECONDS),
+                        MAX_BATCH_SIZE,
+                        filters)) {
+                    assertFileContentsPresto(
+                            ImmutableList.of(TIMESTAMP_MICROSECONDS),
+                            recordReader,
+                            ImmutableList.of(expectedNulls),
+                            ImmutableList.of(0));
+                }
+            }
+        }
     }
 
     // Flaw in ORC encoding makes timestamp between 1969-12-31 23:59:59.000000, exclusive, and 1970-01-01 00:00:00.000000, exclusive.

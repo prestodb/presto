@@ -32,6 +32,15 @@ public class OrcReaderOptions
     // slice reader will throw if the slice size is larger than this value
     private final DataSize maxSliceSize;
     private final boolean resetAllReaders;
+    // if the option is set to true, a timestamp that overflows the supported range is read back as
+    // null instead of failing the read with a TimestampOutOfBoundsException.
+    //
+    // Caveat: the column statistics written for such a value still describe it as a non-null value
+    // with a min/max, so statistics-based pruning can skip a stripe or row group that would now
+    // produce a null. A predicate such as IS NULL may therefore see different results depending on
+    // whether pruning kicks in. Only enable this to recover data from files that would otherwise be
+    // unreadable.
+    private final boolean readNullForOutOfBoundsTimestamp;
 
     /**
      * Read column statistics for flat map columns. Usually there are quite a
@@ -48,7 +57,8 @@ public class OrcReaderOptions
             boolean appendRowNumber,
             boolean readMapStatistics,
             DataSize maxSliceSize,
-            boolean resetAllReaders)
+            boolean resetAllReaders,
+            boolean readNullForOutOfBoundsTimestamp)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
@@ -59,6 +69,7 @@ public class OrcReaderOptions
         this.readMapStatistics = readMapStatistics;
         this.maxSliceSize = maxSliceSize;
         this.resetAllReaders = resetAllReaders;
+        this.readNullForOutOfBoundsTimestamp = readNullForOutOfBoundsTimestamp;
     }
 
     public DataSize getMaxMergeDistance()
@@ -106,6 +117,11 @@ public class OrcReaderOptions
         return resetAllReaders;
     }
 
+    public boolean isReadNullForOutOfBoundsTimestamp()
+    {
+        return readNullForOutOfBoundsTimestamp;
+    }
+
     @Override
     public String toString()
     {
@@ -119,6 +135,7 @@ public class OrcReaderOptions
                 .add("readMapStatistics", readMapStatistics)
                 .add("maxSliceSize", maxSliceSize)
                 .add("resetAllReaders", resetAllReaders)
+                .add("readNullForOutOfBoundsTimestamp", readNullForOutOfBoundsTimestamp)
                 .toString();
     }
 
@@ -138,6 +155,7 @@ public class OrcReaderOptions
         private boolean readMapStatistics;
         private DataSize maxSliceSize = DEFAULT_MAX_SLICE_SIZE;
         private boolean resetAllReaders;
+        private boolean readNullForOutOfBoundsTimestamp;
 
         private Builder() {}
 
@@ -195,6 +213,12 @@ public class OrcReaderOptions
             return this;
         }
 
+        public Builder withReadNullForOutOfBoundsTimestamp(boolean readNullForOutOfBoundsTimestamp)
+        {
+            this.readNullForOutOfBoundsTimestamp = readNullForOutOfBoundsTimestamp;
+            return this;
+        }
+
         public OrcReaderOptions build()
         {
             return new OrcReaderOptions(
@@ -206,7 +230,8 @@ public class OrcReaderOptions
                     appendRowNumber,
                     readMapStatistics,
                     maxSliceSize,
-                    resetAllReaders);
+                    resetAllReaders,
+                    readNullForOutOfBoundsTimestamp);
         }
     }
 }
