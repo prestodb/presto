@@ -39,6 +39,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
@@ -671,7 +673,7 @@ public class SignatureBinder
         public SolverReturnStatus update(BoundVariables.Builder bindings)
         {
             if (!bindings.containsTypeVariable(typeParameter)) {
-                if (!typeVariableConstraint.canBind(actualType)) {
+                if (!typeVariableConstraint.canBind(actualType) || !satisfiesHashableConstraint(actualType)) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
                 bindings.setTypeVariable(typeParameter, actualType);
@@ -682,7 +684,7 @@ public class SignatureBinder
             if (!commonSuperType.isPresent()) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            if (!typeVariableConstraint.canBind(commonSuperType.get())) {
+            if (!typeVariableConstraint.canBind(commonSuperType.get()) || !satisfiesHashableConstraint(commonSuperType.get())) {
                 // This check must not be skipped even if commonSuperType is equal to originalType
                 return SolverReturnStatus.UNSOLVABLE;
             }
@@ -691,6 +693,22 @@ public class SignatureBinder
             }
             bindings.setTypeVariable(typeParameter, commonSuperType.get());
             return SolverReturnStatus.CHANGED;
+        }
+
+        // Enforced here, not in canBind, because it needs the operator registry that canBind(Type) can't reach.
+        private boolean satisfiesHashableConstraint(Type type)
+        {
+            // Supported specializations that don't require an XX_HASH_64 operator.
+            if (!typeVariableConstraint.isHashableRequired() || UNKNOWN.equals(type) || BOOLEAN.equals(type)) {
+                return true;
+            }
+            try {
+                functionAndTypeManager.resolveOperator(XX_HASH_64, fromTypes(type));
+                return true;
+            }
+            catch (OperatorNotFoundException e) {
+                return false;
+            }
         }
     }
 
