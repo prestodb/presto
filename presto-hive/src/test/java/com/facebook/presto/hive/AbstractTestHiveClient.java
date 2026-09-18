@@ -2404,7 +2404,13 @@ public abstract class AbstractTestHiveClient
                 partitionManager,
                 tableHandle -> HiveFilterPushdown.getConnectorMetadata(hiveTransactionManager, tableHandle));
 
-        return filterPushdown.pushdownFilter(session, metadata, connectorTableHandle, filter, currentLayoutHandle);
+        return filterPushdown.pushdownFilter(
+                session,
+                metadata,
+                connectorTableHandle,
+                filter,
+                ImmutableSet.copyOf(metadata.getColumnHandles(session, connectorTableHandle).values()),
+                currentLayoutHandle);
     }
 
     private static void assertBucketTableEvolutionResult(MaterializedResult result, List<ColumnHandle> columnHandles, Set<Integer> bucketIds, int rowCount)

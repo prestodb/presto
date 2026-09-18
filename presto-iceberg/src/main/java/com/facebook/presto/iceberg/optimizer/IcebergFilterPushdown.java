@@ -63,6 +63,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergFilterPushdown
@@ -132,6 +133,7 @@ public class IcebergFilterPushdown
                 DomainTranslator.ExtractionResult<Subfield> decomposedFilter,
                 RowExpression optimizedRemainingExpression,
                 Constraint<ColumnHandle> constraint,
+                Set<ColumnHandle> desiredColumns,
                 Optional<ConnectorTableLayoutHandle> currentLayoutHandle,
                 ConnectorTableHandle tableHandle)
         {
@@ -151,7 +153,9 @@ public class IcebergFilterPushdown
                     .map(IcebergColumnHandle.class::cast)
                     .collect(toImmutableMap(IcebergColumnHandle::getName, Functions.identity()));
 
-            Optional<Set<IcebergColumnHandle>> requestedColumns = currentLayoutHandle.map(layout -> ((IcebergTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty());
+            Optional<Set<IcebergColumnHandle>> requestedColumns = Optional.of(desiredColumns.stream()
+                    .map(IcebergColumnHandle.class::cast)
+                    .collect(toImmutableSet()));
 
             TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(
                     constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
