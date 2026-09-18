@@ -39,6 +39,7 @@ public class MemoryManagerConfig
     private String lowMemoryKillerPolicy = LowMemoryKillerPolicy.NONE;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
     private boolean tableFinishOperatorMemoryTrackingEnabled;
+    private boolean useWorkerAdvertisedMemoryForLimit = true;
 
     public String getLowMemoryKillerPolicy()
     {
@@ -140,6 +141,19 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setTableFinishOperatorMemoryTrackingEnabled(boolean tableFinishOperatorMemoryTrackingEnabled)
     {
         this.tableFinishOperatorMemoryTrackingEnabled = tableFinishOperatorMemoryTrackingEnabled;
+        return this;
+    }
+
+    public boolean isUseWorkerAdvertisedMemoryForLimit()
+    {
+        return useWorkerAdvertisedMemoryForLimit;
+    }
+
+    @Config("query.use-worker-advertised-memory-for-limit")
+    @ConfigDescription("When true and coordinator does not schedule work, cap query memory limits by the sum of worker-advertised general pool capacity")
+    public MemoryManagerConfig setUseWorkerAdvertisedMemoryForLimit(boolean useWorkerAdvertisedMemoryForLimit)
+    {
+        this.useWorkerAdvertisedMemoryForLimit = useWorkerAdvertisedMemoryForLimit;
         return this;
     }
 
