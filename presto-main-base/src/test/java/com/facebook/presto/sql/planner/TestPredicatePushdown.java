@@ -729,4 +729,91 @@ public class TestPredicatePushdown
                                                                         tableScan("part", ImmutableMap.of("P_PART", "partkey"))))))),
                                 anyTree(tableScan("lineitem")))));
     }
+
+    @Test
+    public void testNullSensitivePredicatesWithheldAfterOuterToInnerConversion()
+    {
+        RuleTester tester = new RuleTester();
+        PredicatePushDown predicatePushDown = new PredicatePushDown(tester.getMetadata(), tester.getSqlParser(), new InMemoryExpressionOptimizerProvider(tester.getMetadata()), false);
+
+        // Plain COALESCE comparison converts: it is equivalent to a null-rejecting comparison
+        // (COALESCE(x, c) <op> k with a failing default behaves exactly like x <op> k), so both the
+        // all-NULL verdict and the pushdown are sound for it
+        tester.assertThat(predicatePushDown)
+                .on("select 1 FROM supplier s LEFT JOIN lineitem l on s.suppkey = l.suppkey WHERE coalesce(l.orderkey, 0) = 5")
+                .matches(
+                        anyTree(
+                                join(INNER,
+                                        ImmutableList.of(equiJoinClause("S_SUPPKEY", "L_SUPPKEY")),
+                                        project(tableScan("supplier", ImmutableMap.of("S_SUPPKEY", "suppkey"))),
+                                        project(filter("BIGINT'5' = COALESCE(L_ORDERKEY, BIGINT'0')",
+                                                tableScan("lineitem", ImmutableMap.of("L_SUPPKEY", "suppkey", "L_ORDERKEY", "orderkey")))))));
+
+        // CASE over COALESCE (the reported wrong-results shape): converts, but the conjunct is
+        // withheld from below-join pushdown and stays above the join as a residual
+        tester.assertThat(predicatePushDown)
+                .on("select 1 FROM supplier s LEFT JOIN lineitem l on s.suppkey = l.suppkey WHERE CASE WHEN coalesce(l.orderkey, 0) > 0 THEN 1 ELSE 0 END = 1")
+                .matches(
+                        anyTree(
+                                filter("CASE WHEN COALESCE(L_ORDERKEY, 0) > 0 THEN 1 ELSE 0 END = 1",
+                                        join(INNER,
+                                                ImmutableList.of(equiJoinClause("S_SUPPKEY", "L_SUPPKEY")),
+                                                tableScan("supplier", ImmutableMap.of("S_SUPPKEY", "suppkey")),
+                                                tableScan("lineitem", ImmutableMap.of("L_SUPPKEY", "suppkey", "L_ORDERKEY", "orderkey"))))));
+
+        // Same plain-COALESCE shape on the other side: a RIGHT join converts as well
+        tester.assertThat(predicatePushDown)
+                .on("select 1 FROM lineitem l RIGHT JOIN supplier s on s.suppkey = l.suppkey WHERE coalesce(l.orderkey, 0) = 5")
+                .matches(
+                        anyTree(
+                                join(INNER,
+                                        ImmutableList.of(equiJoinClause("L_SUPPKEY", "S_SUPPKEY")),
+                                        project(filter("BIGINT'5' = COALESCE(L_ORDERKEY, BIGINT'0')",
+                                                tableScan("lineitem", ImmutableMap.of("L_SUPPKEY", "suppkey", "L_ORDERKEY", "orderkey")))),
+                                        project(tableScan("supplier", ImmutableMap.of("S_SUPPKEY", "suppkey"))))));
+
+        // The CASE shape on a RIGHT join converts as well, with the residual above it
+        tester.assertThat(predicatePushDown)
+                .on("select 1 FROM lineitem l RIGHT JOIN supplier s on s.suppkey = l.suppkey WHERE CASE WHEN coalesce(l.orderkey, 0) > 0 THEN 1 ELSE 0 END = 1")
+                .matches(
+                        anyTree(
+                                filter("CASE WHEN COALESCE(L_ORDERKEY, 0) > 0 THEN 1 ELSE 0 END = 1",
+                                        join(INNER,
+                                                ImmutableList.of(equiJoinClause("L_SUPPKEY", "S_SUPPKEY")),
+                                                tableScan("lineitem", ImmutableMap.of("L_SUPPKEY", "suppkey", "L_ORDERKEY", "orderkey")),
+                                                tableScan("supplier", ImmutableMap.of("S_SUPPKEY", "suppkey"))))));
+
+        // IS NULL stays outer (was already the case before the fix)
+        tester.assertThat(predicatePushDown)
+                .on("select 1 FROM supplier s LEFT JOIN lineitem l on s.suppkey = l.suppkey WHERE l.orderkey IS NULL")
+                .matches(
+                        anyTree(
+                                join(LEFT,
+                                        ImmutableList.of(equiJoinClause("S_SUPPKEY", "L_SUPPKEY")),
+                                        tableScan("supplier", ImmutableMap.of("S_SUPPKEY", "suppkey")),
+                                        tableScan("lineitem", ImmutableMap.of("L_SUPPKEY", "suppkey", "L_ORDERKEY", "orderkey")))));
+
+        // Plain null-rejecting predicate still converts: the guard must not over-block.
+        // Rebuilt children are wrapped in identity projects, as in the existing domain-filter tests.
+        tester.assertThat(predicatePushDown)
+                .on("select 1 FROM supplier s LEFT JOIN lineitem l on s.suppkey = l.suppkey WHERE l.orderkey = 5")
+                .matches(
+                        anyTree(
+                                join(INNER,
+                                        ImmutableList.of(equiJoinClause("S_SUPPKEY", "L_SUPPKEY")),
+                                        project(tableScan("supplier", ImmutableMap.of("S_SUPPKEY", "suppkey"))),
+                                        project(filter("L_ORDERKEY = 5",
+                                                tableScan("lineitem", ImmutableMap.of("L_SUPPKEY", "suppkey", "L_ORDERKEY", "orderkey")))))));
+
+        // IS NOT NULL still converts: negation parity is respected
+        tester.assertThat(predicatePushDown)
+                .on("select 1 FROM supplier s LEFT JOIN lineitem l on s.suppkey = l.suppkey WHERE l.orderkey IS NOT NULL")
+                .matches(
+                        anyTree(
+                                join(INNER,
+                                        ImmutableList.of(equiJoinClause("S_SUPPKEY", "L_SUPPKEY")),
+                                        project(tableScan("supplier", ImmutableMap.of("S_SUPPKEY", "suppkey"))),
+                                        project(filter("L_ORDERKEY IS NOT NULL",
+                                                tableScan("lineitem", ImmutableMap.of("L_SUPPKEY", "suppkey", "L_ORDERKEY", "orderkey")))))));
+    }
 }
