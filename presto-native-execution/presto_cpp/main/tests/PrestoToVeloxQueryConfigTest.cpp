@@ -854,6 +854,12 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
       veloxConfigs.count(core::QueryConfig::kDriverCpuTimeSliceLimitMs) > 0);
   EXPECT_EQ(
       "1000", veloxConfigs.at(core::QueryConfig::kDriverCpuTimeSliceLimitMs));
+  EXPECT_TRUE(
+      veloxConfigs.count(core::QueryConfig::kHashProbeFinishEarlyOnEmptyBuild) >
+      0);
+  EXPECT_EQ(
+      "true",
+      veloxConfigs.at(core::QueryConfig::kHashProbeFinishEarlyOnEmptyBuild));
 
   // Verify session-specific configs
   EXPECT_TRUE(veloxConfigs.count(core::QueryConfig::kSessionStartTime) > 0);
@@ -868,6 +874,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
     }
   }
   expectedExactConfigs += 1; // kDriverCpuTimeSliceLimitMs
+  expectedExactConfigs += 1; // kHashProbeFinishEarlyOnEmptyBuild
   expectedExactConfigs += 1; // kSessionStartTime
   expectedExactConfigs += 1; // kSessionTimezone (always added)
 

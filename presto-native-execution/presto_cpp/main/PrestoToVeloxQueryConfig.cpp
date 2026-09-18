@@ -43,6 +43,14 @@ void updateVeloxConfigsWithSpecialCases(
     configStrings.emplace(
         velox::core::QueryConfig::kDriverCpuTimeSliceLimitMs, "1000");
   }
+  // Presto native default is on; Velox's own QueryConfig default is off, and
+  // the coordinator only serializes properties the user explicitly set.
+  it = configStrings.find(
+      velox::core::QueryConfig::kHashProbeFinishEarlyOnEmptyBuild);
+  if (it == configStrings.end()) {
+    configStrings.emplace(
+        velox::core::QueryConfig::kHashProbeFinishEarlyOnEmptyBuild, "true");
+  }
 }
 
 void updateFromSessionConfigs(
