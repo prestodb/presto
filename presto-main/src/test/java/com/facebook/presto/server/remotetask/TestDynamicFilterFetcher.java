@@ -821,8 +821,8 @@ public class TestDynamicFilterFetcher
         // protect it. Only the ownedFilterIds scope prevents poisoning here.
         assertFalse(foreignFilter.isComplete(),
                 "foreignFilter must still be in-progress — the fallback must not have touched it");
-        assertFalse(foreignFilter.getCurrentConstraintByColumnName().isAll(),
-                "foreignFilter must not have been widened to all() by the fallback");
+        assertTrue(foreignFilter.toString().contains("receivedPartitions=1"),
+                "foreignFilter must still have only 1 partition received (not 2 from spurious fallback delivery)");
     }
 
     private DynamicFilterFetcher createFetcher(TestingHttpClient httpClient, Duration maxErrorDuration)
