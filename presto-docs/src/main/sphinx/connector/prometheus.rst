@@ -25,6 +25,8 @@ replacing the properties as appropriate:
     prometheus.max-query-duration=1h
     prometheus.cache-ttl=30s
     prometheus.bearer-token-file=/path/to/bearer/token/file
+    prometheus.auth.user=admin
+    prometheus.auth.password=password
     prometheus.tls.enabled=true
     prometheus.tls.truststore-path=/path/to/truststore
     prometheus.tls.truststore-password=truststorePassword
@@ -43,6 +45,8 @@ Property Name                                   Description
 ``prometheus.max-query-duration``        Width of overall query to Prometheus, will be divided into query-chunk-duration queries
 ``prometheus.cache-ttl``                 How long the config values are cached
 ``prometheus.bearer-token-file``         File holding bearer token for access to Prometheus
+``prometheus.auth.user``                 Username for Basic authentication to Prometheus
+``prometheus.auth.password``             Password for Basic authentication to Prometheus
 ``prometheus.tls.enabled``               Enable or disable TLS for securing communication with Prometheus
 ``prometheus.tls.truststore-path``       Path to the trust store containing the SSL certificates
 ``prometheus.tls.truststore-password``   Password to access the trust store for TLS verification
@@ -80,6 +84,26 @@ Bearer Token Authentication
 Prometheus can be setup to require a Authorization header with every query. The value in
 ``prometheus.bearer-token-file`` allows for a bearer token to be read from the configured file. This file
 is optional and not required unless your Prometheus setup requires it.
+
+Basic Authentication
+--------------------
+
+Prometheus can be configured to require Basic authentication. Set both
+``prometheus.auth.user`` and ``prometheus.auth.password`` to have the connector send an
+``Authorization: Basic ...`` header with every query:
+
+.. code-block:: none
+
+    prometheus.auth.user=admin
+    prometheus.auth.password=password
+
+The following rules apply:
+
+* Both properties must be set together. Setting only one of them fails at startup.
+* Basic authentication cannot be combined with ``prometheus.bearer-token-file``. Configuring
+  both fails at startup.
+* ``prometheus.auth.user`` must not contain a colon (``:``), because a colon separates the
+  username from the password in the Basic authentication credential.
 
 Case-Sensitive Name Matching
 ----------------------------

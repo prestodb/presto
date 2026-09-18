@@ -20,24 +20,46 @@ import java.io.Closeable;
 import java.net.URI;
 import java.time.Duration;
 
+import static org.testcontainers.utility.MountableFile.forClasspathResource;
 import static org.testng.Assert.fail;
 
 public class PrometheusServer
         implements Closeable
 {
     private static final int PROMETHEUS_PORT = 9090;
-    private static final String PROMETHEUS_DOCKER_IMAGE = "prom/prometheus:v2.15.1";
+    private static final String DEFAULT_VERSION = "v2.15.1";
+    public static final String BASIC_AUTH_VERSION = "v2.35.0";
     private static final Integer MAX_TRIES = 120;
     private static final Integer TIME_BETWEEN_TRIES_MILLIS = 1000;
+
+    public static final String USER = "admin";
+    public static final String PASSWORD = "password";
+    private static final String PROMETHEUS_QUERY_API = "/api/v1/query?query=up[1d]";
 
     private final GenericContainer<?> dockerContainer;
 
     public PrometheusServer()
     {
-        this.dockerContainer = new GenericContainer<>(PROMETHEUS_DOCKER_IMAGE)
+        this(DEFAULT_VERSION, false);
+    }
+
+    public PrometheusServer(String version, boolean enableBasicAuth)
+    {
+        this.dockerContainer = new GenericContainer<>("prom/prometheus:" + version)
                 .withExposedPorts(PROMETHEUS_PORT)
-                .waitingFor(Wait.forHttp("/"))
                 .withStartupTimeout(Duration.ofSeconds(120));
+        if (enableBasicAuth) {
+            // Mount web.yml to configure Prometheus with the Basic Auth user and bcrypt-hashed password.
+            this.dockerContainer
+                    .withCommand("--config.file=/etc/prometheus/prometheus.yml", "--web.config.file=/etc/prometheus/web.yml")
+                    .withCopyFileToContainer(forClasspathResource("web.yml"), "/etc/prometheus/web.yml")
+                    .waitingFor(Wait.forHttp(PROMETHEUS_QUERY_API)
+                            .forResponsePredicate(response -> response.contains("\"values\""))
+                            .withBasicCredentials(USER, PASSWORD));
+        }
+        else {
+            this.dockerContainer.waitingFor(Wait.forHttp("/"));
+        }
         this.dockerContainer.start();
     }
 
