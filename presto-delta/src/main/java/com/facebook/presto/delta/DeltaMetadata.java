@@ -42,6 +42,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -92,6 +93,7 @@ public class DeltaMetadata
     private final TypeManager typeManager;
     private final DeltaConfig config;
     private final HdfsEnvironment hdfsEnvironment;
+    private final DeltaStatisticsProvider tableStatisticsProvider;
 
     @Inject
     public DeltaMetadata(
@@ -100,7 +102,8 @@ public class DeltaMetadata
             ExtendedHiveMetastore metastore,
             TypeManager typeManager,
             DeltaConfig config,
-            HdfsEnvironment hdfsEnvironment)
+            HdfsEnvironment hdfsEnvironment,
+            DeltaStatisticsProvider tableStatisticsProvider)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.deltaClient = requireNonNull(deltaClient, "deltaClient is null");
@@ -108,6 +111,7 @@ public class DeltaMetadata
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.config = requireNonNull(config, "config is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.tableStatisticsProvider = requireNonNull(tableStatisticsProvider, "tableStatisticsProvider is null");
     }
 
     @Override
@@ -408,6 +412,21 @@ public class DeltaMetadata
                 DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 session.getWarningCollector(),
                 session.getRuntimeStats());
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            Optional<ConnectorTableLayoutHandle> tableLayoutHandle,
+            List<ColumnHandle> columnHandles,
+            Constraint<ColumnHandle> constraint)
+    {
+        if (!DeltaSessionProperties.isTableStatisticsEnabled(session)) {
+            return TableStatistics.empty();
+        }
+        DeltaTableHandle deltaTableHandle = (DeltaTableHandle) tableHandle;
+        return tableStatisticsProvider.getTableStatistics(session, deltaTableHandle, columnHandles, constraint);
     }
 
     private void checkConnectorId(DeltaTableHandle tableHandle)

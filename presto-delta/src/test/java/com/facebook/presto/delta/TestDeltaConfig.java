@@ -14,11 +14,16 @@
 package com.facebook.presto.delta;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
+/**
+ * Unit tests for {@link DeltaConfig}.
+ */
 public class TestDeltaConfig
 {
     @Test
@@ -27,22 +32,31 @@ public class TestDeltaConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(DeltaConfig.class)
                 .setMaxSplitsBatchSize(200)
                 .setParquetDereferencePushdownEnabled(true)
-                .setCaseSensitivePartitionsEnabled(true));
+                .setCaseSensitivePartitionsEnabled(true)
+                .setTableStatisticsEnabled(false)
+                .setTableStatisticsCacheMaxEntries(1_000_000)
+                .setTableStatisticsCacheTtl(new Duration(1, TimeUnit.HOURS)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("delta.max-splits-batch-size", "400")
                 .put("delta.parquet-dereference-pushdown-enabled", "false")
                 .put("delta.case-sensitive-partitions-enabled", "false")
+                .put("delta.table-statistics-enabled", "true")
+                .put("delta.table-statistics-cache-max-entries", "50")
+                .put("delta.table-statistics-cache-ttl", "10m")
                 .build();
 
         DeltaConfig expected = new DeltaConfig()
                 .setMaxSplitsBatchSize(400)
                 .setParquetDereferencePushdownEnabled(false)
-                .setCaseSensitivePartitionsEnabled(false);
+                .setCaseSensitivePartitionsEnabled(false)
+                .setTableStatisticsEnabled(true)
+                .setTableStatisticsCacheMaxEntries(50)
+                .setTableStatisticsCacheTtl(new Duration(10, TimeUnit.MINUTES));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
