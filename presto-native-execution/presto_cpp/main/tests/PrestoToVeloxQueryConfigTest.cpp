@@ -651,6 +651,17 @@ TEST_F(PrestoToVeloxQueryConfigTest, specialHardCodedPrestoConfigurations) {
   EXPECT_EQ(2000, veloxConfig9.driverCpuTimeSliceLimitMs());
 }
 
+TEST_F(PrestoToVeloxQueryConfigTest, legacyTimestampWithTimezone) {
+  auto session = createBasicSession();
+  EXPECT_TRUE(
+      QueryConfig(toVeloxConfigs(session)).legacyTimestampWithTimezone());
+
+  session.systemProperties[SessionProperties::kLegacyTimestampWithTimezone] =
+      "false";
+  EXPECT_FALSE(
+      QueryConfig(toVeloxConfigs(session)).legacyTimestampWithTimezone());
+}
+
 TEST_F(PrestoToVeloxQueryConfigTest, sessionAndExtraCredentialsOverload) {
   // --- Test 1: Basic session with empty extra credentials ---
   {

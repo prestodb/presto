@@ -34,6 +34,16 @@ resource contention.
 
 Native Execution only. Use legacy TIME and TIMESTAMP semantics.
 
+``legacy_timestamp_with_timezone``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+When ``true``, ``TIMESTAMP WITH TIME ZONE`` values render in each value's embedded
+time zone. When ``false``, they render the UTC instant in the session time zone, so
+values that compare equal render identically.
+
 ``native_aggregation_spill_memory_threshold``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
