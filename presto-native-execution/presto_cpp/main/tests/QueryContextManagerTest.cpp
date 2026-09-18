@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/TaskManager.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "velox/connectors/hive/FileConfig.h"
 #include "velox/core/QueryConfig.h"
 
 namespace facebook::presto {
@@ -79,7 +80,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
   EXPECT_TRUE(queryCtx->queryConfig().debugDisableCommonSubExpressions());
   EXPECT_TRUE(queryCtx->queryConfig().debugDisableExpressionsWithMemoization());
   EXPECT_TRUE(queryCtx->queryConfig().debugDisableExpressionsWithLazyInputs());
-  EXPECT_TRUE(queryCtx->queryConfig().selectiveNimbleReaderEnabled());
+  EXPECT_TRUE(queryCtx->queryConfig().get<bool>(velox::connector::hive::FileConfig::kSelectiveNimbleReaderEnabledSession, true));
   EXPECT_EQ(
       queryCtx->queryConfig().rowSizeTrackingMode(),
       facebook::velox::core::QueryConfig::RowSizeTrackingMode::ENABLED_FOR_ALL);
