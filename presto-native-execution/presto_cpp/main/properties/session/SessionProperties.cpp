@@ -465,6 +465,15 @@ SessionProperties::SessionProperties() {
       // in the coordinator.
       "false");
 
+  addSessionProperty(
+      kLegacyTimestampWithTimezone,
+      "Native Execution only. Render TIMESTAMP WITH TIME ZONE values in each "
+      "value's embedded time zone instead of the session time zone.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kLegacyTimestampWithTimezone,
+      util::boolToLowerCaseString(c.legacyTimestampWithTimezone()));
+
   // TODO: remove this once cpu driver slicing config is turned on by default in
   // Velox.
   addSessionProperty(

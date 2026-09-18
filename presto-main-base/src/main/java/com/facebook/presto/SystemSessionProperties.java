@@ -178,6 +178,7 @@ public final class SystemSessionProperties
     public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
     public static final String EXCHANGE_CHECKSUM = "exchange_checksum";
     public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
+    public static final String LEGACY_TIMESTAMP_WITH_TIMEZONE = "legacy_timestamp_with_timezone";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PARALLELIZE_CHAINED_AGGREGATION = "parallelize_chained_aggregation";
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
@@ -978,6 +979,11 @@ public final class SystemSessionProperties
                         "Use legacy TIME & TIMESTAMP semantics (warning: this will be removed)",
                         functionsConfig.isLegacyTimestamp(),
                         true),
+                booleanProperty(
+                        LEGACY_TIMESTAMP_WITH_TIMEZONE,
+                        "Render TIMESTAMP WITH TIME ZONE values in each value's embedded time zone instead of the session time zone",
+                        functionsConfig.isLegacyTimestampWithTimezone(),
+                        false),
                 booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
                         "Enable the use of intermediate aggregations",
@@ -2943,6 +2949,11 @@ public final class SystemSessionProperties
     public static boolean isLegacyTimestamp(Session session)
     {
         return session.getSystemProperty(LEGACY_TIMESTAMP, Boolean.class);
+    }
+
+    public static boolean isLegacyTimestampWithTimezone(Session session)
+    {
+        return session.getSystemProperty(LEGACY_TIMESTAMP_WITH_TIMEZONE, Boolean.class);
     }
 
     public static Duration getOptimizerTimeout(Session session)

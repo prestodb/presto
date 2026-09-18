@@ -43,6 +43,7 @@ public class FunctionsConfig
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean legacyRowFieldOrdinalAccess;
     private boolean legacyTimestamp;
+    private boolean legacyTimestampWithTimezone = true;
     private boolean parseDecimalLiteralsAsDouble;
     private boolean fieldNamesInJsonCastEnabled = true;
     private boolean legacyCharToVarcharCoercion;
@@ -235,6 +236,18 @@ public class FunctionsConfig
     public boolean isLegacyTimestamp()
     {
         return legacyTimestamp;
+    }
+
+    @Config("legacy-timestamp-with-timezone")
+    public FunctionsConfig setLegacyTimestampWithTimezone(boolean value)
+    {
+        this.legacyTimestampWithTimezone = value;
+        return this;
+    }
+
+    public boolean isLegacyTimestampWithTimezone()
+    {
+        return legacyTimestampWithTimezone;
     }
 
     @Config("parse-decimal-literals-as-double")

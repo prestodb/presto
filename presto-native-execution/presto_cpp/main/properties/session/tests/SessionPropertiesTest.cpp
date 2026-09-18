@@ -112,6 +112,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
        core::QueryConfig::kMinShuffleCompressionPageSizeBytes},
       {SessionProperties::kLegacyTimestamp,
        core::QueryConfig::kAdjustTimestampToTimezone},
+      {SessionProperties::kLegacyTimestampWithTimezone,
+       core::QueryConfig::kLegacyTimestampWithTimezone},
       {SessionProperties::kDriverCpuTimeSliceLimitMs,
        core::QueryConfig::kDriverCpuTimeSliceLimitMs},
       {SessionProperties::kMaxLocalExchangePartitionCount,
