@@ -27,4 +27,6 @@ public interface AggregationFunctionImplementation
     boolean isDecomposable();
 
     boolean isOrderSensitive();
+
+    boolean isDistinctSensitive();
 }

@@ -142,6 +142,7 @@ public class AggregationFromAnnotationsParser
                 parseDescription(aggregationDefinition),
                 aggregationAnnotation.decomposable(),
                 aggregationAnnotation.isOrderSensitive(),
+                aggregationAnnotation.isDistinctSensitive(),
                 aggregationAnnotation.visibility(),
                 aggregationAnnotation.isCalledOnNullInput());
     }
@@ -157,6 +158,7 @@ public class AggregationFromAnnotationsParser
                                 parseDescription(aggregationDefinition, toParse),
                                 aggregationAnnotation.decomposable(),
                                 aggregationAnnotation.isOrderSensitive(),
+                                aggregationAnnotation.isDistinctSensitive(),
                                 aggregationAnnotation.visibility(),
                                 aggregationAnnotation.isCalledOnNullInput()))
                 .collect(toImmutableList());

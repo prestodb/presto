@@ -169,7 +169,7 @@ public class ArbitraryAggregationFunction
                 metadata,
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType), type,
-                true, false, metadata, accumulatorClass, groupedAccumulatorClass);
+                true, false, false, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     protected Type overrideIntermediateType(Type inputType, Type defaultIntermediateType)
