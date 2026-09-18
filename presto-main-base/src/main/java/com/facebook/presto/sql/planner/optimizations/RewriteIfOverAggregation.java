@@ -87,7 +87,6 @@ public class RewriteIfOverAggregation
         implements PlanOptimizer
 {
     private final FunctionAndTypeManager functionAndTypeManager;
-    private boolean isEnabledForTesting;
 
     public RewriteIfOverAggregation(FunctionAndTypeManager functionAndTypeManager)
     {
@@ -95,15 +94,9 @@ public class RewriteIfOverAggregation
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        isEnabledForTesting = isSet;
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || isOptimizeConditionalAggregationEnabled(session);
+        return forceEnableOptimizer || isOptimizeConditionalAggregationEnabled(session);
     }
 
     @Override
@@ -112,9 +105,10 @@ public class RewriteIfOverAggregation
             TypeProvider types,
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean forceEnableOptimizer)
     {
-        if (isEnabled(session)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new Rewriter(variableAllocator, idAllocator, new RowExpressionDeterminismEvaluator(functionAndTypeManager));
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, ImmutableMap.of());
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());

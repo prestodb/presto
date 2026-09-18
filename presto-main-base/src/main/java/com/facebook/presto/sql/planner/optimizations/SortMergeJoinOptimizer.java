@@ -44,7 +44,6 @@ public class SortMergeJoinOptimizer
 {
     private final Metadata metadata;
     private final boolean nativeExecution;
-    private boolean isEnabledForTesting;
 
     public SortMergeJoinOptimizer(Metadata metadata, boolean nativeExecution)
     {
@@ -53,27 +52,22 @@ public class SortMergeJoinOptimizer
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
-    {
-        isEnabledForTesting = isSet;
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
         // TODO: Consider group execution and single node execution.
-        return isEnabledForTesting || preferSortMergeJoin(session);
+        return forceEnableOptimizer || preferSortMergeJoin(session);
     }
 
     @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider type, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider type, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        if (isEnabled(session)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new SortMergeJoinOptimizer.Rewriter(idAllocator, metadata, session);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());

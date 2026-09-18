@@ -59,7 +59,6 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
             ImmutableSet.of(TopNNode.class, LimitNode.class, DistinctLimitNode.class, TopNRowNumberNode.class);
     private static final List<Class<? extends PlanNode>> PRECOMPUTE_PLAN_NODES = ImmutableList.of(JoinNode.class, SemiJoinNode.class, AggregationNode.class);
     private final StatsCalculator statsCalculator;
-    private boolean isEnabledForTesting;
 
     public HistoricalStatisticsEquivalentPlanMarkingOptimizer(StatsCalculator statsCalculator)
     {
@@ -67,19 +66,14 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        isEnabledForTesting = isSet;
+        return forceEnableOptimizer || useHistoryBasedPlanStatisticsEnabled(session) || trackHistoryBasedPlanStatisticsEnabled(session);
     }
 
     @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || useHistoryBasedPlanStatisticsEnabled(session) || trackHistoryBasedPlanStatisticsEnabled(session);
-    }
-
-    @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -87,7 +81,7 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        if (!isEnabled(session)) {
+        if (!isEnabled(session, forceEnableOptimizer)) {
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
