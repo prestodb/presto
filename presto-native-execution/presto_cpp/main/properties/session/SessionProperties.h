@@ -416,6 +416,11 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kAggregationMemoryCompactionReclaimEnabled =
       "native_aggregation_memory_compaction_reclaim_enabled";
 
+  /// If true, the broadcast writer serializes a file descriptor per file so
+  /// readers open without a metadata lookup. False falls back to path opens.
+  static constexpr const char* kBroadcastFileDescriptorEnabled =
+      "native_broadcast_file_descriptor_enabled";
+
   static SessionProperties* instance();
 
   SessionProperties();
