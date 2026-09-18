@@ -31,8 +31,14 @@ public enum StandardWarningCode
     MATERIALIZED_VIEW_STITCHING_FALLBACK(0x0000_0013),
     MATERIALIZED_VIEW_STALE_DATA(0x0000_0014),
     MATERIALIZED_VIEW_COLUMN_WITHOUT_LINEAGE(0x0000_0015),
-    MATERIALIZED_VIEW_ROW_LEVEL_REJECTED_ON_COST(0x0000_0016),
     FORCE_PUSH_PARTIAL_AGGREGATION_UNKNOWN_STATS(0x0000_0016),
+    /**
+     * Row-level incremental refresh of a materialized view was eligible, and was rejected because
+     * another candidate cost less. Distinct from {@link #MATERIALIZED_VIEW_STITCHING_FALLBACK},
+     * which reports that row-level could not be used at all: a cost rejection is the mechanism
+     * working as intended, and is worth surfacing only so the choice is visible.
+     */
+    MATERIALIZED_VIEW_ROW_LEVEL_REJECTED_ON_COST(0x0000_0017),
     /**/;
     private final WarningCode warningCode;
 
