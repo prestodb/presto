@@ -67,7 +67,7 @@ public class TestPlanCheckerProvider
         TestingHttpClient client = new TestingHttpClient(
                 request ->
                         mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8, ""));
-        NativePlanChecker planChecker = new NativePlanChecker(new TestingNodeManager(URI.create("localhost")), PLAN_FRAGMENT_JSON_CODEC, client);
+        NativePlanChecker planChecker = new NativePlanChecker(new TestingNodeManager(URI.create("localhost")), PLAN_FRAGMENT_JSON_CODEC, client, new SidecarRetryConfig());
         NativePlanCheckerProvider provider = new NativePlanCheckerProvider(config, planChecker);
         assertTrue(provider.getIntermediatePlanCheckers().isEmpty());
         assertTrue(provider.getFinalPlanCheckers().isEmpty());
@@ -110,7 +110,8 @@ public class TestPlanCheckerProvider
         return new NativePlanChecker(
                 new TestingNodeManager(URI.create("http://localhost")),
                 PLAN_FRAGMENT_JSON_CODEC,
-                client);
+                client,
+                new SidecarRetryConfig());
     }
 
     public static class TestingConnectorPartitioningHandle

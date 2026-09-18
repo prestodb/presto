@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner;
+import com.facebook.presto.sidecar.SidecarRetryConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -421,6 +422,7 @@ public class TestNativeExpressionInterpreter
             binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
             binder.install(new ThriftCodecModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
+            configBinder(binder).bindConfig(SidecarRetryConfig.class, SidecarRetryConfig.CONFIG_PREFIX);
 
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             newSetBinder(binder, Type.class);
