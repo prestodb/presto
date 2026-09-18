@@ -672,9 +672,31 @@ file. More specific mappings should be specified before less specific mappings.
 You can set default configuration by not including any match criteria for the last
 entry in the list.
 
-Each mapping entry when mapping type is ``S3`` may specify one match criteria. Available match criteria:
+Each mapping entry when mapping type is ``S3`` may specify one or more match criteria. Available match criteria:
 
 * ``user``: Regular expression to match against username. Example: ``alice|bob``
+
+* ``s3Prefix``: S3 location prefix that the table location must start with, allowing different
+  buckets or paths to use different credentials. Example: ``s3a://my-bucket/``. Accepts either a
+  single prefix or a list, matching when the location starts with any one of them:
+  ``"s3Prefix": ["s3a://bucket-a/", "s3a://bucket-b/"]``. An entry without ``s3Prefix`` matches any
+  location and therefore acts as a catch-all.
+
+  Unlike ``user``, this is a plain string comparison rather than a regular expression. Two things
+  follow from that:
+
+  * The prefix must use the same scheme as the table locations it covers. ``s3a://my-bucket/``
+    does not match an ``s3://my-bucket/`` location, so list each scheme in use.
+  * Matching happens on path-segment boundaries, and a trailing slash is insignificant, so
+    ``s3a://bucket/sales`` and ``s3a://bucket/sales/`` are equivalent. Either one covers
+    ``s3a://bucket/sales`` and everything beneath it, but never a sibling such as
+    ``s3a://bucket/sales-archive/``. A partial segment is therefore not a prefix:
+    ``s3a://bucket/data-2024`` does not cover ``s3a://bucket/data-2024-01/``.
+
+All criteria in an entry must match for that entry to be selected. Because the first matching entry
+wins, list narrower ``s3Prefix`` entries ahead of broader ones. If no entry matches, access is
+denied, so include a catch-all entry if unmatched locations should fall back to the
+catalog-wide credentials.
 
 The mapping must provide one or more configuration settings:
 
@@ -697,6 +719,15 @@ Example JSON configuration file for s3:
         {
           "user": "analyst|scientist",
           "iamRole": "arn:aws:iam::123456789101:role/analyst_and_scientist_role"
+        },
+        {
+          "s3Prefix": "s3a://finance-bucket/",
+          "accessKey": "AKIAxxxfinance",
+          "secretKey": "iXbXxxxfinance"
+        },
+        {
+          "s3Prefix": ["s3a://analytics-bucket/", "s3a://reporting-bucket/"],
+          "iamRole": "arn:aws:iam::123456789101:role/analytics_role"
         },
         {
           "iamRole": "arn:aws:iam::123456789101:role/default"
