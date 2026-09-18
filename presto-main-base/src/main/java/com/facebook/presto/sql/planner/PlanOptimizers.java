@@ -217,7 +217,7 @@ import com.facebook.presto.sql.planner.optimizations.PushdownSubfields;
 import com.facebook.presto.sql.planner.optimizations.RandomizeNullKeyInOuterJoin;
 import com.facebook.presto.sql.planner.optimizations.RemoveRedundantDistinctAggregation;
 import com.facebook.presto.sql.planner.optimizations.ReplaceConstantVariableReferencesWithConstants;
-import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
+import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDeleteOrUpdate;
 import com.facebook.presto.sql.planner.optimizations.RewriteIfOverAggregation;
 import com.facebook.presto.sql.planner.optimizations.RewriteWriterTarget;
 import com.facebook.presto.sql.planner.optimizations.RpcExecutionPolicy;
@@ -1061,7 +1061,7 @@ public class PlanOptimizers
                         ImmutableSet.of(new ScaledWriterRule())));
 
         if (!noExchange) {
-            builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
+            builder.add(new ReplicateSemiJoinInDeleteOrUpdate()); // Must run before AddExchanges
 
             builder.add(new IterativeOptimizer(
                     metadata,
