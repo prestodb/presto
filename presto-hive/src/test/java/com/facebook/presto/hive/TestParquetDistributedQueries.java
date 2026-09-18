@@ -83,12 +83,16 @@ public class TestParquetDistributedQueries
                             "   ('rrow', null, null, null, null, null, null, null), " +
                             "   (null, null, null, null, 60175.0, null, null, null))");
 
-            // With quick stats enabled, we should get nulls_fraction, low_value and high_value for the non-nested columns
+            // With quick stats enabled, we should get distinct_values_count, nulls_fraction, low_value and
+            // high_value for the non-nested columns. distinct_values_count is a conservative upper bound
+            // derived from the footer: the smaller of the non-null count and the size of the
+            // [low_value, high_value] range, so linenumber is 7 (1..7) and shipdate is 2522 (days between
+            // 1992-01-04 and 1998-11-29).
             assertQuery(session, "SHOW STATS FOR test_quick_stats",
                     "SELECT * FROM (VALUES " +
-                            "   ('orderkey', null, null, 0.0, null, '1', '60000', null), " +
-                            "   ('linenumber', null, null, 0.0, null, '1', '7', null), " +
-                            "   ('shipdate', null, null, 0.0, null, '1992-01-04', '1998-11-29', null), " +
+                            "   ('orderkey', null, 60000.0, 0.0, null, '1', '60000', null), " +
+                            "   ('linenumber', null, 7.0, 0.0, null, '1', '7', null), " +
+                            "   ('shipdate', null, 2522.0, 0.0, null, '1992-01-04', '1998-11-29', null), " +
                             "   ('arr', null, null, null, null, null, null, null), " +
                             "   ('rrow', null, null, null, null, null, null, null), " +
                             "   (null, null, null, null, 60175.0, null, null, null))");
@@ -140,20 +144,32 @@ public class TestParquetDistributedQueries
                             "   ('partkey', null, 10.0, 0.0, null, 1000, 1009, null), " +
                             "   (null, null, null, null, 10.0, null, null, null))");
 
-            // With quick stats enabled, we should get nulls_fraction, low_value and high_value for all columns
+            // With quick stats enabled, we should get distinct_values_count, nulls_fraction, low_value and
+            // high_value for all columns.
+            //
+            // Note the distinct_values_count of 1 for suppkey and linenumber, even though the table holds
+            // ten distinct values of each. Quick stats are built per partition, and this table has ten
+            // partitions of one row apiece, so the per-partition bound is a correct 1; the table-level
+            // value is then the maximum over partitions (calculateDistinctValuesCount), which is also 1.
+            // The maximum is a reasonable heuristic for metastore-provided NDVs but understates
+            // table-level distinctness for narrow partitions. It errs toward over-estimating join output
+            // rather than under-estimating it. The partition columns orderkey and partkey are unaffected,
+            // as their statistics are derived from the partition values themselves.
             assertQuery(session, "SHOW STATS FOR test_quick_stats_partitioned",
                     "SELECT * FROM (VALUES " +
-                            "   ('suppkey', null, null, 0.0, null, 1, 10, null), " +
-                            "   ('linenumber', null, null, 0.0, null, 1, 10, null), " +
+                            "   ('suppkey', null, 1.0, 0.0, null, 1, 10, null), " +
+                            "   ('linenumber', null, 1.0, 0.0, null, 1, 10, null), " +
                             "   ('orderkey', null, 10.0, 0.0, null, 100, 109, null), " +
                             "   ('partkey', null, 10.0, 0.0, null, 1000, 1009, null), " +
                             "   (null, null, null, null, 10.0, null, null, null))");
 
-            // If a query targets a specific partition, stats are correctly limited to that partition
+            // If a query targets a specific partition, stats are correctly limited to that partition.
+            // Here the distinct_values_count of 1 is exact rather than an under-estimate: the single
+            // partition holds one row, so it genuinely has one distinct value per column.
             assertQuery(session, "show stats for (select * from test_quick_stats_partitioned where partkey = 1009)",
                     "SELECT * FROM (VALUES " +
-                            "   ('suppkey', null, null, 0.0, null, 10, 10, null), " +
-                            "   ('linenumber', null, null, 0.0, null, 10, 10, null), " +
+                            "   ('suppkey', null, 1.0, 0.0, null, 10, 10, null), " +
+                            "   ('linenumber', null, 1.0, 0.0, null, 10, 10, null), " +
                             "   ('orderkey', null, 1.0, 0.0, null, 109, 109, null), " +
                             "   ('partkey', null, 1.0, 0.0, null, 1009, 1009, null), " +
                             "   (null, null, null, null, 1.0, null, null, null))");
