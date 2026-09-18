@@ -126,6 +126,43 @@ public abstract class AbstractTestSqlInvokedFunctions
     public void testDefaultSamplingPercent()
     {
         assertQuery("select key_sampling_percent('abc')", "select 0.56");
+
+        // All three of these keys hash to bit patterns that from_ieee754_64 decodes to NaN, which
+        // used to fall straight out of the function. An all-ones exponent with a zero mantissa
+        // would decode to +/-infinity instead, and mod(infinity, 100) is also NaN, but that is
+        // roughly 2^-52 of the key space so there is no practical fixture for it. That is exactly
+        // why the guard tests the final result instead of is_finite of the decoded double.
+        assertQuery("select key_sampling_percent('1000000033568641')", "select 0.0");
+        assertQuery("select key_sampling_percent('1000000044599808')", "select 0.0");
+        assertQuery("select is_nan(key_sampling_percent('1000000045201652'))", "select false");
+    }
+
+    @Test
+    public void testKeySamplingPercentIsAlwaysInRange()
+    {
+        // The general invariant, over a diverse key set that includes the three NaN-decoding keys.
+        assertQuery(
+                "select bool_and(v between 0.0 and 1.0) from (" +
+                        "  select key_sampling_percent(k) v from (" +
+                        "    select cast(1000000000000000 + x * 7919 as varchar) k from unnest(sequence(1, 2000)) t(x)" +
+                        "    union all select * from (values ('1000000033568641'), ('1000000044599808'), ('1000000045201652'))))",
+                "select true");
+    }
+
+    @Test
+    public void testKeySamplingPercentCallerBehavior()
+    {
+        // The two caller shapes that NaN actually broke, end to end. '1000000033568641' decodes to
+        // NaN; the other three are ordinary keys (0.56, 2.39e-93 and 0.48 respectively).
+        String keys = "(values ('1000000033568641'), ('abc'), ('001yxzuj'), ('56wfythjhdhvgewuikwemn')) t(k)";
+
+        // ORDER BY ... DESC. Presto sorts NaN above every other value, so the NaN key used to be
+        // force-picked at rank 1. It now scores 0.0, and 'abc' (0.56) legitimately wins.
+        assertQuery("select k from " + keys + " order by key_sampling_percent(k) desc limit 1", "select 'abc'");
+
+        // AVG. A single NaN used to poison the whole aggregate.
+        assertQuery("select is_nan(avg(key_sampling_percent(k))) from " + keys, "select false");
+        assertQuery("select avg(key_sampling_percent(k)) from " + keys, "select 0.26");
     }
 
     @Test
