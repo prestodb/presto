@@ -46,6 +46,7 @@ public class TestPickTableLayout
         extends BaseRuleTest
 {
     private PickTableLayout pickTableLayout;
+    private PickTableLayout pickTableLayoutWithOptimizer;
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
     private ConnectorId connectorId;
@@ -54,6 +55,9 @@ public class TestPickTableLayout
     public void setUpBeforeClass()
     {
         pickTableLayout = new PickTableLayout(tester().getMetadata());
+        // Wired with the session's pluggable optimizer, so partition-pruning constant folding routes
+        // through it (native -> sidecar) instead of the hardcoded Java interpreter.
+        pickTableLayoutWithOptimizer = new PickTableLayout(tester().getMetadata(), tester().getExpressionManager());
 
         connectorId = tester().getCurrentConnectorId();
 
@@ -115,6 +119,25 @@ public class TestPickTableLayout
                                     ordersTableHandle,
                                     ImmutableList.of(variable("orderstatus", createVarcharType(1))),
                                     ImmutableMap.of(variable("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1)))));
+                })
+                .matches(values("A"));
+    }
+
+    @Test
+    public void routesConstantFoldingThroughExpressionOptimizer()
+    {
+        // The rule wired with the pluggable optimizer must produce the same pruning result as the default
+        // (hardcoded-interpreter) path: routing is a no-op for the default optimizer, and correct for
+        // native. This guards against regressing partition pruning while closing the interpreter over the
+        // pluggable optimizer.
+        tester().assertThat(pickTableLayoutWithOptimizer.pickTableLayoutForPredicate())
+                .on(p -> {
+                    p.variable("orderstatus", createVarcharType(1));
+                    return p.filter(p.rowExpression("orderstatus = 'G'"),
+                            p.tableScan(
+                                    ordersTableHandle,
+                                    ImmutableList.of(p.variable("orderstatus", createVarcharType(1))),
+                                    ImmutableMap.of(p.variable("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1)))));
                 })
                 .matches(values("A"));
     }
