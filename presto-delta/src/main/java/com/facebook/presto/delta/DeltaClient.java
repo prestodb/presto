@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
+import io.delta.kernel.Scan;
 import io.delta.kernel.Snapshot;
 import io.delta.kernel.Table;
 import io.delta.kernel.data.FilteredColumnarBatch;
@@ -28,6 +30,7 @@ import io.delta.kernel.defaults.engine.DefaultEngine;
 import io.delta.kernel.engine.Engine;
 import io.delta.kernel.exceptions.TableNotFoundException;
 import io.delta.kernel.internal.InternalScanFileUtils;
+import io.delta.kernel.internal.ScanImpl;
 import io.delta.kernel.internal.SnapshotImpl;
 import io.delta.kernel.utils.CloseableIterator;
 import jakarta.inject.Inject;
@@ -37,10 +40,12 @@ import org.apache.hadoop.fs.Path;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.delta.DeltaTable.DataFormat.PARQUET;
@@ -54,6 +59,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class DeltaClient
 {
+    private static final Logger log = Logger.get(DeltaClient.class);
     private static final String TABLE_NOT_FOUND_ERROR_TEMPLATE = "Delta table (%s.%s) no longer exists.";
     private final HdfsEnvironment hdfsEnvironment;
 
@@ -171,6 +177,89 @@ public class DeltaClient
         }
     }
 
+    /**
+     * Returns all active file entries in the snapshot with per-file statistics parsed from
+     * {@code add.stats}. Separate from {@link #listFiles} — no predicate pushdown, stats only.
+     */
+    public List<DeltaFileEntry> listFileEntries(ConnectorSession session, DeltaTable deltaTable)
+    {
+        requireNonNull(deltaTable, "deltaTable is null");
+        checkArgument(deltaTable.getSnapshotId().isPresent(), "Snapshot id is missing from the Delta table");
+
+        Optional<Engine> deltaEngineOpt = loadDeltaEngine(session,
+                new Path(deltaTable.getTableLocation()),
+                new SchemaTableName(deltaTable.getSchemaName(), deltaTable.getTableName()));
+        if (!deltaEngineOpt.isPresent()) {
+            throw new PrestoException(DeltaErrorCode.DELTA_ERROR_LOADING_METADATA,
+                    format("Could not obtain Delta engine in '%s'", deltaTable.getTableLocation()));
+        }
+        Engine deltaEngine = deltaEngineOpt.get();
+        Table sourceTable = loadDeltaTable(deltaTable.getTableLocation(), deltaEngine);
+
+        List<DeltaFileEntry> result = new ArrayList<>();
+        // getScanFiles(engine, includeStats=true) is only on internal ScanImpl, not the public
+        // Scan interface. Cast is unavoidable in Kernel 4.0.0.
+        // TODO: remove once Kernel exposes this on the public Scan interface.
+
+        Scan rawScan = sourceTable
+                .getSnapshotAsOfVersion(deltaEngine, deltaTable.getSnapshotId().get())
+                .getScanBuilder()
+                .build();
+        if (!(rawScan instanceof ScanImpl)) {
+            throw new PrestoException(DeltaErrorCode.DELTA_ERROR_LOADING_METADATA, format(
+                    "Cannot read Delta file statistics: expected ScanImpl but got %s. "
+                    + "Delta Kernel may have changed its internal API — remove the ScanImpl cast "
+                    + "in DeltaClient.listFileEntries() and use the public stats API instead.",
+                    rawScan.getClass().getName()));
+        }
+        ScanImpl scan = (ScanImpl) rawScan;
+        try (CloseableIterator<FilteredColumnarBatch> scanBatches =
+                scan.getScanFiles(deltaEngine, true /* includeStats */)) {
+            while (scanBatches.hasNext()) {
+                FilteredColumnarBatch batch = scanBatches.next();
+                try (CloseableIterator<Row> rows = batch.getRows()) {
+                    while (rows.hasNext()) {
+                        result.add(toFileEntry(rows.next()));
+                    }
+                }
+            }
+        }
+        catch (TableNotFoundException e) {
+            throw new PrestoException(StandardErrorCode.NOT_FOUND,
+                    format("Delta table not found in '%s'", deltaTable.getTableLocation()), e);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Could not close scan file iterator", e);
+        }
+        return result;
+    }
+
+    /** Converts a scan-file {@link Row} to a {@link DeltaFileEntry}. Stats errors are swallowed. */
+    private static DeltaFileEntry toFileEntry(Row row)
+    {
+        io.delta.kernel.utils.FileStatus fileStatus = InternalScanFileUtils.getAddFileStatus(row);
+        Map<String, String> partitionValues = InternalScanFileUtils.getPartitionValues(row);
+
+        Optional<DeltaJsonFileStatistics> stats = Optional.empty();
+        try {
+            Row addFileRow = row.getStruct(InternalScanFileUtils.ADD_FILE_ORDINAL);
+            if (!addFileRow.isNullAt(InternalScanFileUtils.ADD_FILE_STATS_ORDINAL)) {
+                String statsJson = addFileRow.getString(InternalScanFileUtils.ADD_FILE_STATS_ORDINAL);
+                stats = DeltaJsonFileStatistics.create(statsJson);
+            }
+        }
+        catch (Exception e) {
+            log.debug("Could not read stats for file %s, skipping: %s", fileStatus.getPath(), e.getMessage());
+        }
+
+        return new DeltaFileEntry(
+                fileStatus.getPath(),
+                fileStatus.getSize(),
+                fileStatus.getModificationTime(),
+                partitionValues,
+                stats);
+    }
+
     private Optional<Engine> loadDeltaEngine(ConnectorSession session, Path tableLocation,
                                                        SchemaTableName schemaTableName)
     {
@@ -245,39 +334,25 @@ public class DeltaClient
     private static List<DeltaColumn> getSchema(DeltaConfig config, SchemaTableName tableName, Engine deltaEngine,
                                                Snapshot snapshot)
     {
-        try (CloseableIterator<FilteredColumnarBatch> columnBatches = snapshot.getScanBuilder().build()
-                    .getScanFiles(deltaEngine)) {
-            Row row = null;
-            while (columnBatches.hasNext()) {
-                CloseableIterator<Row> rows = columnBatches.next().getRows();
-                if (rows.hasNext()) {
-                    row = rows.next();
-                    break;
-                }
-            }
-            Map<String, String> partitionValues = row != null ?
-                    InternalScanFileUtils.getPartitionValues(row) : new HashMap<>(0);
-            return snapshot.getSchema().fields().stream()
-                    .map(field -> {
-                        String columnName = config.isCaseSensitivePartitionsEnabled() ? field.getName() :
-                                field.getName().toLowerCase(US);
-                        TypeSignature prestoType = DeltaTypeUtils.convertDeltaDataTypePrestoDataType(tableName,
-                                columnName, field.getDataType());
-                        return new DeltaColumn(
-                                DeltaColumnMetadataUtil.getColumnIdFromMetadata(field.getMetadata()),
-                                DeltaColumnMetadataUtil.getPhysicalNameFromMetadata(field.getMetadata()),
-                                columnName,
-                                prestoType,
-                                field.isNullable(),
-                                partitionValues.containsKey(columnName));
-                    }).collect(Collectors.toList());
-        }
-        catch (TableNotFoundException e) {
-            throw new PrestoException(StandardErrorCode.NOT_FOUND,
-                    format(TABLE_NOT_FOUND_ERROR_TEMPLATE, tableName.getSchemaName(), tableName.getTableName()));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Could not close columnar batch row", e);
-        }
+        // Read partition columns from snapshot metaData — reliable even when no data files exist.
+        Set<String> partitionColNames = new HashSet<>(
+                ((SnapshotImpl) snapshot).getPartitionColumnNames());
+
+        return snapshot.getSchema().fields().stream()
+                .map(field -> {
+                    String columnName = config.isCaseSensitivePartitionsEnabled() ? field.getName() :
+                            field.getName().toLowerCase(US);
+                    TypeSignature prestoType = DeltaTypeUtils.convertDeltaDataTypePrestoDataType(tableName,
+                            columnName, field.getDataType());
+                    boolean isPartition = partitionColNames.stream()
+                            .anyMatch(p -> p.equalsIgnoreCase(columnName));
+                    return new DeltaColumn(
+                            DeltaColumnMetadataUtil.getColumnIdFromMetadata(field.getMetadata()),
+                            DeltaColumnMetadataUtil.getPhysicalNameFromMetadata(field.getMetadata()),
+                            columnName,
+                            prestoType,
+                            field.isNullable(),
+                            isPartition);
+                }).collect(Collectors.toList());
     }
 }
