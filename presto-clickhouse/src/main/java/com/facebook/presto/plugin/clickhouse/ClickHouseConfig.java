@@ -16,99 +16,58 @@ package com.facebook.presto.plugin.clickhouse;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
-import com.facebook.airlift.units.Duration;
-import com.facebook.airlift.units.MinDuration;
+import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import jakarta.annotation.Nullable;
-import jakarta.validation.constraints.NotNull;
-
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ClickHouseConfig
+        extends BaseJdbcConfig
 {
-    private String connectionUrl;
-    private String connectionUser;
-    private String connectionPassword;
-    private String userCredential;
-    private String passwordCredential;
-    private boolean caseInsensitiveNameMatching;
-    private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private boolean mapStringAsVarchar;
     private boolean allowDropTable;
     private int commitBatchSize;
-    private boolean caseSensitiveNameMatchingEnabled;
 
-    @NotNull
-    public String getConnectionUrl()
-    {
-        return connectionUrl;
-    }
-
+    @Override
     @Config("clickhouse.connection-url")
     public ClickHouseConfig setConnectionUrl(String connectionUrl)
     {
-        this.connectionUrl = connectionUrl;
+        super.setConnectionUrl(connectionUrl);
         return this;
     }
 
-    @Nullable
-    public String getConnectionUser()
-    {
-        return connectionUser;
-    }
-
+    @Override
     @Config("clickhouse.connection-user")
     public ClickHouseConfig setConnectionUser(String connectionUser)
     {
-        this.connectionUser = connectionUser;
+        super.setConnectionUser(connectionUser);
         return this;
     }
 
-    @Nullable
-    public String getConnectionPassword()
-    {
-        return connectionPassword;
-    }
-
+    @Override
     @Config("clickhouse.connection-password")
     @ConfigSecuritySensitive
     public ClickHouseConfig setConnectionPassword(String connectionPassword)
     {
-        this.connectionPassword = connectionPassword;
+        super.setConnectionPassword(connectionPassword);
         return this;
     }
 
-    @Nullable
-    public String getUserCredential()
-    {
-        return userCredential;
-    }
-
+    @Override
     @Config("clickhouse.user-credential")
-    public ClickHouseConfig setUserCredential(String userCredential)
+    public ClickHouseConfig setUserCredentialName(String userCredentialName)
     {
-        this.userCredential = userCredential;
+        super.setUserCredentialName(userCredentialName);
         return this;
     }
 
-    @Nullable
-    public String getPasswordCredential()
-    {
-        return passwordCredential;
-    }
-
+    @Override
     @Config("clickhouse.password-credential")
-    public ClickHouseConfig setPasswordCredential(String passwordCredential)
+    public ClickHouseConfig setPasswordCredentialName(String passwordCredentialName)
     {
-        this.passwordCredential = passwordCredential;
+        super.setPasswordCredentialName(passwordCredentialName);
         return this;
     }
 
-    @Deprecated
-    public boolean isCaseInsensitiveNameMatching()
-    {
-        return caseInsensitiveNameMatching;
-    }
-
+    @Override
     @Deprecated
     @Config("clickhouse.case-insensitive")
     @ConfigDescription("Deprecated: This will be removed in future releases. Use 'case-sensitive-name-matching=true' instead for clickhouse. " +
@@ -117,21 +76,25 @@ public class ClickHouseConfig
             "this setting can lead to conflicts and query failures.")
     public ClickHouseConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
     {
-        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        super.setCaseInsensitiveNameMatching(caseInsensitiveNameMatching);
         return this;
     }
 
-    @NotNull
-    @MinDuration("0ms")
-    public Duration getCaseInsensitiveNameMatchingCacheTtl()
+    @Override
+    @Config("clickhouse.remote-name-cache-ttl")
+    public ClickHouseConfig setCaseInsensitiveNameMatchingCacheTtl(com.facebook.airlift.units.Duration caseInsensitiveNameMatchingCacheTtl)
     {
-        return caseInsensitiveNameMatchingCacheTtl;
+        super.setCaseInsensitiveNameMatchingCacheTtl(caseInsensitiveNameMatchingCacheTtl);
+        return this;
     }
 
-    @Config("clickhouse.remote-name-cache-ttl")
-    public ClickHouseConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
+    @Override
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable case-sensitive matching of schema, table names across the connector. " +
+            "When disabled, names are matched case-insensitively using lowercase normalization.")
+    public ClickHouseConfig setCaseSensitiveNameMatching(boolean caseSensitiveNameMatchingEnabled)
     {
-        this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        super.setCaseSensitiveNameMatching(caseSensitiveNameMatchingEnabled);
         return this;
     }
 
@@ -172,20 +135,6 @@ public class ClickHouseConfig
     public ClickHouseConfig setCommitBatchSize(int commitBatchSize)
     {
         this.commitBatchSize = commitBatchSize;
-        return this;
-    }
-
-    public boolean isCaseSensitiveNameMatching()
-    {
-        return caseSensitiveNameMatchingEnabled;
-    }
-
-    @Config("case-sensitive-name-matching")
-    @ConfigDescription("Enable case-sensitive matching of schema, table names across the connector. " +
-            "When disabled, names are matched case-insensitively using lowercase normalization.")
-    public ClickHouseConfig setCaseSensitiveNameMatching(boolean caseSensitiveNameMatchingEnabled)
-    {
-        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }
