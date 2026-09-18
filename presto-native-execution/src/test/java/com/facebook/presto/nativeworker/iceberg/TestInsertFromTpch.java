@@ -175,13 +175,13 @@ public class TestInsertFromTpch
                     "custkey BIGINT, " +
                     "orderstatus VARCHAR, " +
                     "totalprice DOUBLE, " +
-                    "orderdate VARCHAR, " +
-                    "orderyear VARCHAR" +
+                    "orderdate DATE, " +
+                    "orderyear INTEGER" +
                     ") WITH (format = 'PARQUET')", targetTable));
 
             long rowCount = (Long) computeActual(String.format("SELECT COUNT(*) FROM %s WHERE totalprice > 100000", sourceTable)).getOnlyValue();
             assertUpdate(String.format("INSERT INTO %s " +
-                    "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderdate " +
+                    "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, year(orderdate) " +
                     "FROM %s " +
                     "WHERE totalprice > 100000", targetTable, sourceTable), rowCount);
 
@@ -191,7 +191,7 @@ public class TestInsertFromTpch
             assertQuery(String.format("SELECT COUNT(*) FROM %s WHERE totalprice <= 100000", targetTable), "VALUES (BIGINT '0')");
 
             assertQuery(String.format("SELECT DISTINCT orderyear FROM %s ORDER BY orderyear", targetTable),
-                    String.format("SELECT DISTINCT orderdate FROM %s WHERE totalprice > 100000 ORDER BY orderdate", sourceTable));
+                    String.format("SELECT DISTINCT year(orderdate) FROM %s WHERE totalprice > 100000 ORDER BY 1", sourceTable));
         }
         finally {
             assertUpdate(String.format("DROP TABLE IF EXISTS %s", targetTable));
