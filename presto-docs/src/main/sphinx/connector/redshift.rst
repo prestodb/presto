@@ -60,6 +60,11 @@ Property Name                                      Description                  
 ``case-sensitive-name-matching``                   Enable case sensitive identifier support for schema and table        ``false``
                                                    names for the connector. When disabled, names are matched
                                                    case-insensitively using lowercase normalization.
+
+``enable-datasource-managed-views``                Delegate view resolution to Redshift instead of allowing Presto      ``false``
+                                                   to analyze view definitions. Useful for views containing
+                                                   Redshift-specific SQL syntax or functions. See
+                                                   :ref:`redshift-datasource-managed-views` for details.
 ================================================== ==================================================================== ===========
 
 
@@ -119,6 +124,68 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
 
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``redshift`` in the above examples.
+
+View Support
+------------
+
+The Redshift connector supports creating, querying, displaying, and dropping Redshift views.
+
+CREATE VIEW
+
+.. code-block:: sql
+
+    CREATE VIEW redshift.schema.view AS
+    SELECT col FROM redshift.schema.table;
+
+SHOW CREATE VIEW
+
+.. code-block:: sql
+
+    SHOW CREATE VIEW redshift.schema.view;
+
+DROP VIEW
+
+.. code-block:: sql
+
+    DROP VIEW redshift.schema.view;
+
+Views created through the connector can be queried using standard Presto SQL.
+
+.. _redshift-datasource-managed-views:
+
+Datasource-managed views
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default, the Redshift connector retrieves Redshift view definitions and allows Presto to analyze and resolve the underlying view SQL.
+
+Some Redshift views may contain Redshift-specific functions or syntax that cannot be analyzed by Presto.
+In these cases, view analysis can be disabled and view resolution delegated to Redshift.
+
+Typical use cases include views that contain Redshift-specific functions or SQL syntax that cannot be analyzed by Presto.
+
+To enable datasource-managed views:
+
+.. code-block:: none
+
+    enable-datasource-managed-views=true
+
+
+Default value:
+
+.. code-block:: none
+
+    enable-datasource-managed-views=false
+
+When datasource-managed views are enabled:
+
+* Presto does not analyze Redshift view definitions.
+* View resolution is delegated to Redshift.
+* Queries against views continue to be executed by Redshift.
+
+Limitations
+^^^^^^^^^^^
+* ``SHOW CREATE VIEW`` and ``DROP VIEW`` are not supported when datasource-managed views are enabled.
+* Views may reference only objects within the same Redshift catalog. Cross-catalog references are not supported.
 
 Redshift Connector Limitations
 ------------------------------
