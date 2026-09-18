@@ -17,6 +17,7 @@ import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.PasswordAuthenticator;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -55,6 +56,9 @@ public class LdapAuthenticator
 {
     private static final Logger log = Logger.get(LdapAuthenticator.class);
 
+    // Characters that carry meaning in an LDAP distinguished name (RFC 4514) or search filter (RFC 4515).
+    private static final CharMatcher SPECIAL_CHARACTERS = CharMatcher.anyOf(",=+<>#;*()\"\\\u0000");
+
     private final String userBindSearchPattern;
     private final Optional<String> groupAuthorizationSearchPattern;
     private final Optional<String> userBaseDistinguishedName;
@@ -85,6 +89,9 @@ public class LdapAuthenticator
     @Override
     public Principal createAuthenticatedPrincipal(String user, String password)
     {
+        if (containsSpecialCharacters(user)) {
+            throw new AccessDeniedException("Username contains a special LDAP character");
+        }
         try {
             return authenticationCache.getUnchecked(new Credentials(user, password));
         }
@@ -172,6 +179,11 @@ public class LdapAuthenticator
     private static String replaceUser(String pattern, String user)
     {
         return pattern.replaceAll("\\$\\{USER}", user);
+    }
+
+    private static boolean containsSpecialCharacters(String user)
+    {
+        return SPECIAL_CHARACTERS.matchesAnyOf(user);
     }
 
     private static void closeContext(DirContext context)
