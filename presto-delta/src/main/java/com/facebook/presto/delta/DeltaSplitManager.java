@@ -142,6 +142,7 @@ public class DeltaSplitManager
             Map<String, String> partitionValues,
             List<DeltaColumn> columns)
     {
+        // Map physical partition keys from Delta Kernel back to their logical query names.
         ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
         for (DeltaColumn column : columns) {
             if (!column.isPartition()) {
