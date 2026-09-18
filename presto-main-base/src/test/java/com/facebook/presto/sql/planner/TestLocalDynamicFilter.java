@@ -16,7 +16,9 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholder;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -40,6 +42,8 @@ import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERI
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -97,6 +101,35 @@ public class TestLocalDynamicFilter
         assertEquals(result.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
                 new VariableReferenceExpression(Optional.empty(), "a1", INTEGER), Domain.singleValue(INTEGER, 7L),
                 new VariableReferenceExpression(Optional.empty(), "a2", INTEGER), Domain.singleValue(INTEGER, 7L))));
+    }
+
+    @Test
+    public void testMultipleDynamicFiltersOnSameProbeVariable()
+            throws ExecutionException, InterruptedException
+    {
+        // A two-sided range predicate "a >= x AND a < y" (or BETWEEN) produces two comparison dynamic
+        // filters (lower and upper bound) that both target the same probe variable "a". The resulting
+        // domains must be intersected rather than overwriting each other, otherwise building the result
+        // used to fail with "Multiple entries with same key: a=Domain@... and a=Domain@...".
+        LocalDynamicFilter filter = new LocalDynamicFilter(
+                ImmutableMultimap.of(
+                        "123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression(Optional.empty(), "a", INTEGER), GREATER_THAN_OR_EQUAL),
+                        "456", new DynamicFilterPlaceholder("456", new VariableReferenceExpression(Optional.empty(), "a", INTEGER), LESS_THAN)),
+                ImmutableMap.of("123", 0, "456", 1),
+                1);
+        assertEquals(filter.getBuildChannels(), ImmutableMap.of("123", 0, "456", 1));
+        Consumer<TupleDomain<String>> consumer = filter.getTupleDomainConsumer();
+        ListenableFuture<TupleDomain<VariableReferenceExpression>> result = filter.getResultFuture();
+        assertFalse(result.isDone());
+
+        consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
+                "123", Domain.singleValue(INTEGER, 10L),
+                "456", Domain.singleValue(INTEGER, 20L))));
+
+        // "123" (>= 10) -> [10, +inf), "456" (< 20) -> (-inf, 20); intersected -> [10, 20)
+        Domain expectedDomain = Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 10L, true, 20L, false)), false);
+        assertEquals(result.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
+                new VariableReferenceExpression(Optional.empty(), "a", INTEGER), expectedDomain)));
     }
 
     @Test
