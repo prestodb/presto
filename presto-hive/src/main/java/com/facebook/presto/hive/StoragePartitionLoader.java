@@ -491,6 +491,16 @@ public class StoragePartitionLoader
             return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName, partition.getPartition(), splittable));
         }
 
+        if (partition.getSyntheticFiles().isPresent()) {
+            Iterator<InternalHiveSplit> syntheticSplits = partition.getSyntheticFiles().get().stream()
+                    .map(file -> splitFactory.createInternalHiveSplit(file, splittable))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .iterator();
+            fileIterators.addLast(syntheticSplits);
+            return COMPLETED_FUTURE;
+        }
+
         fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable, partition.getPartition()));
         return COMPLETED_FUTURE;
     }
