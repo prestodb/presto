@@ -602,6 +602,35 @@ TEST_P(BroadcastTest, broadcastReaderFallsBackWhenTheHandleIsRejected) {
   EXPECT_EQ(pagesRead, pageSizes.size());
 }
 
+TEST_P(BroadcastTest, broadcastWriterHonoursTheHandleReuseGate) {
+  // With the gate off the writer must not even ask the file system for a
+  // handle, so the descriptor column stays empty and readers open by path.
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto fileSystem =
+      velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+  fileSystem->mkdir(tempDirectoryPath->getPath());
+
+  auto writer = std::make_unique<BroadcastFileWriter>(
+      fmt::format("{}/broadcast_gate_off", tempDirectoryPath->getPath()),
+      std::numeric_limits<uint64_t>::max(),
+      1 << 20,
+      getVectorSerdeOptions(GetParam().compressionKind),
+      pool(),
+      /*descriptorEnabled=*/false);
+  writer->write(makeRowVector(
+      {makeFlatVector<int32_t>(4, [](auto row) { return row; })}));
+  writer->noMoreData();
+
+  const auto stats = writer->fileStats();
+  ASSERT_NE(stats, nullptr);
+  ASSERT_EQ(stats->childrenSize(), 4);
+  EXPECT_TRUE(stats->childAt(3)
+                  ->as<SimpleVector<StringView>>()
+                  ->valueAt(0)
+                  .str()
+                  .empty());
+}
+
 TEST_P(BroadcastTest, broadcastReaderCountsItsOpenPath) {
   auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
   auto fileSystem =
