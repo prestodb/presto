@@ -47,6 +47,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -123,6 +124,7 @@ public class BaseJdbcClient
     protected final Cache<RemoteTableNameCacheKey, Map<String, String>> remoteTableNames;
     protected final Set<String> listSchemasIgnoredSchemas;
     protected final boolean caseSensitiveNameMatchingEnabled;
+    protected final int fetchSize;
 
     public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, ConnectionFactory connectionFactory)
     {
@@ -138,6 +140,7 @@ public class BaseJdbcClient
         this.remoteTableNames = remoteNamesCacheBuilder.build();
         this.listSchemasIgnoredSchemas = config.getlistSchemasIgnoredSchemas();
         this.caseSensitiveNameMatchingEnabled = config.isCaseSensitiveNameMatching();
+        this.fetchSize = config.getFetchSize();
     }
 
     @PreDestroy
@@ -630,7 +633,9 @@ public class BaseJdbcClient
     public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
-        return connection.prepareStatement(sql);
+        PreparedStatement statement = connection.prepareStatement(sql);
+        statement.setFetchSize(fetchSize);
+        return statement;
     }
 
     @Override
@@ -644,11 +649,18 @@ public class BaseJdbcClient
     {
         DatabaseMetaData metadata = connection.getMetaData();
         Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
-        return metadata.getTables(
+        ResultSet resultSet = metadata.getTables(
                 connection.getCatalog(),
                 escapeNamePattern(schemaName, escape).orElse(null),
                 escapeNamePattern(tableName, escape).orElse(null),
                 new String[] {"TABLE", "VIEW"});
+        try {
+            resultSet.setFetchSize(fetchSize);
+        }
+        catch (SQLFeatureNotSupportedException e) {
+            // safeguard
+        }
+        return resultSet;
     }
 
     protected String getTableSchemaName(ResultSet resultSet)
