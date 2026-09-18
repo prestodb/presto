@@ -99,14 +99,31 @@ public class ColumnIOConverter
             }
             else if (JSON.equals(type.getTypeSignature().getBase())) {
                 GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
-                if (groupColumnIO.getChildrenCount() != 2) {
-                    return Optional.empty();
+                // Look up by name: the physical column order is not guaranteed
+                // (Iceberg / Spark write metadata first, value second)
+                ColumnIO valueColumnIO = lookupColumnByName(groupColumnIO, "value");
+                ColumnIO metadataColumnIO = lookupColumnByName(groupColumnIO, "metadata");
+                // Shredded Variant files (Iceberg spec §4.3) carry a third child
+                // "typed_value" alongside "metadata" and "value". We do not yet
+                // support reconstructing values from typed_value, so reject them
+                // explicitly rather than silently returning null for every row.
+                boolean hasTypedValue = lookupColumnByName(groupColumnIO, "typed_value") != null;
+                if (hasTypedValue) {
+                    throw new IllegalArgumentException(
+                            "Shredded Variant columns are not supported. " +
+                                    "Column: " + groupColumnIO.getName());
                 }
-                Optional<Field> value = constructField(VarbinaryType.VARBINARY, groupColumnIO.getChild(0));
+                if (valueColumnIO == null) {
+                    throw new IllegalArgumentException("Value field is missing for variant type: " + type);
+                }
+                if (metadataColumnIO == null) {
+                    throw new IllegalArgumentException("Metadata field is missing for variant type: " + type);
+                }
+                Optional<Field> value = constructField(VarbinaryType.VARBINARY, valueColumnIO);
                 if (!value.isPresent()) {
                     throw new IllegalArgumentException("Value field is missing for variant type: " + type);
                 }
-                Optional<Field> metadata = constructField(VarbinaryType.VARBINARY, groupColumnIO.getChild(1));
+                Optional<Field> metadata = constructField(VarbinaryType.VARBINARY, metadataColumnIO);
                 if (!metadata.isPresent()) {
                     throw new IllegalArgumentException("Metadata field is missing for variant type: " + type);
                 }

@@ -35,8 +35,8 @@ as a Hive connector.
 File-Based Metastore
 ^^^^^^^^^^^^^^^^^^^^
 
-For testing or development purposes, this connector can be configured to use a local 
-filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
+For testing or development purposes, this connector can be configured to use a local
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.
 
 Glue catalog
 ^^^^^^^^^^^^
@@ -3060,6 +3060,8 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``ROW``
   * - ``GEOMETRY``
     - ``GEOMETRY``
+  * - ``VARIANT``
+    - ``JSON``
 
 
 No other types are supported.
