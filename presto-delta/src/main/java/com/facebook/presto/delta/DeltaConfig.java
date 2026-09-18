@@ -14,6 +14,7 @@
 package com.facebook.presto.delta;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import jakarta.validation.constraints.NotNull;
 
 public class DeltaConfig
@@ -21,6 +22,7 @@ public class DeltaConfig
     private int maxSplitsBatchSize = 200;
     private boolean parquetDereferencePushdownEnabled = true;
     private boolean caseSensitivePartitionsEnabled = true;
+    private boolean tableStatisticsEnabled = true;
 
     @NotNull
     public boolean isParquetDereferencePushdownEnabled()
@@ -56,6 +58,19 @@ public class DeltaConfig
     public DeltaConfig setCaseSensitivePartitionsEnabled(boolean caseSensitivePartitionsEnabled)
     {
         this.caseSensitivePartitionsEnabled = caseSensitivePartitionsEnabled;
+        return this;
+    }
+
+    public boolean isTableStatisticsEnabled()
+    {
+        return tableStatisticsEnabled;
+    }
+
+    @Config("delta.table-statistics-enabled")
+    @ConfigDescription("Enable table statistics derived from the Delta transaction log")
+    public DeltaConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
+    {
+        this.tableStatisticsEnabled = tableStatisticsEnabled;
         return this;
     }
 }
