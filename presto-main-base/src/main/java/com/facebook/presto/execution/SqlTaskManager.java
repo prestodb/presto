@@ -23,6 +23,7 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
@@ -476,6 +477,20 @@ public class SqlTaskManager
         requireNonNull(remoteSourceTaskId, "remoteSourceTaskId is null");
 
         tasks.getUnchecked(taskId).removeRemoteSource(remoteSourceTaskId);
+    }
+
+    @Override
+    public Map<String, TupleDomain<String>> getDynamicFiltersSince(TaskId taskId, long sinceVersion)
+    {
+        requireNonNull(taskId, "taskId is null");
+        // tasks.getUnchecked() creates a new SqlTask if the taskId is not present (LoadingCache
+        // semantics). A late DynamicFilterFetcher poll arriving after the task has been evicted
+        // will therefore create a ghost SqlTask with empty dynamicFilters — which is harmless
+        // because: (a) DPP is DISABLED by default so this path is never reached on Java-only
+        // clusters; (b) on native clusters the native worker's TaskResource handles the request
+        // directly and never reaches this Java implementation; (c) the returned empty map causes
+        // the fetcher to stop via isFinalFetch or timeout, not to retry indefinitely.
+        return tasks.getUnchecked(taskId).getDynamicFiltersSince(sinceVersion);
     }
 
     @Override

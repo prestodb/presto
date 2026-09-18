@@ -30,6 +30,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.facebook.presto.spi.connector.DynamicFilter;
 import com.google.common.collect.ImmutableMap;
 import jakarta.inject.Inject;
 
@@ -75,7 +76,12 @@ public class SplitManager
         return getSplits(session, table, splitSchedulingStrategy, warningCollector, ImmutableMap.of());
     }
 
-    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector, Map<String, String> partitionColumnMapping)
+    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector, DynamicFilter dynamicFilter)
+    {
+        return getSplits(session, table, splitSchedulingStrategy, warningCollector, dynamicFilter, ImmutableMap.of());
+    }
+
+    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector, DynamicFilter dynamicFilter, Map<String, String> partitionColumnMapping)
     {
         long startTime = System.nanoTime();
         ConnectorId connectorId = table.getConnectorId();
@@ -97,13 +103,19 @@ public class SplitManager
                 table.getTransaction(),
                 connectorSession,
                 layout,
-                new SplitSchedulingContext(splitSchedulingStrategy, preferSplitHostAddresses, warningCollector, partitionColumnMapping));
+                new SplitSchedulingContext(splitSchedulingStrategy, preferSplitHostAddresses, warningCollector, partitionColumnMapping),
+                dynamicFilter);
 
         SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, table.getTransaction(), source);
         if (minScheduleSplitBatchSize > 1) {
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
         }
         return splitSource;
+    }
+
+    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector, Map<String, String> partitionColumnMapping)
+    {
+        return getSplits(session, table, splitSchedulingStrategy, warningCollector, DynamicFilter.EMPTY, partitionColumnMapping);
     }
 
     private ConnectorSplitManager getConnectorSplitManager(ConnectorId connectorId)

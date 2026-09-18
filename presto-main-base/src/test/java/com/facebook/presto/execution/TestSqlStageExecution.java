@@ -38,7 +38,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -57,6 +59,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
@@ -153,6 +156,45 @@ public class TestSqlStageExecution
 
         // cancel the background thread adding tasks
         addTasksTask.cancel(true);
+    }
+
+    @Test
+    public void testAddTaskCreatedListener()
+    {
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(new FinalizerService());
+        StageId stageId = new StageId(new QueryId("query"), 0);
+        SqlStageExecution stage = createSqlStageExecution(
+                new StageExecutionId(stageId, 0),
+                createExchangePlanFragment(),
+                new MockRemoteTaskFactory(executor, scheduledExecutor),
+                TEST_SESSION,
+                true,
+                nodeTaskMap,
+                executor,
+                new NoOpFailureDetector(),
+                new SplitSchedulerStats(),
+                new TableWriteInfo(Optional.empty(), Optional.empty()));
+        stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
+
+        InternalNode node1 = new InternalNode("source1", URI.create("http://10.0.0.1:8080"), NodeVersion.UNKNOWN, false);
+        InternalNode node2 = new InternalNode("source2", URI.create("http://10.0.0.2:8080"), NodeVersion.UNKNOWN, false);
+
+        // Schedule task 1 before listener registration
+        RemoteTask task1 = stage.scheduleTask(node1, 0).orElseThrow(() -> new IllegalStateException("Task not created"));
+
+        List<RemoteTask> notifiedTasks = new CopyOnWriteArrayList<>();
+        stage.addTaskCreatedListener(notifiedTasks::add);
+
+        // Task 1 (pre-existing) should be notified immediately upon listener registration
+        assertTrue(notifiedTasks.contains(task1));
+        assertEquals(notifiedTasks.size(), 1);
+
+        // Schedule task 2 after listener registration
+        RemoteTask task2 = stage.scheduleTask(node2, 1).orElseThrow(() -> new IllegalStateException("Task not created"));
+
+        // Task 2 (late task) should also be notified
+        assertEquals(notifiedTasks.size(), 2);
+        assertTrue(notifiedTasks.contains(task2));
     }
 
     private static PlanFragment createExchangePlanFragment()

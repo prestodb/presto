@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.node;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -27,9 +28,11 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class PrestoSparkTaskManager
@@ -129,5 +132,11 @@ public class PrestoSparkTaskManager
     public void removeRemoteSource(TaskId taskId, TaskId remoteSourceTaskId)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<String, TupleDomain<String>> getDynamicFiltersSince(TaskId taskId, long sinceVersion)
+    {
+        return ImmutableMap.of();
     }
 }

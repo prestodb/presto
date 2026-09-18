@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -55,6 +56,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -140,6 +142,7 @@ public final class SqlStageExecution
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
 
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
+    private final List<Consumer<RemoteTask>> taskCreatedListeners = new CopyOnWriteArrayList<>();
 
     @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
@@ -454,6 +457,22 @@ public final class SqlStageExecution
                 .collect(toImmutableList());
     }
 
+    public void addTaskCreatedListener(Consumer<RemoteTask> listener)
+    {
+        // Snapshot existing tasks under the lock, then invoke the listener outside the
+        // synchronized block. The listener may trigger network I/O (e.g. dynamic filter push)
+        // and must not hold the stage monitor while doing so to avoid deadlocks and
+        // scheduling stalls.
+        List<RemoteTask> existingTasks;
+        synchronized (this) {
+            taskCreatedListeners.add(listener);
+            existingTasks = ImmutableList.copyOf(getAllTasks());
+        }
+        for (RemoteTask task : existingTasks) {
+            listener.accept(task);
+        }
+    }
+
     // We only support removeRemoteSource for single task stage because stages with many tasks introduce coordinator to worker HTTP requests in bursty manner.
     // See https://github.com/prestodb/presto/pull/11065 for a similar issue.
     public void removeRemoteSourceIfSingleTaskStage(TaskId remoteSourceTaskId)
@@ -465,53 +484,76 @@ public final class SqlStageExecution
         allTasks.stream().collect(onlyElement()).removeRemoteSource(remoteSourceTaskId);
     }
 
-    public synchronized Optional<RemoteTask> scheduleTask(InternalNode node, int partition)
+    public Optional<RemoteTask> scheduleTask(InternalNode node, int partition)
     {
         requireNonNull(node, "node is null");
 
-        if (stateMachine.getState().isDone()) {
-            return Optional.empty();
+        RemoteTask newTask;
+        List<Consumer<RemoteTask>> listeners;
+        synchronized (this) {
+            if (stateMachine.getState().isDone()) {
+                return Optional.empty();
+            }
+            checkState(!splitsScheduled.get(), "scheduleTask can not be called once splits have been scheduled");
+            newTask = scheduleTask(node, new TaskId(stateMachine.getStageExecutionId(), partition, DEFAULT_TASK_ATTEMPT_NUMBER), ImmutableMultimap.of());
+            // Snapshot listeners under the lock; invoke outside to avoid holding the monitor during network I/O.
+            listeners = ImmutableList.copyOf(taskCreatedListeners);
         }
-        checkState(!splitsScheduled.get(), "scheduleTask can not be called once splits have been scheduled");
-        return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageExecutionId(), partition, DEFAULT_TASK_ATTEMPT_NUMBER), ImmutableMultimap.of()));
+        for (Consumer<RemoteTask> listener : listeners) {
+            listener.accept(newTask);
+        }
+        return Optional.of(newTask);
     }
 
-    public synchronized Set<RemoteTask> scheduleSplits(InternalNode node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
+    public Set<RemoteTask> scheduleSplits(InternalNode node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
     {
         requireNonNull(node, "node is null");
         requireNonNull(splits, "splits is null");
 
-        if (stateMachine.getState().isDone()) {
-            return ImmutableSet.of();
-        }
-        splitsScheduled.set(true);
+        RemoteTask newTask = null;
+        List<Consumer<RemoteTask>> listeners = ImmutableList.of();
+        synchronized (this) {
+            if (stateMachine.getState().isDone()) {
+                return ImmutableSet.of();
+            }
+            splitsScheduled.set(true);
 
-        checkArgument(planFragment.getTableScanSchedulingOrder().containsAll(splits.keySet()), "Invalid splits");
+            checkArgument(planFragment.getTableScanSchedulingOrder().containsAll(splits.keySet()), "Invalid splits");
 
-        ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
-        Collection<RemoteTask> tasks = this.tasks.get(node);
-        RemoteTask task;
-        if (tasks == null) {
-            // The output buffer depends on the task id starting from 0 and being sequential, since each
-            // task is assigned a private buffer based on task id.
-            TaskId taskId = new TaskId(stateMachine.getStageExecutionId(), nextTaskId.getAndIncrement(), DEFAULT_TASK_ATTEMPT_NUMBER);
-            task = scheduleTask(node, taskId, splits);
-            newTasks.add(task);
+            Collection<RemoteTask> tasks = this.tasks.get(node);
+            RemoteTask task;
+            if (tasks == null) {
+                // The output buffer depends on the task id starting from 0 and being sequential, since each
+                // task is assigned a private buffer based on task id.
+                TaskId taskId = new TaskId(stateMachine.getStageExecutionId(), nextTaskId.getAndIncrement(), DEFAULT_TASK_ATTEMPT_NUMBER);
+                task = scheduleTask(node, taskId, splits);
+                newTask = task;
+                // Snapshot listeners under the lock; invoke outside to avoid holding the monitor during network I/O.
+                listeners = ImmutableList.copyOf(taskCreatedListeners);
+            }
+            else {
+                task = tasks.iterator().next();
+                task.addSplits(splits);
+            }
+            if (noMoreSplitsNotification.size() > 1) {
+                // The assumption that `noMoreSplitsNotification.size() <= 1` currently holds.
+                // If this assumption no longer holds, we should consider calling task.noMoreSplits with multiple entries in one shot.
+                // These kind of methods can be expensive since they are grabbing locks and/or sending HTTP requests on change.
+                throw new UnsupportedOperationException("This assumption no longer holds: noMoreSplitsNotification.size() < 1");
+            }
+            for (Entry<PlanNodeId, Lifespan> entry : noMoreSplitsNotification.entries()) {
+                task.noMoreSplits(entry.getKey(), entry.getValue());
+            }
         }
-        else {
-            task = tasks.iterator().next();
-            task.addSplits(splits);
+        // Invoke task-created listeners outside the synchronized block to avoid stalling
+        // scheduling while listeners perform network I/O (e.g. dynamic filter push).
+        if (newTask != null) {
+            for (Consumer<RemoteTask> listener : listeners) {
+                listener.accept(newTask);
+            }
         }
-        if (noMoreSplitsNotification.size() > 1) {
-            // The assumption that `noMoreSplitsNotification.size() <= 1` currently holds.
-            // If this assumption no longer holds, we should consider calling task.noMoreSplits with multiple entries in one shot.
-            // These kind of methods can be expensive since they are grabbing locks and/or sending HTTP requests on change.
-            throw new UnsupportedOperationException("This assumption no longer holds: noMoreSplitsNotification.size() < 1");
-        }
-        for (Entry<PlanNodeId, Lifespan> entry : noMoreSplitsNotification.entries()) {
-            task.noMoreSplits(entry.getKey(), entry.getValue());
-        }
-        return newTasks.build();
+        Set<RemoteTask> newTasks = newTask != null ? ImmutableSet.of(newTask) : ImmutableSet.of();
+        return newTasks;
     }
 
     private synchronized RemoteTask scheduleTask(InternalNode node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits)

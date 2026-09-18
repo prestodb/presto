@@ -20,6 +20,7 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
+import com.facebook.presto.execution.scheduler.DynamicFilterService;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
@@ -230,8 +231,12 @@ public class PrestoSparkRddFactory
         List<PrestoSparkSource> sources = findTableScanNodes(fragment.getRoot());
         if (!sources.isEmpty()) {
             try (CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager)) {
-                SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP, metadata);
-                Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(fragment, session, tableWriteInfo);
+                // DPP is not applicable on the Presto-on-Spark path: no filters are registered for
+                // Spark queries, so the empty DynamicFilterService is a no-op and the task-count
+                // hint from getDynamicFilters() will be an empty list. If DPP support is ever added
+                // to the Spark path, inject the query-scoped DynamicFilterService instance here.
+                SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP, new DynamicFilterService(), metadata);
+                Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(fragment, session, tableWriteInfo).getSplitSources();
                 taskSourceRdd = Optional.of(createTaskSourcesRdd(
                         fragment.getId(),
                         sparkContext,

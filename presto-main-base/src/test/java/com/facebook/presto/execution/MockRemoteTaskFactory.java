@@ -23,6 +23,7 @@ import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
+import com.facebook.presto.execution.scheduler.RuntimeFilter;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
@@ -559,6 +560,48 @@ public class MockRemoteTaskFactory
         public PlanFragment getPlanFragment()
         {
             return fragment;
+        }
+
+        private final List<DynamicFilterPush> pushedDynamicFilters = new ArrayList<>();
+
+        @Override
+        public synchronized void pushDynamicFilter(PlanNodeId scanNodeId, String filterId, RuntimeFilter constraint)
+        {
+            pushedDynamicFilters.add(new DynamicFilterPush(scanNodeId, filterId, constraint));
+        }
+
+        public synchronized List<DynamicFilterPush> getPushedDynamicFilters()
+        {
+            return ImmutableList.copyOf(pushedDynamicFilters);
+        }
+
+        public static final class DynamicFilterPush
+        {
+            private final PlanNodeId scanNodeId;
+            private final String filterId;
+            private final RuntimeFilter constraint;
+
+            public DynamicFilterPush(PlanNodeId scanNodeId, String filterId, RuntimeFilter constraint)
+            {
+                this.scanNodeId = scanNodeId;
+                this.filterId = filterId;
+                this.constraint = constraint;
+            }
+
+            public PlanNodeId getScanNodeId()
+            {
+                return scanNodeId;
+            }
+
+            public String getFilterId()
+            {
+                return filterId;
+            }
+
+            public RuntimeFilter getConstraint()
+            {
+                return constraint;
+            }
         }
     }
 }
