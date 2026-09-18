@@ -59,7 +59,6 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -81,6 +80,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrde
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -93,7 +93,7 @@ public class TestNativeSidecarPlugin
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
     private static final long SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB = 128;
     private static final int INLINED_SQL_FUNCTIONS_COUNT = 5;
-    private static final Duration SIDECAR_RETRY_MAX_FAILURE_INTERVAL = new Duration(2, TimeUnit.MINUTES);
+    private static final Duration SIDECAR_RETRY_MAX_FAILURE_INTERVAL = new Duration(2, MINUTES);
 
     @Override
     protected void createTables()
@@ -153,7 +153,7 @@ public class TestNativeSidecarPlugin
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
     }
 
-    private static ImmutableMap<String, String> sidecarConfig()
+    private static Map<String, String> sidecarConfig()
     {
         return ImmutableMap.of(
                 "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB",
@@ -970,7 +970,7 @@ public class TestNativeSidecarPlugin
         assertEquals(authenticationManager.getSharedSecret().get(), "internal-shared-secret");
     }
 
-    private void assertRetryConfig(SidecarRetryConfig retryConfig)
+    private static void assertRetryConfig(SidecarRetryConfig retryConfig)
     {
         assertEquals(retryConfig.getMaxFailureInterval(), SIDECAR_RETRY_MAX_FAILURE_INTERVAL);
     }

@@ -23,7 +23,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.SidecarRetryConfig;
-import com.facebook.presto.sidecar.SidecarRetryDriver;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
@@ -47,6 +46,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sidecar.SidecarRetryDriver.executeWithRetry;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
@@ -93,7 +93,7 @@ public class NativeSystemSessionPropertyProvider
 
     private List<PropertyMetadata<?>> fetchSessionProperties()
     {
-        List<SessionPropertyMetadata> nativeSessionProperties = SidecarRetryDriver.executeWithRetry(
+        List<SessionPropertyMetadata> nativeSessionProperties = executeWithRetry(
                 () -> {
                     Request request = prepareGet().setUri(getSidecarLocation()).build();
                     return httpClient.execute(request, createJsonResponseHandler(nativeSessionPropertiesJsonCodec));

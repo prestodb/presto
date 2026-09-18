@@ -19,6 +19,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.util.Backoff;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -29,6 +30,7 @@ import java.util.concurrent.CancellationException;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -84,6 +86,28 @@ public final class SidecarRetryDriver
         return executeWithRetry(operation, new Backoff(maxFailureInterval), description, failureWrapperSupplier);
     }
 
+    /**
+     * Void overload for operations that do not return a value.
+     */
+    public static void executeWithRetry(ThrowingRunnable operation, Duration maxFailureInterval, String description, Supplier<PrestoException> failureWrapperSupplier)
+    {
+        executeWithRetry(() -> {
+            operation.run();
+            return null;
+        }, maxFailureInterval, description, failureWrapperSupplier);
+    }
+
+    /**
+     * Runnable variant that may throw a checked exception.
+     */
+    @FunctionalInterface
+    public interface ThrowingRunnable
+    {
+        void run()
+                throws Exception;
+    }
+
+    @VisibleForTesting
     public static <T> T executeWithRetry(Callable<T> operation, Backoff backoff, String description, Supplier<PrestoException> failureWrapperSupplier)
     {
         requireNonNull(operation, "operation is null");
@@ -92,7 +116,6 @@ public final class SidecarRetryDriver
         requireNonNull(failureWrapperSupplier, "failureWrapperSupplier is null");
         Exception firstTransientFailure = null;
         Exception latestTransientFailure = null;
-        int droppedTransientCount = 0;
         while (true) {
             backoff.startRequest();
             try {
@@ -106,19 +129,17 @@ public final class SidecarRetryDriver
             }
             catch (UnexpectedResponseException | ResponseTooLargeException e) {
                 // Non-transient HTTP-level error — retrying will not help.
-                log.error(e, "Sidecar call for '%s' failed with non-retryable HTTP error", description);
+                log.warn(e, "Sidecar call for '%s' failed with non-retryable HTTP error", description);
                 PrestoException wrapper = failureWrapperSupplier.get();
                 wrapper.addSuppressed(e);
                 throw wrapper;
             }
             catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new PrestoException(GENERIC_INTERNAL_ERROR,
-                        format("Interrupted while waiting to retry sidecar call for '%s'", description), e);
+                throw interrupted(description, e);
             }
             catch (Exception e) {
                 if (!isRetryable(e)) {
-                    log.error(e, "Sidecar call for '%s' failed with non-retryable error", description);
+                    log.warn(e, "Sidecar call for '%s' failed with non-retryable error", description);
                     PrestoException wrapper = failureWrapperSupplier.get();
                     wrapper.addSuppressed(e);
                     throw wrapper;
@@ -128,23 +149,21 @@ public final class SidecarRetryDriver
                     firstTransientFailure = e;
                 }
                 else {
-                    if (latestTransientFailure != null) {
-                        droppedTransientCount++;
-                    }
                     latestTransientFailure = e;
                 }
 
                 if (backoff.failure()) {
-                    log.error(e, "Sidecar call for '%s' failed permanently after %s failures over %s",
+                    log.warn(e, "Sidecar call for '%s' failed permanently after %s failures over %s",
                             description,
                             backoff.getFailureCount(),
                             backoff.getFailureDuration());
                     PrestoException wrapper = failureWrapperSupplier.get();
                     wrapper.addSuppressed(firstTransientFailure);
                     if (latestTransientFailure != null) {
-                        if (droppedTransientCount > 0) {
+                        int dropped = toIntExact(backoff.getFailureCount() - 2);
+                        if (dropped > 0) {
                             wrapper.addSuppressed(new RuntimeException(
-                                    format("... %d intermediate failure(s) dropped ...", droppedTransientCount)));
+                                    format("... %d intermediate failure(s) dropped ...", dropped)));
                         }
                         wrapper.addSuppressed(latestTransientFailure);
                     }
@@ -162,20 +181,25 @@ public final class SidecarRetryDriver
                         NANOSECONDS.sleep(delayNanos);
                     }
                     catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw new PrestoException(GENERIC_INTERNAL_ERROR,
-                                format("Interrupted while waiting to retry sidecar call for '%s'", description), ie);
+                        throw interrupted(description, ie);
                     }
                 }
             }
         }
     }
 
+    private static PrestoException interrupted(String description, InterruptedException e)
+    {
+        Thread.currentThread().interrupt();
+        return new PrestoException(GENERIC_INTERNAL_ERROR,
+                format("Interrupted while waiting to retry sidecar call for '%s'", description), e);
+    }
+
     private static boolean isRetryable(Throwable t)
     {
         // If Airlift/Netty wraps the transport error in UncheckedIOException, unwrap it
-        if (t instanceof UncheckedIOException && t.getCause() != null) {
-            t = t.getCause();
+        if (t instanceof UncheckedIOException) {
+            t = ((UncheckedIOException) t).getCause();
         }
 
         if (t instanceof SocketTimeoutException) {

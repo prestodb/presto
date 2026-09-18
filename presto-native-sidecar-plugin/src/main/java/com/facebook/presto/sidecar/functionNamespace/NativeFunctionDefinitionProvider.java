@@ -23,7 +23,6 @@ import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.SidecarRetryConfig;
-import com.facebook.presto.sidecar.SidecarRetryDriver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
@@ -37,6 +36,7 @@ import java.util.Map;
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.presto.builtin.tools.NativeSidecarFunctionRegistryTool.getSidecarLocationOnStartup;
+import static com.facebook.presto.sidecar.SidecarRetryDriver.executeWithRetry;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -73,9 +73,9 @@ public class NativeFunctionDefinitionProvider
         // getSidecarLocationOnStartup uses its own retry config (sidecarNumRetries / sidecarRetryDelay)
         // scoped to node discovery at startup. The SidecarRetryDriver below retries the HTTP call itself
         // and is governed by SidecarRetryConfig (maxFailureInterval).
-        // Base endpoint: /v1/functions
         URI baseUri;
         try {
+            // Base endpoint: /v1/functions
             baseUri = getSidecarLocationOnStartup(
                     nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis());
         }
@@ -87,7 +87,7 @@ public class NativeFunctionDefinitionProvider
         URI catalogUri = HttpUriBuilder.uriBuilderFrom(baseUri).appendPath(catalogName).build();
 
         Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap =
-                SidecarRetryDriver.executeWithRetry(
+                executeWithRetry(
                         () -> {
                             Request catalogRequest = prepareGet().setUri(catalogUri).build();
                             return httpClient.execute(catalogRequest, createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));

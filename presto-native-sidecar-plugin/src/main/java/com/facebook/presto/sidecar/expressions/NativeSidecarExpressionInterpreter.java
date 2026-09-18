@@ -23,7 +23,6 @@ import com.facebook.airlift.units.Duration;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.NativeSidecarFailureInfo;
 import com.facebook.presto.sidecar.SidecarRetryConfig;
-import com.facebook.presto.sidecar.SidecarRetryDriver;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
@@ -46,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
+import static com.facebook.presto.sidecar.SidecarRetryDriver.executeWithRetry;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
@@ -122,7 +122,7 @@ public class NativeSidecarExpressionInterpreter
     {
         long start = System.nanoTime();
         try {
-            return SidecarRetryDriver.executeWithRetry(
+            return executeWithRetry(
                     () -> httpClient.execute(
                             getSidecarRequest(session, level, resolvedExpressions),
                             createJsonResponseHandler(rowExpressionOptimizationResultJsonCodec)),

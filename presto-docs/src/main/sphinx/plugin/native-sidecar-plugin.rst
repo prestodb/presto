@@ -125,10 +125,10 @@ Retry configuration
 
 The following optional property controls how the coordinator retries transient sidecar HTTP failures across all components (expression optimization, plan validation, session-property retrieval, and UDF discovery). It can be set in any of the component ``.properties`` files described above.
 
-================================================ ===================================================================== ==============================
-Property Name                                    Description                                                           Default
-================================================ ===================================================================== ==============================
-``sidecar.retry.max-failure-interval``           Maximum duration to keep retrying transient sidecar HTTP failures     ``5s``
-                                                 before propagating the error to the query. Does not apply to
-                                                 non-retryable errors such as unexpected HTTP status codes.
-================================================ ===================================================================== ==============================
+============================================ ===================================================================== ==============================
+Property Name                                Description                                                           Default
+============================================ ===================================================================== ==============================
+``sidecar.retry.max-failure-interval``       Maximum duration to retry transient sidecar HTTP failures before      ``5s``
+                                             failing the query. Does not apply to non-retryable errors such as
+                                             unexpected HTTP status codes.
+============================================ ===================================================================== ==============================

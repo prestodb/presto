@@ -19,9 +19,12 @@ import com.facebook.airlift.units.Duration;
 import com.facebook.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-// Shared retry configuration for sidecar HTTP clients; used by SidecarRetryDriver.
+/**
+ * Shared retry configuration for sidecar HTTP clients; used by {@link SidecarRetryDriver}.
+ */
 public class SidecarRetryConfig
 {
     public static final String CONFIG_PREFIX = "sidecar.retry";
@@ -36,9 +39,10 @@ public class SidecarRetryConfig
     }
 
     @Config("max-failure-interval")
-    @ConfigDescription("Maximum duration to keep retrying transient sidecar HTTP failures before giving up; this value directly caps planning-path latency for per-query sidecar calls (expression optimization, plan validation)")
+    @ConfigDescription("Maximum duration to retry transient sidecar HTTP failures before failing the query")
     public SidecarRetryConfig setMaxFailureInterval(Duration maxFailureInterval)
     {
+        requireNonNull(maxFailureInterval, "maxFailureInterval is null");
         this.maxFailureInterval = maxFailureInterval;
         return this;
     }

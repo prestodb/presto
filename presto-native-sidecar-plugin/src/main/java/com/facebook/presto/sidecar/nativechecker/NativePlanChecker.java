@@ -24,7 +24,6 @@ import com.facebook.airlift.units.Duration;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.NativeSidecarFailureInfo;
 import com.facebook.presto.sidecar.SidecarRetryConfig;
-import com.facebook.presto.sidecar.SidecarRetryDriver;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Node;
@@ -63,6 +62,7 @@ import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticB
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sidecar.SidecarRetryDriver.executeWithRetry;
 import static com.facebook.presto.sidecar.nativechecker.NativePlanCheckerErrorCode.NATIVEPLANCHECKER_CONNECTION_ERROR;
 import static com.facebook.presto.sidecar.nativechecker.NativePlanCheckerErrorCode.NATIVEPLANCHECKER_UNKNOWN_CONVERSION_FAILURE;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -70,6 +70,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
@@ -196,15 +197,14 @@ public final class NativePlanChecker
         long start = System.nanoTime();
 
         try {
-            SidecarRetryDriver.executeWithRetry(
+            executeWithRetry(
                     () -> {
                         StringResponse response = httpClient.execute(getSidecarRequest(requestBodyJson), createStringResponseHandler());
                         if (response.getStatusCode() != 200) {
                             NativeSidecarFailureInfo failure = processResponseFailure(response);
-                            String message = String.format("Error from native plan checker: %s", firstNonNull(failure.getMessage(), "Internal error"));
+                            String message = format("Error from native plan checker: %s", firstNonNull(failure.getMessage(), "Internal error"));
                             throw new PrestoException(failure::getErrorCode, message, failure.toException());
                         }
-                        return null;
                     },
                     retryConfig.getMaxFailureInterval(),
                     "plan validation",

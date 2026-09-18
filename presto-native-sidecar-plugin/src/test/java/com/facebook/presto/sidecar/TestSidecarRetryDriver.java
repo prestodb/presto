@@ -28,6 +28,7 @@ import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.sidecar.SidecarRetryDriver.executeWithRetry;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -37,18 +38,15 @@ import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
-public class TestNativeSidecarRetryDriver
+public class TestSidecarRetryDriver
 {
     /**
-     * Returns a Backoff that treats every failure as permanent after minTries by
-     * using a ticker that advances by maxFailureInterval on each read, so no real
-     * sleeping occurs.
+     * A ticker that advances 10 seconds on every read, so {@link Backoff#failure()} returns
+     * {@code true} as soon as {@code failureCount >= minTries} without any real sleeping.
      */
-    private static Backoff instantFailingBackoff()
+    private static Ticker advancingTicker()
     {
-        // Ticker that advances 10 seconds on every read — guarantees failure() returns
-        // true after the very first failure interval check (failureCount >= minTries=1).
-        Ticker advancingTicker = new Ticker()
+        return new Ticker()
         {
             private long nanos;
 
@@ -59,33 +57,25 @@ public class TestNativeSidecarRetryDriver
                 return nanos;
             }
         };
-        return new Backoff(1, new Duration(1, MILLISECONDS), advancingTicker, ImmutableList.of(new Duration(0, MILLISECONDS)));
+    }
+
+    /** Backoff that treats the very first failure as permanent (minTries = 1). */
+    private static Backoff instantFailingBackoff()
+    {
+        return backoffAllowingTransients(0);
     }
 
     /**
      * Returns a Backoff that allows exactly {@code transientAttempts} transient failures
-     * before permanently failing. Uses an advancing ticker (same as {@link #instantFailingBackoff})
-     * so permanence is decided by minTries alone, with no dependence on wall time.
+     * before permanently failing. Uses {@link #advancingTicker()} so permanence is decided
+     * by minTries alone, with no dependence on wall time.
      */
     private static Backoff backoffAllowingTransients(int transientAttempts)
     {
-        // Ticker advances by 10 s on every read, so failureDuration >= maxFailureInterval
-        // is satisfied as soon as failureCount >= minTries (= transientAttempts + 1).
-        Ticker advancingTicker = new Ticker()
-        {
-            private long nanos;
-
-            @Override
-            public long read()
-            {
-                nanos += SECONDS.toNanos(10);
-                return nanos;
-            }
-        };
         return new Backoff(
                 transientAttempts + 1,
                 new Duration(1, SECONDS),
-                advancingTicker,
+                advancingTicker(),
                 ImmutableList.of(new Duration(0, MILLISECONDS)));
     }
 
@@ -93,7 +83,7 @@ public class TestNativeSidecarRetryDriver
     public void testSuccessOnFirstAttemptReturnsResult()
     {
         Backoff backoff = instantFailingBackoff();
-        String result = SidecarRetryDriver.executeWithRetry(
+        String result = executeWithRetry(
                 () -> "ok",
                 backoff,
                 "test",
@@ -106,9 +96,9 @@ public class TestNativeSidecarRetryDriver
     {
         // Fail twice with IOException, then succeed on the third attempt.
         AtomicInteger attempts = new AtomicInteger();
-        Backoff backoff = backoffAllowingTransients(3);
+        Backoff backoff = backoffAllowingTransients(2);
 
-        String result = SidecarRetryDriver.executeWithRetry(
+        String result = executeWithRetry(
                 () -> {
                     if (attempts.incrementAndGet() < 3) {
                         throw new IOException("transient failure " + attempts.get());
@@ -130,7 +120,7 @@ public class TestNativeSidecarRetryDriver
         AtomicInteger attempts = new AtomicInteger();
         Backoff backoff = backoffAllowingTransients(3);
 
-        String result = SidecarRetryDriver.executeWithRetry(
+        String result = executeWithRetry(
                 () -> {
                     int count = attempts.incrementAndGet();
                     if (count == 1) {
@@ -155,7 +145,7 @@ public class TestNativeSidecarRetryDriver
         AtomicInteger attempts = new AtomicInteger();
 
         PrestoException thrown = expectThrows(PrestoException.class, () ->
-                SidecarRetryDriver.executeWithRetry(
+                executeWithRetry(
                         () -> {
                             attempts.incrementAndGet();
                             throw new IllegalArgumentException("malformed json response");
@@ -175,7 +165,7 @@ public class TestNativeSidecarRetryDriver
         AtomicInteger attempts = new AtomicInteger();
 
         PrestoException thrown = expectThrows(PrestoException.class, () ->
-                SidecarRetryDriver.executeWithRetry(
+                executeWithRetry(
                         () -> {
                             attempts.incrementAndGet();
                             throw new InterruptedIOException("thread interrupted");
@@ -196,7 +186,7 @@ public class TestNativeSidecarRetryDriver
         PrestoException originalException = new PrestoException(NOT_SUPPORTED, "definitive error");
 
         PrestoException thrown = expectThrows(PrestoException.class, () ->
-                SidecarRetryDriver.executeWithRetry(
+                executeWithRetry(
                         () -> {
                             attempts.incrementAndGet();
                             throw originalException;
@@ -215,7 +205,7 @@ public class TestNativeSidecarRetryDriver
         AtomicInteger attempts = new AtomicInteger();
 
         PrestoException thrown = expectThrows(PrestoException.class, () ->
-                SidecarRetryDriver.executeWithRetry(
+                executeWithRetry(
                         () -> {
                             attempts.incrementAndGet();
                             throw new ResponseTooLargeException();
@@ -235,7 +225,7 @@ public class TestNativeSidecarRetryDriver
         AtomicInteger attempts = new AtomicInteger();
 
         PrestoException thrown = expectThrows(PrestoException.class, () ->
-                SidecarRetryDriver.executeWithRetry(
+                executeWithRetry(
                         () -> {
                             attempts.incrementAndGet();
                             throw new IOException("transient " + attempts.get());
@@ -257,7 +247,7 @@ public class TestNativeSidecarRetryDriver
         AtomicInteger attempts = new AtomicInteger();
 
         PrestoException thrown = expectThrows(PrestoException.class, () ->
-                SidecarRetryDriver.executeWithRetry(
+                executeWithRetry(
                         () -> {
                             attempts.incrementAndGet();
                             throw new IOException("transient " + attempts.get());
@@ -277,12 +267,12 @@ public class TestNativeSidecarRetryDriver
     }
 
     @Test
-    public void testBoundedSuppressedHistoryTwoFailuresNoDropSummary()
+    public void testBoundedSuppressedHistoryThreeFailuresOneDropped()
     {
         AtomicInteger attempts = new AtomicInteger();
 
         PrestoException thrown = expectThrows(PrestoException.class, () ->
-                SidecarRetryDriver.executeWithRetry(
+                executeWithRetry(
                         () -> {
                             attempts.incrementAndGet();
                             throw new IOException("transient " + attempts.get());

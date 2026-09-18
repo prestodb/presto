@@ -346,6 +346,7 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestNativeSidecar*.java</exclude>
+                                <exclude>**/TestSidecarRetryDriver.java</exclude>
                                 <exclude>**/TestNativeExpressionInterpreter.java</exclude>
                                 <exclude>**/TestNativeExpressionOptimizer.java</exclude>
                             </excludes>
