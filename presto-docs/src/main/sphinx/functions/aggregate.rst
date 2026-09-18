@@ -159,6 +159,22 @@ General Aggregate Functions
         ) AS t(name, age, gender);
         --(C0ACD56CF866E759)//hex format
 
+.. function:: collect_list(x) -> array<[same as input]>
+
+    This is an alias for :func:`!array_agg`.
+    ::
+
+        SELECT collect_list(name)
+        FROM
+        (
+            VALUES
+                ('Alice', 30,'male'),
+                ('Bob', 25,'male'),
+                ('Charlie', 22,'female'),
+                ('Lucy', 20,'female')
+        ) AS t(name, age, gender);
+        --['Alice','Bob','Charlie','Lucy']
+
 .. function:: count(*) -> bigint
 
     Returns the number of input rows.
