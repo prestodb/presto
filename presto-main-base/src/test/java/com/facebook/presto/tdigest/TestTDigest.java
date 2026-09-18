@@ -209,6 +209,30 @@ public class TestTDigest
     }
 
     @Test
+    public void testMergeWithLargeTotalWeight()
+    {
+        // Reproduces production failure where totalWeight ~9.8E18 causes
+        // the absolute epsilon check (0.001) to fail due to normal
+        // floating-point rounding at large magnitudes.
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+
+        // Add entries with large weights to push totalWeight past 1E18
+        double largeWeight = 1e15;
+        for (int i = 0; i < 10000; i++) {
+            tDigest.add(i * 0.01, largeWeight);
+        }
+
+        // Merge with another large-weight digest to trigger the merge() sanity check
+        TDigest other = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        for (int i = 0; i < 10000; i++) {
+            other.add(i * 0.01 + 50, largeWeight);
+        }
+
+        // This should not throw IllegalArgumentException
+        tDigest.merge(other);
+    }
+
+    @Test
     public void testLargeScalePreservesWeights()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
