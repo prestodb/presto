@@ -10,8 +10,8 @@ events:
 * Split completion (success or failure)
 
 This functionality enables development of custom logging, debugging and
-performance analysis plugins. In a Presto cluster, only a single event
-listener plugin can be active at a time .
+performance analysis plugins. In a Presto cluster, multiple event listener plugins
+can be active at the same time.
 
 Implementation
 --------------
