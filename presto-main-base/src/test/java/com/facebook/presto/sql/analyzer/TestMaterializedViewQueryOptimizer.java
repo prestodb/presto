@@ -3920,6 +3920,44 @@ public class TestMaterializedViewQueryOptimizer
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
+    @Test
+    public void testWithTrimMappedColumn()
+    {
+        // TRIM(BOTH FROM a) where 'a' is mapped to 'mv_a' in the MV — the rewriter must
+        // rebuild the Trim node with the rewritten trimSource, not return the original node.
+        String originalViewSql = format("SELECT a AS mv_a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT TRIM(BOTH FROM a), b FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT TRIM(BOTH FROM mv_a), b FROM %s", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testWithTrimLeadingTrailingMappedColumn()
+    {
+        // Verify LEADING and TRAILING specifications are also reconstructed correctly.
+        String originalViewSql = format("SELECT a AS mv_a, b FROM %s", BASE_TABLE_1);
+
+        String baseQuerySql = format("SELECT TRIM(LEADING FROM a), b FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT TRIM(LEADING FROM mv_a), b FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        baseQuerySql = format("SELECT TRIM(TRAILING FROM a), b FROM %s", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT TRIM(TRAILING FROM mv_a), b FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testWithTrimCharacterMappedColumn()
+    {
+        // Trim character is also an expression — it must be rewritten when it references a mapped column.
+        String originalViewSql = format("SELECT a AS mv_a, b AS mv_b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT TRIM(BOTH b FROM a), b FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT TRIM(BOTH mv_b FROM mv_a), mv_b AS b FROM %s", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
     private void assertOptimizedQuery(String baseQuerySql, String expectedViewSql, String originalViewSql, String baseTableName, String originalViewName)
     {
         transaction(transactionManager, accessControl)

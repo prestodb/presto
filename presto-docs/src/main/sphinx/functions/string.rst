@@ -258,7 +258,7 @@ For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:
 
 .. function:: trim( [ [ specification ] [ string ] FROM ] source ) -> varchar
 
-     Removes any leading and/or trailing characters as specified up to and
+     Removes any leading or trailing characters as specified up to and
      including ``string`` from ``source``::
 
          SELECT trim('!' FROM '!foo!'); -- 'foo'

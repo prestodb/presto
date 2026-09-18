@@ -82,6 +82,7 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.With;
@@ -774,6 +775,15 @@ public class MaterializedViewQueryOptimizer
                     node.getType(),
                     node.isSafe(),
                     node.isTypeOnly());
+        }
+
+        @Override
+        protected Node visitTrim(Trim node, Void context)
+        {
+            return new Trim(
+                    node.getSpecification(),
+                    (Expression) process(node.getTrimSource(), context),
+                    node.getTrimCharacter().map(c -> (Expression) process(c, context)));
         }
 
         @Override
