@@ -183,7 +183,12 @@ public class MaterializedViewJoinQueryRewriter
             try {
                 MaterializedViewDefinition mvDef = metadataResolver.getMaterializedView(materializedViewName).orElseThrow(() ->
                         new IllegalStateException("Materialized view definition not present in metadata as expected."));
-                materializedViewTable = new Table(QualifiedName.of(mvDef.getTable()));
+                // Use a fully-qualified 3-part name for the storage table so that
+                // StatementAnalyzer can resolve it regardless of session defaults.
+                materializedViewTable = new Table(QualifiedName.of(
+                        materializedViewName.getCatalogName(),
+                        mvDef.getSchema(),
+                        mvDef.getTable()));
                 mvPrefix = isAliasedLeaf() ? swappedPrefix : new Identifier(mvDef.getTable());
 
                 Query mvQuery = (Query) sqlParser.createStatement(mvDef.getOriginalSql(), createParsingOptions(session));
@@ -222,6 +227,7 @@ public class MaterializedViewJoinQueryRewriter
                         newWhere,
                         newGroupBy,
                         querySpecification.getHaving(),
+                        querySpecification.getWindows(),
                         newOrderBy,
                         querySpecification.getOffset(),
                         querySpecification.getLimit());
@@ -240,6 +246,12 @@ public class MaterializedViewJoinQueryRewriter
             }
             if (querySpecification.getHaving().isPresent()) {
                 log.debug("JOIN MV rewrite rejected: query has HAVING. MV=%s", materializedViewName);
+                return false;
+            }
+            // A WINDOW clause is carried over unchanged, so its expressions would still reference the
+            // relation the rewrite replaces.
+            if (!querySpecification.getWindows().isEmpty()) {
+                log.debug("JOIN MV rewrite rejected: query has WINDOW clause. MV=%s", materializedViewName);
                 return false;
             }
             if (mvInfo.getGroupBy().isPresent()) {

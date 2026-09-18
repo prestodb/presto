@@ -339,6 +339,7 @@ public class TestPlanPrinter
                 0L,
 
                 rawInputDataSize,
+                0L,
                 rawInputPositions,
 
                 inputDataSize,

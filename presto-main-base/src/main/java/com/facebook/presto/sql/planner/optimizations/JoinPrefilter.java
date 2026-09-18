@@ -51,10 +51,8 @@ import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
-import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
+import static com.facebook.presto.sql.planner.PlannerUtils.copyDeterministicScanNodes;
 import static com.facebook.presto.sql.planner.PlannerUtils.getVariableHash;
-import static com.facebook.presto.sql.planner.PlannerUtils.isDeterministicScanFilterProject;
-import static com.facebook.presto.sql.planner.PlannerUtils.isDeterministicScanFilterProjectOrUnion;
 import static com.facebook.presto.sql.planner.PlannerUtils.isScanFilterProject;
 import static com.facebook.presto.sql.planner.PlannerUtils.isScanFilterProjectOrUnion;
 import static com.facebook.presto.sql.planner.PlannerUtils.projectExpressions;
@@ -126,16 +124,16 @@ public class JoinPrefilter
     private static Optional<PlanNode> findCloneableSource(
             PlanNode node,
             Set<VariableReferenceExpression> joinKeyVars,
-            FunctionAndTypeManager functionAndTypeManager,
             boolean complexEnabled)
     {
         // Base case: scan/filter/project, plus UNION ALL of such when complex mode is enabled.
-        // The UnionNode-aware helpers are intentionally separate from the plain
-        // isScanFilterProject / isDeterministicScanFilterProject so that other optimizers
-        // calling those don't silently gain UNION ALL handling without being audited.
+        // isScanFilterProjectOrUnion is intentionally separate from the plain isScanFilterProject so that
+        // other optimizers calling the latter don't silently gain UNION ALL handling without being audited.
+        // Determinism is not checked here: copyDeterministicScanNodes refuses to copy a subtree that
+        // contains a non-deterministic expression, and the rewrite is abandoned when it does.
         if (complexEnabled
-                ? isScanFilterProjectOrUnion(node) && isDeterministicScanFilterProjectOrUnion(node, functionAndTypeManager)
-                : isScanFilterProject(node) && isDeterministicScanFilterProject(node, functionAndTypeManager)) {
+                ? isScanFilterProjectOrUnion(node)
+                : isScanFilterProject(node)) {
             return Optional.of(node);
         }
 
@@ -169,13 +167,11 @@ public class JoinPrefilter
             }
 
             if (leftOutputs.containsAll(resolvedKeys.get())
-                    && isScanFilterProject(crossJoin.getLeft())
-                    && isDeterministicScanFilterProject(crossJoin.getLeft(), functionAndTypeManager)) {
+                    && isScanFilterProject(crossJoin.getLeft())) {
                 return Optional.of(crossJoin.getLeft());
             }
             if (rightOutputs.containsAll(resolvedKeys.get())
-                    && isScanFilterProject(crossJoin.getRight())
-                    && isDeterministicScanFilterProject(crossJoin.getRight(), functionAndTypeManager)) {
+                    && isScanFilterProject(crossJoin.getRight())) {
                 return Optional.of(crossJoin.getRight());
             }
         }
@@ -190,8 +186,7 @@ public class JoinPrefilter
             Set<VariableReferenceExpression> replicateVars = ImmutableSet.copyOf(unnest.getReplicateVariables());
 
             if (replicateVars.containsAll(resolvedKeys.get())
-                    && isScanFilterProject(unnest.getSource())
-                    && isDeterministicScanFilterProject(unnest.getSource(), functionAndTypeManager)) {
+                    && isScanFilterProject(unnest.getSource())) {
                 return Optional.of(unnest.getSource());
             }
         }
@@ -209,8 +204,7 @@ public class JoinPrefilter
                     && agg.getGroupingSetCount() == 1
                     && !agg.hasEmptyGroupingSet()
                     && groupingKeys.containsAll(resolvedKeys.get())
-                    && isScanFilterProject(agg.getSource())
-                    && isDeterministicScanFilterProject(agg.getSource(), functionAndTypeManager)) {
+                    && isScanFilterProject(agg.getSource())) {
                 return Optional.of(agg.getSource());
             }
         }
@@ -305,16 +299,21 @@ public class JoinPrefilter
                 List<VariableReferenceExpression> rightKeyList = equiJoinClause.stream().map(EquiJoinClause::getRight).collect(toImmutableList());
 
                 Set<VariableReferenceExpression> leftKeySet = ImmutableSet.copyOf(leftKeyList);
-                Optional<PlanNode> cloneableSource = findCloneableSource(rewrittenLeft, leftKeySet, functionAndTypeManager, complexEnabled);
+                Optional<PlanNode> cloneableSource = findCloneableSource(rewrittenLeft, leftKeySet, complexEnabled);
 
-                if (cloneableSource.isPresent()) {
+                // The copy is refused when the subtree cannot be duplicated safely, e.g. it is not
+                // deterministic, in which case the prefilter is not applied
+                Map<VariableReferenceExpression, VariableReferenceExpression> leftVarMap = new HashMap();
+                Optional<PlanNode> copiedLeftKeys = cloneableSource.flatMap(
+                        source -> copyDeterministicScanNodes(source, metadata, idAllocator, leftKeyList, leftVarMap));
+
+                if (copiedLeftKeys.isPresent()) {
                     checkState(IntStream.range(0, leftKeyList.size()).boxed().allMatch(i -> leftKeyList.get(i).getType().equals(rightKeyList.get(i).getType())));
 
                     boolean hashJoinKey = leftKeyList.size() > 1 || (leftKeyList.get(0).getType().equals(VARCHAR) || leftKeyList.get(0).getType() instanceof VarcharType);
 
                     // First create a SELECT DISTINCT leftKey FROM left
-                    Map<VariableReferenceExpression, VariableReferenceExpression> leftVarMap = new HashMap();
-                    PlanNode leftKeys = clonePlanNode(cloneableSource.get(), session, metadata, idAllocator, leftKeyList, leftVarMap);
+                    PlanNode leftKeys = copiedLeftKeys.get();
                     ImmutableList.Builder<RowExpression> expressionsToProject = ImmutableList.builder();
                     if (hashJoinKey) {
                         RowExpression hashExpression = getVariableHash(leftKeyList, functionAndTypeManager);

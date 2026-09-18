@@ -45,6 +45,10 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.rest.AuthenticationType.BASIC;
 import static com.facebook.presto.iceberg.rest.AuthenticationType.OAUTH2;
+import static com.facebook.presto.iceberg.rest.IcebergRestCatalogFactory.REST_PROXY_HOSTNAME;
+import static com.facebook.presto.iceberg.rest.IcebergRestCatalogFactory.REST_PROXY_PASSWORD;
+import static com.facebook.presto.iceberg.rest.IcebergRestCatalogFactory.REST_PROXY_PORT;
+import static com.facebook.presto.iceberg.rest.IcebergRestCatalogFactory.REST_PROXY_USERNAME;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -184,5 +188,72 @@ public class TestIcebergSmokeRest
         assertNull(properties.get(AUTH_TYPE));
         assertNull(properties.get(BASIC_USERNAME));
         assertNull(properties.get(BASIC_PASSWORD));
+    }
+
+    @Test
+    public void testAllProxyProperties()
+    {
+        IcebergRestConfig restConfig = new IcebergRestConfig()
+                .setServerUri(serverUri)
+                .setProxyHostname("proxy.example.com")
+                .setProxyPort(8080)
+                .setProxyUsername("proxyUser")
+                .setProxyPassword("proxyPass");
+
+        IcebergRestCatalogFactory catalogFactory = (IcebergRestCatalogFactory) getCatalogFactory(restConfig);
+        Map<String, String> properties = catalogFactory.getCatalogProperties(getSession().toConnectorSession());
+
+        assertEquals(properties.get(REST_PROXY_HOSTNAME), "proxy.example.com");
+        assertEquals(properties.get(REST_PROXY_PORT), "8080");
+        assertEquals(properties.get(REST_PROXY_USERNAME), "proxyUser");
+        assertEquals(properties.get(REST_PROXY_PASSWORD), "proxyPass");
+    }
+
+    @Test
+    public void testProxyHostAndPortWithoutCredentials()
+    {
+        IcebergRestConfig restConfig = new IcebergRestConfig()
+                .setServerUri(serverUri)
+                .setProxyHostname("proxy.example.com")
+                .setProxyPort(8080);
+
+        IcebergRestCatalogFactory catalogFactory = (IcebergRestCatalogFactory) getCatalogFactory(restConfig);
+        Map<String, String> properties = catalogFactory.getCatalogProperties(getSession().toConnectorSession());
+
+        assertEquals(properties.get(REST_PROXY_HOSTNAME), "proxy.example.com");
+        assertEquals(properties.get(REST_PROXY_PORT), "8080");
+        assertNull(properties.get(REST_PROXY_USERNAME));
+        assertNull(properties.get(REST_PROXY_PASSWORD));
+    }
+
+    @Test
+    public void testProxyIgnoredWithoutPort()
+    {
+        IcebergRestConfig restConfig = new IcebergRestConfig()
+                .setServerUri(serverUri)
+                .setProxyHostname("proxy.example.com");
+
+        IcebergRestCatalogFactory catalogFactory = (IcebergRestCatalogFactory) getCatalogFactory(restConfig);
+        Map<String, String> properties = catalogFactory.getCatalogProperties(getSession().toConnectorSession());
+
+        assertNull(properties.get(REST_PROXY_HOSTNAME));
+        assertNull(properties.get(REST_PROXY_PORT));
+        assertNull(properties.get(REST_PROXY_USERNAME));
+        assertNull(properties.get(REST_PROXY_PASSWORD));
+    }
+
+    @Test
+    public void testNoProxy()
+    {
+        IcebergRestConfig restConfig = new IcebergRestConfig()
+                .setServerUri(serverUri);
+
+        IcebergRestCatalogFactory catalogFactory = (IcebergRestCatalogFactory) getCatalogFactory(restConfig);
+        Map<String, String> properties = catalogFactory.getCatalogProperties(getSession().toConnectorSession());
+
+        assertNull(properties.get(REST_PROXY_HOSTNAME));
+        assertNull(properties.get(REST_PROXY_PORT));
+        assertNull(properties.get(REST_PROXY_USERNAME));
+        assertNull(properties.get(REST_PROXY_PASSWORD));
     }
 }

@@ -5,12 +5,12 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.299-SNAPSHOT</version>
+        <version>0.300-SNAPSHOT</version>
     </parent>
 
     <groupId>com.facebook.presto.router</groupId>
     <artifactId>presto-plan-checker-router-plugin</artifactId>
-    <version>0.299-SNAPSHOT</version>
+    <version>0.300-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>presto-plan-checker-router-plugin</name>
     <description>Presto plan checker router plugin</description>
@@ -229,6 +229,30 @@
             <artifactId>presto-native-sql-invoked-functions-plugin</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.docker-java</groupId>
+            <artifactId>docker-java-api</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 

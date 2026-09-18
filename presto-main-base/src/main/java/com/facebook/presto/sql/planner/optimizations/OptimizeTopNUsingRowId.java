@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
@@ -51,9 +50,8 @@ import static com.facebook.presto.SystemSessionProperties.isOptimizeTopNUsingRow
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.PlannerUtils.addColumnToTableScan;
 import static com.facebook.presto.sql.planner.PlannerUtils.addPassThroughVariable;
-import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
+import static com.facebook.presto.sql.planner.PlannerUtils.copyDeterministicScanNodes;
 import static com.facebook.presto.sql.planner.PlannerUtils.findTableScanNode;
-import static com.facebook.presto.sql.planner.PlannerUtils.isDeterministicScanFilterProject;
 import static com.facebook.presto.sql.planner.PlannerUtils.isScanFilterProject;
 import static com.facebook.presto.sql.planner.PlannerUtils.restrictOutput;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -114,7 +112,7 @@ public class OptimizeTopNUsingRowId
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
-            Rewriter rewriter = new Rewriter(session, metadata, idAllocator, variableAllocator, metadata.getFunctionAndTypeManager());
+            Rewriter rewriter = new Rewriter(session, metadata, idAllocator, variableAllocator);
             PlanNode rewritten = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
             return PlanOptimizerResult.optimizerResult(rewritten, rewriter.isPlanChanged());
         }
@@ -128,17 +126,15 @@ public class OptimizeTopNUsingRowId
         private final Metadata metadata;
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
-        private final FunctionAndTypeManager functionAndTypeManager;
         private final int minColumnSavings;
         private boolean planChanged;
 
-        private Rewriter(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
+        private Rewriter(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
-            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
             this.minColumnSavings = getOptimizeTopNUsingRowIdMinColumnSavings(session);
         }
 
@@ -159,11 +155,6 @@ public class OptimizeTopNUsingRowId
 
             // Guard: source must be a scan-filter-project chain
             if (!isScanFilterProject(source)) {
-                return replaceSource(node, source);
-            }
-
-            // Guard: source must be deterministic
-            if (!isDeterministicScanFilterProject(source, functionAndTypeManager)) {
                 return replaceSource(node, source);
             }
 
@@ -210,7 +201,12 @@ public class OptimizeTopNUsingRowId
             // 2. Clone narrow source: sort keys only + $row_id
             List<VariableReferenceExpression> sortKeys = node.getOrderingScheme().getOrderByVariables();
             Map<VariableReferenceExpression, VariableReferenceExpression> varMap = new HashMap<>();
-            PlanNode narrowClone = clonePlanNode(source, session, metadata, idAllocator, sortKeys, varMap);
+            // The copy is refused when the source cannot be duplicated safely, e.g. it is not deterministic
+            Optional<PlanNode> narrowCloneCopy = copyDeterministicScanNodes(source, metadata, idAllocator, sortKeys, varMap);
+            if (!narrowCloneCopy.isPresent()) {
+                return replaceSource(node, source);
+            }
+            PlanNode narrowClone = narrowCloneCopy.get();
 
             // Add $row_id to the cloned narrow source too
             Optional<TableScanNode> clonedTableScanOpt = findTableScanNode(narrowClone);
@@ -320,11 +316,6 @@ public class OptimizeTopNUsingRowId
                 return replaceSource(node, source);
             }
 
-            // Guard: source must be deterministic
-            if (!isDeterministicScanFilterProject(source, functionAndTypeManager)) {
-                return replaceSource(node, source);
-            }
-
             // Find the underlying TableScanNode
             Optional<TableScanNode> tableScanOpt = findTableScanNode(source);
             if (!tableScanOpt.isPresent()) {
@@ -370,7 +361,12 @@ public class OptimizeTopNUsingRowId
 
             // 2. Clone narrow source: partition/order keys only + $row_id
             Map<VariableReferenceExpression, VariableReferenceExpression> varMap = new HashMap<>();
-            PlanNode narrowClone = clonePlanNode(source, session, metadata, idAllocator, narrowKeys, varMap);
+            // The copy is refused when the source cannot be duplicated safely, e.g. it is not deterministic
+            Optional<PlanNode> narrowCloneCopy = copyDeterministicScanNodes(source, metadata, idAllocator, narrowKeys, varMap);
+            if (!narrowCloneCopy.isPresent()) {
+                return replaceSource(node, source);
+            }
+            PlanNode narrowClone = narrowCloneCopy.get();
 
             // Add $row_id to the cloned narrow source too
             Optional<TableScanNode> clonedTableScanOpt = findTableScanNode(narrowClone);

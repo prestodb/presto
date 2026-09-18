@@ -23,7 +23,7 @@ Hive Metastore catalog
 ^^^^^^^^^^^^^^^^^^^^^^
 
 The Iceberg connector supports the same configuration for
-`HMS <https://prestodb.io/docs/current/connector/hive.html#metastore-configuration-properties>`_
+:ref:`HMS <connector/hive:Metastore Configuration Properties>`
 as a Hive connector.
 
 .. code-block:: none
@@ -42,7 +42,7 @@ Glue catalog
 ^^^^^^^^^^^^
 
 The Iceberg connector supports the same configuration for
-`Glue <https://prestodb.io/docs/current/connector/hive.html#aws-glue-catalog-configuration-properties>`_
+:ref:`Glue <connector/hive:AWS Glue Catalog Configuration Properties>`
 as a Hive connector.
 
 .. code-block:: none
@@ -254,6 +254,20 @@ Property Name                                        Description
 ``iceberg.catalog.warehouse``                        A catalog warehouse root path for Iceberg tables (optional).
                                                      Example: ``s3://warehouse/``
 
+``iceberg.rest.proxy.hostname``                      IP address or hostname of the proxy server (required when access to
+                                                     the REST catalog is through a proxy).
+                                                     Example: ``proxy.example.com``
+
+``iceberg.rest.proxy.port``                          Port for the proxy server (required when access to the REST catalog
+                                                     is through a proxy).
+                                                     Example: ``8080``
+
+``iceberg.rest.proxy.username``                      Username for proxy Basic authentication (optional).
+                                                     Example: ``proxy_user``
+
+``iceberg.rest.proxy.password``                      Password for proxy Basic authentication (optional).
+                                                     Example: ``proxy_password``
+
 ``iceberg.rest.tls.enabled``                         Whether to enable TLS for REST catalog communication
                                                      (default: ``false``).
 
@@ -321,7 +335,7 @@ Property Name                                           Description             
                                                         Otherwise, it will be ignored.
 ======================================================= ============================================================= ============
 
-Configure the `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
+Configure the :ref:`Amazon S3 <connector/hive:Amazon S3 Configuration>`
 properties to specify a S3 location as the warehouse data directory for the Hadoop catalog. This way,
 the data and delete files of Iceberg tables are stored in S3. An example configuration includes:
 
@@ -348,7 +362,7 @@ Configuration Properties
 .. note::
 
     The Iceberg connector supports configuration options for
-    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
+    :ref:`Amazon S3 <connector/hive:Amazon S3 Configuration>`
     as a Hive connector.
 
 The following configuration properties are available for all catalog types:
@@ -634,7 +648,10 @@ Session properties set behavior changes for queries executed within the given se
 
        ``materialized_view_storage_table_name_prefix``
      - Prefix for automatically generated materialized view storage table names.
-       Default: ``__mv_storage__``
+       Default: ``__mv_storage__``. When ``materialized_view_default_storage_schema``
+       routes storage tables into a shared schema, the generated name uses a
+       length-prefix encoding to include the source schema and avoid collisions:
+       ``<prefix><schemaLen>_<schema>__<viewName>``.
      - Yes
      - Yes
    * - .. _iceberg-sess-materialized-view-missing-base-table-behavior:
@@ -820,7 +837,7 @@ Iceberg Connector supports Metastore Caching with some exceptions. Iceberg Conne
 Metastore Caching is only supported when ``iceberg.catalog.type`` is ``HIVE``.
 
 The Iceberg connector supports the same configuration properties for
-`Hive Metastore Caching <https://prestodb.io/docs/current/connector/hive.html#metastore-configuration-properties>`_
+:ref:`Hive Metastore Caching <connector/hive:Metastore Configuration Properties>`
 as a Hive connector.
 
 The following configuration properties are the minimum set of configurations required to be added in the Iceberg catalog file ``catalog/iceberg.properties``:
@@ -1199,17 +1216,21 @@ already exists but is not known by the catalog.
 The following arguments are available:
 
 
-===================== ========== =============== =======================================================================
-Argument Name         Required   Type            Description
-===================== ========== =============== =======================================================================
-``schema``            Yes        string          Schema of the table to register
+======================= ========== =============== ====================================================================================
+Argument Name           Required   Type            Description
+======================= ========== =============== ====================================================================================
+``schema``              Yes        string          Schema of the table to register
 
-``table_name``        Yes        string          Name of the table to register
+``table_name``          Yes        string          Name of the table to register
 
-``metadata_location`` Yes        string          The location of the table metadata which is to be registered
+``metadata_location``   Yes        string          The location of the table metadata which is to be registered
 
-``metadata_file``                string          An optionally specified metadata file which is to be registered
-===================== ========== =============== =======================================================================
+``metadata_file``                  string          An optionally specified metadata file which is to be registered
+
+``delete_data_on_drop``            boolean         When ``true``, dropping the registered table will also delete the underlying Iceberg
+                                                   data and metadata files. Defaults to ``false``, which removes only the catalog
+                                                   entry and preserves all data files.
+======================= ========== =============== ====================================================================================
 
 Examples:
 
@@ -1501,17 +1522,21 @@ Argument Name         required   type            Description
 
 ``table_name``        Yes        string          Name of the table to update.
 
-``filter``                       string          Predicate as a string used for filtering the files. Currently
-                                                 only rewrite of whole partitions is supported. Filter on partition
-                                                 columns. The default value is ``true``.
+``strategy``                     string          Name of the strategy - binpack or sort. Defaults to binpack.
+                                                 Must be ``'sort'`` when using ``sorted_by``.
 
 ``sorted_by``                    array of        Specify an array of one or more columns to use for sorting. When
                                  strings         performing a rewrite, the specified sorting definition must be
                                                  compatible with the table's own sorting property, if one exists.
                                                  Supports standard column sorting (example, ``'col ASC'``) and
                                                  z-order sorting (example, ``'zorder(col1, col2)'``).
+                                                 **Requires** ``strategy`` to be set to ``'sort'``.
 
 ``options``                      map             Options to be used for data files rewrite. See options table below.
+
+``filter``                       string          Predicate as a string used for filtering the files. Currently
+                                                 only rewrite of whole partitions is supported. Filter on partition
+                                                 columns. The default value is ``true``.
 ===================== ========== =============== =======================================================================
 
 Rewrite Options
@@ -1561,13 +1586,11 @@ Examples
 
 * Rewrite the data files in partitions specified by a filter in table ``db.sample`` to the newest partition spec::
 
-    CALL iceberg.system.rewrite_data_files('db', 'sample', 'partition_key = 1');
     CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample', filter => 'partition_key = 1');
 
 * Rewrite the data files in partitions specified by a filter in table ``db.sample`` to the newest partition spec and a sorting definition::
 
-    CALL iceberg.system.rewrite_data_files('db', 'sample', 'partition_key = 1', ARRAY['join_date DESC NULLS FIRST', 'emp_id ASC NULLS LAST']);
-    CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample', filter => 'partition_key = 1', sorted_by => ARRAY['join_date']);
+    CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample', strategy => 'sort', sorted_by => ARRAY['join_date DESC NULLS FIRST', 'emp_id ASC NULLS LAST'], filter => 'partition_key = 1');
 
 * Rewrite only small files (less than 100MB) in table ``db.sample``::
 
@@ -1609,9 +1632,10 @@ Examples
     CALL iceberg.system.rewrite_data_files(
         schema => 'db',
         table_name => 'sample',
-        filter => 'partition_key = 1',
+        strategy => 'sort',
         sorted_by => ARRAY['join_date'],
-        options => map(array['min-input-files'], array['3'])
+        options => map(array['min-input-files'], array['3']),
+        filter => 'partition_key = 1'
     );
 
 * Use z-order sorting for multi-dimensional data clustering::
@@ -1619,12 +1643,45 @@ Examples
     CALL iceberg.system.rewrite_data_files(
         schema => 'db',
         table_name => 'sample',
+        strategy => 'sort',
         sorted_by => ARRAY['zorder(customer_id, order_date)']
     );
 
   Z-order sorting creates a space-filling curve that interleaves bits from multiple columns,
   providing better data locality for queries that filter on multiple dimensions. This is
   particularly useful for tables with multiple commonly-queried columns.
+
+* Use binpack strategy (default) for fast file consolidation without sorting::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'db',
+        table_name => 'sample'
+    );
+
+  Binpack is the default strategy and is ideal for simple file consolidation where data ordering
+  is not important. It's significantly faster and uses less memory than sorting.
+
+* Use sort strategy to sort by table's default sort order::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'db',
+        table_name => 'sample',
+        strategy => 'sort'
+    );
+
+  When strategy is ``'sort'`` without ``sorted_by``, it uses the table's default sort order.
+
+* Use sort strategy with explicit sorting columns::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'db',
+        table_name => 'sample',
+        strategy => 'sort',
+        sorted_by => ARRAY['join_date']
+    );
+
+  Sort strategy is required when using ``sorted_by``. It provides better compression and query
+  performance through data clustering but is slower and more memory-intensive than binpack.
 
 Rewrite Manifests
 ^^^^^^^^^^^^^^^^^
@@ -1712,6 +1769,7 @@ performance.
     CALL iceberg.system.rewrite_data_files(
         schema => 'sales',
         table_name => 'orders',
+        strategy => 'sort',
         sorted_by => ARRAY['zorder(customer_id, order_date)']
     );
 
@@ -1720,6 +1778,7 @@ performance.
     CALL iceberg.system.rewrite_data_files(
         schema => 'analytics',
         table_name => 'events',
+        strategy => 'sort',
         sorted_by => ARRAY['zorder(user_id, event_time, event_type)']
     );
 
@@ -1736,49 +1795,103 @@ frequently used together in query predicates.
 SQL Support
 -----------
 
-======================================== ============= ============ ============================================================================
-SQL Operation                            Presto Java   Presto C++   Comments
-======================================== ============= ============ ============================================================================
-``CREATE SCHEMA``                        Yes           Yes
+.. list-table::
+   :header-rows: 1
+   :widths: 30 10 10 50
 
-``CREATE TABLE``                         Yes           Yes
-
-``CREATE VIEW``                          Yes           Yes
-
-``INSERT INTO``                          Yes           No
-
-``CREATE TABLE AS SELECT``               Yes           No
-
-``SELECT``                               Yes           Yes          Read is supported in Presto C++ including those with positional delete files.
-
-``ALTER TABLE``                              Yes           Yes
-
-``ALTER TABLE ADD COLUMN DEFAULT``           Yes           Yes
-
-``ALTER TABLE ALTER COLUMN SET DEFAULT``     Yes           Yes
-
-``ALTER VIEW``                               Yes           Yes
-
-``TRUNCATE``                             Yes           Yes
-
-``DELETE``                               Yes           No
-
-``DROP TABLE``                           Yes           Yes
-
-``DROP VIEW``                            Yes           Yes
-
-``DROP SCHEMA``                          Yes           Yes
-
-``SHOW CREATE TABLE``                    Yes           Yes
-
-``SHOW COLUMNS``                         Yes           Yes
-
-``DESCRIBE``                             Yes           Yes
-
-``UPDATE``                               Yes           No
-
-``MERGE``                                Yes           No
-======================================== ============= ============ ============================================================================
+   * - SQL Operation
+     - Presto Java
+     - Presto C++
+     - Comments
+   * - ``CREATE SCHEMA``
+     - Yes
+     - Yes
+     -
+   * - ``CREATE TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``CREATE VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``INSERT INTO``
+     - Yes
+     - No
+     -
+   * - ``CREATE TABLE AS SELECT``
+     - Yes
+     - No
+     -
+   * - ``SELECT``
+     - Yes
+     - Yes
+     - Read is supported in Presto C++ including those with positional delete
+       files.
+   * - ``ALTER TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ADD COLUMN DEFAULT``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ADD COLUMN FIRST|AFTER``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN FIRST|AFTER``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN SET DEFAULT``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``TRUNCATE``
+     - Yes
+     - Yes
+     -
+   * - ``DELETE``
+     - Yes
+     - No
+     -
+   * - ``DROP TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``DROP VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``DROP SCHEMA``
+     - Yes
+     - Yes
+     -
+   * - ``SHOW CREATE TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``SHOW COLUMNS``
+     - Yes
+     - Yes
+     -
+   * - ``DESCRIBE``
+     - Yes
+     - Yes
+     -
+   * - ``UPDATE``
+     - Yes
+     - No
+     -
+   * - ``MERGE``
+     - Yes
+     - No
+     -
 
 The Iceberg connector supports querying and manipulating Iceberg tables and schemas
 (databases). Here are some examples of the SQL operations supported by Presto:
@@ -1971,6 +2084,14 @@ ALTER TABLE
 Alter table operations are supported in the Iceberg connector::
 
      ALTER TABLE iceberg.web.page_views ADD COLUMN zipcode VARCHAR;
+
+     ALTER TABLE iceberg.web.page_views ADD COLUMN region VARCHAR FIRST;
+
+     ALTER TABLE iceberg.web.page_views ADD COLUMN city VARCHAR AFTER country;
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN zipcode FIRST;
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN zipcode AFTER city;
 
      ALTER TABLE iceberg.web.page_views RENAME COLUMN zipcode TO location;
 
@@ -2697,7 +2818,7 @@ In this example, SYSTEM_TIME can be used as an alias for TIMESTAMP.
 
 .. note::
 
-    Timestamp without timezone will be parsed and rendered in the session time zone. See `TIMESTAMP <https://prestodb.io/docs/current/language/types.html#timestamp>`_.
+    Timestamp without timezone will be parsed and rendered in the session time zone. See :ref:`language/types:\`\`TIMESTAMP\`\``.
 
 The option following FOR TIMESTAMP AS OF can accept any expression that returns a timestamp or timestamp with time zone value.
 For example, `TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles'` and `TIMESTAMP '2023-10-17 13:29:46.822'` are both valid timestamps. The first specifies the timestamp within the timezone `America/Los_Angeles`. The second will use the timestamp based on the user's session timezone.
@@ -2937,6 +3058,8 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``MAP``
   * - ``STRUCT``
     - ``ROW``
+  * - ``GEOMETRY``
+    - ``GEOMETRY``
 
 
 No other types are supported.
@@ -3075,7 +3198,17 @@ The Iceberg connector supports materialized views. See :doc:`/admin/materialized
 Storage
 ^^^^^^^
 
-Materialized views use a dedicated Iceberg storage table to persist the pre-computed results. By default, the storage table is created with the prefix ``__mv_storage__`` followed by the materialized view name in the same schema as the view.
+Materialized views use a dedicated Iceberg storage table to persist the pre-computed results. By
+default, the storage table is placed in the same schema as the view and its name is generated
+automatically from the configured prefix (``__mv_storage__`` by default) and the materialized view
+name.
+
+When ``iceberg.materialized-view-default-storage-schema`` is set to route storage tables into a
+shared schema, the generated name also embeds the source schema to prevent collisions between
+materialized views with the same name in different schemas. The format used is::
+
+    <prefix><schemaLength>_<sourceSchema>__<viewName>
+
 
 Catalog Configuration
 ^^^^^^^^^^^^^^^^^^^^^
@@ -3102,7 +3235,10 @@ view creation time and can be overridden per-view by using the ``storage_schema`
        ``iceberg.materialized-view-default-storage-schema``
      - Schema in which storage tables are created when the per-view ``storage_schema``
        property is not set. Point at a locked-down schema to keep storage tables out of
-       users' reach without affecting materialized view reads.
+       users' reach without affecting materialized view reads. When this property is set,
+       the auto-generated storage table name includes the source schema using a
+       length-prefix encoding (``<prefix><schemaLen>_<schema>__<viewName>``) to avoid
+       collisions between same-named views in different schemas.
      - (the view's own schema)
    * - .. _mv-cfg-max-changed-partitions:
 
@@ -3144,7 +3280,12 @@ by using :doc:`/sql/alter-materialized-view`; properties not specified in the
      - Schema name for the storage table. Defaults to the materialized view's schema.
      - No
    * - ``storage_table``
-     - Custom name for the storage table. Defaults to the prefix plus the materialized view name.
+     - Custom name for the storage table. When not set, the name is auto-generated from
+       the configured prefix and the materialized view name. If
+       ``iceberg.materialized-view-default-storage-schema`` (or the session property
+       ``materialized_view_default_storage_schema``) routes storage into a different schema,
+       the source schema is also embedded using length-prefix encoding:
+       ``<prefix><schemaLen>_<schema>__<viewName>``.
      - No
    * - ``stale_read_behavior``
      - Behavior when reading from a materialized view that is stale beyond the staleness window.

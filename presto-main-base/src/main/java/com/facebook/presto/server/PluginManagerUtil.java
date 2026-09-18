@@ -20,6 +20,7 @@ import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.RouterPlugin;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import org.eclipse.aether.artifact.Artifact;
@@ -138,6 +139,26 @@ public class PluginManagerUtil
             ClassLoader parent)
             throws Exception
     {
+        return buildClassLoaders(
+                installedPluginsDir,
+                plugins,
+                () -> resolver,
+                spiPackages,
+                coordinatorPluginServicesFile,
+                pluginServicesFile,
+                parent);
+    }
+
+    public static List<PluginClassLoaderHandle> buildClassLoaders(
+            File installedPluginsDir,
+            List<String> plugins,
+            Supplier<ArtifactResolver> resolver,
+            List<String> spiPackages,
+            String coordinatorPluginServicesFile,
+            String pluginServicesFile,
+            ClassLoader parent)
+            throws Exception
+    {
         List<String> pluginsToLoad = new ArrayList<>();
         for (File file : listFiles(installedPluginsDir)) {
             if (file.isDirectory()) {
@@ -214,7 +235,7 @@ public class PluginManagerUtil
 
     private static URLClassLoader buildClassLoader(
             String plugin,
-            ArtifactResolver resolver,
+            Supplier<ArtifactResolver> resolver,
             List<String> spiPackages,
             String coordinatorPluginServicesFile,
             String pluginServicesFile,
@@ -223,12 +244,12 @@ public class PluginManagerUtil
     {
         File file = Paths.get(plugin).toFile();
         if (file.isFile() && (file.getName().equals("pom.xml") || file.getName().endsWith(".pom"))) {
-            return buildClassLoaderFromPom(file, resolver, spiPackages, coordinatorPluginServicesFile, pluginServicesFile, parent);
+            return buildClassLoaderFromPom(file, resolver.get(), spiPackages, coordinatorPluginServicesFile, pluginServicesFile, parent);
         }
         if (file.isDirectory()) {
             return buildClassLoaderFromDirectory(file, spiPackages, parent);
         }
-        return buildClassLoaderFromCoordinates(plugin, resolver, spiPackages, parent);
+        return buildClassLoaderFromCoordinates(plugin, resolver.get(), spiPackages, parent);
     }
 
     private static URLClassLoader buildClassLoaderFromPom(

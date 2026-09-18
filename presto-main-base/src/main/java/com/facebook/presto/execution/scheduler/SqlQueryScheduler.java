@@ -510,14 +510,17 @@ public class SqlQueryScheduler
                             if (!result.getBlocked().isDone()) {
                                 long startBlockedNanos = System.nanoTime();
                                 result.getBlocked().addListener(
-                                        () -> stageExecution.recordSchedulerBlockedTime(blockedReason, System.nanoTime() - startBlockedNanos),
+                                        () -> stageExecution.recordSchedulerBlockedTime(blockedReason, startBlockedNanos, System.nanoTime()),
                                         directExecutor());
                             }
                         }
 
+                        long endCpuNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+                        long endWallNanos = System.nanoTime();
                         stageExecution.recordSchedulerRunningTime(
-                                THREAD_MX_BEAN.getCurrentThreadCpuTime() - startCpuNanos,
-                                System.nanoTime() - startWallNanos);
+                                endCpuNanos - startCpuNanos,
+                                startWallNanos,
+                                endWallNanos);
                     }
 
                     // make sure to update stage linkage at least once per loop to catch async state changes (e.g., partial cancel)

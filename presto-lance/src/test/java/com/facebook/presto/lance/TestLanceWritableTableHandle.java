@@ -31,10 +31,16 @@ public class TestLanceWritableTableHandle
                 new LanceColumnHandle("id", INTEGER, false),
                 new LanceColumnHandle("name", VARCHAR, true));
         LanceWritableTableHandle handle = new LanceWritableTableHandle(
-                "default", "test_table", "{}", columns);
+                "default",
+                "test_table",
+                "file:///tmp/lance/test_table.lance",
+                ImmutableList.of("test_table"),
+                "{}",
+                columns);
 
         assertEquals(handle.getSchemaName(), "default");
         assertEquals(handle.getTableName(), "test_table");
+        assertEquals(handle.getTablePath(), "file:///tmp/lance/test_table.lance");
         assertEquals(handle.getSchemaJson(), "{}");
         assertEquals(handle.getInputColumns().size(), 2);
         assertEquals(handle.getInputColumns().get(0).getColumnName(), "id");

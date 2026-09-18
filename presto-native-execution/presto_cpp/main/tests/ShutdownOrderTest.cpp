@@ -55,8 +55,9 @@ struct SyncState {
 //
 // Production scenario:
 //   - PrestoExchangeSource::handleDataResponse runs on exchangeHttpCpuExecutor_
-//   - It calls requestPromise.setValue() which dispatches the ExchangeClient
-//     callback to driverExecutor_ (a MonitoredExecutor) via raw pointer
+//   - It calls requestPromise.setValue() which dispatches the
+//     InMemoryExchangeClient callback to driverExecutor_ (a MonitoredExecutor)
+//     via raw pointer
 //   - If driverExecutor_ is already destroyed, this is use-after-free
 //
 // This test forces the exact interleaving:
@@ -79,8 +80,8 @@ TEST(ShutdownOrderTest, exchangeCallbacksDrainBeforeDriverExecutorDestroyed) {
   auto exchangeCpu = std::make_unique<folly::CPUThreadPoolExecutor>(
       2, std::make_shared<folly::NamedThreadFactory>("TestExchangeCPU"));
 
-  // Raw pointer, same as ExchangeClient::executor_ and the pointer stored
-  // inside folly future cores by .via(executor_).
+  // Raw pointer, same as InMemoryExchangeClient::executor_ and the pointer
+  // stored inside folly future cores by .via(executor_).
   auto* driverRawPtr = driverExecutor.get();
 
   auto sync = std::make_shared<SyncState>();
@@ -122,7 +123,7 @@ TEST(ShutdownOrderTest, exchangeCallbacksDrainBeforeDriverExecutorDestroyed) {
 }
 
 // Same scenario but using folly Promise/SemiFuture with .via(executor) to
-// match the exact production code path in ExchangeClient::request().
+// match the exact production code path in InMemoryExchangeClient::request().
 TEST(ShutdownOrderTest, promiseChainDispatchesSafelyDuringShutdown) {
   auto driverExecutor = std::make_unique<NoKeepAliveExecutor>(
       std::make_unique<folly::CPUThreadPoolExecutor>(
@@ -134,7 +135,8 @@ TEST(ShutdownOrderTest, promiseChainDispatchesSafelyDuringShutdown) {
 
   // Set up a promise/future chain matching the production pattern:
   //   source->request() returns SemiFuture
-  //   ExchangeClient does: future.via(driverExecutor).thenValue(callback)
+  //   InMemoryExchangeClient does:
+  //     future.via(driverExecutor).thenValue(callback)
   //   PrestoExchangeSource does: promise.setValue() on exchange CPU thread
   auto requestPromise = std::make_shared<folly::Promise<int>>();
   auto clientCallbackRan = std::make_shared<std::atomic<bool>>(false);

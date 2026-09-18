@@ -61,6 +61,7 @@ public class QueryStatistics
     private final int completedSplits;
     private final boolean complete;
     private final RuntimeStats runtimeStats;
+    private final long scanRawInputBytes;
 
     public QueryStatistics(
             Duration cpuTime,
@@ -97,7 +98,8 @@ public class QueryStatistics
             double cumulativeTotalMemory,
             int completedSplits,
             boolean complete,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            long scanRawInputBytes)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.retriedCpuTime = requireNonNull(retriedCpuTime, "retriedCpuTime is null");
@@ -134,6 +136,7 @@ public class QueryStatistics
         this.completedSplits = completedSplits;
         this.complete = complete;
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+        this.scanRawInputBytes = scanRawInputBytes;
     }
 
     public Duration getCpuTime()
@@ -309,5 +312,10 @@ public class QueryStatistics
     public RuntimeStats getRuntimeStats()
     {
         return runtimeStats;
+    }
+
+    public long getScanRawInputBytes()
+    {
+        return scanRawInputBytes;
     }
 }

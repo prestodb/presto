@@ -380,6 +380,16 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testXxhash128()
+    {
+        assertFunction("xxhash128(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("99AA06D3014798D86001C324468D497F"));
+        assertFunction("xxhash128(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("94372AC63DEA37F1AB9234526989923A"));
+        assertFunction("xxhash128(CAST('' AS VARBINARY), 0)", VARBINARY, sqlVarbinaryHex("99AA06D3014798D86001C324468D497F"));
+        assertFunction("xxhash128(CAST('hashme' AS VARBINARY), 0)", VARBINARY, sqlVarbinaryHex("94372AC63DEA37F1AB9234526989923A"));
+        assertFunction("xxhash128(CAST('hashme' AS VARBINARY), 1)", VARBINARY, sqlVarbinaryHex("49ADBDFEF97D9554F0D619F57125B383"));
+    }
+
+    @Test
     public void testSpookyHash()
     {
         assertFunction("spooky_hash_v2_32(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("6BF50919"));

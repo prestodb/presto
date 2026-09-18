@@ -17,6 +17,7 @@ import com.facebook.airlift.event.client.AbstractEventClient;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -200,6 +201,37 @@ public class TestVerificationManager
         assertEquals(events.get(0).getErrorCode(), "VERIFIER_INTERNAL_ERROR");
     }
 
+    @Test
+    public void testStackOverflowWhileFilteringDoesNotAbortRun()
+    {
+        // A deeply nested AST, such as a WHERE clause with thousands of OR-ed predicates, overflows the
+        // stack in the recursive AST visitors used to filter source queries. The overflow is injected
+        // rather than built from SQL because the depth at which it happens shifts with the stack size
+        // and with how warm the JIT is, which would make the test flaky.
+        SqlParser overflowingParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON))
+        {
+            @Override
+            public Statement createStatement(String sql, ParsingOptions parsingOptions)
+            {
+                if (sql.contains("deeply_nested")) {
+                    throw new StackOverflowError();
+                }
+                return super.createStatement(sql, parsingOptions);
+            }
+        };
+
+        List<SourceQuery> queries = ImmutableList.of(
+                createSourceQuery("deep", "SELECT * FROM deeply_nested", "SELECT * FROM deeply_nested"),
+                createSourceQuery("shallow", "SELECT * FROM t1", "SELECT * FROM t1"));
+        VerificationManager manager = getVerificationManager(queries, new MockPrestoAction(GENERIC_INTERNAL_ERROR), VERIFIER_CONFIG, overflowingParser);
+        manager.start();
+
+        List<VerifierQueryEvent> events = eventClient.getEvents();
+        assertEquals(events.size(), 2);
+        assertSkippedEvent(events.get(0), "deep", VERIFIER_INTERNAL_ERROR);
+        assertEquals(manager.getQueriesSubmitted().get(), 1);
+    }
+
     private static SourceQuery createSourceQuery(String name, String controlQuery, String testQuery)
     {
         return new SourceQuery(SUITE, name, controlQuery, testQuery, Optional.empty(), Optional.empty(), QUERY_CONFIGURATION, QUERY_CONFIGURATION);
@@ -213,6 +245,11 @@ public class TestVerificationManager
     }
 
     private VerificationManager getVerificationManager(List<SourceQuery> sourceQueries, PrestoAction prestoAction, VerifierConfig verifierConfig)
+    {
+        return getVerificationManager(sourceQueries, prestoAction, verifierConfig, SQL_PARSER);
+    }
+
+    private VerificationManager getVerificationManager(List<SourceQuery> sourceQueries, PrestoAction prestoAction, VerifierConfig verifierConfig, SqlParser sqlParser)
     {
         return new VerificationManager(
                 () -> sourceQueries,
@@ -230,7 +267,7 @@ public class TestVerificationManager
                         verifierConfig,
                         createTestFunctionAndTypeManager(),
                         new DeterminismAnalyzerConfig()),
-                SQL_PARSER,
+                sqlParser,
                 ImmutableSet.of(eventClient),
                 ImmutableList.of(),
                 new QueryConfigurationOverridesConfig(),

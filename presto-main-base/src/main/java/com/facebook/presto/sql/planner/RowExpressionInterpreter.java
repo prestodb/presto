@@ -868,7 +868,6 @@ public class RowExpressionInterpreter
 
         private SpecialCallResult tryHandleLike(CallExpression callExpression, List<Object> argumentValues, List<Type> argumentTypes, Object context)
         {
-            FunctionResolution resolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
             checkArgument(resolution.isLikeFunction(callExpression.getFunctionHandle()));
             checkArgument(callExpression.getArguments().size() == 2);
             RowExpression likePatternExpression = callExpression.getArguments().get(1);

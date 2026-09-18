@@ -35,6 +35,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
@@ -340,7 +341,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         throw new UnsupportedOperationException();
     }
@@ -365,6 +366,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setColumnPosition(Session session, TableHandle tableHandle, ColumnHandle column, ColumnPosition position)
     {
         throw new UnsupportedOperationException();
     }

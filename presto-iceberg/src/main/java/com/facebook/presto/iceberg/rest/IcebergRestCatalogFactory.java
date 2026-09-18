@@ -23,6 +23,7 @@ import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.security.ConnectorIdentity;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.jsonwebtoken.Jwts;
@@ -66,6 +67,17 @@ import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
 public class IcebergRestCatalogFactory
         extends IcebergNativeCatalogFactory
 {
+    // These keys mirror org.apache.iceberg.rest.HTTPClient's package-private REST_PROXY_* constants,
+    // which HTTPClient.Builder.build() reads to configure the Apache HttpClient proxy.
+    @VisibleForTesting
+    static final String REST_PROXY_HOSTNAME = "rest.client.proxy.hostname";
+    @VisibleForTesting
+    static final String REST_PROXY_PORT = "rest.client.proxy.port";
+    @VisibleForTesting
+    static final String REST_PROXY_USERNAME = "rest.client.proxy.username";
+    @VisibleForTesting
+    static final String REST_PROXY_PASSWORD = "rest.client.proxy.password";
+
     private final IcebergRestConfig catalogConfig;
     private final NodeVersion nodeVersion;
     private final String catalogName;
@@ -158,6 +170,13 @@ public class IcebergRestCatalogFactory
                 properties.put(BASIC_PASSWORD, basicAuthPassword);
             }
         });
+
+        if (catalogConfig.isProxyEnabled()) {
+            properties.put(REST_PROXY_HOSTNAME, catalogConfig.getProxyHostname().get());
+            properties.put(REST_PROXY_PORT, String.valueOf(catalogConfig.getProxyPort().get()));
+            catalogConfig.getProxyUsername().ifPresent(username -> properties.put(REST_PROXY_USERNAME, username));
+            catalogConfig.getProxyPassword().ifPresent(password -> properties.put(REST_PROXY_PASSWORD, password));
+        }
 
         catalogConfig.getSessionType().filter(type -> type.equals(USER))
                 .ifPresent(type -> properties.put(CatalogProperties.USER, session.getUser()));

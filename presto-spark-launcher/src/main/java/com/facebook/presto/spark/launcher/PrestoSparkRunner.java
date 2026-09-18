@@ -78,6 +78,7 @@ public class PrestoSparkRunner
                 distribution.getSessionPropertyConfigurationProperties(),
                 distribution.getFunctionNamespaceProperties(),
                 distribution.getTempStorageProperties(),
+                distribution.getExpressionManagerProperties(),
                 Optional.empty());
     }
 
@@ -245,6 +246,7 @@ public class PrestoSparkRunner
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
             Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
             Optional<Map<String, Map<String, String>>> tempStorageProperties,
+            Optional<Map<String, Map<String, String>>> expressionManagerProperties,
             Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
     {
         PrestoSparkBootstrapTimer bootstrapTimer = new PrestoSparkBootstrapTimer(systemTicker(), !sparkProcessType.equals(SparkProcessType.DRIVER));
@@ -263,7 +265,8 @@ public class PrestoSparkRunner
                 accessControlProperties,
                 sessionPropertyConfigurationProperties,
                 functionNamespaceProperties,
-                tempStorageProperties);
+                tempStorageProperties,
+                expressionManagerProperties);
         IPrestoSparkServiceFactory serviceFactory = createServiceFactory(checkDirectory(new File(packagePath, "lib")));
         IPrestoSparkService service = serviceFactory.createService(sparkProcessType, configuration, bootstrapTimer);
         bootstrapTimer.endRunnerServiceCreation();
@@ -292,6 +295,7 @@ public class PrestoSparkRunner
         private final Map<String, String> sessionPropertyConfigurationProperties;
         private final Map<String, Map<String, String>> functionNamespaceProperties;
         private final Map<String, Map<String, String>> tempStorageProperties;
+        private final Map<String, Map<String, String>> expressionManagerProperties;
         private final CollectionAccumulator<Map<String, Long>> bootstrapMetricsCollector;
         private final boolean isLocal;
 
@@ -313,6 +317,7 @@ public class PrestoSparkRunner
             this.sessionPropertyConfigurationProperties = distribution.getSessionPropertyConfigurationProperties().orElse(null);
             this.functionNamespaceProperties = distribution.getFunctionNamespaceProperties().orElse(null);
             this.tempStorageProperties = distribution.getTempStorageProperties().orElse(null);
+            this.expressionManagerProperties = distribution.getExpressionManagerProperties().orElse(null);
             this.isLocal = distribution.getSparkContext().isLocal();
         }
 
@@ -344,6 +349,7 @@ public class PrestoSparkRunner
         private static Map<String, String> currentSessionPropertyConfigurationProperties;
         private static Map<String, Map<String, String>> currentFunctionNamespaceProperties;
         private static Map<String, Map<String, String>> currentTempStorageProperties;
+        private static Map<String, Map<String, String>> currentExpressionManagerProperties;
 
         private IPrestoSparkService getOrCreatePrestoSparkService()
         {
@@ -362,6 +368,7 @@ public class PrestoSparkRunner
                             Optional.ofNullable(sessionPropertyConfigurationProperties),
                             Optional.ofNullable(functionNamespaceProperties),
                             Optional.ofNullable(tempStorageProperties),
+                            Optional.ofNullable(expressionManagerProperties),
                             Optional.of(bootstrapMetricsCollector));
 
                     currentPackagePath = getPackagePath(packageSupplier);
@@ -375,6 +382,7 @@ public class PrestoSparkRunner
                     currentSessionPropertyConfigurationProperties = sessionPropertyConfigurationProperties;
                     currentFunctionNamespaceProperties = functionNamespaceProperties;
                     currentTempStorageProperties = tempStorageProperties;
+                    currentExpressionManagerProperties = expressionManagerProperties;
                 }
                 else {
                     checkEquals("packagePath", currentPackagePath, getPackagePath(packageSupplier));
@@ -390,6 +398,7 @@ public class PrestoSparkRunner
                             sessionPropertyConfigurationProperties);
                     checkEquals("functionNamespaceProperties", currentFunctionNamespaceProperties, functionNamespaceProperties);
                     checkEquals("tempStorageProperties", currentTempStorageProperties, tempStorageProperties);
+                    checkEquals("expressionManagerProperties", currentExpressionManagerProperties, expressionManagerProperties);
                 }
                 return service;
             }

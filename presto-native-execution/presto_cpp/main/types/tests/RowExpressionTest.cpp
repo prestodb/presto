@@ -13,6 +13,7 @@
  */
 #include <gtest/gtest.h>
 #include <array>
+#include <sstream>
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/tests/MutableConfigs.h"
@@ -53,6 +54,32 @@ class RowExpressionTest : public ::testing::Test {
 
     ASSERT_EQ(cexpr->type()->toString(), type);
     ASSERT_EQ(cexpr->value().toJson(cexpr->type()), value);
+  }
+
+  // Builds a ROW_CONSTRUCTOR special form over bigint variables and returns the
+  // Velox type the converter produces for it.
+  TypePtr rowConstructorType(
+      const std::string& returnType,
+      const std::vector<std::string>& argumentNames) {
+    std::ostringstream args;
+    for (size_t i = 0; i < argumentNames.size(); ++i) {
+      if (i > 0) {
+        args << ",";
+      }
+      args << R"({"@type":"variable","name":")" << argumentNames[i]
+           << R"(","type":"bigint"})";
+    }
+    std::ostringstream str;
+    str << R"({"@type":"special","form":"ROW_CONSTRUCTOR","returnType":")"
+        << returnType << R"(","arguments":[)" << args.str() << "]}";
+
+    json j = json::parse(str.str());
+    std::shared_ptr<protocol::RowExpression> p = j;
+    auto call = std::dynamic_pointer_cast<const CallTypedExpr>(
+        converter_->toVeloxExpr(p));
+    VELOX_CHECK_NOT_NULL(call);
+    VELOX_CHECK_EQ(call->name(), "row_constructor");
+    return call->type();
   }
 
   std::string makeCastToVarchar(
@@ -1403,4 +1430,44 @@ TEST_F(RowExpressionTest, dereference) {
   ASSERT_NE(fieldAccess, nullptr);
 
   ASSERT_EQ(fieldAccess->name(), "partkey");
+}
+
+// The declared field names travel to Velox in the ROW_CONSTRUCTOR return type,
+// so they must survive the type signature round trip. RowType::equals compares
+// field names and is case sensitive, so these are exact checks.
+TEST_F(RowExpressionTest, rowConstructorWithFieldNames) {
+  ASSERT_EQ(
+      *rowConstructorType("row(nk bigint,nm bigint)", {"nationkey", "name"}),
+      *ROW({"nk", "nm"}, {BIGINT(), BIGINT()}));
+}
+
+TEST_F(RowExpressionTest, rowConstructorWithPartialFieldNames) {
+  // A row may name only some of its fields.
+  ASSERT_EQ(
+      *rowConstructorType("row(nk bigint,bigint)", {"nationkey", "regionkey"}),
+      *ROW({"nk", ""}, {BIGINT(), BIGINT()}));
+}
+
+TEST_F(RowExpressionTest, rowConstructorWithDelimitedFieldName) {
+  // Names needing quoting are emitted delimited by RowFieldName::toString(),
+  // and keep their spelling.
+  ASSERT_EQ(
+      *rowConstructorType(R"(row(\"Mixed Case\" bigint))", {"nationkey"}),
+      *ROW({"Mixed Case"}, {BIGINT()}));
+}
+
+TEST_F(RowExpressionTest, rowConstructorWithMixedCaseFieldName) {
+  // An undelimited name is folded to lower case by the coordinator before it
+  // reaches the worker, so it arrives already normalized. A delimited name that
+  // happens to be mixed case must not be folded.
+  ASSERT_EQ(
+      *rowConstructorType("row(abc bigint)", {"nationkey"}),
+      *ROW({"abc"}, {BIGINT()}));
+  ASSERT_EQ(
+      *rowConstructorType(R"(row(\"Abc\" bigint))", {"nationkey"}),
+      *ROW({"Abc"}, {BIGINT()}));
+  // Case is significant on the Velox side: the two are different types.
+  ASSERT_FALSE(
+      *rowConstructorType("row(abc bigint)", {"nationkey"}) ==
+      *rowConstructorType(R"(row(\"Abc\" bigint))", {"nationkey"}));
 }

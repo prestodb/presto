@@ -78,10 +78,8 @@ public class LancePageSinkProvider
                     "Failed to parse Arrow schema", e);
         }
 
-        String tablePath = namespaceHolder.getTablePath(handle.getTableName());
-
         return new LancePageSink(
-                tablePath,
+                handle.getTablePath(),
                 arrowSchema,
                 handle.getInputColumns(),
                 jsonCodec,

@@ -29,11 +29,6 @@ extern void to_json(json& j, const ChangelogOperation& e);
 extern void from_json(const json& j, ChangelogOperation& e);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
-enum class TypeCategory { PRIMITIVE, STRUCT, ARRAY, MAP };
-extern void to_json(json& j, const TypeCategory& e);
-extern void from_json(const json& j, TypeCategory& e);
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
 struct IcebergTypeAttributes {
   std::shared_ptr<bool> required = {};
   std::shared_ptr<String> longType = {};
@@ -44,6 +39,11 @@ struct IcebergTypeAttributes {
 };
 void to_json(json& j, const IcebergTypeAttributes& p);
 void from_json(const json& j, IcebergTypeAttributes& p);
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+enum class TypeCategory { PRIMITIVE, STRUCT, ARRAY, MAP };
+extern void to_json(json& j, const TypeCategory& e);
+extern void from_json(const json& j, TypeCategory& e);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
 struct ColumnIdentity {
@@ -234,6 +234,7 @@ struct IcebergDeleteTableHandle : public ConnectorDeleteTableHandle {
   List<SortField> sortOrder = {};
   std::shared_ptr<SchemaTableName> materializedViewName = {};
   FileContent fileContent = {};
+  std::shared_ptr<Map<String, DeleteFile>> existingDeletionVectors = {};
 
   IcebergDeleteTableHandle() noexcept;
 };
@@ -318,6 +319,7 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   std::shared_ptr<SchemaTableName> materializedViewName = {};
   std::shared_ptr<bool> fullRefreshRequired = {};
   List<String> insertedColumns = {};
+  Map<String, DeleteFile> existingDeletionVectors = {};
 
   IcebergInsertTableHandle() noexcept;
 };

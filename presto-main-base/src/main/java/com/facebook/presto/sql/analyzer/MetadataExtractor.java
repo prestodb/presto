@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.QueryTracer;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.WarningCollector;
@@ -34,6 +35,7 @@ import com.facebook.presto.sql.tree.With;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SystemSessionProperties.isPreProcessMetadataCalls;
@@ -84,7 +86,7 @@ public class MetadataExtractor
                 throw new SemanticException(MISSING_SCHEMA, "Schema name is empty");
             }
 
-            metadataHandle.addViewDefinition(tableName, executor.get().submit(() -> {
+            metadataHandle.addViewDefinition(tableName, executor.get().submit(wrapCallableWithTraceContext(session, () -> {
                 Optional<ViewDefinition> optionalView = session.getRuntimeStats().recordWallTime(
                         GET_VIEW_TIME_NANOS,
                         () -> metadataResolver.getView(tableName));
@@ -93,6 +95,7 @@ public class MetadataExtractor
                     Statement viewStatement = sqlParser.createStatement(view.getOriginalSql(), createParsingOptions(session, warningCollector));
                     Session.SessionBuilder viewSessionBuilder = Session.builder(metadata.getSessionPropertyManager())
                             .setQueryId(session.getQueryId())
+                            .setRuntimeStats(session.getRuntimeStats())
                             .setTransactionId(session.getTransactionId().orElse(null))
                             .setIdentity(session.getIdentity())
                             .setSource(session.getSource().orElse(null))
@@ -107,9 +110,9 @@ public class MetadataExtractor
                     populateMetadataHandle(viewSessionBuilder.build(), viewStatement, metadataHandle, new MetadataExtractorContext(Optional.of(metadataExtractorContext)));
                 }
                 return optionalView;
-            }));
+            })));
 
-            metadataHandle.addMaterializedViewDefinition(tableName, executor.get().submit(() -> {
+            metadataHandle.addMaterializedViewDefinition(tableName, executor.get().submit(wrapCallableWithTraceContext(session, () -> {
                 Optional<MaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().recordWallTime(
                         GET_MATERIALIZED_VIEW_TIME_NANOS,
                         () -> metadataResolver.getMaterializedView(tableName));
@@ -118,10 +121,17 @@ public class MetadataExtractor
                     populateMetadataHandle(session, materializedViewStatement, metadataHandle, new MetadataExtractorContext(Optional.of(metadataExtractorContext)));
                 }
                 return optionalMaterializedView;
-            }));
+            })));
 
-            metadataHandle.addTableColumnMetadata(tableName, executor.get().submit(() -> getTableColumnMetadata(session, metadataResolver, tableName)));
+            metadataHandle.addTableColumnMetadata(tableName, executor.get().submit(wrapCallableWithTraceContext(session,
+                    () -> getTableColumnMetadata(session, metadataResolver, tableName))));
         });
+    }
+
+    private static <V> Callable<V> wrapCallableWithTraceContext(Session session, Callable<V> callable)
+    {
+        QueryTracer queryTracer = session.getRuntimeStats().getQueryTracer();
+        return queryTracer == null ? callable : queryTracer.wrapCallableWithTraceContext(callable);
     }
 
     private class MetadataExtractorContext

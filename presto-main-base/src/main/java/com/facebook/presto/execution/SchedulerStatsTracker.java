@@ -41,11 +41,46 @@ public interface SchedulerStatsTracker
 
     void recordTaskUpdateDeliveredTime(long nanos);
 
+    /**
+     * Records task update delivery using monotonic start and end timestamps.
+     *
+     * @param startTimeNanos start timestamp from {@link System#nanoTime()}
+     * @param endTimeNanos end timestamp from {@link System#nanoTime()}
+     */
+    default void recordTaskUpdateDeliveredTime(long startTimeNanos, long endTimeNanos)
+    {
+        recordTaskUpdateDeliveredTime(endTimeNanos - startTimeNanos);
+    }
+
     void recordDeliveredUpdates(int updates);
 
     void recordRoundTripTime(long nanos);
 
+    /**
+     * Records task update round-trip timing and whether the request failed.
+     *
+     * @param roundTripNanos duration used by the aggregate runtime metric
+     * @param startTimeNanos start timestamp from {@link System#nanoTime()}
+     * @param endTimeNanos end timestamp from {@link System#nanoTime()}
+     * @param failed whether the request failed
+     */
+    default void recordRoundTripTime(long roundTripNanos, long startTimeNanos, long endTimeNanos, boolean failed)
+    {
+        recordRoundTripTime(roundTripNanos);
+    }
+
     void recordStartWaitForEventLoop(long nanos);
+
+    /**
+     * Records event-loop wait time using monotonic start and end timestamps.
+     *
+     * @param startTimeNanos start timestamp from {@link System#nanoTime()}
+     * @param endTimeNanos end timestamp from {@link System#nanoTime()}
+     */
+    default void recordStartWaitForEventLoop(long startTimeNanos, long endTimeNanos)
+    {
+        recordStartWaitForEventLoop(endTimeNanos - startTimeNanos);
+    }
 
     void recordTaskUpdateSerializedCpuTime(long nanos);
 

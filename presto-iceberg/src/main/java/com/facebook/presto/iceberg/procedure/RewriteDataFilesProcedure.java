@@ -59,6 +59,7 @@ import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -70,6 +71,7 @@ import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpressio
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.getSupportedSortFields;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.Z_ORDER;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
+import static com.facebook.presto.iceberg.IcebergUtil.RewriteStrategy;
 import static com.facebook.presto.iceberg.IcebergUtil.filterByFile;
 import static com.facebook.presto.iceberg.IcebergUtil.filterByGroup;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
@@ -93,6 +95,10 @@ import static java.util.Objects.requireNonNull;
 public class RewriteDataFilesProcedure
         implements Provider<DistributedProcedure>
 {
+    // Positions within the procedure arguments: [schema, table_name, strategy, sorted_by, options, filter]
+    private static final int STRATEGY_ARGUMENT_INDEX = 2;
+    private static final int OPTIONS_ARGUMENT_INDEX = 4;
+
     TypeManager typeManager;
     JsonCodec<CommitTaskData> commitTaskCodec;
 
@@ -114,38 +120,72 @@ public class RewriteDataFilesProcedure
                 ImmutableList.of(
                         new Argument(SCHEMA, VARCHAR),
                         new Argument(TABLE_NAME, VARCHAR),
-                        new Argument("filter", VARCHAR, false, "TRUE"),
+                        new Argument("strategy", VARCHAR, false, null),
                         new Argument("sorted_by", "array(varchar)", false, null),
-                        new Argument("options", "map(varchar, varchar)", false, null)),
+                        new Argument("options", "map(varchar, varchar)", false, null),
+                        new Argument("filter", VARCHAR, false, "TRUE")),
                 (session, procedureContext, tableLayoutHandle, arguments, sortOrderIndex) -> beginCallDistributedProcedure(session, (IcebergRewriteDataFilesProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments, sortOrderIndex),
                 ((session, procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure(session, (IcebergRewriteDataFilesProcedureContext) procedureContext, tableHandle, fragments)),
                 arguments -> {
-                    // Context provider receives [Table, Transaction, procedureArguments]
+                    // Context provider receives [Table, IcebergAbstractMetadata, procedureArguments]
                     checkArgument(arguments.length >= 2, format("invalid number of arguments: %s (should have at least %s)", arguments.length, 2));
                     checkArgument(arguments[0] instanceof Table && arguments[1] instanceof IcebergAbstractMetadata, "Invalid arguments, required: [Table, IcebergAbstractMetadata]");
 
-                    // Extract and validate options from procedure arguments if present
-                    Map<String, String> options = extractAndValidateOptions(arguments);
+                    Object[] procedureArguments = extractProcedureArguments(arguments);
 
-                    return new IcebergRewriteDataFilesProcedureContext((Table) arguments[0], (IcebergAbstractMetadata) arguments[1], options);
+                    // Parse and validate the strategy eagerly, so invalid values fail before the query executes
+                    RewriteStrategy strategy = parseStrategy(procedureArguments);
+
+                    // Extract and validate options from procedure arguments if present
+                    Map<String, String> options = extractAndValidateOptions(procedureArguments);
+
+                    return new IcebergRewriteDataFilesProcedureContext((Table) arguments[0], (IcebergAbstractMetadata) arguments[1], strategy, options);
                 });
     }
 
-    private static Map<String, String> extractAndValidateOptions(Object[] contextProviderArgs)
+    private static Object[] extractProcedureArguments(Object[] contextProviderArgs)
+    {
+        if (contextProviderArgs.length > 2 && contextProviderArgs[2] instanceof Object[]) {
+            return (Object[]) contextProviderArgs[2];
+        }
+        return new Object[0];
+    }
+
+    /**
+     * Parses the `strategy` procedure argument, defaulting to {@link RewriteStrategy#BINPACK} when it is not specified.
+     *
+     * @throws PrestoException if the value is not a recognized strategy
+     */
+    private static RewriteStrategy parseStrategy(Object[] procedureArgs)
+    {
+        if (procedureArgs.length <= STRATEGY_ARGUMENT_INDEX || procedureArgs[STRATEGY_ARGUMENT_INDEX] == null) {
+            return RewriteStrategy.BINPACK;
+        }
+
+        Object strategyArgument = procedureArgs[STRATEGY_ARGUMENT_INDEX];
+        String strategyStr = strategyArgument instanceof Slice ?
+                ((Slice) strategyArgument).toStringUtf8() :
+                strategyArgument.toString();
+        try {
+            return RewriteStrategy.valueOf(strategyStr.trim().toUpperCase(Locale.ENGLISH));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("Invalid rewrite strategy: %s. Valid values are 'sort' or 'binpack'.", strategyStr));
+        }
+    }
+
+    private static Map<String, String> extractAndValidateOptions(Object[] procedureArgs)
     {
         Map<String, String> options = ImmutableMap.of();
-        if (contextProviderArgs.length > 2 && contextProviderArgs[2] instanceof Object[]) {
-            Object[] procedureArgs = (Object[]) contextProviderArgs[2];
-            // Options is the 5th procedure parameter (index 4)
-            if (procedureArgs.length > 4 && procedureArgs[4] != null && procedureArgs[4] instanceof Map) {
-                options = (Map<String, String>) procedureArgs[4];
+        if (procedureArgs.length > OPTIONS_ARGUMENT_INDEX && procedureArgs[OPTIONS_ARGUMENT_INDEX] instanceof Map) {
+            options = (Map<String, String>) procedureArgs[OPTIONS_ARGUMENT_INDEX];
 
-                // Validate options if present using utility methods
-                parseMinInputFiles(options);
-                parseMinFileSize(options);
-                parseMaxFileSize(options);
-                parseRewriteAll(options);
-            }
+            // Validate options if present using utility methods
+            parseMinInputFiles(options);
+            parseMinFileSize(options);
+            parseMaxFileSize(options);
+            parseRewriteAll(options);
         }
         return options;
     }
@@ -161,33 +201,52 @@ public class RewriteDataFilesProcedure
             Table icebergTable = procedureContext.getTable();
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
+            // Parsed and validated when the procedure context was created
+            RewriteStrategy strategy = procedureContext.getStrategy();
+
             SortOrder sortOrder = icebergTable.sortOrder();
             Optional<List<String>> zOrderColumns = Optional.empty();
             List<String> sortFieldStrings = extractSortFieldStrings(arguments, sortOrderIndex);
-            if (!sortFieldStrings.isEmpty()) {
-                zOrderColumns = extractZOrderColumns(sortFieldStrings);
 
-                // Validate that zorder is not mixed with regular column names
-                boolean hasZOrder = zOrderColumns.isPresent();
-                List<String> nonZOrderFields = sortFieldStrings.stream()
-                        .filter(str -> !str.startsWith("zorder"))
-                        .collect(toImmutableList());
-                boolean hasRegularColumns = !nonZOrderFields.isEmpty();
+            // Validate strategy and sorted_by interaction
+            if (!sortFieldStrings.isEmpty() && strategy == RewriteStrategy.BINPACK) {
+                throw new PrestoException(NOT_SUPPORTED,
+                        "Cannot use binpack strategy with sorted_by option. Use sort strategy when specifying sort order.");
+            }
 
-                if (hasZOrder && hasRegularColumns) {
-                    throw new PrestoException(NOT_SUPPORTED,
-                            "Cannot mix zorder function with regular column names in sorted_by. " +
-                            "Use either zorder function alone or regular column names, but not both.");
-                }
+            // Handle sort order based on strategy
+            if (strategy == RewriteStrategy.SORT) {
+                // Sort strategy: use sorted_by if specified, otherwise use table's sort order
+                if (!sortFieldStrings.isEmpty()) {
+                    zOrderColumns = extractZOrderColumns(sortFieldStrings);
 
-                SortOrder specifiedSortOrder = parseSortFields(icebergTable.schema(), nonZOrderFields);
-                if (specifiedSortOrder.satisfies(sortOrder)) {
-                    // If the specified sort order satisfies the target table's internal sort order, use the specified sort order
-                    sortOrder = specifiedSortOrder;
+                    // Validate that zorder is not mixed with regular column names
+                    boolean hasZOrder = zOrderColumns.isPresent();
+                    List<String> nonZOrderFields = sortFieldStrings.stream()
+                            .filter(str -> !str.startsWith("zorder"))
+                            .collect(toImmutableList());
+                    boolean hasRegularColumns = !nonZOrderFields.isEmpty();
+
+                    if (hasZOrder && hasRegularColumns) {
+                        throw new PrestoException(NOT_SUPPORTED,
+                                "Cannot mix zorder function with regular column names in sorted_by. " +
+                                "Use either zorder function alone or regular column names, but not both.");
+                    }
+
+                    SortOrder specifiedSortOrder = parseSortFields(icebergTable.schema(), nonZOrderFields);
+                    if (specifiedSortOrder.satisfies(sortOrder)) {
+                        // If the specified sort order satisfies the target table's internal sort order, use the specified sort order
+                        sortOrder = specifiedSortOrder;
+                    }
+                    else {
+                        throw new PrestoException(NOT_SUPPORTED, "Specified sort order is incompatible with the target table's internal sort order");
+                    }
                 }
-                else {
-                    throw new PrestoException(NOT_SUPPORTED, "Specified sort order is incompatible with the target table's internal sort order");
-                }
+                // else: keep the table's default sortOrder
+            }
+            else if (strategy == RewriteStrategy.BINPACK) {
+                // For binpack strategy, clear the sort order to avoid sorting
+                sortOrder = SortOrder.unsorted();
             }
 
             List<SortField> sortFields = getSupportedSortFields(icebergTable.schema(), sortOrder);

@@ -108,6 +108,7 @@ public class HiveTableOperations
 
     public static final String METADATA_LOCATION = "metadata_location";
     public static final String PREVIOUS_METADATA_LOCATION = "previous_metadata_location";
+    public static final String PRESTO_DELETE_DATA_ON_DROP = "presto_delete_data_on_drop";
     private static final String METADATA_FOLDER_NAME = "metadata";
 
     public static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
@@ -256,6 +257,7 @@ public class HiveTableOperations
                     String tableComment = metadata.properties().get(TABLE_COMMENT);
                     Map<String, String> parameters = new HashMap<>();
                     parameters.put("EXTERNAL", "TRUE");
+                    parameters.put(PRESTO_DELETE_DATA_ON_DROP, "true");
                     parameters.put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE);
                     parameters.put(METADATA_LOCATION, newMetadataLocation);
                     if (tableComment != null) {

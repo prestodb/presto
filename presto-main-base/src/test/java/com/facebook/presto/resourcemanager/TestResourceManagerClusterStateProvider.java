@@ -627,7 +627,9 @@ public class TestResourceManagerClusterStateProvider
                 2.0,
                 1,
                 2,
-                3);
+                3,
+                0,
+                0);
     }
 
     private NodeStatus createCoordinatorNodeStatus(String nodeId)
@@ -646,7 +648,9 @@ public class TestResourceManagerClusterStateProvider
                 2.0,
                 1,
                 2,
-                3);
+                3,
+                0,
+                0);
     }
 
     private MemoryPoolInfo createMemoryPoolInfo(int maxBytes, int reservedBytes, int reservedRevocableBytes)
@@ -768,6 +772,7 @@ public class TestResourceManagerClusterStateProvider
                         14,
                         15,
                         100,
+                        DataSize.valueOf("21GB"),
                         DataSize.valueOf("21GB"),
                         22,
                         23,

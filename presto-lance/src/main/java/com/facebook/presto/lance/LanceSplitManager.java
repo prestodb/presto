@@ -52,7 +52,7 @@ public class LanceSplitManager
         LanceTableHandle tableHandle = layoutHandle.getTable();
 
         List<Fragment> fragments = namespaceHolder.getFragments(
-                tableHandle.getTableName(),
+                tableHandle.getTablePath(),
                 tableHandle.getDatasetVersion());
 
         // With a pushed-down LIMIT, coalesce just enough leading fragments to cover it into a single

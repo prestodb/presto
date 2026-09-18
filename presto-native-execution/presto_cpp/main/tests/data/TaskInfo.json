@@ -101,6 +101,7 @@
         ],
         "totalAllocationInBytes": 123,
         "rawInputDataSizeInBytes": 456,
+        "scanRawInputDataSizeInBytes": 123,
         "rawInputPositions": 789,
         "processedInputDataSizeInBytes": 123,
         "processedInputPositions": 456,

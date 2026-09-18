@@ -1204,6 +1204,9 @@ void toThrift(
   toThrift(proto.queuedNewDrivers, *thrift.queuedNewDrivers_ref());
   toThrift(proto.runningNewDrivers, *thrift.runningNewDrivers_ref());
   toThrift(proto.completedNewDrivers, *thrift.completedNewDrivers_ref());
+  toThrift(
+      proto.scanRawInputDataSizeInBytes,
+      *thrift.scanRawInputDataSizeInBytes_ref());
 }
 void fromThrift(
     const TaskStats& thrift,
@@ -1282,6 +1285,9 @@ void fromThrift(
   fromThrift(*thrift.queuedNewDrivers_ref(), proto.queuedNewDrivers);
   fromThrift(*thrift.runningNewDrivers_ref(), proto.runningNewDrivers);
   fromThrift(*thrift.completedNewDrivers_ref(), proto.completedNewDrivers);
+  fromThrift(
+      *thrift.scanRawInputDataSizeInBytes_ref(),
+      proto.scanRawInputDataSizeInBytes);
 }
 
 void toThrift(

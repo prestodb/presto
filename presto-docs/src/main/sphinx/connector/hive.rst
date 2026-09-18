@@ -63,7 +63,7 @@ Additional Resources for Metastore Configuration
 * `AWS Glue Catalog Configuration Properties`_
 
 Additional authentication-related configuration properties are covered in
-:ref:`connector/hive-security:Hive Metastore Thrift Service Authentication` and
+:ref:`connector/hive-security:Hive Metastore Authentication` and
 :ref:`connector/hive-security:HDFS Authentication`.
 
 
@@ -121,7 +121,7 @@ When not using Kerberos with HDFS, Presto will access HDFS using the
 OS user of the Presto process. For example, if Presto is running as
 ``nobody``, it will access HDFS as ``nobody``. You can override this
 username by setting the ``HADOOP_USER_NAME`` system property in the
-Presto :ref:`presto_jvm_config`, replacing ``hdfs_user`` with the
+Presto :ref:`installation/deployment:JVM Config`, replacing ``hdfs_user`` with the
 appropriate username:
 
 .. code-block:: none
@@ -241,9 +241,24 @@ Property Name                                            Description            
  ``hive.orc.use-column-names``                           Enable accessing ORC columns by name in the ORC file         ``false``
                                                          metadata, instead of their ordinal position. Also toggleable 
                                                          through the ``hive.orc_use_column_names`` session property.
+
+``hive.parquet.use-column-names``                        Enable accessing Parquet columns by name in the Parquet      ``false``
+                                                         file metadata, instead of their ordinal position. Also
+                                                         toggleable through the ``parquet_use_column_names``
+                                                         session property. Required when reading partitioned Hudi 1.x
+                                                         tables through the Hive connector, see the warning below.
 ======================================================== ============================================================ ============
 
 .. _constructor: https://github.com/apache/hadoop/blob/02a9190af5f8264e25966a80c8f9ea9bb6677899/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/conf/Configuration.java#L844-L875
+
+.. warning::
+
+    Reading partitioned Hudi 1.x tables through the Hive connector requires
+    ``hive.parquet.use-column-names=true`` to be set in the catalog properties file (or
+    ``parquet_use_column_names=true`` as a session property). Hudi 1.x writes Parquet files in
+    its internal Hudi schema column order, which may differ from the Hive metastore column order.
+    Without name-based column resolution, columns are matched positionally and queries on
+    partitioned tables may return incorrect data.
 
 Hive Session Properties
 -----------------------
@@ -1036,7 +1051,7 @@ Alluxio Client-Side Configuration
 To configure Alluxio client-side properties on Presto, append the Alluxio
 configuration directory (``${ALLUXIO_HOME}/conf``) to the Presto JVM classpath,
 so that the Alluxio properties file ``alluxio-site.properties`` can be loaded as a resource.
-Update the Presto :ref:`presto_jvm_config` file ``etc/jvm.config`` to include the following:
+Update the Presto :ref:`installation/deployment:JVM Config` file ``etc/jvm.config`` to include the following:
 
 .. code-block:: none
 

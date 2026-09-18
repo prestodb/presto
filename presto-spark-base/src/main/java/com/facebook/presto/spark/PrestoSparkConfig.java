@@ -42,6 +42,7 @@ public class PrestoSparkConfig
     private int maxSparkInputPartitionCountForAutoTune = 1000;
     private int initialSparkPartitionCount = 16;
     private DataSize maxSplitsDataSizePerSparkPartition = new DataSize(2, GIGABYTE);
+    private int maxSplitsCountPerSparkPartition = Integer.MAX_VALUE;
     private DataSize shuffleOutputTargetAverageRowSize = new DataSize(1, KILOBYTE);
     private boolean storageBasedBroadcastJoinEnabled;
     private DataSize storageBasedBroadcastJoinWriteBufferSize = new DataSize(24, MEGABYTE);
@@ -139,6 +140,20 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setMaxSplitsDataSizePerSparkPartition(DataSize maxSplitsDataSizePerSparkPartition)
     {
         this.maxSplitsDataSizePerSparkPartition = maxSplitsDataSizePerSparkPartition;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxSplitsCountPerSparkPartition()
+    {
+        return maxSplitsCountPerSparkPartition;
+    }
+
+    @Config("spark.max-splits-count-per-partition")
+    @ConfigDescription("Maximal number of splits assigned to one partition")
+    public PrestoSparkConfig setMaxSplitsCountPerSparkPartition(int maxSplitsCountPerSparkPartition)
+    {
+        this.maxSplitsCountPerSparkPartition = maxSplitsCountPerSparkPartition;
         return this;
     }
 

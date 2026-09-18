@@ -83,7 +83,10 @@ These metrics track HTTP requests and responses in the Presto C++ worker.
 
 * **Type:** histogram
 * **Unit:** bytes
-* **Description:** Size distribution of HTTP request payloads.
+* **Description:** Size distribution of HTTP request payloads. Disabled by
+  default because its large number of buckets significantly slows down
+  Prometheus metrics scraping. Enable it by setting
+  ``http-server.enable-request-size-histogram=true``.
 
 HTTP Client Metrics
 ===================

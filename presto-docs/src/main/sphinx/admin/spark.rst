@@ -52,7 +52,7 @@ Run :command:`spark-submit` command from the directory where Presto on Spark is 
      --schema default \\ 
      --file query.sql 
 
-The details about configuring catalogs are at :ref:`catalog_properties`.
+The details about configuring catalogs are at :ref:`installation/deployment:Catalog Properties`.
 In Spark submit arguments, note the values of *executor-cores* (number of cores per
 executor in Spark) and *spark.task.cpus* (number of cores to allocate to each task
 in Spark). These are also equal to the number of cores (4 in the example) and are

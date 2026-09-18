@@ -135,11 +135,11 @@ For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:
         SELECT rtrim('test', 't'); -- tes
         SELECT rtrim('test...', '.'); -- test
 
-.. function:: split(string, delimiter) -> array(varchar)
+.. function:: split(string, delimiter) -> array[varchar]
 
     Splits ``string`` on ``delimiter`` and returns an array.
 
-.. function:: split(string, delimiter, limit) -> array(varchar)
+.. function:: split(string, delimiter, limit) -> array[varchar]
 
     Splits ``string`` on ``delimiter`` and returns an array of size at most
     ``limit``. The last element in the array always contain everything
@@ -169,7 +169,7 @@ For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:
         SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> v1)); -- {"a": "1", "b": "2"}
         SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> CONCAT(v1, v2))); -- {"a": "13", "b": "2"}
 
-.. function:: split_to_multimap(string, entryDelimiter, keyValueDelimiter) -> map(varchar, array(varchar))
+.. function:: split_to_multimap(string, entryDelimiter, keyValueDelimiter) -> map(varchar, array[varchar])
 
     Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map
     containing an array of values for each unique key. ``entryDelimiter`` splits ``string``

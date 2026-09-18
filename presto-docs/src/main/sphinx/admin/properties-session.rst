@@ -427,18 +427,59 @@ to make the query plan easier to read.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-hash-generation\`\``.
 
+``rewrite_approx_distinct_if_to_mask``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Move an ``IF`` condition inside an :func:`!approx_distinct` argument onto the aggregation as a
+mask, rewriting ``approx_distinct(IF(p, e))`` to ``approx_distinct(e)`` masked by ``p``.
+
+This helps in two ways:
+
+* It narrows the projection below the aggregation. With the condition inside the argument, each
+  aggregation materializes its own conditional copy of the value, while with a mask the
+  aggregations over one value share a single column and only a boolean is added per predicate.
+
+* It shrinks the state a partial aggregation ships to its final aggregation. A group whose
+  predicate never holds is still fed a row when the condition is inside the argument, so a sketch
+  is created and serialized for it, whereas a masked row is filtered before the accumulator sees
+  it.
+
+Queries that compute many differently-predicated :func:`!approx_distinct` values over the same
+grouping keys benefit most. The saving appears as CPU: on one such query with 465 conditional calls
+over 26 billion rows, CPU fell by 14 percent, while peak memory per node and shuffled bytes were
+unchanged. Queries whose :func:`!approx_distinct` calls already share a few argument columns see a
+smaller benefit, since common subexpression elimination has already collapsed the projection.
+
+Results are unchanged: ``IF(p, e)`` is NULL where ``p`` is false and :func:`!approx_distinct` does
+not count NULLs, so restricting the input to the rows where ``p`` holds feeds the aggregation the
+same values.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.rewrite-approx-distinct-if-to-mask\`\``.
+
 ``optimize_join_fan_out``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
 
-Collapse a fan-out equi-join whose preserved side is itself an aggregation grouped by, or an
-inner join keyed on, a strict superset of the join keys. The preserved side's non-key columns
-are packed with ``array_agg(row(...))`` so the join becomes ``N``-to-``1`` (unique on the join
-key), and a local ``UNNEST`` above the join re-expands them, reproducing the original rows.
-This moves the row multiplication out of the distributed join (smaller build, less shuffle of
-duplicated rows) into a streaming local ``UNNEST``.
+Collapse a fan-out equi-join, that is a join one of whose sides is not unique on the join keys
+but is unique on a strict superset of them. That side's non-key columns are packed with
+``array_agg(row(...))`` so the join becomes ``N``-to-``1`` (unique on the join key), and a local
+``UNNEST`` above the join re-expands them, reproducing the original rows. This moves the row
+multiplication out of the distributed join (smaller build, less shuffle of duplicated rows)
+into a streaming local ``UNNEST``.
+
+The fan-out is detected at the join node, from the grouping that the side reports through its derived
+properties: an aggregation (including ``DISTINCT``) advertises its grouping keys, and those carry
+up through intervening filters, projections, sorts and limits, and across an inner join from its
+probe. A side grouped on a strict superset of the join keys holds several rows per join key. This
+uses only property derivation and does not depend on ``exploit_constraints``. A side whose
+grouping keys are projected away before the join is not detected. Either side of an ``INNER``, ``LEFT``
+or ``RIGHT`` join can be collapsed, including the null-supplying side of an outer join;
+``FULL`` outer and cross joins are never collapsed.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-join-fan-out\`\``.
 
@@ -670,6 +711,39 @@ right side. This avoids data shuffle since both sides are already co-partitioned
 the join key.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.rewrite-bucketed-semi-join-to-join\`\``.
+
+``runtime_stats_tracing_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, records a coordinator-side query trace in runtime statistics.
+Trace events include start and end timestamps, duration, parent span, failure status,
+and thread names for query lifecycle, planning, scheduling, and task communication.
+Epoch timestamps are expressed in nanoseconds but use a millisecond-resolution wall-clock
+anchor; relative offsets and durations use a monotonic clock.
+This property is intended for diagnostics and can increase query information size.
+The number of retained events is controlled by
+:ref:`admin/properties-session:\`\`runtime_stats_tracing_max_events\`\``.
+
+Set to ``true`` to enable tracing for a query:
+
+``SET SESSION runtime_stats_tracing_enabled=true;``
+
+``runtime_stats_tracing_max_events``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``2000``
+
+The maximum number of trace events retained for a query, including the query
+root event. After the limit is reached, additional trace events are omitted
+while aggregate runtime statistics continue to be recorded.
+
+The corresponding configuration property is
+:ref:`admin/properties:\`\`query.runtime-stats-tracing.max-events\`\``.
 
 ``simplify_aggregations_over_constant``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1202,6 +1276,24 @@ parallelism, so it is most beneficial for memory- or aggregation-bound workloads
 scan-throughput-bound queries. It is disabled by default.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`grouped-execution-when-capable-enabled\`\``.
+
+Presto on Spark Properties
+--------------------------
+
+``max_splits_count_per_spark_partition``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``2147483647``
+
+Maximum number of splits assigned to one Spark input partition. The default is
+effectively unbounded, so partition contents are bounded by data size alone. Set this
+property when a source table produces very many small splits, which can otherwise pack
+enough splits into one partition for its serialized task update request to exceed the
+2 GB limit of the underlying JSON serializer.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`spark.max-splits-count-per-partition\`\``.
 
 Geometry Properties
 -------------------

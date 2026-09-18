@@ -20,7 +20,10 @@ namespace facebook::presto {
 
 // Sets up all the counters in the presto cpp, but specifying their types.
 // See velox/common/base/StatsReporter.h for the interface.
-void registerPrestoMetrics();
+// The http request size histogram is only registered when
+// 'enableHttpRequestSizeHistogram' is true (see kHttpEnableRequestSizeHistogram
+// in Configs.h).
+void registerPrestoMetrics(bool enableHttpRequestSizeHistogram = false);
 
 constexpr std::string_view kCounterDriverCPUExecutorQueueSize{
     "presto_cpp.driver_cpu_executor_queue_size"};

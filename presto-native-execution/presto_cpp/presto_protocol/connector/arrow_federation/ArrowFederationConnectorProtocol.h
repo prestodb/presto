@@ -20,11 +20,13 @@ using ArrowFederationConnectorProtocol = ConnectorProtocolTemplate<
     ArrowFederationTableHandle,
     ArrowFederationTableLayoutHandle,
     ArrowFederationColumnHandle,
-    NotImplemented,
-    NotImplemented,
+    UnsupportedOperation, // ConnectorInsertTableHandle
+    UnsupportedOperation, // ConnectorOutputTableHandle (CTAS)
     ArrowFederationSplit,
-    NotImplemented,
+    NotImplemented, // ConnectorPartitioningHandle
     ArrowFederationTransactionHandle,
-    NotImplemented,
-    NotImplemented>;
+    NotImplemented, // ConnectorDistributedProcedureHandle
+    UnsupportedOperation, // ConnectorDeleteTableHandle
+    NotImplemented, // ConnectorIndexHandle
+    UnsupportedOperation>; // ConnectorMergeTableHandle
 } // namespace facebook::presto::protocol::arrow_federation

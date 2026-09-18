@@ -21,6 +21,7 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -53,6 +54,7 @@ import static com.facebook.presto.SystemSessionProperties.isStreamingForPartialA
 import static com.facebook.presto.SystemSessionProperties.usePartialAggregationHistory;
 import static com.facebook.presto.cost.PartialAggregationStatsEstimate.isUnknown;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.isDecomposable;
+import static com.facebook.presto.spi.StandardWarningCode.FORCE_PUSH_PARTIAL_AGGREGATION_UNKNOWN_STATS;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
@@ -340,25 +342,36 @@ public class PushPartialAggregationThroughExchange
 
     private boolean partialAggregationNotUseful(AggregationNode aggregationNode, ExchangeNode exchangeNode, Context context, int numAggregationKeys)
     {
+        if (aggregationNode.getStep() == PARTIAL) {
+            // The original AggregationNode has already been split into a FINAL and PARTIAL, we always want to push this below the ExchangeNode
+            return false;
+        }
         StatsProvider stats = context.getStatsProvider();
         PlanNodeStatsEstimate exchangeStats = stats.getStats(exchangeNode);
         PlanNodeStatsEstimate aggregationStats = stats.getStats(aggregationNode);
         double inputSize = exchangeStats.getOutputSizeInBytes(exchangeNode);
         double outputSize = aggregationStats.getOutputSizeInBytes(aggregationNode);
         PartialAggregationStatsEstimate partialAggregationStatsEstimate = aggregationStats.getPartialAggregationStatsEstimate();
-        ConfidenceLevel confidenceLevel = exchangeStats.confidenceLevel();
+        ConfidenceLevel exchangeStatsConfidenceLevel = exchangeStats.confidenceLevel();
         // keep old behavior of skipping partial aggregation only for single-key aggregations
         boolean numberOfKeyCheck = usePartialAggregationHistory(context.getSession()) || numAggregationKeys == 1;
         if (!isUnknown(partialAggregationStatsEstimate) && usePartialAggregationHistory(context.getSession())) {
-            confidenceLevel = aggregationStats.confidenceLevel();
+            exchangeStatsConfidenceLevel = aggregationStats.confidenceLevel();
             // use rows instead of bytes when use_partial_aggregation_history flag is on
             inputSize = partialAggregationStatsEstimate.getInputRowCount();
             outputSize = partialAggregationStatsEstimate.getOutputRowCount();
         }
         double byteReductionThreshold = getPartialAggregationByteReductionThreshold(context.getSession());
 
+        if ((exchangeStatsConfidenceLevel != LOW && Double.isNaN(inputSize)) || Double.isNaN(outputSize)) {
+            context.getSession().getWarningCollector().add(new PrestoWarning(
+                    FORCE_PUSH_PARTIAL_AGGREGATION_UNKNOWN_STATS,
+                    "Force Pushing Aggregation below Exchange because stats estimated for the Aggregation or Exchange nodes were unknown"));
+            return false;
+        }
+
         // calling this function means we are using a cost-based strategy for this optimization
-        return numberOfKeyCheck && confidenceLevel != LOW && outputSize > inputSize * byteReductionThreshold;
+        return numberOfKeyCheck && exchangeStatsConfidenceLevel != LOW && outputSize > inputSize * byteReductionThreshold;
     }
 
     private static boolean isLambda(RowExpression rowExpression)

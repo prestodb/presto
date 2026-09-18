@@ -39,7 +39,11 @@ public class TestLanceLimitPushdown
     @Test
     public void testPushesLimitIntoTableScan()
     {
-        LanceTableHandle lanceTable = new LanceTableHandle("default", "t");
+        LanceTableHandle lanceTable = new LanceTableHandle(
+                "default",
+                "t",
+                "file:///tmp/lance/t.lance",
+                ImmutableList.of("t"));
         TableScanNode scan = tableScan(lanceTable);
         LimitNode limit = new LimitNode(Optional.empty(), new PlanNodeId("limit"), scan, 10L, LimitNode.Step.FINAL);
 
@@ -57,7 +61,12 @@ public class TestLanceLimitPushdown
     @Test
     public void testIdempotentWhenAlreadyPushed()
     {
-        LanceTableHandle lanceTable = new LanceTableHandle("default", "t").withLimit(10);
+        LanceTableHandle lanceTable = new LanceTableHandle(
+                "default",
+                "t",
+                "file:///tmp/lance/t.lance",
+                ImmutableList.of("t"))
+                .withLimit(10);
         TableScanNode scan = tableScan(lanceTable);
         LimitNode limit = new LimitNode(Optional.empty(), new PlanNodeId("limit"), scan, 10L, LimitNode.Step.FINAL);
 

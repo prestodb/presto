@@ -2012,6 +2012,8 @@ struct NodeStatus {
   int64_t heapUsed = {};
   int64_t heapAvailable = {};
   int64_t nonHeapUsed = {};
+  int64_t asyncDataCacheBytes = {};
+  int64_t queryMemoryBytes = {};
 };
 void to_json(json& j, const NodeStatus& p);
 void from_json(const json& j, NodeStatus& p);
@@ -2674,6 +2676,7 @@ struct TaskStats {
   List<BlockedReason> blockedReasons = {};
   int64_t totalAllocationInBytes = {};
   int64_t rawInputDataSizeInBytes = {};
+  int64_t scanRawInputDataSizeInBytes = {};
   int64_t rawInputPositions = {};
   int64_t processedInputDataSizeInBytes = {};
   int64_t processedInputPositions = {};

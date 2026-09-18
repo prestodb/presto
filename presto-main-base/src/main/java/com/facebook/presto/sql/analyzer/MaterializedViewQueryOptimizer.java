@@ -201,6 +201,7 @@ public class MaterializedViewQueryOptimizer
                 node.getWhere(),
                 node.getGroupBy(),
                 node.getHaving(),
+                node.getWindows(),
                 node.getOrderBy(),
                 node.getOffset(),
                 node.getLimit());
@@ -278,7 +279,7 @@ public class MaterializedViewQueryOptimizer
             return node;
         }
 
-        return new TableSubquery(processSameType(newQuery));
+        return new TableSubquery(newQuery);
     }
 
     @Override
@@ -289,7 +290,7 @@ public class MaterializedViewQueryOptimizer
             return node;
         }
 
-        return new AliasedRelation(processSameType(newRelation), node.getAlias(), node.getColumnNames());
+        return new AliasedRelation(newRelation, node.getAlias(), node.getColumnNames());
     }
 
     @Override
@@ -334,7 +335,7 @@ public class MaterializedViewQueryOptimizer
             return node;
         }
 
-        return new WithQuery(node.getName(), processSameType(node.getQuery()), node.getColumnNames());
+        return new WithQuery(node.getName(), newQuery, node.getColumnNames());
     }
 
     private <T extends Node> List<T> processNodes(List<T> nodes)
@@ -416,7 +417,10 @@ public class MaterializedViewQueryOptimizer
     {
         MaterializedViewDefinition materializedViewDefinition = metadataResolver.getMaterializedView(materializedViewName).orElseThrow(() ->
                 new IllegalStateException("Materialized view definition not present in metadata as expected."));
-        Table materializedViewTable = new Table(QualifiedName.of(materializedViewDefinition.getTable()));
+        Table materializedViewTable = new Table(QualifiedName.of(
+                materializedViewName.getCatalogName(),
+                materializedViewDefinition.getSchema(),
+                materializedViewDefinition.getTable()));
         Query materializedViewQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session));
 
         return new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery, materializedViewName).rewrite(originalQuerySpecification);
@@ -501,6 +505,13 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitQuerySpecification(QuerySpecification node, Void context)
         {
+            // A WINDOW clause is carried over unchanged, so its expressions and frame bounds would keep
+            // referring to base table columns. Decline rather than rewrite it only in part. Window
+            // functions are declined separately, in MaterializedViewExpressionRewriter.
+            if (!node.getWindows().isEmpty()) {
+                throw new IllegalStateException("Query with WINDOW clause is not rewritable by materialized view");
+            }
+
             if (!node.getFrom().isPresent()) {
                 throw new IllegalArgumentException("visitQuerySpecification should not be invoked for an empty FROM clause");
             }
@@ -589,6 +600,7 @@ public class MaterializedViewQueryOptimizer
                     node.getWhere().map(where -> (Expression) process(where, context)),
                     node.getGroupBy().map(groupBy -> (GroupBy) process(groupBy, context)),
                     node.getHaving().map(having -> (Expression) process(having, context)),
+                    node.getWindows(),
                     node.getOrderBy().map(orderBy -> (OrderBy) process(orderBy, context)),
                     node.getOffset(),
                     node.getLimit());
@@ -932,7 +944,7 @@ public class MaterializedViewQueryOptimizer
 
                 Table table;
                 if (from instanceof Table) {
-                    table = (Table) querySpecification.getFrom().get();
+                    table = (Table) from;
                 }
                 else if (from instanceof AliasedRelation && ((AliasedRelation) from).getRelation() instanceof Table) {
                     table = (Table) ((AliasedRelation) from).getRelation();

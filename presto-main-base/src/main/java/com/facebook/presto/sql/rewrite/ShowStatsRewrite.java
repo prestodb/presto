@@ -333,7 +333,7 @@ public class ShowStatsRewrite
                 rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMax)));
             }
             rowValues.add(columnStatistics.getHistogram().map(Objects::toString).<Expression>map(StringLiteral::new).orElse(NULL_VARCHAR));
-            return new Row(rowValues.build());
+            return Row.unnamed(rowValues.build());
         }
 
         private Expression createEmptyColumnStatsRow(String columnName)
@@ -347,7 +347,7 @@ public class ShowStatsRewrite
             rowValues.add(NULL_VARCHAR);
             rowValues.add(NULL_VARCHAR);
             rowValues.add(NULL_VARCHAR);
-            return new Row(rowValues.build());
+            return Row.unnamed(rowValues.build());
         }
 
         private static Row createTableStatsRow(TableStatistics tableStatistics)
@@ -361,7 +361,7 @@ public class ShowStatsRewrite
             rowValues.add(NULL_VARCHAR);
             rowValues.add(NULL_VARCHAR);
             rowValues.add(NULL_VARCHAR);
-            return new Row(rowValues.build());
+            return Row.unnamed(rowValues.build());
         }
 
         private static Expression createEstimateRepresentation(Estimate estimate)

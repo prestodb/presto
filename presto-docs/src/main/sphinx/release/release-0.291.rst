@@ -27,8 +27,8 @@ _______________
 * Improve scheduling for CTE materialization: Now, only the stages containing CTE table scans that reference CTE table write stages are blocked till the write is complete, instead of the entire query being blocked as was the case previously. This is controlled by the session property ``enhanced_cte_scheduling_enabled`` (on by default). `#24108 <https://github.com/prestodb/presto/pull/24108>`_
 * Improve security of internal HTTP endpoints by sanitizing headers before they are used. `#24004 <https://github.com/prestodb/presto/pull/24004>`_
 * Add :doc:`/sql/alter-table` SET PROPERTIES statement. `#21495 <https://github.com/prestodb/presto/pull/21495>`_
-* Add :func:`google_polyline_decode` function to convert Google polyline to Presto ST_Geometry types. `#23999 <https://github.com/prestodb/presto/pull/23999>`_
-* Add :func:`google_polyline_encode` function to convert Presto ST_Geometry to Google polyline types. `#23999 <https://github.com/prestodb/presto/pull/23999>`_
+* Add :func:`!google_polyline_decode` function to convert Google polyline to Presto ST_Geometry types. `#23999 <https://github.com/prestodb/presto/pull/23999>`_
+* Add :func:`!google_polyline_encode` function to convert Presto ST_Geometry to Google polyline types. `#23999 <https://github.com/prestodb/presto/pull/23999>`_
 * Add ``ClientRequestFilter.java`` interface in Presto-spi: :doc:`/develop/client-request-filter`. `#23380 <https://github.com/prestodb/presto/pull/23380>`_
 * Add a configuration property ``plan-checker.config-dir`` to set the configuration directory for PlanCheckerProvider configurations. `#23955 <https://github.com/prestodb/presto/pull/23955>`_
 * Add a session property ``include_values_node_in_connector_optimizer`` to enable connector optimizer optimize plans with values node.  `#24227 <https://github.com/prestodb/presto/pull/24227>`_

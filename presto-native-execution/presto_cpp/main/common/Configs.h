@@ -171,6 +171,10 @@ class SystemConfig : public ConfigBase {
   /// startup.
   static constexpr std::string_view kHttpServerReusePort{
       "http-server.reuse-port"};
+  /// If true, write the bound HTTP port to
+  /// `<etc_dir>/http-server.port` after bind.
+  static constexpr std::string_view kHttpServerReportBoundPortToFile{
+      "http-server.report-bound-port-to-file"};
   /// By default the server binds to 0.0.0.0
   /// With this option enabled the server will bind strictly to the
   /// address set in node.internal-address property
@@ -693,6 +697,22 @@ class SystemConfig : public ConfigBase {
       kExchangeMaterializationOutputBufferPerPartitionMaxBytes{
           "exchange.materialization.output-buffer.per-partition-max-bytes"};
 
+  /// Producer-blocking watermark. Must exceed the low ratio. Default: 0.9.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferHighWatermarkRatio{
+          "exchange.materialization.output-buffer.high-watermark-ratio"};
+
+  /// Producer-wake watermark. Must be below the high ratio. Default: 0.7.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferLowWatermarkRatio{
+          "exchange.materialization.output-buffer.low-watermark-ratio"};
+
+  /// Maximum collect() size as a multiple of the partition drain threshold.
+  /// Default: 2.0.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferDrainChunkMultiplier{
+          "exchange.materialization.output-buffer.drain-chunk-multiplier"};
+
   /// Fraction of the per-partition drain threshold used during memory reclaim.
   /// The reclaim drain threshold is generally lower than the regular drain
   /// threshold, but high enough that draining actually reduces memory. Without
@@ -715,12 +735,26 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeMaterializationReclaimHighPriority{
       "exchange.materialization.reclaim-high-priority"};
 
+  /// Skip coalescing MaterializedOutput RowGroups before handing them to the
+  /// ShuffleWriter's owned-buffer collect path. When disabled, the existing
+  /// contiguous collect path is unchanged. Applies to non-sort shuffle only.
+  /// Default: true.
+  static constexpr std::string_view kExchangeMaterializationUseZeroCopyCollect{
+      "exchange.materialization.use-zero-copy-collect"};
+
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatsFilter{
       "http-server.enable-stats-filter"};
   static constexpr std::string_view kHttpEnableEndpointLatencyFilter{
       "http-server.enable-endpoint-latency-filter"};
+
+  /// Enables the http request size histogram metric
+  /// (presto_cpp.http_request_size_bytes). This histogram has a large number of
+  /// buckets which can significantly slow down Prometheus metrics scraping, so
+  /// it is disabled by default.
+  static constexpr std::string_view kHttpEnableRequestSizeHistogram{
+      "http-server.enable-request-size-histogram"};
 
   /// The options to configure the max quantized memory allocation size to store
   /// the received http response data.
@@ -749,6 +783,14 @@ class SystemConfig : public ConfigBase {
   /// Time (ms) since the task execution ended, when task is considered old for
   /// cleanup.
   static constexpr std::string_view kOldTaskCleanUpMs{"old-task-cleanup-ms"};
+
+  /// If true, wait for task Drivers to stop after aborting a dropped task.
+  static constexpr std::string_view kTaskSyncTerminateEnabled{
+      "task.sync-terminate-enabled"};
+
+  /// Maximum time to wait for task Drivers to stop after abort.
+  static constexpr std::string_view kTaskSyncTerminateTimeoutMs{
+      "task.sync-terminate-timeout-ms"};
 
   /// Enable periodic old task clean up. Typically enabled for presto (default)
   /// and disabled for presto-on-spark.
@@ -986,6 +1028,8 @@ class SystemConfig : public ConfigBase {
 
   bool httpServerReusePort() const;
 
+  bool httpServerReportBoundPortToFile() const;
+
   bool httpServerBindToNodeInternalAddressOnlyEnabled() const;
 
   bool httpServerHttpsEnabled() const;
@@ -1182,11 +1226,19 @@ class SystemConfig : public ConfigBase {
 
   int64_t exchangeMaterializationOutputBufferPerPartitionMaxBytes() const;
 
+  double exchangeMaterializationOutputBufferHighWatermarkRatio() const;
+
+  double exchangeMaterializationOutputBufferLowWatermarkRatio() const;
+
+  double exchangeMaterializationOutputBufferDrainChunkMultiplier() const;
+
   double exchangeMaterializationReclaimDrainThresholdRatio() const;
 
   bool exchangeMaterializationReclaimWaitForWriterDrainEnabled() const;
 
   bool exchangeMaterializationReclaimHighPriority() const;
+
+  bool exchangeMaterializationUseZeroCopyCollect() const;
 
   bool enableSerializedPageChecksum() const;
 
@@ -1237,6 +1289,8 @@ class SystemConfig : public ConfigBase {
   bool enableHttpStatsFilter() const;
 
   bool enableHttpEndpointLatencyFilter() const;
+
+  bool enableHttpRequestSizeHistogram() const;
 
   bool registerTestFunctions() const;
 
@@ -1291,6 +1345,10 @@ class SystemConfig : public ConfigBase {
   bool includeNodeInSpillPath() const;
 
   int32_t oldTaskCleanUpMs() const;
+
+  bool taskSyncTerminateEnabled() const;
+
+  uint64_t taskSyncTerminateTimeoutMs() const;
 
   bool enableOldTaskCleanUp() const;
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.GenericInternalException;
@@ -53,6 +54,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpecList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -103,6 +106,11 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -162,15 +170,18 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.isMetadataColumn
 import static com.facebook.presto.iceberg.IcebergPartitionType.IDENTITY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMN_EXPRESSION_SPEC;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getWriteDataLocation;
 import static com.facebook.presto.iceberg.IcebergTableProperties.isHiveLocksEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_DERIVED_COLUMN_SPEC;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.lenientFormat;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -255,8 +266,16 @@ public final class IcebergUtil
     public static final int REAL_NEGATIVE_INFINITE = 0xff800000;
 
     protected static final String VIEW_OWNER = "view_owner";
+    static final JsonCodec<DerivedColumnSpecList> DERIVED_COLUMN_SPEC_JSON_CODEC = JsonCodec.jsonCodec(DerivedColumnSpecList.class);
+    static final String DERIVED_COL_EMPTY_SPEC = DERIVED_COLUMN_SPEC_JSON_CODEC.toJson(new DerivedColumnSpecList(ImmutableList.of()));
 
     public static final int DEFAULT_MIN_INPUT_FILES = 5;
+
+    public enum RewriteStrategy
+    {
+        SORT,
+        BINPACK
+    }
 
     private static final Schema LINEAGE_ONLY_SCHEMA = new Schema(LAST_UPDATED_SEQUENCE_NUMBER);
     private static final InclusiveMetricsEvaluator MATCH_ALL_LINEAGE_EVALUATOR =
@@ -504,11 +523,6 @@ public final class IcebergUtil
 
     private static HiveType icebergTypeToHiveType(org.apache.iceberg.types.Type icebergType)
     {
-        // Special handling for TIME type: use bigint instead of 'string'
-        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.TIME) {
-            return HiveType.HIVE_LONG;
-        }
-
         return HiveType.valueOf(sanitizeTypeString(icebergType));
     }
 
@@ -519,6 +533,16 @@ public final class IcebergUtil
      */
     private static String sanitizeTypeString(org.apache.iceberg.types.Type icebergType)
     {
+        // Special handling for TIME type: use bigint instead of 'string'
+        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.TIME) {
+            return HiveType.HIVE_LONG.toString();
+        }
+
+        // Special handling for GEOMETRY type: geometry stored as well-known binary in iceberg
+        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.GEOMETRY) {
+            return HiveType.HIVE_BINARY.toString();
+        }
+
         if (icebergType.isPrimitiveType()) {
             return HiveSchemaUtil.convert(icebergType).getTypeName();
         }
@@ -672,6 +696,11 @@ public final class IcebergUtil
                 .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
                 .put(VIEW_OWNER, session.getUser())
                 .build();
+    }
+
+    public static boolean isPrestoView(View view)
+    {
+        return "true".equalsIgnoreCase(view.properties().get(PRESTO_VIEW_FLAG));
     }
 
     public static Optional<Map<String, String>> tryGetProperties(Table table)
@@ -914,10 +943,41 @@ public final class IcebergUtil
                 return parseDouble(valueString);
             }
             if (type.equals(TIMESTAMP) || type.equals(TIME)) {
-                return MICROSECONDS.toMillis(parseLong(valueString));
+                // Default values are serialised as ISO datetime strings
+                // (e.g. "2023-01-01 11:00:00.000000"); partition values arrive
+                // as microseconds-since-epoch numeric strings.  Accept both.
+                try {
+                    return MICROSECONDS.toMillis(parseLong(valueString));
+                }
+                catch (NumberFormatException ignored) {
+                    // ISO string: parse to epoch-millis via LocalDateTime
+                    try {
+                        LocalDateTime ldt = LocalDateTime.parse(
+                                valueString,
+                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSSSSS][.SSS]"));
+                        return ldt.toInstant(ZoneOffset.UTC).toEpochMilli();
+                    }
+                    catch (DateTimeParseException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                }
             }
             if (type.equals(DATE) || type.equals(TIMESTAMP_MICROSECONDS)) {
-                return parseLong(valueString);
+                // Default values are serialised as ISO date strings
+                // (e.g. "2023-01-01"); partition values arrive as integer
+                // days-since-epoch numeric strings.  Accept both.
+                try {
+                    return parseLong(valueString);
+                }
+                catch (NumberFormatException ignored) {
+                    // ISO date string
+                    try {
+                        return LocalDate.parse(valueString).toEpochDay();
+                    }
+                    catch (DateTimeParseException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                }
             }
             if (type instanceof VarcharType) {
                 return utf8Slice(valueString);
@@ -1362,10 +1422,31 @@ public final class IcebergUtil
         }
     }
 
-    public static Map<String, String> populateTableProperties(IcebergAbstractMetadata metadata, ConnectorTableMetadata tableMetadata, IcebergTableProperties tableProperties, FileFormat fileFormat, ConnectorSession session)
+    public static Map<String, String> populateTableProperties(
+            IcebergAbstractMetadata metadata,
+            ConnectorTableMetadata tableMetadata,
+            IcebergTableProperties tableProperties,
+            FileFormat fileFormat,
+            ConnectorSession session,
+            Schema schema)
     {
-        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(5);
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(10);
+        checkNotSupported(IcebergTableProperties.getDerivedColumnSpec(tableMetadata.getProperties()).getDerivedColumnSpecs().isEmpty(),
+                "property %s is not user configurable", DERIVED_COLUMN_EXPRESSION_SPEC);
+        List<DerivedColumnSpec> derivedColumnSpecs = tableMetadata.getColumns().stream()
+                .filter(columnMetadata -> columnMetadata.getDerivedColumnSpec().isPresent())
+                .map(columnMetadata -> columnMetadata.getDerivedColumnSpec().get())
+                .map(derivedColumnSpec ->
+                        DerivedColumnSpec.buildFrom(derivedColumnSpec).setDerivedColumnFieldId(schema.findField(derivedColumnSpec.getDerivedColumnName()).fieldId()).build())
+                .collect(toImmutableList());
 
+        DerivedColumnSpecList derivedColumnSpecList = new DerivedColumnSpecList(derivedColumnSpecs);
+        checkInvalidDerivedColumnSpec(derivedColumnSpecList.validateFieldIds(), "derived column spec has invalid fieldIds for table %s.%s",
+                tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
+        if (!derivedColumnSpecList.getDerivedColumnSpecs().isEmpty()) {
+            // Following property is updated automatically via create/alter table, user overrides are not permitted.
+            propertiesBuilder.put(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COLUMN_SPEC_JSON_CODEC.toJson(derivedColumnSpecList));
+        }
         String writeDataLocation = getWriteDataLocation(tableMetadata.getProperties());
         if (!isNullOrEmpty(writeDataLocation)) {
             propertiesBuilder.put(WRITE_DATA_LOCATION, writeDataLocation);
@@ -1450,6 +1531,11 @@ public final class IcebergUtil
         return RowLevelOperationMode.fromName(table.properties()
                 .getOrDefault(DELETE_MODE, DELETE_MODE_DEFAULT)
                 .toUpperCase(Locale.ENGLISH));
+    }
+
+    public static DerivedColumnSpecList getDerivedColumnSpec(Table table)
+    {
+        return DERIVED_COLUMN_SPEC_JSON_CODEC.fromJson(table.properties().getOrDefault(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COL_EMPTY_SPEC));
     }
 
     public static RowLevelOperationMode getUpdateMode(Table table)
@@ -1915,5 +2001,25 @@ public final class IcebergUtil
             return (minFileSizeBytes > 0 && fileSize < minFileSizeBytes) ||
                     (maxFileSizeBytes > 0 && fileSize > maxFileSizeBytes);
         });
+    }
+
+    static void checkNotSupported(
+            boolean expression,
+            String errorMessageTemplate,
+            Object... errorMessageArgs)
+    {
+        if (!expression) {
+            throw new PrestoException(NOT_SUPPORTED, lenientFormat(errorMessageTemplate, errorMessageArgs));
+        }
+    }
+
+    static void checkInvalidDerivedColumnSpec(
+            boolean expression,
+            String errorMessageTemplate,
+            Object... errorMessageArgs)
+    {
+        if (!expression) {
+            throw new PrestoException(INVALID_DERIVED_COLUMN_SPEC, lenientFormat(errorMessageTemplate, errorMessageArgs));
+        }
     }
 }

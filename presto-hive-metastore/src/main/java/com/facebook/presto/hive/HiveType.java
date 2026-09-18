@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UuidType;
+import com.facebook.presto.geospatial.type.GeometryType;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -48,6 +49,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.StandardTypes.GEOMETRY;
 import static com.facebook.presto.common.type.StandardTypes.UUID;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
@@ -129,6 +131,47 @@ public final class HiveType
         public String toString()
         {
             return UUID;
+        }
+    });
+    public static final HiveType HIVE_GEOMETRY = new HiveType(new TypeInfo()
+    {
+        @Override
+        public Category getCategory()
+        {
+            return PRIMITIVE;
+        }
+
+        @Override
+        public String getTypeName()
+        {
+            return GEOMETRY;
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            if (this == other) {
+                return true;
+            }
+            if (other == null || getClass() != other.getClass()) {
+                return false;
+            }
+
+            TypeInfo ti = (TypeInfo) other;
+
+            return GEOMETRY.equals(ti.getTypeName());
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return GEOMETRY.hashCode();
+        }
+
+        @Override
+        public String toString()
+        {
+            return GEOMETRY;
         }
     });
 
@@ -269,10 +312,13 @@ public final class HiveType
     {
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
-                Type primitiveType = getPrimitiveType((PrimitiveTypeInfo) typeInfo);
-                if (primitiveType == null && typeInfo.getTypeName().equals(UUID)) {
+                if (typeInfo.getTypeName().equals(GEOMETRY)) {
+                    return GeometryType.GEOMETRY.getTypeSignature();
+                }
+                if (typeInfo.getTypeName().equals(UUID)) {
                     return UuidType.UUID.getTypeSignature();
                 }
+                Type primitiveType = getPrimitiveType((PrimitiveTypeInfo) typeInfo);
                 if (primitiveType == null) {
                     break;
                 }

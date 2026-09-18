@@ -119,6 +119,9 @@ class ArrowFederationDataSource : public ArrowFlightDataSource {
       uint64_t size,
       velox::ContinueFuture& /* unused */) override;
 
+ protected:
+  void handleArrowError(const arrow::Status& status) override;
+
  private:
   const velox::connector::ColumnHandleMap columnHandles_;
   const std::shared_ptr<const ArrowFederationTableHandle> tableHandle_;

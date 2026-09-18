@@ -150,17 +150,16 @@ public abstract class AbstractTestFlightShimPlugins
             throws Exception
     {
         super.close();
-        if (server != null && producer != null) {
-            server.shutdown();
-            producer.shutdown();
-        }
         if (server != null) {
-            server.close();
-            server = null;
+            server.shutdown();
         }
         if (producer != null) {
             producer.close();
             producer = null;
+        }
+        if (server != null) {
+            server.close();
+            server = null;
         }
         if (allocator != null) {
             allocator.close();
@@ -504,7 +503,12 @@ public abstract class AbstractTestFlightShimPlugins
 
     protected FlightShimRequest createTpchTableRequest(int partNumber, int totalParts, List<TpchColumnHandle> columnHandles)
     {
-        String split = createTpchSplit(TPCH_TABLE, partNumber, totalParts);
+        return createTpchTableRequest(TPCH_TABLE, partNumber, totalParts, columnHandles);
+    }
+
+    protected FlightShimRequest createTpchTableRequest(String tableName, int partNumber, int totalParts, List<TpchColumnHandle> columnHandles)
+    {
+        String split = createTpchSplit(tableName, partNumber, totalParts);
         byte[] splitBytes = split.getBytes(StandardCharsets.UTF_8);
 
         ImmutableList.Builder<Descriptor.Field> fieldBuilder = ImmutableList.builder();

@@ -115,7 +115,28 @@ public class OptimizerAssert
         Plan result = queryRunner.inTransaction(session -> queryRunner.createPlan(session, sql, getMinimalOptimizers(), Optimizer.PlanStage.OPTIMIZED, WarningCollector.NOOP));
         plan = result.getRoot();
         types = result.getTypes();
+        // The initial plan was built with its own id allocator, so advance this one past every id already handed out
+        // to keep the ids of the nodes created by the rules under test unique
+        int maxPlanNodeId = maxPlanNodeId(plan);
+        for (int i = 0; i <= maxPlanNodeId; i++) {
+            idAllocator.getNextId();
+        }
         return this;
+    }
+
+    private static int maxPlanNodeId(PlanNode node)
+    {
+        int maxId = -1;
+        for (PlanNode source : node.getSources()) {
+            maxId = Math.max(maxId, maxPlanNodeId(source));
+        }
+        try {
+            maxId = Math.max(maxId, Integer.parseInt(node.getId().toString()));
+        }
+        catch (NumberFormatException e) {
+            // ids handed out by PlanNodeIdAllocator are numeric, anything else cannot collide with them
+        }
+        return maxId;
     }
 
     public void matches(PlanMatchPattern pattern)
@@ -141,7 +162,8 @@ public class OptimizerAssert
 
     private Plan applyRules()
     {
-        PlanNode actual = optimizer.optimize(plan, session, types, new VariableAllocator(), idAllocator, WarningCollector.NOOP).getPlanNode();
+        // Seed the allocator with the variables already in the plan, otherwise newly allocated variables can collide with existing ones
+        PlanNode actual = optimizer.optimize(plan, session, types, new VariableAllocator(types.allVariables()), idAllocator, WarningCollector.NOOP).getPlanNode();
 
         if (!ImmutableSet.copyOf(plan.getOutputVariables()).equals(ImmutableSet.copyOf(actual.getOutputVariables()))) {
             fail(String.format(

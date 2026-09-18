@@ -17,6 +17,7 @@
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include <folly/container/F14Set.h>
 #include <folly/io/IOBuf.h>
 #include <velox/type/TypeUtil.h>
 #include <velox/type/Filter.h>
@@ -1601,7 +1602,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle);
+      connectorId, connectorInsertHandle, folly::F14FastSet<std::string>{});
 
   const auto outputType = toRowType(
       generateOutputVariables(
@@ -1662,7 +1663,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle);
+      connectorId, connectorInsertHandle, folly::F14FastSet<std::string>{});
 
   const auto outputType = toRowType(
       generateOutputVariables(
@@ -1711,7 +1712,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle);
+      connectorId, connectorInsertHandle, folly::F14FastSet<std::string>{});
 
   // [ICEBERG-FIX bug 1B]: Build outputType from node->outputVariables
   // — the Java QueryPlanner.plan(Delete) now declares 3 vars
@@ -1958,7 +1959,9 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         connectorId);
   }
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, std::shared_ptr(std::move(veloxHandle)));
+      connectorId,
+      std::shared_ptr(std::move(veloxHandle)),
+      folly::F14FastSet<std::string>{});
 
   // 2. Translate source plan. The source is the IcebergMergeProcessorNode
   //    (Layer 3c) when the upstream pipeline went through the
@@ -2119,7 +2122,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const protocol::TaskId& taskId) {
   std::vector<core::FieldAccessTypedExprPtr> unnestFields;
   unnestFields.reserve(node->unnestVariables.size());
-  std::vector<std::string> unnestNames;
+  std::vector<std::optional<std::string>> unnestNames;
   for (const auto& [unnestField, outputVariables] : node->unnestVariables) {
     unnestFields.emplace_back(exprConverter_.toVeloxExpr(unnestField));
     for (const auto& output : outputVariables) {
@@ -2130,8 +2133,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   return std::make_shared<core::UnnestNode>(
       node->id,
       toVeloxExprs(node->replicateVariables),
-      unnestFields,
-      unnestNames,
+      std::move(unnestFields),
+      std::move(unnestNames),
       node->ordinalityVariable ? std::optional{node->ordinalityVariable->name}
                                : std::nullopt,
       std::nullopt,
@@ -2434,17 +2437,15 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   // Parse the result type from the protocol output variable.
   auto resultType = typeParser_.parse(node->outputVariable.type);
 
-  // Extract argument types and constant values from the protocol argument
-  // expressions. The Java planner sends both `arguments` (original
-  // expressions for type/constant extraction) and `argumentColumns`
-  // (column names for runtime reads by RPCOperator).
-  std::vector<TypePtr> argumentTypes;
+  // Extract constant values from the protocol argument expressions. The Java
+  // planner sends both `arguments` (original expressions, used here to detect
+  // constant literals) and `argumentColumns` (column names for runtime reads by
+  // RPCOperator). Column-argument types come from the source schema below, not
+  // from the argument expression's declared type.
   std::vector<VectorPtr> constantInputs;
-  argumentTypes.reserve(node->arguments.size());
   constantInputs.reserve(node->arguments.size());
   for (const auto& arg : node->arguments) {
     auto veloxExpr = exprConverter_.toVeloxExpr(arg);
-    argumentTypes.push_back(veloxExpr->type());
 
     // Extract constant value. Unwrap CastTypedExpr if present — the Java
     // planner wraps string literals in CAST(x AS VARCHAR) which hides the
@@ -2498,16 +2499,42 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   outputTypes.push_back(resultType);
   auto outputType = ROW(std::move(outputNames), std::move(outputTypes));
 
+  // Build CallTypedExpr inputs: FieldAccess for columns, Constant for literals
+  // (Velox #18267 folds RPCNode args into CallTypedExpr: field refs vs
+  // constants)
+  // argumentColumns and constantInputs are parallel per-argument arrays; the
+  // loop indexes both, so they must stay aligned.
+  VELOX_CHECK_EQ(argumentColumns.size(), constantInputs.size());
+  std::vector<core::TypedExprPtr> callInputs;
+  callInputs.reserve(argumentColumns.size());
+  for (size_t i = 0; i < argumentColumns.size(); ++i) {
+    if (constantInputs[i] != nullptr) {
+      callInputs.push_back(
+          std::make_shared<core::ConstantTypedExpr>(constantInputs[i]));
+    } else {
+      // A column argument's FieldAccess must carry the SOURCE column's actual
+      // type, not the argument expression's declared type: RPCOperator reads
+      // this column by name at runtime, so a CAST-wrapped argument would
+      // otherwise misdeclare the vector that is actually read.
+      const auto childIdx = sourceType->getChildIdxIfExists(argumentColumns[i]);
+      VELOX_CHECK(
+          childIdx.has_value(),
+          "RPCNode argument column '{}' not found in source schema",
+          argumentColumns[i]);
+      callInputs.push_back(
+          std::make_shared<core::FieldAccessTypedExpr>(
+              sourceType->childAt(*childIdx), argumentColumns[i]));
+    }
+  }
+  auto call = std::make_shared<core::CallTypedExpr>(
+      resultType, std::move(callInputs), node->functionName);
+
   return std::make_shared<core::RPCNode>(
       node->id,
       sourceNode,
-      node->functionName,
-      resultType,
+      std::move(call),
       node->outputVariable.name,
       std::move(outputType),
-      std::move(argumentColumns),
-      std::move(argumentTypes),
-      std::move(constantInputs),
       veloxStreamingMode,
       dispatchBatchSize);
 }

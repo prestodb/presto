@@ -41,7 +41,6 @@ Commas in MBean names should be escaped in the following manner:
 
     connector.name=jmx
     jmx.dump-tables=com.facebook.presto.memory:type=memorypool\\,name=general,\
-       com.facebook.presto.memory:type=memorypool\\,name=system,\
        com.facebook.presto.memory:type=memorypool\\,name=reserved
 
 Querying JMX
@@ -97,8 +96,7 @@ returns information from the different Presto memory pools on each node::
     ------------+---------+----------------------------------------------------------
       214748364 | example | com.facebook.presto.memory:type=MemoryPool,name=reserved
      1073741825 | example | com.facebook.presto.memory:type=MemoryPool,name=general
-      858993459 | example | com.facebook.presto.memory:type=MemoryPool,name=system
-    (3 rows)
+    (2 rows)
 
 History Schema
 ^^^^^^^^^^^^^^

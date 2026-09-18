@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import org.lance.Fragment;
 import org.testng.annotations.BeforeMethod;
@@ -86,13 +87,17 @@ public class TestWideTypesTable
         assertNotNull(dbUrl, "example_db resource not found");
         String rootPath = Paths.get(dbUrl.toURI()).toString();
         LanceConfig config = new LanceConfig()
-                .setRootUrl(rootPath)
                 .setSingleLevelNs(true);
-        namespaceHolder = new LanceNamespaceHolder(config);
+        Map<String, String> namespaceProperties = ImmutableMap.of("lance.root", rootPath);
+        namespaceHolder = new LanceNamespaceHolder(config, namespaceProperties);
         arrowBlockBuilder = new ArrowBlockBuilder(createTestFunctionAndTypeManager());
-        tableHandle = new LanceTableHandle("default", "wide_types_table");
-        tablePath = namespaceHolder.getTablePath("wide_types_table");
-        fragments = namespaceHolder.getFragments("wide_types_table", Optional.empty());
+
+        tablePath = namespaceHolder.getTablePath("default", "wide_types_table");
+        assertNotNull(tablePath);
+        List<String> tableId = namespaceHolder.getTableId("default", "wide_types_table");
+        long datasetVersion = namespaceHolder.getLatestVersion(tablePath);
+        tableHandle = new LanceTableHandle("default", "wide_types_table", tablePath, tableId, Optional.of(datasetVersion));
+        fragments = namespaceHolder.getFragments(tablePath, Optional.of(datasetVersion));
         LanceMetadata metadata = new LanceMetadata(namespaceHolder, jsonCodec(LanceCommitTaskData.class));
         columnHandles = metadata.getColumnHandles(null, tableHandle);
     }

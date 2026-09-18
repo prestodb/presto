@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.299-SNAPSHOT</version>
+        <version>0.300-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -531,6 +531,12 @@
                         <ignoredDependency>org.eclipse.jetty:jetty-server:jar</ignoredDependency>
                         <ignoredDependency>org.apache.httpcomponents:httpclient</ignoredDependency>
                     </ignoredDependencies>
+                    <ignoredUnusedDeclaredDependencies>
+                        <!-- hudi-presto-bundle:1.1.0 ships unrelocated io/airlift/compress/* classes,
+                             causing Maven to detect the classes being used from the hudi bundle rather
+                             than the direct aircompressor dependency-->
+                        <ignoredUnusedDeclaredDependency>io.airlift:aircompressor</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.fasterxml.jackson.core:jackson-core</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>software.amazon.awssdk:glue</ignoredNonTestScopedDependency>

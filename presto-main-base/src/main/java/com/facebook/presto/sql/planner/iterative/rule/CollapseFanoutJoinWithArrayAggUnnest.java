@@ -19,11 +19,13 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConstantProperty;
+import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
-import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -34,6 +36,10 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.optimizations.ActualProperties;
+import com.facebook.presto.sql.planner.optimizations.PropertyDerivations;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -49,19 +55,22 @@ import static com.facebook.presto.SystemSessionProperties.isOptimizeJoinFanOut;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.sql.planner.PlannerUtils.createArrayAggregation;
+import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Collapses a fan-out equi-join whose preserved side resolves (possibly through intervening
- * {@link ProjectNode}/{@link FilterNode}s) to either an {@link AggregationNode} grouped by, or an
- * {@code INNER} {@link JoinNode} keyed on, a strict superset of that side's join keys — turning the
- * {@code 1-to-N} join into a {@code N-to-1} join plus a cheap local {@code UNNEST}.
+ * Collapses a fan-out equi-join: a join one of whose sides is provably non-unique on its join keys
+ * while being unique on some strict superset of them — turning the {@code 1-to-N} join into a
+ * {@code N-to-1} join plus a cheap local {@code UNNEST}.
  *
  * <p>The canonical aggregation shape is:
  * <pre>
@@ -90,28 +99,50 @@ import static java.util.Objects.requireNonNull;
  * column per field. The Java engine handles both forms; the native (Velox) engine currently only
  * supports the legacy single-{@code ROW} form for array-of-rows {@code UNNEST}.
  *
- * <p>The same fan-out arises when the preserved side is itself an {@code INNER} join keyed on a
- * strict superset of the outer join key, e.g. {@code a JOIN (b JOIN c USING (k1, k2)) USING (k1)}:
- * the inner join produces {@code N} rows per {@code k1}, so the outer join on {@code k1} is
- * {@code 1-to-N}. The same {@code array_agg(row(...))} + {@code UNNEST} collapse applies, packing
- * every non-key column the preserved side produces.
- *
- * <p>The collapse transformation is independent of the preserved side's node type: given the
+ * <p>The collapse transformation is independent of the collapsed side's node type: given the
  * resolved side {@code S}, the outer join keys {@code J}, and {@code R = S.outputs − J}, the rewrite
  * always (1) projects {@code row(R...)} and {@code array_agg}s it grouped by {@code J} (now unique on
  * {@code J}), (2) rebuilds the outer join {@code N-to-1}, (3) {@code UNNEST}s the array into one
  * {@code ROW} column, and (4) dereferences that row back into {@code R}. Only the eligibility
- * detection differs per type.
+ * detection varies.
  *
  * <p>The rewrite is losslessly semantics-preserving: {@code array_agg} packs the non-key columns
  * and {@code UNNEST} unpacks them, reproducing the same multiset of rows. The row multiplication
  * moves out of the distributed join (smaller build, unique-key join, less shuffle of duplicated
  * rows) into a streaming local {@code UNNEST}.
  *
- * <p>Because the only available unnest is {@code CROSS JOIN UNNEST} (there is no outer/left
- * unnest), the collapsed side must be the <em>preserved</em> side so that every join output row
- * carries a non-empty array: INNER (either side, build preferred), LEFT (left only), RIGHT (right
- * only). FULL outer and cross joins never fire.
+ * <h2>Eligibility: is the side a fan-out?</h2>
+ *
+ * <p>Correctness does not depend on the side fanning out — the pack/unpack pair is an identity for
+ * any side. Fan-out detection is a <em>profitability</em> guard: with one row per join key the
+ * rewrite only adds an aggregation and an unnest.
+ *
+ * <p>It is answered at the join node from the grouping the side advertises through
+ * {@code PropertyDerivations}, which is applied node by node so that a node type it does not cover
+ * (a {@code UnionNode}, a CTE node) reports unknown properties instead of failing the derivation. An {@link AggregationNode} (including a {@code DISTINCT}) reports
+ * {@code LocalProperties.grouped(groupingKeys)}, and {@code ActualProperties} carry that up through
+ * the filters, projections, sorts and limits that sit between it and the join, and across an inner
+ * join from its probe. A side grouped on a strict superset of the join keys holds several rows per
+ * join key. Deliberately NOT the {@code LogicalProperties} constraints framework: that is gated
+ * behind {@code exploit_constraints}, and nothing here may depend on it. The cost is that a side
+ * whose grouping keys are projected away before the join is not detected, and that grouping carries
+ * no cardinality, so an at-most-one-row side may be collapsed pointlessly (harmless).
+ *
+ * <h2>Outer joins</h2>
+ *
+ * <p>The collapsed side may be either the preserved or the null-supplying side of an outer join.
+ * A preserved side always carries a non-empty array, so it unnests directly. A null-supplying side
+ * produces a {@code NULL} array for every unmatched preserved row, and since the only available
+ * unnest is {@code CROSS JOIN UNNEST} (there is no outer/left unnest) that row would be dropped.
+ * The array is therefore wrapped in {@code COALESCE(data, ARRAY[CAST(NULL AS row(...))])} above the
+ * join, so an unmatched row unnests to exactly one row whose packed columns all dereference to
+ * {@code NULL} — precisely the null-extended row the outer join must emit. {@code array_agg} over a
+ * group never returns an empty array, so a {@code NULL} array is the only unmatched signal.
+ *
+ * <p>The null-supplying side is tried first, since that is where a fan-out build sits in the common
+ * {@code a LEFT JOIN (SELECT ... GROUP BY k1, k2) b ON a.k1 = b.k1} shape. FULL outer joins are not
+ * collapsed: a side that fans out on both sides of a FULL join is almost always a modelling bug
+ * rather than a shape worth optimizing. Cross joins have no equi-criteria to collapse on.
  *
  * <p>This rule is gated behind {@code optimize_join_fan_out} and is disabled by default.
  */
@@ -119,12 +150,21 @@ public class CollapseFanoutJoinWithArrayAggUnnest
         implements Rule<JoinNode>
 {
     private static final Pattern<JoinNode> PATTERN = join();
+    private static final String ARRAY_CONSTRUCTOR = "ARRAY";
 
+    // The order in which the two sides are considered for collapse, as values of collapseLeft.
+    private static final List<Boolean> RIGHT_SIDE_FIRST = ImmutableList.of(false, true);
+    private static final List<Boolean> LEFT_SIDE_FIRST = ImmutableList.of(true, false);
+
+    private final Metadata metadata;
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final FunctionResolution functionResolution;
 
-    public CollapseFanoutJoinWithArrayAggUnnest(FunctionAndTypeManager functionAndTypeManager)
+    public CollapseFanoutJoinWithArrayAggUnnest(Metadata metadata)
     {
-        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
+        this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
     }
 
     @Override
@@ -158,20 +198,25 @@ public class CollapseFanoutJoinWithArrayAggUnnest
             return Result.empty();
         }
 
-        // Try the preserved side(s). For INNER prefer the build (right) side, then probe (left).
-        if (type == JoinType.INNER || type == JoinType.RIGHT) {
-            Result result = tryCollapseSide(join, false, context);
-            if (!result.isEmpty()) {
-                return result;
-            }
-        }
-        if (type == JoinType.INNER || type == JoinType.LEFT) {
-            Result result = tryCollapseSide(join, true, context);
+        // Either side of an INNER, LEFT or RIGHT join can be collapsed. Prefer the build side of an
+        // INNER join, and the null-supplying side of an outer join, since that is where a fan-out
+        // build normally sits.
+        for (boolean collapseLeft : type == JoinType.RIGHT ? LEFT_SIDE_FIRST : RIGHT_SIDE_FIRST) {
+            Result result = tryCollapseSide(join, collapseLeft, context);
             if (!result.isEmpty()) {
                 return result;
             }
         }
         return Result.empty();
+    }
+
+    /**
+     * Whether the chosen side supplies nulls, i.e. the join emits a row with all of that side's
+     * columns set to {@code NULL} when the other (preserved) side finds no match.
+     */
+    private static boolean isNullSupplyingSide(JoinType type, boolean collapseLeft)
+    {
+        return (type == JoinType.LEFT && !collapseLeft) || (type == JoinType.RIGHT && collapseLeft);
     }
 
     /**
@@ -194,9 +239,8 @@ public class CollapseFanoutJoinWithArrayAggUnnest
             joinKeys.add(collapseLeft ? clause.getLeft() : clause.getRight());
         }
 
-        // Eligibility: peer through project/filter down to an aggregation grouped by, or an inner
-        // join keyed on, a strict superset of the outer join keys.
-        if (!isCollapsibleFanout(resolved, joinKeys, context)) {
+        // Eligibility: the side must fan out over the join keys.
+        if (!isFanoutSide(collapseSideNode, joinKeys, context)) {
             return Result.empty();
         }
 
@@ -244,7 +288,8 @@ public class CollapseFanoutJoinWithArrayAggUnnest
         // no ORDER BY or cross-array coordination is needed; the array's order is irrelevant since
         // the join output is a multiset.
         Aggregation arrayAggregation = createArrayAggregation(functionAndTypeManager, rowVariable);
-        VariableReferenceExpression arrayVariable = context.getVariableAllocator().newVariable("data", arrayAggregation.getCall().getType());
+        Type arrayType = arrayAggregation.getCall().getType();
+        VariableReferenceExpression arrayVariable = context.getVariableAllocator().newVariable("data", arrayType);
         AggregationNode collapseAggregation = new AggregationNode(
                 resolved.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
@@ -307,26 +352,53 @@ public class CollapseFanoutJoinWithArrayAggUnnest
                 join.getDistributionType(),
                 join.getDynamicFilters());
 
-        // 4. Re-expand the packed array(row) locally with UNNEST above the join, emitting the form
+        // 4. When the collapsed side supplies nulls, an unmatched row of the preserved side carries a
+        // NULL array, and CROSS JOIN UNNEST (the only unnest available) would drop that row. Replace
+        // the NULL with a single-element array holding a NULL row, so the row survives the unnest with
+        // every packed column dereferencing to NULL — exactly the null-extended row the outer join
+        // must emit. An array_agg group always has at least one row, so NULL is the only such signal.
+        List<VariableReferenceExpression> replicateVariables = newJoinOutputs.stream()
+                .filter(variable -> !variable.equals(arrayVariable))
+                .collect(toImmutableList());
+
+        PlanNode unnestSource = newJoin;
+        VariableReferenceExpression unnestVariable = arrayVariable;
+        if (isNullSupplyingSide(join.getType(), collapseLeft)) {
+            RowExpression nullRowArray = call(
+                    ARRAY_CONSTRUCTOR,
+                    functionResolution.arrayConstructor(ImmutableList.of(rowType)),
+                    arrayType,
+                    constantNull(rowType));
+            unnestVariable = context.getVariableAllocator().newVariable("data", arrayType);
+            Assignments.Builder coalesceAssignments = Assignments.builder();
+            for (VariableReferenceExpression replicateVariable : replicateVariables) {
+                coalesceAssignments.put(replicateVariable, replicateVariable);
+            }
+            coalesceAssignments.put(unnestVariable, new SpecialFormExpression(COALESCE, arrayType, arrayVariable, nullRowArray));
+            unnestSource = new ProjectNode(
+                    newJoin.getSourceLocation(),
+                    context.getIdAllocator().getNextId(),
+                    newJoin,
+                    coalesceAssignments.build(),
+                    LOCAL);
+        }
+
+        // 5. Re-expand the packed array(row) locally with UNNEST above the join, emitting the form
         // that matches the session's unnest semantics so it executes correctly under either:
         //   - legacy_unnest:  a single ROW column, with fields recovered via DEREFERENCE (row[i]).
         //   - non-legacy:     one flattened column per row field, mapped directly.
         // The Java engine handles both; the native (Velox) engine currently only supports the legacy
         // single-ROW form for array-of-rows UNNEST (support for the flattened form is planned).
-        List<VariableReferenceExpression> replicateVariables = newJoinOutputs.stream()
-                .filter(variable -> !variable.equals(arrayVariable))
-                .collect(toImmutableList());
-
         UnnestNode unnest;
         Assignments.Builder topAssignments = Assignments.builder();
         if (isLegacyUnnest(context.getSession())) {
             VariableReferenceExpression unnestedRow = context.getVariableAllocator().newVariable("row", rowType);
             unnest = new UnnestNode(
-                    newJoin.getSourceLocation(),
+                    unnestSource.getSourceLocation(),
                     context.getIdAllocator().getNextId(),
-                    newJoin,
+                    unnestSource,
                     replicateVariables,
-                    ImmutableMap.of(arrayVariable, ImmutableList.of(unnestedRow)),
+                    ImmutableMap.of(unnestVariable, ImmutableList.of(unnestedRow)),
                     Optional.empty());
 
             // Rebuild each packed column as a DEREFERENCE of the unnested row by its field index
@@ -360,11 +432,11 @@ public class CollapseFanoutJoinWithArrayAggUnnest
                 unnestedFields.add(unnestedField);
             }
             unnest = new UnnestNode(
-                    newJoin.getSourceLocation(),
+                    unnestSource.getSourceLocation(),
                     context.getIdAllocator().getNextId(),
-                    newJoin,
+                    unnestSource,
                     replicateVariables,
-                    ImmutableMap.of(arrayVariable, unnestedFields.build()),
+                    ImmutableMap.of(unnestVariable, unnestedFields.build()),
                     Optional.empty());
             for (VariableReferenceExpression output : join.getOutputVariables()) {
                 topAssignments.put(output, packedToField.getOrDefault(output, output));
@@ -381,84 +453,74 @@ public class CollapseFanoutJoinWithArrayAggUnnest
     }
 
     /**
-     * Recursively determines whether {@code node} (already resolved or to-be-resolved) is a
-     * collapsible fan-out source relative to {@code trackedKeys} — the set of outer join key
-     * variables as they appear at this level of the plan. Peers through {@link ProjectNode}
-     * (identity/rename only) and {@link FilterNode}, remapping the tracked keys as needed.
+     * Determines whether the chosen side fans out over the join keys, i.e. whether it can produce
+     * more than one row per distinct join key value.
      *
-     * <ul>
-     *   <li>{@link AggregationNode}: eligible iff its grouping keys are a strict superset of the
-     *       tracked keys (with the usual single-step/single-grouping-set guards).
-     *   <li>{@code INNER} {@link JoinNode}: eligible iff its equi-key variables cover the tracked
-     *       keys and at least one clause introduces an extra key (neither side in the tracked set),
-     *       which is the strict-superset / fan-out signal.
-     *   <li>{@link ProjectNode}: bail if any tracked key maps to a non-variable expression;
-     *       otherwise recurse with the remapped underlying variables.
-     *   <li>{@link FilterNode}: recurse with the tracked keys unchanged.
-     *   <li>anything else: not collapsible.
-     * </ul>
+     * <p>The answer comes from the grouping the side reports through {@link #deriveProperties}: a
+     * side grouped on a strict superset of the join keys holds several rows per join key. Local
+     * properties are hierarchical, so the columns of any prefix together form a grouping and are
+     * accumulated in order before comparing; constants are skipped, since a column pinned to a
+     * single value adds no grouping.
      */
-    private boolean isCollapsibleFanout(PlanNode node, Set<VariableReferenceExpression> trackedKeys, Context context)
+    private boolean isFanoutSide(PlanNode collapseSideNode, Set<VariableReferenceExpression> joinKeys, Context context)
     {
-        PlanNode resolved = context.getLookup().resolve(node);
+        // An AggregationNode advertises
+        // LocalProperties.grouped(groupingKeys), and ActualProperties carry that up through the
+        // projections and filters that routinely sit between the aggregation and the join
+        // (PropertyDerivations translates local properties across them). If the side is grouped on a
+        // strict superset of the join keys, it holds several rows per join key: a fan-out.
+        // The subtree is materialized out of the memo first because PropertyDerivations does not
+        // understand GroupReference. This runs only when the rule is enabled (default off).
+        //
+        // Deliberately NOT the LogicalProperties/constraints framework: that is gated behind
+        // exploit_constraints, which is untested at scale, so nothing here may depend on it.
+        ActualProperties sideProperties = deriveProperties(
+                resolveGroupReferences(collapseSideNode, context.getLookup()),
+                context.getSession());
 
-        if (resolved instanceof AggregationNode) {
-            AggregationNode aggregation = (AggregationNode) resolved;
-            // Mirror the structural guards used by other aggregation-rewriting rules.
-            if (aggregation.getStep() != AggregationNode.Step.SINGLE
-                    || aggregation.getGroupingSetCount() != 1
-                    || aggregation.hasEmptyGroupingSet()
-                    || aggregation.getGroupingKeys().isEmpty()
-                    || aggregation.getGroupIdVariable().isPresent()
-                    || aggregation.getHashVariable().isPresent()) {
-                return false;
+        // Local properties are hierarchical — grouped/sorted by the first, then by the second within
+        // it, and so on — so the columns of any prefix together form a grouping. Accumulate them in
+        // order: a TOP N over an aggregation, for instance, reports one SortingProperty per sort
+        // column, and only their union covers the aggregation's grouping keys. Constants are skipped;
+        // a column pinned to a single value adds no grouping.
+        LinkedHashSet<VariableReferenceExpression> grouped = new LinkedHashSet<>();
+        for (LocalProperty<VariableReferenceExpression> property : sideProperties.getLocalProperties()) {
+            if (property instanceof ConstantProperty) {
+                continue;
             }
-            // The grouping keys must be a STRICT superset of the tracked keys — otherwise the side
-            // is already unique on the join key and there is no fan-out to collapse.
-            Set<VariableReferenceExpression> groupingKeys = new LinkedHashSet<>(aggregation.getGroupingKeys());
-            return groupingKeys.containsAll(trackedKeys) && groupingKeys.size() > trackedKeys.size();
-        }
-
-        if (resolved instanceof JoinNode) {
-            JoinNode innerJoin = (JoinNode) resolved;
-            // Only an INNER join with equi-criteria fans out a superset key deterministically.
-            if (innerJoin.getType() != JoinType.INNER || innerJoin.getCriteria().isEmpty()) {
-                return false;
+            grouped.addAll(property.getColumns());
+            if (grouped.containsAll(joinKeys) && grouped.size() > joinKeys.size()) {
+                return true;
             }
-            Set<VariableReferenceExpression> keyVariables = new LinkedHashSet<>();
-            boolean hasExtraKey = false;
-            for (EquiJoinClause clause : innerJoin.getCriteria()) {
-                keyVariables.add(clause.getLeft());
-                keyVariables.add(clause.getRight());
-                if (!trackedKeys.contains(clause.getLeft()) && !trackedKeys.contains(clause.getRight())) {
-                    hasExtraKey = true;
-                }
-            }
-            // Cover the tracked keys and introduce at least one extra key (the strict-superset signal).
-            return keyVariables.containsAll(trackedKeys) && hasExtraKey;
         }
-
-        if (resolved instanceof ProjectNode) {
-            ProjectNode project = (ProjectNode) resolved;
-            Assignments assignments = project.getAssignments();
-            LinkedHashSet<VariableReferenceExpression> remappedKeys = new LinkedHashSet<>();
-            for (VariableReferenceExpression trackedKey : trackedKeys) {
-                RowExpression assignment = assignments.getMap().get(trackedKey);
-                // A tracked key produced by a non-identity expression (e.g. COALESCE, arithmetic)
-                // cannot be traced down — bail conservatively rather than peering through it.
-                if (!(assignment instanceof VariableReferenceExpression)) {
-                    return false;
-                }
-                remappedKeys.add((VariableReferenceExpression) assignment);
-            }
-            return isCollapsibleFanout(project.getSource(), remappedKeys, context);
-        }
-
-        if (resolved instanceof FilterNode) {
-            // Filters do not rename variables, so the tracked keys carry through unchanged.
-            return isCollapsibleFanout(((FilterNode) resolved).getSource(), trackedKeys, context);
-        }
-
         return false;
+    }
+
+    /**
+     * Derives {@link ActualProperties} for a resolved subtree, tolerating node types the derivation
+     * does not cover.
+     *
+     * <p>{@code PropertyDerivations} is exhaustive only over the node types the physical planner
+     * sees, and its {@code visitPlan} throws for everything else — {@link UnionNode} and the CTE
+     * nodes among them, because {@code AddExchanges} derives those itself. An iterative rule runs
+     * long before that and meets them routinely, so an unsupported node reports unknown properties
+     * and derivation continues above it: an aggregation sitting on top of a union is still visible.
+     *
+     * <p>This must never fail planning. The derivation is advisory — it only decides whether the
+     * collapse is worth doing — and {@code IterativeOptimizer} calls {@code apply()} even for a
+     * DISABLED rule when {@code verbose_optimizer_info} is on, so an escaping exception would break
+     * queries that do not use this optimization at all.
+     */
+    private ActualProperties deriveProperties(PlanNode node, Session session)
+    {
+        List<ActualProperties> inputProperties = node.getSources().stream()
+                .map(source -> deriveProperties(source, session))
+                .collect(toImmutableList());
+        try {
+            return PropertyDerivations.deriveProperties(node, inputProperties, metadata, session);
+        }
+        catch (UnsupportedOperationException | VerifyException e) {
+            return ActualProperties.builder().build();
+        }
     }
 }

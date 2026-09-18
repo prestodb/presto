@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.299-SNAPSHOT</version>
+        <version>0.300-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-tests</artifactId>
@@ -16,7 +16,7 @@
         <air.test.jvmsize>5g</air.test.jvmsize>
         <project.build.targetJdk>17</project.build.targetJdk>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
-        <bouncycastle.version>1.84</bouncycastle.version>
+        <bouncycastle.version>1.85</bouncycastle.version>
     </properties>
 
     <dependencies>
@@ -74,6 +74,11 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpch</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-geospatial-toolkit</artifactId>
         </dependency>
 
         <dependency>

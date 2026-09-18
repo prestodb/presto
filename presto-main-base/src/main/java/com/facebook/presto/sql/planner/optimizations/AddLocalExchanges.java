@@ -890,10 +890,20 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitRPC(RPCNode node, StreamPreferredProperties parentPreferences)
         {
-            // RPCNode benefits from multiple drivers for concurrent RPC dispatch.
-            // For constant-only queries (1 row, no table source), the C++
-            // RPCPlanNodeTranslator::maxDrivers() forces single-driver to avoid
-            // ROUND_ROBIN distribution issues.
+            // BATCH accumulates rows into one large request sized to the backend's
+            // batch limits. Fanning the input round-robin across N drivers would
+            // produce N under-filled batches (and, for the synthetic single-row
+            // constant-args case, leave drivers empty), so require a single
+            // stream: a local GATHER runs the RPC stage single-driver while
+            // upstream scan/filter still run in parallel. The gather is a pipeline breaker, so single-driver no
+            // longer collapses the whole fused pipeline. Concurrency in BATCH
+            // comes from multiple in-flight async batches (congestion window +
+            // per-tier rate limiter), not from driver count.
+            if (node.getStreamingMode() == RPCNode.StreamingMode.BATCH) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+            }
+            // PER_ROW dispatches one RPC per row and benefits from multiple
+            // drivers for concurrent dispatch.
             return planAndEnforceChildren(node, parentPreferences.withDefaultParallelism(session), parentPreferences.withDefaultParallelism(session));
         }
 

@@ -15,6 +15,9 @@
 include "thrift/annotation/cpp.thrift"
 include "thrift/annotation/thrift.thrift"
 
+@thrift.AllowLegacyMissingUris
+package;
+
 namespace cpp2 facebook.presto.thrift
 
 enum TaskState {

@@ -7554,26 +7554,33 @@ void from_json(const json& j, MemoryInfo& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+// Route ConnectorMergeTableHandle through the registered connector protocol
+// (mirrors ConnectorDeleteTableHandle). Without this the default codegen
+// hard-throws "no abstract type ConnectorMergeTableHandle", which breaks
+// UPDATE/MERGE deserialization on the worker (MergeHandle.from_json ->
+// from_json_key(connectorMergeTableHandle) reaches here). Unlike the Delete/
+// Insert handles there is no deserialize(ConnectorMergeTableHandle) overload
+// on ConnectorProtocol, so the customSerializedValue branch is omitted.
 void to_json(json& j, const std::shared_ptr<ConnectorMergeTableHandle>& p) {
   if (p == nullptr) {
     return;
   }
   String type = p->_type;
-
-  throw TypeError(type + " no abstract type ConnectorMergeTableHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorMergeTableHandle>& p) {
   String type;
   try {
-    type = p->getSubclassKey(j);
+    JsonEncodedSubclass keyReader;
+    type = keyReader.getSubclassKey(j);
   } catch (json::parse_error& e) {
     throw ParseError(
         std::string(e.what()) +
         " ConnectorMergeTableHandle  ConnectorMergeTableHandle");
   }
 
-  throw TypeError(type + " no abstract type ConnectorMergeTableHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -7601,16 +7608,36 @@ void to_json(json& j, const MergeHandle& p) {
 }
 
 void from_json(const json& j, MergeHandle& p) {
-  p._type = j["@type"];
+  // Protocol codegen keys its class table by simple name, so the two Java
+  // classes both called "MergeHandle" collapse into this one struct, and it is
+  // reached with two different JSON shapes:
+  //
+  //   com.facebook.presto.spi.MergeHandle  (MergeTarget.mergeHandle)
+  //     {"tableHandle": ..., "connectorMergeTableHandle": ...}   -- no "@type"
+  //
+  //   ExecutionWriterTarget.MergeHandle    (TableWriteInfo.writerTarget)
+  //     {"@type": "MergeHandle", "handle": {<the spi.MergeHandle above>}}
+  //
+  // Tolerate the missing "@type" on the first: the constructor already defaults
+  // _type, and without this an UPDATE/MERGE fails with json type_error.302.
+  if (j.contains("@type")) {
+    p._type = j["@type"];
+  }
+  // Unwrap the second. ExecutionWriterTarget.MergeHandle holds exactly one
+  // field, so folding it into this struct loses nothing: consumers
+  // (PrestoToVeloxQueryPlan, IcebergPrestoToVeloxConnector) only ever read
+  // tableHandle / connectorMergeTableHandle. Without this, the wrapped form
+  // fails with json out_of_range.403 "key 'tableHandle' not found".
+  const json& fields = j.contains("handle") ? j.at("handle") : j;
   from_json_key(
-      j,
+      fields,
       "tableHandle",
       p.tableHandle,
       "MergeHandle",
       "TableHandle",
       "tableHandle");
   from_json_key(
-      j,
+      fields,
       "connectorMergeTableHandle",
       p.connectorMergeTableHandle,
       "MergeHandle",
@@ -8286,6 +8313,20 @@ void to_json(json& j, const NodeStatus& p) {
       "heapAvailable");
   to_json_key(
       j, "nonHeapUsed", p.nonHeapUsed, "NodeStatus", "int64_t", "nonHeapUsed");
+  to_json_key(
+      j,
+      "asyncDataCacheBytes",
+      p.asyncDataCacheBytes,
+      "NodeStatus",
+      "int64_t",
+      "asyncDataCacheBytes");
+  to_json_key(
+      j,
+      "queryMemoryBytes",
+      p.queryMemoryBytes,
+      "NodeStatus",
+      "int64_t",
+      "queryMemoryBytes");
 }
 
 void from_json(const json& j, NodeStatus& p) {
@@ -8344,6 +8385,24 @@ void from_json(const json& j, NodeStatus& p) {
       "heapAvailable");
   from_json_key(
       j, "nonHeapUsed", p.nonHeapUsed, "NodeStatus", "int64_t", "nonHeapUsed");
+  if (j.count("asyncDataCacheBytes")) {
+    from_json_key(
+        j,
+        "asyncDataCacheBytes",
+        p.asyncDataCacheBytes,
+        "NodeStatus",
+        "int64_t",
+        "asyncDataCacheBytes");
+  }
+  if (j.count("queryMemoryBytes")) {
+    from_json_key(
+        j,
+        "queryMemoryBytes",
+        p.queryMemoryBytes,
+        "NodeStatus",
+        "int64_t",
+        "queryMemoryBytes");
+  }
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -12035,6 +12094,13 @@ void to_json(json& j, const TaskStats& p) {
       "rawInputDataSizeInBytes");
   to_json_key(
       j,
+      "scanRawInputDataSizeInBytes",
+      p.scanRawInputDataSizeInBytes,
+      "TaskStats",
+      "int64_t",
+      "scanRawInputDataSizeInBytes");
+  to_json_key(
+      j,
       "rawInputPositions",
       p.rawInputPositions,
       "TaskStats",
@@ -12344,6 +12410,13 @@ void from_json(const json& j, TaskStats& p) {
       "TaskStats",
       "int64_t",
       "rawInputDataSizeInBytes");
+  from_json_key(
+      j,
+      "scanRawInputDataSizeInBytes",
+      p.scanRawInputDataSizeInBytes,
+      "TaskStats",
+      "int64_t",
+      "scanRawInputDataSizeInBytes");
   from_json_key(
       j,
       "rawInputPositions",

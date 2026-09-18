@@ -80,6 +80,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
@@ -103,6 +104,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
@@ -190,6 +192,27 @@ public class TestPrestoSparkHttpClient
                 new Duration(1, TimeUnit.SECONDS));
     }
 
+    private PrestoSparkHttpTaskClient createDropTaskOnDeleteWorkerClient(TestingOkHttpClient httpClient)
+    {
+        return new PrestoSparkHttpTaskClient(
+                httpClient,
+                BASE_URI,
+                TASK_INFO_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
+                TASK_UPDATE_REQUEST_JSON_CODEC,
+                new Duration(1, TimeUnit.SECONDS),
+                scheduledExecutorService,
+                scheduledExecutorService,
+                new Duration(1, TimeUnit.SECONDS))
+        {
+            @Override
+            protected boolean isDropTaskOnDeleteEnabled()
+            {
+                return true;
+            }
+        };
+    }
+
     private PrestoSparkHttpTaskClient createWorkerClient(TestingOkHttpClient httpClient)
     {
         return new PrestoSparkHttpTaskClient(
@@ -243,6 +266,7 @@ public class TestPrestoSparkHttpClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
         AtomicInteger deleteTaskCount = new AtomicInteger();
+        AtomicReference<String> dropTaskOnDeleteParam = new AtomicReference<>();
         TestingResponseManager responseManager = new TestingResponseManager(taskId.toString())
         {
             @Override
@@ -251,16 +275,21 @@ public class TestPrestoSparkHttpClient
                 if (request.method().equalsIgnoreCase("DELETE") &&
                         request.url().encodedPath().equals(TASK_ROOT_PATH + "/" + taskId)) {
                     deleteTaskCount.incrementAndGet();
+                    dropTaskOnDeleteParam.set(request.url().queryParameter("dropTaskOnDelete"));
                 }
                 return super.createDummyResultResponse(request);
             }
         };
 
-        PrestoSparkHttpTaskClient workerClient = createWorkerClient(
-                new TestingOkHttpClient(scheduledExecutorService, responseManager));
-        workerClient.deleteTask(taskId);
+        createWorkerClient(new TestingOkHttpClient(scheduledExecutorService, responseManager)).deleteTask(taskId);
 
         assertEquals(deleteTaskCount.get(), 1);
+        assertNull(dropTaskOnDeleteParam.get());
+
+        createDropTaskOnDeleteWorkerClient(new TestingOkHttpClient(scheduledExecutorService, responseManager)).deleteTask(taskId);
+
+        assertEquals(deleteTaskCount.get(), 2);
+        assertEquals(dropTaskOnDeleteParam.get(), "true");
     }
 
     @Test
@@ -902,6 +931,7 @@ public class TestPrestoSparkHttpClient
         queryConfig.setRemoteTaskMaxErrorDuration(new Duration(1, TimeUnit.MINUTES));
         List<TaskSource> sources = new ArrayList<>();
         AtomicInteger deleteTaskCount = new AtomicInteger();
+        AtomicReference<String> dropTaskOnDeleteParam = new AtomicReference<>();
         TestingResponseManager responseManager = new TestingResponseManager(taskId.toString(),
                 new TimeoutResponseManager(0, 10, 0))
         {
@@ -911,6 +941,7 @@ public class TestPrestoSparkHttpClient
                 if (request.method().equalsIgnoreCase("DELETE") &&
                         request.url().encodedPath().equals(TASK_ROOT_PATH + "/" + taskId)) {
                     deleteTaskCount.incrementAndGet();
+                    dropTaskOnDeleteParam.set(request.url().queryParameter("dropTaskOnDelete"));
                 }
                 return super.createDummyResultResponse(request);
             }
@@ -956,6 +987,7 @@ public class TestPrestoSparkHttpClient
 
             task.stop(true);
             assertEquals(deleteTaskCount.get(), 1);
+            assertNull(dropTaskOnDeleteParam.get());
         }
         catch (InterruptedException e) {
             e.printStackTrace();

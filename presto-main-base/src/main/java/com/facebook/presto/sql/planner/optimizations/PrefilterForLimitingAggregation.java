@@ -57,8 +57,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.addAggregation;
 import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
-import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
-import static com.facebook.presto.sql.planner.PlannerUtils.containsNonDeterministicExpression;
+import static com.facebook.presto.sql.planner.PlannerUtils.copyDeterministicScanNodes;
 import static com.facebook.presto.sql.planner.PlannerUtils.createMapType;
 import static com.facebook.presto.sql.planner.PlannerUtils.getPartitionColumnHandles;
 import static com.facebook.presto.sql.planner.PlannerUtils.getTableScanNodeWithOnlyFilterAndProject;
@@ -195,7 +194,7 @@ public class PrefilterForLimitingAggregation
                 Optional<TableScanNode> scanNode = getTableScanNodeWithOnlyFilterAndProject(aggregationNode.getSource());
                 // Since we duplicate the source of the aggregation - we want to restrict it to simple scan/filter/project
                 // so we can do this opportunistic optimization without too much latency/cpu overhead to support common BI usecases
-                if (scanNode.isPresent() && !containsNonDeterministicExpression(aggregationNode.getSource(), metadata.getFunctionAndTypeManager())) {
+                if (scanNode.isPresent()) {
                     PlanNode rewrittenAggregation = addPrefilter(aggregationNode, limitNode.getCount(), scanNode.get());
                     if (rewrittenAggregation != aggregationNode) {
                         planChanged = true;
@@ -249,7 +248,12 @@ public class PrefilterForLimitingAggregation
             }
 
             PlanNode originalSource = aggregationNode.getSource();
-            PlanNode keySource = clonePlanNode(originalSource, session, metadata, idAllocator, distinctKeys, new HashMap<>());
+            // The copy is refused when the source cannot be duplicated safely, e.g. it is not deterministic
+            Optional<PlanNode> copiedKeySource = copyDeterministicScanNodes(originalSource, metadata, idAllocator, distinctKeys, new HashMap<>());
+            if (!copiedKeySource.isPresent()) {
+                return aggregationNode;
+            }
+            PlanNode keySource = copiedKeySource.get();
 
             // Limit the scan to avoid excessive data when distinct keys are sparse.
             // We scan at most SCAN_LIMIT_MULTIPLIER * LIMIT rows (e.g., 1,000,000 rows for LIMIT 1000),

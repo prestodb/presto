@@ -219,31 +219,62 @@ class RequestBuilder {
  public:
   RequestBuilder() {}
 
-  RequestBuilder& jwtOptions(JwtOptions options) {
+  RequestBuilder& jwtOptions(JwtOptions options) & {
     jwtOptions_ = std::move(options);
     return *this;
   }
 
-  RequestBuilder& method(proxygen::HTTPMethod method) {
+  RequestBuilder&& jwtOptions(JwtOptions options) && {
+    jwtOptions_ = std::move(options);
+    return std::move(*this);
+  }
+
+  RequestBuilder& method(proxygen::HTTPMethod method) & {
     headers_.setMethod(method);
     return *this;
   }
 
-  RequestBuilder& url(const std::string& url) {
+  RequestBuilder&& method(proxygen::HTTPMethod method) && {
+    headers_.setMethod(method);
+    return std::move(*this);
+  }
+
+  RequestBuilder& url(const std::string& url) & {
     headers_.setURL(url);
     return *this;
   }
 
+  RequestBuilder&& url(const std::string& url) && {
+    headers_.setURL(url);
+    return std::move(*this);
+  }
+
   RequestBuilder& header(
       proxygen::HTTPHeaderCode code,
-      const std::string& value) {
+      const std::string& value) & {
     headers_.getHeaders().set(code, value);
     return *this;
   }
 
-  RequestBuilder& header(const std::string& header, const std::string& value) {
+  RequestBuilder&& header(
+      proxygen::HTTPHeaderCode code,
+      const std::string& value) && {
+    headers_.getHeaders().set(code, value);
+    return std::move(*this);
+  }
+
+  RequestBuilder& header(
+      const std::string& header,
+      const std::string& value) & {
     headers_.getHeaders().set(header, value);
     return *this;
+  }
+
+  RequestBuilder&& header(
+      const std::string& header,
+      const std::string& value) && {
+    headers_.getHeaders().set(header, value);
+    return std::move(*this);
   }
 
   folly::SemiFuture<std::unique_ptr<HttpResponse>>

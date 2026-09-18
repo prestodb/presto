@@ -34,6 +34,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createJavaQueryRunner;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createNativeQueryRunner;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -113,6 +114,7 @@ public class TestArrowFederationNativeQueriesCassandra
                 createNativeQueryRunner(ImmutableList.of(CONNECTOR_ID), server.getPort());
         queryRunner.installPlugin(new CassandraPlugin());
         queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties());
+        setupNativeSidecarPlugin(queryRunner);
         return queryRunner;
     }
 
@@ -122,7 +124,7 @@ public class TestArrowFederationNativeQueriesCassandra
     public void testTableCreation()
             throws InterruptedException
     {
-        assertQueryFails("CREATE TABLE temp AS SELECT * FROM nation", ".*Not implemented: N8facebook6presto8protocol26ConnectorOutputTableHandleE.*");
+        assertQueryFails("CREATE TABLE temp AS SELECT * FROM nation", ".*This connector is read-only and does not support write operations.*Only SELECT is supported.*");
         while (true) {
             try {
                 assertQueryFails("SELECT * FROM temp", ".*Table cassandra.tpch.temp does not exist.*");

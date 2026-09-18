@@ -110,6 +110,22 @@ public class ExpressionOptimizerManager
         loadExpressionOptimizerFactory(factoryName, optimizerName, properties, authClientConfigs);
     }
 
+    public void loadExpressionOptimizers(Map<String, Map<String, String>> optimizerProperties, AuthClientConfigs authClientConfigs)
+    {
+        requireNonNull(optimizerProperties, "optimizerProperties is null");
+        for (Map.Entry<String, Map<String, String>> entry : optimizerProperties.entrySet()) {
+            String optimizerName = entry.getKey();
+            checkArgument(!isNullOrEmpty(optimizerName), "Expression optimizer name is empty");
+            checkArgument(!optimizerName.equals(DEFAULT_EXPRESSION_OPTIMIZER_NAME), "Cannot name an expression optimizer instance %s", DEFAULT_EXPRESSION_OPTIMIZER_NAME);
+
+            Map<String, String> properties = new HashMap<>(entry.getValue());
+            String factoryName = properties.remove(EXPRESSION_MANAGER_FACTORY_NAME);
+            checkArgument(!isNullOrEmpty(factoryName), "Expression optimizer %s does not contain %s", optimizerName, EXPRESSION_MANAGER_FACTORY_NAME);
+
+            loadExpressionOptimizerFactory(factoryName, optimizerName, properties, authClientConfigs);
+        }
+    }
+
     public void loadExpressionOptimizerFactory(String factoryName, String optimizerName, Map<String, String> properties, AuthClientConfigs authClientConfigs)
     {
         requireNonNull(factoryName, "factoryName is null");

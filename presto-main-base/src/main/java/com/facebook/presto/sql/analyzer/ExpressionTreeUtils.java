@@ -215,7 +215,9 @@ public final class ExpressionTreeUtils
 
         // ROW an MAP are special so we explicitly do that here.
         if (tempExpression instanceof Row) {
-            return (((Row) tempExpression).getItems().stream().allMatch(ExpressionTreeUtils::isConstant));
+            return ((Row) tempExpression).getFields().stream()
+                    .map(Row.Field::getExpression)
+                    .allMatch(ExpressionTreeUtils::isConstant);
         }
 
         if (tempExpression instanceof FunctionCall) {

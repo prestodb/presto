@@ -3148,122 +3148,107 @@ public abstract class TestIcebergMaterializedViewsBase
     }
 
     /**
-     * Data provider for non-deterministic function tests.
-     * Returns: [function expression, description, needs base tables]
+     * Data provider of non-deterministic functions that are rejected in a materialized view definition.
+     * Returns: [function expression, description]
      */
     @DataProvider(name = "nonDeterministicFunctions")
     public Object[][] nonDeterministicFunctions()
     {
         return new Object[][] {
-                {"RAND()", "RAND() in SELECT", true},
-                {"NOW()", "NOW() in SELECT", true},
-                {"CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP in SELECT", true},
+                {"RAND()", "RAND()"},
+                {"RANDOM()", "RANDOM()"},
+        };
+    }
+
+    private static final String NON_DETERMINISTIC_MV_ERROR = ".*Non-deterministic function.*not allowed in a materialized view definition";
+
+    /**
+     * Non-deterministic functions in the SELECT list are rejected at CREATE time: their value
+     * cannot be reproduced across refreshes, so the materialized view would be inconsistent.
+     */
+    @Test(dataProvider = "nonDeterministicFunctions")
+    public void testNonDeterministicFunctionInSelectRejected(String functionExpr, String description)
+    {
+        assertUpdate("CREATE TABLE test_nondeterministic_base (id INTEGER, value INTEGER, dt DATE) " +
+                "WITH (partitioning = ARRAY['dt'])");
+        try {
+            assertQueryFails("CREATE MATERIALIZED VIEW test_nondeterministic_mv AS " +
+                            "SELECT id, value, " + functionExpr + " as nondeterministic_value, dt FROM test_nondeterministic_base",
+                    NON_DETERMINISTIC_MV_ERROR);
+        }
+        finally {
+            assertUpdate("DROP TABLE test_nondeterministic_base");
+        }
+    }
+
+    /**
+     * Non-deterministic functions in the WHERE clause are rejected at CREATE time.
+     */
+    @Test(dataProvider = "nonDeterministicFunctions")
+    public void testNonDeterministicFunctionInWhereRejected(String functionExpr, String description)
+    {
+        assertUpdate("CREATE TABLE test_nondeterministic_where (id INTEGER, value INTEGER, dt DATE) " +
+                "WITH (partitioning = ARRAY['dt'])");
+        try {
+            assertQueryFails("CREATE MATERIALIZED VIEW test_nondeterministic_where_mv AS " +
+                            "SELECT id, value, dt FROM test_nondeterministic_where WHERE " + functionExpr + " >= 0",
+                    NON_DETERMINISTIC_MV_ERROR);
+        }
+        finally {
+            assertUpdate("DROP TABLE test_nondeterministic_where");
+        }
+    }
+
+    /**
+     * Non-deterministic functions inside an aggregation are rejected at CREATE time.
+     */
+    @Test
+    public void testNonDeterministicFunctionInAggregationRejected()
+    {
+        assertUpdate("CREATE TABLE test_nondeterministic_agg (id INTEGER, category VARCHAR, value INTEGER, dt DATE) " +
+                "WITH (partitioning = ARRAY['dt'])");
+        try {
+            assertQueryFails("CREATE MATERIALIZED VIEW test_nondeterministic_agg_mv AS " +
+                            "SELECT category, SUM(value * (1 + RAND())) as total FROM test_nondeterministic_agg GROUP BY category",
+                    NON_DETERMINISTIC_MV_ERROR);
+        }
+        finally {
+            assertUpdate("DROP TABLE test_nondeterministic_agg");
+        }
+    }
+
+    /**
+     * Data provider of session-time functions rejected in a materialized view definition.
+     * Covers both the function-call form (NOW()) and the bare-keyword CurrentTime form.
+     */
+    @DataProvider(name = "sessionTimeFunctions")
+    public Object[][] sessionTimeFunctions()
+    {
+        return new Object[][] {
+                {"NOW()"},
+                {"CURRENT_TIMESTAMP"},
+                {"CURRENT_DATE"},
+                {"LOCALTIMESTAMP"},
         };
     }
 
     /**
-     * Test that non-deterministic functions in SELECT cause fallback to full recompute.
-     * Materialized views with non-deterministic functions should never use stitching because:
-     * - Fresh branch would compute RAND()/NOW()/UUID() at read time
-     * - Stale branch would compute different values
-     * - Results would be inconsistent
+     * Session-time functions are constant within a query but vary across refreshes, so they
+     * are rejected at CREATE time to keep the materialized data consistent with the query.
      */
-    @Test(dataProvider = "nonDeterministicFunctions")
-    public void testNonDeterministicFunctionInSelect(String functionExpr, String description, boolean needsBaseTables)
+    @Test(dataProvider = "sessionTimeFunctions")
+    public void testSessionTimeFunctionRejected(String functionExpr)
     {
-        // Create base table
-        assertUpdate("CREATE TABLE test_nondeterministic_base (id INTEGER, value INTEGER, dt DATE) " +
+        assertUpdate("CREATE TABLE test_time_fn_base (id INTEGER, value INTEGER, dt DATE) " +
                 "WITH (partitioning = ARRAY['dt'])");
-        assertUpdate("INSERT INTO test_nondeterministic_base VALUES (1, 100, DATE '2024-01-01'), (2, 200, DATE '2024-01-01')", 2);
-
-        // Create MV with non-deterministic function
-        assertUpdate("CREATE MATERIALIZED VIEW test_nondeterministic_mv AS " +
-                "SELECT id, value, " + functionExpr + " as nondeterministic_value, dt FROM test_nondeterministic_base");
-
-        // Initial refresh
-        assertRefreshAndFullyMaterialized("test_nondeterministic_mv", 2);
-
-        // Introduce staleness
-        assertUpdate("INSERT INTO test_nondeterministic_base VALUES (3, 300, DATE '2024-01-02')", 1);
-
-        // Query should fall back to full recompute (not use stitching)
-        // We verify this by checking that the query succeeds and returns correct row count
-        // The optimizer will automatically use full recompute instead of stitching
-        assertQuery("SELECT id, value FROM test_nondeterministic_mv ORDER BY id",
-                "VALUES (1, 100), (2, 200), (3, 300)");
-
-        assertUpdate("DROP MATERIALIZED VIEW test_nondeterministic_mv");
-        assertUpdate("DROP TABLE test_nondeterministic_base");
-    }
-
-    /**
-     * Test that non-deterministic functions in WHERE clause cause fallback to full recompute.
-     */
-    @Test(dataProvider = "nonDeterministicFunctions")
-    public void testNonDeterministicFunctionInWhere(String functionExpr, String description, boolean needsBaseTables)
-    {
-        // Skip functions that can't be used in WHERE clause (UUID returns VARCHAR, can't compare with numbers easily)
-        if (functionExpr.equals("UUID()")) {
-            return;
+        try {
+            assertQueryFails("CREATE MATERIALIZED VIEW test_time_fn_mv AS " +
+                            "SELECT id, value, " + functionExpr + " as created_at, dt FROM test_time_fn_base",
+                    NON_DETERMINISTIC_MV_ERROR);
         }
-
-        // Create base table
-        assertUpdate("CREATE TABLE test_nondeterministic_where (id INTEGER, value INTEGER, dt DATE) " +
-                "WITH (partitioning = ARRAY['dt'])");
-        assertUpdate("INSERT INTO test_nondeterministic_where VALUES (1, 100, DATE '2024-01-01'), (2, 200, DATE '2024-01-01')", 2);
-
-        // Create MV with non-deterministic function in WHERE clause
-        // Use a condition that's always true but contains the non-deterministic function
-        String whereClause = functionExpr.contains("RAND") ? "RAND() >= 0" : functionExpr + " IS NOT NULL";
-        assertUpdate("CREATE MATERIALIZED VIEW test_nondeterministic_where_mv AS " +
-                "SELECT id, value, dt FROM test_nondeterministic_where WHERE " + whereClause);
-
-        // Initial refresh
-        assertRefreshAndFullyMaterialized("test_nondeterministic_where_mv", 2);
-
-        // Introduce staleness
-        assertUpdate("INSERT INTO test_nondeterministic_where VALUES (3, 300, DATE '2024-01-02')", 1);
-
-        // Query should fall back to full recompute
-        assertQuery("SELECT id, value FROM test_nondeterministic_where_mv ORDER BY id",
-                "VALUES (1, 100), (2, 200), (3, 300)");
-
-        assertUpdate("DROP MATERIALIZED VIEW test_nondeterministic_where_mv");
-        assertUpdate("DROP TABLE test_nondeterministic_where");
-    }
-
-    /**
-     * Test that non-deterministic functions in aggregation cause fallback to full recompute.
-     */
-    @Test
-    public void testNonDeterministicFunctionInAggregation()
-    {
-        // Create base table
-        assertUpdate("CREATE TABLE test_nondeterministic_agg (id INTEGER, category VARCHAR, value INTEGER, dt DATE) " +
-                "WITH (partitioning = ARRAY['dt'])");
-        assertUpdate("INSERT INTO test_nondeterministic_agg VALUES " +
-                "(1, 'A', 100, DATE '2024-01-01'), " +
-                "(2, 'A', 200, DATE '2024-01-01'), " +
-                "(3, 'B', 300, DATE '2024-01-01')", 3);
-
-        // Create MV with non-deterministic function in aggregation
-        // Use RAND() to create a non-deterministic computed value before aggregation
-        assertUpdate("CREATE MATERIALIZED VIEW test_nondeterministic_agg_mv AS " +
-                "SELECT category, SUM(value * (1 + RAND())) as total FROM test_nondeterministic_agg GROUP BY category");
-
-        // Initial refresh
-        assertRefreshAndFullyMaterialized("test_nondeterministic_agg_mv", 2);
-
-        // Introduce staleness
-        assertUpdate("INSERT INTO test_nondeterministic_agg VALUES (4, 'A', 400, DATE '2024-01-02')", 1);
-
-        // Query should fall back to full recompute
-        // We just verify it returns the expected categories (values will vary due to RAND())
-        assertQuery("SELECT category FROM test_nondeterministic_agg_mv ORDER BY category",
-                "VALUES ('A'), ('B')");
-
-        assertUpdate("DROP MATERIALIZED VIEW test_nondeterministic_agg_mv");
-        assertUpdate("DROP TABLE test_nondeterministic_agg");
+        finally {
+            assertUpdate("DROP TABLE test_time_fn_base");
+        }
     }
 
     @Test
@@ -4934,8 +4919,9 @@ public abstract class TestIcebergMaterializedViewsBase
         assertUpdate(sessionWithDefaultSchema, "CREATE MATERIALIZED VIEW test_default_storage_schema_mv AS " +
                 "SELECT id, name FROM test_default_storage_schema_base");
 
+        String storageTableName = "__mv_storage__11_test_schema__test_default_storage_schema_mv";
         try {
-            assertQuery("SELECT COUNT(*) FROM mv_storage_isolated.\"__mv_storage__test_default_storage_schema_mv\"", "SELECT 0");
+            assertQuery("SELECT COUNT(*) FROM mv_storage_isolated.\"" + storageTableName + "\"", "SELECT 0");
             assertQueryFails("SELECT * FROM \"__mv_storage__test_default_storage_schema_mv\"", ".*does not exist.*");
 
             assertMaterializedViewQuery(
@@ -4943,12 +4929,59 @@ public abstract class TestIcebergMaterializedViewsBase
                     "VALUES (1, 'Alice'), (2, 'Bob')");
 
             assertRefreshAndFullyMaterialized("test_default_storage_schema_mv", 2);
-            assertQuery("SELECT COUNT(*) FROM mv_storage_isolated.\"__mv_storage__test_default_storage_schema_mv\"", "SELECT 2");
+            assertQuery("SELECT COUNT(*) FROM mv_storage_isolated.\"" + storageTableName + "\"", "SELECT 2");
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW test_default_storage_schema_mv");
             assertUpdate("DROP TABLE test_default_storage_schema_base");
             assertUpdate("DROP SCHEMA IF EXISTS mv_storage_isolated");
+        }
+    }
+
+    @Test
+    public void testDefaultStorageSchemaNoCollisionAcrossSourceSchemas()
+    {
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS mv_shared_storage");
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS mv_src_schema1");
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS mv_src_schema2");
+
+        Session sessionWithDefaultSchema = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "materialized_view_default_storage_schema", "mv_shared_storage")
+                .build();
+
+        try {
+            assertUpdate("CREATE TABLE mv_src_schema1.collision_base (id BIGINT)");
+            assertUpdate("INSERT INTO mv_src_schema1.collision_base VALUES 1, 2", 2);
+            assertUpdate("CREATE TABLE mv_src_schema2.collision_base (id BIGINT)");
+            assertUpdate("INSERT INTO mv_src_schema2.collision_base VALUES 10, 20", 2);
+
+            assertUpdate(sessionWithDefaultSchema,
+                    "CREATE MATERIALIZED VIEW mv_src_schema1.collision_mv AS SELECT id FROM mv_src_schema1.collision_base");
+            assertUpdate(sessionWithDefaultSchema,
+                    "CREATE MATERIALIZED VIEW mv_src_schema2.collision_mv AS SELECT id FROM mv_src_schema2.collision_base");
+
+            String storage1 = "mv_shared_storage.\"__mv_storage__14_mv_src_schema1__collision_mv\"";
+            String storage2 = "mv_shared_storage.\"__mv_storage__14_mv_src_schema2__collision_mv\"";
+            assertQuery("SELECT COUNT(*) FROM " + storage1, "SELECT 0");
+            assertQuery("SELECT COUNT(*) FROM " + storage2, "SELECT 0");
+
+            assertUpdate(sessionWithDefaultSchema, "REFRESH MATERIALIZED VIEW mv_src_schema1.collision_mv", 2);
+            assertUpdate(sessionWithDefaultSchema, "REFRESH MATERIALIZED VIEW mv_src_schema2.collision_mv", 2);
+
+            assertQuery("SELECT * FROM mv_src_schema1.collision_mv ORDER BY id", "VALUES 1, 2");
+            assertQuery("SELECT * FROM mv_src_schema2.collision_mv ORDER BY id", "VALUES 10, 20");
+
+            assertQuery("SELECT COUNT(*) FROM " + storage1, "SELECT 2");
+            assertQuery("SELECT COUNT(*) FROM " + storage2, "SELECT 2");
+        }
+        finally {
+            assertUpdate(sessionWithDefaultSchema, "DROP MATERIALIZED VIEW IF EXISTS mv_src_schema1.collision_mv");
+            assertUpdate(sessionWithDefaultSchema, "DROP MATERIALIZED VIEW IF EXISTS mv_src_schema2.collision_mv");
+            assertUpdate("DROP TABLE IF EXISTS mv_src_schema1.collision_base");
+            assertUpdate("DROP TABLE IF EXISTS mv_src_schema2.collision_base");
+            assertUpdate("DROP SCHEMA IF EXISTS mv_shared_storage");
+            assertUpdate("DROP SCHEMA IF EXISTS mv_src_schema1");
+            assertUpdate("DROP SCHEMA IF EXISTS mv_src_schema2");
         }
     }
 
@@ -5003,8 +5036,8 @@ public abstract class TestIcebergMaterializedViewsBase
         assertUpdate(sessionWithDefaultSchema, "CREATE MATERIALIZED VIEW storage_lockdown_invoker_mv SECURITY INVOKER AS " +
                 "SELECT id, value FROM storage_lockdown_base");
 
-        String definerStorage = "__mv_storage__storage_lockdown_definer_mv";
-        String invokerStorage = "__mv_storage__storage_lockdown_invoker_mv";
+        String definerStorage = "__mv_storage__11_test_schema__storage_lockdown_definer_mv";
+        String invokerStorage = "__mv_storage__11_test_schema__storage_lockdown_invoker_mv";
 
         try {
             // Wildcard deny matches every identity, including the MV creator.

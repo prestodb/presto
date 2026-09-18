@@ -291,7 +291,7 @@ public class TestOpenLineageColumnLineage
                 Duration.ofSeconds(0), Duration.ofSeconds(0), Duration.ofSeconds(0), Optional.empty(),
                 Duration.ofSeconds(1), Duration.ofSeconds(0),
                 0, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0.0, 0.0, 0, true,
-                new RuntimeStats());
+                new RuntimeStats(), 0L);
 
         return new QueryCompletedEvent(
                 meta, stats, ctx, io,

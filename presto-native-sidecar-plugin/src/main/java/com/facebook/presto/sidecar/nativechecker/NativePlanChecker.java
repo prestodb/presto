@@ -32,6 +32,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanChecker;
@@ -286,16 +287,30 @@ public final class NativePlanChecker
         @Override
         public PlanNode visitCallDistributedProcedure(CallDistributedProcedureNode callProcedure, Void context)
         {
-            // Create dummy assignments for the ProjectNode
-            Map<VariableReferenceExpression, RowExpression> assignmentsMap = new HashMap<>();
-            assignmentsMap.put(callProcedure.getRowCountVariable(), new ConstantExpression(0L, BIGINT));
-            assignmentsMap.put(callProcedure.getFragmentVariable(), new ConstantExpression(utf8Slice(""), VARCHAR));
-            assignmentsMap.put(callProcedure.getTableCommitContextVariable(), new ConstantExpression(utf8Slice(""), VARCHAR));
+            return replaceWithDummyProject(callProcedure, callProcedure.getSource(), callProcedure.getOutputVariables());
+        }
 
-            // Replace CallDistributedProcedureNode with a ProjectNode
+        @Override
+        public PlanNode visitDelete(DeleteNode deleteNode, Void context)
+        {
+            return replaceWithDummyProject(deleteNode, deleteNode.getSource(), deleteNode.getOutputVariables());
+        }
+
+        private static ProjectNode replaceWithDummyProject(
+                PlanNode node,
+                PlanNode source,
+                List<VariableReferenceExpression> outputVariables)
+        {
+            Map<VariableReferenceExpression, RowExpression> assignmentsMap = new HashMap<>();
+            for (int i = 0; i < outputVariables.size(); i++) {
+                RowExpression dummy = (i == 0)
+                        ? new ConstantExpression(0L, BIGINT)
+                        : new ConstantExpression(utf8Slice(""), VARCHAR);
+                assignmentsMap.put(outputVariables.get(i), dummy);
+            }
             return new ProjectNode(
-                    callProcedure.getId(),
-                    callProcedure.getSource(),
+                    node.getId(),
+                    source,
                     Assignments.builder().putAll(assignmentsMap).build());
         }
 

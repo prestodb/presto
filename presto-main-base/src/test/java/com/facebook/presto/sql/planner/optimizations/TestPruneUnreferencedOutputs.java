@@ -20,6 +20,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.IndexJoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.Ordering;
@@ -48,9 +49,11 @@ import static com.facebook.presto.metadata.MetadataManager.createTestMetadataMan
 import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.RANGE;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.except;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.indexJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.intersect;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictIndexSource;
@@ -216,6 +219,40 @@ public class TestPruneUnreferencedOutputs
                         output(
                                 project(
                                         values("a", "b"))));
+    }
+
+    @Test
+    public void testJoinDynamicFiltersNotPruned()
+    {
+        // Verify that PruneUnreferencedOutputs preserves dynamic filter variables
+        // referenced by JoinNode, even when those variables are not in the
+        // downstream output. This is a regression test for:
+        // https://github.com/prestodb/presto/issues/28364
+        assertRuleApplication()
+                .on(p -> {
+                    VariableReferenceExpression leftKey = p.variable("leftKey", BIGINT);
+                    VariableReferenceExpression rightKey = p.variable("rightKey", BIGINT);
+                    return p.output(
+                            ImmutableList.of("leftKey"),
+                            ImmutableList.of(leftKey),
+                            p.join(
+                                    JoinType.INNER,
+                                    p.values(leftKey),
+                                    p.values(rightKey),
+                                    ImmutableList.of(new EquiJoinClause(leftKey, rightKey)),
+                                    ImmutableList.of(leftKey, rightKey),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    ImmutableMap.of("dynamicFilter1", rightKey)));
+                })
+                .matches(
+                        output(
+                                join(
+                                        JoinType.INNER,
+                                        ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
+                                        values("leftKey"),
+                                        values("rightKey"))));
     }
 
     private OptimizerAssert assertRuleApplication()

@@ -109,6 +109,7 @@ import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Glo
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOnCoalesce;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
+import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -518,11 +519,14 @@ public class PropertyDerivations
                     constants.putAll(buildProperties.getConstants());
 
                     if (node.isCrossJoin()) {
-                        // Cross join preserves only constants from probe and build sides.
-                        // Cross join doesn't preserve sorting or grouping local properties on either side.
+                        // A cross join emits the probe once per build row, so a run of equal probe values
+                        // is repeated and the probe's local properties no longer hold. The exception is a
+                        // build side that produces at most one row: the probe then passes through with the
+                        // build's columns appended, keeping its order. Only constants survive from the
+                        // build side either way.
                         return ActualProperties.builder()
                                 .global(probeProperties)
-                                .local(ImmutableList.of())
+                                .local(isScalar(node.getRight()) ? probeProperties.getLocalProperties() : ImmutableList.of())
                                 .constants(constants)
                                 .build();
                     }

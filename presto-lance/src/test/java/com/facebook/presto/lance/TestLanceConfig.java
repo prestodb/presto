@@ -33,8 +33,8 @@ public class TestLanceConfig
     {
         assertRecordedDefaults(recordDefaults(LanceConfig.class)
                 .setImpl("dir")
-                .setRootUrl("")
                 .setSingleLevelNs(true)
+                .setParent(null)
                 .setReadBatchSize(8192)
                 .setMaxRowsPerFile(1_000_000)
                 .setMaxRowsPerGroup(100_000)
@@ -50,8 +50,8 @@ public class TestLanceConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("lance.impl", "rest")
-                .put("lance.root-url", "/data/lance")
                 .put("lance.single-level-ns", "false")
+                .put("lance.parent", "org$warehouse")
                 .put("lance.read-batch-size", "4096")
                 .put("lance.max-rows-per-file", "500000")
                 .put("lance.max-rows-per-group", "50000")
@@ -64,8 +64,8 @@ public class TestLanceConfig
 
         LanceConfig expected = new LanceConfig()
                 .setImpl("rest")
-                .setRootUrl("/data/lance")
                 .setSingleLevelNs(false)
+                .setParent("org$warehouse")
                 .setReadBatchSize(4096)
                 .setMaxRowsPerFile(500_000)
                 .setMaxRowsPerGroup(50_000)

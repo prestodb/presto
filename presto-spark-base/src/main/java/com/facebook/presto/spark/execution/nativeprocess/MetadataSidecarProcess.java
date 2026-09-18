@@ -23,7 +23,6 @@ import okhttp3.OkHttpClient;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.Executor;
@@ -90,7 +89,8 @@ public class MetadataSidecarProcess
                 executor,
                 scheduledExecutorService,
                 serverInfoCodec,
-                maxErrorDuration);
+                maxErrorDuration,
+                true);
         this.storageOncallName = storageOncallName;
         this.storageUserName = storageUserName;
         this.storageServiceName = storageServiceName;
@@ -109,13 +109,11 @@ public class MetadataSidecarProcess
             throws IOException
     {
         Files.createDirectories(configBasePath);
-        Files.write(workerConfigFile(configBasePath), buildSystemConfigLines());
+        Files.write(workerConfigFile(configBasePath), buildSystemConfigLines(configBasePath));
         Files.write(workerNodeConfigFile(configBasePath), buildNodeConfigLines());
         // The catalog directory is intentionally empty (no connectors) but must exist —
         // PrestoServer iterates it during startup and aborts if it's missing.
         Files.createDirectories(workerCatalogDir(configBasePath));
-        // Remember where we wrote so close() can clean it up; the parent abstract class
-        // computes this path internally and never exposes it to the subclass otherwise.
         this.configBasePath = configBasePath;
     }
 
@@ -126,11 +124,7 @@ public class MetadataSidecarProcess
             super.close();
         }
         finally {
-            // Etc-dir written by populateConfigurationFiles (may be null if start() never ran),
-            // and the spill dir referenced from config.properties (may or may not exist
-            // depending on whether the native process actually spilled).
             deleteQuietly(configBasePath);
-            deleteQuietly(Paths.get(sidecarSpillDirectory(getPort())));
         }
     }
 
@@ -147,28 +141,18 @@ public class MetadataSidecarProcess
         }
     }
 
-    private Iterable<String> buildSystemConfigLines()
+    private Iterable<String> buildSystemConfigLines(Path configBasePath)
     {
-        // The native-sidecar=true flag turns on /v1/functions and friends.
-        // The storage-* triple satisfies FacebookPrestoBase::registerFileSinks, which calls
-        // requiredProperty() for these even though we never use WarmStorage in metadata-only
-        // mode. The experimental.spiller-spill-path setting short-circuits the FB datacenter
-        // detection in FacebookPrestoBase::getBaseSpillDirectory.
         return Arrays.asList(
-                "discovery.uri=http://" + SIDECAR_NODE_INTERNAL_ADDRESS + ":" + getPort(),
                 "presto.version=metadata-sidecar",
-                "http-server.http.port=" + getPort(),
+                "http-server.http.port=0",
+                "http-server.report-bound-port-to-file=true",
                 "shutdown-onset-sec=1",
                 "native-sidecar=true",
                 "storage_oncall_name=" + storageOncallName,
                 "storage_user_name=" + storageUserName,
                 "storage_service_name=" + storageServiceName,
-                "experimental.spiller-spill-path=" + sidecarSpillDirectory(getPort()));
-    }
-
-    private static String sidecarSpillDirectory(int port)
-    {
-        return System.getProperty("java.io.tmpdir") + "/presto-spark-metadata-sidecar-spill-" + port;
+                "experimental.spiller-spill-path=" + configBasePath.resolve("spill").toAbsolutePath());
     }
 
     private Iterable<String> buildNodeConfigLines()

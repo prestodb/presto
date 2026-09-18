@@ -106,6 +106,27 @@ target_link_libraries(
   GTest::gtest_main
 )
 
+add_executable(presto_rpc_plan_converter_test RPCPlanConverterTest.cpp)
+
+add_test(
+  NAME presto_rpc_plan_converter_test
+  COMMAND presto_rpc_plan_converter_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(
+  presto_rpc_plan_converter_test
+  presto_connectors
+  presto_operators
+  presto_protocol
+  presto_type_converter
+  presto_types
+  velox
+  velox_async_rpc_function_registry
+  GTest::gtest
+  GTest::gtest_main
+)
+
 # RemoteFunctionHandleTest.cpp only contains tests cases related to
 # RestFunctionHandle, therefore it is only enabled when remote functions are
 # enabled.

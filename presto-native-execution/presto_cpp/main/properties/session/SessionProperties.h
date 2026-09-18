@@ -135,6 +135,17 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kTopNRowNumberSpillEnabled =
       "native_topn_row_number_spill_enabled";
 
+  /// Number of rows accumulated by the partial TopNRowNumber operator before
+  /// checking whether to abandon it.
+  static constexpr const char* kAbandonPartialTopNRowNumberMinRows =
+      "native_abandon_partial_topn_row_number_min_rows";
+
+  /// Percentage of accumulated input rows still retained by the partial
+  /// TopNRowNumber operator at or above which the operator is abandoned and
+  /// degrades to pass-through.
+  static constexpr const char* kAbandonPartialTopNRowNumberMinPct =
+      "native_abandon_partial_topn_row_number_min_pct";
+
   /// If set to true, then during execution of tasks, the output vectors of
   /// every operator are validated for consistency. This is an expensive check
   /// so should only be used for debugging.

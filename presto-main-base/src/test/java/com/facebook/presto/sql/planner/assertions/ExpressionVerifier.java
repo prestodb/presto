@@ -392,7 +392,7 @@ final class ExpressionVerifier
             return false;
         }
 
-        if (!process(actual.getWindow(), expectedFunction.getWindow())) {
+        if (!process(actual.getWindow().map(Node.class::cast), expectedFunction.getWindow().map(Node.class::cast))) {
             return false;
         }
 

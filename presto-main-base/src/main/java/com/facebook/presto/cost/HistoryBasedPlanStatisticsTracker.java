@@ -45,7 +45,6 @@ import com.facebook.presto.sql.planner.CanonicalPlan;
 import com.facebook.presto.sql.planner.PlanNodeCanonicalInfo;
 import com.facebook.presto.sql.planner.planPrinter.PlanNodeStats;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.GraphBuilder;
@@ -133,29 +132,11 @@ public class HistoryBasedPlanStatisticsTracker
         // If track_history_stats_from_failed_queries is set to true, we do not require that the query is successful
         boolean trackStatsForFailedQueries = trackHistoryStatsFromFailedQuery(session);
         boolean querySucceed = queryInfo.getFailureInfo() == null;
-        if ((!querySucceed && !trackStatsForFailedQueries) || !queryInfo.getOutputStage().isPresent() || !queryInfo.getOutputStage().get().getPlan().isPresent()) {
+        if ((!querySucceed && !trackStatsForFailedQueries) || !isQueryEligibleForHistoryTracking(queryInfo, session)) {
             return ImmutableMap.of();
         }
 
-        // Only update statistics for SELECT/INSERT queries
-        List<QueryType> queryTypesEnabled = getQueryTypesEnabledForHBO(session);
-        if (!queryInfo.getQueryType().isPresent() || !queryTypesEnabled.contains(queryInfo.getQueryType().get())) {
-            return ImmutableMap.of();
-        }
-
-        if (!queryInfo.isFinalQueryInfo()) {
-            LOG.error("Expected final query info when updating history based statistics: %s", queryInfo);
-            return ImmutableMap.of();
-        }
-
-        StageInfo outputStage = queryInfo.getOutputStage().get();
-        List<StageInfo> allStages = ImmutableList.of();
-        if (querySucceed) {
-            allStages = outputStage.getAllStages();
-        }
-        else if (trackStatsForFailedQueries) {
-            allStages = outputStage.getAllStages().stream().filter(x -> x.getLatestAttemptExecutionInfo().getState().equals(StageExecutionState.FINISHED)).collect(toImmutableList());
-        }
+        List<StageInfo> allStages = getFinishedStages(queryInfo.getOutputStage().get());
 
         if (allStages.isEmpty()) {
             return ImmutableMap.of();
@@ -191,6 +172,11 @@ public class HistoryBasedPlanStatisticsTracker
                 }
 
                 double outputPositions = planNodeStats.getPlanNodeOutputPositions();
+                // A plan node which produced no rows is more often an aberration, for example a node whose driver was
+                // stopped before it produced output, than a property of the query itself
+                if (outputPositions == 0) {
+                    continue;
+                }
                 double outputBytes = adjustedOutputBytes(planNode, planNodeStats);
                 double nullJoinBuildKeyCount = planNodeStats.getPlanNodeNullJoinBuildKeyCount();
                 double joinBuildKeyCount = planNodeStats.getPlanNodeJoinBuildKeyCount();
@@ -255,6 +241,83 @@ public class HistoryBasedPlanStatisticsTracker
             }
         }
         return ImmutableMap.copyOf(planStatisticsMap);
+    }
+
+    private boolean isQueryEligibleForHistoryTracking(QueryInfo queryInfo, Session session)
+    {
+        if (!queryInfo.getOutputStage().isPresent() || !queryInfo.getOutputStage().get().getPlan().isPresent()) {
+            return false;
+        }
+
+        // Only update statistics for SELECT/INSERT queries
+        List<QueryType> queryTypesEnabled = getQueryTypesEnabledForHBO(session);
+        if (!queryInfo.getQueryType().isPresent() || !queryTypesEnabled.contains(queryInfo.getQueryType().get())) {
+            return false;
+        }
+
+        if (!queryInfo.isFinalQueryInfo()) {
+            LOG.error("Expected final query info when updating history based statistics: %s", queryInfo);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Returns the stages whose runtime statistics are recorded as history, which are exactly the stages that reached
+     * {@link StageExecutionState#FINISHED}.
+     * <p>
+     * {@code CANCELED}, {@code ABORTED} and {@code FAILED} stages are all treated as partial executions and excluded:
+     * such a stage processed only part of its input, so its runtime statistics under count rows and bytes, and
+     * recording them would make future estimates for the same plan nodes too small. This is not limited to failed
+     * queries. A successful query cancels a stage as soon as its parent stage is done, which is what happens when a
+     * {@code LIMIT} above it is satisfied, and aborts any stage still running once the query completes.
+     */
+    @VisibleForTesting
+    static List<StageInfo> getFinishedStages(StageInfo outputStage)
+    {
+        return outputStage.getAllStages().stream()
+                .filter(stage -> stage.getLatestAttemptExecutionInfo().getState() == StageExecutionState.FINISHED)
+                .collect(toImmutableList());
+    }
+
+    /**
+     * Returns the plan nodes of the stages which ended in a failure state. Statistics recorded for them by an earlier
+     * run described a run of the stage which completed, and the stage no longer completes, so they are no longer a
+     * good prediction of what the stage does.
+     */
+    private Set<PlanNodeWithHash> getPlanNodesOfFailedStages(QueryInfo queryInfo, Session session)
+    {
+        List<StageInfo> failedStages = queryInfo.getOutputStage().get().getAllStages().stream()
+                .filter(stage -> stage.getLatestAttemptExecutionInfo().getState().isFailure())
+                .collect(toImmutableList());
+        if (failedStages.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        Map<CanonicalPlan, PlanNodeCanonicalInfo> canonicalInfoMap = new HashMap<>();
+        queryInfo.getPlanCanonicalInfo().forEach(canonicalPlanWithInfo ->
+                canonicalInfoMap.putIfAbsent(canonicalPlanWithInfo.getCanonicalPlan(), canonicalPlanWithInfo.getInfo()));
+
+        List<PlanCanonicalizationStrategy> canonicalizationStrategies = historyBasedPlanCanonicalizationStrategyList(session);
+        ImmutableSet.Builder<PlanNodeWithHash> planNodesWithHash = ImmutableSet.builder();
+        for (StageInfo stageInfo : failedStages) {
+            if (!stageInfo.getPlan().isPresent()) {
+                continue;
+            }
+            for (PlanNode planNode : forTree(PlanNode::getSources).depthFirstPreOrder(stageInfo.getPlan().get().getRoot())) {
+                if (!planNode.getStatsEquivalentPlanNode().isPresent()) {
+                    continue;
+                }
+                PlanNode statsEquivalentPlanNode = planNode.getStatsEquivalentPlanNode().get();
+                for (PlanCanonicalizationStrategy strategy : canonicalizationStrategies) {
+                    PlanNodeCanonicalInfo canonicalInfo = canonicalInfoMap.get(new CanonicalPlan(statsEquivalentPlanNode, strategy));
+                    if (canonicalInfo != null) {
+                        planNodesWithHash.add(new PlanNodeWithHash(statsEquivalentPlanNode, Optional.of(canonicalInfo.getHash())));
+                    }
+                }
+            }
+        }
+        return planNodesWithHash.build();
     }
 
     private static Set<PlanNodeId> getPlanNodeAppliedDynamicFilter(Map<PlanNodeId, PlanNodeStats> planNodeStatsMap, List<StageInfo> allStages)
@@ -407,10 +470,33 @@ public class HistoryBasedPlanStatisticsTracker
                                     historyBasedSourceInfo.getHistoricalPlanStatisticsEntryInfo().get());
                         }));
 
-        if (!newPlanStatistics.isEmpty()) {
-            historyBasedPlanStatisticsProvider.get().putStats(ImmutableMap.copyOf(newPlanStatistics));
+        Map<PlanNodeWithHash, HistoricalPlanStatistics> statisticsToStore = new HashMap<>(newPlanStatistics);
+        statisticsToStore.putAll(getInvalidatedStatistics(queryInfo, session, newPlanStatistics.keySet()));
+
+        if (!statisticsToStore.isEmpty()) {
+            historyBasedPlanStatisticsProvider.get().putStats(ImmutableMap.copyOf(statisticsToStore));
         }
         historyBasedStatisticsCacheManager.invalidate(queryInfo.getQueryId());
+    }
+
+    /**
+     * Returns empty statistics for every plan node of a failed stage which currently has recorded history, which
+     * overwrites and so drops that history. Plan nodes recorded by this query are left alone.
+     */
+    private Map<PlanNodeWithHash, HistoricalPlanStatistics> getInvalidatedStatistics(QueryInfo queryInfo, Session session, Set<PlanNodeWithHash> recordedPlanNodes)
+    {
+        if (!isQueryEligibleForHistoryTracking(queryInfo, session)) {
+            return ImmutableMap.of();
+        }
+        List<PlanNodeWithHash> planNodesOfFailedStages = getPlanNodesOfFailedStages(queryInfo, session).stream()
+                .filter(planNodeWithHash -> !recordedPlanNodes.contains(planNodeWithHash))
+                .collect(toImmutableList());
+        if (planNodesOfFailedStages.isEmpty()) {
+            return ImmutableMap.of();
+        }
+        return historyBasedPlanStatisticsProvider.get().getStats(planNodesOfFailedStages, getHistoryBasedOptimizerTimeoutLimit(session).toMillis()).entrySet().stream()
+                .filter(entry -> !entry.getValue().getLastRunsStatistics().isEmpty())
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> HistoricalPlanStatistics.empty()));
     }
 
     private class FinalAggregationStatsInfo

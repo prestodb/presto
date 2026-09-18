@@ -120,6 +120,8 @@ protocol::TaskState toProtocolTaskState(PrestoTaskState state) {
 protocol::ExecutionFailureInfo toPrestoError(std::exception_ptr ex) {
   try {
     rethrow_exception(ex);
+  } catch (const ExecutionFailureException& e) {
+    return e.getFailureInfo();
   } catch (const VeloxException& e) {
     return translateToPrestoException(e);
   } catch (const std::exception& e) {
@@ -859,6 +861,7 @@ void PrestoTask::updateExecutionInfoLocked(
 
   prestoTaskStats.rawInputPositions = 0;
   prestoTaskStats.rawInputDataSizeInBytes = 0;
+  prestoTaskStats.scanRawInputDataSizeInBytes = 0;
   prestoTaskStats.processedInputPositions = 0;
   prestoTaskStats.processedInputDataSizeInBytes = 0;
   prestoTaskStats.outputPositions = 0;
@@ -909,6 +912,12 @@ void PrestoTask::updateExecutionInfoLocked(
             firstVeloxOpStats.rawInputPositions;
         prestoTaskStats.rawInputDataSizeInBytes +=
             firstVeloxOpStats.rawInputBytes;
+        // Velox has no fused scan+filter+project (only TableScan and
+        // FilterProject), so a leaf scan is always reported as TableScan.
+        if (firstVeloxOpStats.operatorType == "TableScan") {
+          prestoTaskStats.scanRawInputDataSizeInBytes +=
+              firstVeloxOpStats.rawInputBytes;
+        }
         prestoTaskStats.processedInputPositions +=
             firstVeloxOpStats.inputPositions;
         prestoTaskStats.processedInputDataSizeInBytes +=

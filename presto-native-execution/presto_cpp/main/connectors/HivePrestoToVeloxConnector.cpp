@@ -339,6 +339,8 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) const {
+  VELOX_CHECK_NOT_NULL(
+      tableHandle.connectorTableLayout, "Missing table layout");
   auto hiveLayout =
       std::dynamic_pointer_cast<const protocol::hive::HiveTableLayoutHandle>(
           tableHandle.connectorTableLayout);

@@ -23,6 +23,7 @@ import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.HiveMetastoreModule;
 import com.facebook.presto.hive.s3.HiveS3Module;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -67,6 +68,7 @@ public class DeltaConnectorFactory
                     new HiveCommonModule(),
                     binder -> {
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
+                        binder.bind(ConnectorSystemConfig.class).toInstance(context.getConnectorSystemConfig());
                     });
 
             Injector injector = app

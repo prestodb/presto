@@ -18,8 +18,17 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
+import org.apache.arrow.memory.BufferAllocator;
+import org.lance.namespace.LanceNamespace;
+import org.lance.namespace.model.ListNamespacesRequest;
+import org.lance.namespace.model.ListNamespacesResponse;
+import org.lance.namespace.model.ListTablesRequest;
+import org.lance.namespace.model.ListTablesResponse;
+import org.lance.namespace.model.NamespaceExistsRequest;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -52,9 +61,12 @@ public class TestLanceMetadata
         assertNotNull(dbUrl, "example_db resource not found");
         String rootPath = Paths.get(dbUrl.toURI()).toString();
         LanceConfig config = new LanceConfig()
-                .setRootUrl(rootPath)
                 .setSingleLevelNs(true);
-        LanceNamespaceHolder namespaceHolder = new LanceNamespaceHolder(config);
+
+        // Pass lance.root through namespace properties (as the connector factory would)
+        Map<String, String> namespaceProperties = ImmutableMap.of("lance.root", rootPath);
+
+        LanceNamespaceHolder namespaceHolder = new LanceNamespaceHolder(config, namespaceProperties);
         this.namespaceHolder = namespaceHolder;
         JsonCodec<LanceCommitTaskData> commitTaskDataCodec = jsonCodec(LanceCommitTaskData.class);
         metadata = new LanceMetadata(namespaceHolder, commitTaskDataCodec);
@@ -82,6 +94,8 @@ public class TestLanceMetadata
         LanceTableHandle lanceHandle = (LanceTableHandle) handle;
         assertEquals(lanceHandle.getSchemaName(), "default");
         assertEquals(lanceHandle.getTableName(), "test_table1");
+        assertNotNull(lanceHandle.getTablePath());
+        assertNotNull(lanceHandle.getTableId());
         assertNotNull(lanceHandle.getDatasetVersion());
         assertTrue(lanceHandle.getDatasetVersion().isPresent());
 
@@ -90,6 +104,7 @@ public class TestLanceMetadata
         LanceTableHandle lanceHandle2 = (LanceTableHandle) handle2;
         assertEquals(lanceHandle2.getSchemaName(), "default");
         assertEquals(lanceHandle2.getTableName(), "test_table2");
+        assertNotNull(lanceHandle2.getTablePath());
         assertTrue(lanceHandle2.getDatasetVersion().isPresent());
 
         // non-existent schema
@@ -146,5 +161,105 @@ public class TestLanceMetadata
         // no schema filter
         List<SchemaTableName> allTables = metadata.listTables(null, Optional.empty());
         assertEquals(ImmutableSet.copyOf(allTables), tableSet);
+    }
+
+    @Test
+    public void testListTablesWithoutSchemaSpansAllSchemas()
+    {
+        LanceNamespaceHolder holder = multiLevelHolder();
+        try {
+            // With no schema filter Presto expects every schema in the catalog. Defaulting
+            // to "default" would return nothing here, since it is not a real namespace.
+            assertEquals(
+                    ImmutableSet.copyOf(metadataFor(holder).listTables(null, Optional.empty())),
+                    ImmutableSet.of(
+                            new SchemaTableName("schema_a", "t_a1"),
+                            new SchemaTableName("schema_a", "t_a2"),
+                            new SchemaTableName("schema_b", "t_b1")));
+        }
+        finally {
+            holder.shutdown();
+        }
+    }
+
+    @Test
+    public void testListTablesWithSchemaFilterInMultiLevelMode()
+    {
+        LanceNamespaceHolder holder = multiLevelHolder();
+        try {
+            LanceMetadata multiLevel = metadataFor(holder);
+            assertEquals(
+                    ImmutableSet.copyOf(multiLevel.listTables(null, Optional.of("schema_a"))),
+                    ImmutableSet.of(
+                            new SchemaTableName("schema_a", "t_a1"),
+                            new SchemaTableName("schema_a", "t_a2")));
+            // An absent schema still yields nothing rather than throwing.
+            assertEquals(multiLevel.listTables(null, Optional.of("no_such_schema")), ImmutableList.of());
+        }
+        finally {
+            holder.shutdown();
+        }
+    }
+
+    private static LanceNamespaceHolder multiLevelHolder()
+    {
+        LanceConfig config = new LanceConfig()
+                .setImpl(MultiSchemaNamespace.class.getName())
+                .setSingleLevelNs(false);
+        return new LanceNamespaceHolder(config, ImmutableMap.of());
+    }
+
+    private static LanceMetadata metadataFor(LanceNamespaceHolder holder)
+    {
+        return new LanceMetadata(holder, jsonCodec(LanceCommitTaskData.class));
+    }
+
+    /**
+     * Serves two sibling schemas, each with its own tables.
+     */
+    public static class MultiSchemaNamespace
+            implements LanceNamespace
+    {
+        private static final Map<String, Set<String>> TABLES_BY_SCHEMA = ImmutableMap.of(
+                "schema_a", ImmutableSet.of("t_a1", "t_a2"),
+                "schema_b", ImmutableSet.of("t_b1"));
+
+        @Override
+        public void initialize(Map<String, String> properties, BufferAllocator allocator) {}
+
+        @Override
+        public String namespaceId()
+        {
+            return "multi-schema";
+        }
+
+        @Override
+        public ListNamespacesResponse listNamespaces(ListNamespacesRequest request)
+        {
+            ListNamespacesResponse response = new ListNamespacesResponse();
+            response.setNamespaces(TABLES_BY_SCHEMA.keySet());
+            return response;
+        }
+
+        @Override
+        public void namespaceExists(NamespaceExistsRequest request)
+        {
+            if (!TABLES_BY_SCHEMA.containsKey(lastElement(request.getId()))) {
+                throw new IllegalArgumentException("no such namespace");
+            }
+        }
+
+        @Override
+        public ListTablesResponse listTables(ListTablesRequest request)
+        {
+            ListTablesResponse response = new ListTablesResponse();
+            response.setTables(TABLES_BY_SCHEMA.getOrDefault(lastElement(request.getId()), ImmutableSet.of()));
+            return response;
+        }
+
+        private static String lastElement(List<String> id)
+        {
+            return id == null || id.isEmpty() ? "" : id.get(id.size() - 1);
+        }
     }
 }

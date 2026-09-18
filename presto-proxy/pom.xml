@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.299-SNAPSHOT</version>
+        <version>0.300-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-proxy</artifactId>
@@ -156,8 +156,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.xml.bind</groupId>
-            <artifactId>jaxb-api</artifactId>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
             <scope>runtime</scope>
         </dependency>
 

@@ -15,6 +15,9 @@
 include "thrift/annotation/cpp.thrift"
 include "thrift/annotation/thrift.thrift"
 
+@thrift.AllowLegacyMissingUris
+package;
+
 namespace cpp2 facebook.presto.thrift
 
 enum TaskState {
@@ -451,6 +454,7 @@ struct TaskStats {
   47: i32 queuedNewDrivers;
   48: i32 runningNewDrivers;
   49: i32 completedNewDrivers;
+  50: i64 scanRawInputDataSizeInBytes;
 }
 struct PipelineStats {
   1: i32 pipelineId;

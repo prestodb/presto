@@ -17,7 +17,7 @@
 
 namespace facebook::presto {
 
-void registerPrestoMetrics() {
+void registerPrestoMetrics(bool enableHttpRequestSizeHistogram) {
   DEFINE_METRIC(
       kCounterDriverCPUExecutorQueueSize, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
@@ -30,15 +30,17 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumHTTPRequest, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterNumHTTPRequestError, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterHTTPRequestLatencyMs, facebook::velox::StatType::AVG);
-  DEFINE_HISTOGRAM_METRIC(
-      kCounterHTTPRequestSizeBytes,
-      1 * 1024, // 1KB bucket size
-      0,
-      5 * 1024 * 1024, // 5MB max
-      50,
-      90,
-      99,
-      100);
+  if (enableHttpRequestSizeHistogram) {
+    DEFINE_HISTOGRAM_METRIC(
+        kCounterHTTPRequestSizeBytes,
+        1 * 1024, // 1KB bucket size
+        0,
+        5 * 1024 * 1024, // 5MB max
+        50,
+        90,
+        99,
+        100);
+  }
   DEFINE_METRIC(
       kCounterHttpClientNumConnectionsCreated, facebook::velox::StatType::SUM);
   DEFINE_METRIC(

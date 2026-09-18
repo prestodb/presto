@@ -18,6 +18,10 @@
 #include <folly/system/HardwareConcurrency.h>
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
@@ -119,6 +123,10 @@ constexpr char const* kMacOSSharedLibExt = ".dylib";
 constexpr char const* kOptimized = "OPTIMIZED";
 constexpr char const* kEvaluated = "EVALUATED";
 constexpr char const* kProtocolConnectorId = "protocol-connector.id";
+constexpr char const* kOptimizerLevelHeader =
+    "X-Presto-Expression-Optimizer-Level";
+constexpr char const* kTimezoneHeader = "X-Presto-Time-Zone";
+constexpr char const* kSessionStartTimeHeader = "X-Presto-Session-Start-Time";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -214,14 +222,12 @@ void unregisterVeloxCudf() {
 }
 
 json::array_t getOptimizedExpressions(
-    const proxygen::HTTPHeaders& httpHeaders,
-    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    const std::string& optimizerLevelString,
+    const std::string& timezone,
+    const std::string& sessionStartTime,
+    std::string body,
     folly::Executor* executor,
     velox::memory::MemoryPool* pool) {
-  static constexpr char const* kOptimizerLevelHeader =
-      "X-Presto-Expression-Optimizer-Level";
-  const auto& optimizerLevelString =
-      httpHeaders.getSingleOrEmpty(kOptimizerLevelHeader);
   VELOX_USER_CHECK(
       (optimizerLevelString == kOptimized) ||
           (optimizerLevelString == kEvaluated),
@@ -231,16 +237,8 @@ json::array_t getOptimizedExpressions(
       ? expression::OptimizerLevel::kOptimized
       : expression::OptimizerLevel::kEvaluated;
 
-  static constexpr char const* kTimezoneHeader = "X-Presto-Time-Zone";
-  const auto& timezone = httpHeaders.getSingleOrEmpty(kTimezoneHeader);
-
-  static constexpr char const* kSessionStartTimeHeader =
-      "X-Presto-Session-Start-Time";
-  const auto& sessionStartTime =
-      httpHeaders.getSingleOrEmpty(kSessionStartTimeHeader);
-
   protocol::ExpressionOptimizationRequest request =
-      json::parse(util::extractMessageBody(body));
+      json::parse(std::move(body));
 
   const std::map<std::string, std::string> sessionProperties =
       request.sessionProperties;
@@ -267,6 +265,37 @@ json::array_t getOptimizedExpressions(
     result.push_back(optimized);
   }
   return result;
+}
+
+// Atomically writes 'boundPort' to '<configDirectoryPath>/http-server.port'
+// via a tmp+rename so readers only ever see a fully-written, current value.
+// Logs and returns on any failure; never throws.
+void writeBoundHttpPortFile(
+    const std::string& configDirectoryPath,
+    uint16_t boundPort) {
+  const std::string portFilePath = configDirectoryPath + "/http-server.port";
+  const std::string tmpPortFilePath = portFilePath + ".tmp";
+  try {
+    {
+      std::ofstream out(tmpPortFilePath);
+      out.exceptions(std::ios::failbit | std::ios::badbit);
+      out << boundPort << std::endl;
+      out.flush();
+    }
+    if (std::rename(tmpPortFilePath.c_str(), portFilePath.c_str()) != 0) {
+      PRESTO_STARTUP_LOG(ERROR)
+          << "Failed to rename port file " << tmpPortFilePath << " -> "
+          << portFilePath << ": " << std::strerror(errno);
+      std::remove(tmpPortFilePath.c_str());
+      return;
+    }
+  } catch (const std::exception& e) {
+    PRESTO_STARTUP_LOG(ERROR)
+        << "Failed to write port file " << portFilePath << ": " << e.what();
+    std::remove(tmpPortFilePath.c_str());
+    return;
+  }
+  PRESTO_STARTUP_LOG(INFO) << "HTTP server bound to port " << boundPort;
 }
 
 } // namespace
@@ -766,6 +795,10 @@ void PrestoServer::startServer(const std::vector<std::string>& catalogNames) {
                 kTaskUriFormat, kHttp, address_, address.address.getPort());
           }
           taskManager_->setBaseUri(taskUri);
+          if (systemConfig->httpServerReportBoundPortToFile()) {
+            writeBoundHttpPortFile(
+                configDirectoryPath_, address.address.getPort());
+          }
           break;
         }
 
@@ -799,8 +832,9 @@ void PrestoServer::stopAnnouncer() {
 void PrestoServer::joinExecutors() {
   // Join exchange HTTP CPU executor first. Exchange CPU threads run
   // PrestoExchangeSource::handleDataResponse which dispatches callbacks to
-  // driverExecutor_ (MonitoredExecutor) via ExchangeClient. We must drain
-  // these threads before destroying driverExecutor_ to avoid use-after-free.
+  // driverExecutor_ (MonitoredExecutor) via InMemoryExchangeClient. We must
+  // drain these threads before destroying driverExecutor_ to avoid
+  // use-after-free.
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Exchange Http CPU executor '"
       << exchangeHttpCpuExecutor_->getName()
@@ -1646,7 +1680,8 @@ void PrestoServer::unregisterFileReadersAndWriters() {
 }
 
 void PrestoServer::registerStatsCounters() {
-  registerPrestoMetrics();
+  registerPrestoMetrics(
+      SystemConfig::instance()->enableHttpRequestSizeHistogram());
   velox::registerVeloxMetrics();
   velox::filesystems::registerS3Metrics();
 }
@@ -1721,6 +1756,19 @@ void PrestoServer::populateMemAndCPUInfo() {
   cpuMon_.update();
   checkOverload();
   **memoryInfo_.wlock() = std::move(memoryInfo);
+
+  // In-memory AsyncDataCache footprint (evictable/reclaimable); SSD-resident
+  // bytes are excluded as they do not contribute to RAM pressure. Computed here
+  // (this task runs periodically) rather than in fetchNodeStatus(), because
+  // refreshStats() walks the cache shards and fetchNodeStatus() serves every
+  // /v1/status poll on every worker. 0 when no cache instance exists.
+  int64_t asyncDataCacheBytes = 0;
+  if (auto* cache = velox::cache::AsyncDataCache::getInstance()) {
+    const auto cacheStats = cache->refreshStats();
+    asyncDataCacheBytes = cacheStats.tinySize + cacheStats.largeSize +
+        cacheStats.tinyPadding + cacheStats.largePadding;
+  }
+  asyncDataCacheBytes_.store(asyncDataCacheBytes, std::memory_order_relaxed);
 }
 
 void PrestoServer::checkOverload() {
@@ -1905,31 +1953,124 @@ void PrestoServer::registerSidecarEndpoints() {
       "/v1/expressions",
       [this](
           proxygen::HTTPMessage* message,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
-          proxygen::ResponseHandler* downstream) {
+          const std::vector<std::string>& /*pathMatch*/) {
+        // Extract header values eagerly: the async closure must not retain a
+        // pointer into the handler object, which may be destroyed before the
+        // CPU-executor task runs.
         const auto& httpHeaders = message->getHeaders();
-        const auto result = getOptimizedExpressions(
-            httpHeaders, body, driverExecutor_.get(), nativeWorkerPool_.get());
-        http::sendOkResponse(downstream, result);
+        auto optimizerLevel =
+            httpHeaders.getSingleOrEmpty(kOptimizerLevelHeader);
+        auto timezone = httpHeaders.getSingleOrEmpty(kTimezoneHeader);
+        auto sessionStartTime =
+            httpHeaders.getSingleOrEmpty(kSessionStartTimeHeader);
+        return new http::CallbackRequestHandler(
+            [this,
+             optimizerLevel = std::move(optimizerLevel),
+             timezone = std::move(timezone),
+             sessionStartTime = std::move(sessionStartTime)](
+                proxygen::HTTPMessage* /*message*/,
+                std::vector<std::unique_ptr<folly::IOBuf>>& body,
+                proxygen::ResponseHandler* downstream,
+                std::shared_ptr<http::CallbackRequestHandlerState>
+                    handlerState) {
+              // Extract body on the I/O thread before dispatching to the CPU
+              // executor, consistent with createOrUpdateTaskImpl.
+              auto bodyStr = util::extractMessageBody(body);
+              folly::via(
+                  httpSrvCpuExecutor_.get(),
+                  [this,
+                   optimizerLevel = std::move(optimizerLevel),
+                   timezone = std::move(timezone),
+                   sessionStartTime = std::move(sessionStartTime),
+                   bodyStr = std::move(bodyStr)]() {
+                    return getOptimizedExpressions(
+                        optimizerLevel,
+                        timezone,
+                        sessionStartTime,
+                        std::move(bodyStr),
+                        driverExecutor_.get(),
+                        nativeWorkerPool_.get());
+                  })
+                  .thenValue([](auto&& result) {
+                    // Serialize on the CPU executor so the I/O thread only
+                    // transmits pre-built bytes.
+                    return util::dumpJson(json(result));
+                  })
+                  .via(
+                      folly::getKeepAliveToken(
+                          folly::EventBaseManager::get()->getEventBase()))
+                  .thenValue([downstream, handlerState](std::string body) {
+                    if (!handlerState->requestExpired()) {
+                      http::sendOkResponse(downstream, body);
+                    }
+                  })
+                  .thenError(
+                      folly::tag_t<std::exception>{},
+                      [downstream, handlerState](auto&& e) {
+                        LOG(ERROR)
+                            << "getOptimizedExpressions error: " << e.what();
+                        if (!handlerState->requestExpired()) {
+                          http::sendErrorResponse(downstream, e.what());
+                        }
+                      });
+            });
       });
 
   httpServer_->registerPost(
       "/v1/velox/plan",
-      [server = this](
-          proxygen::HTTPMessage* message,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
-          proxygen::ResponseHandler* downstream) {
-        std::string planFragmentJson = util::extractMessageBody(body);
-        protocol::PlanConversionResponse response = prestoToVeloxPlanConversion(
-            planFragmentJson,
-            server->nativeWorkerPool_.get(),
-            server->getVeloxPlanValidator());
-        if (response.failures.empty()) {
-          http::sendOkResponse(downstream, json(response));
-        } else {
-          http::sendResponse(
-              downstream, json(response), http::kHttpUnprocessableContent);
-        }
+      [this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::string>& /*pathMatch*/) {
+        return new http::CallbackRequestHandler(
+            [this](
+                proxygen::HTTPMessage* /*message*/,
+                std::vector<std::unique_ptr<folly::IOBuf>>& body,
+                proxygen::ResponseHandler* downstream,
+                std::shared_ptr<http::CallbackRequestHandlerState>
+                    handlerState) {
+              auto planFragmentJson = util::extractMessageBody(body);
+              folly::via(
+                  httpSrvCpuExecutor_.get(),
+                  [this, planFragmentJson = std::move(planFragmentJson)]() {
+                    return prestoToVeloxPlanConversion(
+                        planFragmentJson,
+                        nativeWorkerPool_.get(),
+                        getVeloxPlanValidator());
+                  })
+                  .thenValue([](auto&& response) {
+                    // Serialize on the CPU executor so the I/O thread only
+                    // transmits pre-built bytes.
+                    const uint16_t status = response.failures.empty()
+                        ? http::kHttpOk
+                        : http::kHttpUnprocessableContent;
+                    return std::make_pair(
+                        status, util::dumpJson(json(response)));
+                  })
+                  .via(
+                      folly::getKeepAliveToken(
+                          folly::EventBaseManager::get()->getEventBase()))
+                  .thenValue([downstream, handlerState](
+                                 std::pair<uint16_t, std::string> p) {
+                    if (!handlerState->requestExpired()) {
+                      proxygen::ResponseBuilder(downstream)
+                          .status(p.first, "")
+                          .header(
+                              proxygen::HTTP_HEADER_CONTENT_TYPE,
+                              http::kMimeTypeApplicationJson)
+                          .body(p.second)
+                          .sendWithEOM();
+                    }
+                  })
+                  .thenError(
+                      folly::tag_t<std::exception>{},
+                      [downstream, handlerState](auto&& e) {
+                        LOG(ERROR) << "prestoToVeloxPlanConversion error: "
+                                   << e.what();
+                        if (!handlerState->requestExpired()) {
+                          http::sendErrorResponse(downstream, e.what());
+                        }
+                      });
+            });
       });
 }
 
@@ -1939,8 +2080,28 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
 
   const double cpuLoadPct{cpuMon_.getCPULoadPct()};
 
-  // TODO(spershin): As 'nonHeapUsed' we could export the cache memory.
-  const int64_t nonHeapUsed{0};
+  // 'nonHeapUsed' is a JVM/GC concept that does not apply to native workers.
+  // Kept at 0 to avoid breaking existing tooling that consumes this field; it
+  // could be changed to a not-applicable value (e.g. -1) in the future. Native
+  // memory is reported via the dedicated fields below.
+  const int64_t nonHeapUsed = 0;
+
+  // In-memory AsyncDataCache footprint (evictable/reclaimable), sampled off the
+  // serving path by populateMemAndCPUInfo() — read the cached value here so the
+  // refreshStats() cache-shard walk never runs on the /v1/status poll path.
+  const int64_t asyncDataCacheBytes =
+      asyncDataCacheBytes_.load(std::memory_order_relaxed);
+
+  // Query memory (non-evictable): sum of per-query pool reservations, already
+  // aggregated per memory pool in populateMemAndCPUInfo(). Reservations are
+  // rounded up to Velox's quantized reservation size, so this slightly
+  // over-reports live usage, and may include memory that is spillable under
+  // pressure. It excludes the evictable AsyncDataCache reported above.
+  const auto memoryInfo = **memoryInfo_.rlock();
+  int64_t queryMemoryBytes = 0;
+  for (const auto& pool : memoryInfo.pools) {
+    queryMemoryBytes += pool.second.reservedBytes;
+  }
 
   protocol::NodeStatus nodeStatus{
       nodeId_,
@@ -1950,13 +2111,15 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       getUptime(start_),
       address_,
       address_,
-      **memoryInfo_.rlock(),
+      memoryInfo,
       (int)folly::available_concurrency(),
       cpuLoadPct,
       cpuLoadPct,
       pool_ ? pool_->usedBytes() : 0,
       nodeMemoryGb * 1024 * 1024 * 1024,
-      nonHeapUsed};
+      nonHeapUsed,
+      asyncDataCacheBytes,
+      queryMemoryBytes};
 
   return nodeStatus;
 }

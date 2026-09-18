@@ -30,7 +30,7 @@ For plugin-loaded map functions, see :ref:`functions/plugin-loaded-functions:map
 
         SELECT map(); -- {}
 
-.. function:: map(array(K), array(V)) -> map(K,V)
+.. function:: map(array[K], array[V]) -> map(K,V)
 
     Returns a map created using the given key/value arrays. ::
 
@@ -38,19 +38,19 @@ For plugin-loaded map functions, see :ref:`functions/plugin-loaded-functions:map
 
     See also :func:`map_agg` and :func:`multimap_agg` for creating a map as an aggregation.
 
-.. function:: map_from_entries(array(row(K,V))) -> map(K,V)
+.. function:: map_from_entries(array[row(K,V)]) -> map(K,V)
 
     Returns a map created from the given array of entries. ::
 
         SELECT map_from_entries(ARRAY[(1, 'x'), (2, 'y')]); -- {1 -> 'x', 2 -> 'y'}
 
-.. function:: multimap_from_entries(array(row(K,V))) -> map(K,array(V))
+.. function:: multimap_from_entries(array[row(K,V)]) -> map(K,array[V])
 
     Returns a multimap created from the given array of entries. Each key can be associated with multiple values. ::
 
         SELECT multimap_from_entries(ARRAY[(1, 'x'), (2, 'y'), (1, 'z')]); -- {1 -> ['x', 'z'], 2 -> ['y']}
 
-.. function:: map_entries(map(K,V)) -> array(row(K,V))
+.. function:: map_entries(map(K,V)) -> array[row(K,V)]
 
     Returns an array of all entries in the given map. ::
 
@@ -69,7 +69,7 @@ For plugin-loaded map functions, see :ref:`functions/plugin-loaded-functions:map
         SELECT map_filter(MAP(ARRAY[10, 20, 30], ARRAY['a', NULL, 'c']), (k, v) -> v IS NOT NULL); -- {10 -> a, 30 -> c}
         SELECT map_filter(MAP(ARRAY['k1', 'k2', 'k3'], ARRAY[20, 3, 15]), (k, v) -> v > 10); -- {k1 -> 20, k3 -> 15}
 
-.. function:: map_subset(map(K,V), array(k)) -> map(K,V)
+.. function:: map_subset(map(K,V), array[k]) -> map(K,V)
 
     Constructs a map from those entries of ``map`` for which the key is in the array given::
 
@@ -79,11 +79,11 @@ For plugin-loaded map functions, see :ref:`functions/plugin-loaded-functions:map
         SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[]); -- {}
         SELECT map_subset(MAP(ARRAY[], ARRAY[]), ARRAY[1,2]); -- {}
 
-.. function:: map_keys(x(K,V)) -> array(K)
+.. function:: map_keys(x(K,V)) -> array[K]
 
     Returns all the keys in the map ``x``.
 
-.. function:: map_values(x(K,V)) -> array(V)
+.. function:: map_values(x(K,V)) -> array[V]
 
     Returns all the values in the map ``x``.
 
