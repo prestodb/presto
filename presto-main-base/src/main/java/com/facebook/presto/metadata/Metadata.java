@@ -240,6 +240,13 @@ public interface Metadata
     void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
 
     /**
+     * Rename a field inside a nested struct column.
+     * {@code fieldPath} is the full dotted path to the field being renamed (e.g. ["info", "age"]).
+     * {@code target} is the new name for the last element of the path.
+     */
+    void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target);
+
+    /**
      * Set the default value for the specified column
      */
     void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue);
@@ -248,6 +255,11 @@ public interface Metadata
      * Add the specified column to the table at the specified position.
      */
     void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position);
+
+    /**
+     * Add a field to a nested struct column.
+     */
+    void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting);
 
     /**
      * Set the specified type to the column.
@@ -263,6 +275,12 @@ public interface Metadata
      * Drop the specified column.
      */
     void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);
+
+    /**
+     * Drop a field from a nested struct column.
+     * {@code fieldPath} is the full dotted path to the field being dropped (e.g. ["info", "age"]).
+     */
+    void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent);
 
     /**
      * Drops the specified table

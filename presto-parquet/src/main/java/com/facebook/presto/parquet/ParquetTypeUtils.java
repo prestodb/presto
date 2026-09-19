@@ -215,6 +215,52 @@ public final class ParquetTypeUtils
     }
 
     /**
+     * Look up a child ColumnIO by its Parquet field ID.
+     * Used for Iceberg schema evolution where a field may have been renamed —
+     * the field ID is stable across renames, but the name in the file reflects
+     * the original name at write time.
+     * Returns null if no child with the given ID is found.
+     */
+    public static ColumnIO lookupColumnById(GroupColumnIO groupColumnIO, int columnId)
+    {
+        for (int i = 0; i < groupColumnIO.getChildrenCount(); i++) {
+            ColumnIO child = groupColumnIO.getChild(i);
+            org.apache.parquet.schema.Type.ID id = child.getType().getId();
+            if (id != null && id.intValue() == columnId) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Traverses a {@link ColumnIO} tree by a sequence of Iceberg field IDs, returning the
+     * leaf {@code ColumnIO} node reached after following every ID in {@code fieldIds}.
+     *
+     * This is the ID-based analogue of {@code findNestedColumnIO}: instead of matching
+     * children by their current logical name (which breaks after a rename), each step
+     * matches by the stable Parquet field ID embedded in the file's schema. Returns
+     * {@link Optional#empty()} if any step cannot be resolved.
+     */
+    public static Optional<ColumnIO> findNestedColumnIOById(ColumnIO columnIO, List<Integer> fieldIds)
+    {
+        if (columnIO == null) {
+            return Optional.empty();
+        }
+        ColumnIO current = columnIO;
+        for (int fieldId : fieldIds) {
+            if (!(current instanceof GroupColumnIO)) {
+                return Optional.empty();
+            }
+            current = lookupColumnById((GroupColumnIO) current, fieldId);
+            if (current == null) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(current);
+    }
+
+    /**
      * For optional fields:
      * definitionLevel == maxDefinitionLevel     => Value is defined
      * definitionLevel == maxDefinitionLevel - 1 => Value is null

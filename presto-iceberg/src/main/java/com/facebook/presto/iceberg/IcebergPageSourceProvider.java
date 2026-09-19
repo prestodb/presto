@@ -22,6 +22,7 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.Type;
@@ -97,7 +98,6 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.io.LocationProvider;
-import org.apache.iceberg.parquet.ParquetSchemaUtil;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
@@ -161,13 +161,13 @@ import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTable;
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
 import static com.facebook.presto.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcReader.MODIFICATION_TIME_NOT_SET;
+import static com.facebook.presto.parquet.ParquetTypeUtils.findNestedColumnIOById;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
@@ -261,7 +261,8 @@ public class IcebergPageSourceProvider
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             ParquetMetadataSource parquetMetadataSource,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Optional<Schema> tableSchema)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -375,10 +376,16 @@ public class IcebergPageSourceProvider
                 if (column.getColumnType() == IcebergColumnHandle.ColumnType.SYNTHESIZED &&
                         !column.isUpdateRowIdColumn() && !column.isMergeTargetTableRowIdColumn()) {
                     Subfield pushedDownSubfield = getPushedDownSubfield(column);
-                    List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield).stream()
-                            .map(AvroSchemaUtil::makeCompatibleName)
-                            .collect(Collectors.toList());
-                    Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName())), nestedColumnPath);
+                    ColumnIO rootColumnIO = lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName()));
+                    List<String> namePath = nestedColumnPath(pushedDownSubfield);
+
+                    // Attempt ID-based traversal using the stable Iceberg field IDs from the
+                    // current table schema. This is required for reading historical Parquet files
+                    // after a nested field rename: the physical child name in the file still
+                    // reflects the pre-rename name, but the Iceberg field ID is stable.
+                    Optional<ColumnIO> columnIO = resolveColumnIOByFieldIds(
+                            rootColumnIO, pushedDownSubfield.getRootName(), namePath, tableSchema);
+
                     if (columnIO.isPresent()) {
                         internalFields.add(constructField(prestoType, columnIO.get()));
                     }
@@ -396,13 +403,10 @@ public class IcebergPageSourceProvider
                                 .ifPresent(value -> defaultValues.put(column.getId(), value));
                     }
                     else {
-                        Type type = column.getType();
-                        if (!parquetField.get().isPrimitive()) {
-                            MessageType parquetMessageType = new MessageType("", parquetField.get());
-                            Schema icebergSchema = ParquetSchemaUtil.convert(parquetMessageType);
-                            type = toPrestoType(icebergSchema.columns().get(0).type(), typeManager);
-                        }
-                        internalFields.add(constructField(type, lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
+                        internalFields.add(IcebergParquetColumnIOConverter.constructField(
+                                column.getColumnIdentity(),
+                                column.getType(),
+                                lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
                     }
                 }
                 if (column.isRowPositionColumn()) {
@@ -453,10 +457,19 @@ public class IcebergPageSourceProvider
     {
         if (isPushedDownSubfield(column)) {
             Subfield pushedDownSubfield = getPushedDownSubfield(column);
+            String rootName = AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName());
             List<String> encodedPath = nestedColumnPath(pushedDownSubfield).stream()
                     .map(AvroSchemaUtil::makeCompatibleName)
                     .collect(Collectors.toList());
-            return getSubfieldType(messageType, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName()), encodedPath);
+            Optional<org.apache.parquet.schema.Type> subfieldType = getSubfieldType(messageType, rootName, encodedPath);
+            if (subfieldType.isPresent()) {
+                return subfieldType;
+            }
+            // The sub-field name in the Parquet file may differ from the current logical name
+            // (e.g. after a nested field rename, old files still have the pre-rename physical name).
+            // Fall back to including the root struct column so that its GroupColumnIO is available
+            // for ID-based sub-field traversal in resolveColumnIOByFieldIds.
+            return Optional.ofNullable(getParquetTypeByName(rootName, messageType));
         }
 
         if (parquetIdToField.isEmpty()) {
@@ -464,6 +477,60 @@ public class IcebergPageSourceProvider
             return Optional.ofNullable(getParquetTypeByName(column.getName(), messageType));
         }
         return Optional.ofNullable(parquetIdToField.get(column.getId()));
+    }
+
+    /**
+     * Resolves a pushed-down subfield's {@link ColumnIO} by traversing the Parquet ColumnIO tree
+     * using stable Iceberg field IDs obtained from the current table schema.
+     *
+     * <p>This is required for reading historical Parquet files after a nested field rename:
+     * the physical child name in the file still reflects the pre-rename name (e.g. "age"),
+     * but the Iceberg schema now exposes the new name (e.g. "years") while the field ID
+     * remains stable (e.g. 3). Matching by ID guarantees the correct physical column is read.
+     *
+     * <p>Falls back to name-based resolution via {@link org.apache.parquet.io.ColumnIOConverter#findNestedColumnIO}
+     * when:
+     * <ul>
+     *   <li>{@code tableSchema} is absent (delete-file reads, no SYNTHESIZED columns expected)</li>
+     *   <li>any intermediate field cannot be resolved in the current schema</li>
+     *   <li>{@code caseInsensitiveFindField} throws (e.g. case-colliding nested field names)</li>
+     * </ul>
+     */
+    private static Optional<ColumnIO> resolveColumnIOByFieldIds(
+            ColumnIO rootColumnIO,
+            String rootName,
+            List<String> namePath,
+            Optional<Schema> tableSchema)
+    {
+        if (tableSchema.isPresent() && rootColumnIO != null && !namePath.isEmpty()) {
+            try {
+                ImmutableList.Builder<Integer> idSequence = ImmutableList.builder();
+                StringBuilder dottedPath = new StringBuilder(rootName);
+                boolean resolved = true;
+                for (String step : namePath) {
+                    dottedPath.append('.').append(step);
+                    Types.NestedField field = tableSchema.get().caseInsensitiveFindField(dottedPath.toString());
+                    if (field == null) {
+                        resolved = false;
+                        break;
+                    }
+                    idSequence.add(field.fieldId());
+                }
+                if (resolved) {
+                    return findNestedColumnIOById(rootColumnIO, idSequence.build());
+                }
+            }
+            catch (IllegalArgumentException ignored) {
+                // caseInsensitiveFindField throws when two fields in the schema differ only by
+                // case (a known Iceberg limitation). Fall back to name-based lookup below.
+            }
+        }
+        // Name-based fallback: works correctly for non-renamed files (new files written after
+        // the rename have the new physical name) and for the case where ID resolution is unavailable.
+        List<String> encodedPath = namePath.stream()
+                .map(AvroSchemaUtil::makeCompatibleName)
+                .collect(Collectors.toList());
+        return findNestedColumnIO(rootColumnIO, encodedPath);
     }
 
     private static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<IcebergColumnHandle> effectivePredicate)
@@ -552,6 +619,7 @@ public class IcebergPageSourceProvider
                     runtimeStats,
                     MODIFICATION_TIME_NOT_SET);
 
+            List<OrcType> orcTypes = reader.getFooter().getTypes();
             List<HiveColumnHandle> physicalColumnHandles = new ArrayList<>(regularColumns.size());
             ImmutableMap.Builder<Integer, Object> defaultValues = ImmutableMap.builder();
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -593,8 +661,11 @@ public class IcebergPageSourceProvider
                             Optional.empty());
 
                     physicalColumnHandles.add(columnHandle);
-                    includedColumns.put(columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature()));
-                    columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature())));
+                    // Use physical field names so StructBatchStreamReader can match nested streams
+                    // by name even after a nested field has been renamed (schema evolution).
+                    Type physicalType = toPhysicalOrcType(column.getType(), column.getColumnIdentity(), orcTypes, icebergOrcColumn.getOrcFieldTypeIndex());
+                    includedColumns.put(columnHandle.getHiveColumnIndex(), physicalType);
+                    columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), physicalType));
                 }
                 else {
                     // Missing columns are treated as REGULAR at the physical ORC-reader level.
@@ -703,6 +774,98 @@ public class IcebergPageSourceProvider
             }
             throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    /**
+     * Recursively rewrites the logical Presto {@link Type} for an ORC struct column so that
+     * each nested field name matches the <em>physical</em> name stored in the ORC file rather
+     * than the current logical name in the Iceberg schema.
+     *
+     * <p>This is necessary after a nested field rename: the logical type will have the new name
+     * (e.g. {@code years}) but the physical ORC stream still uses the original name (e.g.
+     * {@code age}).  {@link com.facebook.presto.orc.reader.StructBatchStreamReader} matches
+     * nested streams by name, so without this rewrite the renamed sub-field would always read
+     * as {@code null} from pre-rename files.
+     *
+     * <p>The mapping at each level is: logical name → Iceberg field ID (from
+     * {@code columnIdentity.getChildren()}) → physical name (from the ORC type's
+     * {@code iceberg.id} attribute on each nested sub-type).  Recursion handles arbitrarily
+     * deep struct nesting.
+     *
+     * <p>Non-struct types are returned unchanged.  When the ORC file has no {@code iceberg.id}
+     * attributes (migrated tables) all names are left as-is, which preserves the existing
+     * behaviour.
+     */
+    private static Type toPhysicalOrcType(Type logicalType, ColumnIdentity columnIdentity, List<OrcType> orcTypes, int physicalStructTypeIndex)
+    {
+        if (!(logicalType instanceof RowType)) {
+            return logicalType;
+        }
+        if (physicalStructTypeIndex >= orcTypes.size()) {
+            return logicalType;
+        }
+        OrcType physicalStructType = orcTypes.get(physicalStructTypeIndex);
+        if (physicalStructType.getOrcTypeKind() != OrcType.OrcTypeKind.STRUCT) {
+            return logicalType;
+        }
+
+        // Build icebergFieldId -> (physicalFieldName, physicalSubTypeIndex) for this struct level.
+        Map<Integer, String> icebergIdToPhysicalName = new java.util.HashMap<>();
+        Map<Integer, Integer> icebergIdToSubTypeIndex = new java.util.HashMap<>();
+        for (int i = 0; i < physicalStructType.getFieldCount(); i++) {
+            int subTypeIndex = physicalStructType.getFieldTypeIndex(i);
+            String physicalName = physicalStructType.getFieldName(i);
+            if (subTypeIndex < orcTypes.size()) {
+                String icebergIdStr = orcTypes.get(subTypeIndex).getAttributes().get(ORC_ICEBERG_ID_KEY);
+                if (icebergIdStr != null) {
+                    int icebergId = Integer.parseInt(icebergIdStr);
+                    icebergIdToPhysicalName.put(icebergId, physicalName);
+                    icebergIdToSubTypeIndex.put(icebergId, subTypeIndex);
+                }
+            }
+        }
+        if (icebergIdToPhysicalName.isEmpty()) {
+            // No iceberg.id attributes – migrated table, leave names as-is.
+            return logicalType;
+        }
+
+        // Build logicalFieldName -> ColumnIdentity child for this struct level.
+        Map<String, ColumnIdentity> logicalNameToChildIdentity = new java.util.HashMap<>();
+        for (ColumnIdentity child : columnIdentity.getChildren()) {
+            logicalNameToChildIdentity.put(child.getName().toLowerCase(ENGLISH), child);
+        }
+
+        // Rewrite each RowType field: replace logical name with physical name, and recurse
+        // into nested struct sub-types to handle arbitrarily deep renames.
+        RowType rowType = (RowType) logicalType;
+        ImmutableList.Builder<RowType.Field> rewrittenFields = ImmutableList.builder();
+        for (RowType.Field field : rowType.getFields()) {
+            String logicalName = field.getName()
+                    .map(n -> n.toLowerCase(ENGLISH))
+                    .orElse(null);
+            ColumnIdentity childIdentity = logicalName != null ? logicalNameToChildIdentity.get(logicalName) : null;
+            Integer icebergId = childIdentity != null ? childIdentity.getId() : null;
+            String physicalName = icebergId != null ? icebergIdToPhysicalName.get(icebergId) : null;
+
+            // Recursively rewrite nested struct sub-types.
+            Type fieldType = field.getType();
+            if (childIdentity != null && icebergId != null && fieldType instanceof RowType) {
+                Integer subTypeIndex = icebergIdToSubTypeIndex.get(icebergId);
+                if (subTypeIndex != null) {
+                    fieldType = toPhysicalOrcType(fieldType, childIdentity, orcTypes, subTypeIndex);
+                }
+            }
+
+            if (physicalName != null) {
+                rewrittenFields.add(RowType.field(physicalName, fieldType));
+            }
+            else {
+                rewrittenFields.add(field.getName().isPresent()
+                        ? RowType.field(field.getName().get(), fieldType)
+                        : RowType.field(fieldType));
+            }
+        }
+        return RowType.from(rewrittenFields.build());
     }
 
     private static List<IcebergOrcColumn> getFileOrcColumns(OrcReader reader)
@@ -910,7 +1073,8 @@ public class IcebergPageSourceProvider
                         split.getFileFormat(),
                         columnList,
                         icebergLayout.getValidPredicate(),
-                        splitContext.isCacheable());
+                        splitContext.isCacheable(),
+                        Optional.of(tableSchema));
 
         IcebergPartitionInsertingPageSource partitionInsertingPageSource = new IcebergPartitionInsertingPageSource(
                 delegateColumns,
@@ -1130,6 +1294,22 @@ public class IcebergPageSourceProvider
             TupleDomain<IcebergColumnHandle> predicate,
             boolean isCacheable)
     {
+        return createDataPageSource(session, hdfsContext, path, start, length, fileFormat,
+                dataColumns, predicate, isCacheable, Optional.empty());
+    }
+
+    private ConnectorPageSourceWithRowPositions createDataPageSource(
+            ConnectorSession session,
+            HdfsContext hdfsContext,
+            Path path,
+            long start,
+            long length,
+            FileFormat fileFormat,
+            List<IcebergColumnHandle> dataColumns,
+            TupleDomain<IcebergColumnHandle> predicate,
+            boolean isCacheable,
+            Optional<Schema> tableSchema)
+    {
         switch (fileFormat) {
             case PARQUET:
                 return createParquetPageSource(
@@ -1143,7 +1323,8 @@ public class IcebergPageSourceProvider
                         predicate,
                         fileFormatDataSourceStats,
                         parquetMetadataSource,
-                        typeManager);
+                        typeManager,
+                        tableSchema);
             case ORC:
                 OrcReaderOptions readerOptions = OrcReaderOptions.builder()
                         .withMaxMergeDistance(getOrcMaxMergeDistance(session))

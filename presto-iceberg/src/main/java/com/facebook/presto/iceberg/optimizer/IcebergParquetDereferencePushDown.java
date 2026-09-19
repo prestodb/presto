@@ -32,6 +32,7 @@ import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -101,11 +102,12 @@ public class IcebergParquetDereferencePushDown
         Type type = icebergBaseColumnHandle.getType();
         checkArgument(type instanceof RowType, "%s must be type of RowType", subfield.getRootName());
 
-        Optional<HiveType> nestedColumnHiveType = toHiveType(type)
-                .findChildType(subfield.getPath()
-                        .stream()
-                        .map(p -> ((Subfield.NestedField) p).getName())
-                        .collect(Collectors.toList()));
+        List<String> namePath = subfield.getPath()
+                .stream()
+                .map(p -> ((Subfield.NestedField) p).getName())
+                .collect(Collectors.toList());
+
+        Optional<HiveType> nestedColumnHiveType = toHiveType(type).findChildType(namePath);
 
         if (!nestedColumnHiveType.isPresent()) {
             throw new IllegalArgumentException("nested column [" + subfield + "] type is not present in Hive column type");

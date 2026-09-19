@@ -812,11 +812,27 @@ public class MetadataManager
     }
 
     @Override
+    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.renameField(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fieldPath, normalizeIdentifier(session, connectorId.getCatalogName(), target));
+    }
+
+    @Override
     public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
         metadata.addColumn(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column, position);
+    }
+
+    @Override
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.addField(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), parentPath, fieldName, type, ignoreExisting);
     }
 
     @Override
@@ -833,6 +849,14 @@ public class MetadataManager
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
         metadata.dropColumn(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column);
+    }
+
+    @Override
+    public void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.dropField(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fieldPath, ignoreNonExistent);
     }
 
     @Override

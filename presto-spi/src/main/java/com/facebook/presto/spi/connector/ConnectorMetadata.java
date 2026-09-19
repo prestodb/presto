@@ -448,11 +448,31 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Add a field to a nested struct column.
+     * {@code parentPath} is the dotted path to the parent struct (e.g. ["col"] or ["col", "nested"]).
+     * {@code fieldName} is the name of the new field to add inside that struct.
+     */
+    default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding nested fields");
+    }
+
+    /**
      * Rename the specified column
      */
     default void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+    }
+
+    /**
+     * Rename a field inside a nested struct column.
+     * {@code fieldPath} is the full dotted path to the field being renamed (e.g. ["info", "age"]).
+     * {@code target} is the new name for the last element of the path.
+     */
+    default void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming nested fields");
     }
 
     /**
@@ -470,6 +490,15 @@ public interface ConnectorMetadata
     default void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping columns");
+    }
+
+    /**
+     * Drop a field from a nested struct column.
+     * {@code fieldPath} is the full dotted path to the field being dropped (e.g. ["info", "age"]).
+     */
+    default void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping nested fields");
     }
 
     /**

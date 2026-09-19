@@ -53,12 +53,15 @@ statement
     | ALTER TABLE (IF EXISTS)? from=qualifiedName
         RENAME TO to=qualifiedName                                     #renameTable
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        RENAME COLUMN (IF EXISTS)? from=identifier TO to=identifier    #renameColumn
+        RENAME COLUMN (IF EXISTS)? from=qualifiedName TO to=identifier #renameColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ADD COLUMN (IF NOT EXISTS)? column=columnDefinition
         (FIRST | AFTER after=identifier)?                              #addColumn
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ADD COLUMN (IF NOT EXISTS)? columnPath=qualifiedName type
+        (NOT NULL)? (COMMENT string)?                                  #addField
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ADD constraintSpecification                                    #addConstraint
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName

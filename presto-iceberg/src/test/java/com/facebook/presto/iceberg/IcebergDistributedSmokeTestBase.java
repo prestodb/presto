@@ -51,6 +51,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +66,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.iceberg.IcebergTableProperties.COMMIT_RETRIES;
 import static com.facebook.presto.iceberg.IcebergTableProperties.DELETE_MODE;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -1064,6 +1066,447 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate(session, "INSERT INTO test_schema_evolution_drop_middle VALUES (3, 4, 5)", 1);
         assertQuery(session, "SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2, NULL), (3, 4, 5)");
         dropTable(session, "test_schema_evolution_drop_middle");
+    }
+
+    @Test
+    public void testAddNestedField()
+    {
+        testWithAllFileFormats(this::testAddNestedField);
+    }
+
+    private void testAddNestedField(Session session, FileFormat fileFormat)
+    {
+        String format = "\"write.format.default\" = '" + fileFormat + "'";
+
+        // --- Single-level struct: add a new field ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_field (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_add_field VALUES (1, ROW('alice', 30))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age FROM test_nested_add_field", "VALUES (1, 'alice', 30)");
+
+        // Add a new field to the struct
+        assertUpdate(session, "ALTER TABLE test_nested_add_field ADD COLUMN info.email VARCHAR");
+
+        // Old rows have NULL for the new field (subfield access — SYNTHESIZED path)
+        assertQuery(session, "SELECT id, info.name, info.age, info.email FROM test_nested_add_field",
+                "VALUES (1, 'alice', 30, NULL)");
+
+        // Whole-struct read of an old file after schema evolution must not crash or hang
+        // (regression for type-override bug introduced in #27470: the physical Parquet type was
+        // overwriting the logical evolved type, causing a field-count mismatch in ParquetPageSource).
+        // H2 cannot parse VALUES ROW(…) so we use computeActual for ROW-typed columns.
+        MaterializedResult infoOldOnly = computeActual(session,
+                "SELECT info FROM test_nested_add_field WHERE id = 1");
+        assertEquals(infoOldOnly.getRowCount(), 1);
+        assertEquals(infoOldOnly.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30, null));
+
+        // SELECT * on an old file after schema evolution must also not crash
+        MaterializedResult starOldOnly = computeActual(session,
+                "SELECT * FROM test_nested_add_field WHERE id = 1");
+        assertEquals(starOldOnly.getRowCount(), 1);
+        assertEquals(starOldOnly.getMaterializedRows().get(0).getField(0), 1L);
+        assertEquals(starOldOnly.getMaterializedRows().get(0).getField(1), Arrays.asList("alice", 30, null));
+
+        // New rows can populate the new field
+        assertUpdate(session, "INSERT INTO test_nested_add_field VALUES (2, ROW('bob', 25, 'bob@example.com'))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age, info.email FROM test_nested_add_field ORDER BY id",
+                "VALUES (1, 'alice', 30, NULL), (2, 'bob', 25, 'bob@example.com')");
+
+        // Whole-struct read spanning both old and new file after schema evolution
+        MaterializedResult infoBothFiles = computeActual(session,
+                "SELECT info FROM test_nested_add_field ORDER BY id");
+        assertEquals(infoBothFiles.getRowCount(), 2);
+        assertEquals(infoBothFiles.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30, null));
+        assertEquals(infoBothFiles.getMaterializedRows().get(1).getField(0), Arrays.asList("bob", 25, "bob@example.com"));
+
+        // SELECT * spanning both files
+        MaterializedResult starBothFiles = computeActual(session,
+                "SELECT * FROM test_nested_add_field ORDER BY id");
+        assertEquals(starBothFiles.getRowCount(), 2);
+        assertEquals(starBothFiles.getMaterializedRows().get(0).getField(1), Arrays.asList("alice", 30, null));
+        assertEquals(starBothFiles.getMaterializedRows().get(1).getField(1), Arrays.asList("bob", 25, "bob@example.com"));
+
+        dropTable(session, "test_nested_add_field");
+
+        // --- IF NOT EXISTS: silently skip if field already exists ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_field_ifne (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "ALTER TABLE test_nested_add_field_ifne ADD COLUMN info.score INTEGER");
+        // Second time with IF NOT EXISTS must not throw
+        assertUpdate(session, "ALTER TABLE test_nested_add_field_ifne ADD COLUMN IF NOT EXISTS info.score INTEGER");
+        dropTable(session, "test_nested_add_field_ifne");
+
+        // --- Multi-level nesting ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_deep (" +
+                "id BIGINT, " +
+                "outer_col ROW(inner_col ROW(value VARCHAR))" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_add_deep VALUES (1, ROW(ROW('hello')))", 1);
+        assertUpdate(session, "ALTER TABLE test_nested_add_deep ADD COLUMN outer_col.inner_col.extra BIGINT");
+        assertQuery(session, "SELECT outer_col.inner_col.value, outer_col.inner_col.extra FROM test_nested_add_deep",
+                "VALUES ('hello', NULL)");
+        // Whole-struct read of a deeply nested column after schema evolution (also tests the reader fix)
+        MaterializedResult deepResult = computeActual(session,
+                "SELECT * FROM test_nested_add_deep");
+        assertEquals(deepResult.getRowCount(), 1);
+        assertEquals(deepResult.getMaterializedRows().get(0).getField(0), 1L);
+        // outer_col is ROW(inner_col ROW(value VARCHAR, extra BIGINT))
+        // RowType.getObjectValue returns an unmodifiable List<Object>.
+        @SuppressWarnings("unchecked")
+        List<Object> outerCol = (List<Object>) deepResult.getMaterializedRows().get(0).getField(1);
+        assertEquals(outerCol.size(), 1); // one child: inner_col
+        @SuppressWarnings("unchecked")
+        List<Object> innerCol = (List<Object>) outerCol.get(0);
+        assertEquals(innerCol.get(0), "hello");  // value field
+        assertEquals(innerCol.get(1), null);      // extra field — null from old file
+        dropTable(session, "test_nested_add_deep");
+
+        // --- Error: parent struct does not exist ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_bad (" +
+                "id BIGINT" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_bad ADD COLUMN nonexistent.new_field VARCHAR",
+                ".*Cannot find parent field.*|.*Failed to add field.*");
+        dropTable(session, "test_nested_add_bad");
+    }
+
+    @Test
+    public void testDropNestedField()
+    {
+        testWithAllFileFormats(this::testDropNestedField);
+    }
+
+    private void testDropNestedField(Session session, FileFormat fileFormat)
+    {
+        String format = "\"write.format.default\" = '" + fileFormat + "'";
+
+        // --- Single-level struct: drop one field, verify remaining field and whole-struct reads ---
+        assertUpdate(session, "CREATE TABLE test_nested_drop_field (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_drop_field VALUES (1, ROW('alice', 30))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age FROM test_nested_drop_field",
+                "VALUES (1, 'alice', 30)");
+
+        // Drop one field from the struct
+        assertUpdate(session, "ALTER TABLE test_nested_drop_field DROP COLUMN info.age");
+
+        // Remaining field still readable via subfield access
+        assertQuery(session, "SELECT id, info.name FROM test_nested_drop_field",
+                "VALUES (1, 'alice')");
+
+        // Whole-struct read after field drop (uses computeActual because H2 cannot parse VALUES ROW(...))
+        MaterializedResult infoAfterDrop = computeActual(session,
+                "SELECT info FROM test_nested_drop_field");
+        assertEquals(infoAfterDrop.getRowCount(), 1);
+        assertEquals(infoAfterDrop.getMaterializedRows().get(0).getField(0), Arrays.asList("alice"));
+
+        // New rows work correctly with the evolved schema
+        assertUpdate(session, "INSERT INTO test_nested_drop_field VALUES (2, ROW('bob'))", 1);
+        assertQuery(session, "SELECT id, info.name FROM test_nested_drop_field ORDER BY id",
+                "VALUES (1, 'alice'), (2, 'bob')");
+
+        dropTable(session, "test_nested_drop_field");
+
+        // --- Multi-level nesting: drop a field from a deeply nested struct ---
+        assertUpdate(session, "CREATE TABLE test_nested_drop_deep (" +
+                "id BIGINT, " +
+                "outer_col ROW(inner_col ROW(a VARCHAR, b BIGINT))" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_drop_deep VALUES (1, ROW(ROW('hello', 42)))", 1);
+        assertQuery(session, "SELECT outer_col.inner_col.a, outer_col.inner_col.b FROM test_nested_drop_deep",
+                "VALUES ('hello', 42)");
+
+        assertUpdate(session, "ALTER TABLE test_nested_drop_deep DROP COLUMN outer_col.inner_col.b");
+
+        // Remaining deeply nested field still readable
+        assertQuery(session, "SELECT outer_col.inner_col.a FROM test_nested_drop_deep",
+                "VALUES ('hello')");
+
+        // Whole-struct read of deeply nested column after drop
+        MaterializedResult deepResult = computeActual(session,
+                "SELECT * FROM test_nested_drop_deep");
+        assertEquals(deepResult.getRowCount(), 1);
+        assertEquals(deepResult.getMaterializedRows().get(0).getField(0), 1L);
+        @SuppressWarnings("unchecked")
+        List<Object> outerCol = (List<Object>) deepResult.getMaterializedRows().get(0).getField(1);
+        assertEquals(outerCol.size(), 1); // one child: inner_col
+        @SuppressWarnings("unchecked")
+        List<Object> innerCol = (List<Object>) outerCol.get(0);
+        assertEquals(innerCol.size(), 1); // one remaining field: a
+        assertEquals(innerCol.get(0), "hello");
+
+        dropTable(session, "test_nested_drop_deep");
+
+        // --- IF EXISTS: silently skip if nested field does not exist ---
+        assertUpdate(session, "CREATE TABLE test_nested_drop_ifexists (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        // Field exists — drops normally
+        assertUpdate(session, "ALTER TABLE test_nested_drop_ifexists DROP COLUMN IF EXISTS info.age");
+        // Field no longer exists — IF EXISTS suppresses the error
+        assertUpdate(session, "ALTER TABLE test_nested_drop_ifexists DROP COLUMN IF EXISTS info.age");
+        dropTable(session, "test_nested_drop_ifexists");
+
+        // --- Error: leaf field does not exist (no IF EXISTS) ---
+        assertUpdate(session, "CREATE TABLE test_nested_drop_missing (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_drop_missing DROP COLUMN info.nonexistent",
+                ".*Field 'info.nonexistent' does not exist.*|.*Failed to drop field.*");
+        dropTable(session, "test_nested_drop_missing");
+
+        // --- Error: parent struct does not exist (no IF EXISTS) ---
+        assertUpdate(session, "CREATE TABLE test_nested_drop_no_parent (" +
+                "id BIGINT" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_drop_no_parent DROP COLUMN nonexistent.field",
+                ".*Field 'nonexistent.field' does not exist.*|.*Failed to drop field.*");
+        dropTable(session, "test_nested_drop_no_parent");
+
+        // --- Error: dropping the only field from a nested struct (Trino 873bfad8 guard) ---
+        // Must fail cleanly; the table must remain readable after the rejected DDL.
+        assertUpdate(session, "CREATE TABLE test_nested_drop_only_field (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_drop_only_field VALUES (1, ROW('alice'))", 1);
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_drop_only_field DROP COLUMN info.name",
+                ".*Cannot drop the only field.*");
+        // Table must still be fully readable after the rejected DDL
+        assertQuery(session, "SELECT id, info.name FROM test_nested_drop_only_field",
+                "VALUES (1, 'alice')");
+        dropTable(session, "test_nested_drop_only_field");
+
+        // --- Error: dropping the only field from a deeply nested struct ---
+        assertUpdate(session, "CREATE TABLE test_nested_drop_only_deep (" +
+                "id BIGINT, " +
+                "outer_col ROW(inner_col ROW(x VARCHAR))" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_drop_only_deep DROP COLUMN outer_col.inner_col.x",
+                ".*Cannot drop the only field.*");
+        dropTable(session, "test_nested_drop_only_deep");
+
+        // --- Array of structs: drop a field from the element struct (arr.element.field) ---
+        // 'element' is not a keyword in Presto SQL; the path resolves via Iceberg's IndexByName
+        // which names the list element field "element".
+        assertUpdate(session, "CREATE TABLE test_nested_drop_array (" +
+                "id BIGINT, " +
+                "items ARRAY(ROW(name VARCHAR, value INTEGER))" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_drop_array VALUES (1, ARRAY[ROW('a', 10), ROW('b', 20)])", 1);
+        assertQuery(session, "SELECT id FROM test_nested_drop_array", "VALUES (1)");
+        assertUpdate(session, "ALTER TABLE test_nested_drop_array DROP COLUMN items.element.value");
+        // Remaining field in element struct is still readable
+        assertQuery(session, "SELECT id FROM test_nested_drop_array", "VALUES (1)");
+        dropTable(session, "test_nested_drop_array");
+    }
+
+    @Test
+    public void testRenameNestedField()
+    {
+        testWithAllFileFormats(this::testRenameNestedField);
+        testRenameNestedFieldHistoricalData();
+    }
+
+    private void testRenameNestedField(Session session, FileFormat fileFormat)
+    {
+        String format = "\"write.format.default\" = '" + fileFormat + "'";
+
+        // --- Single-level struct: rename one field ---
+        assertUpdate(session, "CREATE TABLE test_nested_rename_field (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_rename_field VALUES (1, ROW('alice', 30))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age FROM test_nested_rename_field",
+                "VALUES (1, 'alice', 30)");
+
+        // Rename the nested field
+        assertUpdate(session, "ALTER TABLE test_nested_rename_field RENAME COLUMN info.age TO years");
+
+        // Renamed field is accessible by new name
+        assertQuery(session, "SELECT id, info.name, info.years FROM test_nested_rename_field",
+                "VALUES (1, 'alice', 30)");
+
+        // Old name is no longer accessible
+        assertQueryFails(session,
+                "SELECT info.age FROM test_nested_rename_field",
+                ".*'info.age' cannot be resolved.*|.*Field 'age' does not exist.*");
+
+        // Whole-struct read after field rename
+        MaterializedResult infoAfterRename = computeActual(session,
+                "SELECT info FROM test_nested_rename_field");
+        assertEquals(infoAfterRename.getRowCount(), 1);
+        assertEquals(infoAfterRename.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30));
+
+        // New rows work correctly with the evolved schema
+        assertUpdate(session, "INSERT INTO test_nested_rename_field VALUES (2, ROW('bob', 25))", 1);
+        assertQuery(session, "SELECT id, info.name, info.years FROM test_nested_rename_field ORDER BY id",
+                "VALUES (1, 'alice', 30), (2, 'bob', 25)");
+
+        dropTable(session, "test_nested_rename_field");
+
+        // --- Multi-level nesting: rename a field from a deeply nested struct ---
+        assertUpdate(session, "CREATE TABLE test_nested_rename_deep (" +
+                "id BIGINT, " +
+                "outer_col ROW(inner_col ROW(a VARCHAR, b BIGINT))" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_rename_deep VALUES (1, ROW(ROW('hello', 42)))", 1);
+
+        assertUpdate(session, "ALTER TABLE test_nested_rename_deep RENAME COLUMN outer_col.inner_col.b TO value");
+
+        // Renamed deeply nested field accessible by new name
+        assertQuery(session, "SELECT outer_col.inner_col.a, outer_col.inner_col.value FROM test_nested_rename_deep",
+                "VALUES ('hello', 42)");
+
+        dropTable(session, "test_nested_rename_deep");
+
+        // --- IF EXISTS: silently skip if nested field does not exist ---
+        assertUpdate(session, "CREATE TABLE test_nested_rename_ifexists (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        // Field exists — renames normally
+        assertUpdate(session, "ALTER TABLE test_nested_rename_ifexists RENAME COLUMN IF EXISTS info.age TO years");
+        // Field already renamed — no longer exists, IF EXISTS suppresses the error
+        assertUpdate(session, "ALTER TABLE test_nested_rename_ifexists RENAME COLUMN IF EXISTS info.age TO years");
+        dropTable(session, "test_nested_rename_ifexists");
+
+        // --- Error: nested field does not exist (no IF EXISTS) ---
+        assertUpdate(session, "CREATE TABLE test_nested_rename_missing (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_rename_missing RENAME COLUMN info.nonexistent TO new_name",
+                ".*Field 'info.nonexistent' does not exist.*|.*Failed to rename field.*");
+        dropTable(session, "test_nested_rename_missing");
+
+        // --- Error: target name already exists as a sibling field ---
+        assertUpdate(session, "CREATE TABLE test_nested_rename_collision (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_rename_collision RENAME COLUMN info.age TO name",
+                ".*name.*already exists.*|.*Failed to rename field.*");
+        dropTable(session, "test_nested_rename_collision");
+    }
+
+    /**
+     * Regression test for reading pre-rename Parquet files after a nested field rename.
+     *
+     * Covers both the regular read path (dereference pushdown disabled) and the
+     * dereference-pushdown path (enabled, the default for Parquet). Both paths must
+     * return correct values — not NULL — for fields read from historical Parquet files
+     * written before the rename. The acceptance criterion is that users should not
+     * need to disable dereference pushdown to correctly read historical data.
+     */
+    private void testRenameNestedFieldHistoricalData()
+    {
+        String format = "\"write.format.default\" = 'PARQUET'";
+
+        // Run the same body with dereference pushdown both disabled and enabled.
+        // "disabled" exercises IcebergParquetColumnIOConverter (ID-based struct traversal).
+        // "enabled" exercises the SYNTHESIZED column path via IcebergParquetDereferencePushDown
+        //           with the real base ColumnIdentity stored on the handle.
+        for (boolean pushdownEnabled : new boolean[]{false, true}) {
+            Session session = Session.builder(getSession())
+                    .setCatalogSessionProperty(ICEBERG_CATALOG, PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
+                            String.valueOf(pushdownEnabled))
+                    .build();
+
+            // ---- Single-level struct rename ----
+            assertUpdate(session, "CREATE TABLE test_rename_hist (" +
+                    "id BIGINT, " +
+                    "info ROW(name VARCHAR, age INTEGER)" +
+                    ") WITH (" + format + ")");
+
+            // id=1 is written BEFORE the rename — this row is in a historical Parquet file.
+            assertUpdate(session, "INSERT INTO test_rename_hist VALUES (1, ROW('alice', 30))", 1);
+
+            // Sanity-check pre-rename reads.
+            assertQuery(session, "SELECT id, info.name, info.age FROM test_rename_hist",
+                    "VALUES (1, 'alice', 30)");
+            MaterializedResult priorStruct = computeActual(session,
+                    "SELECT info FROM test_rename_hist");
+            assertEquals(priorStruct.getRowCount(), 1);
+            assertEquals(priorStruct.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30));
+
+            // Rename the nested field — schema evolves, old file is untouched.
+            assertUpdate(session, "ALTER TABLE test_rename_hist RENAME COLUMN info.age TO years");
+
+            // id=2 is written AFTER the rename — this row is in a post-rename Parquet file.
+            assertUpdate(session, "INSERT INTO test_rename_hist VALUES (2, ROW('bob', 25))", 1);
+
+            // Direct subfield projection — exercises dereference pushdown path when enabled.
+            // id=1 comes from the pre-rename file; must NOT be NULL.
+            assertQuery(session, "SELECT id, info.years FROM test_rename_hist ORDER BY id",
+                    "VALUES (1, 30), (2, 25)");
+
+            // Non-renamed sibling must also be correct.
+            assertQuery(session, "SELECT id, info.name FROM test_rename_hist ORDER BY id",
+                    "VALUES (1, 'alice'), (2, 'bob')");
+
+            // Both subfields at once.
+            assertQuery(session, "SELECT id, info.name, info.years FROM test_rename_hist ORDER BY id",
+                    "VALUES (1, 'alice', 30), (2, 'bob', 25)");
+
+            // Whole-struct projection — exercises the regular (non-pushdown) path.
+            // The renamed field in the old row must not be NULL.
+            MaterializedResult result = computeActual(session,
+                    "SELECT info FROM test_rename_hist ORDER BY id");
+            assertEquals(result.getRowCount(), 2);
+            assertEquals(result.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30));
+            assertEquals(result.getMaterializedRows().get(1).getField(0), Arrays.asList("bob", 25));
+
+            dropTable(session, "test_rename_hist");
+
+            // ---- Deeply nested struct rename ----
+            assertUpdate(session, "CREATE TABLE test_rename_hist_deep (" +
+                    "id BIGINT, " +
+                    "outer_col ROW(inner_col ROW(a VARCHAR, b BIGINT))" +
+                    ") WITH (" + format + ")");
+
+            // id=1 written BEFORE the rename.
+            assertUpdate(session, "INSERT INTO test_rename_hist_deep VALUES (1, ROW(ROW('hello', 42)))", 1);
+
+            assertUpdate(session, "ALTER TABLE test_rename_hist_deep RENAME COLUMN outer_col.inner_col.b TO value");
+
+            // id=2 written AFTER the rename.
+            assertUpdate(session, "INSERT INTO test_rename_hist_deep VALUES (2, ROW(ROW('world', 99)))", 1);
+
+            // Direct deep subfield projection.
+            // id=1 was written before the rename — must return 42, not NULL.
+            assertQuery(session,
+                    "SELECT outer_col.inner_col.value FROM test_rename_hist_deep ORDER BY id",
+                    "VALUES (42), (99)");
+
+            // Non-renamed sibling.
+            assertQuery(session,
+                    "SELECT outer_col.inner_col.a FROM test_rename_hist_deep ORDER BY id",
+                    "VALUES ('hello'), ('world')");
+
+            // Both subfields together.
+            assertQuery(session,
+                    "SELECT outer_col.inner_col.a, outer_col.inner_col.value FROM test_rename_hist_deep ORDER BY id",
+                    "VALUES ('hello', 42), ('world', 99)");
+
+            dropTable(session, "test_rename_hist_deep");
+        }
     }
 
     @Test
