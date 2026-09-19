@@ -210,8 +210,8 @@ public class IcebergNativeMetadata
     }
 
     /**
-     * Lists {@code parentNamespace} and everything nested under it, treating a namespace that is
-     * not there as one without children.
+     * Lists the child namespaces of {@code parentNamespace} and their descendants, treating a namespace
+     * that is not there as one without children.
      *
      * A namespace can be reported by its parent's listing and still be gone by the time its own
      * children are asked for, because another query dropped it in between. Walking down the tree
