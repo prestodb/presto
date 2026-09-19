@@ -30,6 +30,8 @@ import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -69,8 +71,14 @@ public class OpenLineageEventListener
         implements EventListener
 {
     private static final Logger logger = Logger.get(OpenLineageEventListener.class);
+    // Register the modules explicitly instead of using findAndRegisterModules(): service discovery
+    // would also pick up jackson-module-blackbird (a dependency of openlineage-java), which generates
+    // bytecode inside the class loader of the serialized class. QueryStatistics is an SPI class loaded
+    // by the server, whose class loader cannot see the plugin's jars, so this fails with
+    // NoClassDefFoundError on a real server (https://github.com/prestodb/presto/issues/28460).
     private static final ObjectMapper QUERY_STATISTICS_MAPPER = new ObjectMapper()
-            .findAndRegisterModules()
+            .registerModule(new Jdk8Module())
+            .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     private final OpenLineage openLineage;

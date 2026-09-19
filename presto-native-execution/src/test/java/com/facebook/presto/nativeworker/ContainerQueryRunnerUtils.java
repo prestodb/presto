@@ -258,6 +258,14 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/" + nodeId + "/etc/node.properties", properties);
     }
 
+    public static void createCoordinatorEventListenerProperties(Map<String, String> eventListenerProperties)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        eventListenerProperties.forEach(properties::setProperty);
+        createPropertiesFile("testcontainers/coordinator/etc/event-listener.properties", properties);
+    }
+
     public static void createCoordinatorEntryPointScript()
             throws IOException
     {

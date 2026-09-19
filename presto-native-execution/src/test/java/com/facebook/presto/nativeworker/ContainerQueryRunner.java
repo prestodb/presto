@@ -32,6 +32,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableMap;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -82,6 +83,7 @@ public class ContainerQueryRunner
     protected GenericContainer<?> functionServer;
     protected int functionServerPort;
     protected boolean enableFunctionServer;
+    protected final Map<String, String> eventListenerProperties;
     protected Connection connection;
 
     public static class Config
@@ -94,6 +96,7 @@ public class ContainerQueryRunner
         private boolean sidecarEnabled;
         private int functionServerPort = DEFAULT_FUNCTION_SERVER_PORT;
         private boolean functionServerEnabled;
+        private Map<String, String> eventListenerProperties = ImmutableMap.of();
 
         public Config setCoordinatorPort(int coordinatorPort)
         {
@@ -142,6 +145,15 @@ public class ContainerQueryRunner
             this.functionServerEnabled = functionServerEnabled;
             return this;
         }
+
+        /**
+         * Contents of the coordinator's etc/event-listener.properties; empty means no event listener.
+         */
+        public Config setEventListenerProperties(Map<String, String> eventListenerProperties)
+        {
+            this.eventListenerProperties = ImmutableMap.copyOf(eventListenerProperties);
+            return this;
+        }
     }
 
     public ContainerQueryRunner()
@@ -154,13 +166,29 @@ public class ContainerQueryRunner
             throws IOException, InterruptedException
     {
         this(config.coordinatorPort, config.catalog, config.schema, config.numberOfWorkers,
-                config.nativeCluster, config.sidecarEnabled, config.functionServerPort, config.functionServerEnabled);
+                config.nativeCluster, config.sidecarEnabled, config.functionServerPort, config.functionServerEnabled, config.eventListenerProperties);
     }
 
     public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled, int functionServerPort, boolean enableFunctionServer)
             throws IOException, InterruptedException
     {
+        this(coordinatorPort, catalog, schema, numberOfWorkers, isNativeCluster, isSidecarEnabled, functionServerPort, enableFunctionServer, ImmutableMap.of());
+    }
+
+    public ContainerQueryRunner(
+            int coordinatorPort,
+            String catalog,
+            String schema,
+            int numberOfWorkers,
+            boolean isNativeCluster,
+            boolean isSidecarEnabled,
+            int functionServerPort,
+            boolean enableFunctionServer,
+            Map<String, String> eventListenerProperties)
+            throws IOException, InterruptedException
+    {
         this.coordinatorPort = coordinatorPort;
+        this.eventListenerProperties = ImmutableMap.copyOf(eventListenerProperties);
         this.catalog = catalog;
         this.schema = schema;
         this.functionServerPort = functionServerPort;
@@ -229,6 +257,11 @@ public class ContainerQueryRunner
         }
     }
 
+    public String getCoordinatorLogs()
+    {
+        return coordinator.getLogs();
+    }
+
     private void startCoordinatorAndLogUI()
     {
         String dockerHostIp = coordinator.getHost();
@@ -255,7 +288,7 @@ public class ContainerQueryRunner
         }
     }
 
-    private static Duration containerStartupTimeout()
+    static Duration containerStartupTimeout()
     {
         try {
             return Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT));
@@ -278,6 +311,9 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createCoordinatorLogProperties();
         ContainerQueryRunnerUtils.createCoordinatorNodeProperties();
         ContainerQueryRunnerUtils.createCoordinatorEntryPointScript(); // Never run function server in coordinator
+        if (!eventListenerProperties.isEmpty()) {
+            ContainerQueryRunnerUtils.createCoordinatorEventListenerProperties(eventListenerProperties);
+        }
         if (enableFunctionServer) {
             ContainerQueryRunnerUtils.createRestRemoteProperties(functionServerPort);
         }
