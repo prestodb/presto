@@ -209,14 +209,31 @@ public class IcebergNativeMetadata
                 .collect(toList());
     }
 
+    /**
+     * Lists {@code parentNamespace} and everything nested under it, treating a namespace that is
+     * not there as one without children.
+     *
+     * A namespace can be reported by its parent's listing and still be gone by the time its own
+     * children are asked for, because another query dropped it in between. Walking down the tree
+     * then hits a namespace the catalog no longer knows, which says nothing about the namespaces
+     * that are still there, so such a namespace is skipped instead of the whole listing being
+     * failed. Without that, any statement that lists the schemas of the catalog -- SHOW SCHEMAS,
+     * or the check CREATE SCHEMA makes before creating one -- fails over an unrelated namespace
+     * being dropped. {@link #listTables} takes the same view of a schema that disappears.
+     */
     private List<String> listNestedNamespaces(SupportsNamespaces supportsNamespaces, Namespace parentNamespace)
     {
-        return supportsNamespaces.listNamespaces(parentNamespace)
-                .stream()
-                .flatMap(childNamespace -> Stream.concat(
-                        Stream.of(toPrestoSchemaName(childNamespace)),
-                        listNestedNamespaces(supportsNamespaces, childNamespace).stream()))
-                .collect(toList());
+        try {
+            return supportsNamespaces.listNamespaces(parentNamespace)
+                    .stream()
+                    .flatMap(childNamespace -> Stream.concat(
+                            Stream.of(toPrestoSchemaName(childNamespace)),
+                            listNestedNamespaces(supportsNamespaces, childNamespace).stream()))
+                    .collect(toList());
+        }
+        catch (NoSuchNamespaceException e) {
+            return ImmutableList.of();
+        }
     }
 
     @Override
