@@ -82,6 +82,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
+import static com.facebook.presto.SystemSessionProperties.NATIVE_MAX_SPLIT_PRELOAD_PER_DRIVER;
+import static com.facebook.presto.SystemSessionProperties.SINGLE_NODE_EXECUTION_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
@@ -93,6 +96,7 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirec
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_ENABLED;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
+import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 
@@ -100,6 +104,9 @@ import static org.testng.Assert.assertEquals;
 public class TestNativeIcebergEqualityDeletes
         extends AbstractTestQueryFramework
 {
+    // Partitions, and so splits, read by testEqualityDeleteOnColumnAddedByLaterSplit.
+    private static final int PARTITION_COUNT = 4;
+
     private String fileFormat;
 
     TestNativeIcebergEqualityDeletes()
@@ -305,6 +312,65 @@ public class TestNativeIcebergEqualityDeletes
         finally {
             assertUpdateExpected("DROP TABLE IF EXISTS " + tableName);
         }
+    }
+
+    /**
+     * Covers equality deletes on columns the query does not project, where the splits of one driver
+     * need different delete columns. Single node execution, one driver per task and no split preload
+     * leave every split sharing one scan spec, so each delete column is added to that spec only once
+     * its own split is read, in whichever order the splits arrive.
+     */
+    @Test
+    public void testEqualityDeleteOnColumnAddedByLaterSplit()
+            throws Exception
+    {
+        Session session = Session.builder(deleteAsJoinDisabled())
+                .setSystemProperty(SINGLE_NODE_EXECUTION_ENABLED, "true")
+                .setSystemProperty(MAX_DRIVERS_PER_TASK, "1")
+                // Already the default, pinned because the shared scan spec depends on it.
+                .setSystemProperty(NATIVE_MAX_SPLIT_PRELOAD_PER_DRIVER, "0")
+                .build();
+        String tableName = "test_v2_equality_delete_later_split_" + randomTableSuffix();
+        try {
+            assertUpdateExpected("CREATE TABLE " + tableName + "(first_key int, second_key int, part int, value varchar) " +
+                    "WITH (\"write.format.default\" = '" + fileFormat + "', partitioning = ARRAY['part'])");
+
+            // One split per partition, each holding a row that stays and a row a delete removes.
+            ImmutableList.Builder<String> insertedRows = ImmutableList.builder();
+            ImmutableList.Builder<String> expectedRows = ImmutableList.builder();
+            for (int part = 1; part <= PARTITION_COUNT; part++) {
+                insertedRows.add(format("(%s, %s, %s, 'keep_%s')", keptKey(part), keptKey(part), part, part));
+                insertedRows.add(format("(%s, %s, %s, 'drop_%s')", deletedKey(part), deletedKey(part), part, part));
+                expectedRows.add(format("(%s, 'keep_%s')", part, part));
+            }
+            assertUpdateExpected("INSERT INTO " + tableName + " VALUES " + String.join(", ", insertedRows.build()), 2 * PARTITION_COUNT);
+
+            Table icebergTable = updateTable(tableName);
+            for (int part = 1; part <= PARTITION_COUNT; part++) {
+                writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of(equalityColumn(part), deletedKey(part)), ImmutableMap.of("part", part));
+            }
+
+            assertQuery(session, "SELECT part, value FROM " + tableName, "VALUES " + String.join(", ", expectedRows.build()));
+            assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES " + PARTITION_COUNT);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    private static String equalityColumn(int part)
+    {
+        return part % 2 == 0 ? "first_key" : "second_key";
+    }
+
+    private static int keptKey(int part)
+    {
+        return 10 * part + 1;
+    }
+
+    private static int deletedKey(int part)
+    {
+        return 10 * part + 2;
     }
 
     @Test
