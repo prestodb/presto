@@ -66,6 +66,8 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -87,10 +89,12 @@ import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains
 import static com.facebook.presto.common.predicate.ValueSet.ofRanges;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DecimalType.DEFAULT_PRECISION;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -144,8 +148,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.NaN;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -2942,6 +2948,27 @@ public class TestIcebergLogicalPlanner
             assertPushedDownSubfieldTypes(format("SELECT x.b, x.c, x.d FROM %s", tableName),
                     tableName,
                     ImmutableMap.of("x.b", TIMESTAMP_WITH_TIME_ZONE, "x.c", TIME, "x.d", UUID));
+
+            // Filters on the pushed down columns land on the synthesized column handle, carrying its Presto type
+            Subfield timestampWithTimeZoneColumn = nestedColumn("x.b");
+            String timestampWithTimeZoneColumnName = pushdownColumnNameForSubfield(timestampWithTimeZoneColumn);
+            assertParquetDereferencePushDown(format("SELECT 1 FROM %s WHERE x.b = TIMESTAMP '1984-12-08 10:00:00.000 UTC'", tableName),
+                    tableName,
+                    nestedColumnMap("x.b"),
+                    ImmutableSet.of(timestampWithTimeZoneColumnName),
+                    withColumnDomains(ImmutableMap.of(
+                            getSynthesizedIcebergColumnHandle(timestampWithTimeZoneColumnName, TIMESTAMP_WITH_TIME_ZONE, timestampWithTimeZoneColumn),
+                            singleValue(TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(LocalDateTime.of(1984, 12, 8, 10, 0, 0).toInstant(UTC).toEpochMilli(), UTC_KEY)))));
+
+            Subfield timeColumn = nestedColumn("x.c");
+            String timeColumnName = pushdownColumnNameForSubfield(timeColumn);
+            assertParquetDereferencePushDown(format("SELECT 1 FROM %s WHERE x.c = TIME '10:12:34'", tableName),
+                    tableName,
+                    nestedColumnMap("x.c"),
+                    ImmutableSet.of(timeColumnName),
+                    withColumnDomains(ImmutableMap.of(
+                            getSynthesizedIcebergColumnHandle(timeColumnName, TIME, timeColumn),
+                            singleValue(TIME, NANOSECONDS.toMillis(LocalTime.of(10, 12, 34).toNanoOfDay())))));
 
             // The pushed down columns read back the values that were written
             assertQuery(withParquetDereferencePushDownEnabled(),
