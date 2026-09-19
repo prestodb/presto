@@ -2851,6 +2851,63 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
             10 | united states |         1 | comment
     (1 row)
 
+Schema used by a time travel query
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Iceberg keeps the data of a table and the schema of a table apart. A snapshot is a set of data files,
+while the schema is part of the table metadata, and each snapshot records the schema it was written
+with. ``ALTER TABLE`` writes new table metadata and creates no snapshot, so the newest snapshot and
+the current schema can differ.
+
+A query that reads a point in history is answered with the schema recorded on the snapshot it reads,
+so it returns the columns the data was written with:
+
+* ``FOR VERSION AS OF`` and ``FOR SYSTEM_VERSION AS OF`` with a snapshot ID
+* ``FOR TIMESTAMP AS OF`` and ``FOR SYSTEM_TIME AS OF``, and the ``BEFORE`` form of either
+* ``"<table>@<snapshot ID>"``
+* ``FOR SYSTEM_VERSION AS OF '<tag>'``, because a tag marks a point in history
+
+Every other read is answered with the current schema:
+
+* a read of the table itself
+* ``FOR SYSTEM_VERSION AS OF '<branch>'`` and ``"<table>.branch_<branch>"``, because a branch is
+  still being written to
+
+This is the rule Iceberg states for `schema selection with branches and tags
+<https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags>`_.
+
+So a column dropped after a snapshot was written is still returned by a query that reads that
+snapshot, and a column added after it is not:
+
+.. code-block:: sql
+
+    CREATE TABLE ctas_nation_evolved (nationkey bigint, name varchar);
+
+    // snapshot ID 5300424205832769799
+    INSERT INTO ctas_nation_evolved VALUES(10, 'united states');
+
+    ALTER TABLE ctas_nation_evolved DROP COLUMN name;
+
+    SELECT * FROM ctas_nation_evolved;
+
+.. code-block:: text
+
+     nationkey
+    -----------
+            10
+    (1 row)
+
+.. code-block:: sql
+
+    SELECT * FROM ctas_nation_evolved FOR VERSION AS OF 5300424205832769799;
+
+.. code-block:: text
+
+     nationkey |      name
+    -----------+---------------
+            10 | united states
+    (1 row)
+
 Querying branches and tags
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

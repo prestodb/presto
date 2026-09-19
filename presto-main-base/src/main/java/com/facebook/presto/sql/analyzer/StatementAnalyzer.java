@@ -2478,10 +2478,20 @@ class StatementAnalyzer
             }
 
             TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, analysis.getMetadataHandle(), name);
-            List<ColumnMetadata> columnsMetadata = tableColumnsMetadata.getColumnsMetadata();
             Optional<TableHandle> tableHandle = getTableHandle(tableColumnsMetadata, table, name, scope);
 
+            List<ColumnMetadata> columnsMetadata = tableColumnsMetadata.getColumnsMetadata();
             Map<String, ColumnHandle> columnHandles = tableColumnsMetadata.getColumnHandles();
+
+            // tableColumnsMetadata was looked up by name alone, so its columns are the table's
+            // current ones. A query that asked for an older version of the table needs that
+            // version's columns instead, which can differ: a connector is free to record a
+            // schema per version, and a schema change need not produce a new version. Ask the
+            // handle that carries the version.
+            if (table.getTableVersionExpression().isPresent() && tableHandle.isPresent()) {
+                columnsMetadata = metadata.getTableMetadata(session, tableHandle.get()).getColumns();
+                columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+            }
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
