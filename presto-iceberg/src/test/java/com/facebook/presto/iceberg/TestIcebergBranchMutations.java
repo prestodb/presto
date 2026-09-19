@@ -398,6 +398,37 @@ public class TestIcebergBranchMutations
         }
     }
 
+    /**
+     * A V3 branch DELETE must resolve the branch head as its read snapshot and reach the
+     * deletion-vector path. It cannot complete on a Java-only query runner, which writes no Puffin
+     * blobs, so the assertion is that it fails while the branch is left untouched — the point
+     * being that the branch resolves and no partial mutation lands, not which error is produced.
+     * Guards the branch scoping of {@code IcebergAbstractMetadata.enumerateExistingDeletionVectors}.
+     */
+    @Test
+    public void testV3DeleteFromBranchReachesDeletionVectorPath()
+    {
+        String tableName = "test_v3_delete_branch";
+        try {
+            assertUpdate(session, "CREATE TABLE " + tableName
+                    + " (id BIGINT, name VARCHAR) WITH (format = 'PARQUET', \"format-version\" = '3')");
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, 'Alice'), (2, 'Bob')", 2);
+            assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'v3_branch'");
+            assertUpdate(session, "INSERT INTO \"" + tableName + ".branch_v3_branch\" VALUES (3, 'Carol')", 1);
+
+            assertQueryFails(session,
+                    "DELETE FROM \"" + tableName + ".branch_v3_branch\" WHERE id = 1",
+                    ".*");
+
+            // The branch is untouched by the rejected DELETE.
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'v3_branch'", "VALUES 3");
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'v3_branch'");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     @Test
     public void testSetColumnPositionWithBranch()
     {
