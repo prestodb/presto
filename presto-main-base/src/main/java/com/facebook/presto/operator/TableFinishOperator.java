@@ -46,7 +46,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static com.facebook.airlift.units.Duration.succinctNanos;
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -328,8 +327,8 @@ public class TableFinishOperator
         requireNonNull(statisticsTiming, "statisticsTiming is null");
         return () -> new TableFinishInfo(
                 outputMetadata.get(),
-                succinctNanos(statisticsTiming.getWallNanos()),
-                succinctNanos(statisticsTiming.getCpuNanos()));
+                statisticsTiming.getWallNanos(),
+                statisticsTiming.getCpuNanos());
     }
 
     @Override

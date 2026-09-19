@@ -14,7 +14,6 @@
 package com.facebook.presto.spi.eventlistener;
 
 import com.facebook.airlift.units.DataSize;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.errorprone.annotations.Immutable;
@@ -36,8 +35,8 @@ public class OperatorStatistics
     private final long totalDrivers;
 
     private final long addInputCalls;
-    private final Duration addInputWall;
-    private final Duration addInputCpu;
+    private final long addInputWallInNanos;
+    private final long addInputCpuInNanos;
     private final DataSize addInputAllocation;
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
@@ -46,19 +45,19 @@ public class OperatorStatistics
     private final double sumSquaredInputPositions;
 
     private final long getOutputCalls;
-    private final Duration getOutputWall;
-    private final Duration getOutputCpu;
+    private final long getOutputWallInNanos;
+    private final long getOutputCpuInNanos;
     private final DataSize getOutputAllocation;
     private final DataSize outputDataSize;
     private final long outputPositions;
 
     private final DataSize physicalWrittenDataSize;
 
-    private final Duration blockedWall;
+    private final long blockedWallInNanos;
 
     private final long finishCalls;
-    private final Duration finishWall;
-    private final Duration finishCpu;
+    private final long finishWallInNanos;
+    private final long finishCpuInNanos;
     private final DataSize finishAllocation;
 
     private final DataSize userMemoryReservation;
@@ -88,8 +87,8 @@ public class OperatorStatistics
             long totalDrivers,
 
             long addInputCalls,
-            Duration addInputWall,
-            Duration addInputCpu,
+            long addInputWallInNanos,
+            long addInputCpuInNanos,
             DataSize addInputAllocation,
             DataSize rawInputDataSize,
             long rawInputPositions,
@@ -98,19 +97,19 @@ public class OperatorStatistics
             double sumSquaredInputPositions,
 
             long getOutputCalls,
-            Duration getOutputWall,
-            Duration getOutputCpu,
+            long getOutputWallInNanos,
+            long getOutputCpuInNanos,
             DataSize getOutputAllocation,
             DataSize outputDataSize,
             long outputPositions,
 
             DataSize physicalWrittenDataSize,
 
-            Duration blockedWall,
+            long blockedWallInNanos,
 
             long finishCalls,
-            Duration finishWall,
-            Duration finishCpu,
+            long finishWallInNanos,
+            long finishCpuInNanos,
             DataSize finishAllocation,
 
             DataSize userMemoryReservation,
@@ -138,8 +137,8 @@ public class OperatorStatistics
         this.totalDrivers = totalDrivers;
 
         this.addInputCalls = addInputCalls;
-        this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
-        this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
+        this.addInputWallInNanos = addInputWallInNanos;
+        this.addInputCpuInNanos = addInputCpuInNanos;
         this.addInputAllocation = requireNonNull(addInputAllocation, "addInputAllocation is null");
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         this.rawInputPositions = rawInputPositions;
@@ -148,19 +147,19 @@ public class OperatorStatistics
         this.sumSquaredInputPositions = sumSquaredInputPositions;
 
         this.getOutputCalls = getOutputCalls;
-        this.getOutputWall = requireNonNull(getOutputWall, "getOutputWall is null");
-        this.getOutputCpu = requireNonNull(getOutputCpu, "getOutputCpu is null");
+        this.getOutputWallInNanos = getOutputWallInNanos;
+        this.getOutputCpuInNanos = getOutputCpuInNanos;
         this.getOutputAllocation = requireNonNull(getOutputAllocation, "getOutputAllocation is null");
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         this.outputPositions = outputPositions;
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
 
-        this.blockedWall = requireNonNull(blockedWall, "blockedWall is null");
+        this.blockedWallInNanos = blockedWallInNanos;
 
         this.finishCalls = finishCalls;
-        this.finishWall = requireNonNull(finishWall, "finishWall is null");
-        this.finishCpu = requireNonNull(finishCpu, "finishCpu is null");
+        this.finishWallInNanos = finishWallInNanos;
+        this.finishCpuInNanos = finishCpuInNanos;
         this.finishAllocation = requireNonNull(finishAllocation, "finishAllocation is null");
 
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
@@ -220,14 +219,14 @@ public class OperatorStatistics
         return addInputCalls;
     }
 
-    public Duration getAddInputWall()
+    public long getAddInputWallInNanos()
     {
-        return addInputWall;
+        return addInputWallInNanos;
     }
 
-    public Duration getAddInputCpu()
+    public long getAddInputCpuInNanos()
     {
-        return addInputCpu;
+        return addInputCpuInNanos;
     }
 
     public DataSize getAddInputAllocation()
@@ -265,14 +264,14 @@ public class OperatorStatistics
         return getOutputCalls;
     }
 
-    public Duration getGetOutputWall()
+    public long getGetOutputWallInNanos()
     {
-        return getOutputWall;
+        return getOutputWallInNanos;
     }
 
-    public Duration getGetOutputCpu()
+    public long getGetOutputCpuInNanos()
     {
-        return getOutputCpu;
+        return getOutputCpuInNanos;
     }
 
     public DataSize getGetOutputAllocation()
@@ -295,9 +294,9 @@ public class OperatorStatistics
         return physicalWrittenDataSize;
     }
 
-    public Duration getBlockedWall()
+    public long getBlockedWallInNanos()
     {
-        return blockedWall;
+        return blockedWallInNanos;
     }
 
     public long getFinishCalls()
@@ -305,14 +304,14 @@ public class OperatorStatistics
         return finishCalls;
     }
 
-    public Duration getFinishWall()
+    public long getFinishWallInNanos()
     {
-        return finishWall;
+        return finishWallInNanos;
     }
 
-    public Duration getFinishCpu()
+    public long getFinishCpuInNanos()
     {
-        return finishCpu;
+        return finishCpuInNanos;
     }
 
     public DataSize getFinishAllocation()
