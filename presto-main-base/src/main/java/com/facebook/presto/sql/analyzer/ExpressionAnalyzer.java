@@ -258,6 +258,8 @@ public class ExpressionAnalyzer
     // Resolves the window of a window function, for windows declared in the WINDOW clause of the
     // enclosing query specification. Returns null when the window has not been resolved by StatementAnalyzer.
     private final Function<FunctionCall, ResolvedWindow> getResolvedWindow;
+    // Types recorded by earlier expression analyses.
+    private final Map<NodeRef<Expression>, Type> previouslyAnalyzedTypes;
 
     private final List<Field> sourceFields = new ArrayList<>();
 
@@ -272,7 +274,8 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             boolean isDescribe,
             Map<NodeRef<Expression>, Type> outerScopeSymbolTypes,
-            Function<FunctionCall, ResolvedWindow> getResolvedWindow)
+            Function<FunctionCall, ResolvedWindow> getResolvedWindow,
+            Map<NodeRef<Expression>, Type> previouslyAnalyzedTypes)
     {
         this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
         this.functionResolution = new FunctionResolution(functionAndTypeResolver);
@@ -286,6 +289,7 @@ public class ExpressionAnalyzer
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.outerScopeSymbolTypes = requireNonNull(outerScopeSymbolTypes, "outerScopeSymbolTypes is null");
         this.getResolvedWindow = requireNonNull(getResolvedWindow, "getResolvedWindow is null");
+        this.previouslyAnalyzedTypes = requireNonNull(previouslyAnalyzedTypes, "previouslyAnalyzedTypes is null");
     }
 
     public Map<NodeRef<FunctionCall>, FunctionHandle> getResolvedFunctions()
@@ -313,6 +317,16 @@ public class ExpressionAnalyzer
         requireNonNull(expression, "expression cannot be null");
 
         Type type = expressionTypes.get(NodeRef.of(expression));
+        checkState(type != null, "Expression not yet analyzed: %s", expression);
+        return type;
+    }
+
+    private Type getExpressionTypeIncludingPreviousAnalysis(Expression expression)
+    {
+        Type type = expressionTypes.get(NodeRef.of(expression));
+        if (type == null) {
+            type = previouslyAnalyzedTypes.get(NodeRef.of(expression));
+        }
         checkState(type != null, "Expression not yet analyzed: %s", expression);
         return type;
     }
@@ -1044,7 +1058,8 @@ public class ExpressionAnalyzer
                                         warningCollector,
                                         isDescribe,
                                         outerScopeSymbolTypes,
-                                        getResolvedWindow);
+                                        getResolvedWindow,
+                                        previouslyAnalyzedTypes);
                                 if (context.getContext().isInLambda()) {
                                     for (LambdaArgumentDeclaration argument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
                                         innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
@@ -1351,7 +1366,7 @@ public class ExpressionAnalyzer
                 throw new SemanticException(INVALID_ORDER_BY, orderBy, "Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY (actual: %s)", orderBy.getSortItems().size());
             }
             Expression sortKey = orderBy.getSortItems().stream().collect(onlyElement()).getSortKey();
-            Type sortKeyType = getExpressionType(sortKey);
+            Type sortKeyType = getExpressionTypeIncludingPreviousAnalysis(sortKey);
             if (!isNumericType(sortKeyType) && !isDateTimeType(sortKeyType)) {
                 throw new SemanticException(TYPE_MISMATCH, sortKey, "Window frame of type RANGE PRECEDING or FOLLOWING requires that sort item type be numeric, datetime or interval (actual: %s)", sortKeyType);
             }
@@ -2255,7 +2270,8 @@ public class ExpressionAnalyzer
                 warningCollector,
                 analysis.isDescribe(),
                 ImmutableMap.of(),
-                analysis::getWindow);
+                analysis::getWindow,
+                analysis.getTypes());
     }
 
     private static ExpressionAnalyzer create(
@@ -2279,7 +2295,8 @@ public class ExpressionAnalyzer
                 warningCollector,
                 analysis.isDescribe(),
                 outerScopeSymbolTypes,
-                analysis::getWindow);
+                analysis::getWindow,
+                analysis.getTypes());
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(FunctionAndTypeResolver functionAndTypeResolver, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
@@ -2370,7 +2387,8 @@ public class ExpressionAnalyzer
                 warningCollector,
                 isDescribe,
                 ImmutableMap.of(),
-                functionCall -> null);
+                functionCall -> null,
+                ImmutableMap.of());
     }
 
     public static boolean isNumericType(Type type)

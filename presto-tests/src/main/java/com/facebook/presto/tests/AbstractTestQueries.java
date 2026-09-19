@@ -2368,6 +2368,19 @@ public abstract class AbstractTestQueries
                 "SELECT orderstatus, rank() OVER w AS r FROM orders GROUP BY orderstatus WINDOW w AS (ORDER BY sum(custkey)) ORDER BY orderstatus",
                 "SELECT orderstatus, rank() OVER (ORDER BY sum(custkey)) AS r FROM orders GROUP BY orderstatus ORDER BY orderstatus");
 
+        // An aggregate in an unreferenced definition still makes the query an aggregation.
+        assertQuery(
+                "SELECT 1 FROM (VALUES 10, 20) T(x) WINDOW unused AS (ORDER BY sum(x))",
+                "VALUES 1");
+        assertQueryFails(
+                "SELECT x FROM (VALUES 10, 20) T(x) WINDOW unused AS (ORDER BY sum(x))",
+                "(?s).*must be an aggregate expression or appear in GROUP BY clause.*");
+
+        // A derived window may add an offset RANGE frame to an inherited ordering.
+        assertSameResultsAsInlineWindow(
+                "SELECT x, sum(y) OVER w2 FROM (VALUES (1, 10), (2, 20)) T(x, y) WINDOW w1 AS (ORDER BY x), w2 AS (w1 RANGE BETWEEN 1 PRECEDING AND CURRENT ROW) ORDER BY x",
+                "SELECT x, sum(y) OVER (ORDER BY x RANGE BETWEEN 1 PRECEDING AND CURRENT ROW) FROM (VALUES (1, 10), (2, 20)) T(x, y) ORDER BY x");
+
         // WINDOW is not a reserved word.
         assertQuery("SELECT orderkey AS window FROM orders ORDER BY 1 LIMIT 5", "SELECT orderkey FROM orders ORDER BY 1 LIMIT 5");
     }
