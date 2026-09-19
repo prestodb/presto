@@ -452,78 +452,85 @@ with an account balance greater than the specified value::
 
 .. _window_clause:
 
-WINDOW Clause
--------------
+Named WINDOW Clause
+-------------------
 
-The ``WINDOW`` clause names one or more window specifications so that they can be
-reused by several window functions. It appears after ``HAVING`` and before
-``ORDER BY``::
+Presto supports the SQL:2003 ``WINDOW`` clause. It appears after ``HAVING`` and
+before the query's ``ORDER BY``, and allows multiple window functions to reuse a
+window specification::
 
-    WINDOW window_name AS ( window_specification ) [, ...]
+    WINDOW name AS (
+      [existing_window_name]
+      [PARTITION BY expression, ...]
+      [ORDER BY sort_item, ...]
+      [frame]
+    ) [, ...]
 
-where ``window_specification`` is::
+A function can use the name directly with ``OVER name``, or refine it with
+``OVER (name ...)``::
 
-    [ existing_window_name ]
-    [ PARTITION BY expression [, ...] ]
-    [ ORDER BY expression [ ASC | DESC ] [, ...] ]
-    [ window_frame ]
+    WITH t(a, b) AS (
+      VALUES (1, 10), (1, 20), (2, 5)
+    )
+    SELECT
+      a,
+      b,
+      sum(b) OVER by_a AS partition_sum,
+      sum(b) OVER (ordered ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS rolling_sum
+    FROM t
+    WINDOW by_a AS (PARTITION BY a),
+           ordered AS (by_a ORDER BY b)
+    ORDER BY a, b
 
-``existing_window_name`` is the name of a window declared earlier in the same
-``WINDOW`` clause. Naming one makes the specification start from that window's
-``PARTITION BY``, which it can then extend with an ``ORDER BY`` or a frame. See
-`Restrictions`_ below.
+The result is:
 
-A window function refers to a named window by writing its name after ``OVER``,
-in place of a parenthesized specification. Naming a window avoids repeating the
-same specification for every function::
+.. code-block:: none
 
-    SELECT orderkey,
-           rank()          OVER w AS rnk,
-           sum(totalprice) OVER w AS running_total
-    FROM orders
-    WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey)
+     a | b  | partition_sum | rolling_sum
+    ---+----+---------------+-------------
+     1 | 10 |            30 |          10
+     1 | 20 |            30 |          30
+     2 |  5 |             5 |           5
 
-This is equivalent to spelling the specification out at each use::
+Named windows follow these rules:
 
-    SELECT orderkey,
-           rank()          OVER (PARTITION BY orderstatus ORDER BY orderkey) AS rnk,
-           sum(totalprice) OVER (PARTITION BY orderstatus ORDER BY orderkey) AS running_total
-    FROM orders
+* Names are scoped to one query specification and compared case-insensitively.
+* A definition can reference only a definition that appears earlier in the
+  same ``WINDOW`` clause.
+* A derived specification cannot add ``PARTITION BY``.
+* A derived specification cannot add ``ORDER BY`` when the referenced window
+  already has one.
+* A derived specification cannot reference a window that has a frame.
+* A direct ``OVER name`` reference uses the complete named specification,
+  including its frame.
+* Expressions declared in the ``WINDOW`` clause resolve against query inputs.
+  Parts added inline in the query's ``ORDER BY`` can resolve ``SELECT`` aliases.
 
-A window specification may build on a window declared earlier in the same
-``WINDOW`` clause by starting with that window's name. The new specification
-inherits the ``PARTITION BY`` of the referenced window and may add an
-``ORDER BY`` or a frame::
+Unreferenced Definitions
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-    SELECT orderkey,
-           sum(totalprice) OVER w_partition AS total,
-           sum(totalprice) OVER w_ordered   AS running_total
-    FROM orders
-    WINDOW w_partition AS (PARTITION BY orderstatus),
-           w_ordered   AS (w_partition ORDER BY orderkey)
+Every definition is analyzed, including one that no ``OVER`` clause references.
+Window functions run after grouping and aggregation, so their specifications
+can use grouping keys and aggregates. An aggregate in a definition therefore
+belongs to the surrounding query block.
 
-The same form may be used directly in an ``OVER`` clause, which is convenient
-when only the frame differs between uses::
+For example, this query aggregates two input rows and then applies ``rank()`` to
+the single result row::
 
-    SELECT orderkey,
-           sum(totalprice) OVER w                                            AS running_total,
-           sum(totalprice) OVER (w ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS trailing_total
-    FROM orders
-    WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey)
+    SELECT 1, rank() OVER w
+    FROM (VALUES 10, 20) AS t(x)
+    WINDOW w AS (ORDER BY sum(x))
 
-Restrictions
-^^^^^^^^^^^^
+It returns ``(1, 1)``. Removing the window function leaves the aggregate in the
+query specification::
 
-The following restrictions apply to a specification that references an existing
-window:
+    SELECT 1
+    FROM (VALUES 10, 20) AS t(x)
+    WINDOW w AS (ORDER BY sum(x))
 
-* It cannot specify ``PARTITION BY``. The partitioning is always inherited.
-* It cannot specify ``ORDER BY`` if the referenced window already specifies one.
-* The referenced window cannot contain a window frame.
-
-A window name is only visible within the query specification that declares it,
-and it can only reference a window declared before it. Window names are matched
-case insensitively, the same way ``WITH`` query names are.
+This query still returns one row. Selecting ``x`` instead fails grouping
+validation because ``x`` is neither grouped nor aggregated. The unreferenced
+definition itself produces no window operator.
 
 UNION | INTERSECT | EXCEPT Clause
 ---------------------------------

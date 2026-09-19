@@ -860,6 +860,10 @@ public class TestAnalyzer
 
         // refine a named window at the point of use
         analyze("SELECT sum(y) OVER (w ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ORDER BY y)");
+        analyze("SELECT sum(y) OVER (w RANGE BETWEEN 1 PRECEDING AND CURRENT ROW) FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (ORDER BY x)");
+
+        // a derived window may add an offset RANGE frame to an inherited ordering
+        analyze("SELECT sum(y) OVER w2 FROM (VALUES (1, 2)) T(x, y) WINDOW w1 AS (ORDER BY x), w2 AS (w1 RANGE BETWEEN 1 PRECEDING AND CURRENT ROW)");
 
         // window names are matched case insensitively, like other identifiers
         analyze("SELECT rank() OVER W FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ORDER BY y)");
@@ -869,11 +873,12 @@ public class TestAnalyzer
 
         // an unreferenced window definition is still analyzed
         analyze("SELECT 1 FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x)");
+        analyze("SELECT 1 FROM (VALUES (1), (2)) T(x) WINDOW w AS (ORDER BY sum(x))");
 
         // window names fold case like other Presto identifiers, including when quoted
         analyze("SELECT rank() OVER W FROM (VALUES (1, 2)) T(x, y) WINDOW \"w\" AS (PARTITION BY x)");
 
-        // a window that is never referenced is analyzed but never planned, even if it holds a subquery
+        // an unreferenced window definition containing a subquery is analyzed
         analyze("SELECT 1 FROM (VALUES 1) T(x) WINDOW w AS (PARTITION BY (SELECT 1))");
 
         // a named window may use aggregates and grouping columns of a grouped query
@@ -917,6 +922,10 @@ public class TestAnalyzer
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT max(x) FROM (VALUES (1, 2)) T(x, y) GROUP BY y WINDOW w AS (PARTITION BY x)");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT max(x) FROM (VALUES (1, 2)) T(x, y) GROUP BY y WINDOW w AS (ORDER BY x)");
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT max(x) FROM (VALUES (1, 2)) T(x, y) GROUP BY y WINDOW w AS (ORDER BY y ROWS BETWEEN x PRECEDING AND CURRENT ROW)");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (VALUES (1), (2)) T(x) WINDOW w AS (ORDER BY sum(x))");
+
+        // nested aggregates are rejected in an unreferenced window definition
+        assertFails(NESTED_AGGREGATION, "SELECT 1 FROM (VALUES 1) T(x) WINDOW w AS (ORDER BY sum(sum(x)))");
 
         // type checks still apply to a window declared in the WINDOW clause
         assertFails(TYPE_MISMATCH, "SELECT rank() OVER w FROM (VALUES CAST(NULL AS HyperLogLog)) T(x) WINDOW w AS (PARTITION BY x)");
