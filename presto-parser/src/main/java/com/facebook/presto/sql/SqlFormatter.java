@@ -16,6 +16,7 @@ package com.facebook.presto.sql;
 import com.facebook.presto.spi.derivedcolumns.DerivedColumnType;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
+import com.facebook.presto.sql.tree.AddField;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterColumnNotNull;
@@ -1615,6 +1616,27 @@ public final class SqlFormatter
             else {
                 throw new UnsupportedOperationException("Unsupported column position: " + position);
             }
+        }
+
+        @Override
+        protected Void visitAddField(AddField node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTableName()))
+                    .append(" ADD COLUMN ");
+            if (node.isFieldNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatName(node.getColumnPath()))
+                    .append(".")
+                    .append(formatName(node.getFieldName()))
+                    .append(" ")
+                    .append(node.getType());
+
+            return null;
         }
 
         @Override

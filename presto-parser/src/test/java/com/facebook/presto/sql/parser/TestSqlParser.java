@@ -15,6 +15,7 @@ package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
+import com.facebook.presto.sql.tree.AddField;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterColumnNotNull;
@@ -2260,6 +2261,80 @@ public class TestSqlParser
 
         // The position is required, since moving a column is the only thing the statement does
         assertInvalidStatement("ALTER TABLE foo.t ALTER COLUMN c", "mismatched input '<EOF>'.*");
+    }
+
+    @Test
+    public void testAddField()
+    {
+        // Single-level struct: ADD COLUMN parent.new_field type
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "VARCHAR",
+                        false,
+                        false));
+
+        // IF EXISTS on table
+        assertStatement(
+                "ALTER TABLE IF EXISTS foo.t ADD COLUMN col.new_field BIGINT",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "BIGINT",
+                        true,
+                        false));
+
+        // IF NOT EXISTS on field
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS col.new_field INTEGER",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        identifier("new_field"),
+                        "INTEGER",
+                        false,
+                        true));
+
+        // NOT NULL is not accepted in the nested ADD COLUMN grammar
+        assertInvalidStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR NOT NULL",
+                ".*");
+
+        // COMMENT is not accepted in the nested ADD COLUMN grammar
+        assertInvalidStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR COMMENT 'a comment'",
+                ".*");
+
+        // Multi-level nesting: parent path has two parts
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN outer_col.inner_col.new_field DOUBLE",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("outer_col", "inner_col"),
+                        identifier("new_field"),
+                        "DOUBLE",
+                        false,
+                        false));
+
+        // Quoted field name: isDelimited must be preserved through the round-trip
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.\"new field\" VARCHAR",
+                new AddField(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        QualifiedName.of("col"),
+                        quotedIdentifier("new field"),
+                        "VARCHAR",
+                        false,
+                        false));
     }
 
     @Test
