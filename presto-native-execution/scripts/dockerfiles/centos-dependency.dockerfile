@@ -37,6 +37,9 @@ ENV VELOX_ARROW_CMAKE_PATCH="/velox/cmake-compatibility.patch /velox/arrow-testi
 # from https://github.com/facebookincubator/velox/pull/18470
 COPY velox/CMake/resolve_dependency_modules/openzl/openzl-cxx-standard.patch /velox
 ENV VELOX_OPENZL_CMAKE_PATCH=/velox/openzl-cxx-standard.patch
+# from https://github.com/facebookincubator/velox/pull/18956
+COPY velox/CMake/resolve_dependency_modules/folly/folly-sve-neonq-reinterpret.patch /velox
+ENV VELOX_FOLLY_SVE_PATCH=/velox/folly-sve-neonq-reinterpret.patch
 COPY CMake/arrow/arrow-flight.patch /scripts
 ENV EXTRA_ARROW_PATCH=/scripts/arrow-flight.patch
 RUN bash -c "mkdir build && \
