@@ -49,7 +49,7 @@
             <dependency>
                 <groupId>org.asynchttpclient</groupId>
                 <artifactId>async-http-client</artifactId>
-                <version>3.0.11</version>
+                <version>3.0.13</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
