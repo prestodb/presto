@@ -86,6 +86,13 @@ ArrowFederationPrestoToVeloxConnector::toVeloxTableHandle(
 
 std::unique_ptr<protocol::ConnectorProtocol>
 ArrowFederationPrestoToVeloxConnector::createConnectorProtocol() const {
+  const auto& name = connectorName();
+  if (name == "mysql" || name == "postgresql" || name == "sqlserver" ||
+      name == "redshift" || name == "oracle" || name == "hana" ||
+      name == "singlestore") {
+    return std::make_unique<
+        protocol::arrow_federation::JdbcArrowFederationConnectorProtocol>();
+  }
   return std::make_unique<
       protocol::arrow_federation::ArrowFederationConnectorProtocol>();
 }

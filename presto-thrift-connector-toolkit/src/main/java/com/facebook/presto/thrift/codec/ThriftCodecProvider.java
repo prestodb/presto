@@ -14,6 +14,7 @@
 package com.facebook.presto.thrift.codec;
 
 import com.facebook.drift.codec.ThriftCodecManager;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -33,6 +34,7 @@ public class ThriftCodecProvider
         implements ConnectorCodecProvider
 {
     private final ThriftCodecManager thriftCodecManager;
+    private final Optional<ConnectorCodec<ColumnHandle>> columnHandleCodec;
     private final Optional<ConnectorCodec<ConnectorSplit>> connectorSplitCodec;
     private final Optional<ConnectorCodec<ConnectorTransactionHandle>> connectorTransactionHandleCodec;
     private final Optional<ConnectorCodec<ConnectorTableLayoutHandle>> connectorTableLayoutHandleCodec;
@@ -44,6 +46,7 @@ public class ThriftCodecProvider
     private ThriftCodecProvider(Builder builder)
     {
         this.thriftCodecManager = requireNonNull(builder.thriftCodecManager, "thriftCodecManager is null");
+        this.columnHandleCodec = builder.connectorColumnHandle.map(type -> new GenericThriftCodec<>(thriftCodecManager, type));
         this.connectorSplitCodec = builder.connectorSplitType.map(type -> new GenericThriftCodec<>(thriftCodecManager, type));
         this.connectorTransactionHandleCodec = builder.connectorTransactionHandle.map(type -> new GenericThriftCodec<>(thriftCodecManager, type));
         this.connectorTableLayoutHandleCodec = builder.connectorTableLayoutHandle.map(type -> new GenericThriftCodec<>(thriftCodecManager, type));
@@ -95,6 +98,12 @@ public class ThriftCodecProvider
         return connectorDeleteTableHandleCodec;
     }
 
+    @Override
+    public Optional<ConnectorCodec<ColumnHandle>> getColumnHandleCodec()
+    {
+        return columnHandleCodec;
+    }
+
     public ThriftCodecManager getThriftCodecManager()
     {
         return thriftCodecManager;
@@ -103,6 +112,7 @@ public class ThriftCodecProvider
     public static class Builder
     {
         private ThriftCodecManager thriftCodecManager;
+        private Optional<Type> connectorColumnHandle = Optional.empty();
         private Optional<Type> connectorSplitType = Optional.empty();
         private Optional<Type> connectorTransactionHandle = Optional.empty();
         private Optional<Type> connectorTableLayoutHandle = Optional.empty();
@@ -156,6 +166,12 @@ public class ThriftCodecProvider
         public Builder setConnectorDeleteTableHandle(Class<? extends ConnectorDeleteTableHandle> type)
         {
             this.connectorDeleteTableHandle = Optional.ofNullable(type);
+            return this;
+        }
+
+        public Builder setConnectorColumnHandle(Class<? extends ColumnHandle> type)
+        {
+            this.connectorColumnHandle = Optional.ofNullable(type);
             return this;
         }
 
