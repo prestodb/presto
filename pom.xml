@@ -246,6 +246,7 @@
         <module>presto-sql-helpers/presto-native-sql-invoked-functions-plugin</module>
         <module>presto-lance</module>
         <module>presto-flight-shim</module>
+        <module>presto-temp-storage-s3</module>
     </modules>
 
     <dependencyManagement>
