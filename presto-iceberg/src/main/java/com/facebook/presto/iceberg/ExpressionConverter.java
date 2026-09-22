@@ -36,6 +36,7 @@ import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.iceberg.expressions.Expression;
 
@@ -64,6 +65,7 @@ import static org.apache.iceberg.expressions.Expressions.and;
 import static org.apache.iceberg.expressions.Expressions.equal;
 import static org.apache.iceberg.expressions.Expressions.greaterThan;
 import static org.apache.iceberg.expressions.Expressions.greaterThanOrEqual;
+import static org.apache.iceberg.expressions.Expressions.in;
 import static org.apache.iceberg.expressions.Expressions.isNull;
 import static org.apache.iceberg.expressions.Expressions.lessThan;
 import static org.apache.iceberg.expressions.Expressions.lessThanOrEqual;
@@ -131,59 +133,103 @@ public final class ExpressionConverter
             List<Range> orderedRanges = ((SortedRangeSet) domainValues).getOrderedRanges();
             expression = firstNonNull(expression, alwaysFalse());
 
-            for (Range range : orderedRanges) {
+            // Pass 1: collect single-point equality ranges so we can emit a single in() predicate
+            // (depth-1 expression tree) rather than left-folding N or() calls into a chain of depth N,
+            // which overflows ExpressionVisitors' recursive visit(). Use Range.isSingleValue() for
+            // the equality check (operates on Presto block values; avoids BigDecimal scale issues).
+            // Also cache EXACTLY/EXACTLY non-equality (BETWEEN) bound values so pass 2 can reuse them.
+            boolean[] isEquality = new boolean[orderedRanges.size()];
+            Object[] cachedLow = new Object[orderedRanges.size()];
+            Object[] cachedHigh = new Object[orderedRanges.size()];
+            ImmutableList.Builder<Object> equalityValuesBuilder = ImmutableList.builder();
+            for (int i = 0; i < orderedRanges.size(); i++) {
+                Range range = orderedRanges.get(i);
+                Marker low = range.getLow();
+                Marker high = range.getHigh();
+                if (range.isSingleValue()) {
+                    equalityValuesBuilder.add(getIcebergLiteralValue(type, low));
+                    isEquality[i] = true;
+                }
+                else if (low.getBound() == EXACTLY && high.getBound() == EXACTLY) {
+                    cachedLow[i] = getIcebergLiteralValue(type, low);
+                    cachedHigh[i] = getIcebergLiteralValue(type, high);
+                }
+            }
+            List<Object> equalityValues = equalityValuesBuilder.build();
+            if (!equalityValues.isEmpty()) {
+                expression = equalityValues.size() == 1
+                        ? or(expression, equal(columnName, equalityValues.get(0)))
+                        : or(expression, in(columnName, equalityValues));
+            }
+
+            // Pass 2: collect each non-equality range predicate into a list, then combine
+            // them with a balanced OR tree (depth O(log M)) before OR-ing into the accumulator.
+            // Left-folding directly into the accumulator would produce a depth-M chain, which
+            // overflows ExpressionVisitors.visit() for large M, just as the equality case did.
+            ImmutableList.Builder<Expression> rangeExprsBuilder = ImmutableList.builder();
+            for (int i = 0; i < orderedRanges.size(); i++) {
+                if (isEquality[i]) {
+                    continue;
+                }
+                Range range = orderedRanges.get(i);
                 Marker low = range.getLow();
                 Marker high = range.getHigh();
                 Marker.Bound lowBound = low.getBound();
                 Marker.Bound highBound = high.getBound();
 
-                // case col <> 'val' is represented as (col < 'val' or col > 'val')
                 if (lowBound == EXACTLY && highBound == EXACTLY) {
-                    // case ==
-                    if (getIcebergLiteralValue(type, low).equals(getIcebergLiteralValue(type, high))) {
-                        expression = or(expression, equal(columnName, getIcebergLiteralValue(type, low)));
-                    }
-                    else { // case between
-                        Expression between = and(
-                                greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low)),
-                                lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
-                        expression = or(expression, between);
-                    }
+                    // BETWEEN lo AND hi (single-point equalities batched in pass 1, so lo != hi here).
+                    // cachedLow[i] / cachedHigh[i] non-null: pass 1 always fills them for EXACTLY/EXACTLY non-equality ranges.
+                    rangeExprsBuilder.add(and(
+                            greaterThanOrEqual(columnName, requireNonNull(cachedLow[i], "cachedLow")),
+                            lessThanOrEqual(columnName, requireNonNull(cachedHigh[i], "cachedHigh"))));
                 }
                 else {
+                    Expression rangeExpr = null;
                     if (lowBound == EXACTLY && low.getValueBlock().isPresent()) {
                         // case >=
-                        expression = or(expression, greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low)));
+                        rangeExpr = greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low));
                     }
                     else if (lowBound == ABOVE && low.getValueBlock().isPresent()) {
                         // case >
-                        expression = or(expression, greaterThan(columnName, getIcebergLiteralValue(type, low)));
+                        rangeExpr = greaterThan(columnName, getIcebergLiteralValue(type, low));
                     }
 
                     if (highBound == EXACTLY && high.getValueBlock().isPresent()) {
                         // case <=
-                        if (low.getValueBlock().isPresent()) {
-                            expression = and(expression, lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
-                        }
-                        else {
-                            expression = or(expression, lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
-                        }
+                        Expression upperPred = lessThanOrEqual(columnName, getIcebergLiteralValue(type, high));
+                        rangeExpr = rangeExpr != null ? and(rangeExpr, upperPred) : upperPred;
                     }
                     else if (highBound == BELOW && high.getValueBlock().isPresent()) {
                         // case <
-                        if (low.getValueBlock().isPresent()) {
-                            expression = and(expression, lessThan(columnName, getIcebergLiteralValue(type, high)));
-                        }
-                        else {
-                            expression = or(expression, lessThan(columnName, getIcebergLiteralValue(type, high)));
-                        }
+                        Expression upperPred = lessThan(columnName, getIcebergLiteralValue(type, high));
+                        rangeExpr = rangeExpr != null ? and(rangeExpr, upperPred) : upperPred;
+                    }
+
+                    if (rangeExpr != null) {
+                        rangeExprsBuilder.add(rangeExpr);
                     }
                 }
+            }
+            List<Expression> rangeExprs = rangeExprsBuilder.build();
+            if (!rangeExprs.isEmpty()) {
+                expression = or(expression, buildOrTree(rangeExprs));
             }
             return expression;
         }
 
         throw new VerifyException("Did not expect a domain value set other than SortedRangeSet but got " + domainValues.getClass().getSimpleName());
+    }
+
+    // Build a balanced binary OR tree with depth O(log N) instead of a left-skewed chain of
+    // depth O(N), to avoid stack overflow in ExpressionVisitors.visit() for large collections.
+    private static Expression buildOrTree(List<Expression> exprs)
+    {
+        if (exprs.size() == 1) {
+            return exprs.get(0);
+        }
+        int mid = exprs.size() / 2;
+        return or(buildOrTree(exprs.subList(0, mid)), buildOrTree(exprs.subList(mid, exprs.size())));
     }
 
     private static Object getIcebergLiteralValue(Type type, Marker marker)
