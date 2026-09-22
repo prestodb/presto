@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
@@ -83,6 +84,12 @@ public class TestJmxSplitManager
                                 public NodeManager getNodeManager()
                                 {
                                     return nodeManager;
+                                }
+
+                                @Override
+                                public ConnectorSystemConfig getConnectorSystemConfig()
+                                {
+                                    return () -> false;
                                 }
                             });
 
