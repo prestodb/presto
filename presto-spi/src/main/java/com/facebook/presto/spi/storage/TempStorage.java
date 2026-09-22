@@ -22,6 +22,12 @@ public interface TempStorage
     TempDataSink create(TempDataOperationContext context)
             throws IOException;
 
+    default TempDataSink create(TempDataOperationContext context, TempStorageHandle handle, boolean createFile)
+            throws IOException
+    {
+        throw new UnsupportedOperationException();
+    }
+
     InputStream open(TempDataOperationContext context, TempStorageHandle handle)
             throws IOException;
 
