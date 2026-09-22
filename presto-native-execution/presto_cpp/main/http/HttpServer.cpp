@@ -291,7 +291,6 @@ void HttpServer::start(
       startupOptions.http2ReceiveSessionWindowSize;
   options.maxConcurrentIncomingStreams =
       startupOptions.http2MaxConcurrentStreams;
-  options.h2cEnabled = true;
 
   // Enable HTTP/2 responses compression for better performance
   // Supports both gzip and zstd (zstd preferred when client supports it)
