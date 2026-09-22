@@ -94,7 +94,7 @@ public class TempStorageManager
     {
         ImmutableMap.Builder<String, Map<String, String>> storageProperties = ImmutableMap.builder();
         // Always load local temp storage
-        addTempStorageFactory(new LocalTempStorage.Factory());
+        addTempStorageFactory(new LocalTempStorageFactory());
         storageProperties.put(
                 LocalTempStorage.NAME,
                 // TODO: Local temp storage should be configurable

@@ -22,13 +22,12 @@ import com.facebook.presto.spi.storage.StorageCapabilities;
 import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempDataSink;
 import com.facebook.presto.spi.storage.TempStorage;
-import com.facebook.presto.spi.storage.TempStorageContext;
-import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.facebook.presto.spiller.TempStorageSpillerUtil;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import jakarta.inject.Inject;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,12 +38,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.OUT_OF_TEMP_STORAGE_SPACE;
 import static com.facebook.presto.spiller.TempStorageSpillerConstants.SPILL_FILE_PREFIX;
 import static com.facebook.presto.spiller.TempStorageSpillerConstants.SPILL_FILE_SUFFIX;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -68,6 +65,22 @@ public class LocalTempStorage
 
     @GuardedBy("this")
     private int roundRobinIndex;
+
+    @Inject
+    public LocalTempStorage(LocalTempStorageConfig config)
+    {
+        requireNonNull(config, "config is null");
+
+        String configPaths = config.getTempStoragePath();
+        List<String> pathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(configPaths));
+        this.tempStoragePaths = ImmutableList.copyOf(
+                pathsSplit.stream()
+                        .map(Paths::get)
+                        .collect(toImmutableList()));
+
+        this.maxUsedSpaceThreshold = config.getMaxUsedSpaceThreshold();
+        initialize();
+    }
 
     public LocalTempStorage(List<Path> tempStoragePaths, double maxUsedSpaceThreshold)
     {
@@ -290,31 +303,6 @@ public class LocalTempStorage
                 throws IOException
         {
             sink.close();
-        }
-    }
-
-    public static class Factory
-            implements TempStorageFactory
-    {
-        @Override
-        public String getName()
-        {
-            return NAME;
-        }
-
-        @Override
-        public TempStorage create(Map<String, String> config, TempStorageContext context)
-        {
-            String configPaths = config.get(TEMP_STORAGE_PATH);
-            checkState(configPaths != null, "Local temp storage configuration must contain the '%s' property", TEMP_STORAGE_PATH);
-
-            List<String> pathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(config.get(TEMP_STORAGE_PATH)));
-            List<Path> tempStoragePaths = pathsSplit.stream()
-                    .map(Paths::get)
-                    .collect(toImmutableList());
-
-            // TODO: make maxUsedSpaceThreshold configurable
-            return new LocalTempStorage(tempStoragePaths, 1.0);
         }
     }
 }
