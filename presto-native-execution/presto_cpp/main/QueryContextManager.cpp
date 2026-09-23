@@ -110,7 +110,8 @@ QueryContextManager::findOrCreateQueryCtx(
       taskId,
       toVeloxConfigs(
           taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
-      toConnectorConfigs(taskUpdateRequest));
+      toConnectorConfigs(taskUpdateRequest),
+      toCredentialConfigKeys(taskUpdateRequest.extraCredentials));
 }
 
 std::shared_ptr<velox::core::QueryCtx>
@@ -122,7 +123,8 @@ QueryContextManager::findOrCreateBatchQueryCtx(
       taskId,
       toVeloxConfigs(
           taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
-      toConnectorConfigs(taskUpdateRequest));
+      toConnectorConfigs(taskUpdateRequest),
+      toCredentialConfigKeys(taskUpdateRequest.extraCredentials));
   if (queryCtx->pool()->aborted()) {
     // In Batch mode, only one query is running at a time. When tasks fail
     // during memory arbitration, the query memory pool will be set
@@ -138,7 +140,8 @@ QueryContextManager::findOrCreateBatchQueryCtx(
         taskId,
         toVeloxConfigs(
             taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
-        toConnectorConfigs(taskUpdateRequest));
+        toConnectorConfigs(taskUpdateRequest),
+        toCredentialConfigKeys(taskUpdateRequest.extraCredentials));
   }
   return queryCtx;
 }
@@ -161,15 +164,18 @@ QueryContextManager::createAndCacheQueryCtxLocked(
     velox::core::QueryConfig&& queryConfig,
     std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&&
         connectorConfigs,
-    std::shared_ptr<memory::MemoryPool>&& pool) {
-  auto queryCtx = core::QueryCtx::create(
-      driverExecutor_,
-      std::move(queryConfig),
-      std::move(connectorConfigs),
-      cache::AsyncDataCache::getInstance(),
-      std::move(pool),
-      spillerExecutor_,
-      queryId);
+    std::shared_ptr<memory::MemoryPool>&& pool,
+    std::unordered_set<std::string>&& credentialConfigKeys) {
+  auto queryCtx = core::QueryCtx::Builder()
+                      .executor(driverExecutor_)
+                      .queryConfig(std::move(queryConfig))
+                      .connectorConfigs(std::move(connectorConfigs))
+                      .asyncDataCache(cache::AsyncDataCache::getInstance())
+                      .pool(std::move(pool))
+                      .spillExecutor(spillerExecutor_)
+                      .queryId(queryId)
+                      .credentialConfigKeys(std::move(credentialConfigKeys))
+                      .build();
   return queryContextCache_.insert(queryId, std::move(queryCtx));
 }
 
@@ -177,7 +183,8 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtxLocked(
     const TaskId& taskId,
     velox::core::QueryConfig&& queryConfig,
     std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&&
-        connectorConfigs) {
+        connectorConfigs,
+    std::unordered_set<std::string>&& credentialConfigKeys) {
   const QueryId queryId{queryIdFromTaskId(taskId)};
 
   if (auto queryCtx = queryContextCache_.get(queryId)) {
@@ -209,7 +216,8 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtxLocked(
       queryId,
       std::move(queryConfig),
       std::move(connectorConfigs),
-      std::move(pool));
+      std::move(pool),
+      std::move(credentialConfigKeys));
 }
 
 void QueryContextManager::visitAllContexts(

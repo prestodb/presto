@@ -115,14 +115,16 @@ class QueryContextManager {
       std::unordered_map<
           std::string,
           std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigs,
-      std::shared_ptr<velox::memory::MemoryPool>&& pool);
+      std::shared_ptr<velox::memory::MemoryPool>&& pool,
+      std::unordered_set<std::string>&& credentialConfigKeys);
 
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtxLocked(
       const protocol::TaskId& taskId,
       velox::core::QueryConfig&& queryConfig,
       std::unordered_map<
           std::string,
-          std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigStrings);
+          std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigStrings,
+      std::unordered_set<std::string>&& credentialConfigKeys);
 
   mutable std::mutex queryContextCacheMutex_;
 };

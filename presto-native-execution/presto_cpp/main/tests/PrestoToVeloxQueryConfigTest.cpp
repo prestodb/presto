@@ -662,6 +662,26 @@ TEST_F(PrestoToVeloxQueryConfigTest, legacyTimestampWithTimezone) {
       QueryConfig(toVeloxConfigs(session)).legacyTimestampWithTimezone());
 }
 
+TEST_F(PrestoToVeloxQueryConfigTest, credentialConfigKeysNameOnlyCredentials) {
+  auto session = createBasicSession();
+  session.systemProperties[core::QueryConfig::kSpillEnabled] = "true";
+
+  const std::map<std::string, std::string> extraCredentials{
+      {"cat_token", "test_cat_token_value"},
+      {"auth_header", "Bearer xyz123"},
+  };
+
+  // Both land in the config, where nothing distinguishes them from an ordinary
+  // setting. The key set is what preserves that distinction.
+  const auto raw = toVeloxConfigs(session, extraCredentials).rawConfigsCopy();
+  EXPECT_TRUE(raw.count("cat_token"));
+  EXPECT_TRUE(raw.count(core::QueryConfig::kSpillEnabled));
+
+  const std::unordered_set<std::string> expected{"cat_token", "auth_header"};
+  EXPECT_EQ(expected, toCredentialConfigKeys(extraCredentials));
+  EXPECT_TRUE(toCredentialConfigKeys({}).empty());
+}
+
 TEST_F(PrestoToVeloxQueryConfigTest, sessionAndExtraCredentialsOverload) {
   // --- Test 1: Basic session with empty extra credentials ---
   {

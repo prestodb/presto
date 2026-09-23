@@ -284,6 +284,16 @@ velox::core::QueryConfig toVeloxConfigs(
   return velox::core::QueryConfig(configs);
 }
 
+std::unordered_set<std::string> toCredentialConfigKeys(
+    const std::map<std::string, std::string>& extraCredentials) {
+  std::unordered_set<std::string> keys;
+  keys.reserve(extraCredentials.size());
+  for (const auto& [key, _] : extraCredentials) {
+    keys.insert(key);
+  }
+  return keys;
+}
+
 std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>
 toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
   std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>

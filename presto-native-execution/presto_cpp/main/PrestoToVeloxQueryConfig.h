@@ -40,6 +40,13 @@ velox::core::QueryConfig toVeloxConfigs(
     const protocol::SessionRepresentation& session,
     const std::map<std::string, std::string>& extraCredentials);
 
+/// Names the query config entries whose values are credentials. The overload
+/// above flattens 'extraCredentials' into the config beside ordinary settings,
+/// after which the two are indistinguishable; this keeps the distinction so
+/// that whoever holds the config can still tell which entries hold secrets.
+std::unordered_set<std::string> toCredentialConfigKeys(
+    const std::map<std::string, std::string>& extraCredentials);
+
 std::unordered_map<std::string, std::string>
 toVeloxConfigsFromSessionProperties(
     const std::map<std::string, std::string>& sessionProperties);

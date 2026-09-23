@@ -91,6 +91,27 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
   EXPECT_EQ(queryCtx->queryConfig().requestDataSizesMaxWaitSec(), 20);
 }
 
+TEST_F(QueryContextManagerTest, extraCredentialsReachQueryCtxAsCredentialKeys) {
+  protocol::TaskId taskId = "scan.0.0.1.0";
+  protocol::SessionRepresentation session{
+      .systemProperties = {{"preferred_output_batch_rows", "1024"}}};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.session = session;
+  updateRequest.extraCredentials["cat_token"] = "test_cat_token_value";
+
+  auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
+      taskId, updateRequest);
+
+  // The credential and the ordinary property are indistinguishable in the
+  // config; the key set is what tells a trace which one to redact.
+  EXPECT_EQ(
+      queryCtx->queryConfig().rawConfigsCopy().at("cat_token"),
+      "test_cat_token_value");
+  EXPECT_TRUE(queryCtx->credentialConfigKeys().contains("cat_token"));
+  EXPECT_FALSE(
+      queryCtx->credentialConfigKeys().contains("preferred_output_batch_rows"));
+}
+
 TEST_F(QueryContextManagerTest, nativeConnectorSessionProperties) {
   protocol::TaskId taskId = "scan.0.0.1.0";
   protocol::SessionRepresentation session;
