@@ -39,6 +39,18 @@ import static org.testng.Assert.assertTrue;
 public class TestPage
 {
     @Test
+    public void testAppendColumn()
+    {
+        Block block1 = createBlock();
+        Block block2 = createBlock();
+        Page page = new Page(block1);
+        Page appendColumn = page.appendColumn(block2);
+        assertEquals(appendColumn.getChannelCount(), 2);
+        assertEquals(appendColumn.getBlock(0), block1);
+        assertEquals(appendColumn.getBlock(1), block2);
+    }
+
+    @Test
     public void testGetRegion()
     {
         Page page = new Page(10);
@@ -66,6 +78,18 @@ public class TestPage
     public void testGetRegionFromNoColumnPage()
     {
         assertEquals(new Page(100).getRegion(0, 10).getPositionCount(), 10);
+    }
+
+    @Test
+    public void testPrependColumn()
+    {
+        Block block1 = createBlock();
+        Block block2 = createBlock();
+        Page page = new Page(block1);
+        Page prependColumn = page.prependColumn(block2);
+        assertEquals(prependColumn.getChannelCount(), 2);
+        assertEquals(prependColumn.getBlock(0), block2);
+        assertEquals(prependColumn.getBlock(1), block1);
     }
 
     @Test
@@ -343,4 +367,11 @@ public class TestPage
         }
         return builder.build();
     }
+
+    private static Block createBlock()
+    {
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(1);
+        return blockBuilder.build();
+    }
+
 }
