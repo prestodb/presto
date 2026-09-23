@@ -718,7 +718,8 @@ starts them gradually when it stops being overloaded.
 When set to a directory path, the worker writes each task's Velox plan (as JSON)
 to ``<task-id>.json`` and accumulates task-source splits in
 ``<task-id>.splits.json``. Filenames are derived from a sanitized task ID,
-where characters other than letters, digits, ``_``, and ``-`` become ``_``.
+where characters other than letters, digits, ``_``, ``-``, and ``.`` become ``_``.
+Splits that the coordinator re-sends are recorded only once.
 Useful for extracting plans from TPC-DS/TPC-H queries run via Presto to build
 Velox test plans like TpcdsQueryBuilder-style plans.
 
