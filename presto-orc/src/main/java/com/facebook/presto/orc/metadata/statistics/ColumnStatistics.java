@@ -35,7 +35,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class ColumnStatistics
         implements Hashable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ColumnStatistics.class).instanceSize();
 
     private final boolean hasNumberOfValues;
     private final long numberOfValues;

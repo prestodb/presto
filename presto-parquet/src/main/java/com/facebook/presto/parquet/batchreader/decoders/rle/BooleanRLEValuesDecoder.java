@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class BooleanRLEValuesDecoder
         implements BooleanValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanRLEValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BooleanRLEValuesDecoder.class).instanceSize();
 
     private final ByteBuffer inputBuffer;
 

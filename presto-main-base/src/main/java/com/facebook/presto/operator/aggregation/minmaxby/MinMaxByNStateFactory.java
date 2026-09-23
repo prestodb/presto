@@ -50,7 +50,7 @@ public class MinMaxByNStateFactory
             extends AbstractGroupedAccumulatorState
             implements MinMaxByNState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedMinMaxByNState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedMinMaxByNState.class).instanceSize();
         private final ObjectBigArray<TypedKeyValueHeap> heaps = new ObjectBigArray<>();
         private long size;
 
@@ -93,7 +93,7 @@ public class MinMaxByNStateFactory
     public static class SingleMinMaxByNState
             implements MinMaxByNState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMinMaxByNState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleMinMaxByNState.class).instanceSize();
         private TypedKeyValueHeap typedKeyValueHeap;
 
         @Override

@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 public class MapColumnStatistics
         extends ColumnStatistics
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapColumnStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(MapColumnStatistics.class).instanceSize();
     private final MapStatistics mapStatistics;
 
     public MapColumnStatistics(

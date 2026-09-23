@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public final class BinaryBatchDictionary
         extends Dictionary
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryBatchDictionary.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BinaryBatchDictionary.class).instanceSize();
 
     private final byte[] pageBuffer;
     private final int dictionarySize;

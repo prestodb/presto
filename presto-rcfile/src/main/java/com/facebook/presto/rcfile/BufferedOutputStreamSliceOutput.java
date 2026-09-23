@@ -35,7 +35,7 @@ import static java.lang.Math.toIntExact;
 public class BufferedOutputStreamSliceOutput
         extends SliceOutput
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BufferedOutputStreamSliceOutput.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BufferedOutputStreamSliceOutput.class).instanceSize();
     private static final int CHUNK_SIZE = 4096;
 
     private final OutputStream outputStream;

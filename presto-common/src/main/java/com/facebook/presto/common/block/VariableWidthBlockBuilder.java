@@ -51,7 +51,7 @@ import static java.lang.String.format;
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockBuilder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockBuilder.class).instanceSize();
 
     private BlockBuilderStatus blockBuilderStatus;
 

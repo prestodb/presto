@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractInt64AndInt32ShortDecimalDeltaValuesDecoder
         implements ShortDecimalValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractInt64AndInt32ShortDecimalDeltaValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(AbstractInt64AndInt32ShortDecimalDeltaValuesDecoder.class).instanceSize();
 
     protected final ValuesReader delegate;
 

@@ -28,7 +28,7 @@ public class IntegerStatistics
     // 1 byte to denote if null + 8 bytes for the value (integer is of long type)
     public static final long INTEGER_VALUE_BYTES = Byte.BYTES + Long.BYTES;
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntegerStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(IntegerStatistics.class).instanceSize();
 
     private final boolean hasMinimum;
     private final boolean hasMaximum;

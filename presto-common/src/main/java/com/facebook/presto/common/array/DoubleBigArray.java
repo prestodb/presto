@@ -28,7 +28,7 @@ import static io.airlift.slice.SizeOf.sizeOfDoubleArray;
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public final class DoubleBigArray
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleBigArray.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DoubleBigArray.class).instanceSize();
     private static final long SIZE_OF_SEGMENT = sizeOfDoubleArray(SEGMENT_SIZE);
 
     private final double initialValue;

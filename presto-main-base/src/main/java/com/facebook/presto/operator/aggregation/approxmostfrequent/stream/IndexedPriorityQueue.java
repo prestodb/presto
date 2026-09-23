@@ -24,7 +24,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 
 public class IndexedPriorityQueue
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IndexedPriorityQueue.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(IndexedPriorityQueue.class).instanceSize();
     public static final int MIN_POSITION = 0;
     private final StreamDataEntity[] minHeap;
     private final int heapCapacity;

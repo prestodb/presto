@@ -33,7 +33,7 @@ import static com.google.common.base.Verify.verify;
 public abstract class AbstractGroupCollectionAggregationState<T>
         extends AbstractGroupedAccumulatorState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractGroupCollectionAggregationState.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(AbstractGroupCollectionAggregationState.class).instanceSize();
     private static final int MAX_NUM_BLOCKS = 30000;
     private static final short NULL = -1;
 

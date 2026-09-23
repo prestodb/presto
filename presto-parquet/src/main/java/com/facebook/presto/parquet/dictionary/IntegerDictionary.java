@@ -27,7 +27,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 public class IntegerDictionary
         extends Dictionary
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntegerDictionary.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(IntegerDictionary.class).instanceSize();
 
     private final int[] content;
 

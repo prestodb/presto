@@ -38,7 +38,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ReservoirSample
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleReservoirSampleState.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleReservoirSampleState.class).instanceSize();
     private final Type type;
 
     public Type getArrayType()

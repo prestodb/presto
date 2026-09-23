@@ -49,7 +49,7 @@ public class ShortArrayBlockEncodingBuffer
     static final int POSITION_SIZE = Short.BYTES + Byte.BYTES;
 
     private static final String NAME = "SHORT_ARRAY";
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ShortArrayBlockEncodingBuffer.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ShortArrayBlockEncodingBuffer.class).instanceSize();
 
     private byte[] valuesBuffer;
     private int valuesBufferIndex;

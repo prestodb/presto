@@ -75,7 +75,7 @@ import static java.util.Objects.requireNonNull;
 public class PagesIndex
         implements Swapper
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesIndex.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(PagesIndex.class).instanceSize();
     private static final Logger log = Logger.get(PagesIndex.class);
 
     private final OrderingCompiler orderingCompiler;

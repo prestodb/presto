@@ -26,7 +26,7 @@ import static java.math.BigDecimal.ZERO;
 public class TestDecimalStatistics
         extends AbstractRangeStatisticsTest<DecimalStatistics, BigDecimal>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DecimalStatistics.class).instanceSize();
     private static final long BIG_DECIMAL_INSTANCE_SIZE = ClassLayout.parseClass(BigDecimal.class).instanceSize() + ClassLayout.parseClass(BigInteger.class).instanceSize() + sizeOf(new int[0]);
 
     private static final BigDecimal MEDIUM_VALUE = new BigDecimal("890.37492");

@@ -60,7 +60,7 @@ import static java.util.Objects.requireNonNull;
 public class MergingPageOutput
 {
     @VisibleForTesting
-    static final int INSTANCE_SIZE = ClassLayout.parseClass(MergingPageOutput.class).instanceSize();
+    static final long INSTANCE_SIZE = ClassLayout.parseClass(MergingPageOutput.class).instanceSize();
     private static final int MAX_MIN_PAGE_SIZE = 1024 * 1024;
 
     private final List<Type> types;

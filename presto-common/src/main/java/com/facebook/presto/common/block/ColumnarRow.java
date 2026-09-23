@@ -20,7 +20,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class ColumnarRow
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnarRow.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ColumnarRow.class).instanceSize();
 
     private final Block nullCheckBlock;
     private final Block[] fields;

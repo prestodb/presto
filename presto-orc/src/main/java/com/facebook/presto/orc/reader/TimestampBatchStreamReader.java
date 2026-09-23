@@ -47,7 +47,7 @@ import static java.util.Objects.requireNonNull;
 public class TimestampBatchStreamReader
         implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampBatchStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(TimestampBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
 

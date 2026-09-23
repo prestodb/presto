@@ -27,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 
 public class SliceDictionaryBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryBuilder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryBuilder.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
     private static final int EMPTY_SLOT = -1;
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;

@@ -23,7 +23,7 @@ public class GroupedReservoirSampleState
         extends AbstractGroupedAccumulatorState
         implements ReservoirSampleState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedReservoirSampleState.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedReservoirSampleState.class).instanceSize();
     private final ObjectBigArray<ReservoirSample> samples = new ObjectBigArray<>();
     private long size;
 

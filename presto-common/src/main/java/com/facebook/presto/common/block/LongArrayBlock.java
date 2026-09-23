@@ -38,7 +38,7 @@ import static java.lang.String.format;
 public class LongArrayBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlock.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlock.class).instanceSize();
     public static final int SIZE_IN_BYTES_PER_POSITION = Long.BYTES + Byte.BYTES;
 
     private final int arrayOffset;

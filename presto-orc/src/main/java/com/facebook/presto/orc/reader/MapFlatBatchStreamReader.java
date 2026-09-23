@@ -71,7 +71,7 @@ import static java.util.Objects.requireNonNull;
 public class MapFlatBatchStreamReader
         implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapFlatBatchStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(MapFlatBatchStreamReader.class).instanceSize();
 
     private final MapType type;
     private final StreamDescriptor streamDescriptor;
