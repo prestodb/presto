@@ -54,8 +54,8 @@ class RestRemoteFunction : public velox::functions::RemoteVectorFunction {
     auto response =
         std::make_unique<velox::functions::remote::RemoteFunctionResponse>();
     velox::functions::remote::RemoteFunctionPage result;
-    result.payload_ref() = std::move(*responseBody);
-    response->result_ref() = std::move(result);
+    result.payload() = std::move(*responseBody);
+    response->result() = std::move(result);
     co_return response;
   }
 
