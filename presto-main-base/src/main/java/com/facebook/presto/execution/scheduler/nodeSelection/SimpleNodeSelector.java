@@ -206,12 +206,13 @@ public class SimpleNodeSelector
             }
 
             if (chosenNodeInfo.isPresent()) {
+                boolean cacheable = split.getConnectorSplit().isCacheable().orElse(true) && chosenNodeInfo.get().isCacheable();
                 split = new Split(
                         split.getConnectorId(),
                         split.getTransactionHandle(),
                         split.getConnectorSplit(),
                         split.getLifespan(),
-                        new SplitContext(chosenNodeInfo.get().isCacheable()));
+                        new SplitContext(cacheable));
 
                 InternalNode chosenNode = chosenNodeInfo.get().getInternalNode();
                 assignment.put(chosenNode, split);
