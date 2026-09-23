@@ -801,6 +801,13 @@ public class PrestoS3FileSystem
                 regionOrEndpointSet = true;
             }
         }
+        else {
+            String specifiedRegion = hadoopConfig.get(S3ConfigurationUpdater.S3_REGION);
+            if (specifiedRegion != null) {
+                clientBuilder = clientBuilder.withRegion(Regions.fromName(specifiedRegion));
+                regionOrEndpointSet = true;
+            }
+        }
 
         String endpoint = hadoopConfig.get(S3_ENDPOINT);
         if (endpoint != null) {
