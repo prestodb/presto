@@ -122,8 +122,7 @@ TEST_F(
       sanitizeTaskIdForPlanDumpFile("error:task/0.0.0.0"),
       "error_task_0_0_0_0");
   EXPECT_EQ(
-      sanitizeTaskIdForPlanDumpFile("errortask.0.0.0.0"),
-      "errortask_0_0_0_0");
+      sanitizeTaskIdForPlanDumpFile("errortask.0.0.0.0"), "errortask_0_0_0_0");
   EXPECT_NE(
       sanitizeTaskIdForPlanDumpFile("error-task.0.0.0.0"),
       sanitizeTaskIdForPlanDumpFile("errortask.0.0.0.0"));

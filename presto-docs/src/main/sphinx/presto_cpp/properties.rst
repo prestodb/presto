@@ -720,7 +720,7 @@ to ``<task-id>.json`` and accumulates task-source splits in
 ``<task-id>.splits.json``. Filenames are derived from a sanitized task ID,
 where characters other than letters, digits, ``_``, and ``-`` become ``_``.
 Useful for extracting plans from TPC-DS/TPC-H queries run via Presto to build
-Velox test plans (e.g. TpcdsQueryBuilder-style plans).
+Velox test plans like TpcdsQueryBuilder-style plans.
 
 Environment Variables As Values For Worker Properties
 -----------------------------------------------------
