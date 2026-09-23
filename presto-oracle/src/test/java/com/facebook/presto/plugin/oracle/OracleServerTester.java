@@ -37,37 +37,23 @@ public class OracleServerTester
 
     public OracleServerTester()
     {
-        super("wnameless/oracle-xe-11g-r2");
+        super("gvenzl/oracle-xe:11-slim");
 
-        withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/docker-entrypoint-initdb.d/init.sql");
+        // Set custom username, password and database for the container
+        withUsername(TEST_USER);
+        withPassword(TEST_PASS);
+        withDatabaseName(TEST_SCHEMA);
+        
+        withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/container-entrypoint-initdb.d/init.sql");
 
         start();
 
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
-                Statement statement = connection.createStatement()) {
-            // this is added to allow more processes on database, otherwise the tests end up giving
-            // ORA-12519, TNS:no appropriate service handler found
-            // ORA-12505, TNS:listener does not currently know of SID given in connect descriptor
-            // to fix this we have to change the number of processes of SPFILE
-            statement.execute("ALTER SYSTEM SET processes=1000 SCOPE=SPFILE");
-            statement.execute("ALTER SYSTEM SET disk_asynch_io = FALSE SCOPE = SPFILE");
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-        try {
-            execInContainer("/bin/bash", "/etc/init.d/oracle-xe", "restart");
-        }
-        catch (InterruptedException | IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        waitUntilContainerStarted();
+        // gvenzl/oracle-xe image creates the user automatically with the specified credentials
+        // Just need to create tablespace and grant additional privileges
         try (Connection connection = DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute(format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE", TEST_TABLESPACE));
-            statement.execute(format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s", TEST_USER, TEST_PASS, TEST_TABLESPACE));
+            statement.execute(format("ALTER USER %s DEFAULT TABLESPACE %s", TEST_USER, TEST_TABLESPACE));
             statement.execute(format("GRANT UNLIMITED TABLESPACE TO %s", TEST_USER));
             statement.execute(format("GRANT ALL PRIVILEGES TO %s", TEST_USER));
         }
