@@ -17,6 +17,7 @@
 #include <folly/init/Init.h>
 #include <folly/system/HardwareConcurrency.h>
 #include <gtest/gtest.h>
+#include <limits>
 
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/tool/trace/BroadcastWriteReplayer.h"
@@ -297,6 +298,7 @@ class BroadcastWriteReplayerTest : public HiveConnectorTestBase {
                 nodeId,
                 broadcastWriteNode->basePath(),
                 broadcastWriteNode->maxBroadcastBytes(),
+                broadcastWriteNode->targetFileSize(),
                 broadcastWriteNode->serdeRowType(),
                 std::make_shared<exec::trace::DummySourceNode>(
                     broadcastWriteNode->sources().front()->outputType()));
@@ -371,7 +373,7 @@ TEST_F(BroadcastWriteReplayerTest, basic) {
           .addNode([&](const std::string& id, core::PlanNodePtr input) {
             broadcastWriteNodeId = id;
             return std::make_shared<BroadcastWriteNode>(
-                id, originalBasePath, maxBroadcastBytes, outputType, input);
+                id, originalBasePath, maxBroadcastBytes, std::numeric_limits<uint64_t>::max(), outputType, input);
           })
           .planNode();
 
@@ -492,7 +494,7 @@ TEST_F(BroadcastWriteReplayerTest, multipleDrivers) {
           .addNode([&](std::string id, core::PlanNodePtr input) {
             broadcastWriteNodeId = id;
             return std::make_shared<BroadcastWriteNode>(
-                id, originalBasePath, maxBroadcastBytes, outputType, input);
+                id, originalBasePath, maxBroadcastBytes, std::numeric_limits<uint64_t>::max(), outputType, input);
           })
           .planNode();
 

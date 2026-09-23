@@ -2174,6 +2174,7 @@ void PrestoServer::registerTraceNodeFactories() {
               nodeId,
               broadcastWriteNode->basePath(),
               broadcastWriteNode->maxBroadcastBytes(),
+              broadcastWriteNode->targetFileSize(),
               broadcastWriteNode->serdeRowType(),
               std::make_shared<velox::exec::trace::DummySourceNode>(
                   broadcastWriteNode->sources().front()->outputType()));
