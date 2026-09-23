@@ -858,7 +858,8 @@ public class UnaliasSymbolReferences
                     newArgumentColumns,
                     canonicalize(node.getOutputVariable()),
                     node.getStreamingMode(),
-                    node.getDispatchBatchSize());
+                    node.getDispatchBatchSize(),
+                    node.getRiftTier());
         }
 
         @Override
