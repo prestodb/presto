@@ -19,6 +19,8 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.plugin.jdbc.JdbcIdentity;
+import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -66,10 +68,10 @@ public class ClickHousePageSink
     private int batchSize;
     private int commitBatchSize;
 
-    public ClickHousePageSink(ConnectorSession session, ClickHouseOutputTableHandle handle, ClickHouseClient clickHouseClient)
+    public ClickHousePageSink(ConnectorSession session, JdbcOutputTableHandle handle, ClickHouseClient clickHouseClient)
     {
         try {
-            connection = clickHouseClient.getConnection(ClickHouseIdentity.from(session), handle);
+            connection = clickHouseClient.getConnection(JdbcIdentity.from(session), handle);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);

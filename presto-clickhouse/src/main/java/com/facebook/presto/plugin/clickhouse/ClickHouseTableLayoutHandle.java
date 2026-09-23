@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.clickhouse;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseExpression;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator;
+import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -29,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class ClickHouseTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
-    private final ClickHouseTableHandle table;
+    private final JdbcTableHandle table;
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<ClickHouseExpression> additionalPredicate;
     private Optional<String> simpleExpression;
@@ -37,7 +38,7 @@ public class ClickHouseTableLayoutHandle
 
     @JsonCreator
     public ClickHouseTableLayoutHandle(
-            @JsonProperty("table") ClickHouseTableHandle table,
+            @JsonProperty("table") JdbcTableHandle table,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> domain,
             @JsonProperty("additionalPredicate") Optional<ClickHouseExpression> additionalPredicate,
             @JsonProperty("simpleExpression") Optional<String> simpleExpression,
@@ -68,7 +69,7 @@ public class ClickHouseTableLayoutHandle
     }
 
     @JsonProperty
-    public ClickHouseTableHandle getTable()
+    public JdbcTableHandle getTable()
     {
         return table;
     }
