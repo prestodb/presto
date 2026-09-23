@@ -29,6 +29,7 @@
 #include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/connectors/hive/iceberg/IcebergTableHandle.h"
+#include "velox/functions/prestosql/types/UuidType.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/Filter.h"
 
@@ -194,6 +195,61 @@ TEST_F(PrestoToVeloxConnectorTest, icebergTableSchemaFieldIds) {
   handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
   ASSERT_NE(handle, nullptr);
   EXPECT_TRUE(handle->dataColumnFieldIds().empty());
+}
+
+// Iceberg's Hive type mapping erases UUID to the Hive string type, so
+// dataColumns describes a uuid column as a varchar. dataColumns becomes the
+// reader's file schema, so the type has to be restored from the Iceberg
+// schema, at the top level and inside nested types alike.
+TEST_F(PrestoToVeloxConnectorTest, icebergRestoresUuidDataColumnTypes) {
+  protocol::List<protocol::Column> dataColumns;
+  protocol::Column uuidColumn;
+  uuidColumn.name = "uuid_field";
+  uuidColumn.type = "string";
+  dataColumns.push_back(uuidColumn);
+  protocol::Column nestedColumn;
+  nestedColumn.name = "nested";
+  nestedColumn.type = "struct<id:bigint,u:string>";
+  dataColumns.push_back(nestedColumn);
+
+  auto layout = std::make_shared<protocol::iceberg::IcebergTableLayoutHandle>();
+  setCommonLayoutProperties(layout, dataColumns, createTrueConstant());
+
+  auto icebergHandle =
+      std::make_shared<protocol::iceberg::IcebergTableHandle>();
+  icebergHandle->schemaName = "test_schema";
+  icebergHandle->icebergTableName.tableName = "test_table";
+  icebergHandle->tableSchemaJson = std::make_shared<std::string>(
+      R"({"schema-id":0,"fields":[{"id":1,"name":"uuid_field","required":false,"type":"uuid"},{"id":2,"name":"nested","required":false,"type":{"type":"struct","fields":[{"id":3,"name":"id","required":false,"type":"long"},{"id":4,"name":"u","required":false,"type":"uuid"}]}}]})");
+
+  protocol::TableHandle tableHandle;
+  tableHandle.connectorId = "iceberg";
+  tableHandle.connectorHandle = icebergHandle;
+  tableHandle.connectorTableLayout = layout;
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto result = icebergConnector.toVeloxTableHandle(
+      tableHandle, *exprConverter_, *typeParser_);
+  auto* handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
+  ASSERT_NE(handle, nullptr);
+
+  auto dataColumnsType = handle->dataColumns();
+  ASSERT_NE(dataColumnsType, nullptr);
+  ASSERT_EQ(dataColumnsType->size(), 2);
+  EXPECT_TRUE(isUuidType(dataColumnsType->childAt(0)));
+  const auto& nestedType = dataColumnsType->childAt(1);
+  ASSERT_TRUE(nestedType->isRow());
+  EXPECT_EQ(nestedType->childAt(0)->kind(), TypeKind::BIGINT);
+  EXPECT_TRUE(isUuidType(nestedType->childAt(1)));
+
+  // Without the Iceberg schema there is nothing to restore from, so the
+  // Hive-erased type stands.
+  icebergHandle->tableSchemaJson.reset();
+  result = icebergConnector.toVeloxTableHandle(
+      tableHandle, *exprConverter_, *typeParser_);
+  handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
+  ASSERT_NE(handle, nullptr);
+  EXPECT_EQ(handle->dataColumns()->childAt(0)->kind(), TypeKind::VARCHAR);
 }
 
 TEST_F(PrestoToVeloxConnectorTest, nestedColumnsDisableFieldIdMapping) {

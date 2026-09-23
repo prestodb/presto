@@ -121,6 +121,17 @@ public final class ExpressionConverter
             return alwaysTrue();
         }
 
+        // Iceberg orders a uuid by its canonical big-endian bytes, which is also how the literal below would be
+        // built, but Presto's Parquet writer stores each 64-bit half of a uuid byte-reversed (see UuidValuesWriter),
+        // so the lower and upper bounds recorded in a manifest are in a different order. Evaluating a predicate
+        // against those bounds prunes data files that do contain matching rows, so leave value predicates on uuid
+        // columns to the engine, which reads both sides consistently. IS [NOT] NULL predicates are handled above and
+        // are unaffected because Iceberg evaluates them from null counts alone.
+        // TODO: Push these down again once the writer stores uuid bytes in the order the Parquet spec prescribes.
+        if (type instanceof UuidType) {
+            return alwaysTrue();
+        }
+
         ValueSet domainValues = domain.getValues();
         Expression expression = null;
         if (domain.isNullAllowed()) {
