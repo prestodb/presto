@@ -935,6 +935,12 @@ public class PrestoNativeQueryRunnerUtils
                         configProperties = format("%s%nchar-n-to-varchar-implicit-cast=true%n", configProperties);
                     }
 
+                    // Velox's mmap allocator requires 4KB pages. macOS on Apple Silicon uses 16KB pages, where the
+                    // worker aborts during startup, so fall back to the malloc allocator on those machines.
+                    if (System.getProperty("os.name", "").startsWith("Mac") && "aarch64".equals(System.getProperty("os.arch"))) {
+                        configProperties = format("%s%nuse-mmap-allocator=false%n", configProperties);
+                    }
+
                     if (enableCudf) {
                         configProperties = format("%s%n" +
                                 "cudf.enabled=true%n" +
