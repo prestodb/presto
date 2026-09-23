@@ -25,10 +25,10 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
+import io.jsonwebtoken.JwtParserBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SignatureException;
-import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.jackson.io.JacksonDeserializer;
 import jakarta.inject.Inject;
@@ -64,7 +64,7 @@ public class JsonWebTokenAuthenticator
     private static final String KEY_ID_VARIABLE = "${KID}";
 
     private final JwtParser jwtParser;
-    private final Function<JwsHeader<?>, Key> keyLoader;
+    private final Function<JwsHeader, Key> keyLoader;
 
     @Inject
     public JsonWebTokenAuthenticator(JsonWebTokenConfig config)
@@ -78,34 +78,17 @@ public class JsonWebTokenAuthenticator
             keyLoader = new StaticKeyLoader(config.getKeyFile());
         }
 
-        JwtParser jwtParser = Jwts.parserBuilder()
-                .deserializeJsonWith(new JacksonDeserializer<>(ImmutableMap.of(AUTHORIZED_IDENTITY_ATTRIBUTE, AuthorizedIdentity.class)))
-                .setSigningKeyResolver(new SigningKeyResolver()
-                {
-                    // interface uses raw types and this can not be fixed here
-                    @SuppressWarnings("rawtypes")
-                    @Override
-                    public Key resolveSigningKey(JwsHeader header, Claims claims)
-                    {
-                        return keyLoader.apply(header);
-                    }
-
-                    @SuppressWarnings("rawtypes")
-                    @Override
-                    public Key resolveSigningKey(JwsHeader header, String plaintext)
-                    {
-                        return keyLoader.apply(header);
-                    }
-                })
-                .build();
+        JwtParserBuilder parserBuilder = Jwts.parser()
+                .json(new JacksonDeserializer<>(ImmutableMap.of(AUTHORIZED_IDENTITY_ATTRIBUTE, AuthorizedIdentity.class)))
+                .keyLocator(header -> keyLoader.apply((JwsHeader) header));
 
         if (config.getRequiredIssuer() != null) {
-            jwtParser.requireIssuer(config.getRequiredIssuer());
+            parserBuilder.requireIssuer(config.getRequiredIssuer());
         }
         if (config.getRequiredAudience() != null) {
-            jwtParser.requireAudience(config.getRequiredAudience());
+            parserBuilder.requireAudience(config.getRequiredAudience());
         }
-        this.jwtParser = jwtParser;
+        this.jwtParser = parserBuilder.build();
     }
 
     @Override
@@ -124,14 +107,14 @@ public class JsonWebTokenAuthenticator
         }
 
         try {
-            Jws<Claims> claimsJws = jwtParser.parseClaimsJws(token);
+            Jws<Claims> claimsJws = jwtParser.parseSignedClaims(token);
 
-            AuthorizedIdentity authorizedIdentity = claimsJws.getBody().get(AUTHORIZED_IDENTITY_ATTRIBUTE, AuthorizedIdentity.class);
+            AuthorizedIdentity authorizedIdentity = claimsJws.getPayload().get(AUTHORIZED_IDENTITY_ATTRIBUTE, AuthorizedIdentity.class);
             if (authorizedIdentity != null) {
                 setAuthorizedIdentity(request, authorizedIdentity);
             }
 
-            String subject = claimsJws.getBody().getSubject();
+            String subject = claimsJws.getPayload().getSubject();
             return new BasicPrincipal(subject);
         }
         catch (JwtException e) {
@@ -148,7 +131,7 @@ public class JsonWebTokenAuthenticator
     }
 
     private static class StaticKeyLoader
-            implements Function<JwsHeader<?>, Key>
+            implements Function<JwsHeader, Key>
     {
         private final LoadedKey key;
 
@@ -160,7 +143,7 @@ public class JsonWebTokenAuthenticator
         }
 
         @Override
-        public Key apply(JwsHeader<?> header)
+        public Key apply(JwsHeader header)
         {
             SignatureAlgorithm algorithm = SignatureAlgorithm.forName(header.getAlgorithm());
             return key.getKey(algorithm);
@@ -168,7 +151,7 @@ public class JsonWebTokenAuthenticator
     }
 
     private static class DynamicKeyLoader
-            implements Function<JwsHeader<?>, Key>
+            implements Function<JwsHeader, Key>
     {
         private final String keyFile;
         private final ConcurrentMap<String, LoadedKey> keys = new ConcurrentHashMap<>();
@@ -181,14 +164,14 @@ public class JsonWebTokenAuthenticator
         }
 
         @Override
-        public Key apply(JwsHeader<?> header)
+        public Key apply(JwsHeader header)
         {
             String keyId = getKeyId(header);
             SignatureAlgorithm algorithm = SignatureAlgorithm.forName(header.getAlgorithm());
             return keys.computeIfAbsent(keyId, this::loadKey).getKey(algorithm);
         }
 
-        private static String getKeyId(JwsHeader<?> header)
+        private static String getKeyId(JwsHeader header)
         {
             String keyId = header.getKeyId();
             if (keyId == null) {
