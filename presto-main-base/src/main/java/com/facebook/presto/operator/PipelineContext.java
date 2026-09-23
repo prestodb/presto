@@ -46,7 +46,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
@@ -189,13 +188,13 @@ public class PipelineContext
             completedSplitsWeight.addAndGet(driverContext.getSplitWeight());
         }
 
-        queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
-        elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
+        queuedTime.add(driverStats.getQueuedTimeInNanos());
+        elapsedTime.add(driverStats.getElapsedTimeInNanos());
 
-        totalScheduledTime.getAndAdd(driverStats.getTotalScheduledTime().roundTo(NANOSECONDS));
-        totalCpuTime.getAndAdd(driverStats.getTotalCpuTime().roundTo(NANOSECONDS));
+        totalScheduledTime.getAndAdd(driverStats.getTotalScheduledTimeInNanos());
+        totalCpuTime.getAndAdd(driverStats.getTotalCpuTimeInNanos());
 
-        totalBlockedTime.getAndAdd(driverStats.getTotalBlockedTime().roundTo(NANOSECONDS));
+        totalBlockedTime.getAndAdd(driverStats.getTotalBlockedTimeInNanos());
 
         totalAllocation.getAndAdd(driverStats.getTotalAllocationInBytes());
 
@@ -394,12 +393,12 @@ public class PipelineContext
                 blockedReasons.addAll(driverStats.getBlockedReasons());
             }
 
-            queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
-            elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
+            queuedTime.add(driverStats.getQueuedTimeInNanos());
+            elapsedTime.add(driverStats.getElapsedTimeInNanos());
 
-            totalScheduledTime += driverStats.getTotalScheduledTime().roundTo(NANOSECONDS);
-            totalCpuTime += driverStats.getTotalCpuTime().roundTo(NANOSECONDS);
-            totalBlockedTime += driverStats.getTotalBlockedTime().roundTo(NANOSECONDS);
+            totalScheduledTime += driverStats.getTotalScheduledTimeInNanos();
+            totalCpuTime += driverStats.getTotalCpuTimeInNanos();
+            totalBlockedTime += driverStats.getTotalBlockedTimeInNanos();
 
             totalAllocation += driverStats.getTotalAllocationInBytes();
 

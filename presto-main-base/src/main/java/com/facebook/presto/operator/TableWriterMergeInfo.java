@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
@@ -22,46 +21,44 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThriftStruct
 public class TableWriterMergeInfo
         implements Mergeable<TableWriterMergeInfo>, OperatorInfo
 {
-    private final Duration statisticsWallTime;
-    private final Duration statisticsCpuTime;
+    private final long statisticsWallTimeInNanos;
+    private final long statisticsCpuTimeInNanos;
 
     @JsonCreator
     @ThriftConstructor
     public TableWriterMergeInfo(
-            @JsonProperty("statisticsWallTime") Duration statisticsWallTime,
-            @JsonProperty("statisticsCpuTime") Duration statisticsCpuTime)
+            @JsonProperty("statisticsWallTimeInNanos") long statisticsWallTimeInNanos,
+            @JsonProperty("statisticsCpuTimeInNanos") long statisticsCpuTimeInNanos)
     {
-        this.statisticsWallTime = requireNonNull(statisticsWallTime, "statisticsWallTime is null");
-        this.statisticsCpuTime = requireNonNull(statisticsCpuTime, "statisticsCpuTime is null");
+        this.statisticsWallTimeInNanos = statisticsWallTimeInNanos;
+        this.statisticsCpuTimeInNanos = statisticsCpuTimeInNanos;
     }
 
     @JsonProperty
     @ThriftField(1)
-    public Duration getStatisticsWallTime()
+    public long getStatisticsWallTimeInNanos()
     {
-        return statisticsWallTime;
+        return statisticsWallTimeInNanos;
     }
 
     @JsonProperty
     @ThriftField(2)
-    public Duration getStatisticsCpuTime()
+    public long getStatisticsCpuTimeInNanos()
     {
-        return statisticsCpuTime;
+        return statisticsCpuTimeInNanos;
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("statisticsWallTime", statisticsWallTime)
-                .add("statisticsCpuTime", statisticsCpuTime)
+                .add("statisticsWallTimeInNanos", statisticsWallTimeInNanos)
+                .add("statisticsCpuTimeInNanos", statisticsCpuTimeInNanos)
                 .toString();
     }
 
@@ -69,8 +66,8 @@ public class TableWriterMergeInfo
     public TableWriterMergeInfo mergeWith(TableWriterMergeInfo other)
     {
         return new TableWriterMergeInfo(
-                new Duration(this.statisticsWallTime.toMillis() + other.statisticsWallTime.toMillis(), MILLISECONDS),
-                new Duration(this.statisticsCpuTime.toMillis() + other.statisticsCpuTime.toMillis(), MILLISECONDS));
+                this.statisticsWallTimeInNanos + other.statisticsWallTimeInNanos,
+                this.statisticsCpuTimeInNanos + other.statisticsCpuTimeInNanos);
     }
 
     @Override
