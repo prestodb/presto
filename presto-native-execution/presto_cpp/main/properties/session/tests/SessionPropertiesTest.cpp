@@ -23,6 +23,8 @@ class SessionPropertiesTest : public testing::Test {};
 
 TEST_F(SessionPropertiesTest, validateMapping) {
   const std::unordered_map<std::string, std::string> expectedMappings = {
+      {SessionProperties::kBroadcastFileDescriptorEnabled,
+       SessionProperties::kBroadcastFileDescriptorEnabled},
       {SessionProperties::kExprEvalSimplified,
        core::QueryConfig::kExprEvalSimplified},
       {SessionProperties::kExprMaxArraySizeInReduce,

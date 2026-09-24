@@ -741,6 +741,17 @@ SessionProperties::SessionProperties() {
       QueryConfig::kAggregationMemoryCompactionReclaimEnabled,
       util::boolToLowerCaseString(
           c.aggregationMemoryCompactionReclaimEnabled()));
+
+  addSessionProperty(
+      kBroadcastFileDescriptorEnabled,
+      "Native Execution only. If true, the storage broadcast writer serializes "
+      "a file descriptor alongside each broadcast file so readers can open it "
+      "without a per-reader metadata lookup. Set false to fall back to path "
+      "opens.",
+      BOOLEAN(),
+      false,
+      std::nullopt,
+      "true");
 }
 
 bool SessionProperties::useVeloxGeospatialJoin() const {

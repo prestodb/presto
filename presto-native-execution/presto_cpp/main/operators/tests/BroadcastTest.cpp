@@ -18,6 +18,7 @@
 #include "presto_cpp/main/operators/BroadcastFile.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
+#include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "velox/buffer/Buffer.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/compression/Compression.h"
@@ -553,6 +554,96 @@ class DescriptorRejectingFileSystem : public velox::filesystems::FileSystem {
  private:
   const std::shared_ptr<velox::filesystems::FileSystem> delegate_;
 };
+
+constexpr std::string_view kDescribingScheme{"test-describing:"};
+constexpr std::string_view kDescribingDescriptor{"a-file-descriptor"};
+
+// Describes every file with a fixed handle, standing in for a file system that
+// supports descriptors, and delegates the rest to the local one. The local file
+// system returns no handle, so without this the writer's descriptor branch is
+// unreachable from a unit test.
+class DescribingFileSystem : public velox::filesystems::FileSystem {
+ public:
+  explicit DescribingFileSystem(
+      std::shared_ptr<const velox::config::ConfigBase> config)
+      : velox::filesystems::FileSystem(std::move(config)),
+        delegate_(velox::filesystems::getFileSystem("/", nullptr)) {}
+
+  std::string name() const override {
+    return "Describing";
+  }
+
+  std::string_view extractPath(std::string_view path) const override {
+    return path.substr(kDescribingScheme.size());
+  }
+
+  std::optional<std::string> serializeExtraFileInfo(
+      std::string_view /*path*/,
+      const velox::filesystems::FileOptions& /*options*/ = {}) override {
+    return std::string{kDescribingDescriptor};
+  }
+
+  std::unique_ptr<velox::ReadFile> openFileForRead(
+      std::string_view path,
+      const velox::filesystems::FileOptions& options = {}) override {
+    return delegate_->openFileForRead(extractPath(path), options);
+  }
+
+  std::unique_ptr<velox::WriteFile> openFileForWrite(
+      std::string_view path,
+      const velox::filesystems::FileOptions& options = {}) override {
+    return delegate_->openFileForWrite(extractPath(path), options);
+  }
+
+  void remove(std::string_view path) override {
+    delegate_->remove(extractPath(path));
+  }
+
+  void rename(
+      std::string_view oldPath,
+      std::string_view newPath,
+      bool overwrite = false) override {
+    delegate_->rename(extractPath(oldPath), extractPath(newPath), overwrite);
+  }
+
+  bool exists(std::string_view path) override {
+    return delegate_->exists(extractPath(path));
+  }
+
+  std::vector<std::string> list(std::string_view path) override {
+    return delegate_->list(extractPath(path));
+  }
+
+  void mkdir(
+      std::string_view path,
+      const velox::filesystems::DirectoryOptions& options = {}) override {
+    delegate_->mkdir(extractPath(path), options);
+  }
+
+  void rmdir(std::string_view path) override {
+    delegate_->rmdir(extractPath(path));
+  }
+
+ private:
+  const std::shared_ptr<velox::filesystems::FileSystem> delegate_;
+};
+
+// Registers once: velox keeps every registration in one global list, and the
+// fixture's SetUp() runs per test.
+void registerDescribingFileSystem() {
+  [[maybe_unused]] static const bool registered = [] {
+    velox::filesystems::registerFileSystem(
+        [](std::string_view path) {
+          return path.starts_with(kDescribingScheme);
+        },
+        [](std::shared_ptr<const velox::config::ConfigBase> config,
+           std::string_view)
+            -> std::shared_ptr<velox::filesystems::FileSystem> {
+          return std::make_shared<DescribingFileSystem>(std::move(config));
+        });
+    return true;
+  }();
+}
 } // namespace
 
 TEST_P(BroadcastTest, broadcastReaderFallsBackWhenTheHandleIsRejected) {
@@ -600,6 +691,81 @@ TEST_P(BroadcastTest, broadcastReaderFallsBackWhenTheHandleIsRejected) {
     ++pagesRead;
   }
   EXPECT_EQ(pagesRead, pageSizes.size());
+}
+
+TEST_P(BroadcastTest, broadcastWriterHonoursTheHandleReuseGate) {
+  // With the gate off the writer must not even ask the file system for a
+  // handle, so the descriptor column stays empty and readers open by path.
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto fileSystem =
+      velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+  fileSystem->mkdir(tempDirectoryPath->getPath());
+
+  auto writer = std::make_unique<BroadcastFileWriter>(
+      fmt::format("{}/broadcast_gate_off", tempDirectoryPath->getPath()),
+      std::numeric_limits<uint64_t>::max(),
+      1 << 20,
+      getVectorSerdeOptions(GetParam().compressionKind),
+      pool(),
+      /*descriptorEnabled=*/false);
+  writer->write(makeRowVector(
+      {makeFlatVector<int32_t>(4, [](auto row) { return row; })}));
+  writer->noMoreData();
+
+  const auto stats = writer->fileStats();
+  ASSERT_NE(stats, nullptr);
+  ASSERT_EQ(stats->childrenSize(), 4);
+  EXPECT_TRUE(stats->childAt(3)
+                  ->as<SimpleVector<StringView>>()
+                  ->valueAt(0)
+                  .str()
+                  .empty());
+}
+
+TEST_P(BroadcastTest, broadcastWriteOperatorReadsTheGateFromTheQueryConfig) {
+  registerDescribingFileSystem();
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  const auto basePath =
+      fmt::format("{}{}", kDescribingScheme, tempDirectoryPath->getPath());
+
+  // Runs the operator rather than constructing the writer, so the gate has to
+  // travel from the query config through BroadcastWriteOperator to reach it.
+  const auto descriptorWritten =
+      [&](std::unordered_map<std::string, std::string> configs) {
+        configs[core::QueryConfig::kShuffleCompressionKind] =
+            common::compressionKindToString(GetParam().compressionKind);
+
+        exec::CursorParameters params;
+        params.planNode = exec::test::PlanBuilder()
+                              .values({makeRowVector({makeFlatVector<int32_t>(
+                                  4, [](auto row) { return row; })})})
+                              .addNode(addBroadcastWriteNode(basePath))
+                              .planNode();
+        params.queryCtx = core::QueryCtx::create(
+            executor_.get(), core::QueryConfig(std::move(configs)));
+
+        auto [taskCursor, results] = exec::test::readCursor(params);
+        VELOX_CHECK_EQ(results.size(), 1);
+        return results[0]
+            ->childAt(3)
+            ->as<SimpleVector<StringView>>()
+            ->valueAt(0)
+            .str();
+      };
+
+  const auto expected =
+      encoding::Base64::encodeUrl(std::string{kDescribingDescriptor});
+
+  // Unset, so the operator has to supply the default of on itself.
+  EXPECT_EQ(descriptorWritten({}), expected);
+  EXPECT_EQ(
+      descriptorWritten(
+          {{SessionProperties::kBroadcastFileDescriptorEnabled, "true"}}),
+      expected);
+  EXPECT_EQ(
+      descriptorWritten(
+          {{SessionProperties::kBroadcastFileDescriptorEnabled, "false"}}),
+      "");
 }
 
 TEST_P(BroadcastTest, broadcastReaderCountsItsOpenPath) {
