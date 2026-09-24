@@ -29,6 +29,22 @@ target_link_libraries(
   GTest::gtest_main
 )
 
+add_executable(presto_rest_remote_client_test RestRemoteClientTest.cpp)
+
+add_test(
+  NAME presto_rest_remote_client_test
+  COMMAND presto_rest_remote_client_test
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+target_link_libraries(
+  presto_rest_remote_client_test
+  presto_functions_rest_client
+  velox_exception
+  GTest::gtest
+  GTest::gtest_main
+)
+
 add_executable(presto_rest_function_registration_test PrestoRestFunctionRegistrationTest.cpp)
 
 add_test(presto_rest_function_registration_test presto_rest_function_registration_test)

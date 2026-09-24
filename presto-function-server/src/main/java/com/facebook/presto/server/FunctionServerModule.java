@@ -16,6 +16,8 @@ package com.facebook.presto.server;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.event.client.NullEventClient;
+import com.facebook.airlift.http.server.Authenticator;
+import com.facebook.airlift.http.server.CertificateAuthenticator;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
@@ -45,6 +47,7 @@ import java.util.Set;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
 public class FunctionServerModule
         extends AbstractConfigurationAwareModule
@@ -66,6 +69,15 @@ public class FunctionServerModule
         configBinder(binder).bindConfig(PluginManagerConfig.class);
         configBinder(binder).bindConfig(FunctionsConfig.class);
         configBinder(binder).bindConfig(FeaturesConfig.class);
+
+        // Enforce client-certificate authentication on every HTTPS request.
+        // For HTTPS, any request that arrives without a client certificate
+        // signed by the configured truststore CA receives HTTP 401.
+        // Note: Airlift hardcodes setWantClientAuth(true) in HttpServer, so the TLS
+        // handshake itself does not reject a missing cert at the network level. This binding
+        // ensures the application layer always rejects unauthenticated HTTPS callers.
+        newSetBinder(binder, Authenticator.class)
+                .addBinding().to(CertificateAuthenticator.class).in(Scopes.SINGLETON);
     }
 
     @Provides
