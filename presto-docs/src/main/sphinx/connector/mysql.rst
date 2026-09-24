@@ -141,6 +141,22 @@ queryable, at the cost of Presto no longer treating them as views:
 
 ``CREATE VIEW`` and ``CREATE OR REPLACE VIEW`` work in both modes.
 
+A view created through Presto records the Presto user as its MySQL
+``DEFINER``, with the host ``%``, and the view security mode as its
+``SQL SECURITY``, so the owner and security mode are read back unchanged.
+Naming a ``DEFINER`` other than the connection user requires the MySQL user in
+``connection-user`` to hold the ``SET_USER_ID`` privilege (``SET_ANY_DEFINER``
+from MySQL 8.2), or ``SUPER``. Without it, ``CREATE VIEW`` fails with
+``Access denied; you need (at least one of) the SUPER or SET_USER_ID
+privilege(s)``.
+
+MySQL runs a ``SECURITY DEFINER`` view as its ``DEFINER``, so if the Presto
+user has no MySQL account of the same name, MySQL cannot read the view
+itself. Presto still reads it with ``enable-datasource-managed-views=false``,
+because it only reads the view definition from MySQL, but not through a
+catalog with ``enable-datasource-managed-views=true`` or directly in MySQL.
+Create the view with ``SECURITY INVOKER`` if it has to be readable that way.
+
 The property is set per catalog, so two catalogs over the same MySQL server
 can use different modes:
 

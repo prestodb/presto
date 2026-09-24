@@ -330,7 +330,7 @@ public class MySqlClient
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     SchemaTableName viewName = viewName(session, prefix, resultSet);
-                    String owner = resultSet.getString("DEFINER");
+                    String owner = definerUser(resultSet.getString("DEFINER"));
                     ViewDefinition viewDefinition = getViewDefinition(resultSet, session, connectorId, viewName, owner);
 
                     views.put(viewName, new ConnectorViewDefinition(
@@ -387,6 +387,18 @@ public class MySqlClient
                 normalizeIdentifier(session, resultSet.getString("TABLE_NAME")));
     }
 
+    /**
+     * Returns the user part of a DEFINER as INFORMATION_SCHEMA.VIEWS reports it, an unquoted
+     * user@host. The owner of a view created through Presto is the Presto user, stored with the
+     * host % by {@link #createView}. A user name may itself contain an @, as an email address
+     * does, but a host cannot, so the split is on the last one.
+     */
+    static String definerUser(String definer)
+    {
+        int separator = definer.lastIndexOf('@');
+        return separator < 0 ? definer : definer.substring(0, separator);
+    }
+
     private ViewDefinition getViewDefinition(ResultSet resultSet, ConnectorSession session, String connectorId, SchemaTableName schemaTableName, String owner)
             throws SQLException
     {
@@ -412,7 +424,9 @@ public class MySqlClient
                 Optional.of(connectorId),
                 Optional.of(schemaName),
                 columns,
-                Optional.of(owner),
+                // an INVOKER view has no owner, as CreateViewTask records it, so the analyzer runs
+                // the view as the querying user rather than as the definer
+                runAsInvoker ? Optional.empty() : Optional.of(owner),
                 runAsInvoker);
     }
 
@@ -450,18 +464,24 @@ public class MySqlClient
         SchemaTableName viewName = viewMetadata.getTable();
         JdbcIdentity identity = JdbcIdentity.from(session);
 
-        // Deserialize the Presto-internal ViewDefinition JSON to extract originalSql
-        String originalSql = viewCodec.fromJson(viewData).getOriginalSql();
+        ViewDefinition viewDefinition = viewCodec.fromJson(viewData);
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             String schema = toRemoteSchemaName(session, identity, connection, viewName.getSchemaName());
             String view = toRemoteTableName(session, identity, connection, schema, viewName.getTableName());
 
+            // Without an explicit DEFINER, MySQL records the connection user, so the Presto user who
+            // created the view would be lost. Naming another account requires the connection user
+            // to hold SET_USER_ID (SET_ANY_DEFINER from MySQL 8.2) or SUPER. The Presto user is
+            // stored with the host % since Presto has no notion of the client host.
             String sql = format(
-                    "%s VIEW %s AS %s",
+                    "%s DEFINER = %s@%s SQL SECURITY %s VIEW %s AS %s",
                     replace ? "CREATE OR REPLACE" : "CREATE",
+                    quoted(session.getUser()),
+                    quoted("%"),
+                    viewDefinition.isRunAsInvoker() ? "INVOKER" : "DEFINER",
                     quotedRemoteName(schema, view),
-                    originalSql);
+                    viewDefinition.getOriginalSql());
             execute(connection, sql);
         }
         catch (SQLException e) {
