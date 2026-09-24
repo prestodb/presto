@@ -42,43 +42,7 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
         </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto.spark</groupId>
-            <artifactId>spark-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
     </dependencies>
-
-    <profiles>
-        <profile>
-            <id>spark3</id>
-
-            <activation>
-                <property>
-                    <name>spark-version</name>
-                    <value>3</value>
-                </property>
-            </activation>
-
-            <dependencies>
-                <dependency>
-                    <groupId>com.facebook.presto.spark</groupId>
-                    <artifactId>spark-core</artifactId>
-                    <version>3.4.1-1</version>
-                    <scope>provided</scope>
-                </dependency>
-
-                <dependency>
-                    <groupId>org.scala-lang</groupId>
-                    <artifactId>scala-library</artifactId>
-                    <scope>provided</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
-
 
     <build>
         <plugins>
