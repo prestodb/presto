@@ -398,6 +398,30 @@ public class ParquetPageSourceFactory
         return Optional.of(type);
     }
 
+    private static boolean checkNonAnnotatedVariantStructure(org.apache.parquet.schema.Type parquetType)
+    {
+        if (parquetType instanceof GroupType) {
+            GroupType groupType = parquetType.asGroupType();
+            // for now there is only unshedded variant support
+            if (groupType.getFieldCount() != 2) {
+                return false;
+            }
+            List<org.apache.parquet.schema.Type> children = groupType.getFields();
+            if (children.size() != 2) {
+                return false;
+            }
+            return children.get(0).isPrimitive() && children.get(1).isPrimitive() &&
+                    PrimitiveTypeName.BINARY.equals(children.get(0).asPrimitiveType().getPrimitiveTypeName()) &&
+                    PrimitiveTypeName.BINARY.equals(children.get(1).asPrimitiveType().getPrimitiveTypeName()) &&
+                    org.apache.parquet.schema.Type.Repetition.REQUIRED.equals(children.get(0).getRepetition()) &&
+                    org.apache.parquet.schema.Type.Repetition.REQUIRED.equals(children.get(1).getRepetition()) &&
+                    // handle the case where data and metadata order is flipped
+                    (("value".equals(children.get(0).getName()) && "metadata".equals(children.get(1).getName())) ||
+                            ("value".equals(children.get(1).getName()) && "metadata".equals(children.get(0).getName())));
+        }
+        return false;
+    }
+
     public static boolean checkSchemaMatch(org.apache.parquet.schema.Type parquetType, Type type)
     {
         String prestoType = type.getTypeSignature().getBase();
@@ -455,7 +479,8 @@ public class ParquetPageSourceFactory
                     return checkSchemaMatch(bagGroupType, type.getTypeParameters().get(0)) ||
                             (bagGroupType.getFields().size() == 1 && checkSchemaMatch(bagGroupType.getFields().get(0), type.getTypeParameters().get(0)));
                 case JSON:
-                    return parquetType.asGroupType().getLogicalTypeAnnotation() instanceof LogicalTypeAnnotation.VariantLogicalTypeAnnotation;
+                    boolean isVariantAnnotated = parquetType.asGroupType().getLogicalTypeAnnotation() instanceof LogicalTypeAnnotation.VariantLogicalTypeAnnotation;
+                    return isVariantAnnotated || checkNonAnnotatedVariantStructure(parquetType);
                 default:
                     return false;
             }
