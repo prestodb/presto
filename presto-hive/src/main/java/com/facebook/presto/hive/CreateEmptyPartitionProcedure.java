@@ -117,7 +117,7 @@ public class CreateEmptyPartitionProcedure
         }
 
         List<String> partitionStringValues = partitionValues.stream()
-                .map(value -> value == null ? HIVE_DEFAULT_DYNAMIC_PARTITION : String.class.cast(value))
+                .map(value -> value == null ? HIVE_DEFAULT_DYNAMIC_PARTITION : (String) value)
                 .collect(toImmutableList());
 
         if (metastore.getPartition(new MetastoreContext(

@@ -1398,10 +1398,48 @@ public class TestHiveIntegrationSmokeTest
                 session,
                 format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY[NULL])", TPCH_SCHEMA, tableName));
         assertQuery(format("SELECT part FROM \"%s$partitions\"", tableName), "VALUES 'empty', NULL");
+        assertQuery("SELECT count(*) FROM " + tableName + " WHERE part IS NULL", "SELECT 0");
         assertQueryFails(
                 format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY[NULL])", TPCH_SCHEMA, tableName),
                 "Partition already exists.*");
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testInsertIntoEmptyNullPartition()
+    {
+        testInsertIntoEmptyNullPartition(false);
+        testInsertIntoEmptyNullPartition(true);
+    }
+
+    private void testInsertIntoEmptyNullPartition(boolean optimizedPartitionUpdateSerializationEnabled)
+    {
+        String tableName = "test_insert_into_empty_null_partition";
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
+                .build();
+        assertUpdate(session, "" +
+                "CREATE TABLE " + tableName + " (" +
+                "  dummy_col bigint," +
+                "  part varchar)" +
+                "WITH (" +
+                "  format = 'ORC', " +
+                "  partitioned_by = ARRAY[ 'part' ] " +
+                ")");
+        try {
+            assertUpdate(
+                    session,
+                    format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY[NULL])", TPCH_SCHEMA, tableName));
+            assertQuery(session, format("SELECT part FROM \"%s$partitions\"", tableName), "VALUES CAST(NULL AS VARCHAR)");
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " WHERE part IS NULL", "SELECT 0");
+
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, NULL)", 1);
+            assertQuery(session, format("SELECT part FROM \"%s$partitions\"", tableName), "VALUES CAST(NULL AS VARCHAR)");
+            assertQuery(session, "SELECT dummy_col FROM " + tableName + " WHERE part IS NULL", "SELECT 1");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE " + tableName);
+        }
     }
 
     @Test
