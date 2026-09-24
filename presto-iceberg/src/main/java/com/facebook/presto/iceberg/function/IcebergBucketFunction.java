@@ -34,17 +34,17 @@ public final class IcebergBucketFunction
     private IcebergBucketFunction() {}
 
     @ScalarFunction("bucket")
-    @SqlType(StandardTypes.BIGINT)
-    public static long bucketInteger(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.INTEGER) long numberOfBuckets)
+    @SqlType(StandardTypes.INTEGER)
+    public static long bucketInteger(@SqlType(StandardTypes.INTEGER) long numberOfBuckets, @SqlType(StandardTypes.BIGINT) long value)
     {
-        return Transforms.bucket((int) numberOfBuckets)
+        return (long) Transforms.bucket((int) numberOfBuckets)
                 .bind(Types.LongType.get())
                 .apply(value);
     }
 
     @ScalarFunction("bucket")
-    @SqlType(StandardTypes.BIGINT)
-    public static long bucketVarchar(@SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(StandardTypes.INTEGER) long numberOfBuckets)
+    @SqlType(StandardTypes.INTEGER)
+    public static long bucketVarchar(@SqlType(StandardTypes.INTEGER) long numberOfBuckets, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
         return (long) Transforms.bucket((int) numberOfBuckets)
                 .bind(Types.StringType.get())
@@ -52,8 +52,8 @@ public final class IcebergBucketFunction
     }
 
     @ScalarFunction("bucket")
-    @SqlType(StandardTypes.BIGINT)
-    public static long bucketVarbinary(@SqlType(StandardTypes.VARBINARY) Slice value, @SqlType(StandardTypes.INTEGER) long numberOfBuckets)
+    @SqlType(StandardTypes.INTEGER)
+    public static long bucketVarbinary(@SqlType(StandardTypes.INTEGER) long numberOfBuckets, @SqlType(StandardTypes.VARBINARY) Slice value)
     {
         return (long) Transforms.bucket((int) numberOfBuckets)
                 .bind(Types.BinaryType.get())
@@ -61,28 +61,28 @@ public final class IcebergBucketFunction
     }
 
     @ScalarFunction("bucket")
-    @SqlType(StandardTypes.BIGINT)
-    public static long bucketDate(@SqlType(StandardTypes.DATE) long value, @SqlType(StandardTypes.INTEGER) long numberOfBuckets)
+    @SqlType(StandardTypes.INTEGER)
+    public static long bucketDate(@SqlType(StandardTypes.INTEGER) long numberOfBuckets, @SqlType(StandardTypes.DATE) long value)
     {
-        return Transforms.bucket((int) numberOfBuckets)
+        return (long) Transforms.bucket((int) numberOfBuckets)
                 .bind(Types.DateType.get())
                 .apply((int) value);
     }
 
     @ScalarFunction("bucket")
-    @SqlType(StandardTypes.BIGINT)
-    public static long bucketTimestamp(@SqlType(StandardTypes.TIMESTAMP) long value, @SqlType(StandardTypes.INTEGER) long numberOfBuckets)
+    @SqlType(StandardTypes.INTEGER)
+    public static long bucketTimestamp(@SqlType(StandardTypes.INTEGER) long numberOfBuckets, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
-        return Transforms.bucket((int) numberOfBuckets)
+        return (long) Transforms.bucket((int) numberOfBuckets)
                 .bind(Types.TimestampType.withoutZone())
                 .apply(value);
     }
 
     @ScalarFunction("bucket")
-    @SqlType(StandardTypes.BIGINT)
-    public static long bucketTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value, @SqlType(StandardTypes.INTEGER) long numberOfBuckets)
+    @SqlType(StandardTypes.INTEGER)
+    public static long bucketTimestampWithTimeZone(@SqlType(StandardTypes.INTEGER) long numberOfBuckets, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        return Transforms.bucket((int) numberOfBuckets)
+        return (long) Transforms.bucket((int) numberOfBuckets)
                 .bind(Types.TimestampType.withZone())
                 .apply(unpackMillisUtc(value) * MICROSECONDS_PER_MILLISECOND);
     }
@@ -91,19 +91,19 @@ public final class IcebergBucketFunction
     public static final class Bucket
     {
         @LiteralParameters({"p", "s"})
-        @SqlType(StandardTypes.BIGINT)
-        public static long bucketShortDecimal(@LiteralParameter("p") long numPrecision, @LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") long value, @SqlType(StandardTypes.INTEGER) long numberOfBuckets)
+        @SqlType(StandardTypes.INTEGER)
+        public static long bucketShortDecimal(@LiteralParameter("p") long numPrecision, @LiteralParameter("s") long numScale, @SqlType(StandardTypes.INTEGER) long numberOfBuckets, @SqlType("decimal(p, s)") long value)
         {
-            return Transforms.bucket((int) numberOfBuckets)
+            return (long) Transforms.bucket((int) numberOfBuckets)
                     .bind(Types.DecimalType.of((int) numPrecision, (int) numScale))
                     .apply(BigDecimal.valueOf(value));
         }
 
         @LiteralParameters({"p", "s"})
-        @SqlType(StandardTypes.BIGINT)
-        public static long bucketLongDecimal(@LiteralParameter("p") long numPrecision, @LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Slice value, @SqlType(StandardTypes.INTEGER) long numberOfBuckets)
+        @SqlType(StandardTypes.INTEGER)
+        public static long bucketLongDecimal(@LiteralParameter("p") long numPrecision, @LiteralParameter("s") long numScale, @SqlType(StandardTypes.INTEGER) long numberOfBuckets, @SqlType("decimal(p, s)") Slice value)
         {
-            return Transforms.bucket((int) numberOfBuckets)
+            return (long) Transforms.bucket((int) numberOfBuckets)
                     .bind(Types.DecimalType.of((int) numPrecision, (int) numScale))
                     .apply(new BigDecimal(decodeUnscaledValue(value), (int) numScale, new MathContext((int) numPrecision)));
         }
