@@ -28,6 +28,18 @@ public interface TempStorage
     void remove(TempDataOperationContext context, TempStorageHandle handle)
             throws IOException;
 
+    default boolean exists(TempDataOperationContext context, TempStorageHandle handle)
+            throws IOException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default boolean createIfNotExists(TempDataOperationContext context, TempStorageHandle handle, byte[] data)
+            throws IOException
+    {
+        throw new UnsupportedOperationException();
+    }
+
     TempStorageHandle getRootDirectoryHandle();
 
     byte[] serializeHandle(TempStorageHandle storageHandle);
