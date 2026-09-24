@@ -24,6 +24,7 @@ import com.facebook.presto.plugin.jdbc.JdbcMetadataConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -41,6 +42,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.MYSQL_CATALOG;
@@ -69,7 +71,9 @@ public class TestMySqlMetadata
             this.mysqlContainer.execInContainer("mysql",
                     "-u", "root",
                     "-p" + mysqlContainer.getPassword(),
-                    "-e", "CREATE DATABASE IF NOT EXISTS test_database; GRANT ALL PRIVILEGES ON test_database.* TO 'testuser'@'%';");
+                    // SET_USER_ID lets the connection user create views with the Presto user as DEFINER
+                    "-e", "CREATE DATABASE IF NOT EXISTS test_database; GRANT ALL PRIVILEGES ON test_database.* TO 'testuser'@'%'; " +
+                            "GRANT SET_USER_ID ON *.* TO 'testuser'@'%';");
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to set up test_database", e);
@@ -230,9 +234,8 @@ public class TestMySqlMetadata
         assertEquals(view.getField(0), MYSQL_CATALOG);
         assertEquals(view.getField(1), "tpch");
         assertEquals(view.getField(2), viewName);
-        // the owner comes from MySQL's DEFINER column, which is the account that ran CREATE VIEW
-        assertTrue(((String) view.getField(3)).startsWith(mysqlContainer.getUsername() + "@"),
-                "View owner should be the MySQL DEFINER account, was: " + view.getField(3));
+        // the owner is the Presto user who created the view, not the connection user
+        assertEquals(view.getField(3), getSession().getUser());
 
         // MySQL stores its own canonical form of the definition, so assert on what has to survive:
         // the projected columns, and no back ticks, which the Presto analyzer cannot parse.
@@ -249,6 +252,52 @@ public class TestMySqlMetadata
                 "SELECT orderkey, custkey, orderstatus FROM orders WHERE orderkey < 100");
 
         dropViewIfExists(viewName);
+    }
+
+    @Test
+    public void testViewOwnerAndSecurityRoundTrip()
+            throws SQLException
+    {
+        // alice exercises a name MySQL has to quote, carol one that contains the @ separating
+        // user from host in the DEFINER that INFORMATION_SCHEMA.VIEWS reports
+        String definerView = "test_definer_view";
+        String invokerView = "test_invoker_view";
+        String emailOwnerView = "test_email_owner_view";
+        dropViewIfExists(new String[] {definerView, invokerView, emailOwnerView});
+
+        assertUpdate(sessionFor("alice"), "CREATE VIEW " + definerView + " SECURITY DEFINER AS SELECT orderkey FROM tpch.orders");
+        assertUpdate(sessionFor("bob"), "CREATE VIEW " + invokerView + " SECURITY INVOKER AS SELECT orderkey FROM tpch.orders");
+        assertUpdate(sessionFor("carol@example.com"), "CREATE VIEW " + emailOwnerView + " AS SELECT orderkey FROM tpch.orders");
+
+        // MySQL records the Presto user as DEFINER and the requested security mode
+        assertEquals(mySqlViewSecurity(definerView), "alice@% DEFINER");
+        assertEquals(mySqlViewSecurity(invokerView), "bob@% INVOKER");
+        assertEquals(mySqlViewSecurity(emailOwnerView), "carol@example.com@% DEFINER");
+
+        // read back through Presto, a DEFINER view is owned by its creator, while an INVOKER view
+        // has no owner, the same as CreateViewTask records it, so it runs as the querying user
+        assertQuery(
+                "SELECT table_name, view_owner FROM information_schema.views " +
+                        "WHERE table_schema = 'tpch' AND table_name IN ('" + definerView + "', '" + invokerView + "', '" + emailOwnerView + "')",
+                "VALUES ('" + definerView + "', 'alice'), ('" + invokerView + "', NULL), ('" + emailOwnerView + "', 'carol@example.com')");
+        assertTrue(showCreateView(definerView).contains("SECURITY DEFINER"), showCreateView(definerView));
+        assertTrue(showCreateView(invokerView).contains("SECURITY INVOKER"), showCreateView(invokerView));
+
+        // replacing a view as another user moves ownership and security mode to the new definition
+        assertUpdate(sessionFor("bob"), "CREATE OR REPLACE VIEW " + definerView + " SECURITY INVOKER AS SELECT orderkey FROM tpch.orders");
+        assertEquals(mySqlViewSecurity(definerView), "bob@% INVOKER");
+        assertTrue(showCreateView(definerView).contains("SECURITY INVOKER"), showCreateView(definerView));
+
+        dropViewIfExists(new String[] {definerView, invokerView, emailOwnerView});
+    }
+
+    @Test
+    public void testDefinerUser()
+    {
+        assertEquals(MySqlClient.definerUser("alice@%"), "alice");
+        assertEquals(MySqlClient.definerUser("root@localhost"), "root");
+        assertEquals(MySqlClient.definerUser("carol@example.com@%"), "carol@example.com");
+        assertEquals(MySqlClient.definerUser("nohost"), "nohost");
     }
 
     @Test
@@ -384,6 +433,36 @@ public class TestMySqlMetadata
         // a later transaction gets a cache of its own, so it goes back to MySQL
         metadataFactory.create().getTableHandle(session, tableName);
         assertEquals(cacheStats.getTableHandleCacheMiss(), 2);
+    }
+
+    private Session sessionFor(String user)
+    {
+        return testSessionBuilder()
+                .setCatalog(MYSQL_CATALOG)
+                .setSchema("tpch")
+                .setIdentity(new Identity(user, Optional.empty()))
+                .build();
+    }
+
+    private String showCreateView(String viewName)
+    {
+        return (String) computeActual("SHOW CREATE VIEW " + viewName).getOnlyValue();
+    }
+
+    private String mySqlViewSecurity(String viewName)
+            throws SQLException
+    {
+        try (Connection connection = DriverManager.getConnection(
+                mysqlContainer.getJdbcUrl(),
+                mysqlContainer.getUsername(),
+                mysqlContainer.getPassword());
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(
+                        "SELECT DEFINER, SECURITY_TYPE FROM information_schema.views " +
+                                "WHERE table_schema = 'tpch' AND table_name = '" + viewName + "'")) {
+            assertTrue(rs.next(), "View " + viewName + " should exist in MySQL");
+            return rs.getString("DEFINER") + " " + rs.getString("SECURITY_TYPE");
+        }
     }
 
     private boolean viewExistsInMySQL(String viewName)
