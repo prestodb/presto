@@ -424,6 +424,18 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testReadUuidColumn()
+    {
+        try {
+            assertUpdate("CREATE TABLE test_read_uuid_column (uuid_field uuid)");
+            assertQuerySucceeds("SELECT * FROM test_read_uuid_column");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_read_uuid_column");
+        }
+    }
+
+    @Test
     public void createTableWithEveryType()
     {
         @Language("SQL") String query = "" +
