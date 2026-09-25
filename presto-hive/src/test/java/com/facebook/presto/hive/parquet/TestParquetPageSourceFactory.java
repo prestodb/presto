@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.type.JsonType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveType;
@@ -21,19 +22,25 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Types;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.checkSchemaMatch;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.getColumnType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestParquetPageSourceFactory
@@ -119,5 +126,124 @@ public class TestParquetPageSourceFactory
         GroupType address = new GroupType(REQUIRED, "address", ImmutableList.of(city, block));
         MessageType messageType = new MessageType("root", ImmutableList.of(name, age, address));
         return messageType;
+    }
+
+    @Test
+    public void testReadAnnotatedVariant()
+    {
+        final String expectedToString = "optional group variant_name (VARIANT(1)) {\n" +
+                "  required binary metadata;\n" +
+                "  required binary value;\n" +
+                "}";
+        GroupType variantType = Types.optionalGroup()
+                .as(LogicalTypeAnnotation.variantType((byte) 0x01))
+                .addField(new PrimitiveType(REQUIRED, BINARY, "metadata"))
+                .addField(new PrimitiveType(REQUIRED, BINARY, "value"))
+                .named("variant_name");
+        assertEquals(variantType.toString(), expectedToString);
+        assertTrue(checkSchemaMatch(variantType, JsonType.JSON));
+    }
+
+    @Test
+    public void testReadNonLogicallyAnnotatedVariant()
+    {
+        final String expectedToString = "optional group variant_name {\n" +
+                "  required binary metadata;\n" +
+                "  required binary value;\n" +
+                "}";
+        GroupType variantType = Types.optionalGroup()
+                .addField(new PrimitiveType(REQUIRED, BINARY, "metadata"))
+                .addField(new PrimitiveType(REQUIRED, BINARY, "value"))
+                .named("variant_name");
+        assertEquals(variantType.toString(), expectedToString);
+        assertTrue(checkSchemaMatch(variantType, JsonType.JSON));
+    }
+
+    @Test
+    public void testReadNonLogicallyAnnotatedVariantShiftedValueAndMetadataFields()
+    {
+        final String expectedToString = "optional group variant_name {\n" +
+                "  required binary value;\n" +
+                "  required binary metadata;\n" +
+                "}";
+        GroupType variantType = Types.optionalGroup()
+                .addField(new PrimitiveType(REQUIRED, BINARY, "value"))
+                .addField(new PrimitiveType(REQUIRED, BINARY, "metadata"))
+                .named("variant_name");
+        assertEquals(variantType.toString(), expectedToString);
+        assertTrue(checkSchemaMatch(variantType, JsonType.JSON));
+    }
+
+    @Test
+    public void testReadNonLogicallyAnnotatedVariantLessThanTwoFields()
+    {
+        final String expectedToString = "optional group variant_name {\n" +
+                "  required binary metadata;\n" +
+                "}";
+        GroupType variantType = Types.optionalGroup()
+                .addField(new PrimitiveType(REQUIRED, BINARY, "metadata"))
+                .named("variant_name");
+        assertEquals(variantType.toString(), expectedToString);
+        assertFalse(checkSchemaMatch(variantType, JsonType.JSON));
+    }
+
+    @Test
+    public void testReadNonLogicallyAnnotatedVariantMoreThanTwoFields()
+    {
+        final String expectedToString = "optional group variant_name {\n" +
+                "  required binary metadata;\n" +
+                "  optional binary value;\n" +
+                "  optional int64 typed_value;\n" +
+                "}";
+        GroupType variantType = Types.optionalGroup()
+                .addField(new PrimitiveType(REQUIRED, BINARY, "metadata"))
+                .addField(new PrimitiveType(OPTIONAL, BINARY, "value"))
+                .addField(new PrimitiveType(OPTIONAL, INT64, "typed_value"))
+                .named("variant_name");
+        assertEquals(variantType.toString(), expectedToString);
+        assertFalse(checkSchemaMatch(variantType, JsonType.JSON));
+    }
+
+    @Test
+    public void testReadNonLogicallyAnnotatedVariantNoGroupType()
+    {
+        final String expectedToString = "optional binary variant_name";
+        PrimitiveType variantType = new PrimitiveType(OPTIONAL, BINARY, "variant_name");
+        assertEquals(variantType.toString(), expectedToString);
+        assertFalse(checkSchemaMatch(variantType, JsonType.JSON));
+    }
+
+    @Test
+    public void testReadNonAnnotatedVariantWithWrongRepetitionLevel()
+    {
+        final String expectedToString = "optional group variant_name {\n" +
+                "  optional binary metadata;\n" +
+                "  required binary value;\n" +
+                "}";
+        GroupType variantType = Types.optionalGroup()
+                .addField(new PrimitiveType(OPTIONAL, BINARY, "metadata"))
+                .addField(new PrimitiveType(REQUIRED, BINARY, "value"))
+                .named("variant_name");
+        assertEquals(variantType.toString(), expectedToString);
+        assertFalse(checkSchemaMatch(variantType, JsonType.JSON));
+    }
+
+    @Test
+    public void testReadNonAnnotatedVariantGroupWithoutPrimitiveChild()
+    {
+        final String expectedToString = "optional group variant_name {\n" +
+                "  optional group inner {\n" +
+                "    optional binary metadata;\n" +
+                "  }\n" +
+                "  required binary value;\n" +
+                "}";
+        GroupType variantType = Types.optionalGroup()
+                .addField(Types.optionalGroup()
+                        .addField(new PrimitiveType(OPTIONAL, BINARY, "metadata"))
+                        .named("inner"))
+                .addField(new PrimitiveType(REQUIRED, BINARY, "value"))
+                .named("variant_name");
+        assertEquals(variantType.toString(), expectedToString);
+        assertFalse(checkSchemaMatch(variantType, JsonType.JSON));
     }
 }
