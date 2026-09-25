@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.iceberg.container;
 
-import com.facebook.presto.testing.containers.MinIOContainer;
+import com.facebook.presto.testing.containers.S3MockContainer;
 import com.facebook.presto.util.AutoCloseableCloser;
-import com.google.common.collect.ImmutableMap;
 import org.testcontainers.containers.Network;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -34,35 +33,31 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
 
-public class IcebergMinIODataLake
+public class IcebergS3DataLake
         implements Closeable
 {
-    public static final String ACCESS_KEY = "minioadmin";
-    public static final String SECRET_KEY = "minioadmin";
+    public static final String ACCESS_KEY = "accesskey";
+    public static final String SECRET_KEY = "secretkey";
 
     private final String bucketName;
     private final String warehouseDir;
-    private final MinIOContainer minIOContainer;
+    private final S3MockContainer s3Container;
     private final AtomicBoolean isStarted = new AtomicBoolean(false);
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
-    public IcebergMinIODataLake(String bucketName, String warehouseDir)
+    public IcebergS3DataLake(String bucketName, String warehouseDir)
     {
         this(bucketName, warehouseDir, newNetwork());
     }
 
-    public IcebergMinIODataLake(String bucketName, String warehouseDir, Network network)
+    public IcebergS3DataLake(String bucketName, String warehouseDir, Network network)
     {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         this.warehouseDir = requireNonNull(warehouseDir, "warehouseDir is null");
         closer.register(network);
-        this.minIOContainer = closer.register(
-                MinIOContainer.builder()
+        this.s3Container = closer.register(
+                S3MockContainer.builder()
                         .withNetwork(network)
-                        .withEnvVars(ImmutableMap.<String, String>builder()
-                                .put("MINIO_ACCESS_KEY", ACCESS_KEY)
-                                .put("MINIO_SECRET_KEY", SECRET_KEY)
-                                .build())
                         .build());
     }
 
@@ -73,18 +68,13 @@ public class IcebergMinIODataLake
         }
 
         try {
-            this.minIOContainer.start();
+            this.s3Container.start();
 
             S3Client s3Client = S3Client.builder()
-                    .endpointOverride(URI.create("http://localhost:" + minIOContainer.getMinioApiEndpoint().getPort()))
+                    .endpointOverride(URI.create("http://localhost:" + s3Container.getApiEndpoint().getPort()))
                     .region(Region.US_EAST_1)
-                    .forcePathStyle(true)
                     .serviceConfiguration(S3Configuration.builder()
-                            // Disable checksum validation and chunked encoding for MinIO compatibility
-                            // MinIO checksum handling differs from AWS S3
-                            // Prevents chunked transfer encoding issues with MinIO
-                            .checksumValidationEnabled(false)
-                            .chunkedEncodingEnabled(false)
+                            .pathStyleAccessEnabled(true)
                             .build())
                     .credentialsProvider(StaticCredentialsProvider.create(
                             AwsBasicCredentials.create(ACCESS_KEY, SECRET_KEY)))
@@ -125,13 +115,13 @@ public class IcebergMinIODataLake
             isStarted.set(false);
         }
         catch (Exception e) {
-            throw new RuntimeException("Failed to stop IcebergMinioDataLake", e);
+            throw new RuntimeException("Failed to stop IcebergS3DataLake", e);
         }
     }
 
-    public MinIOContainer getMinio()
+    public S3MockContainer getS3Container()
     {
-        return minIOContainer;
+        return s3Container;
     }
 
     @Override

@@ -14,34 +14,33 @@
 package com.facebook.presto.testing.containers;
 
 import com.facebook.airlift.log.Logger;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import org.testcontainers.containers.Network;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static java.lang.String.format;
-
-public class MinIOContainer
+public class S3MockContainer
         extends BaseTestContainer
 {
-    private static final Logger log = Logger.get(MinIOContainer.class);
+    private static final Logger log = Logger.get(S3MockContainer.class);
 
-    public static final String DEFAULT_IMAGE = "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z";
-    public static final String DEFAULT_HOST_NAME = "minio";
+    // Adobe S3Mock (Apache 2.0) — S3-compatible mock; accepts any AWS credentials.
+    public static final String DEFAULT_IMAGE = "adobe/s3mock:5.2.3";
+    public static final String DEFAULT_HOST_NAME = "s3mock";
 
-    public static final int MINIO_API_PORT = 4566;
-    public static final int MINIO_CONSOLE_PORT = 4567;
+    public static final int S3_PORT = 4566;
 
     public static Builder builder()
     {
         return new Builder();
     }
 
-    private MinIOContainer(
+    private S3MockContainer(
             String image,
             String hostName,
             Set<Integer> exposePorts,
@@ -61,54 +60,43 @@ public class MinIOContainer
     }
 
     @Override
-    protected void setupContainer()
-    {
-        super.setupContainer();
-        withRunCommand(
-                ImmutableList.of(
-                        "server",
-                        "--address", "0.0.0.0:" + MINIO_API_PORT,
-                        "--console-address", "0.0.0.0:" + MINIO_CONSOLE_PORT,
-                        "/data"));
-    }
-
-    @Override
     protected void startContainer()
     {
         super.startContainer();
-        log.info(format(
-                "MinIO container started with address for api: http://%s and console: http://%s",
-                getMinioApiEndpoint().toString(),
-                getMinioConsoleEndpoint().toString()));
+        log.info("S3Mock container started with address: http://%s", getApiEndpoint().toString());
     }
 
-    public HostAndPort getMinioApiEndpoint()
+    public HostAndPort getApiEndpoint()
     {
-        return getMappedHostAndPortForExposedPort(MINIO_API_PORT);
-    }
-
-    public HostAndPort getMinioConsoleEndpoint()
-    {
-        return getMappedHostAndPortForExposedPort(MINIO_CONSOLE_PORT);
+        return getMappedHostAndPortForExposedPort(S3_PORT);
     }
 
     public static class Builder
-            extends BaseTestContainer.Builder<MinIOContainer.Builder, MinIOContainer>
+            extends BaseTestContainer.Builder<S3MockContainer.Builder, S3MockContainer>
     {
         private Builder()
         {
             this.image = DEFAULT_IMAGE;
             this.hostName = DEFAULT_HOST_NAME;
-            this.exposePorts =
-                    ImmutableSet.of(
-                            MINIO_API_PORT,
-                            MINIO_CONSOLE_PORT);
+            this.exposePorts = ImmutableSet.of(S3_PORT);
+            // HTTP_PORT sets S3Mock's plain-HTTP connector (server.port / SERVER_PORT controls HTTPS)
+            this.envVars = ImmutableMap.of("HTTP_PORT", String.valueOf(S3_PORT));
         }
 
         @Override
-        public MinIOContainer build()
+        public Builder withEnvVars(Map<String, String> envVars)
         {
-            return new MinIOContainer(image, hostName, exposePorts, filesToMount, envVars, network, startupRetryLimit);
+            // Use a mutable intermediate map so HTTP_PORT always wins, even if caller passes it
+            Map<String, String> merged = new LinkedHashMap<>(envVars);
+            merged.put("HTTP_PORT", String.valueOf(S3_PORT));
+            this.envVars = ImmutableMap.copyOf(merged);
+            return this;
+        }
+
+        @Override
+        public S3MockContainer build()
+        {
+            return new S3MockContainer(image, hostName, exposePorts, filesToMount, envVars, network, startupRetryLimit);
         }
     }
 }

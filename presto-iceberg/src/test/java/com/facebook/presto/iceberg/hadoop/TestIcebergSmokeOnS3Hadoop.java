@@ -26,7 +26,7 @@ import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergDistributedSmokeTestBase;
 import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
-import com.facebook.presto.iceberg.container.IcebergMinIODataLake;
+import com.facebook.presto.iceberg.container.IcebergS3DataLake;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
@@ -46,8 +46,8 @@ import java.net.URI;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
-import static com.facebook.presto.iceberg.container.IcebergMinIODataLake.ACCESS_KEY;
-import static com.facebook.presto.iceberg.container.IcebergMinIODataLake.SECRET_KEY;
+import static com.facebook.presto.iceberg.container.IcebergS3DataLake.ACCESS_KEY;
+import static com.facebook.presto.iceberg.container.IcebergS3DataLake.SECRET_KEY;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
@@ -60,7 +60,7 @@ public class TestIcebergSmokeOnS3Hadoop
     final String bucketName;
     final String catalogWarehouseDir;
 
-    private IcebergMinIODataLake dockerizedS3DataLake;
+    private IcebergS3DataLake dockerizedS3DataLake;
     HostAndPort hostAndPort;
 
     public TestIcebergSmokeOnS3Hadoop()
@@ -91,9 +91,9 @@ public class TestIcebergSmokeOnS3Hadoop
     public void init()
             throws Exception
     {
-        this.dockerizedS3DataLake = new IcebergMinIODataLake(bucketName, WAREHOUSE_DATA_DIR);
+        this.dockerizedS3DataLake = new IcebergS3DataLake(bucketName, WAREHOUSE_DATA_DIR);
         this.dockerizedS3DataLake.start();
-        hostAndPort = this.dockerizedS3DataLake.getMinio().getMinioApiEndpoint();
+        hostAndPort = this.dockerizedS3DataLake.getS3Container().getApiEndpoint();
         super.init();
     }
 

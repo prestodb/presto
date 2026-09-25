@@ -18,7 +18,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.facebook.presto.testing.containers.MinIOContainer;
+import com.facebook.presto.testing.containers.S3MockContainer;
 import com.facebook.presto.util.AutoCloseableCloser;
 import com.google.common.collect.ImmutableMap;
 import org.testcontainers.containers.Network;
@@ -41,7 +41,7 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
 
-public class HiveMinIODataLake
+public class HiveS3DataLake
         implements Closeable
 {
     public static final String ACCESS_KEY = "accesskey";
@@ -49,28 +49,24 @@ public class HiveMinIODataLake
     private static final Object SSL_LOCK = new Object();
 
     private final String bucketName;
-    private final MinIOContainer minIOContainer;
+    private final S3MockContainer s3Container;
     private final HiveHadoopContainer hiveHadoopContainer;
 
     private final AtomicBoolean isStarted = new AtomicBoolean(false);
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
-    public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
+    public HiveS3DataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
     {
         this(bucketName, hiveHadoopFilesToMount, HiveHadoopContainer.DEFAULT_IMAGE, false);
     }
 
-    public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, boolean isSslEnabledTest)
+    public HiveS3DataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, boolean isSslEnabledTest)
     {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         Network network = closer.register(newNetwork());
-        this.minIOContainer = closer.register(
-                MinIOContainer.builder()
+        this.s3Container = closer.register(
+                S3MockContainer.builder()
                         .withNetwork(network)
-                        .withEnvVars(ImmutableMap.<String, String>builder()
-                                .put("MINIO_ACCESS_KEY", ACCESS_KEY)
-                                .put("MINIO_SECRET_KEY", SECRET_KEY)
-                                .build())
                         .build());
 
         ImmutableMap.Builder filesToMount = ImmutableMap.<String, String>builder()
@@ -124,12 +120,12 @@ public class HiveMinIODataLake
             return;
         }
         try {
-            this.minIOContainer.start();
+            this.s3Container.start();
             this.hiveHadoopContainer.start();
             AmazonS3 s3Client = AmazonS3ClientBuilder
                     .standard()
                     .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                            "http://localhost:" + minIOContainer.getMinioApiEndpoint().getPort(),
+                            "http://localhost:" + s3Container.getApiEndpoint().getPort(),
                             "us-east-1"))
                     .withPathStyleAccessEnabled(true)
                     .withCredentials(new AWSStaticCredentialsProvider(
@@ -156,16 +152,16 @@ public class HiveMinIODataLake
             closer.close();
         }
         catch (Exception e) {
-            throw new RuntimeException("Failed to stop HiveMinioDataLake", e);
+            throw new RuntimeException("Failed to stop HiveS3DataLake", e);
         }
         finally {
             isStarted.set(false);
         }
     }
 
-    public MinIOContainer getMinio()
+    public S3MockContainer getS3Container()
     {
-        return minIOContainer;
+        return s3Container;
     }
 
     public HiveHadoopContainer getHiveHadoop()
