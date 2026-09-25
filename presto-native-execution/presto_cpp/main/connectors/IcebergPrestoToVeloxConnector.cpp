@@ -25,6 +25,7 @@
 #include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/connectors/hive/iceberg/IcebergTableHandle.h"
+#include "velox/functions/prestosql/types/UuidType.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
 namespace facebook::presto {
@@ -157,6 +158,114 @@ velox::dwio::common::FileFormat toVeloxReadFileFormat(
   return toVeloxFileFormat(format);
 }
 
+// Returns the Iceberg JSON type of every top-level column, keyed by column
+// name. Unlike the Hive type strings in dataColumns, the schema JSON describes
+// the Iceberg types exactly, and unlike the column handles it covers every
+// column rather than only the projected and predicate ones.
+std::unordered_map<std::string, folly::dynamic> parseTopLevelFieldTypes(
+    const std::shared_ptr<protocol::String>& tableSchemaJson) {
+  if (tableSchemaJson == nullptr || tableSchemaJson->empty()) {
+    return {};
+  }
+
+  try {
+    const auto schema = folly::parseJson(*tableSchemaJson);
+    const auto* fields = schema.get_ptr("fields");
+    if (fields == nullptr || !fields->isArray()) {
+      return {};
+    }
+
+    std::unordered_map<std::string, folly::dynamic> fieldTypes;
+    fieldTypes.reserve(fields->size());
+    for (const auto& field : *fields) {
+      const auto* name = field.get_ptr("name");
+      const auto* type = field.get_ptr("type");
+      if (name == nullptr || !name->isString() || type == nullptr) {
+        continue;
+      }
+      fieldTypes.emplace(name->asString(), *type);
+    }
+    return fieldTypes;
+  } catch (const folly::json::parse_error&) {
+    return {};
+  } catch (const folly::TypeError&) {
+    return {};
+  }
+}
+
+// Hive's type system cannot express every Iceberg type: Iceberg's
+// HiveSchemaUtil maps UUID to the Hive string type, so a uuid column arrives
+// in dataColumns as a varchar. dataColumns becomes the reader's file schema,
+// so the reader would decode the 16 bytes of a Parquet UUID column as a
+// string and hand the scan a varchar vector where the plan declares UUID.
+// Restore UUID from the Iceberg schema, walking the Hive type and the Iceberg
+// JSON type in lockstep. Types the Hive mapping merely widens (Iceberg int to
+// Hive int) are faithful and are left alone.
+velox::TypePtr restoreUuidTypes(
+    const velox::TypePtr& hiveType,
+    const folly::dynamic& icebergType) {
+  if (icebergType.isString()) {
+    return icebergType.asString() == "uuid" ? velox::UUID() : hiveType;
+  }
+  if (!icebergType.isObject()) {
+    return hiveType;
+  }
+  const auto* kind = icebergType.get_ptr("type");
+  if (kind == nullptr || !kind->isString()) {
+    return hiveType;
+  }
+  const auto kindName = kind->asString();
+
+  // Iceberg struct fields are in the same order as the Hive struct fields, but
+  // Hive sanitizes field names, so walk them positionally.
+  if (kindName == "struct" && hiveType->isRow()) {
+    const auto* fields = icebergType.get_ptr("fields");
+    if (fields == nullptr || !fields->isArray() ||
+        fields->size() != hiveType->size()) {
+      return hiveType;
+    }
+    std::vector<velox::TypePtr> children;
+    children.reserve(hiveType->size());
+    bool changed = false;
+    for (auto i = 0; i < hiveType->size(); ++i) {
+      const auto* fieldType = (*fields)[i].get_ptr("type");
+      children.push_back(
+          fieldType == nullptr
+              ? hiveType->childAt(i)
+              : restoreUuidTypes(hiveType->childAt(i), *fieldType));
+      changed = changed || children.back() != hiveType->childAt(i);
+    }
+    return changed ? velox::ROW(hiveType->asRow().names(), std::move(children))
+                   : hiveType;
+  }
+
+  if (kindName == "list" && hiveType->isArray()) {
+    const auto* element = icebergType.get_ptr("element");
+    if (element == nullptr) {
+      return hiveType;
+    }
+    auto elementType = restoreUuidTypes(hiveType->childAt(0), *element);
+    return elementType == hiveType->childAt(0)
+        ? hiveType
+        : velox::ARRAY(std::move(elementType));
+  }
+
+  if (kindName == "map" && hiveType->isMap()) {
+    const auto* key = icebergType.get_ptr("key");
+    const auto* value = icebergType.get_ptr("value");
+    if (key == nullptr || value == nullptr) {
+      return hiveType;
+    }
+    auto keyType = restoreUuidTypes(hiveType->childAt(0), *key);
+    auto valueType = restoreUuidTypes(hiveType->childAt(1), *value);
+    return keyType == hiveType->childAt(0) && valueType == hiveType->childAt(1)
+        ? hiveType
+        : velox::MAP(std::move(keyType), std::move(valueType));
+  }
+
+  return hiveType;
+}
+
 std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
     const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
@@ -166,6 +275,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     const std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>&
         columnHandles,
     const std::unordered_map<std::string, int32_t>& fieldIdsByName,
+    const std::unordered_map<std::string, folly::dynamic>& icebergTypesByName,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) {
   velox::common::SubfieldFilters subfieldFilters;
@@ -195,6 +305,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     velox::type::fbhive::HiveTypeParser hiveTypeParser;
     names.reserve(dataColumns.size());
     types.reserve(dataColumns.size());
+
     for (auto& column : dataColumns) {
       // For iceberg, the column name should be consistent with
       // names in iceberg manifest file. The names in iceberg
@@ -205,8 +316,13 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
       // The type from the metastore may have upper case letters
       // in field names, convert them all to lower case to be
       // compatible with Presto.
-      types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
-          fieldNamesToLowerCase, parsedType->kind(), parsedType));
+      auto type = VELOX_DYNAMIC_TYPE_DISPATCH(
+          fieldNamesToLowerCase, parsedType->kind(), parsedType);
+      const auto icebergType = icebergTypesByName.find(column.name);
+      if (icebergType != icebergTypesByName.end()) {
+        type = restoreUuidTypes(type, icebergType->second);
+      }
+      types.push_back(std::move(type));
     }
 
     // Row-lineage columns are not included in the table's dataColumns but may
@@ -719,6 +835,7 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       tableHandle,
       columnHandles,
       parseTopLevelFieldIds(icebergTableHandle->tableSchemaJson),
+      parseTopLevelFieldTypes(icebergTableHandle->tableSchemaJson),
       exprConverter,
       typeParser);
 }

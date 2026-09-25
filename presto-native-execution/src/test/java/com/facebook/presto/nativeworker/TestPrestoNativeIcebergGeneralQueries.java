@@ -95,6 +95,23 @@ public class TestPrestoNativeIcebergGeneralQueries
         javaQueryRunner.execute("CREATE TABLE test_analyze(i int)");
         javaQueryRunner.execute("INSERT INTO test_analyze VALUES 1, 2, 3, 4, 5");
 
+        // Written by the Java runner because the native writer cannot yet map a
+        // uuid column to Parquet (the Arrow bridge rejects the hugeint type).
+        javaQueryRunner.execute("DROP TABLE IF EXISTS test_uuid");
+        javaQueryRunner.execute("CREATE TABLE test_uuid(id INTEGER, uuid_field UUID)");
+        javaQueryRunner.execute("INSERT INTO test_uuid VALUES" +
+                " (1, uuid'9c55ef53-837e-4c0d-833b-40dd4c411aff')," +
+                " (2, uuid'00112233-4455-6677-8899-aabbccddeeff')," +
+                " (3, null)");
+
+        javaQueryRunner.execute("DROP TABLE IF EXISTS test_uuid_nested");
+        javaQueryRunner.execute("CREATE TABLE test_uuid_nested(id INTEGER, s ROW(a BIGINT, u UUID), arr ARRAY(UUID), m MAP(VARCHAR, UUID))");
+        javaQueryRunner.execute("INSERT INTO test_uuid_nested VALUES" +
+                " (1, ROW(10, uuid'9c55ef53-837e-4c0d-833b-40dd4c411aff')," +
+                " ARRAY[uuid'00112233-4455-6677-8899-aabbccddeeff', null]," +
+                " MAP(ARRAY['k'], ARRAY[uuid'ffffffff-ffff-ffff-ffff-ffffffffffff']))," +
+                " (2, ROW(20, null), ARRAY[], MAP())");
+
         javaQueryRunner.execute("DROP TABLE IF EXISTS test_nested_column_pushdown");
         javaQueryRunner.execute("CREATE TABLE test_nested_column_pushdown(event_id VARCHAR, statisticsinformation ROW(processingdate VARCHAR, region VARCHAR))");
         javaQueryRunner.execute("INSERT INTO test_nested_column_pushdown VALUES" +
@@ -205,6 +222,69 @@ public class TestPrestoNativeIcebergGeneralQueries
     {
         assertQuery("SELECT * FROM ice_table_partitioned WHERE ds >= date'1994-01-01'", "VALUES (1, date'2022-04-09'), (2, date'2022-03-18')");
         assertQuery("SELECT * FROM ice_table WHERE ds = date'2022-04-09'", "VALUES (1, date'2022-04-09')");
+    }
+
+    @Test
+    public void testUuidColumn()
+    {
+        assertQuery("SELECT id, uuid_field FROM test_uuid");
+        assertQuery("SELECT count(*) FROM test_uuid WHERE uuid_field IS NULL", "VALUES (1)");
+        assertQuery("SELECT count(*) FROM test_uuid WHERE uuid_field IS NOT NULL", "VALUES (2)");
+        assertQuery(
+                "SELECT id, CAST(uuid_field AS VARCHAR) FROM test_uuid",
+                "VALUES (1, '9c55ef53-837e-4c0d-833b-40dd4c411aff')," +
+                        " (2, '00112233-4455-6677-8899-aabbccddeeff')," +
+                        " (3, null)");
+    }
+
+    @Test
+    public void testNestedUuidColumn()
+    {
+        assertQuery(
+                "SELECT id, s.a, CAST(s.u AS VARCHAR) FROM test_uuid_nested ORDER BY id",
+                "VALUES (1, 10, '9c55ef53-837e-4c0d-833b-40dd4c411aff'), (2, 20, null)");
+        assertQuery(
+                "SELECT CAST(arr[1] AS VARCHAR), arr[2] FROM test_uuid_nested WHERE id = 1",
+                "VALUES ('00112233-4455-6677-8899-aabbccddeeff', null)");
+        assertQuery(
+                "SELECT CAST(m['k'] AS VARCHAR) FROM test_uuid_nested WHERE id = 1",
+                "VALUES ('ffffffff-ffff-ffff-ffff-ffffffffffff')");
+        assertQuery("SELECT id, cardinality(arr), cardinality(m) FROM test_uuid_nested ORDER BY id",
+                "VALUES (1, 2, 1), (2, 0, 0)");
+        assertQuery(
+                "SELECT id FROM test_uuid_nested WHERE s.u = uuid'9c55ef53-837e-4c0d-833b-40dd4c411aff'",
+                "VALUES (1)");
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
+        assertQuery(
+                session,
+                "SELECT id FROM test_uuid_nested WHERE s.u = uuid'9c55ef53-837e-4c0d-833b-40dd4c411aff'",
+                "VALUES (1)");
+    }
+
+    @Test
+    public void testUuidFilter()
+    {
+        assertQuery(
+                "SELECT id FROM test_uuid WHERE uuid_field = uuid'9c55ef53-837e-4c0d-833b-40dd4c411aff'",
+                "VALUES (1)");
+        assertQuery(
+                "SELECT count(*) FROM test_uuid WHERE uuid_field = uuid'9c55ef52-837e-4c0d-833b-40dd4c411aff'",
+                "VALUES (0)");
+        assertQuery(
+                "SELECT id FROM test_uuid WHERE uuid_field IN (uuid'9c55ef53-837e-4c0d-833b-40dd4c411aff'," +
+                        " uuid'00112233-4455-6677-8899-aabbccddeeff') ORDER BY id",
+                "VALUES (1), (2)");
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
+        assertQuery(
+                session,
+                "SELECT id FROM test_uuid WHERE uuid_field = uuid'9c55ef53-837e-4c0d-833b-40dd4c411aff'",
+                "VALUES (1)");
     }
 
     @Test
