@@ -14,10 +14,10 @@
 package com.facebook.presto.iceberg.nessie;
 
 import com.facebook.presto.iceberg.IcebergQueryRunner;
-import com.facebook.presto.iceberg.container.IcebergMinIODataLake;
+import com.facebook.presto.iceberg.container.IcebergS3DataLake;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.testing.containers.MinIOContainer;
 import com.facebook.presto.testing.containers.NessieContainer;
+import com.facebook.presto.testing.containers.S3MockContainer;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import org.testcontainers.containers.Network;
@@ -29,8 +29,8 @@ import java.net.URI;
 import java.util.Map;
 
 import static com.facebook.presto.iceberg.CatalogType.REST;
-import static com.facebook.presto.iceberg.container.IcebergMinIODataLake.ACCESS_KEY;
-import static com.facebook.presto.iceberg.container.IcebergMinIODataLake.SECRET_KEY;
+import static com.facebook.presto.iceberg.container.IcebergS3DataLake.ACCESS_KEY;
+import static com.facebook.presto.iceberg.container.IcebergS3DataLake.SECRET_KEY;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
@@ -39,9 +39,9 @@ public class TestIcebergNessieRestCatalogDistributedQueries
 {
     static final String WAREHOUSE_DATA_DIR = "warehouse_data/";
     private NessieContainer nessieContainer;
-    private IcebergMinIODataLake dockerizedS3DataLake;
+    private IcebergS3DataLake dockerizedS3DataLake;
     private String bucketName;
-    HostAndPort minioApiEndpoint;
+    HostAndPort s3ApiEndpoint;
 
     @BeforeClass
     @Override
@@ -51,9 +51,9 @@ public class TestIcebergNessieRestCatalogDistributedQueries
         Network network = Network.newNetwork();
 
         bucketName = "fornessie-" + randomTableSuffix();
-        dockerizedS3DataLake = new IcebergMinIODataLake(bucketName, WAREHOUSE_DATA_DIR, network);
+        dockerizedS3DataLake = new IcebergS3DataLake(bucketName, WAREHOUSE_DATA_DIR, network);
         dockerizedS3DataLake.start();
-        minioApiEndpoint = dockerizedS3DataLake.getMinio().getMinioApiEndpoint();
+        s3ApiEndpoint = dockerizedS3DataLake.getS3Container().getApiEndpoint();
 
         Map<String, String> envVars = ImmutableMap.<String, String>builder()
                 .putAll(NessieContainer.DEFAULT_ENV_VARS)
@@ -61,11 +61,11 @@ public class TestIcebergNessieRestCatalogDistributedQueries
                 .put("NESSIE_CATALOG_SECRETS_ACCESS-KEY_NAME", ACCESS_KEY)
                 .put("NESSIE_CATALOG_SECRETS_ACCESS-KEY_SECRET", SECRET_KEY)
                 .put("NESSIE_CATALOG_SERVICE_S3_DEFAULT-OPTIONS_PATH_STYLE_ACCESS", "true")
-                .put("NESSIE_CATALOG_SERVICE_S3_DEFAULT-OPTIONS_ENDPOINT", format("http://%s:%s", MinIOContainer.DEFAULT_HOST_NAME, MinIOContainer.MINIO_API_PORT))
+                .put("NESSIE_CATALOG_SERVICE_S3_DEFAULT-OPTIONS_ENDPOINT", format("http://%s:%s", S3MockContainer.DEFAULT_HOST_NAME, S3MockContainer.S3_PORT))
                 .put("NESSIE_CATALOG_SERVICE_S3_DEFAULT-OPTIONS_REGION", Region.US_EAST_1.toString())
                 .put("NESSIE_CATALOG_WAREHOUSES_WAREHOUSE_LOCATION", getCatalogDataDirectory().toString())
                 .put("NESSIE_CATALOG_DEFAULT-WAREHOUSE", "warehouse")
-                .put("NESSIE_CATALOG_SERVICE_S3.DEFAULT-OPTIONS_EXTERNAL-ENDPOINT", format("http://%s:%s", minioApiEndpoint.getHost(), minioApiEndpoint.getPort()))
+                .put("NESSIE_CATALOG_SERVICE_S3.DEFAULT-OPTIONS_EXTERNAL-ENDPOINT", format("http://%s:%s", s3ApiEndpoint.getHost(), s3ApiEndpoint.getPort()))
                 .buildOrThrow();
         nessieContainer = NessieContainer.builder().withEnvVars(envVars).withNetwork(network).build();
         nessieContainer.start();
@@ -95,7 +95,7 @@ public class TestIcebergNessieRestCatalogDistributedQueries
                 .put("iceberg.catalog.warehouse", getCatalogDataDirectory().toString())
                 .put("hive.s3.aws-access-key", ACCESS_KEY)
                 .put("hive.s3.aws-secret-key", SECRET_KEY)
-                .put("hive.s3.endpoint", format("http://%s:%s", minioApiEndpoint.getHost(), minioApiEndpoint.getPort()))
+                .put("hive.s3.endpoint", format("http://%s:%s", s3ApiEndpoint.getHost(), s3ApiEndpoint.getPort()))
                 .put("hive.s3.path-style-access", "true")
                 .build();
 
