@@ -489,7 +489,7 @@ public class LocalQueryRunner
         this.accessControl = new TestingAccessControlManager(transactionManager);
         this.statsNormalizer = new StatsNormalizer();
         this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, expressionOptimizerManager);
-        this.filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer);
+        this.filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer, expressionOptimizerManager);
         this.historyBasedPlanStatisticsManager = new HistoryBasedPlanStatisticsManager(objectMapper, createTestingSessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig(), featuresConfig, new NodeVersion("1"));
         this.fragmentStatsProvider = new FragmentStatsProvider();
         this.statsCalculator = createNewStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer, filterStatsCalculator, historyBasedPlanStatisticsManager, fragmentStatsProvider, expressionOptimizerManager);
@@ -526,7 +526,7 @@ public class LocalQueryRunner
                 new RowExpressionDomainTranslator(metadata),
                 new RowExpressionPredicateCompiler(metadata),
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
-                new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer),
+                new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer, expressionOptimizerManager),
                 blockEncodingManager,
                 featuresConfig,
                 new ConnectorCodecManager(ThriftCodecManager::new));

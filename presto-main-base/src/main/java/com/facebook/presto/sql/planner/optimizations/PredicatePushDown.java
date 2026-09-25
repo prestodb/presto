@@ -136,10 +136,10 @@ public class PredicatePushDown
     public PredicatePushDown(Metadata metadata, SqlParser sqlParser, ExpressionOptimizerProvider expressionOptimizerProvider, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        rowExpressionDomainTranslator = new RowExpressionDomainTranslator(metadata);
+        this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
+        rowExpressionDomainTranslator = new RowExpressionDomainTranslator(metadata, expressionOptimizerProvider);
         this.effectivePredicateExtractor = new EffectivePredicateExtractor(rowExpressionDomainTranslator, metadata.getFunctionAndTypeManager());
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
         this.nativeExecution = nativeExecution;
     }
 

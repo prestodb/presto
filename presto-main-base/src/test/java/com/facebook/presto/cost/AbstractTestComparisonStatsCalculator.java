@@ -83,7 +83,7 @@ public abstract class AbstractTestComparisonStatsCalculator
             throws Exception
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        filterStatsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, new InMemoryExpressionOptimizerProvider(metadata)), new StatsNormalizer());
+        filterStatsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, new InMemoryExpressionOptimizerProvider(metadata)), new StatsNormalizer(), new InMemoryExpressionOptimizerProvider(metadata));
 
         uStats = VariableStatsEstimate.builder()
                 .setAverageRowSize(8.0)

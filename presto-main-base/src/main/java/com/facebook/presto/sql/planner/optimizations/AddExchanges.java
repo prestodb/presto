@@ -63,6 +63,7 @@ import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatistics;
@@ -186,12 +187,14 @@ public class AddExchanges
     private final Metadata metadata;
     private final PartitioningProviderManager partitioningProviderManager;
     private final boolean nativeExecution;
+    private final ExpressionOptimizerProvider expressionOptimizerProvider;
 
-    public AddExchanges(Metadata metadata, PartitioningProviderManager partitioningProviderManager, boolean nativeExecution)
+    public AddExchanges(Metadata metadata, PartitioningProviderManager partitioningProviderManager, boolean nativeExecution, ExpressionOptimizerProvider expressionOptimizerProvider)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.nativeExecution = nativeExecution;
+        this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
     }
 
     @Override
@@ -204,7 +207,7 @@ public class AddExchanges
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
-            PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager, nativeExecution).accept(plan, PreferredProperties.any());
+            PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager, nativeExecution, expressionOptimizerProvider).accept(plan, PreferredProperties.any());
             boolean optimizerTriggered = PlanNodeSearcher.searchFrom(result.getNode()).where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()).findFirst().isPresent();
             return PlanOptimizerResult.optimizerResult(result.getNode(), optimizerTriggered);
         }
@@ -229,6 +232,7 @@ public class AddExchanges
         private final ExchangeMaterializationStrategy exchangeMaterializationStrategy;
         private final PartitioningProviderManager partitioningProviderManager;
         private final boolean nativeExecution;
+        private final ExpressionOptimizerProvider expressionOptimizerProvider;
         private boolean isDeleteOrUpdateQuery;
 
         public Rewriter(
@@ -236,7 +240,8 @@ public class AddExchanges
                 VariableAllocator variableAllocator,
                 Session session,
                 PartitioningProviderManager partitioningProviderManager,
-                boolean nativeExecution)
+                boolean nativeExecution,
+                ExpressionOptimizerProvider expressionOptimizerProvider)
         {
             this.idAllocator = idAllocator;
             this.variableAllocator = variableAllocator;
@@ -253,6 +258,7 @@ public class AddExchanges
             this.exchangeMaterializationStrategy = getExchangeMaterializationStrategy(session);
             this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
             this.nativeExecution = nativeExecution;
+            this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
         }
 
         @Override
@@ -1716,7 +1722,7 @@ public class AddExchanges
         private ActualProperties deriveProperties(PlanNode result, List<ActualProperties> inputProperties)
         {
             // TODO: move this logic to PlanChecker once PropertyDerivations.deriveProperties fully supports local exchanges
-            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, metadata, session);
+            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, expressionOptimizerProvider);
             verify(result instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated) || outputProperties.isNullsAndAnyReplicated(),
                     "SemiJoinNode is the only node that can strip null replication");
             return outputProperties;
@@ -1724,7 +1730,7 @@ public class AddExchanges
 
         private ActualProperties derivePropertiesRecursively(PlanNode result)
         {
-            return PropertyDerivations.derivePropertiesRecursively(result, metadata, session);
+            return PropertyDerivations.derivePropertiesRecursively(result, metadata, session, expressionOptimizerProvider);
         }
 
         private PlanWithProperties accept(PlanNode plan, PreferredProperties context)
