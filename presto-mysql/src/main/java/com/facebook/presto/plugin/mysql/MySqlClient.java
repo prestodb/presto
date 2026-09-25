@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.mysql;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
@@ -30,8 +31,13 @@ import com.facebook.presto.plugin.jdbc.QueryBuilder;
 import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.cj.jdbc.JdbcStatement;
 import com.mysql.jdbc.Driver;
@@ -61,10 +67,13 @@ import static com.facebook.presto.plugin.jdbc.QueryBuilder.quote;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.geometryReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public class MySqlClient
@@ -77,12 +86,18 @@ public class MySqlClient
      * @see <a href="https://dev.mysql.com/doc/connector-j/en/connector-j-reference-error-sqlstates.html">MySQL documentation</a>
      */
     private static final String SQL_STATE_ER_TABLE_EXISTS_ERROR = "42S01";
+    private final JsonCodec<ViewDefinition> viewCodec;
 
     @Inject
-    public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
+    public MySqlClient(
+            JdbcConnectorId connectorId,
+            BaseJdbcConfig config,
+            MySqlConfig mySqlConfig,
+            JsonCodec<ViewDefinition> viewCodec)
             throws SQLException
     {
         super(connectorId, config, "`", connectionFactory(config, mySqlConfig));
+        this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
     }
 
     private static ConnectionFactory connectionFactory(BaseJdbcConfig config, MySqlConfig mySqlConfig)
@@ -294,5 +309,237 @@ public class MySqlClient
     public String normalizeIdentifier(ConnectorSession session, String identifier)
     {
         return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        JdbcIdentity identity = new JdbcIdentity(session.getUser(), session.getIdentity().getExtraCredentials());
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+
+        try (Connection connection = connectionFactory.openConnection(identity);
+                PreparedStatement statement = connection.prepareStatement(viewsQuery(prefix))) {
+            int parameterIndex = 1;
+            if (prefix.getSchemaName() != null) {
+                statement.setString(parameterIndex++, prefix.getSchemaName());
+            }
+            if (prefix.getTableName() != null) {
+                statement.setString(parameterIndex, prefix.getTableName());
+            }
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    SchemaTableName viewName = viewName(session, prefix, resultSet);
+                    String owner = definerUser(resultSet.getString("DEFINER"));
+                    ViewDefinition viewDefinition = getViewDefinition(resultSet, session, connectorId, viewName, owner);
+
+                    views.put(viewName, new ConnectorViewDefinition(
+                            viewName,
+                            Optional.of(owner),
+                            viewCodec.toJson(viewDefinition)));
+                }
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+        return views.build();
+    }
+
+    /**
+     * Builds the INFORMATION_SCHEMA.VIEWS lookup for a prefix, binding the names as parameters:
+     * they arrive from user SQL and may contain quotes. A prefix with no table name, and possibly
+     * no schema name either, comes from queries such as SELECT * FROM information_schema.views,
+     * and is answered by this one statement, so the row count rather than the query count grows
+     * with the number of views on the server. The parameters have to be bound in the same order
+     * the conditions are appended here.
+     */
+    private static String viewsQuery(SchemaTablePrefix prefix)
+    {
+        String sql = "SELECT TABLE_SCHEMA, TABLE_NAME, VIEW_DEFINITION, DEFINER, SECURITY_TYPE FROM INFORMATION_SCHEMA.VIEWS";
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        if (prefix.getSchemaName() != null) {
+            builder.add("TABLE_SCHEMA = ?");
+        }
+        if (prefix.getTableName() != null) {
+            builder.add("TABLE_NAME = ?");
+        }
+        List<String> conditions = builder.build();
+        if (conditions.isEmpty()) {
+            return sql;
+        }
+        return sql + " WHERE " + join(" AND ", conditions);
+    }
+
+    private SchemaTableName viewName(ConnectorSession session, SchemaTablePrefix prefix, ResultSet resultSet)
+            throws SQLException
+    {
+        // A prefix naming one table is keyed by the requested name rather than the name MySQL
+        // reports. MySQL compares schema and table names here under the collation of
+        // INFORMATION_SCHEMA, so a row can come back in a different case than was asked for, and
+        // the caller looks the view up by the name it passed in.
+        if (prefix.getTableName() != null) {
+            return new SchemaTableName(prefix.getSchemaName(), prefix.getTableName());
+        }
+        String schemaName = prefix.getSchemaName() != null ? prefix.getSchemaName() : resultSet.getString("TABLE_SCHEMA");
+        return new SchemaTableName(
+                normalizeIdentifier(session, schemaName),
+                normalizeIdentifier(session, resultSet.getString("TABLE_NAME")));
+    }
+
+    /**
+     * Returns the user part of a DEFINER as INFORMATION_SCHEMA.VIEWS reports it, an unquoted
+     * user@host. The owner of a view created through Presto is the Presto user, stored with the
+     * host % by {@link #createView}. A user name may itself contain an @, as an email address
+     * does, but a host cannot, so the split is on the last one.
+     */
+    static String definerUser(String definer)
+    {
+        int separator = definer.lastIndexOf('@');
+        return separator < 0 ? definer : definer.substring(0, separator);
+    }
+
+    private ViewDefinition getViewDefinition(ResultSet resultSet, ConnectorSession session, String connectorId, SchemaTableName schemaTableName, String owner)
+            throws SQLException
+    {
+        boolean runAsInvoker = "INVOKER".equals(resultSet.getString("SECURITY_TYPE"));
+        // StatementAnalyzer can't parse sql with back ticks, so we replace them here
+        String viewSql = resultSet.getString("VIEW_DEFINITION").replace('`', '"');
+        String schemaName = schemaTableName.getSchemaName();
+        String tableName = schemaTableName.getTableName();
+
+        List<JdbcColumnHandle> jdbcColumns = super.getColumns(session, new JdbcTableHandle(
+                connectorId,
+                schemaTableName,
+                null,
+                schemaName,
+                tableName));
+
+        List<ViewDefinition.ViewColumn> columns = jdbcColumns.stream()
+                .map(jdbcColumn -> new ViewDefinition.ViewColumn(jdbcColumn.getColumnName(), jdbcColumn.getColumnType()))
+                .collect(toImmutableList());
+
+        return new ViewDefinition(
+                viewSql,
+                Optional.of(connectorId),
+                Optional.of(schemaName),
+                columns,
+                // an INVOKER view has no owner, as CreateViewTask records it, so the analyzer runs
+                // the view as the querying user rather than as the definer
+                runAsInvoker ? Optional.empty() : Optional.of(owner),
+                runAsInvoker);
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        JdbcIdentity identity = JdbcIdentity.from(session);
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            DatabaseMetaData metadata = connection.getMetaData();
+            Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
+            try (ResultSet resultSet = metadata.getTables(
+                    schemaName.orElse(null),
+                    null,
+                    escapeNamePattern(Optional.empty(), escape).orElse(null),
+                    new String[] {"VIEW"})) {
+                ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
+                while (resultSet.next()) {
+                    String tableName = resultSet.getString("TABLE_NAME");
+                    String schema = schemaName.orElse(resultSet.getString("TABLE_CAT"));
+                    builder.add(new SchemaTableName(
+                            normalizeIdentifier(session, schema),
+                            normalizeIdentifier(session, tableName)));
+                }
+                return builder.build();
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
+    {
+        SchemaTableName viewName = viewMetadata.getTable();
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        ViewDefinition viewDefinition = viewCodec.fromJson(viewData);
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String schema = toRemoteSchemaName(session, identity, connection, viewName.getSchemaName());
+            String view = toRemoteTableName(session, identity, connection, schema, viewName.getTableName());
+
+            // Without an explicit DEFINER, MySQL records the connection user, so the Presto user who
+            // created the view would be lost. Naming another account requires the connection user
+            // to hold SET_USER_ID (SET_ANY_DEFINER from MySQL 8.2) or SUPER. The Presto user is
+            // stored with the host % since Presto has no notion of the client host.
+            String sql = format(
+                    "%s DEFINER = %s@%s SQL SECURITY %s VIEW %s AS %s",
+                    replace ? "CREATE OR REPLACE" : "CREATE",
+                    quoted(session.getUser()),
+                    quoted("%"),
+                    viewDefinition.isRunAsInvoker() ? "INVOKER" : "DEFINER",
+                    quotedRemoteName(schema, view),
+                    viewDefinition.getOriginalSql());
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            // CREATE VIEW without REPLACE reports an existing view or table as ER_TABLE_EXISTS_ERROR,
+            // the same way CREATE TABLE does, so there is no need to look the name up first
+            if (SQL_STATE_ER_TABLE_EXISTS_ERROR.equals(e.getSQLState())) {
+                throw new PrestoException(ALREADY_EXISTS, e);
+            }
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String schema = toRemoteSchemaName(session, identity, connection, viewName.getSchemaName());
+            String view = toRemoteTableName(session, identity, connection, schema, viewName.getTableName());
+            String newSchema = toRemoteSchemaName(session, identity, connection, newViewName.getSchemaName());
+            String sql = format(
+                    "RENAME TABLE %s TO %s",
+                    quotedRemoteName(schema, view),
+                    quotedRemoteName(newSchema, newViewName.getTableName()));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String schema = toRemoteSchemaName(session, identity, connection, viewName.getSchemaName());
+            String view = toRemoteTableName(session, identity, connection, schema, viewName.getTableName());
+            String sql = format(
+                    "DROP VIEW %s",
+                    quotedRemoteName(schema, view));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    /**
+     * Qualifies a remote object with its schema only. MySQL maps its databases to JDBC catalogs and
+     * has no schemas of its own, so the remote schema name resolved from the Presto schema is
+     * already the database. Adding the connection's catalog as well would build a three part name,
+     * which MySQL rejects, which is also why {@link #renameTable} drops the catalog.
+     */
+    private String quotedRemoteName(String remoteSchema, String remoteName)
+    {
+        return quoted(null, remoteSchema, remoteName);
     }
 }
