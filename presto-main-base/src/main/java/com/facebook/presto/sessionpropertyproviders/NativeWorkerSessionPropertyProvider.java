@@ -46,6 +46,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_AGGREGATION_SPILL_FILE_CREATE_CONFIG = "native_aggregation_spill_file_create_config";
     public static final String NATIVE_HASH_JOIN_SPILL_FILE_CREATE_CONFIG = "native_hash_join_spill_file_create_config";
     public static final String NATIVE_JOIN_SPILL_ENABLED = "native_join_spill_enabled";
+    public static final String NATIVE_HASH_PROBE_FINISH_EARLY_ON_EMPTY_BUILD = "native_hash_probe_finish_early_on_empty_build";
     public static final String NATIVE_WINDOW_SPILL_ENABLED = "native_window_spill_enabled";
     public static final String NATIVE_WRITER_SPILL_ENABLED = "native_writer_spill_enabled";
     public static final String NATIVE_WRITER_FLUSH_THRESHOLD_BYTES = "native_writer_flush_threshold_bytes";
@@ -180,6 +181,14 @@ public class NativeWorkerSessionPropertyProvider
                         NATIVE_JOIN_SPILL_ENABLED,
                         "Native Execution only. Enable join spilling on native engine",
                         false,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_HASH_PROBE_FINISH_EARLY_ON_EMPTY_BUILD,
+                        "Native Execution only. When the hash join build side is empty and the join type " +
+                                "cannot produce output without matched build rows, finish the hash probe operator " +
+                                "immediately and close the probe-side ExchangeClient. This cancels upstream producer " +
+                                "tasks whose output would otherwise be received and dropped.",
+                        true,
                         !nativeExecution),
                 booleanProperty(
                         NATIVE_WINDOW_SPILL_ENABLED,
