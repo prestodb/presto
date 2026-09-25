@@ -13,6 +13,10 @@
  */
 #pragma once
 
+#include <atomic>
+
+#include <folly/Synchronized.h>
+
 #include "velox/common/file/FileInputStream.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MemoryPool.h"
@@ -85,6 +89,9 @@ class BroadcastFileWriter : velox::serializer::SerializedPageFileWriter {
 };
 
 /// Reads broadcast data back from files.
+///
+/// Thread safe. The exchange may close a source on the driver thread while a
+/// request is still reading on an exchange thread.
 class BroadcastFileReader {
  public:
   BroadcastFileReader(
@@ -94,13 +101,16 @@ class BroadcastFileReader {
 
   ~BroadcastFileReader() = default;
 
-  /// Releases the input stream to free memory before destruction.
+  /// Releases the input stream to free memory before destruction. Blocks until
+  /// an in-progress read finishes. Idempotent, and reads after it report that
+  /// no data remains rather than failing.
   void close();
 
-  /// Return true if more data is available.
+  /// Return true if more data is available. False once closed.
   bool hasNext();
 
-  /// Read next page of data. Returns nullptr when no more pages.
+  /// Read next page of data. Returns nullptr when no more pages, which
+  /// includes close() landing between hasNext() and this call.
   velox::BufferPtr next();
 
   /// Reader stats - returns int64_t values for compatibility.
@@ -110,25 +120,36 @@ class BroadcastFileReader {
   // units.
   folly::F14FastMap<std::string, velox::RuntimeMetric> metrics() const;
 
-  /// Get page sizes for pages that haven't been read yet.
+  /// Get page sizes for pages that haven't been read yet. Empty once closed.
   std::vector<int64_t> remainingPageSizes();
 
  private:
-  // Ensure footer is read, lazy initialization on first access
-  void ensureFooterRead();
+  // Reader state guarded as a unit, so that close() cannot destroy the input
+  // stream while another thread is reading through it.
+  struct State {
+    std::unique_ptr<velox::common::FileInputStream> inputStream;
+    bool closed{false};
+    std::vector<int64_t> pageSizes;
+  };
+
+  // Opens the file and reads the footer on first access. Returns false if the
+  // reader is closed, in which case 'state' is left untouched.
+  bool ensureFooterReadLocked(State& state);
 
   velox::memory::MemoryPool* const pool_;
   const std::unique_ptr<BroadcastFileInfo> broadcastFileInfo_;
   const std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
 
-  std::unique_ptr<velox::common::FileInputStream> inputStream_;
-  bool closed_{false};
-  int64_t numBytes_{0};
-  uint32_t numPagesRead_{0};
-  std::vector<int64_t> pageSizes_;
+  folly::Synchronized<State> state_;
 
-  // Wall time metrics in microseconds
-  uint64_t openFileAndReadFooterTimeUs_{0};
-  uint64_t fileReadWallTimeUs_{0};
+  // Counters, deliberately outside 'state_'. InMemoryExchangeClient::stats()
+  // calls metrics() while holding the exchange queue mutex, so if reporting
+  // took the reader lock a slow page read would pin that queue mutex and stall
+  // every driver on it. Written under the lock to stay consistent with
+  // 'pageSizes', read without one.
+  std::atomic<int64_t> numBytes_{0};
+  std::atomic<uint32_t> numPagesRead_{0};
+  std::atomic<uint64_t> openFileAndReadFooterTimeUs_{0};
+  std::atomic<uint64_t> fileReadWallTimeUs_{0};
 };
 } // namespace facebook::presto::operators
