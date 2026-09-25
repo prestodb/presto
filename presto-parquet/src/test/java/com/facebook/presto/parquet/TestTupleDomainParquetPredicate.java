@@ -257,6 +257,9 @@ public class TestTupleDomainParquetPredicate
 
         assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(3.3, NaN, true), ID, Optional.of(collector)), Domain.all(DOUBLE));
 
+        // Hive type coercion from Double to Varchar
+        assertEquals(getDomain(columnDescriptor, createUnboundedVarcharType(), 10, doubleColumnStats(3.3, 42.24), ID, Optional.of(collector)),
+                Domain.notNull(createUnboundedVarcharType()));
         assertEquals(getDomain(DOUBLE, doubleDictionaryDescriptor(NaN)), Domain.all(DOUBLE));
 
         assertEquals(getDomain(DOUBLE, doubleDictionaryDescriptor(3.3, NaN)), Domain.all(DOUBLE));
