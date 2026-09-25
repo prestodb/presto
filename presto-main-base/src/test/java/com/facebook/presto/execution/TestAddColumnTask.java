@@ -46,6 +46,7 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.testing.TestingWarningCollector;
 import com.facebook.presto.testing.TestingWarningCollectorConfig;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -56,6 +57,7 @@ import java.util.Optional;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -64,6 +66,8 @@ import static com.facebook.presto.transaction.InMemoryTransactionManager.createT
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestAddColumnTask
@@ -143,6 +147,56 @@ public class TestAddColumnTask
         execute(addColumn(new After(identifier("hidden"))));
     }
 
+    // Verify nested type errors preserve the original qualified-name casing.
+    @Test
+    public void testNestedAddColumnTypeMismatchPreservesOriginalCasing()
+    {
+        QualifiedName nestedName = QualifiedName.of(ImmutableList.of(
+                new Identifier("Info", true),
+                new Identifier("Score", true)));
+        ColumnDefinition nestedColumn = new ColumnDefinition(
+                nestedName,
+                "not_a_real_type",
+                true,
+                emptyList(),
+                Optional.empty());
+        AddColumn statement = new AddColumn(
+                QualifiedName.of(TABLE_NAME),
+                nestedColumn,
+                false,
+                false);
+
+        try {
+            getFutureValue(new AddColumnTask().execute(
+                    statement, transactionManager, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector, ""));
+            fail("Expected SemanticException for unknown type");
+        }
+        catch (SemanticException e) {
+            assertTrue(e.getMessage().contains("Info.Score"),
+                    "Error message must contain original-cased path 'Info.Score', but was: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testNestedAddColumnPassesCorrectArgumentsToAddField()
+    {
+        ColumnDefinition nestedColumn = new ColumnDefinition(
+                QualifiedName.of(ImmutableList.of(identifier("info"), identifier("score"))),
+                "INTEGER",
+                true,
+                emptyList(),
+                Optional.empty());
+        // isColumnNotExists=true so ignoreExisting must be forwarded as true
+        AddColumn statement = new AddColumn(QualifiedName.of(TABLE_NAME), nestedColumn, false, true);
+
+        execute(statement);
+
+        assertEquals(metadata.receivedFieldParentPath, ImmutableList.of("info"));
+        assertEquals(metadata.receivedFieldName, "score");
+        assertEquals(metadata.receivedFieldType, INTEGER);
+        assertTrue(metadata.receivedFieldIgnoreExisting);
+    }
+
     private static AddColumn addColumn()
     {
         return new AddColumn(
@@ -164,7 +218,7 @@ public class TestAddColumnTask
 
     private static ColumnDefinition columnDefinition()
     {
-        return new ColumnDefinition(identifier("c"), "BIGINT", true, emptyList(), Optional.empty());
+        return new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "BIGINT", true, emptyList(), Optional.empty());
     }
 
     private void execute(AddColumn statement)
@@ -180,6 +234,10 @@ public class TestAddColumnTask
         private final ConnectorId catalogHandle;
         private final TableHandle tableHandle;
         private ColumnPosition receivedPosition;
+        private List<String> receivedFieldParentPath;
+        private String receivedFieldName;
+        private Type receivedFieldType;
+        private boolean receivedFieldIgnoreExisting;
 
         public MockMetadata(FunctionAndTypeManager functionAndTypeManager, ColumnPropertyManager columnPropertyManager, ConnectorId catalogHandle)
         {
@@ -198,6 +256,15 @@ public class TestAddColumnTask
         public ColumnPosition getReceivedPosition()
         {
             return receivedPosition;
+        }
+
+        @Override
+        public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+        {
+            this.receivedFieldParentPath = parentPath;
+            this.receivedFieldName = fieldName;
+            this.receivedFieldType = type;
+            this.receivedFieldIgnoreExisting = ignoreExisting;
         }
 
         @Override

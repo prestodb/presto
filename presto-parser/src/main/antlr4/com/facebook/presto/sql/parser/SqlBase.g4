@@ -200,7 +200,7 @@ tableElement
     ;
 
 columnDefinition
-    : identifier type (NOT NULL)? (COMMENT string)? (DEFAULT expression)? ((GENERATED ALWAYS)? AS expression (PERSISTENT | VIRTUAL)?)? (WITH properties)?
+    : qualifiedName type (NOT NULL)? (COMMENT string)? (DEFAULT expression)? ((GENERATED ALWAYS)? AS expression (PERSISTENT | VIRTUAL)?)? (WITH properties)?
     ;
 
 likeClause

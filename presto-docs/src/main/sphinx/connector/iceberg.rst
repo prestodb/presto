@@ -1848,6 +1848,10 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE ADD COLUMN`` (nested struct field)
+     - Yes
+     - Yes
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2242,6 +2246,29 @@ value automatically.
 
 This feature requires Iceberg Format Version 3. Attempting to use ``ALTER COLUMN SET DEFAULT`` on
 a table with format version 2 or lower will result in an error.
+
+.. _iceberg-alter-table-schema-evolution:
+
+ALTER TABLE Schema Evolution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+    This operation is supported in both **Presto Java** and **Presto C++**.
+
+The Iceberg connector supports adding a field to a ``ROW`` column using a dotted path to identify
+the parent struct. This is a metadata-only change — no data files are rewritten.
+
+Example — Add a field to a struct column::
+
+     ALTER TABLE iceberg.web.orders ADD COLUMN address.zip VARCHAR;
+
+The optional ``IF NOT EXISTS`` clause suppresses the error if the field already exists::
+
+     ALTER TABLE iceberg.web.orders ADD COLUMN IF NOT EXISTS address.zip VARCHAR;
+
+The dotted path may refer to arbitrarily nested fields. ``NOT NULL`` and ``COMMENT`` are not
+supported and will result in a parse error.
 
 ALTER VIEW
 ^^^^^^^^^^
