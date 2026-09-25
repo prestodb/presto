@@ -68,6 +68,12 @@ public class PasswordAuthenticator
         catch (AccessDeniedException e) {
             throw needAuthentication(e.getMessage());
         }
+        catch (IllegalArgumentException e) {
+            // IllegalArgumentException is thrown by some authenticators (e.g. bcrypt-backed ones)
+            // when the password exceeds implementation limits (e.g. >72 bytes for bcrypt).
+            // Treat this as an authentication failure rather than a server error.
+            throw needAuthentication("Invalid credentials");
+        }
         catch (RuntimeException e) {
             throw new RuntimeException("Authentication error", e);
         }
