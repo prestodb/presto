@@ -13,12 +13,26 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.plan.PartitioningScheme;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
+import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -31,16 +45,26 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.AGGREGATION_PARTITIONING_MERGING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PRECISION_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.TOP_DOWN;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.builder;
 import static com.facebook.presto.sql.planner.optimizations.AddExchanges.streamingExecutionPreference;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 /**
  * These are unit test for the internal logic in AddExchanges.
@@ -48,6 +72,84 @@ import static org.testng.Assert.assertEquals;
  */
 public class TestAddExchanges
 {
+    @Test
+    public void testTopDownAggregationAdoptsTableWriterPartitioning()
+    {
+        TableWriterNode optimized = optimizeTableWriterOverAggregation(TOP_DOWN.name());
+        Partitioning writerPartitioning = optimized.getTablePartitioningScheme().get().getPartitioning();
+
+        PlanNode writerSource = optimized.getSource();
+        assertTrue(writerSource instanceof AggregationNode);
+        PlanNode aggregationSource = ((AggregationNode) writerSource).getSource();
+        assertTrue(aggregationSource instanceof ExchangeNode);
+        assertEquals(((ExchangeNode) aggregationSource).getPartitioningScheme().getPartitioning(), writerPartitioning);
+    }
+
+    @Test
+    public void testLegacyAggregationDoesNotAdoptTableWriterPartitioning()
+    {
+        TableWriterNode optimized = optimizeTableWriterOverAggregation(LEGACY.name());
+
+        assertTrue(optimized.getSource() instanceof ExchangeNode);
+        ExchangeNode writerExchange = (ExchangeNode) optimized.getSource();
+        assertEquals(writerExchange.getPartitioningScheme().getPartitioning().getArguments().size(), 1);
+        assertTrue(writerExchange.getSources().get(0) instanceof AggregationNode);
+        PlanNode aggregationSource = ((AggregationNode) writerExchange.getSources().get(0)).getSource();
+        assertTrue(aggregationSource instanceof ExchangeNode);
+        assertEquals(((ExchangeNode) aggregationSource).getPartitioningScheme().getPartitioning().getArguments().size(), 2);
+    }
+
+    private static TableWriterNode optimizeTableWriterOverAggregation(String partitioningMergingStrategy)
+    {
+        Metadata metadata = MetadataManager.createTestMetadataManager();
+        Session session = Session.builder(testSessionBuilder().build())
+                .setSystemProperty(AGGREGATION_PARTITIONING_MERGING_STRATEGY, partitioningMergingStrategy)
+                .setSystemProperty(PARTITIONING_PRECISION_STRATEGY, AUTOMATIC.name())
+                .setSystemProperty(SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED, "false")
+                .build();
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        PlanBuilder planBuilder = new PlanBuilder(session, idAllocator, metadata);
+        VariableReferenceExpression shard = planBuilder.variable("shard", BIGINT);
+        VariableReferenceExpression document = planBuilder.variable("document", BIGINT);
+
+        PlanNode distributedSource = ExchangeNode.roundRobinExchange(
+                idAllocator.getNextId(),
+                REMOTE_STREAMING,
+                planBuilder.values(shard, document));
+        AggregationNode aggregation = planBuilder.aggregation(builder -> builder
+                .singleGroupingSet(shard, document)
+                .source(distributedSource));
+        Partitioning writerPartitioning = Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.of(shard));
+        TableWriterNode tableWriter = new TableWriterNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                aggregation,
+                Optional.empty(),
+                planBuilder.variable("partialrows", BIGINT),
+                planBuilder.variable("fragment", VARBINARY),
+                planBuilder.variable("tablecommitcontext", VARBINARY),
+                ImmutableList.of(shard, document),
+                ImmutableList.of("shard", "document"),
+                ImmutableSet.of(),
+                Optional.of(new PartitioningScheme(writerPartitioning, aggregation.getOutputVariables())),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        PlanNode optimized = new AddExchanges(metadata, new PartitioningProviderManager(), false)
+                .optimize(
+                        tableWriter,
+                        session,
+                        planBuilder.getTypes(),
+                        new VariableAllocator(planBuilder.getTypes().allVariables()),
+                        idAllocator,
+                        WarningCollector.NOOP)
+                .getPlanNode();
+
+        assertTrue(optimized instanceof TableWriterNode);
+        return (TableWriterNode) optimized;
+    }
+
     @Test
     public void testPickLayoutAnyPreference()
     {
