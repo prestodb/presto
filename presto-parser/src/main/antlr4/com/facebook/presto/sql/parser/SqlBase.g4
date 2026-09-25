@@ -60,8 +60,6 @@ statement
         ADD COLUMN (IF NOT EXISTS)? column=columnDefinition
         (FIRST | AFTER after=identifier)?                              #addColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ADD COLUMN (IF NOT EXISTS)? columnPath=qualifiedName type      #addField
-    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ADD constraintSpecification                                    #addConstraint
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP CONSTRAINT (IF EXISTS)? name=identifier                   #dropConstraint
@@ -202,7 +200,7 @@ tableElement
     ;
 
 columnDefinition
-    : identifier type (NOT NULL)? (COMMENT string)? (DEFAULT expression)? ((GENERATED ALWAYS)? AS expression (PERSISTENT | VIRTUAL)?)? (WITH properties)?
+    : qualifiedName type (NOT NULL)? (COMMENT string)? (DEFAULT expression)? ((GENERATED ALWAYS)? AS expression (PERSISTENT | VIRTUAL)?)? (WITH properties)?
     ;
 
 likeClause

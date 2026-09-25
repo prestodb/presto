@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Property;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -176,13 +177,16 @@ public class DefaultTreeRewriter<C>
     @Override
     protected Node visitColumnDefinition(ColumnDefinition node, C context)
     {
-        Node name = process(node.getName(), context);
+        // QualifiedName is not a Node; process each Identifier part individually then reconstruct.
+        List<Identifier> visitedParts = node.getName().getOriginalParts().stream()
+                .map(part -> (Identifier) process(part, context))
+                .collect(ImmutableList.toImmutableList());
         List<Property> properties = process(node.getProperties(), context);
-        if (node.getName() == name && sameElements(node.getProperties(), properties)) {
+        if (sameElements(node.getName().getOriginalParts(), visitedParts) && sameElements(node.getProperties(), properties)) {
             return node;
         }
 
-        return new ColumnDefinition((Identifier) name, node.getType(), node.isNullable(), properties, node.getComment());
+        return new ColumnDefinition(QualifiedName.of(visitedParts), node.getType(), node.isNullable(), properties, node.getComment());
     }
 
     @Override

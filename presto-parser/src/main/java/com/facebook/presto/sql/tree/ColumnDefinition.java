@@ -27,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 public final class ColumnDefinition
         extends TableElement
 {
-    private final Identifier name;
+    private final QualifiedName name;
     private final String type;
     private final boolean nullable;
     private final List<Property> properties;
@@ -36,29 +36,29 @@ public final class ColumnDefinition
     private final Optional<Expression> derivedColumnExpression;
     private final Optional<DerivedColumnSpec> derivedColumnSpec;
 
-    public ColumnDefinition(Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
+    public ColumnDefinition(QualifiedName name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
         this(Optional.empty(), name, type, nullable, properties, comment, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
-    public ColumnDefinition(Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment, Optional<Expression> defaultExpression)
+    public ColumnDefinition(QualifiedName name, String type, boolean nullable, List<Property> properties, Optional<String> comment, Optional<Expression> defaultExpression)
     {
         this(Optional.empty(), name, type, nullable, properties, comment, defaultExpression, Optional.empty(), Optional.empty());
     }
 
-    public ColumnDefinition(NodeLocation location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
+    public ColumnDefinition(NodeLocation location, QualifiedName name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
         this(Optional.of(location), name, type, nullable, properties, comment, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
-    public ColumnDefinition(NodeLocation location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment, Optional<Expression> defaultExpression)
+    public ColumnDefinition(NodeLocation location, QualifiedName name, String type, boolean nullable, List<Property> properties, Optional<String> comment, Optional<Expression> defaultExpression)
     {
         this(Optional.of(location), name, type, nullable, properties, comment, defaultExpression, Optional.empty(), Optional.empty());
     }
 
     public ColumnDefinition(
             Optional<NodeLocation> location,
-            Identifier name,
+            QualifiedName name,
             String type,
             boolean nullable,
             List<Property> properties,
@@ -71,7 +71,7 @@ public final class ColumnDefinition
 
     private ColumnDefinition(
             Optional<NodeLocation> location,
-            Identifier name,
+            QualifiedName name,
             String type,
             boolean nullable,
             List<Property> properties,
@@ -93,7 +93,7 @@ public final class ColumnDefinition
                 "A column can either have a 'default expression' or 'derived column definition' and not both.");
     }
 
-    public Identifier getName()
+    public QualifiedName getName()
     {
         return name;
     }

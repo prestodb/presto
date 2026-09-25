@@ -539,11 +539,17 @@ public abstract class AbstractTestSchemaEvolution
             assertQuery(
                     format("SELECT id, info.name, info.age, info.email FROM %s ORDER BY id", table),
                     "VALUES (1, 'alice', 30, NULL), (2, 'bob', 25, NULL), (3, 'carol', 35, 'carol@example.com')");
+
+            // Selecting the whole struct column must also work after schema evolution.
+            assertQuery(
+                    format("SELECT id, info FROM %s ORDER BY id", table),
+                    "VALUES (1, ROW('alice', 30, NULL)), (2, ROW('bob', 25, NULL)), (3, ROW('carol', 35, 'carol@example.com'))");
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", table));
         }
     }
+
     // Makes the premise of testPartitionEvolutionKeepsRowLevelPredicate
     // explicit: Iceberg itself cannot fully answer rec_source = 'A' for the
     // old-spec file, so it leaves a non-trivial residual that something
