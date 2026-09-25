@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.presto.spiller.LocalTempStorage;
+import com.facebook.presto.storage.LocalTempStorage;
 import com.facebook.presto.storage.TempStorageManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import java.nio.file.Paths;
 import java.util.UUID;
 
-import static com.facebook.presto.spiller.LocalTempStorage.TEMP_STORAGE_PATH;
+import static com.facebook.presto.storage.LocalTempStorage.TEMP_STORAGE_PATH;
 
 public class TestingTempStorageManager
         extends TempStorageManager
