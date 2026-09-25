@@ -259,3 +259,42 @@ String Functions
     Generates a double value between 0.0 and 1.0 based on the hash of the given ``varchar``.
     This function is useful for deterministic sampling of data.
 
+    .. warning::
+
+        The result is **not** uniformly distributed. The implementation reinterprets the
+        64 bits of an XXH64 hash as an IEEE-754 double, so the random bits land in the
+        exponent rather than in the mantissa. Measured over 200,000 keys, the output is a
+        mixture of two components:
+
+        * **47.4% of keys return a value below 1e-30**, of which 1.97% return exactly
+          ``0.0``. That 1.97% includes the ~0.05% of keys whose hash decodes to a
+          non-finite double; those return ``0.0`` rather than ``NaN``. These values are
+          nearly all distinct, so their relative *order* is still uniformly random, but
+          as *numbers* they are indistinguishable from zero.
+        * **47.5% of keys collapse onto just 25 distinct values** -- the multiples of
+          ``0.04`` -- because ``fmod()`` of a large double lands on a coarse lattice.
+          Each of those 25 values is shared by roughly 3,800 keys.
+
+        The remaining ~5% are spread finely in between. In total, 47.6% of keys share
+        their value with at least one other key.
+
+        The practical effect is that ``P(result < p)`` is roughly ``0.51 + 0.49 * p``
+        instead of ``p``. Measured over the same 200,000 keys:
+
+        =========  ==========  ========
+        ``p``      uniform     actual
+        =========  ==========  ========
+        0.00001    0.001%      51.4%
+        0.05       5%          54.0%
+        0.10       10%         56.2%
+        0.50       50%         76.2%
+        0.90       90%         96.0%
+        =========  ==========  ========
+
+        So the function is unusable as a small-fraction sampler: a threshold predicate
+        selects roughly half the population however small ``p`` is, and only approaches
+        its nominal rate as ``p`` approaches 1. Ranking with ``ORDER BY`` is much less
+        affected, because ranks over distinct values are uniformly random regardless of
+        how those values are spread. The exceptions there are the ``0.0`` tie and the
+        25-value lattice, which make ties common.
+
