@@ -46,6 +46,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -98,6 +99,7 @@ public class ClickHouseClient
     protected final Cache<ClickHouseIdentity, Map<String, String>> remoteSchemaNames;
     protected final Cache<RemoteTableNameCacheKey, Map<String, String>> remoteTableNames;
     protected final boolean caseSensitiveNameMatchingEnabled;
+    protected final int fetchSize;
 
     private final boolean mapStringAsVarchar;
 
@@ -115,6 +117,7 @@ public class ClickHouseClient
         this.remoteSchemaNames = remoteNamesCacheBuilder.build();
         this.remoteTableNames = remoteNamesCacheBuilder.build();
         this.caseSensitiveNameMatchingEnabled = config.isCaseSensitiveNameMatching();
+        this.fetchSize = config.getFetchSize();
     }
 
     public int getCommitBatchSize()
@@ -223,7 +226,14 @@ public class ClickHouseClient
     public PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException
     {
-        return connection.prepareStatement(sql);
+        PreparedStatement statement = connection.prepareStatement(sql);
+        try {
+            statement.setFetchSize(fetchSize);
+        }
+        catch (SQLFeatureNotSupportedException e) {
+            // safeguard
+        }
+        return statement;
     }
 
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, ClickHouseSplit split, List<ClickHouseColumnHandle> columnHandles)
@@ -330,11 +340,18 @@ public class ClickHouseClient
     {
         DatabaseMetaData metadata = connection.getMetaData();
         Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
-        return metadata.getTables(
+        ResultSet resultSet = metadata.getTables(
                 connection.getCatalog(),
                 escapeNamePattern(schemaName, escape).orElse(null),
                 escapeNamePattern(tableName, escape).orElse(null),
                 new String[] {"TABLE", "VIEW"});
+        try {
+            resultSet.setFetchSize(fetchSize);
+        }
+        catch (SQLFeatureNotSupportedException e) {
+            // safeguard
+        }
+        return resultSet;
     }
 
     private static ResultSet getColumns(ClickHouseTableHandle tableHandle, DatabaseMetaData metadata)
