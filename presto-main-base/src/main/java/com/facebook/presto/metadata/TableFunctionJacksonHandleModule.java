@@ -33,8 +33,8 @@ public class TableFunctionJacksonHandleModule
                 handleResolver::getId,
                 handleResolver::getTableFunctionHandleClass,
                 featuresConfig.isUseConnectorProvidedSerializationCodecs(),
-                connectorId -> connectorManagerProvider.get()
-                        .getConnectorCodecProvider(connectorId)
+                connectorName -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorName)
                         .flatMap(ConnectorCodecProvider::getConnectorTableFunctionHandleCodec));
     }
 }

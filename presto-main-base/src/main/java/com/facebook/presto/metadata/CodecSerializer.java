@@ -14,7 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ConnectorCodec;
-import com.facebook.presto.spi.ConnectorId;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -40,7 +39,7 @@ class CodecSerializer<T>
         extends JsonSerializer<T>
 {
     private final Function<T, String> nameResolver;
-    private final Function<ConnectorId, Optional<ConnectorCodec<T>>> codecExtractor;
+    private final Function<String, Optional<ConnectorCodec<T>>> codecExtractor;
     private final TypeIdResolver typeResolver;
     private final TypeSerializer typeSerializer;
     private final Cache<Class<?>, JsonSerializer<Object>> serializerCache = CacheBuilder.newBuilder().build();
@@ -50,7 +49,7 @@ class CodecSerializer<T>
     public CodecSerializer(
             String typePropertyName,
             String dataPropertyName,
-            Function<ConnectorId, Optional<ConnectorCodec<T>>> codecExtractor,
+            Function<String, Optional<ConnectorCodec<T>>> codecExtractor,
             Function<T, String> nameResolver,
             TypeIdResolver typeIdResolver)
     {
@@ -71,18 +70,17 @@ class CodecSerializer<T>
             return;
         }
 
-        String connectorIdString = nameResolver.apply(value);
+        // A handle's type id is the name of its connector, not of any catalog using that connector
+        String connectorName = nameResolver.apply(value);
 
         // Only try binary serialization for actual connectors (not internal handles like "$remote")
-        if (!connectorIdString.startsWith("$")) {
-            ConnectorId connectorId = new ConnectorId(connectorIdString);
-
+        if (!connectorName.startsWith("$")) {
             // Check if connector has a binary codec
-            Optional<ConnectorCodec<T>> codec = codecExtractor.apply(connectorId);
+            Optional<ConnectorCodec<T>> codec = codecExtractor.apply(connectorName);
             if (codec.isPresent()) {
                 // Use binary serialization with flat structure
                 jsonGenerator.writeStartObject();
-                jsonGenerator.writeStringField(typePropertyName, connectorIdString);
+                jsonGenerator.writeStringField(typePropertyName, connectorName);
                 byte[] data = codec.get().serialize(value);
                 jsonGenerator.writeStringField(dataPropertyName, Base64.getEncoder().encodeToString(data));
                 jsonGenerator.writeEndObject();

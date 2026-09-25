@@ -16,7 +16,6 @@ package com.facebook.presto.connector;
 import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -49,58 +48,65 @@ public class ConnectorCodecManager
         connectorCodecProviders.put(REMOTE_CONNECTOR_ID.toString(), new RemoteCodecProvider(thriftCodecManagerProvider));
     }
 
-    public void addConnectorCodecProvider(ConnectorId connectorId, ConnectorCodecProvider connectorCodecProvider)
+    public void addConnectorCodecProvider(String connectorName, ConnectorCodecProvider connectorCodecProvider)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(connectorName, "connectorName is null");
         requireNonNull(connectorCodecProvider, "connectorThriftCodecProvider is null");
-        connectorCodecProviders.put(connectorId.getCatalogName(), connectorCodecProvider);
+        // Catalogs sharing a connector register equivalent providers; the first wins.
+        connectorCodecProviders.putIfAbsent(connectorName, connectorCodecProvider);
     }
 
-    public Optional<ConnectorCodec<ConnectorSplit>> getConnectorSplitCodec(String connectorId)
+    public Optional<ConnectorCodec<ConnectorSplit>> getConnectorSplitCodec(String connectorName)
     {
-        requireNonNull(connectorId, "connectorId is null");
-        return Optional.ofNullable(connectorCodecProviders.get(connectorId)).flatMap(ConnectorCodecProvider::getConnectorSplitCodec);
+        requireNonNull(connectorName, "connectorName is null");
+        return Optional.ofNullable(connectorCodecProviders.get(connectorName)).flatMap(ConnectorCodecProvider::getConnectorSplitCodec);
     }
 
-    public Optional<ConnectorCodec<ConnectorTransactionHandle>> getTransactionHandleCodec(String connectorId)
+    public Optional<ConnectorCodec<ConnectorTransactionHandle>> getTransactionHandleCodec(String connectorName)
     {
-        requireNonNull(connectorId, "connectorId is null");
-        return Optional.ofNullable(connectorCodecProviders.get(connectorId)).flatMap(ConnectorCodecProvider::getConnectorTransactionHandleCodec);
+        requireNonNull(connectorName, "connectorName is null");
+        return Optional.ofNullable(connectorCodecProviders.get(connectorName)).flatMap(ConnectorCodecProvider::getConnectorTransactionHandleCodec);
     }
 
-    public Optional<ConnectorCodec<ConnectorOutputTableHandle>> getOutputTableHandleCodec(String connectorId)
+    public Optional<ConnectorCodec<ConnectorOutputTableHandle>> getOutputTableHandleCodec(String connectorName)
     {
-        requireNonNull(connectorId, "connectorId is null");
-        return Optional.ofNullable(connectorCodecProviders.get(connectorId)).flatMap(ConnectorCodecProvider::getConnectorOutputTableHandleCodec);
+        requireNonNull(connectorName, "connectorName is null");
+        return Optional.ofNullable(connectorCodecProviders.get(connectorName)).flatMap(ConnectorCodecProvider::getConnectorOutputTableHandleCodec);
     }
 
-    public Optional<ConnectorCodec<ConnectorInsertTableHandle>> getInsertTableHandleCodec(String connectorId)
+    public Optional<ConnectorCodec<ConnectorInsertTableHandle>> getInsertTableHandleCodec(String connectorName)
     {
-        requireNonNull(connectorId, "connectorId is null");
-        return Optional.ofNullable(connectorCodecProviders.get(connectorId)).flatMap(ConnectorCodecProvider::getConnectorInsertTableHandleCodec);
+        requireNonNull(connectorName, "connectorName is null");
+        return Optional.ofNullable(connectorCodecProviders.get(connectorName)).flatMap(ConnectorCodecProvider::getConnectorInsertTableHandleCodec);
     }
 
-    public Optional<ConnectorCodec<ConnectorDeleteTableHandle>> getDeleteTableHandleCodec(String connectorId)
+    public Optional<ConnectorCodec<ConnectorDeleteTableHandle>> getDeleteTableHandleCodec(String connectorName)
     {
-        requireNonNull(connectorId, "connectorId is null");
-        return Optional.ofNullable(connectorCodecProviders.get(connectorId)).flatMap(ConnectorCodecProvider::getConnectorDeleteTableHandleCodec);
+        requireNonNull(connectorName, "connectorName is null");
+        return Optional.ofNullable(connectorCodecProviders.get(connectorName)).flatMap(ConnectorCodecProvider::getConnectorDeleteTableHandleCodec);
     }
 
-    public Optional<ConnectorCodec<ConnectorMergeTableHandle>> getMergeTableHandleCodec(String connectorId)
+    public Optional<ConnectorCodec<ConnectorMergeTableHandle>> getMergeTableHandleCodec(String connectorName)
     {
-        requireNonNull(connectorId, "connectorId is null");
-        return Optional.ofNullable(connectorCodecProviders.get(connectorId)).flatMap(ConnectorCodecProvider::getConnectorMergeTableHandleCodec);
+        requireNonNull(connectorName, "connectorName is null");
+        return Optional.ofNullable(connectorCodecProviders.get(connectorName)).flatMap(ConnectorCodecProvider::getConnectorMergeTableHandleCodec);
     }
 
-    public Optional<ConnectorCodec<ConnectorTableLayoutHandle>> getTableLayoutHandleCodec(String connectorId)
+    public Optional<ConnectorCodec<ConnectorTableLayoutHandle>> getTableLayoutHandleCodec(String connectorName)
     {
-        requireNonNull(connectorId, "connectorId is null");
-        return Optional.ofNullable(connectorCodecProviders.get(connectorId)).flatMap(ConnectorCodecProvider::getConnectorTableLayoutHandleCodec);
+        requireNonNull(connectorName, "connectorName is null");
+        return Optional.ofNullable(connectorCodecProviders.get(connectorName)).flatMap(ConnectorCodecProvider::getConnectorTableLayoutHandleCodec);
     }
 
-    public Optional<ConnectorCodec<ConnectorTableHandle>> getTableHandleCodec(String connectorId)
+    public Optional<ConnectorCodec<ConnectorTableHandle>> getTableHandleCodec(String connectorName)
     {
-        requireNonNull(connectorId, "connectorId is null");
-        return Optional.ofNullable(connectorCodecProviders.get(connectorId)).flatMap(ConnectorCodecProvider::getConnectorTableHandleCodec);
+        requireNonNull(connectorName, "connectorName is null");
+        return Optional.ofNullable(connectorCodecProviders.get(connectorName)).flatMap(ConnectorCodecProvider::getConnectorTableHandleCodec);
+    }
+
+    public Optional<ConnectorCodecProvider> getConnectorCodecProvider(String connectorName)
+    {
+        requireNonNull(connectorName, "connectorName is null");
+        return Optional.ofNullable(connectorCodecProviders.get(connectorName));
     }
 }
