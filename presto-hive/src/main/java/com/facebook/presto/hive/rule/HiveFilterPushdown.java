@@ -135,6 +135,7 @@ public class HiveFilterPushdown
                 DomainTranslator.ExtractionResult<Subfield> decomposedFilter,
                 RowExpression optimizedRemainingExpression,
                 Constraint<ColumnHandle> constraint,
+                Set<ColumnHandle> desiredColumns,
                 Optional<ConnectorTableLayoutHandle> currentLayoutHandle,
                 ConnectorTableHandle tableHandle)
         {

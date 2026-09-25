@@ -847,26 +847,35 @@ public final class IcebergUtil
         return matches;
     }
 
-    // The fallback branches handle cases where InclusiveMetricsEvaluator would over-include:
-    // V2/no-row-lineage files (column always null) and V3 pre-compaction (effective value =
-    // dataSequenceNumber per Iceberg's LastUpdatedSeqReader).
+    // A row's effective value is its stored value, or dataSequenceNumber when the stored value is
+    // null, so a file matches if either its stored values or dataSequenceNumber can match. Stored
+    // values are known only through bounds; a file with no metrics for the column is treated as
+    // not storing it, which is also how a stored column written with metrics mode "none" appears.
     private static boolean lastUpdatedSequenceNumberMatches(
             Domain domain,
             long dataSequenceNumber,
             ContentFile<?> file,
             InclusiveMetricsEvaluator evaluator)
     {
-        int fieldId = LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
-        Map<Integer, ByteBuffer> lowerBounds = file.lowerBounds();
-        Map<Integer, ByteBuffer> upperBounds = file.upperBounds();
-        if (lowerBounds != null && lowerBounds.containsKey(fieldId)
-                && upperBounds != null && upperBounds.containsKey(fieldId)) {
-            return evaluator.eval(file);
-        }
         if (file instanceof DataFile && ((DataFile) file).firstRowId() == null) {
             return domain.isNullAllowed();
         }
+        int fieldId = LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
+        Long valueCount = getMetric(file.valueCounts(), fieldId);
+        Long nullCount = getMetric(file.nullValueCounts(), fieldId);
+        boolean mayInherit = nullCount == null || nullCount > 0;
+        if (getMetric(file.lowerBounds(), fieldId) != null && getMetric(file.upperBounds(), fieldId) != null) {
+            return evaluator.eval(file) || (mayInherit && domain.includesNullableValue(dataSequenceNumber));
+        }
+        if (valueCount != null && (nullCount == null || nullCount < valueCount)) {
+            return true;
+        }
         return domain.includesNullableValue(dataSequenceNumber);
+    }
+
+    private static <T> T getMetric(Map<Integer, T> metrics, int fieldId)
+    {
+        return metrics == null ? null : metrics.get(fieldId);
     }
 
     public static InclusiveMetricsEvaluator buildLastUpdatedSequenceNumberEvaluator(TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
@@ -1171,7 +1180,7 @@ public final class IcebergUtil
             Optional<Set<Integer>> requestedSchema,
             RuntimeStats runtimeStats)
     {
-        Expression filterExpression = toIcebergExpression(filter);
+        Expression filterExpression = toIcebergExpression(getNonMetadataColumnConstraints(filter));
         CloseableIterable<FileScanTask> fileTasks = table
                 .newScan()
                 .metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats))

@@ -891,6 +891,7 @@ public class PrestoNativeQueryRunnerUtils
                             "presto.version=testversion%n" +
                             "plan-consistency-check-enabled=true%n" +
                             "system-memory-gb=4%n" +
+                            "use-mmap-allocator=false%n" +
                             "http-server.http.port=%d%n", discoveryUri, workerPort);
 
                     if (coordinatorSidecarEnabled) {
