@@ -382,4 +382,22 @@ public class TestIcebergTypes
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
+
+    @Test
+    public void testInsertIntoRowWithQuotedButValidIdentifierSubFieldName()
+    {
+        String tableName = "test_quoted_valid_subfield";
+        try {
+            // "myfield" and "amount" are valid unquoted identifiers, but the user quoted them.
+            // needsDelimiting("myfield") == false  → delimited=false  (from toPrestoType / read-back)
+            // parseTypeSignature("myfield")        → delimited=true   (from DDL parser, because quoted)
+            // RowFieldName.equals: false != true   → TypeValidator throws on INSERT
+            assertUpdate("CREATE TABLE " + tableName + " (id INT, info ROW(\"myfield\" VARCHAR, \"amount\" INT))");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW('hello', 42))", 1);
+            assertQuery("SELECT info.\"myfield\", info.\"amount\" FROM " + tableName, "VALUES ('hello', 42)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
 }
