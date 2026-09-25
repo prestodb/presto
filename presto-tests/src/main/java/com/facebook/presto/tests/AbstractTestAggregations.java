@@ -578,6 +578,19 @@ public abstract class AbstractTestAggregations
         assertQuery("SELECT CASE 1 WHEN 1 THEN 'x' ELSE orderstatus END, count(*)\n" +
                 "FROM orders\n" +
                 "GROUP BY orderstatus");
+
+        // Simple CASE with a constant operand and varchar WHEN operands of
+        // differing widths (varchar(7) vs varchar(8)), repeated in SELECT
+        // and GROUP BY. Regression: the analyzer used to coerce the CASE
+        // operand pairwise per WHEN clause, leaving an inconsistent
+        // coercion map (operand widened to varchar(8) by the second WHEN
+        // while the first WHEN stayed at varchar(7)). That asymmetry made
+        // the SELECT- and GROUP BY-side translations diverge, so the
+        // aggregation's grouping output no longer covered the projection's
+        // dependencies and ValidateDependenciesChecker rejected the plan.
+        assertQuery("SELECT CASE 'default' WHEN 'default' THEN orderstatus WHEN 'hsdfmont' THEN substr(orderstatus, 1, 1) END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE 'default' WHEN 'default' THEN orderstatus WHEN 'hsdfmont' THEN substr(orderstatus, 1, 1) END");
     }
 
     @Test
