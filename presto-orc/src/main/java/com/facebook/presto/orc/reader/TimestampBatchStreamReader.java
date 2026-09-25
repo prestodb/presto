@@ -42,6 +42,7 @@ import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class TimestampBatchStreamReader
@@ -68,12 +69,16 @@ public class TimestampBatchStreamReader
 
     private boolean rowGroupOpen;
     private final boolean enableMicroPrecision;
+    // When true, a timestamp that overflows the supported range is read back as null instead of
+    // failing the read with a TimestampOutOfBoundsException.
+    private final boolean readNullForOutOfBoundsTimestamp;
     private DecodeTimestampOptions decodeTimestampOptions;
 
-    public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, boolean enableMicroPrecision)
+    public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, boolean enableMicroPrecision, boolean readNullForOutOfBoundsTimestamp)
             throws OrcCorruptionException
     {
         this.enableMicroPrecision = enableMicroPrecision;
+        this.readNullForOutOfBoundsTimestamp = readNullForOutOfBoundsTimestamp;
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, TimestampType.class::isInstance);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
@@ -153,11 +158,7 @@ public class TimestampBatchStreamReader
             throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but nanos stream is missing");
         }
 
-        long[] values = new long[nextBatchSize];
-        for (int i = 0; i < nextBatchSize; i++) {
-            values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
-        }
-        return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
+        return decodeBlock(null, nextBatchSize);
     }
 
     private Block readNullBlock(boolean[] isNull)
@@ -170,14 +171,62 @@ public class TimestampBatchStreamReader
             throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but nanos stream is missing");
         }
 
-        long[] values = new long[isNull.length];
+        return decodeBlock(isNull, isNull.length);
+    }
 
-        for (int i = 0; i < isNull.length; i++) {
-            if (!isNull[i]) {
-                values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
+    // Decodes positionCount values from the seconds/nanos streams, skipping the positions already
+    // marked null in isNull. isNull is null for a column with no present stream; in that case it is
+    // allocated by ensureIsNull on the first out-of-bounds timestamp, so a batch that decodes
+    // cleanly still reports no nulls and keeps the downstream no-nulls fast path.
+    private Block decodeBlock(boolean[] isNull, int positionCount)
+            throws IOException
+    {
+        long[] values = new long[positionCount];
+        boolean hasNull = isNull != null;
+
+        for (int i = 0; i < positionCount; i++) {
+            if (hasNull && isNull[i]) {
+                continue;
+            }
+            if (decodeInto(values, i)) {
+                // Out-of-bounds timestamps are read back as null instead of failing the read.
+                isNull = ensureIsNull(isNull, positionCount);
+                isNull[i] = true;
+                hasNull = true;
             }
         }
-        return new LongArrayBlock(isNull.length, Optional.of(isNull), values);
+        return new LongArrayBlock(positionCount, Optional.ofNullable(hasNull ? isNull : null), values);
+    }
+
+    // Returns the array the read loop marks out-of-bounds timestamps in, allocating it on first use.
+    // The caller's array is returned unchanged when it is already present, so present-stream nulls
+    // are never discarded.
+    private static boolean[] ensureIsNull(boolean[] isNull, int capacity)
+    {
+        checkArgument(isNull == null || isNull.length >= capacity, "isNull is smaller than capacity");
+        return isNull != null ? isNull : new boolean[capacity];
+    }
+
+    // Reads the next timestamp from the seconds/nanos streams into values[index]. Returns true when
+    // the value is an out-of-bounds timestamp that should be read back as null; in that case
+    // values[index] is left unset (0) and the caller must mark the position null. When
+    // readNullForOutOfBoundsTimestamp is disabled the overflow is rethrown, preserving the original
+    // fail-the-read behavior.
+    private boolean decodeInto(long[] values, int index)
+            throws IOException
+    {
+        long seconds = secondsStream.next();
+        long serializedNanos = nanosStream.next();
+        try {
+            values[index] = decodeTimestamp(seconds, serializedNanos, decodeTimestampOptions);
+            return false;
+        }
+        catch (TimestampOutOfBoundsException e) {
+            if (!readNullForOutOfBoundsTimestamp) {
+                throw e;
+            }
+            return true;
+        }
     }
 
     private void openRowGroup()
