@@ -12,14 +12,23 @@
  * limitations under the License.
  */
 #pragma once
-#include <folly/executors/FunctionScheduler.h>
+#include <atomic>
+#include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <memory>
 #include <queue>
 #include <string>
+#include <vector>
+
+#include <folly/executors/FunctionScheduler.h>
 
 namespace facebook::presto {
-/// Utility class that spawns a thread which periodically checks the memory
-/// usage and perform the following actions:
+/// Periodically samples system memory usage and reclaims memory under
+/// pressure. Sampling and reclamation run on separate scheduler threads so a
+/// blocked reclaim cannot stall usage updates: the sampling thread is the
+/// sole writer of the cached usage snapshot, every other thread only reads
+/// it.
 class PeriodicMemoryChecker {
  public:
   struct Config {
@@ -69,21 +78,19 @@ class PeriodicMemoryChecker {
 
   virtual ~PeriodicMemoryChecker() = default;
 
-  /// Starts the 'PeriodicMemoryChecker'. A background scheduler will be
-  /// launched to perform the checks. This should only be called once.
+  /// Starts the background schedulers. This should only be called once.
   virtual void start();
 
-  /// Stops the 'PeriodicMemoryChecker'.
+  /// Stops the background schedulers.
   virtual void stop();
 
-  /// Returns the last known cached 'current' system memory usage in bytes.  If
-  /// 'fetchFresh' is true, retrieves and returns the current system memory
-  /// usage. The returned value is used to compare with
-  /// 'Config::systemMemLimitBytes'.
-  int64_t systemUsedMemoryBytes(bool fetchFresh = false);
+  /// Last sampled system memory usage in bytes. Written only by the sampling
+  /// thread, read from any thread.
+  int64_t systemUsedMemoryBytes() const;
 
  protected:
-  /// Fetches current system memory usage in bytes and stores it in the cache.
+  /// Samples system memory usage and publishes it to the cache. Runs only
+  /// on the sampling thread.
   virtual void loadSystemMemoryUsage() = 0;
 
   /// Returns current bytes allocated by malloc. The returned value is used to
@@ -102,8 +109,8 @@ class PeriodicMemoryChecker {
   /// Returns true if dump is successful.
   virtual void removeDumpFile(const std::string& filePath) const = 0;
 
-  /// Invoked by the periodic checker when 'Config::systemMemPushbackEnabled'
-  /// is true and system memory usage is above 'Config::systemMemLimitBytes'.
+  /// Reclaims memory when usage is above 'Config::systemMemLimitBytes'.
+  /// Runs on the pushback thread, concurrently with 'periodicCb()'.
   virtual void pushbackMemory();
 
   const Config config_;
@@ -135,13 +142,17 @@ class PeriodicMemoryChecker {
 
   std::string createHeapDumpFilePath() const;
 
-  std::shared_ptr<folly::FunctionScheduler> scheduler_;
   size_t lastHeapDumpAttemptTimestamp_{0};
   std::priority_queue<
       DumpFileInfo,
       std::vector<DumpFileInfo>,
       std::greater<DumpFileInfo>>
       dumpFilesByHeapMemUsageMinPq_;
+  // Samples usage on the sampling thread without running reclamation.
+  std::unique_ptr<folly::FunctionScheduler> memoryCheckScheduler_;
+  // Runs reclamation on its own thread so a blocked reclaim cannot stall
+  // sampling.
+  std::unique_ptr<folly::FunctionScheduler> memoryPushbackScheduler_;
 };
 
 std::unique_ptr<PeriodicMemoryChecker> createMemoryChecker();

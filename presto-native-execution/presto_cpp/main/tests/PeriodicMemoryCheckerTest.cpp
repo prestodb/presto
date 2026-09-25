@@ -11,13 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
+
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <future>
+#include <memory>
+#include <string>
+#include <thread>
+#include <utility>
+
 #include <gtest/gtest.h>
-#include "velox/common/base/VeloxException.h"
+
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
+#include "velox/common/caching/StringIdMap.h"
 #include "velox/common/memory/Memory.h"
 
 using namespace facebook::velox;
@@ -37,17 +51,37 @@ class PeriodicMemoryCheckerTest : public testing::Test {
           mallocBytes_(mallocBytes),
           periodicCb_(std::move(periodicCb)),
           heapDumpCb_(std::move(heapDumpCb)) {
-      cachedSystemUsedMemoryBytes_ = systemUsedMemoryBytes;
+      cachedSystemUsedMemoryBytes_.store(
+          systemUsedMemoryBytes, std::memory_order_relaxed);
     }
 
-    ~TestPeriodicMemoryChecker() override {}
+    ~TestPeriodicMemoryChecker() override = default;
 
     void setMallocBytes(int64_t mallocBytes) {
       mallocBytes_ = mallocBytes;
     }
 
+    void setLoadSystemMemoryUsageCb(std::function<int64_t()> callback) {
+      loadSystemMemoryUsageCb_ = std::move(callback);
+    }
+
+    void setPushbackMemoryCb(std::function<void()> callback) {
+      pushbackMemoryCb_ = std::move(callback);
+    }
+
+    // Runs the base-class pushback directly, bypassing the schedulers, to
+    // regression-test the trigger-revalidation logic deterministically.
+    void invokeBasePushbackForTest() {
+      PeriodicMemoryChecker::pushbackMemory();
+    }
+
    protected:
-    void loadSystemMemoryUsage() override {}
+    void loadSystemMemoryUsage() override {
+      if (loadSystemMemoryUsageCb_) {
+        cachedSystemUsedMemoryBytes_.store(
+            loadSystemMemoryUsageCb_(), std::memory_order_relaxed);
+      }
+    }
 
     int64_t mallocBytes() const override {
       return mallocBytes_;
@@ -68,10 +102,20 @@ class PeriodicMemoryCheckerTest : public testing::Test {
 
     void removeDumpFile(const std::string& filePath) const override {}
 
+    void pushbackMemory() override {
+      if (pushbackMemoryCb_) {
+        pushbackMemoryCb_();
+      } else {
+        PeriodicMemoryChecker::pushbackMemory();
+      }
+    }
+
    private:
     int64_t mallocBytes_{0};
     std::function<void()> periodicCb_;
     std::function<bool(const std::string&)> heapDumpCb_;
+    std::function<int64_t()> loadSystemMemoryUsageCb_;
+    std::function<void()> pushbackMemoryCb_;
   };
 };
 
@@ -132,6 +176,55 @@ TEST_F(PeriodicMemoryCheckerTest, periodicCb) {
   testPeriodicCb(true, false);
   testPeriodicCb(false, true);
   testPeriodicCb(false, false);
+}
+
+TEST_F(PeriodicMemoryCheckerTest, samplingContinuesWhilePushbackIsBlocked) {
+  const auto numSamples = std::make_shared<std::atomic<int32_t>>(0);
+  const auto pushbackStarted = std::make_shared<std::atomic_bool>(false);
+  const auto unblockPushback = std::make_shared<std::promise<void>>();
+  const std::shared_future<void> unblockPushbackFuture =
+      unblockPushback->get_future().share();
+
+  PeriodicMemoryChecker::Config config;
+  config.memoryCheckerIntervalMs = 10;
+  config.systemMemPushbackEnabled = true;
+  config.systemMemLimitBytes = 2;
+  config.systemMemShrinkBytes = 1;
+  TestPeriodicMemoryChecker memoryChecker(config, 0);
+  memoryChecker.setLoadSystemMemoryUsageCb([numSamples]() noexcept {
+    numSamples->fetch_add(1, std::memory_order_relaxed);
+    return 3;
+  });
+  memoryChecker.setPushbackMemoryCb([pushbackStarted, unblockPushbackFuture]() {
+    pushbackStarted->store(true, std::memory_order_release);
+    unblockPushbackFuture.wait();
+  });
+
+  memoryChecker.start();
+  const std::chrono::steady_clock::time_point pushbackDeadline =
+      std::chrono::steady_clock::now() + std::chrono::seconds{1};
+  while (!pushbackStarted->load(std::memory_order_acquire) &&
+         std::chrono::steady_clock::now() < pushbackDeadline) {
+    std::this_thread::yield();
+  }
+  const bool pushbackObserved =
+      pushbackStarted->load(std::memory_order_acquire);
+  const int32_t numSamplesAtPushbackStart =
+      numSamples->load(std::memory_order_relaxed);
+  const std::chrono::steady_clock::time_point deadline =
+      std::chrono::steady_clock::now() + std::chrono::seconds{1};
+  while (numSamples->load(std::memory_order_relaxed) <=
+             numSamplesAtPushbackStart &&
+         std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::yield();
+  }
+  const bool samplingContinued =
+      numSamples->load(std::memory_order_relaxed) > numSamplesAtPushbackStart;
+  unblockPushback->set_value();
+  memoryChecker.stop();
+
+  ASSERT_TRUE(pushbackObserved);
+  EXPECT_TRUE(samplingContinued);
 }
 
 TEST_F(PeriodicMemoryCheckerTest, heapdump) {
@@ -226,5 +319,30 @@ TEST_F(PeriodicMemoryCheckerTest, pushbackMemory) {
   asyncDataCache->shutdown();
   cache::AsyncDataCache::setInstance(nullptr);
   memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+}
+
+TEST_F(PeriodicMemoryCheckerTest, pushbackNoopOnStaleTrigger) {
+  // A stale scheduler trigger (cached usage dropped below the pushback target
+  // after the guard fired) must no-op instead of tripping a fatal CHECK.
+  TestPeriodicMemoryChecker belowTarget(
+      PeriodicMemoryChecker::Config{
+          1'000, true, 100, 10, false, 5, "/path/to/dir", "prefix", 5, 512},
+      /*systemUsedMemoryBytes=*/50);
+  ASSERT_NO_THROW(belowTarget.invokeBasePushbackForTest());
+
+  VELOX_ASSERT_THROW(
+      TestPeriodicMemoryChecker(
+          PeriodicMemoryChecker::Config{
+              1'000,
+              true,
+              100,
+              200,
+              false,
+              5,
+              "/path/to/dir",
+              "prefix",
+              5,
+              512}),
+      "systemMemShrinkBytes must be less than systemMemLimitBytes");
 }
 } // namespace facebook::presto
