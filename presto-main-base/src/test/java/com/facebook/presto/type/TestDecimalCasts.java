@@ -79,8 +79,10 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(BIGINT '1234567890' AS DECIMAL(30, 20))", decimal("1234567890.00000000000000000000"));
         assertDecimalFunction("CAST(BIGINT '-1234567890' AS DECIMAL(30, 20))", decimal("-1234567890.00000000000000000000"));
         assertDecimalFunction("CAST(BIGINT '-1234567' AS DECIMAL(17, 10))", decimal("-1234567.0000000000"));
+        assertDecimalFunction("CAST(BIGINT '0' AS DECIMAL(38, 38))", decimal(".00000000000000000000000000000000000000"));
 
         assertInvalidCast("CAST(BIGINT '10' AS DECIMAL(38,37))", "Cannot cast BIGINT '10' to DECIMAL(38, 37)");
+        assertInvalidCast("CAST(BIGINT '1' AS DECIMAL(38, 38))", "Cannot cast BIGINT '1' to DECIMAL(38, 38)");
         assertInvalidCast("CAST(BIGINT '1234567890' AS DECIMAL(17,10))", "Cannot cast BIGINT '1234567890' to DECIMAL(17, 10)");
         assertInvalidCast("CAST(BIGINT '123' AS DECIMAL(2,1))", "Cannot cast BIGINT '123' to DECIMAL(2, 1)");
         assertInvalidCast("CAST(BIGINT '-123' AS DECIMAL(2,1))", "Cannot cast BIGINT '-123' to DECIMAL(2, 1)");
@@ -101,8 +103,11 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(INTEGER '-1234567890' AS DECIMAL(20, 10))", decimal("-1234567890.0000000000"));
         assertDecimalFunction("CAST(INTEGER '1234567890' AS DECIMAL(30, 20))", decimal("1234567890.00000000000000000000"));
         assertDecimalFunction("CAST(INTEGER '-1234567890' AS DECIMAL(30, 20))", decimal("-1234567890.00000000000000000000"));
+        assertDecimalFunction("CAST(INTEGER '0' AS DECIMAL(38, 38))", decimal(".00000000000000000000000000000000000000"));
+        assertDecimalFunction("TRY_CAST(INTEGER '0' AS DECIMAL(38, 38))", decimal(".00000000000000000000000000000000000000"));
 
         assertInvalidCast("CAST(INTEGER '10' AS DECIMAL(38,37))", "Cannot cast INTEGER '10' to DECIMAL(38, 37)");
+        assertInvalidCast("CAST(INTEGER '1' AS DECIMAL(38, 38))", "Cannot cast INTEGER '1' to DECIMAL(38, 38)");
         assertInvalidCast("CAST(INTEGER '1234567890' AS DECIMAL(17,10))", "Cannot cast INTEGER '1234567890' to DECIMAL(17, 10)");
         assertInvalidCast("CAST(INTEGER '123' AS DECIMAL(2,1))", "Cannot cast INTEGER '123' to DECIMAL(2, 1)");
         assertInvalidCast("CAST(INTEGER '-123' AS DECIMAL(2,1))", "Cannot cast INTEGER '-123' to DECIMAL(2, 1)");
@@ -121,8 +126,10 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(SMALLINT '1234' AS DECIMAL(30, 20))", decimal("0000001234.00000000000000000000"));
         assertDecimalFunction("CAST(SMALLINT '-1234' AS DECIMAL(30, 20))", decimal("-0000001234.00000000000000000000"));
         assertDecimalFunction("CAST(SMALLINT '12345' AS DECIMAL(18,13))", decimal("12345.0000000000000"));
+        assertDecimalFunction("CAST(SMALLINT '0' AS DECIMAL(38, 38))", decimal(".00000000000000000000000000000000000000"));
 
         assertInvalidCast("CAST(SMALLINT '10' AS DECIMAL(38,37))", "Cannot cast SMALLINT '10' to DECIMAL(38, 37)");
+        assertInvalidCast("CAST(SMALLINT '1' AS DECIMAL(38, 38))", "Cannot cast SMALLINT '1' to DECIMAL(38, 38)");
         assertInvalidCast("CAST(SMALLINT '1234' AS DECIMAL(17,14))", "Cannot cast SMALLINT '1234' to DECIMAL(17, 14)");
         assertInvalidCast("CAST(SMALLINT '123' AS DECIMAL(2,1))", "Cannot cast SMALLINT '123' to DECIMAL(2, 1)");
         assertInvalidCast("CAST(SMALLINT '-123' AS DECIMAL(2,1))", "Cannot cast SMALLINT '-123' to DECIMAL(2, 1)");
@@ -141,8 +148,10 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(TINYINT '123' AS DECIMAL(30, 20))", decimal("0000000123.00000000000000000000"));
         assertDecimalFunction("CAST(TINYINT '-123' AS DECIMAL(30, 20))", decimal("-0000000123.00000000000000000000"));
         assertDecimalFunction("CAST(TINYINT '123' AS DECIMAL(18,15))", decimal("123.000000000000000"));
+        assertDecimalFunction("CAST(TINYINT '0' AS DECIMAL(38, 38))", decimal(".00000000000000000000000000000000000000"));
 
         assertInvalidCast("CAST(TINYINT '10' AS DECIMAL(38,37))", "Cannot cast TINYINT '10' to DECIMAL(38, 37)");
+        assertInvalidCast("CAST(TINYINT '1' AS DECIMAL(38, 38))", "Cannot cast TINYINT '1' to DECIMAL(38, 38)");
         assertInvalidCast("CAST(TINYINT '123' AS DECIMAL(17,15))", "Cannot cast TINYINT '123' to DECIMAL(17, 15)");
         assertInvalidCast("CAST(TINYINT '123' AS DECIMAL(2,1))", "Cannot cast TINYINT '123' to DECIMAL(2, 1)");
         assertInvalidCast("CAST(TINYINT '-123' AS DECIMAL(2,1))", "Cannot cast TINYINT '-123' to DECIMAL(2, 1)");
