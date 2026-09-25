@@ -34,6 +34,17 @@ public class TypeVariableConstraint
     private final boolean orderableRequired;
     private final String variadicBound;
     private final boolean nonDecimalNumericRequired;
+    private final boolean hashableRequired;
+
+    public TypeVariableConstraint(
+            String name,
+            boolean comparableRequired,
+            boolean orderableRequired,
+            String variadicBound,
+            boolean nonDecimalNumericRequired)
+    {
+        this(name, comparableRequired, orderableRequired, variadicBound, nonDecimalNumericRequired, false);
+    }
 
     @ThriftConstructor
     @JsonCreator
@@ -42,13 +53,15 @@ public class TypeVariableConstraint
             @JsonProperty("comparableRequired") boolean comparableRequired,
             @JsonProperty("orderableRequired") boolean orderableRequired,
             @JsonProperty("variadicBound") @Nullable String variadicBound,
-            @JsonProperty("nonDecimalNumericRequired") boolean nonDecimalNumericRequired)
+            @JsonProperty("nonDecimalNumericRequired") boolean nonDecimalNumericRequired,
+            @JsonProperty("hashableRequired") boolean hashableRequired)
     {
         this.name = name;
         this.comparableRequired = comparableRequired;
         this.orderableRequired = orderableRequired;
         this.variadicBound = (Objects.equals(variadicBound, "")) ? null : variadicBound;
         this.nonDecimalNumericRequired = nonDecimalNumericRequired;
+        this.hashableRequired = hashableRequired;
     }
 
     @ThriftField(1)
@@ -86,6 +99,13 @@ public class TypeVariableConstraint
         return nonDecimalNumericRequired;
     }
 
+    @ThriftField(6)
+    @JsonProperty
+    public boolean isHashableRequired()
+    {
+        return hashableRequired;
+    }
+
     public boolean canBind(Type type)
     {
         if (comparableRequired && !type.isComparable()) {
@@ -119,6 +139,9 @@ public class TypeVariableConstraint
         if (nonDecimalNumericRequired) {
             value += ":nonDecimalNumeric";
         }
+        if (hashableRequired) {
+            value += ":hashable";
+        }
         return value;
     }
 
@@ -135,6 +158,7 @@ public class TypeVariableConstraint
         return comparableRequired == that.comparableRequired &&
                 orderableRequired == that.orderableRequired &&
                 nonDecimalNumericRequired == that.nonDecimalNumericRequired &&
+                hashableRequired == that.hashableRequired &&
                 Objects.equals(name, that.name) &&
                 Objects.equals(variadicBound, that.variadicBound);
     }
@@ -142,6 +166,6 @@ public class TypeVariableConstraint
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, comparableRequired, orderableRequired, variadicBound, nonDecimalNumericRequired);
+        return Objects.hash(name, comparableRequired, orderableRequired, variadicBound, nonDecimalNumericRequired, hashableRequired);
     }
 }
