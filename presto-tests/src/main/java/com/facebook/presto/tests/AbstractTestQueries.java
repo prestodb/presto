@@ -867,6 +867,65 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOuterJoinWithNullSensitiveFilter()
+    {
+        // A null-sensitive filter over inner-side columns keeps the outer join instead of converting it,
+        // so the outer query must return the same rows as the equivalent inner join: the predicate rejects
+        // null-supplied rows in both formulations.
+        @Language("SQL") String outerJoinWithCoalesceFilter =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT l.orderkey FROM supplier s LEFT JOIN lineitem l ON s.suppkey = l.suppkey" +
+                "  WHERE coalesce(l.comment, 'none') <> 'none')";
+        @Language("SQL") String innerJoinWithCoalesceFilter =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT l.orderkey FROM supplier s INNER JOIN lineitem l ON s.suppkey = l.suppkey" +
+                "  WHERE coalesce(l.comment, 'none') <> 'none')";
+        assertQueryWithSameQueryRunner(getSession(), outerJoinWithCoalesceFilter, getSession(), innerJoinWithCoalesceFilter);
+
+        // CASE over COALESCE shape: same equivalence must hold.
+        @Language("SQL") String outerJoinWithCaseFilter =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT l.orderkey FROM supplier s LEFT JOIN lineitem l ON s.suppkey = l.suppkey" +
+                "  WHERE CASE WHEN coalesce(l.orderkey, 0) > 0 THEN 1 ELSE 0 END = 1)";
+        @Language("SQL") String innerJoinWithCaseFilter =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT l.orderkey FROM supplier s INNER JOIN lineitem l ON s.suppkey = l.suppkey" +
+                "  WHERE CASE WHEN coalesce(l.orderkey, 0) > 0 THEN 1 ELSE 0 END = 1)";
+        assertQueryWithSameQueryRunner(getSession(), outerJoinWithCaseFilter, getSession(), innerJoinWithCaseFilter);
+
+        // IS NOT NULL still converts, so both formulations trivially agree; guards the negation carve-out end to end.
+        @Language("SQL") String outerJoinWithIsNotNullFilter =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT l.orderkey FROM supplier s LEFT JOIN lineitem l ON s.suppkey = l.suppkey" +
+                "  WHERE l.orderkey IS NOT NULL)";
+        @Language("SQL") String innerJoinWithIsNotNullFilter =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT l.orderkey FROM supplier s INNER JOIN lineitem l ON s.suppkey = l.suppkey" +
+                "  WHERE l.orderkey IS NOT NULL)";
+        assertQueryWithSameQueryRunner(getSession(), outerJoinWithIsNotNullFilter, getSession(), innerJoinWithIsNotNullFilter);
+
+        // COALESCE over a union output on the inner side: the union remaps scan symbols, so the
+        // guard must follow the output-to-input mapping to withhold conversion, same as above.
+        @Language("SQL") String outerJoinWithUnionCoalesceFilter =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT l.orderkey FROM supplier s LEFT JOIN (" +
+                "    SELECT suppkey, orderkey, comment FROM lineitem" +
+                "    UNION ALL" +
+                "    SELECT suppkey, orderkey, comment FROM lineitem" +
+                "  ) l ON s.suppkey = l.suppkey" +
+                "  WHERE coalesce(l.comment, 'none') <> 'none')";
+        @Language("SQL") String innerJoinWithUnionCoalesceFilter =
+                "SELECT to_hex(checksum(orderkey)) FROM (" +
+                "  SELECT l.orderkey FROM supplier s INNER JOIN (" +
+                "    SELECT suppkey, orderkey, comment FROM lineitem" +
+                "    UNION ALL" +
+                "    SELECT suppkey, orderkey, comment FROM lineitem" +
+                "  ) l ON s.suppkey = l.suppkey" +
+                "  WHERE coalesce(l.comment, 'none') <> 'none')";
+        assertQueryWithSameQueryRunner(getSession(), outerJoinWithUnionCoalesceFilter, getSession(), innerJoinWithUnionCoalesceFilter);
+    }
+
+    @Test
     public void testUnnest()
     {
         Session session = sessionWithLegacyTimestamp();
