@@ -159,6 +159,12 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-jmx</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-native-sidecar-plugin</artifactId>
             <scope>test</scope>
             <type>test-jar</type>
