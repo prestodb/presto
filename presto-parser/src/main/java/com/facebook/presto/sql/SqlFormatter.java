@@ -16,7 +16,6 @@ package com.facebook.presto.sql;
 import com.facebook.presto.spi.derivedcolumns.DerivedColumnType;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
-import com.facebook.presto.sql.tree.AddField;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterColumnNotNull;
@@ -1454,7 +1453,7 @@ public final class SqlFormatter
         private String formatColumnDefinition(ColumnDefinition column)
         {
             StringBuilder sb = new StringBuilder()
-                    .append(formatExpression(column.getName(), parameters))
+                    .append(formatName(column.getName()))
                     .append(" ").append(column.getType());
             if (!column.isNullable()) {
                 sb.append(" NOT NULL");
@@ -1616,27 +1615,6 @@ public final class SqlFormatter
             else {
                 throw new UnsupportedOperationException("Unsupported column position: " + position);
             }
-        }
-
-        @Override
-        protected Void visitAddField(AddField node, Integer indent)
-        {
-            builder.append("ALTER TABLE ");
-            if (node.isTableExists()) {
-                builder.append("IF EXISTS ");
-            }
-            builder.append(formatName(node.getTableName()))
-                    .append(" ADD COLUMN ");
-            if (node.isFieldNotExists()) {
-                builder.append("IF NOT EXISTS ");
-            }
-            builder.append(formatName(node.getColumnPath()))
-                    .append(".")
-                    .append(formatName(node.getFieldName()))
-                    .append(" ")
-                    .append(node.getType());
-
-            return null;
         }
 
         @Override

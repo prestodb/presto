@@ -1187,7 +1187,7 @@ public class IcebergPageSourceProvider
      * {@link org.apache.parquet.io.ColumnIOConverter#constructField} can resolve
      * sub-field children by name against a Parquet {@code GroupColumnIO} whose columns
      * use the same hex-encoded names (e.g. {@code "field-two"} → {@code "field_x2dtwo"}).
-     * Non-ROW types and names that contain no special characters are returned unchanged.
+     * Non-container types (not ROW, not ARRAY, not MAP) and names that contain no special characters are returned unchanged.
      * The method is recursive so deeply-nested ROW types are also handled.
      */
     private static Type encodeFieldNamesForParquet(Type type)

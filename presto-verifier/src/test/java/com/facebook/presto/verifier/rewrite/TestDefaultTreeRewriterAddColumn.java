@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -65,6 +66,51 @@ public class TestDefaultTreeRewriterAddColumn
         assertEquals(rewrittenPosition(new ColumnPosition.First()), Optional.of(new ColumnPosition.First()));
     }
 
+    @Test
+    public void testNestedColumnNamePartsAreRewritten()
+    {
+        // A nested ADD COLUMN name like info.old_name — the rewriter must visit each Identifier
+        // part individually (QualifiedName is not a Node) and reconstruct the QualifiedName.
+        ColumnDefinition nested = new ColumnDefinition(
+                QualifiedName.of(ImmutableList.of(new Identifier("info"), new Identifier("old_name"))),
+                "INTEGER", true, emptyList(), Optional.empty());
+        AddColumn statement = new AddColumn(QualifiedName.of("test_table"), nested, Optional.empty(), false, false);
+
+        AddColumn rewritten = (AddColumn) new ColumnRenamer().process(statement, null);
+
+        QualifiedName rewrittenName = rewritten.getColumn().getName();
+        assertEquals(rewrittenName.getOriginalParts().get(0).getValue(), "info");
+        assertEquals(rewrittenName.getOriginalParts().get(1).getValue(), "new_name");
+    }
+
+    // A casing-only rename on a delimited identifier must not be swallowed.
+    @Test
+    public void testCasingOnlyRewriteOfDelimitedIdentifierIsPreserved()
+    {
+        ColumnDefinition column = new ColumnDefinition(
+                QualifiedName.of(ImmutableList.of(new Identifier("Col", true))),
+                "INTEGER", true, emptyList(), Optional.empty());
+        AddColumn statement = new AddColumn(QualifiedName.of("t"), column, Optional.empty(), false, false);
+
+        AddColumn rewritten = (AddColumn) new CasingNormalizer().process(statement, null);
+
+        assertEquals(rewritten.getColumn().getName().getOriginalParts().get(0).getValue(), "col");
+    }
+
+    // A casing-only rename on an unquoted identifier must not be swallowed.
+    @Test
+    public void testCasingOnlyRewriteOfUnquotedIdentifierIsPreserved()
+    {
+        ColumnDefinition column = new ColumnDefinition(
+                QualifiedName.of(ImmutableList.of(new Identifier("Info", false))),
+                "INTEGER", true, emptyList(), Optional.empty());
+        AddColumn statement = new AddColumn(QualifiedName.of("t"), column, Optional.empty(), false, false);
+
+        AddColumn rewritten = (AddColumn) new CasingNormalizer().process(statement, null);
+
+        assertEquals(rewritten.getColumn().getName().getOriginalParts().get(0).getValue(), "info");
+    }
+
     private static Optional<ColumnPosition> rewrittenPosition(ColumnPosition position)
     {
         return ((AddColumn) new ColumnRenamer().process(addColumn(Optional.of(position)), null)).getPosition();
@@ -72,7 +118,7 @@ public class TestDefaultTreeRewriterAddColumn
 
     private static AddColumn addColumn(Optional<ColumnPosition> position)
     {
-        ColumnDefinition column = new ColumnDefinition(new Identifier("new_column"), "INTEGER", true, emptyList(), Optional.empty());
+        ColumnDefinition column = new ColumnDefinition(QualifiedName.of(ImmutableList.of(new Identifier("new_column"))), "INTEGER", true, emptyList(), Optional.empty());
         return new AddColumn(QualifiedName.of("test_table"), column, position, false, false);
     }
 
@@ -89,6 +135,25 @@ public class TestDefaultTreeRewriterAddColumn
         {
             if ((node instanceof Identifier) && ((Identifier) node).getValue().equals("old_name")) {
                 return new Identifier("new_name");
+            }
+            return node;
+        }
+    }
+
+    /** Lowercases every identifier value, preserving the delimited flag. */
+    private static class CasingNormalizer
+            extends DefaultTreeRewriter<Void>
+    {
+        @Override
+        protected Node visitExpression(Expression node, Void context)
+        {
+            if (node instanceof Identifier) {
+                Identifier id = (Identifier) node;
+                String lower = id.getValue().toLowerCase(java.util.Locale.ENGLISH);
+                if (lower.equals(id.getValue())) {
+                    return node;
+                }
+                return new Identifier(lower, id.isDelimited());
             }
             return node;
         }

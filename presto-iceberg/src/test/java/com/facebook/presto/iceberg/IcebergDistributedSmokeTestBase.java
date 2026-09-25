@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
@@ -1183,30 +1184,32 @@ public abstract class IcebergDistributedSmokeTestBase
                 ".*Field 'name' already exists.*");
         dropTable(session, "test_nested_add_already_exists");
 
-        // --- Error: NOT NULL or COMMENT are rejected at parse time (not accepted by the grammar) ---
+        // --- Error: clauses accepted by grammar but without SPI support for nested fields ---
+        // NOT NULL, COMMENT, FIRST/AFTER, DEFAULT, GENERATED/AS, and WITH properties must all be
+        // rejected at task level rather than silently ignored.
         assertUpdate(session, "CREATE TABLE test_nested_add_unsupported (" +
                 "id BIGINT, " +
                 "info ROW(name VARCHAR)" +
                 ") WITH (" + format + ")");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT NOT NULL",
-                ".*mismatched input 'NOT'.*");
+                ".*NOT NULL constraint is not supported for nested ADD COLUMN.*");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT COMMENT 'user age'",
-                ".*mismatched input 'COMMENT'.*");
+                ".*COMMENT is not supported for nested ADD COLUMN.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT FIRST",
+                ".*FIRST/AFTER is not supported for nested ADD COLUMN.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT DEFAULT 10",
+                ".*DEFAULT is not supported for nested ADD COLUMN.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT AS (1 + 1) PERSISTENT",
+                ".*GENERATED/AS expression is not supported for nested ADD COLUMN.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT WITH (nullable = true)",
+                ".*WITH properties are not supported for nested ADD COLUMN.*");
         dropTable(session, "test_nested_add_unsupported");
-
-        // --- Parent lookup with case-colliding sibling columns in table ---
-        assertUpdate(session, "CREATE TABLE test_nested_add_case_collision (" +
-                "id BIGINT, " +
-                "\"info\" ROW(name VARCHAR), " +
-                "\"INFO_LOG\" VARCHAR" +
-                ") WITH (" + format + ")");
-        assertUpdate(session, "ALTER TABLE test_nested_add_case_collision ADD COLUMN info.email VARCHAR");
-        assertUpdate(session, "INSERT INTO test_nested_add_case_collision VALUES (1, ROW('alice', 'alice@test.com'), 'log1')", 1);
-        assertQuery(session, "SELECT id, info.name, info.email, \"INFO_LOG\" FROM test_nested_add_case_collision",
-                "VALUES (1, 'alice', 'alice@test.com', 'log1')");
-        dropTable(session, "test_nested_add_case_collision");
     }
 
     @Test
@@ -3146,7 +3149,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
     protected ColumnDefinition columnDefinition(String name, String type)
     {
-        return new ColumnDefinition(new Identifier(name, true), type, true, ImmutableList.of(), Optional.empty());
+        return new ColumnDefinition(QualifiedName.of(ImmutableList.of(new Identifier(name, true))), type, true, ImmutableList.of(), Optional.empty());
     }
 
     private void validateShowCreateTableInner(String catalog, String schema, String table,

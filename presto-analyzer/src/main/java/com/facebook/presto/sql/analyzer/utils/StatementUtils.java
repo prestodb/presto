@@ -16,7 +16,6 @@ package com.facebook.presto.sql.analyzer.utils;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
-import com.facebook.presto.sql.tree.AddField;
 import com.facebook.presto.sql.tree.AlterColumnNotNull;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Analyze;
@@ -138,7 +137,6 @@ public final class StatementUtils
         builder.put(RenameSchema.class, QueryType.DATA_DEFINITION);
         builder.put(CreateType.class, QueryType.DATA_DEFINITION);
         builder.put(AddColumn.class, QueryType.DATA_DEFINITION);
-        builder.put(AddField.class, QueryType.DATA_DEFINITION);
         builder.put(CreateTable.class, QueryType.DATA_DEFINITION);
         builder.put(CreateBranch.class, QueryType.DATA_DEFINITION);
         builder.put(CreateTag.class, QueryType.DATA_DEFINITION);
