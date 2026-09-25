@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.containers.HiveMinIODataLake;
+import com.facebook.presto.hive.containers.HiveS3DataLake;
 import com.facebook.presto.hive.s3.S3HiveQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.containers.S3MockContainer;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -35,7 +36,7 @@ public abstract class AbstractHiveSslTest
 {
     private static final String HIVE_TEST_SCHEMA = "hive_ssl_enable";
     private String bucketName;
-    private HiveMinIODataLake dockerizedS3DataLake;
+    private HiveS3DataLake dockerizedS3DataLake;
 
     private final Map<String, String> sslConfig;
 
@@ -48,15 +49,15 @@ public abstract class AbstractHiveSslTest
     protected QueryRunner createQueryRunner() throws Exception
     {
         this.bucketName = "test-hive-ssl-enable-" + randomTableSuffix();
-        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), HIVE4_IMAGE, true);
+        this.dockerizedS3DataLake = new HiveS3DataLake(bucketName, ImmutableMap.of(), HIVE4_IMAGE, true);
         this.dockerizedS3DataLake.start();
         return S3HiveQueryRunner.create(
                 this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
-                this.dockerizedS3DataLake.getMinio().getMinioApiEndpoint(),
-                HiveMinIODataLake.ACCESS_KEY,
-                HiveMinIODataLake.SECRET_KEY,
+                this.dockerizedS3DataLake.getS3Container().getApiEndpoint(),
+                S3MockContainer.ACCESS_KEY,
+                S3MockContainer.SECRET_KEY,
                 ImmutableMap.<String, String>builder()
-                        // This is required when using MinIO which requires path style access
+                        // S3Mock requires path style access
                         .put("hive.s3.path-style-access", "true")
                         .put("hive.non-managed-table-writes-enabled", "true")
                         .build(), sslConfig);

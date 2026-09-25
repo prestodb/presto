@@ -15,7 +15,7 @@ package com.facebook.presto.iceberg.hadoop;
 
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.iceberg.TestIcebergDistributedQueries;
-import com.facebook.presto.iceberg.container.IcebergMinIODataLake;
+import com.facebook.presto.iceberg.container.IcebergS3DataLake;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -25,8 +25,8 @@ import org.testng.annotations.BeforeClass;
 import java.io.IOException;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
-import static com.facebook.presto.iceberg.container.IcebergMinIODataLake.ACCESS_KEY;
-import static com.facebook.presto.iceberg.container.IcebergMinIODataLake.SECRET_KEY;
+import static com.facebook.presto.testing.containers.S3MockContainer.ACCESS_KEY;
+import static com.facebook.presto.testing.containers.S3MockContainer.SECRET_KEY;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
@@ -37,7 +37,7 @@ public class TestIcebergHadoopCatalogOnS3DistributedQueries
     static final String WAREHOUSE_DATA_DIR = "warehouse_data/";
     final String bucketName;
     final String catalogWarehouseDir;
-    private IcebergMinIODataLake dockerizedS3DataLake;
+    private IcebergS3DataLake dockerizedS3DataLake;
     HostAndPort hostAndPort;
 
     public TestIcebergHadoopCatalogOnS3DistributedQueries()
@@ -68,9 +68,9 @@ public class TestIcebergHadoopCatalogOnS3DistributedQueries
     public void init()
             throws Exception
     {
-        this.dockerizedS3DataLake = new IcebergMinIODataLake(bucketName, WAREHOUSE_DATA_DIR);
+        this.dockerizedS3DataLake = new IcebergS3DataLake(bucketName, WAREHOUSE_DATA_DIR);
         this.dockerizedS3DataLake.start();
-        hostAndPort = this.dockerizedS3DataLake.getMinio().getMinioApiEndpoint();
+        hostAndPort = this.dockerizedS3DataLake.getS3Container().getApiEndpoint();
         super.init();
     }
 

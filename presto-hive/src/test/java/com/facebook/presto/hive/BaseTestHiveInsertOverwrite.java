@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.containers.HiveMinIODataLake;
+import com.facebook.presto.hive.containers.HiveS3DataLake;
 import com.facebook.presto.hive.s3.S3HiveQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.containers.S3MockContainer;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -41,7 +42,7 @@ public abstract class BaseTestHiveInsertOverwrite
     private static final String HIVE_TEST_SCHEMA = "hive_insert_overwrite";
 
     private String bucketName;
-    private HiveMinIODataLake dockerizedS3DataLake;
+    private HiveS3DataLake dockerizedS3DataLake;
 
     private final String hiveHadoopImage;
 
@@ -55,15 +56,15 @@ public abstract class BaseTestHiveInsertOverwrite
             throws Exception
     {
         this.bucketName = "test-hive-insert-overwrite-" + randomTableSuffix();
-        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), hiveHadoopImage, false);
+        this.dockerizedS3DataLake = new HiveS3DataLake(bucketName, ImmutableMap.of(), hiveHadoopImage, false);
         this.dockerizedS3DataLake.start();
         return S3HiveQueryRunner.create(
                 this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
-                this.dockerizedS3DataLake.getMinio().getMinioApiEndpoint(),
-                HiveMinIODataLake.ACCESS_KEY,
-                HiveMinIODataLake.SECRET_KEY,
+                this.dockerizedS3DataLake.getS3Container().getApiEndpoint(),
+                S3MockContainer.ACCESS_KEY,
+                S3MockContainer.SECRET_KEY,
                 ImmutableMap.<String, String>builder()
-                        // This is required when using MinIO which requires path style access
+                        // S3Mock requires path style access
                         .put("hive.s3.path-style-access", "true")
                         .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
                         .put("hive.non-managed-table-writes-enabled", "true")
