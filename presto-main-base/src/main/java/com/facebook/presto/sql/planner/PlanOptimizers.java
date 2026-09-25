@@ -74,6 +74,7 @@ import com.facebook.presto.sql.planner.iterative.rule.ParallelizeChainedAggregat
 import com.facebook.presto.sql.planner.iterative.rule.PickTableLayout;
 import com.facebook.presto.sql.planner.iterative.rule.PlanRemoteProjections;
 import com.facebook.presto.sql.planner.iterative.rule.PreAggregateBeforeGroupId;
+import com.facebook.presto.sql.planner.iterative.rule.PreAggregateCountThroughOuterJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PruneAggregationColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
@@ -822,6 +823,7 @@ public class PlanOptimizers
                                 new RemoveRedundantDistinctLimit(),
                                 new RemoveRedundantAggregateDistinct(),
                                 new RemoveRedundantIdentityProjections(),
+                                new PreAggregateCountThroughOuterJoin(metadata.getFunctionAndTypeManager()),
                                 new PushAggregationThroughOuterJoin(metadata.getFunctionAndTypeManager()))),
                 inlineProjections,
                 simplifyRowExpressionOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
@@ -1037,6 +1039,7 @@ public class PlanOptimizers
                         new RemoveRedundantDistinctLimit(),
                         new RemoveRedundantAggregateDistinct(),
                         new RemoveRedundantIdentityProjections(),
+                        new PreAggregateCountThroughOuterJoin(metadata.getFunctionAndTypeManager()),
                         new PushAggregationThroughOuterJoin(metadata.getFunctionAndTypeManager()))));
 
         builder.add(new IterativeOptimizer(
