@@ -35,6 +35,10 @@ public class S3MockContainer
 
     public static final int S3_PORT = 4566;
 
+    // S3Mock accepts any credentials; these are the canonical values for all test S3 clients.
+    public static final String ACCESS_KEY = "accesskey";
+    public static final String SECRET_KEY = "secretkey";
+
     public static Builder builder()
     {
         return new Builder();
@@ -79,16 +83,15 @@ public class S3MockContainer
             this.image = DEFAULT_IMAGE;
             this.hostName = DEFAULT_HOST_NAME;
             this.exposePorts = ImmutableSet.of(S3_PORT);
-            // HTTP_PORT sets S3Mock's plain-HTTP connector (server.port / SERVER_PORT controls HTTPS)
-            this.envVars = ImmutableMap.of("HTTP_PORT", String.valueOf(S3_PORT));
+            // COM_ADOBE_TESTING_S3MOCK_HTTP_PORT is the documented env var for S3Mock's plain-HTTP port.
+            this.envVars = ImmutableMap.of("COM_ADOBE_TESTING_S3MOCK_HTTP_PORT", String.valueOf(S3_PORT));
         }
 
         @Override
         public Builder withEnvVars(Map<String, String> envVars)
         {
-            // Use a mutable intermediate map so HTTP_PORT always wins, even if caller passes it
             Map<String, String> merged = new LinkedHashMap<>(envVars);
-            merged.put("HTTP_PORT", String.valueOf(S3_PORT));
+            merged.put("COM_ADOBE_TESTING_S3MOCK_HTTP_PORT", String.valueOf(S3_PORT));
             this.envVars = ImmutableMap.copyOf(merged);
             return this;
         }

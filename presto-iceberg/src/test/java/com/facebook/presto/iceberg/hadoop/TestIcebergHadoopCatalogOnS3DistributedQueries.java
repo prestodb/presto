@@ -25,8 +25,8 @@ import org.testng.annotations.BeforeClass;
 import java.io.IOException;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
-import static com.facebook.presto.iceberg.container.IcebergS3DataLake.ACCESS_KEY;
-import static com.facebook.presto.iceberg.container.IcebergS3DataLake.SECRET_KEY;
+import static com.facebook.presto.testing.containers.S3MockContainer.ACCESS_KEY;
+import static com.facebook.presto.testing.containers.S3MockContainer.SECRET_KEY;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;

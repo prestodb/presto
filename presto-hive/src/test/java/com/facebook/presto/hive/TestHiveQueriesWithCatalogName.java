@@ -17,6 +17,7 @@ import com.facebook.presto.hive.containers.HiveS3DataLake;
 import com.facebook.presto.hive.s3.S3HiveQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.containers.S3MockContainer;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -53,8 +54,8 @@ public class TestHiveQueriesWithCatalogName
         return S3HiveQueryRunner.create(
                 this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
                 this.dockerizedS3DataLake.getS3Container().getApiEndpoint(),
-                HiveS3DataLake.ACCESS_KEY,
-                HiveS3DataLake.SECRET_KEY,
+                S3MockContainer.ACCESS_KEY,
+                S3MockContainer.SECRET_KEY,
                 ImmutableMap.<String, String>builder()
                         // S3Mock requires path style access
                         .put("hive.s3.path-style-access", "true")

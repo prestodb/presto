@@ -44,8 +44,6 @@ import static org.testcontainers.containers.Network.newNetwork;
 public class HiveS3DataLake
         implements Closeable
 {
-    public static final String ACCESS_KEY = "accesskey";
-    public static final String SECRET_KEY = "secretkey";
     private static final Object SSL_LOCK = new Object();
 
     private final String bucketName;
@@ -129,7 +127,7 @@ public class HiveS3DataLake
                             "us-east-1"))
                     .withPathStyleAccessEnabled(true)
                     .withCredentials(new AWSStaticCredentialsProvider(
-                            new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY)))
+                            new BasicAWSCredentials(S3MockContainer.ACCESS_KEY, S3MockContainer.SECRET_KEY)))
                     .build();
             s3Client.createBucket(this.bucketName);
         }

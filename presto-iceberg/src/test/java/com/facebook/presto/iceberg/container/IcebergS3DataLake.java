@@ -36,9 +36,6 @@ import static org.testcontainers.containers.Network.newNetwork;
 public class IcebergS3DataLake
         implements Closeable
 {
-    public static final String ACCESS_KEY = "accesskey";
-    public static final String SECRET_KEY = "secretkey";
-
     private final String bucketName;
     private final String warehouseDir;
     private final S3MockContainer s3Container;
@@ -77,7 +74,7 @@ public class IcebergS3DataLake
                             .pathStyleAccessEnabled(true)
                             .build())
                     .credentialsProvider(StaticCredentialsProvider.create(
-                            AwsBasicCredentials.create(ACCESS_KEY, SECRET_KEY)))
+                            AwsBasicCredentials.create(S3MockContainer.ACCESS_KEY, S3MockContainer.SECRET_KEY)))
                     .build();
 
             s3Client.createBucket(CreateBucketRequest.builder()
