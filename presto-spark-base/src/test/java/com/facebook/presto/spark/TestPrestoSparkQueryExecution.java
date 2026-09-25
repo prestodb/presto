@@ -15,6 +15,7 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
@@ -22,12 +23,17 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskRdd;
 import com.facebook.presto.spark.execution.FragmentExecutionResult;
 import com.facebook.presto.spark.execution.PrestoSparkAdaptiveQueryExecution;
 import com.facebook.presto.spark.execution.PrestoSparkStaticQueryExecution;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.QueryAssertions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.spark.Dependency;
 import org.apache.spark.MapOutputStatistics;
 import org.apache.spark.rdd.RDD;
@@ -39,6 +45,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED;
@@ -59,6 +66,17 @@ public class TestPrestoSparkQueryExecution
     protected QueryRunner createQueryRunner()
     {
         prestoSparkQueryRunner = createHivePrestoSparkQueryRunner();
+
+        MockDeleteConnector mockDelete = new MockDeleteConnector();
+        prestoSparkQueryRunner.installPlugin(mockDelete.createPlugin());
+        prestoSparkQueryRunner.createCatalog(MockDeleteConnector.getConnectorName(), MockDeleteConnector.getConnectorName(), ImmutableMap.of());
+        mockDelete.getMetadata().createTable(
+                TestingConnectorSession.SESSION,
+                new ConnectorTableMetadata(
+                        new SchemaTableName("default", "test_delete_table"),
+                        ImmutableList.of(ColumnMetadata.builder().setName("id").setType(BIGINT).build())),
+                false);
+
         return prestoSparkQueryRunner;
     }
 
@@ -187,6 +205,25 @@ public class TestPrestoSparkQueryExecution
                 .build();
         String sql = "select * from lineitem l join orders o on l.orderkey = o.orderkey";
         validateFragmentedRddCreation(session, sql);
+    }
+
+    @Test
+    public void testRddCreationForDelete()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalog(MockDeleteConnector.getConnectorName())
+                .setSchema("default")
+                .build();
+
+        String sql = "DELETE FROM test_delete_table WHERE id > 5";
+        IPrestoSparkQueryExecution queryExecution = getPrestoSparkQueryExecution(session, sql);
+        assertTrue(queryExecution instanceof PrestoSparkStaticQueryExecution);
+        PrestoSparkStaticQueryExecution sparkQueryExecution = (PrestoSparkStaticQueryExecution) queryExecution;
+        SubPlan rootPlanFragment = sparkQueryExecution.createFragmentedPlan();
+        Session executionSession = sparkQueryExecution.getSession();
+        TableWriteInfo writeInfo = sparkQueryExecution.getTableWriteInfo(executionSession, rootPlanFragment.getFragment().getRoot());
+        assertTrue(writeInfo.getWriterTarget().isPresent());
+        assertTrue(writeInfo.getWriterTarget().get() instanceof ExecutionWriterTarget.DeleteHandle);
     }
 
     @Test

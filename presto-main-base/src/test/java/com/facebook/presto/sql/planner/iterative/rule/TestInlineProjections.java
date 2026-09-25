@@ -139,4 +139,80 @@ public class TestInlineProjections
                                         p.values(p.variable("value")))))
                 .doesNotFire();
     }
+
+    @Test
+    public void testWideProjectionWithPassthroughVariables()
+    {
+        // Verify that InlineProjections correctly handles wide projections
+        // where most parent assignments are passthrough variables that don't
+        // reference inlining targets. The optimization should skip inlining
+        // for these passthrough variables.
+        tester().assertThat(new InlineProjections(getFunctionManager()))
+                .on(p -> {
+                    p.variable("x");
+                    p.variable("pass1");
+                    p.variable("pass2");
+                    p.variable("pass3");
+                    p.variable("complex_child");
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("out_pass1"), p.rowExpression("pass1"))  // passthrough, not a target
+                                    .put(p.variable("out_pass2"), p.rowExpression("pass2"))  // passthrough, not a target
+                                    .put(p.variable("out_pass3"), p.rowExpression("pass3"))  // passthrough, not a target
+                                    .put(p.variable("out_complex"), p.rowExpression("complex_child + 1")) // references singleton
+                                    .build(),
+                            p.project(
+                                    Assignments.builder()
+                                            .put(p.variable("pass1"), p.rowExpression("x"))
+                                            .put(p.variable("pass2"), p.rowExpression("x"))
+                                            .put(p.variable("pass3"), p.rowExpression("x"))
+                                            .put(p.variable("complex_child"), p.rowExpression("x * 2")) // singleton reference
+                                            .build(),
+                                    p.values(p.variable("x"))));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                        .put("out1", PlanMatchPattern.expression("x"))
+                                        .put("out2", PlanMatchPattern.expression("x"))
+                                        .put("out3", PlanMatchPattern.expression("x"))
+                                        .put("out4", PlanMatchPattern.expression("x * 2 + 1"))
+                                        .build(),
+                                project(
+                                        ImmutableMap.of(
+                                                "x", PlanMatchPattern.expression("x")),
+                                        values(ImmutableMap.of("x", 0)))));
+    }
+
+    @Test
+    public void testWideProjectionWithTryOverChildExpression()
+    {
+        // When the only non-identity inlining candidate is a complex child
+        // expression referenced inside TRY, the rule should not fire.
+        // The passthrough variables use identity assignments (pass1 := pass1)
+        // so they are excluded from inlining by the isIdentity check.
+        tester().assertThat(new InlineProjections(getFunctionManager()))
+                .on(p -> {
+                    p.variable("pass1");
+                    p.variable("pass2");
+                    p.variable("pass3");
+                    p.variable("complex_child");
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("out_pass1"), p.rowExpression("pass1"))
+                                    .put(p.variable("out_pass2"), p.rowExpression("pass2"))
+                                    .put(p.variable("out_pass3"), p.rowExpression("pass3"))
+                                    .put(p.variable("out_try"), p.rowExpression("try(complex_child)"))
+                                    .build(),
+                            p.project(
+                                    Assignments.builder()
+                                            .put(p.variable("pass1"), p.rowExpression("pass1"))
+                                            .put(p.variable("pass2"), p.rowExpression("pass2"))
+                                            .put(p.variable("pass3"), p.rowExpression("pass3"))
+                                            .put(p.variable("complex_child"), p.rowExpression("pass1 * pass1 + 1"))
+                                            .build(),
+                                    p.values(p.variable("pass1"), p.variable("pass2"), p.variable("pass3"))));
+                })
+                .doesNotFire();
+    }
 }

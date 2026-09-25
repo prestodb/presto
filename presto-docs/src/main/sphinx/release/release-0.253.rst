@@ -12,7 +12,7 @@ General Changes
 _______________
 * Fix amplified ``Cumulative User Memory`` metric in web UI.
 * Add tracking for system memory used by column statistics in ``TableFinishOperator``.
-* Add support for shutting down coordinator via ``/v1/info/state`` endpoint.
+* Add support for shutting down coordinator through ``/v1/info/state`` endpoint.
 * Add :func:`!binomial_cdf` and :func:`!inverse_binomial_cdf` functions.
 
 Security Changes

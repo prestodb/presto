@@ -35,7 +35,6 @@ Keyword                        SQL:2016      SQL-92
 ``END``                        reserved      reserved
 ``ESCAPE``                     reserved      reserved
 ``EXCEPT``                     reserved      reserved
-``EXECUTE``                    reserved      reserved
 ``EXISTS``                     reserved      reserved
 ``EXTRACT``                    reserved      reserved
 ``FALSE``                      reserved      reserved

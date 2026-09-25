@@ -23,6 +23,7 @@ struct PlanFragment {
   StageExecutionDescriptor stageExecutionDescriptor = {};
   std::shared_ptr<OrderingScheme> outputOrderingScheme = {};
   bool outputTableWriterFragment = {};
+  std::shared_ptr<TransportType> outputTransportType = {};
   std::shared_ptr<String> jsonRepresentation = {};
 };
 void to_json(json& j, const PlanFragment& p);

@@ -11,7 +11,7 @@ Function namespace managers support storing and retrieving SQL
 functions, allowing the Presto engine to perform actions such as
 creating, altering, deleting functions.
 
-A function namespace is in the format of ``catalog.schema`` (e.g.
+A function namespace is in the format of ``catalog.schema`` (for example, 
 ``example.test``). It can be thought of as a schema for storing
 functions. However, it is not a full fledged schema as it does not
 support storing tables and views, but only functions.
@@ -19,8 +19,8 @@ support storing tables and views, but only functions.
 Each Presto function, whether built-in or user-defined, resides in
 a function namespace. All built-in functions reside in the
 ``presto.default`` function namespace. The qualified function name of
-a function is the function namespace in which it reside followed by
-its function name (e.g. ``example.test.func``). Built-in functions can
+a function is the function namespace in which it resides followed by
+its function name (for example, ``example.test.func``). Built-in functions can
 be referenced in queries with their function namespaces omitted, while
 user-defined functions needs to be referenced by its qualified function
 name. A function is uniquely identified by its qualified function name

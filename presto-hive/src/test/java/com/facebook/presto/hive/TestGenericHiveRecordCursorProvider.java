@@ -58,7 +58,6 @@ import static com.facebook.presto.hive.util.HudiRealtimeSplitConverter.HUDI_DELT
 import static com.facebook.presto.hive.util.HudiRealtimeSplitConverter.HUDI_MAX_COMMIT_TIME_KEY;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_DDL;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.testng.Assert.assertTrue;
@@ -205,15 +204,6 @@ public class TestGenericHiveRecordCursorProvider
         schema.setProperty(LIST_COLUMNS, columnNames);
         schema.setProperty(LIST_COLUMN_TYPES, columnTypeNames);
         schema.setProperty("name", "test_schema." + TABLE_NAME);
-        schema.setProperty(SERIALIZATION_DDL, "struct " + TABLE_NAME + " " +
-                        "{ string _hoodie_commit_time, " +
-                        "string _hoodie_commit_seqno, " +
-                        "string _hoodie_record_key, " +
-                        "string _hoodie_partition_path, " +
-                        "string _hoodie_file_name, " +
-                        "string id, " +
-                        "string last_update_month, " +
-                        "string last_update_time}");
         schema.setProperty(SERIALIZATION_FORMAT, "1");
         schema.setProperty("partition_columns", "creation_date");
         schema.setProperty("partition_columns.types", "string");

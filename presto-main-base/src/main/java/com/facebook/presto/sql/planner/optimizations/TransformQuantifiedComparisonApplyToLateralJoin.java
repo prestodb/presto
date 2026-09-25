@@ -66,7 +66,7 @@ import static com.facebook.presto.sql.relational.Expressions.comparisonExpressio
 import static com.facebook.presto.sql.relational.Expressions.searchedCaseExpression;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -123,7 +123,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                 return context.defaultRewrite(node);
             }
 
-            RowExpression expression = getOnlyElement(node.getSubqueryAssignments().getExpressions());
+            RowExpression expression = node.getSubqueryAssignments().getExpressions().stream().collect(onlyElement());
             if (!(expression instanceof QuantifiedComparisonExpression)) {
                 return context.defaultRewrite(node);
             }
@@ -138,7 +138,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         {
             PlanNode subqueryPlan = context.rewrite(node.getSubquery());
 
-            VariableReferenceExpression outputColumn = getOnlyElement(subqueryPlan.getOutputVariables());
+            VariableReferenceExpression outputColumn = subqueryPlan.getOutputVariables().stream().collect(onlyElement());
             Type outputColumnType = outputColumn.getType();
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
@@ -221,7 +221,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     countAllValue,
                     countNonNullValue);
 
-            VariableReferenceExpression quantifiedComparisonVariable = getOnlyElement(node.getSubqueryAssignments().getVariables());
+            VariableReferenceExpression quantifiedComparisonVariable = node.getSubqueryAssignments().getVariables().stream().collect(onlyElement());
 
             return projectExpressions(lateralJoinNode, Assignments.of(quantifiedComparisonVariable, valueComparedToSubquery));
         }

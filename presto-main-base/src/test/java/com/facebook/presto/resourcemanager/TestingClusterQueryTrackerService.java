@@ -14,18 +14,19 @@
 package com.facebook.presto.resourcemanager;
 
 import com.facebook.drift.client.DriftClient;
+import com.facebook.presto.server.InternalCommunicationConfig;
 
 import java.util.concurrent.ScheduledExecutorService;
 
 public class TestingClusterQueryTrackerService
         extends ClusterQueryTrackerService
 {
-    DriftClient<ResourceManagerClient> resourceManagerClient;
+    DriftClient<com.facebook.presto.resourcemanager.thrift.ResourceManagerClient> resourceManagerClient;
     int runningTaskCount;
 
-    public TestingClusterQueryTrackerService(DriftClient<ResourceManagerClient> resourceManagerClient, ScheduledExecutorService executorService, ResourceManagerConfig resourceManagerConfig, int runningTaskCount)
+    public TestingClusterQueryTrackerService(DriftClient<com.facebook.presto.resourcemanager.thrift.ResourceManagerClient> resourceManagerClient, ResourceManagerClient httpResourceManagerClient, ScheduledExecutorService executorService, ResourceManagerConfig resourceManagerConfig, InternalCommunicationConfig internalCommunicationConfig, int runningTaskCount)
     {
-        super(resourceManagerClient, executorService, resourceManagerConfig);
+        super(resourceManagerClient, httpResourceManagerClient, executorService, resourceManagerConfig, internalCommunicationConfig);
         this.runningTaskCount = runningTaskCount;
     }
 

@@ -243,7 +243,7 @@ public class TestTupleDomainOrcPredicate
         Slice minimumSlice = minimum == null ? null : utf8Slice(minimum);
         Slice maximumSlice = maximum == null ? null : utf8Slice(maximum);
         // sum and minAverageValueSizeInBytes are not used in this test; they could be arbitrary numbers
-        return new StringColumnStatistics(numberOfValues, null, null, null, new StringStatistics(minimumSlice, maximumSlice, 100L));
+        return new StringColumnStatistics(numberOfValues, null, null, null, new StringStatistics(minimumSlice, maximumSlice, false, false, 100L));
     }
 
     @Test

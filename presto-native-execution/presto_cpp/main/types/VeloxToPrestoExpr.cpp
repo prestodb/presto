@@ -12,7 +12,9 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/types/VeloxToPrestoExpr.h"
-#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/erase.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "velox/core/ITypedExpr.h"
@@ -99,6 +101,18 @@ const std::unordered_map<std::string, std::string>& veloxToPrestoOperatorMap() {
   return veloxToPrestoOperatorMap;
 }
 
+const std::unordered_map<std::string, std::string>&
+veloxToPrestoInternalFunctionMap() {
+  // Maps Velox internal function names to Presto internal/native function
+  // names used when constructing function signatures.
+  static const std::unordered_map<std::string, std::string>
+      veloxToPrestoInternalFunctionMap = {
+          {"try", "presto.default.$internal$try"},
+          {"try_cast", "presto.default.try_cast"},
+      };
+  return veloxToPrestoInternalFunctionMap;
+}
+
 // If the function name prefix starts from "presto.default", then it is a built
 // in function handle. Otherwise, it is a native function handle.
 std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
@@ -115,12 +129,71 @@ std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
     handle->_type = kStatic;
     handle->signature = signature;
     return handle;
-  } else {
-    auto handle = std::make_shared<protocol::NativeFunctionHandle>();
-    handle->_type = kNativeFunctionHandle;
-    handle->signature = signature;
-    return handle;
   }
+
+  auto handle = std::make_shared<protocol::NativeFunctionHandle>();
+  handle->_type = kNativeFunctionHandle;
+  handle->signature = signature;
+  return handle;
+}
+
+// Collects free FieldAccessTypedExpr leaf nodes from a Velox expression tree
+// that are not bound by any enclosing lambda's signature. The 'boundNames'
+// parameter contains names that are in scope from enclosing lambda signatures.
+// For x -> x + y, 'x' is a bound name from the lambda signature and 'y' is a
+// free field captured from the input.
+// Captured fields are recorded in first DFS encounter order. The exact order is
+// not semantically important to Presto, but BIND arguments and the prepended
+// lambda parameters must use the same order. 'visitedFreeFieldNames' ensures
+// each captured variable is bound once even if referenced multiple times.
+void collectFreeFieldAccesses(
+    const velox::core::TypedExprPtr& expr,
+    const std::unordered_set<std::string>& boundNames,
+    std::vector<FieldAccessTypedExprPtr>& freeFields,
+    std::unordered_set<std::string>& visitedFreeFieldNames) {
+  if (auto fieldAccess =
+          std::dynamic_pointer_cast<const velox::core::FieldAccessTypedExpr>(
+              expr)) {
+    if (fieldAccess->isInputColumn() &&
+        !boundNames.count(fieldAccess->name())) {
+      const auto& name = fieldAccess->name();
+      if (visitedFreeFieldNames.find(name) == visitedFreeFieldNames.end()) {
+        visitedFreeFieldNames.insert(name);
+        freeFields.push_back(fieldAccess);
+      }
+    }
+    // Recurse into inputs for dereference-like field accesses.
+    for (const auto& input : fieldAccess->inputs()) {
+      collectFreeFieldAccesses(
+          input, boundNames, freeFields, visitedFreeFieldNames);
+    }
+    return;
+  }
+
+  if (auto lambda =
+          std::dynamic_pointer_cast<const velox::core::LambdaTypedExpr>(expr)) {
+    // For nested lambdas, extend the bound set with the lambda's parameters.
+    auto innerBound = boundNames;
+    const auto& names = lambda->signature()->names();
+    innerBound.insert(names.begin(), names.end());
+    collectFreeFieldAccesses(
+        lambda->body(), innerBound, freeFields, visitedFreeFieldNames);
+    return;
+  }
+
+  // Recurse into all inputs for other expression types.
+  for (const auto& input : expr->inputs()) {
+    collectFreeFieldAccesses(
+        input, boundNames, freeFields, visitedFreeFieldNames);
+  }
+}
+
+void collectFreeFieldAccesses(
+    const velox::core::TypedExprPtr& expr,
+    const std::unordered_set<std::string>& boundNames,
+    std::vector<FieldAccessTypedExprPtr>& freeFields) {
+  std::unordered_set<std::string> visitedFreeFieldNames;
+  collectFreeFieldAccesses(expr, boundNames, freeFields, visitedFreeFieldNames);
 }
 } // namespace
 
@@ -234,6 +307,35 @@ VeloxToPrestoExprConverter::getInSpecialFormExpressionArgs(
   return result;
 }
 
+SpecialFormExpressionPtr
+VeloxToPrestoExprConverter::getNestedConjunctExpression(
+    const std::vector<velox::core::TypedExprPtr>& inputs,
+    protocol::Form form,
+    const protocol::TypeSignature& returnType) const {
+  // Convert N-argument AND/OR (N > 2) to nested binary operations
+  // For AND(A, B, C, D), create AND(AND(AND(A, B), C), D)
+  VELOX_CHECK(
+      inputs.size() > 1,
+      "getNestedConjunctExpression requires at least 2 inputs, got {}",
+      inputs.size());
+  protocol::SpecialFormExpression currentExpr;
+  currentExpr.form = form;
+  currentExpr.returnType = returnType;
+  currentExpr.arguments = {
+      getRowExpression(inputs[0]), getRowExpression(inputs[1])};
+
+  for (size_t i = 2; i < inputs.size(); ++i) {
+    protocol::SpecialFormExpression nestedExpr;
+    nestedExpr.form = form;
+    nestedExpr.returnType = returnType;
+    nestedExpr.arguments.push_back(
+        std::make_shared<protocol::SpecialFormExpression>(currentExpr));
+    nestedExpr.arguments.push_back(getRowExpression(inputs[i]));
+    currentExpr = std::move(nestedExpr);
+  }
+  return std::make_shared<protocol::SpecialFormExpression>(currentExpr);
+}
+
 SpecialFormExpressionPtr VeloxToPrestoExprConverter::getSpecialFormExpression(
     const velox::core::CallTypedExpr* expr) const {
   VELOX_CHECK(
@@ -255,16 +357,25 @@ SpecialFormExpressionPtr VeloxToPrestoExprConverter::getSpecialFormExpression(
   // so they are constructed separately.
   static constexpr char const* kSwitch = "SWITCH";
   static constexpr char const* kIn = "IN";
+  static constexpr char const* kAnd = "AND";
+  static constexpr char const* kOr = "OR";
+
+  auto exprInputs = expr->inputs();
   if (name == kSwitch) {
     result.arguments = getSwitchSpecialFormExpressionArgs(expr);
   } else if (name == kIn) {
     result.arguments = getInSpecialFormExpressionArgs(expr);
+  } else if ((name == kAnd || name == kOr) && exprInputs.size() > 2) {
+    // Presto AND/OR are binary operations (2 arguments only).
+    // If Velox has optimized to N-argument AND/OR (N > 2), we need to
+    // convert back to nested binary operations for Presto compatibility.
+    // Binary or unary case (N <= 2) will be handled normally.
+    return getNestedConjunctExpression(exprInputs, form, result.returnType);
   } else {
-    // Presto special form expressions that are not of type `SWITCH` and `IN`,
-    // such as `AND`, `OR`, are handled in this clause. The list of Presto
-    // special form expressions can be found in `kPrestoSpecialForms` in the
-    // helper function `isPrestoSpecialForm`.
-    auto exprInputs = expr->inputs();
+    // Presto special form expressions that are not of type `SWITCH`, `IN`
+    // and (N <= 2) arguments `AND`, `OR` are handled in this clause. The list
+    // of Presto special form expressions can be found in `kPrestoSpecialForms`
+    // in the helper function `isPrestoSpecialForm`.
     for (const auto& input : exprInputs) {
       result.arguments.push_back(getRowExpression(input));
     }
@@ -281,6 +392,15 @@ VeloxToPrestoExprConverter::getRowConstructorExpression(
   result["@type"] = kSpecial;
   result["form"] = kRowConstructor;
   result["returnType"] = getTypeSignature(constantExpr->valueVector()->type());
+
+  // Check if the ROW constant is NULL. If so, it should not be converted to
+  // ROW_CONSTRUCTOR but rather kept as a NULL ConstantExpression.
+  VELOX_CHECK(
+      !constantExpr->isNull(),
+      "getRowConstructorExpression should not be called for NULL ROW constants. "
+      "Expression type: {}, Expression string: {}. ",
+      constantExpr->type()->toString(),
+      constantExpr->toString());
 
   const auto& constVector = constantExpr->toConstantVector(pool_);
   const auto* rowVector = constVector->valueVector()->as<velox::RowVector>();
@@ -329,28 +449,71 @@ SpecialFormExpressionPtr VeloxToPrestoExprConverter::getDereferenceExpression(
   return result;
 }
 
-LambdaDefinitionExpressionPtr VeloxToPrestoExprConverter::getLambdaExpression(
+RowExpressionPtr VeloxToPrestoExprConverter::getLambdaExpression(
     const velox::core::LambdaTypedExpr* lambdaExpr) const {
-  static constexpr char const* kLambda = "lambda";
+  const auto& signature = lambdaExpr->signature();
 
+  std::unordered_set<std::string> boundNames(
+      signature->names().begin(), signature->names().end());
+  std::vector<FieldAccessTypedExprPtr> freeFields;
+  collectFreeFieldAccesses(lambdaExpr->body(), boundNames, freeFields);
+
+  return resolveLambdaExpression(lambdaExpr, freeFields);
+}
+
+RowExpressionPtr VeloxToPrestoExprConverter::resolveLambdaExpression(
+    const velox::core::LambdaTypedExpr* lambdaExpr,
+    const std::vector<FieldAccessTypedExprPtr>& freeFields) const {
+  static constexpr char const* kLambda = "lambda";
   json result;
   result["@type"] = kLambda;
   const auto& signature = lambdaExpr->signature();
+
   std::vector<protocol::TypeSignature> argumentTypes;
-  argumentTypes.reserve(signature->children().size());
+  std::vector<std::string> arguments;
+  argumentTypes.reserve(freeFields.size() + signature->children().size());
+  arguments.reserve(freeFields.size() + signature->names().size());
+
+  // Prepend captured variable names/types to the lambda signature.
+  for (const auto& field : freeFields) {
+    arguments.emplace_back(field->name());
+    argumentTypes.emplace_back(getTypeSignature(field->type()));
+  }
+  // Then add the original lambda arguments.
   for (const auto& type : signature->children()) {
     argumentTypes.emplace_back(getTypeSignature(type));
   }
-  result["argumentTypes"] = argumentTypes;
-
-  std::vector<std::string> arguments;
-  arguments.reserve(signature->names().size());
   for (const auto& name : signature->names()) {
     arguments.emplace_back(name);
   }
+
+  result["argumentTypes"] = argumentTypes;
   result["arguments"] = arguments;
   result["body"] = getRowExpression(lambdaExpr->body());
-  return result;
+
+  if (freeFields.empty()) {
+    // Return a plain LambdaDefinitionExpression when there are no captured
+    // variables.
+    return result;
+  }
+
+  VELOX_CHECK(!freeFields.empty(), "BIND expression requires captured fields.");
+  static constexpr char const* kBind = "BIND";
+  LambdaDefinitionExpressionPtr lambdaDefinitionExpression = result;
+
+  // BIND(capturedVar1, ..., expandedLambda) provides captured outer variables
+  // to the lambda at evaluation time.
+  json bind;
+  bind["@type"] = kSpecial;
+  bind["form"] = kBind;
+  bind["returnType"] = getTypeSignature(lambdaExpr->type());
+
+  bind["arguments"] = json::array();
+  for (const auto& field : freeFields) {
+    bind["arguments"].push_back(getVariableReferenceExpression(field.get()));
+  }
+  bind["arguments"].push_back(lambdaDefinitionExpression);
+  return bind;
 }
 
 CallExpressionPtr VeloxToPrestoExprConverter::getCallExpression(
@@ -360,33 +523,61 @@ CallExpressionPtr VeloxToPrestoExprConverter::getCallExpression(
   json result;
   result["@type"] = kCall;
   protocol::Signature signature;
-  std::string exprName = expr->name();
-  if (veloxToPrestoOperatorMap().find(exprName) !=
-      veloxToPrestoOperatorMap().end()) {
-    exprName = veloxToPrestoOperatorMap().at(exprName);
+  std::string veloxExprName = expr->name();
+  std::string prestoExprName;
+
+  // Map Velox expression to the right Presto expression name when constructing
+  // the Presto function signature.
+  const auto& opMap = veloxToPrestoOperatorMap();
+  auto mapIter = opMap.find(veloxExprName);
+  if (mapIter != opMap.end()) {
+    prestoExprName = mapIter->second;
+  } else {
+    const auto& internalFunctionMap = veloxToPrestoInternalFunctionMap();
+    auto internalMapIter = internalFunctionMap.find(veloxExprName);
+    if (internalMapIter != internalFunctionMap.end()) {
+      prestoExprName = internalMapIter->second;
+    } else {
+      prestoExprName = veloxExprName;
+    }
   }
-  signature.name = exprName;
-  result["displayName"] = exprName;
+
+  signature.name = prestoExprName;
+  result["displayName"] = prestoExprName;
   signature.kind = protocol::FunctionKind::SCALAR;
   signature.typeVariableConstraints = {};
   signature.longVariableConstraints = {};
+  signature.variableArity = false;
   signature.returnType = getTypeSignature(expr->type());
 
   std::vector<protocol::TypeSignature> argumentTypes;
   auto exprInputs = expr->inputs();
   argumentTypes.reserve(exprInputs.size());
-  for (const auto& input : exprInputs) {
-    argumentTypes.emplace_back(getTypeSignature(input->type()));
+  bool isTryExpression = (veloxExprName == velox::expression::kTry);
+  result["arguments"] = json::array();
+  if (isTryExpression) {
+    VELOX_CHECK_EQ(
+        exprInputs.size(),
+        1,
+        "Velox TRY expression should have exactly 1 input, but got {}.",
+        exprInputs.size());
+
+    // Presto '$internal$try' expects a lambda with no arguments: () -> T.
+    // Construct a "function(T)" type signature for the lambda argument.
+    const auto lambdaExpr = std::make_shared<velox::core::LambdaTypedExpr>(
+        velox::ROW({}), exprInputs.at(0));
+    argumentTypes.emplace_back(getTypeSignature(lambdaExpr->type()));
+    result["arguments"].push_back(getLambdaExpression(lambdaExpr.get()));
+  } else {
+    for (const auto& input : exprInputs) {
+      argumentTypes.emplace_back(getTypeSignature(input->type()));
+      result["arguments"].push_back(getRowExpression(input));
+    }
   }
   signature.argumentTypes = argumentTypes;
-  signature.variableArity = false;
 
-  result["functionHandle"] = getFunctionHandle(exprName, signature);
+  result["functionHandle"] = getFunctionHandle(prestoExprName, signature);
   result["returnType"] = getTypeSignature(expr->type());
-  result["arguments"] = json::array();
-  for (const auto& exprInput : exprInputs) {
-    result["arguments"].push_back(getRowExpression(exprInput));
-  }
 
   return result;
 }
@@ -397,9 +588,9 @@ RowExpressionPtr VeloxToPrestoExprConverter::getRowExpression(
     case velox::core::ExprKind::kConstant: {
       const auto* constantExpr =
           expr->asUnchecked<velox::core::ConstantTypedExpr>();
-      // ConstantTypedExpr of ROW type maps to SpecialFormExpression of type
-      // ROW_CONSTRUCTOR in Presto.
-      if (expr->type()->isRow()) {
+      // Non-NULL ConstantTypedExpr of ROW type maps to SpecialFormExpression of
+      // type ROW_CONSTRUCTOR in Presto.
+      if (expr->type()->isRow() && !constantExpr->isNull()) {
         return getRowConstructorExpression(constantExpr);
       }
       return getConstantExpression(constantExpr);
@@ -416,9 +607,14 @@ RowExpressionPtr VeloxToPrestoExprConverter::getRowExpression(
     }
     case velox::core::ExprKind::kCast: {
       // Velox CastTypedExpr maps to Presto CallExpression.
+      // Preserve nullOnFailure (isTryCast) so that TryCast round-trips
+      // correctly as "presto.default.try_cast" rather than "cast".
       const auto* castExpr = expr->asUnchecked<velox::core::CastTypedExpr>();
       auto call = std::make_shared<velox::core::CallTypedExpr>(
-          expr->type(), castExpr->inputs(), velox::expression::kCast);
+          expr->type(),
+          castExpr->inputs(),
+          castExpr->isTryCast() ? velox::expression::kTryCast
+                                : velox::expression::kCast);
       return getCallExpression(call.get());
     }
     case velox::core::ExprKind::kCall: {

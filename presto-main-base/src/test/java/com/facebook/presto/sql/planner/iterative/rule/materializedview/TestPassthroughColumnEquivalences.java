@@ -323,7 +323,7 @@ public class TestPassthroughColumnEquivalences
         assertEquals(result.size(), 1);
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class, expectedExceptionsMessageRegExp = "Cannot map stale predicates.*")
+    @Test
     public void testTranslatePredicatesToVariablesNoMapping()
     {
         MaterializedViewDefinition mvDefinition = createMvDefinition(
@@ -333,16 +333,19 @@ public class TestPassthroughColumnEquivalences
 
         PassthroughColumnEquivalences equivalences = new PassthroughColumnEquivalences(mvDefinition, MV_DATA_TABLE);
 
-        // No variable mapping provided - should throw
+        // No variable mapping provided - returns empty list
         List<TupleDomain<String>> stalePredicates = ImmutableList.of(
                 TupleDomain.withColumnDomains(
                         ImmutableMap.of("orderdate", Domain.singleValue(VARCHAR, utf8Slice("2024-01-01")))));
 
-        equivalences.translatePredicatesToVariables(
+        List<RowExpression> result = equivalences.translatePredicatesToVariables(
                 ORDERS_TABLE,
                 stalePredicates,
                 ImmutableMap.of(),  // Empty mapping
                 translator);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
     }
 
     @Test

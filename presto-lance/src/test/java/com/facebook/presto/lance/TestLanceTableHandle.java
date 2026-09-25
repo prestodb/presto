@@ -14,14 +14,24 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestLanceTableHandle
 {
-    private final LanceTableHandle tableHandle = new LanceTableHandle("default", "test_table");
+    private final LanceTableHandle tableHandle = new LanceTableHandle(
+            "default",
+            "test_table",
+            "file:///tmp/lance/test_table.lance",
+            ImmutableList.of("test_table"));
 
     @Test
     public void testJsonRoundTrip()
@@ -30,5 +40,52 @@ public class TestLanceTableHandle
         String json = codec.toJson(tableHandle);
         LanceTableHandle copy = codec.fromJson(json);
         assertEquals(copy, tableHandle);
+        assertFalse(copy.getDatasetVersion().isPresent());
+        assertFalse(copy.hasLimit());
+    }
+
+    @Test
+    public void testJsonRoundTripWithVersion()
+    {
+        JsonCodec<LanceTableHandle> codec = jsonCodec(LanceTableHandle.class);
+        LanceTableHandle handleWithVersion = new LanceTableHandle(
+                "default",
+                "test_table",
+                "file:///tmp/lance/test_table.lance",
+                ImmutableList.of("test_table"),
+                Optional.of(42L));
+        String json = codec.toJson(handleWithVersion);
+        LanceTableHandle copy = codec.fromJson(json);
+        assertEquals(copy, handleWithVersion);
+        assertTrue(copy.getDatasetVersion().isPresent());
+        assertEquals(copy.getDatasetVersion().get(), Long.valueOf(42L));
+    }
+
+    @Test
+    public void testDefaultHasNoLimit()
+    {
+        assertEquals(tableHandle.getLimit(), OptionalLong.empty());
+        assertFalse(tableHandle.hasLimit());
+    }
+
+    @Test
+    public void testWithLimit()
+    {
+        LanceTableHandle withLimit = tableHandle.withLimit(10);
+        assertTrue(withLimit.hasLimit());
+        assertEquals(withLimit.getLimit(), OptionalLong.of(10));
+        assertFalse(tableHandle.hasLimit());
+        assertEquals(withLimit.getSchemaName(), "default");
+        assertEquals(withLimit.getTableName(), "test_table");
+    }
+
+    @Test
+    public void testJsonRoundTripWithLimit()
+    {
+        JsonCodec<LanceTableHandle> codec = jsonCodec(LanceTableHandle.class);
+        LanceTableHandle withLimit = tableHandle.withLimit(25);
+        LanceTableHandle copy = codec.fromJson(codec.toJson(withLimit));
+        assertEquals(copy, withLimit);
+        assertEquals(copy.getLimit(), OptionalLong.of(25));
     }
 }

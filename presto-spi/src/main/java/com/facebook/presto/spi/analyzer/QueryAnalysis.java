@@ -37,6 +37,15 @@ public interface QueryAnalysis
     Optional<String> getExpandedQuery();
 
     /**
+     * Returns the query after the materialized view optimizer substituted a materialized view for
+     * the base table(s), i.e. the query that actually ran. Only present when such a rewrite occurred.
+     */
+    default Optional<String> getMaterializedViewRewrittenQuery()
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Returns function names based on the kinds (scalar, aggregate and window).
      */
     Map<FunctionKind, Set<String>> getInvokedFunctions();

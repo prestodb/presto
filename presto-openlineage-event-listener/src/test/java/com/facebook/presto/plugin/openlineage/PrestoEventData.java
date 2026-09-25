@@ -98,6 +98,7 @@ public final class PrestoEventData
                 Duration.ofSeconds(0), // planningTime
                 Optional.empty(), // analysisTime
                 Duration.ofSeconds(1), // executionTime
+                Duration.ofSeconds(0), // finishingTime
                 0, // peakRunningTasks
                 0L, // peakUserMemoryBytes
                 0L, // peakTotalNonRevocableMemoryBytes
@@ -118,7 +119,8 @@ public final class PrestoEventData
                 0.0, // cumulativeTotalMemory
                 0, // completedSplits
                 true, // complete
-                new RuntimeStats());
+                new RuntimeStats(),
+                0L);
 
         queryCompleteEvent = new QueryCompletedEvent(
                 queryMetadata,
@@ -140,6 +142,7 @@ public final class PrestoEventData
                 Collections.emptyMap(), // canonicalPlan
                 Optional.empty(), // statsEquivalentPlan
                 Optional.empty(), // expandedQuery
+                Optional.empty(), // materializedViewRewrittenQuery
                 Collections.emptyList(), // optimizerInformation
                 Collections.emptyList(), // cteInformationList
                 Collections.emptySet(), // scalarFunctions

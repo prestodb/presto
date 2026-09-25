@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hudi.HudiColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -34,6 +35,7 @@ public final class HudiRecordCursors
     private HudiRecordCursors() {}
 
     public static RecordCursor createRecordCursor(
+            ConnectorSession connectorSession,
             Configuration configuration,
             Path path,
             RecordReader<?, ? extends Writable> recordReader,
@@ -43,15 +45,14 @@ public final class HudiRecordCursors
             ZoneId hiveStorageTimeZone,
             TypeManager typeManager)
     {
-        return new GenericHiveRecordCursor<>(
+        return new GenericHiveRecordCursor<>(connectorSession,
                 configuration,
                 path,
                 recordReader,
                 totalBytes,
                 hiveSchema,
                 toHiveColumnHandles(hiveColumnHandles),
-                hiveStorageTimeZone,
-                typeManager);
+                hiveStorageTimeZone, typeManager);
     }
 
     private static List<HiveColumnHandle> toHiveColumnHandles(List<HudiColumnHandle> columns)

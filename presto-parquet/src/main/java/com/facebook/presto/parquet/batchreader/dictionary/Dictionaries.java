@@ -20,6 +20,9 @@ import com.facebook.presto.parquet.dictionary.LongDictionary;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.joda.time.DateTimeZone;
+
+import java.util.Optional;
 
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_UNSUPPORTED_ENCODING;
 
@@ -29,7 +32,7 @@ public class Dictionaries
     {
     }
 
-    public static Dictionary createDictionary(ColumnDescriptor columnDescriptor, DictionaryPage dictionaryPage)
+    public static Dictionary createDictionary(ColumnDescriptor columnDescriptor, DictionaryPage dictionaryPage, Optional<DateTimeZone> timezone)
     {
         try {
             switch (columnDescriptor.getPrimitiveType().getPrimitiveTypeName()) {
@@ -40,7 +43,7 @@ public class Dictionaries
                 case DOUBLE:
                     return new LongDictionary(dictionaryPage);
                 case INT96:
-                    return new TimestampDictionary(dictionaryPage);
+                    return new TimestampDictionary(dictionaryPage, timezone);
                 case BINARY:
                     return new BinaryBatchDictionary(dictionaryPage);
                 case FIXED_LEN_BYTE_ARRAY:

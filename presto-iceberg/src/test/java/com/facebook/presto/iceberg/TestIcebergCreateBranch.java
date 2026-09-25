@@ -74,6 +74,53 @@ public class TestIcebergCreateBranch
     }
 
     @Test
+    public void testCreateBranchOnEmptyTable()
+    {
+        String tableName = "create_branch_on_empty_table_test";
+
+        try {
+            assertUpdate(session, "CREATE TABLE IF NOT EXISTS " + tableName + " (id BIGINT, name VARCHAR) WITH (format = 'PARQUET')");
+            assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'test_branch'");
+            assertQuery(session, "SELECT count(*) FROM \"" + tableName + "$refs\" where name = 'test_branch' and type = 'BRANCH'", "VALUES 1");
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'test_branch'", "VALUES 0");
+
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1, '1001'), (3, '1003')", 2);
+            assertUpdate(session, "INSERT INTO \"" + tableName + ".branch_test_branch\" VALUES(2, '1002'), (4, '1004')", 2);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES(1, '1001'), (3, '1003')");
+            assertQuery(session, "SELECT * FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'test_branch'", "VALUES(2, '1002'), (4, '1004')");
+
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'test_branch'");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testReplaceBranchOnEmptyTable()
+    {
+        String tableName = "replace_branch_on_empty_table_test";
+
+        try {
+            assertUpdate(session, "CREATE TABLE IF NOT EXISTS " + tableName + " (id BIGINT, name VARCHAR) WITH (format = 'PARQUET')");
+            assertUpdate(session, "ALTER TABLE " + tableName + " CREATE OR REPLACE BRANCH 'test_branch'");
+            assertQuery(session, "SELECT count(*) FROM \"" + tableName + "$refs\" where name = 'test_branch' and type = 'BRANCH'", "VALUES 1");
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'test_branch'", "VALUES 0");
+            assertUpdate(session, "ALTER TABLE " + tableName + " CREATE OR REPLACE BRANCH 'test_branch'");
+
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1, '1001'), (3, '1003')", 2);
+            assertUpdate(session, "INSERT INTO \"" + tableName + ".branch_test_branch\" VALUES(2, '1002'), (4, '1004')", 2);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES(1, '1001'), (3, '1003')");
+            assertQuery(session, "SELECT * FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'test_branch'", "VALUES(2, '1002'), (4, '1004')");
+
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'test_branch'");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
     public void testCreateBranchBasic()
     {
         String tableName = "create_branch_basic_table_test";

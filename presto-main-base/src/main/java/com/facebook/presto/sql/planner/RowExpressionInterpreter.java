@@ -114,7 +114,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.util.Arrays.asList;
@@ -528,7 +528,7 @@ public class RowExpressionInterpreter
                     }
 
                     if (expressions.size() == 1) {
-                        return getOnlyElement(expressions);
+                        return expressions.stream().collect(onlyElement());
                     }
                     return new SpecialFormExpression(node.getSourceLocation(), COALESCE, node.getType(), expressions);
                 }
@@ -868,7 +868,6 @@ public class RowExpressionInterpreter
 
         private SpecialCallResult tryHandleLike(CallExpression callExpression, List<Object> argumentValues, List<Type> argumentTypes, Object context)
         {
-            FunctionResolution resolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
             checkArgument(resolution.isLikeFunction(callExpression.getFunctionHandle()));
             checkArgument(callExpression.getArguments().size() == 2);
             RowExpression likePatternExpression = callExpression.getArguments().get(1);

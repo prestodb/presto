@@ -35,9 +35,11 @@ import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.PrimitiveIterator;
 import java.util.function.Consumer;
 
@@ -99,7 +101,7 @@ public abstract class AbstractColumnReader
     }
 
     @Override
-    public void init(PageReader pageReader, Field field, RowRanges rowRanges)
+    public void init(PageReader pageReader, Field field, RowRanges rowRanges, Optional<DateTimeZone> timezone)
     {
         this.pageReader = requireNonNull(pageReader, "pageReader is null");
         this.field = requireNonNull(field, "field is null");
@@ -129,7 +131,7 @@ public abstract class AbstractColumnReader
     }
 
     @Override
-    public ColumnChunk readNext()
+    public ColumnChunk readNext(Optional<DateTimeZone> timezone)
     {
         IntList definitionLevels = new IntArrayList();
         IntList repetitionLevels = new IntArrayList();

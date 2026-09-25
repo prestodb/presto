@@ -51,6 +51,7 @@ public class QueryCompletedEvent
     private final Instant executionStartTime;
     private final Instant endTime;
     private final Optional<String> expandedQuery;
+    private final Optional<String> materializedViewRewrittenQuery;
     private final List<PlanOptimizerInformation> optimizerInformation;
     private final List<CTEInformation> cteInformationList;
     private final Set<String> scalarFunctions;
@@ -91,6 +92,69 @@ public class QueryCompletedEvent
             Optional<Map<PlanNodeId, PlanNode>> planNodeIdMap,
             Optional<String> qualifiedName)
     {
+        this(
+                metadata,
+                statistics,
+                context,
+                ioMetadata,
+                failureInfo,
+                warnings,
+                queryType,
+                failedTasks,
+                createTime,
+                executionStartTime,
+                endTime,
+                stageStatistics,
+                operatorStatistics,
+                planStatisticsRead,
+                planStatisticsWritten,
+                planNodeHash,
+                canonicalPlan,
+                statsEquivalentPlan,
+                expandedQuery,
+                Optional.empty(),
+                optimizerInformation,
+                cteInformationList,
+                scalarFunctions,
+                aggregateFunctions,
+                windowFunctions,
+                prestoSparkExecutionContext,
+                hboPlanHash,
+                planNodeIdMap,
+                qualifiedName);
+    }
+
+    public QueryCompletedEvent(
+            QueryMetadata metadata,
+            QueryStatistics statistics,
+            QueryContext context,
+            QueryIOMetadata ioMetadata,
+            Optional<QueryFailureInfo> failureInfo,
+            List<PrestoWarning> warnings,
+            Optional<QueryType> queryType,
+            List<String> failedTasks,
+            Instant createTime,
+            Instant executionStartTime,
+            Instant endTime,
+            List<StageStatistics> stageStatistics,
+            List<OperatorStatistics> operatorStatistics,
+            List<PlanStatisticsWithSourceInfo> planStatisticsRead,
+            List<PlanStatisticsWithSourceInfo> planStatisticsWritten,
+            Map<PlanNodeId, Map<PlanCanonicalizationStrategy, String>> planNodeHash,
+            Map<PlanCanonicalizationStrategy, String> canonicalPlan,
+            Optional<String> statsEquivalentPlan,
+            Optional<String> expandedQuery,
+            Optional<String> materializedViewRewrittenQuery,
+            List<PlanOptimizerInformation> optimizerInformation,
+            List<CTEInformation> cteInformationList,
+            Set<String> scalarFunctions,
+            Set<String> aggregateFunctions,
+            Set<String> windowFunctions,
+            Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext,
+            Map<PlanCanonicalizationStrategy, String> hboPlanHash,
+            Optional<Map<PlanNodeId, PlanNode>> planNodeIdMap,
+            Optional<String> qualifiedName)
+    {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statistics = requireNonNull(statistics, "statistics is null");
         this.context = requireNonNull(context, "context is null");
@@ -110,6 +174,7 @@ public class QueryCompletedEvent
         this.statsEquivalentPlan = requireNonNull(statsEquivalentPlan, "statsEquivalentPlan is null");
         this.planStatisticsWritten = requireNonNull(planStatisticsWritten, "planStatisticsWritten is null");
         this.expandedQuery = requireNonNull(expandedQuery, "expandedQuery is null");
+        this.materializedViewRewrittenQuery = requireNonNull(materializedViewRewrittenQuery, "materializedViewRewrittenQuery is null");
         this.optimizerInformation = requireNonNull(optimizerInformation, "optimizerInformation is null");
         this.cteInformationList = requireNonNull(cteInformationList, "cteInformationList is null");
         this.scalarFunctions = requireNonNull(scalarFunctions, "scalarFunctions is null");
@@ -214,6 +279,11 @@ public class QueryCompletedEvent
     public Optional<String> getExpandedQuery()
     {
         return expandedQuery;
+    }
+
+    public Optional<String> getMaterializedViewRewrittenQuery()
+    {
+        return materializedViewRewrittenQuery;
     }
 
     public List<PlanOptimizerInformation> getOptimizerInformation()

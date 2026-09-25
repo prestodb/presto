@@ -79,6 +79,8 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
@@ -102,6 +104,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
@@ -189,6 +192,27 @@ public class TestPrestoSparkHttpClient
                 new Duration(1, TimeUnit.SECONDS));
     }
 
+    private PrestoSparkHttpTaskClient createDropTaskOnDeleteWorkerClient(TestingOkHttpClient httpClient)
+    {
+        return new PrestoSparkHttpTaskClient(
+                httpClient,
+                BASE_URI,
+                TASK_INFO_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
+                TASK_UPDATE_REQUEST_JSON_CODEC,
+                new Duration(1, TimeUnit.SECONDS),
+                scheduledExecutorService,
+                scheduledExecutorService,
+                new Duration(1, TimeUnit.SECONDS))
+        {
+            @Override
+            protected boolean isDropTaskOnDeleteEnabled()
+            {
+                return true;
+            }
+        };
+    }
+
     private PrestoSparkHttpTaskClient createWorkerClient(TestingOkHttpClient httpClient)
     {
         return new PrestoSparkHttpTaskClient(
@@ -235,6 +259,37 @@ public class TestPrestoSparkHttpClient
             e.printStackTrace();
             fail();
         }
+    }
+
+    @Test
+    public void testDeleteTask()
+    {
+        TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
+        AtomicInteger deleteTaskCount = new AtomicInteger();
+        AtomicReference<String> dropTaskOnDeleteParam = new AtomicReference<>();
+        TestingResponseManager responseManager = new TestingResponseManager(taskId.toString())
+        {
+            @Override
+            public Response createDummyResultResponse(Request request)
+            {
+                if (request.method().equalsIgnoreCase("DELETE") &&
+                        request.url().encodedPath().equals(TASK_ROOT_PATH + "/" + taskId)) {
+                    deleteTaskCount.incrementAndGet();
+                    dropTaskOnDeleteParam.set(request.url().queryParameter("dropTaskOnDelete"));
+                }
+                return super.createDummyResultResponse(request);
+            }
+        };
+
+        createWorkerClient(new TestingOkHttpClient(scheduledExecutorService, responseManager)).deleteTask(taskId);
+
+        assertEquals(deleteTaskCount.get(), 1);
+        assertNull(dropTaskOnDeleteParam.get());
+
+        createDropTaskOnDeleteWorkerClient(new TestingOkHttpClient(scheduledExecutorService, responseManager)).deleteTask(taskId);
+
+        assertEquals(deleteTaskCount.get(), 2);
+        assertEquals(dropTaskOnDeleteParam.get(), "true");
     }
 
     @Test
@@ -875,12 +930,27 @@ public class TestPrestoSparkHttpClient
         taskConfig.setInfoUpdateInterval(new Duration(200, TimeUnit.MILLISECONDS));
         queryConfig.setRemoteTaskMaxErrorDuration(new Duration(1, TimeUnit.MINUTES));
         List<TaskSource> sources = new ArrayList<>();
+        AtomicInteger deleteTaskCount = new AtomicInteger();
+        AtomicReference<String> dropTaskOnDeleteParam = new AtomicReference<>();
+        TestingResponseManager responseManager = new TestingResponseManager(taskId.toString(),
+                new TimeoutResponseManager(0, 10, 0))
+        {
+            @Override
+            public Response createDummyResultResponse(Request request)
+            {
+                if (request.method().equalsIgnoreCase("DELETE") &&
+                        request.url().encodedPath().equals(TASK_ROOT_PATH + "/" + taskId)) {
+                    deleteTaskCount.incrementAndGet();
+                    dropTaskOnDeleteParam.set(request.url().queryParameter("dropTaskOnDelete"));
+                }
+                return super.createDummyResultResponse(request);
+            }
+        };
         try {
             NativeExecutionTaskFactory taskFactory = new NativeExecutionTaskFactory(
                     new TestingOkHttpClient(
                             scheduledExecutorService,
-                            new TestingResponseManager(taskId.toString(),
-                                    new TimeoutResponseManager(0, 10, 0))),
+                            responseManager),
                     scheduledExecutorService,
                     scheduledExecutorService,
                     TASK_INFO_JSON_CODEC,
@@ -916,6 +986,8 @@ public class TestPrestoSparkHttpClient
             assertTrue(task.getTaskInfo().isPresent());
 
             task.stop(true);
+            assertEquals(deleteTaskCount.get(), 1);
+            assertNull(dropTaskOnDeleteParam.get());
         }
         catch (InterruptedException e) {
             e.printStackTrace();
@@ -1118,6 +1190,33 @@ public class TestPrestoSparkHttpClient
         public Timeout timeout()
         {
             return Timeout.NONE;
+        }
+
+        @Override
+        public <T> T tag(Class<? extends T> type)
+        {
+            return request.tag(type);
+        }
+
+        @Override
+        public <T> T tag(Class<T> type, kotlin.jvm.functions.Function0<? extends T> defaultValue)
+        {
+            T tag = request.tag(type);
+            return tag != null ? tag : defaultValue.invoke();
+        }
+
+        @Override
+        public <T> T tag(kotlin.reflect.KClass<T> type)
+        {
+            // Convert KClass to Java Class and delegate to the Class-based method
+            return tag(kotlin.jvm.JvmClassMappingKt.getJavaClass(type));
+        }
+
+        @Override
+        public <T> T tag(kotlin.reflect.KClass<T> type, kotlin.jvm.functions.Function0<? extends T> defaultValue)
+        {
+            // Convert KClass to Java Class and delegate to the Class-based method
+            return tag(kotlin.jvm.JvmClassMappingKt.getJavaClass(type), defaultValue);
         }
     }
 

@@ -121,7 +121,7 @@ public final class DeltaExpressionUtils
                     if (deltaColumnHandle.getColumnType() != PARTITION) {
                         return null;
                     }
-                    return deltaColumnHandle.getName();
+                    return deltaColumnHandle.getLogicalName();
                 });
     }
 
@@ -237,7 +237,7 @@ public final class DeltaExpressionUtils
         {
             checkArgument(!partitionPredicate.isNone(), "Expecting a predicate with at least one expression");
             for (DeltaColumnHandle partitionColumn : partitionColumns) {
-                String columnName = partitionColumn.getName();
+                String columnName = partitionColumn.getLogicalName();
                 String partitionValue = InternalScanFileUtils.getPartitionValues(row).get(columnName);
                 String filePath = InternalScanFileUtils.getAddFileStatus(row).getPath();
                 logger.debug("Obtaining domain of file: " + filePath);
@@ -299,13 +299,13 @@ public final class DeltaExpressionUtils
                         return Domain.create(ValueSet.of(type, booleanValue), false);
                     default:
                         throw new PrestoException(DELTA_UNSUPPORTED_COLUMN_TYPE,
-                                format("Unsupported data type '%s' for partition column %s", columnHandle.getDataType(), columnHandle.getName()));
+                                format("Unsupported data type '%s' for partition column %s", columnHandle.getDataType(), columnHandle.getLogicalName()));
                 }
             }
             catch (IllegalArgumentException exception) {
                 throw new PrestoException(DELTA_INVALID_PARTITION_VALUE,
                         format("Can not parse partition value '%s' of type '%s' for partition column '%s' in file '%s'",
-                                partitionValue, columnHandle.getDataType(), columnHandle.getName(), filePath),
+                                partitionValue, columnHandle.getDataType(), columnHandle.getLogicalName(), filePath),
                         exception);
             }
         }

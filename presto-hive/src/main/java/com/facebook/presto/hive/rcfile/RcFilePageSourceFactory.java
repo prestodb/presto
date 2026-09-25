@@ -74,6 +74,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LAST_COL
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_NULL_FORMAT;
 import static org.apache.hadoop.hive.serde2.lazy.LazySerDeParameters.SERIALIZATION_EXTEND_NESTING_LEVELS;
 import static org.apache.hadoop.hive.serde2.lazy.LazyUtils.getByte;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class RcFilePageSourceFactory
         implements HiveBatchPageSourceFactory
@@ -113,7 +114,7 @@ public class RcFilePageSourceFactory
             rcFileEncoding = new BinaryRcFileEncoding();
         }
         else if (ColumnarSerDe.class.getName().equals(storage.getStorageFormat().getSerDe())) {
-            rcFileEncoding = createTextVectorEncoding(getHiveSchema(storage.getSerdeParameters(), tableParameters), hiveStorageTimeZone);
+            rcFileEncoding = createTextVectorEncoding(getHiveSchema(storage.getSerdeParameters(), tableParameters), session.getSqlFunctionProperties().isLegacyTimestamp() ? hiveStorageTimeZone : UTC);
         }
         else {
             return Optional.empty();

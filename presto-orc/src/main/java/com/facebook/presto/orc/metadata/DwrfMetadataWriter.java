@@ -36,10 +36,12 @@ import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -164,14 +166,28 @@ public class DwrfMetadataWriter
         return builder.build();
     }
 
-    private static Type toType(OrcType type)
+    static Type toType(OrcType type)
     {
         Builder builder = Type.newBuilder()
                 .setKind(toTypeKind(type.getOrcTypeKind()))
                 .addAllSubtypes(type.getFieldTypeIndexes())
-                .addAllFieldNames(type.getFieldNames());
+                .addAllFieldNames(type.getFieldNames())
+                .addAllAttributes(toStringPairList(type.getAttributes()));
 
         return builder.build();
+    }
+
+    // Mirrors OrcMetadataWriter.toStringPairList. Empty input map produces an empty
+    // attribute list -- the resulting DWRF file is byte-compatible with the pre-patch
+    // writer when the type carries no attributes.
+    static List<DwrfProto.StringPair> toStringPairList(Map<String, String> attributes)
+    {
+        return attributes.entrySet().stream()
+                .map(entry -> DwrfProto.StringPair.newBuilder()
+                        .setKey(entry.getKey())
+                        .setValue(entry.getValue())
+                        .build())
+                .collect(toImmutableList());
     }
 
     private static Type.Kind toTypeKind(OrcTypeKind orcTypeKind)
@@ -296,6 +312,8 @@ public class DwrfMetadataWriter
     public int writeStripeFooter(SliceOutput output, StripeFooter footer)
             throws IOException
     {
+        ZoneId timezone = footer.getTimezone().orElseThrow(() -> new IllegalArgumentException("Timezone not set"));
+
         DwrfProto.StripeFooter footerProtobuf = DwrfProto.StripeFooter.newBuilder()
                 .addAllStreams(footer.getStreams().stream()
                         .map(DwrfMetadataWriter::toStream)
@@ -304,6 +322,7 @@ public class DwrfMetadataWriter
                 .addAllEncryptedGroups(footer.getStripeEncryptionGroups().stream()
                         .map(group -> ByteString.copyFrom(group.getBytes()))
                         .collect(toImmutableList()))
+                .setWriterTimezone(TimeZone.getTimeZone(timezone).getID())
                 .build();
 
         return writeProtobufObject(output, footerProtobuf);

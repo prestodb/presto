@@ -22,28 +22,26 @@ Changes may include, but are not limited to:
 BigQuery Storage API
 --------------------
 
-The Storage API streams data in parallel directly from BigQuery via gRPC without
+The Storage API streams data in parallel directly from BigQuery with gRPC without
 using Google Cloud Storage as an intermediary.
 It has a number of advantages over using the previous export-based read flow
 that should generally lead to better read performance:
 
 **Direct Streaming**
 
-    It does not leave any temporary files in Google Cloud Storage. Rows are read
-    directly from BigQuery servers using an Avro wire format.
+It does not leave any temporary files in Google Cloud Storage. Rows are read 
+directly from BigQuery servers using an Avro wire format.
 
 **Column Filtering**
 
-    The new API allows column filtering to only read the data you are interested in.
-    `Backed by a columnar datastore <https://cloud.google.com/blog/products/bigquery/inside-capacitor-bigquerys-next-generation-columnar-storage-format>`_,
-    it can efficiently stream data without reading all columns.
+The new API allows column filtering to only read the data you are interested in. 
+`Backed by a columnar datastore <https://cloud.google.com/blog/products/bigquery/inside-capacitor-bigquerys-next-generation-columnar-storage-format>`_, 
+it can efficiently stream data without reading all columns.
 
 **Dynamic Sharding**
 
-    The API rebalances records between readers until they all complete. This means
-    that all Map phases will finish nearly concurrently. See this blog article on
-    `how dynamic sharding is similarly used in Google Cloud Dataflow
-    <https://cloud.google.com/blog/products/gcp/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow>`_.
+The API rebalances records between readers until they all complete. This means 
+that all Map phases will finish nearly concurrently. See this blog article on `how dynamic sharding is similarly used in Google Cloud Dataflow <https://cloud.google.com/blog/products/gcp/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow>`_.
 
 Requirements
 ------------

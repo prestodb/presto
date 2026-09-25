@@ -149,7 +149,7 @@ public class IcebergRestCatalogServlet
                             request,
                             context.route().responseClass(),
                             handleResponseError(response),
-                            handleResponseHeader(response));
+                            handleResponseHeader());
 
             if (responseBody != null) {
                 RESTObjectMapper.mapper().writeValue(response.getWriter(), responseBody);
@@ -164,7 +164,7 @@ public class IcebergRestCatalogServlet
         }
     }
 
-    private Consumer<Map<String, String>> handleResponseHeader(HttpServletResponse response)
+    private Consumer<Map<String, String>> handleResponseHeader()
     {
         return (responseHeaders) -> {
             throw new RuntimeException("Unexpected response header: " + responseHeaders);

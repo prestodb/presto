@@ -17,8 +17,8 @@ Release 0.293
 * Add security-related headers to the static resources served from the Presto Router UI, including: ``Content-Security-Policy``, ``X-Content-Type-Options``. See reference docs `Content-Security-Policy <https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP>`_ and  `X-Content-Type-Options <https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/compatibility/gg622941(v=vs.85)>`_. `#25165 <https://github.com/prestodb/presto/pull/25165>`_
 * Add support for SSL/TLS encryption for HMS. `#24745 <https://github.com/prestodb/presto/pull/24745>`_
 * Add support for the procedure ``<catalog-name>.system.invalidate_manifest_file_cache()`` for ManifestFile cache invalidation in Iceberg. `#24831 <https://github.com/prestodb/presto/pull/24831>`_
-* Add support for `JSON <https://prestodb.io/docs/current/language/types.html#json>`_ type in MongoDB. `#25089 <https://github.com/prestodb/presto/pull/25089>`_
-* Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the MySQL connector. `#24996 <https://github.com/prestodb/presto/pull/24996>`_
+* Add support for :ref:`JSON <language/types:\`\`JSON\`\`>` type in MongoDB. `#25089 <https://github.com/prestodb/presto/pull/25089>`_
+* Add support for :ref:`GEOMETRY <language/types:Geospatial>` type in the MySQL connector. `#24996 <https://github.com/prestodb/presto/pull/24996>`_
 * Add a display for number of queued and running queries for each Resource Group subgroup in the UI. `#24830 <https://github.com/prestodb/presto/pull/24830>`_
 * Add `runtime metrics collection for S3 Filesystem <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_. `#24554 <https://github.com/prestodb/presto/pull/24554>`_
 
@@ -123,11 +123,11 @@ _______________________
 
 MongoDB Connector Changes
 _________________________
-* Add support for `JSON <https://prestodb.io/docs/current/language/types.html#json>`_ type in MongoDB. `#25089 <https://github.com/prestodb/presto/pull/25089>`_
+* Add support for :ref:`JSON <language/types:\`\`JSON\`\`>` type in MongoDB. `#25089 <https://github.com/prestodb/presto/pull/25089>`_
 
 MySQL Connector Changes
 _______________________
-* Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the MySQL connector. `#24996 <https://github.com/prestodb/presto/pull/24996>`_
+* Add support for :ref:`GEOMETRY <language/types:Geospatial>` type in the MySQL connector. `#24996 <https://github.com/prestodb/presto/pull/24996>`_
 
 SQL Server Connector Changes
 ____________________________

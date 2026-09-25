@@ -22,7 +22,6 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleDriver;
 
 import java.sql.SQLException;
@@ -30,6 +29,8 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS;
 
 public class OracleClientModule
         implements Module
@@ -48,14 +49,24 @@ public class OracleClientModule
     public static ConnectionFactory connectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig)
             throws SQLException
     {
-        Properties connectionProperties = new Properties();
-        connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
+        requireNonNull(oracleConfig, "oracle config is null");
+        requireNonNull(config, "BaseJdbc config is null");
+
+        Properties connectionProperties = DriverConnectionFactory.basicConnectionProperties(config);
+
+        if (oracleConfig.isTlsEnabled()) {
+            requireNonNull(oracleConfig.getTrustStorePath(), "oracle.tls.truststore-path is null");
+            connectionProperties.setProperty("javax.net.ssl.trustStore", oracleConfig.getTrustStorePath());
+            connectionProperties.setProperty("javax.net.ssl.trustStorePassword", oracleConfig.getTruststorePassword());
+        }
+
+        connectionProperties.setProperty(CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
 
         return new DriverConnectionFactory(
                 new OracleDriver(),
                 config.getConnectionUrl(),
-                Optional.empty(),
-                Optional.empty(),
+                Optional.ofNullable(config.getUserCredentialName()),
+                Optional.ofNullable(config.getPasswordCredentialName()),
                 connectionProperties);
     }
 }

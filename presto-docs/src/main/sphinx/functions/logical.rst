@@ -2,8 +2,8 @@
 Logical Operators
 =================
 
-Logical Operators
------------------
+Operators
+---------
 
 ======== ============================ =======
 Operator Description                  Example

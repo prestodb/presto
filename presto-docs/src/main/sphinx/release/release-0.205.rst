@@ -50,7 +50,7 @@ JDBC Driver Changes
 -------------------
 
 * Add support for prepared statements.
-* Add partial query cancellation via ``partialCancel()`` on ``PrestoStatement``.
+* Add partial query cancellation with ``partialCancel()`` on ``PrestoStatement``.
 * Use ``VARCHAR`` rather than ``LONGNVARCHAR`` for the Presto ``varchar`` type.
 * Use ``VARBINARY`` rather than ``LONGVARBINARY`` for the Presto ``varbinary`` type.
 

@@ -65,4 +65,16 @@ public class TestingTypeManager
     {
         return getType(signature) != null;
     }
+
+    @Override
+    public void addType(Type type)
+    {
+        throw new UnsupportedOperationException("Adding a type is not supported ");
+    }
+
+    @Override
+    public void addParametricType(ParametricType parametricType)
+    {
+        throw new UnsupportedOperationException("Adding a parametric type is not supported ");
+    }
 }

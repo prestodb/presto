@@ -160,7 +160,11 @@ public class TransformDistinctInnerJoinToLeftEarlyOutJoin
 
     private boolean canAggregationBePushedDown(AggregationNode aggregationNode, JoinNode joinNode, Context context)
     {
-        if (!context.getLogicalPropertiesProvider().isPresent()) {
+        // getAggregationProperties() below requires the aggregation's source group to carry logical
+        // properties; these are not derivable for every plan shape, so bail out when they are absent
+        // instead of throwing (matches the guard used by RemoveRedundant* and the right early-out rule).
+        if (!context.getLogicalPropertiesProvider().isPresent() ||
+                !Util.hasLogicalProperties(aggregationNode.getSource())) {
             return false;
         }
 

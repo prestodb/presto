@@ -1204,6 +1204,9 @@ void toThrift(
   toThrift(proto.queuedNewDrivers, *thrift.queuedNewDrivers_ref());
   toThrift(proto.runningNewDrivers, *thrift.runningNewDrivers_ref());
   toThrift(proto.completedNewDrivers, *thrift.completedNewDrivers_ref());
+  toThrift(
+      proto.scanRawInputDataSizeInBytes,
+      *thrift.scanRawInputDataSizeInBytes_ref());
 }
 void fromThrift(
     const TaskStats& thrift,
@@ -1282,6 +1285,9 @@ void fromThrift(
   fromThrift(*thrift.queuedNewDrivers_ref(), proto.queuedNewDrivers);
   fromThrift(*thrift.runningNewDrivers_ref(), proto.runningNewDrivers);
   fromThrift(*thrift.completedNewDrivers_ref(), proto.completedNewDrivers);
+  fromThrift(
+      *thrift.scanRawInputDataSizeInBytes_ref(),
+      proto.scanRawInputDataSizeInBytes);
 }
 
 void toThrift(
@@ -1455,6 +1461,8 @@ void toThrift(
   toThrift(proto.roles, *thrift.roles_ref());
   toThrift(proto.preparedStatements, *thrift.preparedStatements_ref());
   toThrift(proto.sessionFunctions, *thrift.sessionFunctions_ref());
+  toThrift(proto.selectedUser, thrift.selectedUser_ref());
+  toThrift(proto.reasonForSelect, thrift.reasonForSelect_ref());
 }
 void fromThrift(
     const SessionRepresentation& thrift,
@@ -1485,6 +1493,8 @@ void fromThrift(
   fromThrift(*thrift.roles_ref(), proto.roles);
   fromThrift(*thrift.preparedStatements_ref(), proto.preparedStatements);
   fromThrift(*thrift.sessionFunctions_ref(), proto.sessionFunctions);
+  fromThrift(thrift.selectedUser_ref(), proto.selectedUser);
+  fromThrift(thrift.reasonForSelect_ref(), proto.reasonForSelect);
 }
 
 void toThrift(

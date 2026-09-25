@@ -12,16 +12,21 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/TaskManager.h"
+#include <folly/ScopeGuard.h>
 #include <folly/executors/ThreadedExecutor.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "folly/experimental/EventCount.h"
+#include <string_view>
+#include "folly/synchronization/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/http/HttpClient.h"
+#include "presto_cpp/main/operators/MaterializedOutput.h"
+#include "presto_cpp/main/operators/MaterializedOutputBuffer.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -32,6 +37,7 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+#include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -261,13 +267,13 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
     httpServerWrapper_ =
         std::make_unique<facebook::presto::test::HttpServerWrapper>(
             std::move(httpServer));
-    auto serverAddress = httpServerWrapper_->start().get();
+    serverAddress_ = httpServerWrapper_->start().get();
 
     taskManager_->setBaseUri(
         fmt::format(
             "http://{}:{}",
-            serverAddress.getAddressStr(),
-            serverAddress.getPort()));
+            serverAddress_.getAddressStr(),
+            serverAddress_.getPort()));
     writerFactory_ =
         dwio::common::getWriterFactory(dwio::common::FileFormat::DWRF);
   }
@@ -568,7 +574,7 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
       EXPECT_TRUE(resultsOrFailures.status != nullptr);
       EXPECT_EQ(resultsOrFailures.status->state, protocol::TaskState::FAILED);
       for (const auto& taskId : allTaskIds) {
-        taskManager_->deleteTask(taskId, true, true);
+        taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
       }
     }
 
@@ -658,11 +664,44 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
         taskId, updateRequest, planFragment, summarize, std::move(queryCtx), 0);
   }
 
+  // Sends DELETE /v1/task/<taskId> to the test HTTP server so that the
+  // TaskResource query parameter parsing is exercised rather than bypassed.
+  // Returns the status code for the caller to assert on: a fatal assertion
+  // here would return from this helper with 'eventBaseThread' still joinable.
+  uint16_t sendDeleteTask(
+      const protocol::TaskId& taskId,
+      std::string_view queryParams) {
+    folly::EventBase eventBase;
+    std::thread eventBaseThread([&]() { eventBase.loopForever(); });
+    const auto stopEventBase = folly::makeGuard([&]() {
+      eventBase.terminateLoopSoon();
+      eventBaseThread.join();
+    });
+    auto client = std::make_shared<http::HttpClient>(
+        &eventBase,
+        /*connPool=*/nullptr,
+        proxygen::Endpoint(
+            serverAddress_.getAddressStr(), serverAddress_.getPort(), false),
+        serverAddress_,
+        std::chrono::milliseconds(10'000),
+        std::chrono::milliseconds(10'000),
+        pool_,
+        /*sslContext=*/nullptr);
+    return http::RequestBuilder()
+        .method(proxygen::HTTPMethod::DELETE)
+        .url(fmt::format("/v1/task/{}?{}", taskId, queryParams))
+        .send(client.get())
+        .get()
+        ->headers()
+        ->getStatusCode();
+  }
+
   RowTypePtr rowType_;
   exec::test::DuckDbQueryRunner duckDbQueryRunner_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
   std::unique_ptr<facebook::presto::test::HttpServerWrapper> httpServerWrapper_;
+  folly::SocketAddress serverAddress_;
   std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeCpuExecutor_ =
       std::make_shared<folly::CPUThreadPoolExecutor>(1);
   std::shared_ptr<folly::IOThreadPoolExecutor> exchangeIoExecutor_ =
@@ -900,7 +939,7 @@ TEST_P(TaskManagerTest, taskCleanupWithPendingResultData) {
   std::exception e;
   taskManager_->createOrUpdateErrorTask(
       taskId, std::make_exception_ptr(e), true, 0);
-  taskManager_->deleteTask(taskId, true, true);
+  taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
   for (int i = 0; i < 10; ++i) {
     // 'results' holds a reference on the presto task which prevents the old
     // task cleanup.
@@ -967,6 +1006,91 @@ TEST_P(TaskManagerTest, queuedEmptyGroupedExecutionTask) {
   auto execTask = prestoTask->task;
   if (execTask) {
     ASSERT_EQ(execTask->state(), TaskState::kFinished);
+  }
+}
+
+// Tests that aborting one queued task from a query does not prevent other
+// queued tasks from the same query from being started. This is a regression
+// test for a bug where tasks from different fragments of the same query were
+// grouped in a single queue entry, and aborting any one of them (e.g. because
+// its fragment completed on other workers) would silently discard all the
+// other still-valid tasks in the same entry.
+TEST_P(TaskManagerTest, queuedTaskAbortDoesNotBlockSiblings) {
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kWorkerOverloadedTaskQueuingEnabled), "true");
+
+  // Create two plan fragments representing different stages of the same query.
+  // Both are simple table scans with partitioned output.
+  core::PlanNodeId scanNodeId1;
+  auto planFragment1 = exec::test::PlanBuilder()
+                           .tableScan(rowType_)
+                           .capturePlanNodeId(scanNodeId1)
+                           .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+                           .planFragment();
+
+  core::PlanNodeId scanNodeId2;
+  auto planFragment2 = exec::test::PlanBuilder()
+                           .tableScan(rowType_)
+                           .capturePlanNodeId(scanNodeId2)
+                           .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+                           .planFragment();
+
+  // Mark server as overloaded so tasks get queued instead of started.
+  taskManager_->setServerOverloaded(true);
+
+  // Use the same query ID but different stage IDs, so that both tasks share the
+  // same queryCtx and are grouped in the same queue entry.
+  const protocol::TaskId taskId1 = "queueAbortQuery.4.0.1.0";
+  const protocol::TaskId taskId2 = "queueAbortQuery.5.0.1.0";
+
+  // Create both tasks with no splits and 'no more splits'.
+  {
+    long splitSequenceId{0};
+    protocol::TaskUpdateRequest updateRequest;
+    updateRequest.sources.push_back(
+        makeSource(scanNodeId1, {}, true, splitSequenceId));
+    createOrUpdateTask(taskId1, updateRequest, planFragment1);
+  }
+  {
+    long splitSequenceId{0};
+    protocol::TaskUpdateRequest updateRequest;
+    updateRequest.sources.push_back(
+        makeSource(scanNodeId2, {}, true, splitSequenceId));
+    createOrUpdateTask(taskId2, updateRequest, planFragment2);
+  }
+
+  // Verify both tasks are queued (not started).
+  auto prestoTask1 = taskManager_->tasks().at(taskId1);
+  auto prestoTask2 = taskManager_->tasks().at(taskId2);
+  ASSERT_FALSE(prestoTask1->taskStarted);
+  ASSERT_FALSE(prestoTask2->taskStarted);
+  ASSERT_EQ(taskManager_->numQueuedTasks(), 2);
+
+  // Simulate the coordinator aborting one task (e.g. its fragment completed on
+  // other workers). This sets the task state to ABORTED but does not remove it
+  // from the queue.
+  taskManager_->deleteTask(taskId1, true, false, /*shouldDropTask=*/false);
+
+  // Verify task1 is aborted but task2 is still planned.
+  ASSERT_EQ(prestoTask1->info.taskStatus.state, protocol::TaskState::ABORTED);
+  ASSERT_FALSE(prestoTask2->taskStarted);
+
+  // Clear overload and trigger the dequeue.
+  taskManager_->setServerOverloaded(false);
+  taskManager_->maybeStartNextQueuedTask();
+
+  // The key assertion: task2 must have been started despite task1 being
+  // aborted.
+  ASSERT_TRUE(prestoTask2->taskStarted)
+      << "Task from a different stage was not started after its sibling "
+         "was aborted — the aborted task blocked the entire queue entry.";
+
+  // Verify task2 runs to completion.
+  auto results = fetchAllResults(taskId2, rowType_, {taskId2});
+  ASSERT_EQ(results.results.size(), 0);
+  auto execTask2 = prestoTask2->task;
+  if (execTask2) {
+    ASSERT_EQ(execTask2->state(), TaskState::kFinished);
   }
 }
 
@@ -1414,10 +1538,207 @@ TEST_P(TaskManagerTest, getResultsFromFailedTask) {
   ASSERT_EQ(results->data->capacity(), 0);
 }
 
+TEST_P(TaskManagerTest, deleteTaskDropTaskOnDeleteDropsTask) {
+  const std::vector<RowVectorPtr> batches = makeVectors(1, 16);
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .values(batches)
+          .partitionedOutputArbitrary({"c0", "c1"}, GetParam())
+          .planFragment();
+
+  // Default: the aborted task is retained for cleanOldTasks() to reclaim.
+  const protocol::TaskId retainedTaskId = "eager-cleanup-task.0.0.0.0";
+  createOrUpdateTask(retainedTaskId, {}, planFragment);
+  taskManager_->deleteTask(
+      retainedTaskId, true, true, /*shouldDropTask=*/false);
+  EXPECT_EQ(taskManager_->tasks().count(retainedTaskId), 1);
+
+  // With eager cleanup the task is dropped right away.
+  const protocol::TaskId eagerTaskId = "eager-cleanup-task.0.0.1.0";
+  createOrUpdateTask(eagerTaskId, {}, planFragment);
+  taskManager_->deleteTask(eagerTaskId, true, true, /*shouldDropTask=*/true);
+  EXPECT_EQ(taskManager_->tasks().count(eagerTaskId), 0);
+}
+
+TEST_P(TaskManagerTest, deleteTaskDropTaskOnDeleteKeepsEarlyCancellation) {
+  // A DELETE arriving before its CREATE records an ABORTED marker so that the
+  // later CREATE no-ops. That marker holds no Velox Task, so eager cleanup has
+  // nothing to reclaim and must not remove it.
+  const protocol::TaskId taskId = "eager-cleanup-early.0.0.0.0";
+  taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/true);
+  ASSERT_EQ(taskManager_->tasks().count(taskId), 1);
+  EXPECT_EQ(
+      taskManager_->tasks().at(taskId)->info.taskStatus.state,
+      protocol::TaskState::ABORTED);
+}
+
+TEST_P(TaskManagerTest, deleteTaskDropTaskOnDeleteUrlParam) {
+  const std::vector<RowVectorPtr> batches = makeVectors(1, 16);
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .values(batches)
+          .partitionedOutputArbitrary({"c0", "c1"}, GetParam())
+          .planFragment();
+
+  // Sapphire Velox's DELETE carries 'dropTaskOnDelete'; TaskResource must
+  // forward it, otherwise the task is only released by the periodic sweep.
+  const protocol::TaskId eagerTaskId = "eager-cleanup-param.0.0.0.0";
+  createOrUpdateTask(eagerTaskId, {}, planFragment);
+  ASSERT_EQ(
+      sendDeleteTask(eagerTaskId, "abort=true&dropTaskOnDelete=true"),
+      http::kHttpOk);
+  EXPECT_EQ(taskManager_->tasks().count(eagerTaskId), 0);
+
+  // Without it the aborted task is retained for cleanOldTasks() to reclaim.
+  const protocol::TaskId retainedTaskId = "eager-cleanup-param.0.0.1.0";
+  createOrUpdateTask(retainedTaskId, {}, planFragment);
+  ASSERT_EQ(
+      sendDeleteTask(retainedTaskId, "abort=true&dropTaskOnDelete=false"),
+      http::kHttpOk);
+  EXPECT_EQ(taskManager_->tasks().count(retainedTaskId), 1);
+
+  // A client that does not know the parameter keeps the old behaviour.
+  const protocol::TaskId legacyTaskId = "eager-cleanup-param.0.0.2.0";
+  createOrUpdateTask(legacyTaskId, {}, planFragment);
+  ASSERT_EQ(sendDeleteTask(legacyTaskId, "abort=true"), http::kHttpOk);
+  EXPECT_EQ(taskManager_->tasks().count(legacyTaskId), 1);
+}
+
+// Eager cleanup skips the zombie check cleanOldTasks() applies, so it can drop
+// a task whose Drivers have not finished unwinding. Park a Driver inside the
+// operator to hold 'DriverCtx::task' across the delete and pin that state.
+DEBUG_ONLY_TEST_P(TaskManagerTest, dropTaskOnDeleteWithBlockedDriver) {
+  taskManager_->setTaskSyncTerminateEnabled(true);
+
+  // Held by shared_ptr and captured by value: the parked Driver can still be
+  // inside the callback when TestBody() returns, so these must not live on the
+  // test's stack.
+  struct BlockState {
+    folly::EventCount enteredWait;
+    std::atomic<bool> entered{false};
+    folly::EventCount releaseWait;
+    std::atomic<bool> released{false};
+  };
+  auto block = std::make_shared<BlockState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const velox::exec::Values*)>(
+          [block](const velox::exec::Values* /*values*/) {
+            block->entered = true;
+            block->enteredWait.notifyAll();
+            block->releaseWait.await([&]() { return block->released.load(); });
+          }));
+
+  const std::vector<RowVectorPtr> batches = makeVectors(1, 1'000);
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .values(batches)
+          .partitionedOutputArbitrary({"c0", "c1"}, GetParam())
+          .planFragment();
+  const protocol::TaskId taskId = "eager-cleanup-blocked.0.0.0.0";
+  createOrUpdateTask(taskId, {}, planFragment);
+
+  // 'tasks()' returns the map by value, so this leaves no strong reference of
+  // our own to confuse the lifetime assertion below.
+  std::weak_ptr<exec::Task> weakTask = taskManager_->tasks().at(taskId)->task;
+  block->enteredWait.await([&]() { return block->entered.load(); });
+
+  folly::ThreadedExecutor deleteExecutor;
+  folly::EventCount deleteStartedWait;
+  std::atomic<bool> deleteStarted{false};
+  auto deleteFuture = folly::via(&deleteExecutor, [&]() {
+    deleteStarted = true;
+    deleteStartedWait.notifyAll();
+    return taskManager_->deleteTask(
+        taskId, true, true, /*shouldDropTask=*/true);
+  });
+  deleteStartedWait.await([&]() { return deleteStarted.load(); });
+  for (int i = 0; i < 30'000 && taskManager_->tasks().count(taskId) != 0 &&
+       !deleteFuture.isReady();
+       ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+
+  // The task is no longer findable, but DELETE must not acknowledge cleanup
+  // while the parked Driver still owns the Velox Task.
+  EXPECT_EQ(taskManager_->tasks().count(taskId), 0);
+  EXPECT_FALSE(weakTask.expired());
+  EXPECT_FALSE(deleteFuture.isReady());
+
+  // A read arriving after the erase must never be told the task completed;
+  // findOrCreateTask() gives it an un-started task and it comes back empty.
+  const auto result =
+      taskManager_
+          ->getResults(
+              taskId,
+              0,
+              0,
+              protocol::DataSize("32MB"),
+              protocol::Duration("100ms"),
+              http::CallbackRequestHandlerState::create())
+          .getVia(folly::EventBaseManager::get()->getEventBase());
+  EXPECT_FALSE(result->complete);
+
+  block->released = true;
+  block->releaseWait.notifyAll();
+  EXPECT_NE(std::move(deleteFuture).get(), nullptr);
+}
+
+DEBUG_ONLY_TEST_P(TaskManagerTest, syncTerminateTimesOutForBlockedDriver) {
+  taskManager_->setTaskSyncTerminateEnabled(true);
+  taskManager_->setTaskSyncTerminateTimeoutMs(10);
+
+  struct BlockState {
+    folly::EventCount enteredWait;
+    std::atomic<bool> entered{false};
+    folly::EventCount releaseWait;
+    std::atomic<bool> released{false};
+  };
+  auto block = std::make_shared<BlockState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const velox::exec::Values*)>(
+          [block](const velox::exec::Values* /*values*/) {
+            block->entered = true;
+            block->enteredWait.notifyAll();
+            block->releaseWait.await([&]() { return block->released.load(); });
+          }));
+
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .values(makeVectors(1, 1'000))
+          .partitionedOutputArbitrary({"c0", "c1"}, GetParam())
+          .planFragment();
+  const protocol::TaskId taskId = "eager-cleanup-timeout.0.0.0.0";
+  createOrUpdateTask(taskId, {}, planFragment);
+  block->enteredWait.await([&]() { return block->entered.load(); });
+
+  folly::ThreadedExecutor deleteExecutor;
+  auto deleteFuture = folly::via(&deleteExecutor, [&]() {
+    return taskManager_->deleteTask(
+        taskId, true, true, /*shouldDropTask=*/false);
+  });
+  deleteFuture.wait(std::chrono::seconds(30));
+  const bool deleteTimedOut = deleteFuture.isReady();
+
+  block->released = true;
+  block->releaseWait.notifyAll();
+
+  EXPECT_TRUE(deleteTimedOut);
+  if (deleteTimedOut) {
+    VELOX_ASSERT_THROW(
+        std::move(deleteFuture).get(),
+        "Task could not be terminated within 10 ms");
+  } else {
+    EXPECT_NE(std::move(deleteFuture).get(), nullptr);
+  }
+  EXPECT_EQ(taskManager_->tasks().count(taskId), 1);
+}
+
 TEST_P(TaskManagerTest, getResultsFromAbortedTask) {
   const protocol::TaskId taskId = "aborted-task.0.0.0.0";
   // deleting a non existing task creates an aborted task
-  taskManager_->deleteTask(taskId, true, true);
+  taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
 
   // We expect to get empty results, rather than an exception.
   const uint64_t startTimeUs = velox::getCurrentTimeMicro();
@@ -1466,7 +1787,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   veloxTask->start(1);
   prestoTask->taskStarted = true;
 
-  auto outputBufferManager = OutputBufferManager::getInstanceRef();
+  auto outputBufferManager = DefaultOutputBufferManager::getInstanceRef();
   ASSERT_TRUE(outputBufferManager != nullptr);
   // Wait until the task has produced all the output buffers so its memory usage
   // stay constant to ease test.
@@ -1634,7 +1955,7 @@ TEST_P(TaskManagerTest, buildSpillDirectoryFailure) {
       ASSERT_FALSE(veloxTask->spillDirectory().empty());
     }
 
-    taskManager_->deleteTask(taskId, true, true);
+    taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
     if (!buildSpillDirectoryFailure) {
       auto taskMap = taskManager_->tasks();
       ASSERT_EQ(taskMap.size(), 1);
@@ -1719,9 +2040,82 @@ TEST_P(TaskManagerTest, summarize) {
   // pipeline stats available when summarize set to false and task is finished
   ASSERT_GT(taskInfo->stats.pipelines.size(), 0);
 
-  taskInfo = taskManager_->deleteTask(taskId, true, true);
+  taskInfo =
+      taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
   // pipeline stats available when summarize set to false and task is finished
   ASSERT_GT(taskInfo->stats.pipelines.size(), 0);
+}
+
+// Minimal no-op shuffle writer for testing buffer creation without
+// requiring a real shuffle backend.
+namespace {
+class NoOpShuffleWriter : public operators::ShuffleWriter {
+ public:
+  void collect(int32_t, std::string_view, std::string_view) override {}
+  void noMoreData(bool) override {}
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return {};
+  }
+};
+
+class NoOpShuffleFactory : public operators::ShuffleInterfaceFactory {
+ public:
+  static constexpr std::string_view kName{"noop_shuffle"};
+
+  std::shared_ptr<operators::ShuffleReader>
+  createReader(const std::string&, int32_t, memory::MemoryPool*) override {
+    return nullptr;
+  }
+
+  std::shared_ptr<operators::ShuffleWriter> createWriter(
+      const std::string&,
+      memory::MemoryPool*) override {
+    return std::make_shared<NoOpShuffleWriter>();
+  }
+};
+} // namespace
+
+TEST_P(TaskManagerTest, duplicateCreateTaskWithMaterializedOutput) {
+  const int32_t numPartitions = 2;
+  operators::ShuffleInterfaceFactory::registerFactory(
+      std::string(NoOpShuffleFactory::kName),
+      std::make_unique<NoOpShuffleFactory>());
+  exec::Operator::registerOperator(
+      std::make_unique<operators::MaterializedOutputTranslator>());
+
+  auto data = makeRowVector({makeFlatVector<int32_t>({1, 2, 3, 4})});
+  auto dataType = asRowType(data->type());
+
+  auto valuesNode = exec::test::PlanBuilder().values({data}, true).planNode();
+  auto planNode = std::make_shared<operators::MaterializedOutputNode>(
+      "matOut",
+      std::vector<core::TypedExprPtr>{},
+      numPartitions,
+      dataType,
+      std::make_shared<exec::HashPartitionFunctionSpec>(
+          dataType, std::vector<column_index_t>{0}),
+      false,
+      operators::ShuffleWriterMetadata{
+          "{}", std::string(NoOpShuffleFactory::kName)},
+      valuesNode);
+  core::PlanFragment planFragment{planNode};
+
+  protocol::TaskId taskId = "dup_test.0.0.1.0";
+  protocol::TaskUpdateRequest updateRequest;
+
+  // First call creates the task and registers the buffer.
+  auto taskInfo1 = createOrUpdateTask(taskId, updateRequest, planFragment);
+  ASSERT_NE(taskInfo1, nullptr);
+  EXPECT_NE(operators::MaterializedOutputBuffer::getBuffer(taskId), nullptr);
+
+  // Second call with the same taskId is a no-op — no crash.
+  auto taskInfo2 = createOrUpdateTask(taskId, updateRequest, planFragment);
+  ASSERT_NE(taskInfo2, nullptr);
+
+  // Clean up: remove buffer, delete task, wait for cleanup.
+  operators::MaterializedOutputBuffer::removeBuffer(taskId);
+  taskManager_->deleteTask(taskId, false, false, /*shouldDropTask=*/false);
+  waitForAllOldTasksToBeCleaned(taskManager_.get(), 10'000'000);
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

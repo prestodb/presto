@@ -41,6 +41,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
@@ -348,6 +349,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.addColumn(session, tableHandle, column, position);
+        }
+    }
+
+    @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -412,6 +421,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void setColumnDefault(ConnectorSession session, ConnectorTableHandle tableHandle, String columnName, Object defaultValue)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setColumnDefault(session, tableHandle, columnName, defaultValue);
+        }
+    }
+
+    @Override
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -451,6 +468,22 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public ConnectorOutputTableHandle beginCreateVectorIndex(ConnectorSession session, ConnectorTableMetadata indexMetadata, Optional<ConnectorNewTableLayout> layout, SchemaTableName sourceTableName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.beginCreateVectorIndex(session, indexMetadata, layout, sourceTableName);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateVectorIndex(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.finishCreateVectorIndex(session, tableHandle, fragments, computedStatistics);
+        }
+    }
+
+    @Override
     public void beginQuery(ConnectorSession session)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -463,6 +496,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.cleanupQuery(session);
+        }
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> insertColumnNames)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.beginInsert(session, tableHandle, insertColumnNames);
         }
     }
 
@@ -589,6 +630,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Object> properties)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setMaterializedViewProperties(session, viewName, properties);
+        }
+    }
+
+    @Override
     public MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -601,6 +650,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.beginRefreshMaterializedView(session, tableHandle);
+        }
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<RowExpression> refreshScopePredicate)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.beginRefreshMaterializedView(session, tableHandle, refreshScopePredicate);
         }
     }
 
@@ -952,6 +1009,21 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.applyTableFunction(session, handle);
+        }
+    }
+
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setColumnType(session, tableHandle, columnHandle, type);
+        }
+    }
+
+    @Override
+    public void setColumnPosition(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, ColumnPosition position)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setColumnPosition(session, tableHandle, columnHandle, position);
         }
     }
 }

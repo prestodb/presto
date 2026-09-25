@@ -1100,6 +1100,63 @@ public class TestSignatureBinder
                 expectedTypeSignature);
     }
 
+    @Test
+    public void testBindAnyVariadic()
+    {
+        Signature function = functionSignature()
+                .returnType(parseTypeSignature(StandardTypes.VARCHAR))
+                .argumentTypes(parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.ANY))
+                .setVariableArity(true)
+                .build();
+
+        // zero trailing args (just the fixed head)
+        assertThat(function).boundTo("varchar").succeeds();
+        // a single trailing arg
+        assertThat(function).boundTo("varchar", "bigint").succeeds();
+        // mixed-type trailing args bind even though they share no common supertype -- the point of "any"
+        assertThat(function).boundTo("varchar", "double", "varchar", "boolean").succeeds();
+        // fewer arguments than the fixed head -> no match
+        assertThat(function).boundTo().fails();
+
+        // the bound signature carries the concrete per-position types, not "any"
+        assertEquals(
+                bindConcreteArguments(function, "varchar", "double", "varchar"),
+                ImmutableList.of(
+                        parseTypeSignature(StandardTypes.VARCHAR),
+                        parseTypeSignature(StandardTypes.DOUBLE),
+                        parseTypeSignature(StandardTypes.VARCHAR)));
+    }
+
+    @Test
+    public void testAnyVariadicBindsEachPositionIndependently()
+    {
+        // A shared type-variable tail unifies every trailing position to one common supertype,
+        // so a mixed tail with no common supertype fails to bind...
+        Signature withTypeVariable = functionSignature()
+                .returnType(parseTypeSignature(StandardTypes.VARCHAR))
+                .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
+                .argumentTypes(parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature("T"))
+                .setVariableArity(true)
+                .build();
+        assertThat(withTypeVariable).boundTo("varchar", "double", "varchar").withCoercion().fails();
+
+        // ...whereas an "any" tail binds each position to its own concrete type.
+        Signature withAny = functionSignature()
+                .returnType(parseTypeSignature(StandardTypes.VARCHAR))
+                .argumentTypes(parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.ANY))
+                .setVariableArity(true)
+                .build();
+        assertThat(withAny).boundTo("varchar", "double", "varchar").succeeds();
+    }
+
+    private List<TypeSignature> bindConcreteArguments(Signature function, String... arguments)
+    {
+        Optional<Signature> bound = new SignatureBinder(functionAndTypeManager, function, false)
+                .bind(fromTypes(types(arguments)));
+        assertTrue(bound.isPresent());
+        return bound.get().getArgumentTypes();
+    }
+
     private static SignatureBuilder functionSignature()
     {
         return new SignatureBuilder()

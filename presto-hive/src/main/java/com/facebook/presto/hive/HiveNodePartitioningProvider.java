@@ -25,8 +25,10 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -103,5 +105,28 @@ public class HiveNodePartitioningProvider
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         int bucketCount = handle.getBucketCount();
         return IntStream.range(0, bucketCount).mapToObj(HivePartitionHandle::new).collect(toImmutableList());
+    }
+
+    @Override
+    public List<ConnectorPartitionHandle> listPartitionHandles(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioningHandle,
+            List<Map<String, String>> partitionValues)
+    {
+        if (partitionValues.isEmpty()) {
+            return listPartitionHandles(transactionHandle, session, partitioningHandle);
+        }
+        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
+        int bucketCount = handle.getBucketCount();
+        // Interleaved ordering: [b0/p0, b1/p0, ..., bN/p0, b0/p1, b1/p1, ..., bN/p1, ...]
+        // This ensures lifespanId % bucketCount == physical bucket.
+        ImmutableList.Builder<ConnectorPartitionHandle> handles = ImmutableList.builder();
+        for (Map<String, String> values : partitionValues) {
+            for (int bucket = 0; bucket < bucketCount; bucket++) {
+                handles.add(new CompoundPartitionHandle(new HivePartitionHandle(bucket), values));
+            }
+        }
+        return handles.build();
     }
 }

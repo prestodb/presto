@@ -44,6 +44,7 @@ import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
@@ -113,6 +114,19 @@ public class NodePartitioningManager
                 partitioningHandle.getTransactionHandle().orElse(null),
                 session.toConnectorSession(),
                 partitioningHandle.getConnectorHandle());
+    }
+
+    public List<ConnectorPartitionHandle> listPartitionHandles(
+            Session session,
+            PartitioningHandle partitioningHandle,
+            List<Map<String, String>> partitionValues)
+    {
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().get());
+        return partitioningProvider.listPartitionHandles(
+                partitioningHandle.getTransactionHandle().orElse(null),
+                session.toConnectorSession(),
+                partitioningHandle.getConnectorHandle(),
+                partitionValues);
     }
 
     public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
@@ -241,16 +255,25 @@ public class NodePartitioningManager
                 partitioningHandle.getConnectorHandle());
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
 
+        int bucketCount = partitioningProvider.getBucketCount(
+                partitioningHandle.getTransactionHandle().orElse(null),
+                session.toConnectorSession(),
+                partitioningHandle.getConnectorHandle());
+
         return split -> {
-            int bucket;
             if (split.getConnectorSplit() instanceof EmptySplit) {
-                bucket = split.getLifespan().isTaskWide() ? 0 : split.getLifespan().getId();
+                // EmptySplit doesn't have a real bucket number. Use the lifespan ID as proxy.
+                // In standard grouped execution, lifespanId == physical bucket.
+                // In partition-aware execution with interleaved handle ordering,
+                // physicalBucket = lifespanId % bucketCount.
+                int lifespanId = split.getLifespan().isTaskWide() ? 0 : split.getLifespan().getId();
+                return lifespanId % bucketCount;
             }
-            else {
-                bucket = splitBucketFunction.applyAsInt(split.getConnectorSplit());
-            }
+            int bucket = splitBucketFunction.applyAsInt(split.getConnectorSplit());
             if (!split.getLifespan().isTaskWide()) {
-                checkArgument(split.getLifespan().getId() == bucket);
+                checkArgument(split.getLifespan().getId() % bucketCount == bucket,
+                        "Expected split lifespan %s to map to bucket %s with %s buckets",
+                        split.getLifespan().getId(), bucket, bucketCount);
             }
             return bucket;
         };

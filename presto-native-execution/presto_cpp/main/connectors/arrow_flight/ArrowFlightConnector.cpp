@@ -136,10 +136,20 @@ ArrowFlightDataSource::ArrowFlightDataSource(
   }
 }
 
+ArrowFlightDataSource::~ArrowFlightDataSource() {
+  // Ensure cleanup happens even if cancel() wasn't called
+  cancel();
+}
+
 void ArrowFlightDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   auto flightSplit = std::dynamic_pointer_cast<ArrowFlightSplit>(split);
   VELOX_CHECK(
       flightSplit, "ArrowFlightDataSource received wrong type of split");
+
+  VELOX_CHECK(
+      currentClient_ == nullptr && currentReader_ == nullptr,
+      "Cannot add new split while previous client/reader are still active. "
+      "Previous split must reach EOS or be cancelled first.");
 
   auto flightEndpointStr =
       folly::base64Decode(flightSplit->flightEndpointBytes_);
@@ -160,14 +170,23 @@ void ArrowFlightDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   }
 
   AFC_ASSIGN_OR_RAISE(
-      auto client, arrow::flight::FlightClient::Connect(loc, *clientOpts_));
+      currentClient_, arrow::flight::FlightClient::Connect(loc, *clientOpts_));
 
   CallOptionsAddHeaders callOptsAddHeaders{};
   authenticator_->authenticateClient(
-      client, connectorQueryCtx_->sessionProperties(), callOptsAddHeaders);
+      currentClient_,
+      connectorQueryCtx_->sessionProperties(),
+      callOptsAddHeaders);
 
-  auto readerResult = client->DoGet(callOptsAddHeaders, flightEndpoint.ticket);
-  AFC_ASSIGN_OR_RAISE(currentReader_, readerResult);
+  AFC_ASSIGN_OR_HANDLE(
+      currentReader_,
+      currentClient_->DoGet(callOptsAddHeaders, flightEndpoint.ticket),
+      handleArrowError);
+
+  AFC_ASSIGN_OR_HANDLE(
+      auto schema, currentReader_->GetSchema(), handleArrowError);
+
+  setOutputColumnIndices(schema);
 }
 
 std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
@@ -175,11 +194,20 @@ std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
     velox::ContinueFuture& /* unused */) {
   VELOX_CHECK_NOT_NULL(currentReader_, "Missing split, call addSplit() first");
 
-  AFC_ASSIGN_OR_RAISE(auto chunk, currentReader_->Next());
+  AFC_ASSIGN_OR_HANDLE(auto chunk, currentReader_->Next(), handleArrowError);
 
   // Null values in the chunk indicates that the Flight stream is complete.
   if (!chunk.data) {
     currentReader_ = nullptr;
+    if (currentClient_ != nullptr) {
+      auto status = currentClient_->Close();
+      if (!status.ok()) {
+        LOG(WARNING)
+            << "Failed to close Arrow Flight client after stream completion: "
+            << status.message();
+      }
+      currentClient_.reset();
+    }
     return nullptr;
   }
 
@@ -191,16 +219,63 @@ std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
   return output;
 }
 
+void ArrowFlightDataSource::cancel() {
+  if (currentReader_ != nullptr) {
+    currentReader_->Cancel();
+    currentReader_.reset();
+  }
+
+  if (currentClient_ != nullptr) {
+    auto status = currentClient_->Close();
+    if (!status.ok()) {
+      LOG(WARNING) << "Failed to close Arrow Flight client during cancel: "
+                   << status.message();
+    }
+    currentClient_.reset();
+  }
+}
+
+void ArrowFlightDataSource::setOutputColumnIndices(
+    const std::shared_ptr<arrow::Schema>& schema) {
+  columnIndices_.clear();
+  columnIndices_.reserve(columnMapping_.size());
+  bool projectColumnsByName = true;
+
+  // Check if Flight schema matches output columns, else project by name.
+  if (schema->num_fields() == columnMapping_.size()) {
+    auto fieldNames = schema->field_names();
+    projectColumnsByName = false;
+    for (int i = 0; i < fieldNames.size(); i++) {
+      if (fieldNames[i] != columnMapping_[i]) {
+        projectColumnsByName = true;
+        break;
+      }
+    }
+  }
+
+  if (projectColumnsByName) {
+    // Extract and convert desired columns in the correct order.
+    for (const auto& name : columnMapping_) {
+      auto idx = schema->GetFieldIndex(name);
+      VELOX_CHECK(idx >= 0, "column with name '{}' not found", name);
+      columnIndices_.emplace_back(idx);
+    }
+  } else {
+    // All output columns are aligned, project by column ordinal.
+    for (int i = 0; i < columnMapping_.size(); i++) {
+      columnIndices_.emplace_back(i);
+    }
+  }
+}
+
 velox::RowVectorPtr ArrowFlightDataSource::projectOutputColumns(
     const std::shared_ptr<arrow::RecordBatch>& input) {
   velox::memory::MemoryPool* pool = connectorQueryCtx_->memoryPool();
   std::vector<velox::VectorPtr> children;
-  children.reserve(columnMapping_.size());
+  children.reserve(columnIndices_.size());
 
-  // Extract and convert desired columns in the correct order.
-  for (const auto& name : columnMapping_) {
-    auto column = input->GetColumnByName(name);
-    VELOX_CHECK_NOT_NULL(column, "column with name '{}' not found", name);
+  for (int const idx : columnIndices_) {
+    auto column = input->column(idx);
     ArrowArray array;
     ArrowSchema schema;
     AFC_RAISE_NOT_OK(arrow::ExportArray(*column, &array, &schema));

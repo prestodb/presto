@@ -51,7 +51,7 @@ Date and Time Functions
 .. function:: current_timezone() -> varchar
 
     Returns the current time zone in the format defined by IANA
-    (e.g., ``America/Los_Angeles``) or as fixed offset from UTC (e.g., ``+08:35``)
+    (for example, ``America/Los_Angeles``) or as fixed offset from UTC (``+08:35``)
 
 .. function:: date(x) -> date
 

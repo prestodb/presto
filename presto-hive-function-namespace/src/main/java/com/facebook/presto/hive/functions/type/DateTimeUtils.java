@@ -14,10 +14,8 @@
 
 package com.facebook.presto.hive.functions.type;
 
-import java.sql.Date;
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
+import org.apache.hadoop.hive.common.type.Date;
+
 import java.util.concurrent.TimeUnit;
 
 public final class DateTimeUtils
@@ -27,9 +25,6 @@ public final class DateTimeUtils
     public static Date createDate(Object days)
     {
         long millis = TimeUnit.DAYS.toMillis(((long) days));
-        Instant instant = Instant.ofEpochMilli((millis));
-        OffsetDateTime dt = OffsetDateTime.ofInstant(instant, ZoneId.of("UTC"));
-        // A trick to prevent including zone info
-        return new Date(dt.getYear() - 1900, dt.getMonthValue() - 1, dt.getDayOfMonth());
+        return Date.ofEpochMilli(millis);
     }
 }

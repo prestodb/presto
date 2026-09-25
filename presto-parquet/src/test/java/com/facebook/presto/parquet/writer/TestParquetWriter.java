@@ -33,6 +33,7 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -127,7 +128,7 @@ public class TestParquetWriter
             MessageColumnIO messageColumnIO = getColumnIO(schema, schema);
 
             Field field = ColumnIOConverter.constructField(INTEGER, messageColumnIO.getChild(0)).get();
-            ParquetReader parquetReader = new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), false, false, null, null, false, Optional.empty());
+            ParquetReader parquetReader = new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), false, false, null, null, false, Optional.empty(), Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
 
             int batchCount = Integer.MAX_VALUE;
             int totalCount = 0;
@@ -281,7 +282,9 @@ public class TestParquetWriter
                 columnNames,
                 types,
                 parquetWriterOptions,
-                compressionCodecName.getHadoopCompressionCodecClassName());
+                compressionCodecName.getHadoopCompressionCodecClassName(),
+                DateTimeZone.forID("America/Bahia_Banderas"),
+                "test_version");
     }
 
     @AfterClass(alwaysRun = true)

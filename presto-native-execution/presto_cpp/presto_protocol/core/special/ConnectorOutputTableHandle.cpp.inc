@@ -29,6 +29,18 @@ void from_json(const json& j, std::shared_ptr<ConnectorOutputTableHandle>& p) {
         std::string(e.what()) +
         " ConnectorOutputTableHandle  ConnectorOutputTableHandle");
   }
+
+  if (j.contains("customSerializedValue")) {
+    VELOX_CHECK(
+        !type.empty() && type[0] != '$',
+        "Internal handle type '{}' should not have customSerializedValue",
+        type);
+    std::string binaryData =
+        velox::encoding::Base64::decode(j["customSerializedValue"].get<std::string>());
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol

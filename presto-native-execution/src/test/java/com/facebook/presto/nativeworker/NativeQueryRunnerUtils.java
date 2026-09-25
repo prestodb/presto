@@ -61,6 +61,7 @@ public class NativeQueryRunnerUtils
                 .put("presto.default-namespace", "native.default")
                 // inline-sql-functions is overridden to be true in sidecar enabled native clusters.
                 .put("inline-sql-functions", "true")
+                .put("plugin.dir", "/opt/presto-server/native-plugin/")
                 .build();
     }
 
@@ -137,6 +138,21 @@ public class NativeQueryRunnerUtils
                 "   cast(tax as real) as tax_as_real, cast(discount as real) as discount_as_real, " +
                 "   cast(linenumber as smallint) as linenumber_as_smallint, " +
                 "   cast(linenumber as tinyint) as linenumber_as_tinyint " +
+                "FROM tpch.tiny.lineitem");
+    }
+
+    /// Creates a lineitem table with only the standard TPC-H columns and
+    /// native DATE types.  Unlike {@link #createLineitem}, this omits the extra
+    /// derived columns (is_open, is_returned, tax_as_real, discount_as_real,
+    /// linenumber_as_smallint, linenumber_as_tinyint) that are incompatible
+    /// with Iceberg (which has no SMALLINT/TINYINT types).
+    public static void createLineitemWithNativeDate(QueryRunner queryRunner)
+    {
+        queryRunner.execute("DROP TABLE IF EXISTS lineitem");
+        queryRunner.execute("CREATE TABLE lineitem AS " +
+                "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
+                "   returnflag, linestatus, shipdate, commitdate, receiptdate, " +
+                "   shipinstruct, shipmode, comment " +
                 "FROM tpch.tiny.lineitem");
     }
 

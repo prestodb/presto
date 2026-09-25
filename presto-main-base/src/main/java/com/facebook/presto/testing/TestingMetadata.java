@@ -327,7 +327,11 @@ public class TestingMetadata
     public void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting)
     {
         SchemaTableName viewName = new SchemaTableName(viewDefinition.getSchema(), viewDefinition.getTable());
-        tables.put(viewName, new ConnectorTableMetadata(viewName, ImmutableList.of()));
+        // viewMetadata may be null in tests that only exercise the view definition; fall back to no columns then.
+        ConnectorTableMetadata tableMetadata = viewMetadata == null
+                ? new ConnectorTableMetadata(viewName, ImmutableList.of())
+                : new ConnectorTableMetadata(viewName, viewMetadata.getColumns(), viewMetadata.getProperties(), viewMetadata.getComment());
+        tables.put(viewName, tableMetadata);
         materializedViews.put(viewName, viewDefinition);
     }
 

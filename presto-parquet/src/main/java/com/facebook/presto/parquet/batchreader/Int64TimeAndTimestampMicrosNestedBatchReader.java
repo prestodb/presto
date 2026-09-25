@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import com.facebook.presto.parquet.reader.ColumnChunk;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -32,7 +33,7 @@ public class Int64TimeAndTimestampMicrosNestedBatchReader
     }
 
     @Override
-    protected ColumnChunk readNestedWithNull()
+    protected ColumnChunk readNestedWithNull(Optional<DateTimeZone> timezone)
             throws IOException
     {
         int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
@@ -64,6 +65,8 @@ public class Int64TimeAndTimestampMicrosNestedBatchReader
         boolean[] isNull = new boolean[newBatchSize];
         int offset = 0;
         for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
+            // Int64TimeAndTimestampMicrosValuesDecoder handles timezone at construction time
+            // (via the withTimezone flag) rather than at readNext time, so timezone is not forwarded here.
             ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
 
             int valueDestinationIndex = offset + valuesDecoderContext.getValueCount() - 1;
@@ -90,7 +93,7 @@ public class Int64TimeAndTimestampMicrosNestedBatchReader
     }
 
     @Override
-    protected ColumnChunk readNestedNoNull()
+    protected ColumnChunk readNestedNoNull(Optional<DateTimeZone> timezone)
             throws IOException
     {
         int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
@@ -112,6 +115,8 @@ public class Int64TimeAndTimestampMicrosNestedBatchReader
         long[] values = new long[newBatchSize];
         int offset = 0;
         for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
+            // Int64TimeAndTimestampMicrosValuesDecoder handles timezone at construction time
+            // (via the withTimezone flag) rather than at readNext time, so timezone is not forwarded here.
             ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
             offset += valuesDecoderContext.getValueCount();
         }

@@ -34,7 +34,9 @@ import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -65,7 +67,7 @@ public class ConfidenceBasedNodeTtlFetcherManager
         implements NodeTtlFetcherManager
 {
     private static final Logger log = Logger.get(ConfidenceBasedNodeTtlFetcherManager.class);
-    private static final File TTL_FETCHER_CONFIG = new File("etc/node-ttl-fetcher.properties");
+    private static final Path TTL_FETCHER_CONFIG = Paths.get("etc/node-ttl-fetcher.properties");
     private static final String TTL_FETCHER_PROPERTY_NAME = "node-ttl-fetcher.factory";
     private final AtomicReference<NodeTtlFetcher> ttlFetcher = new AtomicReference<>();
     private final InternalNodeManager nodeManager;
@@ -177,12 +179,12 @@ public class ConfidenceBasedNodeTtlFetcherManager
         String factoryName = "infinite";
         Map<String, String> properties = ImmutableMap.of();
 
-        if (TTL_FETCHER_CONFIG.exists()) {
-            properties = new HashMap<>(loadProperties(TTL_FETCHER_CONFIG));
+        if (Files.exists(TTL_FETCHER_CONFIG)) {
+            properties = new HashMap<>(loadProperties(TTL_FETCHER_CONFIG.toFile()));
             factoryName = properties.remove(TTL_FETCHER_PROPERTY_NAME);
 
             checkArgument(!isNullOrEmpty(factoryName),
-                    "Node ttl fetcher configuration %s does not contain %s", TTL_FETCHER_CONFIG.getAbsoluteFile(), TTL_FETCHER_PROPERTY_NAME);
+                    "Node ttl fetcher configuration %s does not contain %s", TTL_FETCHER_CONFIG.toAbsolutePath(), TTL_FETCHER_PROPERTY_NAME);
         }
 
         load(factoryName, properties);

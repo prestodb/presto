@@ -19,8 +19,12 @@
 
 namespace facebook::presto {
 
-// Returns metadata for all registered functions as json.
+/// Returns metadata for all functions this worker can run as json, keyed by
+/// function name: the Velox function registries plus the async RPC registry.
+/// 'namespacePrefix' qualifies the plain names the RPC registry holds, e.g.
+/// "presto.default.".  Functions outside 'catalog' are omitted when it is set.
 nlohmann::json getFunctionsMetadata(
-    const std::optional<std::string>& catalog = std::nullopt);
+    const std::string& namespacePrefix,
+    const std::optional<std::string>& catalog);
 
 } // namespace facebook::presto

@@ -16,11 +16,16 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
@@ -35,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isPushSemiJoinThroughUnion;
+import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
 
@@ -68,6 +74,9 @@ import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
  *         - filteringSource
  * </pre>
  * In this case, the project is pushed into each union branch before the semi join.
+ * <p>
+ * The filtering source is duplicated into every union branch, so it is copied with freshly allocated
+ * plan node ids. The rule does not fire when that subtree cannot be copied.
  */
 public class PushSemiJoinThroughUnion
         implements Rule<SemiJoinNode>
@@ -115,6 +124,12 @@ public class PushSemiJoinThroughUnion
         ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
         ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputMappings =
                 ImmutableListMultimap.builder();
+
+        // Every branch gets its own semi join, and therefore its own copy of the filtering source. The same
+        // subtree cannot be shared by the branches: the plan is a tree, so sharing it leaves the plan with
+        // duplicated plan node ids, which the plan checker rejects. Materialize the subtree behind the group
+        // reference so it can be copied node by node with freshly allocated ids.
+        PlanNode filteringSource = resolveGroupReferences(semiJoinNode.getFilteringSource(), context.getLookup());
 
         for (int i = 0; i < unionNode.getSources().size(); i++) {
             Map<VariableReferenceExpression, VariableReferenceExpression> unionVarMap = unionNode.sourceVariableMap(i);
@@ -196,12 +211,19 @@ public class PushSemiJoinThroughUnion
             VariableReferenceExpression newSemiJoinOutput =
                     context.getVariableAllocator().newVariable(semiJoinNode.getSemiJoinOutput());
 
+            // Copy the filtering source for this branch. The copy keeps the original variables, so the
+            // filtering source join and hash variables stay valid, but every node in it gets a new id.
+            Optional<PlanNode> branchFilteringSource = copyWithNewPlanNodeIds(filteringSource, context.getIdAllocator());
+            if (!branchFilteringSource.isPresent()) {
+                return Result.empty();
+            }
+
             // Build new SemiJoinNode for this branch
             SemiJoinNode newSemiJoin = new SemiJoinNode(
                     semiJoinNode.getSourceLocation(),
                     context.getIdAllocator().getNextId(),
                     branchSource,
-                    semiJoinNode.getFilteringSource(),
+                    branchFilteringSource.get(),
                     mappedSourceJoinVar,
                     semiJoinNode.getFilteringSourceJoinVariable(),
                     newSemiJoinOutput,
@@ -224,6 +246,103 @@ public class PushSemiJoinThroughUnion
                 newSources.build(),
                 ImmutableList.copyOf(semiJoinNode.getOutputVariables()),
                 fromListMultimap(mappings)));
+    }
+
+    /**
+     * Rebuilds the subtree with a freshly allocated plan node id for every node. Variables are left
+     * untouched, so the copy produces exactly the same output variables as the original.
+     * <p>
+     * Returns {@link Optional#empty()} for a subtree containing a node type this method cannot rebuild,
+     * in which case the rule does not fire.
+     */
+    private static Optional<PlanNode> copyWithNewPlanNodeIds(PlanNode node, PlanNodeIdAllocator idAllocator)
+    {
+        if (node instanceof TableScanNode) {
+            TableScanNode tableScanNode = (TableScanNode) node;
+            return Optional.of(new TableScanNode(
+                    tableScanNode.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    tableScanNode.getStatsEquivalentPlanNode(),
+                    tableScanNode.getTable(),
+                    tableScanNode.getOutputVariables(),
+                    tableScanNode.getAssignments(),
+                    tableScanNode.getTableConstraints(),
+                    tableScanNode.getCurrentConstraint(),
+                    tableScanNode.getEnforcedConstraint(),
+                    tableScanNode.getCteMaterializationInfo()));
+        }
+
+        if (node instanceof ValuesNode) {
+            ValuesNode valuesNode = (ValuesNode) node;
+            return Optional.of(new ValuesNode(
+                    valuesNode.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    valuesNode.getStatsEquivalentPlanNode(),
+                    valuesNode.getOutputVariables(),
+                    valuesNode.getRows(),
+                    valuesNode.getValuesNodeLabel()));
+        }
+
+        if (node instanceof FilterNode) {
+            FilterNode filterNode = (FilterNode) node;
+            return copyWithNewPlanNodeIds(filterNode.getSource(), idAllocator)
+                    .map(newSource -> new FilterNode(
+                            filterNode.getSourceLocation(),
+                            idAllocator.getNextId(),
+                            filterNode.getStatsEquivalentPlanNode(),
+                            newSource,
+                            filterNode.getPredicate()));
+        }
+
+        if (node instanceof ProjectNode) {
+            ProjectNode project = (ProjectNode) node;
+            return copyWithNewPlanNodeIds(project.getSource(), idAllocator)
+                    .map(newSource -> new ProjectNode(
+                            project.getSourceLocation(),
+                            idAllocator.getNextId(),
+                            project.getStatsEquivalentPlanNode(),
+                            newSource,
+                            project.getAssignments(),
+                            project.getLocality()));
+        }
+
+        if (node instanceof AggregationNode) {
+            AggregationNode aggregationNode = (AggregationNode) node;
+            return copyWithNewPlanNodeIds(aggregationNode.getSource(), idAllocator)
+                    .map(newSource -> new AggregationNode(
+                            aggregationNode.getSourceLocation(),
+                            idAllocator.getNextId(),
+                            aggregationNode.getStatsEquivalentPlanNode(),
+                            newSource,
+                            aggregationNode.getAggregations(),
+                            aggregationNode.getGroupingSets(),
+                            aggregationNode.getPreGroupedVariables(),
+                            aggregationNode.getStep(),
+                            aggregationNode.getHashVariable(),
+                            aggregationNode.getGroupIdVariable(),
+                            aggregationNode.getAggregationId()));
+        }
+
+        if (node instanceof UnionNode) {
+            UnionNode unionNode = (UnionNode) node;
+            ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
+            for (PlanNode source : unionNode.getSources()) {
+                Optional<PlanNode> newSource = copyWithNewPlanNodeIds(source, idAllocator);
+                if (!newSource.isPresent()) {
+                    return Optional.empty();
+                }
+                newSources.add(newSource.get());
+            }
+            return Optional.of(new UnionNode(
+                    unionNode.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    unionNode.getStatsEquivalentPlanNode(),
+                    newSources.build(),
+                    unionNode.getOutputVariables(),
+                    unionNode.getVariableMapping()));
+        }
+
+        return Optional.empty();
     }
 
     private static Map<String, VariableReferenceExpression> remapDynamicFilters(

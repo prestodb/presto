@@ -16,7 +16,7 @@ package com.facebook.presto.metadata;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -29,7 +29,7 @@ public class TestStaticTypeManagerStoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(StaticTypeManagerStoreConfig.class)
-                .setTypeManagerConfigurationDir(new File("etc/type-managers")));
+                .setTypeManagerConfigurationDir(Paths.get("etc/type-managers").toFile()));
     }
 
     @Test
@@ -40,7 +40,7 @@ public class TestStaticTypeManagerStoreConfig
                 .build();
 
         StaticTypeManagerStoreConfig expected = new StaticTypeManagerStoreConfig()
-                .setTypeManagerConfigurationDir(new File("/foo"));
+                .setTypeManagerConfigurationDir(Paths.get("/foo").toFile());
 
         assertFullMapping(properties, expected);
     }

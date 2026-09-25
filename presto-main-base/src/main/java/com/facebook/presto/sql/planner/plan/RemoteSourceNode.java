@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,6 +43,30 @@ public class RemoteSourceNode
     private final Optional<OrderingScheme> orderingScheme;
     private final ExchangeNode.Type exchangeType; // This is needed to "unfragment" to compute stats correctly.
     private final ExchangeEncoding encoding;
+    private final TransportType transportType;
+
+    public RemoteSourceNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            List<PlanFragmentId> sourceFragmentIds,
+            List<VariableReferenceExpression> outputVariables,
+            boolean ensureSourceOrdering,
+            Optional<OrderingScheme> orderingScheme,
+            ExchangeNode.Type exchangeType,
+            ExchangeEncoding encoding,
+            TransportType transportType)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
+
+        this.sourceFragmentIds = sourceFragmentIds;
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
+        this.ensureSourceOrdering = ensureSourceOrdering;
+        this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
+        this.exchangeType = requireNonNull(exchangeType, "exchangeType is null");
+        this.encoding = requireNonNull(encoding, "encoding is null");
+        this.transportType = requireNonNull(transportType, "transportType is null");
+    }
 
     public RemoteSourceNode(
             Optional<SourceLocation> sourceLocation,
@@ -54,14 +79,7 @@ public class RemoteSourceNode
             ExchangeNode.Type exchangeType,
             ExchangeEncoding encoding)
     {
-        super(sourceLocation, id, statsEquivalentPlanNode);
-
-        this.sourceFragmentIds = sourceFragmentIds;
-        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
-        this.ensureSourceOrdering = ensureSourceOrdering;
-        this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
-        this.exchangeType = requireNonNull(exchangeType, "exchangeType is null");
-        this.encoding = requireNonNull(encoding, "encoding is null");
+        this(sourceLocation, id, statsEquivalentPlanNode, sourceFragmentIds, outputVariables, ensureSourceOrdering, orderingScheme, exchangeType, encoding, TransportType.HTTP);
     }
 
     @JsonCreator
@@ -73,9 +91,24 @@ public class RemoteSourceNode
             @JsonProperty("ensureSourceOrdering") boolean ensureSourceOrdering,
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
             @JsonProperty("exchangeType") ExchangeNode.Type exchangeType,
-            @JsonProperty("encoding") ExchangeEncoding encoding)
+            @JsonProperty("encoding") ExchangeEncoding encoding,
+            @JsonProperty("transportType") @Nullable TransportType transportType)
     {
-        this(sourceLocation, id, Optional.empty(), sourceFragmentIds, outputVariables, ensureSourceOrdering, orderingScheme, exchangeType, encoding);
+        this(sourceLocation, id, Optional.empty(), sourceFragmentIds, outputVariables, ensureSourceOrdering, orderingScheme, exchangeType, encoding,
+                transportType != null ? transportType : TransportType.HTTP);
+    }
+
+    public RemoteSourceNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            List<PlanFragmentId> sourceFragmentIds,
+            List<VariableReferenceExpression> outputVariables,
+            boolean ensureSourceOrdering,
+            Optional<OrderingScheme> orderingScheme,
+            ExchangeNode.Type exchangeType,
+            ExchangeEncoding encoding)
+    {
+        this(sourceLocation, id, Optional.empty(), sourceFragmentIds, outputVariables, ensureSourceOrdering, orderingScheme, exchangeType, encoding, TransportType.HTTP);
     }
 
     public RemoteSourceNode(
@@ -87,7 +120,7 @@ public class RemoteSourceNode
             Optional<OrderingScheme> orderingScheme,
             ExchangeNode.Type exchangeType)
     {
-        this(sourceLocation, id, ImmutableList.of(sourceFragmentId), outputVariables, ensureSourceOrdering, orderingScheme, exchangeType, COLUMNAR);
+        this(sourceLocation, id, Optional.empty(), ImmutableList.of(sourceFragmentId), outputVariables, ensureSourceOrdering, orderingScheme, exchangeType, COLUMNAR, TransportType.HTTP);
     }
 
     @Override
@@ -133,6 +166,12 @@ public class RemoteSourceNode
         return encoding;
     }
 
+    @JsonProperty
+    public TransportType getTransportType()
+    {
+        return transportType;
+    }
+
     @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
@@ -149,6 +188,6 @@ public class RemoteSourceNode
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new RemoteSourceNode(getSourceLocation(), getId(), statsEquivalentPlanNode, sourceFragmentIds, outputVariables, ensureSourceOrdering, orderingScheme, exchangeType, encoding);
+        return new RemoteSourceNode(getSourceLocation(), getId(), statsEquivalentPlanNode, sourceFragmentIds, outputVariables, ensureSourceOrdering, orderingScheme, exchangeType, encoding, transportType);
     }
 }

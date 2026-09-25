@@ -22,16 +22,14 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 
-import static com.datastax.driver.core.utils.Bytes.toRawHexString;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraSession;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
@@ -41,13 +39,12 @@ import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERI
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_INEQUALITY;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_LARGE;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_MULTI_PARTITION_CLUSTERING_KEYS;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestTables;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
@@ -66,22 +63,14 @@ public class TestCassandraIntegrationSmokeTest
     private static final String KEYSPACE = "smoke_test";
     private static final Session SESSION = createCassandraSession(KEYSPACE);
 
-    private static final Timestamp DATE_TIME_LOCAL = Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 3, 4, 5, 0));
-    private static final LocalDateTime TIMESTAMP_LOCAL = LocalDateTime.of(1969, 12, 31, 23, 4, 5); // TODO #7122 should match DATE_TIME_LOCAL
+    private static final ZonedDateTime TIMESTAMP_VALUE = ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.of("UTC"));
 
-    private CassandraServer server;
     private CassandraSession session;
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        server.close();
-    }
 
     @Override
     protected boolean isDateTypeSupported()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -94,10 +83,9 @@ public class TestCassandraIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        CassandraServer server = new CassandraServer();
-        this.server = server;
+        CassandraServer server = SharedCassandraServer.getInstance();
         this.session = server.getSession();
-        createTestTables(session, server.getMetadata(), KEYSPACE, DATE_TIME_LOCAL);
+        SharedCassandraServer.ensureSmokeTestTablesCreated();
         return createCassandraQueryRunner(server, ImmutableMap.of());
     }
 
@@ -110,8 +98,8 @@ public class TestCassandraIntegrationSmokeTest
                 " AND typeuuid = '00000000-0000-0000-0000-000000000007'" +
                 " AND typeinteger = 7" +
                 " AND typelong = 1007" +
-                " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(toByteArray(7))) + "')" +
-                " AND typetimestamp = TIMESTAMP '1969-12-31 23:04:05'" +
+                " AND typebytes = from_hex('" + bytesToRawHexString(ByteBuffer.wrap(toByteArray(7))) + "')" +
+                " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05Z'" +
                 " AND typeansi = 'ansi 7'" +
                 " AND typeboolean = false" +
                 " AND typedecimal = 128.0" +
@@ -246,17 +234,17 @@ public class TestCassandraIntegrationSmokeTest
         assertEquals(execute(sql).getRowCount(), 4);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2";
         assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1969-12-31 23:04:05.020'";
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1970-01-01 03:04:05.020Z'";
         assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1969-12-31 23:04:05.010'";
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1970-01-01 03:04:05.010Z'";
         assertEquals(execute(sql).getRowCount(), 0);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2)";
         assertEquals(execute(sql).getRowCount(), 2);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two > 1 AND clust_two < 3";
         assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three >= timestamp '1969-12-31 23:04:05.010' AND clust_three <= timestamp '1969-12-31 23:04:05.020'";
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three >= timestamp '1970-01-01 03:04:05.010Z' AND clust_three <= timestamp '1970-01-01 03:04:05.020Z'";
         assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2) AND clust_three >= timestamp '1969-12-31 23:04:05.010' AND clust_three <= timestamp '1969-12-31 23:04:05.020'";
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2) AND clust_three >= timestamp '1970-01-01 03:04:05.010Z' AND clust_three <= timestamp '1970-01-01 03:04:05.020Z'";
         assertEquals(execute(sql).getRowCount(), 2);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two < 2";
         assertEquals(execute(sql).getRowCount(), 1);
@@ -464,7 +452,7 @@ public class TestCassandraIntegrationSmokeTest
                 "1, " +
                 "1000, " +
                 "null, " +
-                "timestamp '1970-01-01 08:34:05.0', " +
+                "timestamp '1970-01-01 08:34:05.0Z', " +
                 "'ansi1', " +
                 "true, " +
                 "null, " +
@@ -488,7 +476,7 @@ public class TestCassandraIntegrationSmokeTest
                 1,
                 1000L,
                 null,
-                LocalDateTime.of(1970, 1, 1, 8, 34, 5),
+                ZonedDateTime.of(1970, 1, 1, 8, 34, 5, 0, ZoneId.of("UTC")),
                 "ansi1",
                 true,
                 null,
@@ -568,7 +556,7 @@ public class TestCassandraIntegrationSmokeTest
                 INTEGER,
                 BIGINT,
                 VARBINARY,
-                TIMESTAMP,
+                TIMESTAMP_WITH_TIME_ZONE,
                 createUnboundedVarcharType(),
                 BOOLEAN,
                 DOUBLE,
@@ -593,7 +581,7 @@ public class TestCassandraIntegrationSmokeTest
                     rowNumber,
                     rowNumber + 1000L,
                     ByteBuffer.wrap(toByteArray(rowNumber)),
-                    TIMESTAMP_LOCAL,
+                    TIMESTAMP_VALUE,
                     "ansi " + rowNumber,
                     rowNumber % 2 == 0,
                     Math.pow(2, rowNumber),
@@ -612,5 +600,16 @@ public class TestCassandraIntegrationSmokeTest
     private MaterializedResult execute(String sql)
     {
         return getQueryRunner().execute(SESSION, sql);
+    }
+
+    private static String bytesToRawHexString(ByteBuffer buffer)
+    {
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.duplicate().get(bytes);
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 }

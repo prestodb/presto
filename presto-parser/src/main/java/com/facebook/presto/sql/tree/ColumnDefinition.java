@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -20,6 +21,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnDefinition
@@ -30,17 +32,53 @@ public final class ColumnDefinition
     private final boolean nullable;
     private final List<Property> properties;
     private final Optional<String> comment;
+    private final Optional<Expression> defaultExpression;
+    private final Optional<Expression> derivedColumnExpression;
+    private final Optional<DerivedColumnSpec> derivedColumnSpec;
 
     public ColumnDefinition(Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.empty(), name, type, nullable, properties, comment);
+        this(Optional.empty(), name, type, nullable, properties, comment, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    public ColumnDefinition(Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment, Optional<Expression> defaultExpression)
+    {
+        this(Optional.empty(), name, type, nullable, properties, comment, defaultExpression, Optional.empty(), Optional.empty());
     }
 
     public ColumnDefinition(NodeLocation location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.of(location), name, type, nullable, properties, comment);
+        this(Optional.of(location), name, type, nullable, properties, comment, Optional.empty(), Optional.empty(), Optional.empty());
     }
-    private ColumnDefinition(Optional<NodeLocation> location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
+
+    public ColumnDefinition(NodeLocation location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment, Optional<Expression> defaultExpression)
+    {
+        this(Optional.of(location), name, type, nullable, properties, comment, defaultExpression, Optional.empty(), Optional.empty());
+    }
+
+    public ColumnDefinition(
+            Optional<NodeLocation> location,
+            Identifier name,
+            String type,
+            boolean nullable,
+            List<Property> properties,
+            Optional<String> comment,
+            Optional<Expression> derivedColumnExpression,
+            Optional<DerivedColumnSpec> derivedColumnSpec)
+    {
+        this(location, name, type, nullable, properties, comment, Optional.empty(), derivedColumnExpression, derivedColumnSpec);
+    }
+
+    private ColumnDefinition(
+            Optional<NodeLocation> location,
+            Identifier name,
+            String type,
+            boolean nullable,
+            List<Property> properties,
+            Optional<String> comment,
+            Optional<Expression> defaultExpression,
+            Optional<Expression> derivedColumnExpression,
+            Optional<DerivedColumnSpec> derivedColumnSpec)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -48,6 +86,11 @@ public final class ColumnDefinition
         this.nullable = nullable;
         this.properties = requireNonNull(properties, "properties is null");
         this.comment = requireNonNull(comment, "comment is null");
+        this.defaultExpression = requireNonNull(defaultExpression, "defaultExpression is null");
+        this.derivedColumnExpression = requireNonNull(derivedColumnExpression, "derivedColumnExpression is null");
+        this.derivedColumnSpec = requireNonNull(derivedColumnSpec, "derivedColumnSpec is null");
+        checkArgument(!(defaultExpression.isPresent() && derivedColumnExpression.isPresent()),
+                "A column can either have a 'default expression' or 'derived column definition' and not both.");
     }
 
     public Identifier getName()
@@ -75,6 +118,16 @@ public final class ColumnDefinition
         return comment;
     }
 
+    public Optional<Expression> getDefaultExpression()
+    {
+        return defaultExpression;
+    }
+
+    public Optional<DerivedColumnSpec> getDerivedColumnSpec()
+    {
+        return derivedColumnSpec;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -84,7 +137,10 @@ public final class ColumnDefinition
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of();
+        ImmutableList.Builder<Node> children = ImmutableList.builder();
+        defaultExpression.ifPresent(children::add);
+        derivedColumnExpression.ifPresent(children::add);
+        return children.build();
     }
 
     @Override
@@ -101,13 +157,16 @@ public final class ColumnDefinition
                 Objects.equals(this.type, o.type) &&
                 this.nullable == o.nullable &&
                 Objects.equals(properties, o.properties) &&
-                Objects.equals(this.comment, o.comment);
+                Objects.equals(this.comment, o.comment) &&
+                Objects.equals(this.defaultExpression, o.defaultExpression) &&
+                Objects.equals(this.derivedColumnExpression, o.derivedColumnExpression) &&
+                Objects.equals(this.derivedColumnSpec, o.derivedColumnSpec);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, properties, comment, nullable);
+        return Objects.hash(name, type, properties, comment, nullable, defaultExpression, derivedColumnExpression, derivedColumnSpec);
     }
 
     @Override
@@ -119,6 +178,9 @@ public final class ColumnDefinition
                 .add("nullable", nullable)
                 .add("properties", properties)
                 .add("comment", comment)
+                .add("defaultExpression", defaultExpression)
+                .add("derivedColumnExpression", derivedColumnExpression)
+                .add("derivedColumnSpec", derivedColumnSpec)
                 .toString();
     }
 }

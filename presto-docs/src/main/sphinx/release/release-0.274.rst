@@ -22,7 +22,7 @@ _______________
 
 SPI Changes
 ___________
-* Add connector interface serde support to allow customized serde (e.g., thrift) beyond the default JSON ones.
+* Add connector interface serde support to allow customized serde (for example, thrift) beyond the default JSON ones.
 
 Hive Changes
 ____________

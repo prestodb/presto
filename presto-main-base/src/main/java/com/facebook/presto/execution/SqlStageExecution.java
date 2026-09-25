@@ -79,7 +79,7 @@ import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -168,7 +168,12 @@ public final class SqlStageExecution
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
                 session,
-                new StageExecutionStateMachine(stageExecutionId, executor, schedulerStats, !fragment.getTableScanSchedulingOrder().isEmpty()),
+                new StageExecutionStateMachine(
+                        stageExecutionId,
+                        executor,
+                        schedulerStats,
+                        !fragment.getTableScanSchedulingOrder().isEmpty(),
+                        session.getRuntimeStats().getQueryTracer()),
                 fragment,
                 remoteTaskFactory,
                 nodeTaskMap,
@@ -457,7 +462,7 @@ public final class SqlStageExecution
         if (allTasks.size() > 1) {
             return;
         }
-        getOnlyElement(allTasks).removeRemoteSource(remoteSourceTaskId);
+        allTasks.stream().collect(onlyElement()).removeRemoteSource(remoteSourceTaskId);
     }
 
     public synchronized Optional<RemoteTask> scheduleTask(InternalNode node, int partition)
@@ -569,20 +574,20 @@ public final class SqlStageExecution
         stateMachine.recordGetSplitTime(start);
     }
 
-    public void recordSchedulerRunningTime(long cpuTimeNanos, long wallTimeNanos)
+    public void recordSchedulerRunningTime(long cpuTimeNanos, long startWallTimeNanos, long endWallTimeNanos)
     {
         if (planFragment.isLeaf()) {
-            stateMachine.recordLeafStageSchedulerRunningTime(cpuTimeNanos, wallTimeNanos);
+            stateMachine.recordLeafStageSchedulerRunningTime(cpuTimeNanos, startWallTimeNanos, endWallTimeNanos);
         }
-        stateMachine.recordSchedulerRunningTime(cpuTimeNanos, wallTimeNanos);
+        stateMachine.recordSchedulerRunningTime(cpuTimeNanos, startWallTimeNanos, endWallTimeNanos);
     }
 
-    public void recordSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long nanos)
+    public void recordSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long startTimeNanos, long endTimeNanos)
     {
         if (planFragment.isLeaf()) {
-            stateMachine.recordLeafStageSchedulerBlockedTime(reason, nanos);
+            stateMachine.recordLeafStageSchedulerBlockedTime(reason, startTimeNanos, endTimeNanos);
         }
-        stateMachine.recordSchedulerBlockedTime(reason, nanos);
+        stateMachine.recordSchedulerBlockedTime(reason, startTimeNanos, endTimeNanos);
     }
 
     private static Split createRemoteSplitFor(TaskId taskId, URI remoteSourceTaskLocation, TaskId remoteSourceTaskId)

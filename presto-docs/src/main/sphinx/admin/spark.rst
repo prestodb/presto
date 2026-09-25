@@ -52,10 +52,18 @@ Run :command:`spark-submit` command from the directory where Presto on Spark is 
      --schema default \\ 
      --file query.sql 
 
-The details about configuring catalogs are at :ref:`catalog_properties`.
+The details about configuring catalogs are at :ref:`installation/deployment:Catalog Properties`.
 In Spark submit arguments, note the values of *executor-cores* (number of cores per
 executor in Spark) and *spark.task.cpus* (number of cores to allocate to each task
 in Spark). These are also equal to the number of cores (4 in the example) and are
 same as some of the ``config.properties`` settings discussed above. This is to ensure that
 a single Presto on Spark task is run in a single Spark executor (This limitation may be
 temporary and is introduced to avoid duplicating broadcasted hash tables for every task).
+
+Driver-side Metadata Sidecar
+----------------------------
+
+When the executors run on a native (Velox) execution engine, the driver can launch a
+short-lived ``presto_server`` sidecar at bootstrap to register native-only functions
+into the planner. See :ref:`Driver-side Metadata Sidecar Properties
+<admin/properties:Driver-side Metadata Sidecar Properties>` for the configuration.

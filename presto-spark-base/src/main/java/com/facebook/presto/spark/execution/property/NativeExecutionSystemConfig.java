@@ -78,6 +78,7 @@ public class NativeExecutionSystemConfig
     public static final String REMOTE_FUNCTION_SERVER_SERDE = "remote-function-server.serde";
     public static final String REMOTE_FUNCTION_SERVER_CATALOG_NAME = "remote-function-server.catalog-name";
     public static final String PLAN_CONSISTENCY_CHECK = "plan-consistency-check-enabled";
+    public static final String EXCHANGE_MATERIALIZATION_ENABLED = "exchange.materialization.enabled";
 
     private final String remoteFunctionServerSignatureFilesDirectoryPathDefault = "./functions/spark/";
     private final String remoteFunctionServerSerdeDefault = "presto_page";
@@ -121,6 +122,7 @@ public class NativeExecutionSystemConfig
     private final String orderBySpillEnabledDefault = "true";
     private final String maxSpillBytesDefault = String.valueOf(600L << 30);
     private final String planConsistencyCheckEnabled = "true";
+    private final String exchangeMaterializationEnabledDefault = "true";
 
     private final Map<String, String> systemConfigs;
     private final Map<String, String> defaultSystemConfigs;
@@ -187,6 +189,7 @@ public class NativeExecutionSystemConfig
                 .put(ORDER_BY_SPILL_ENABLED, orderBySpillEnabledDefault)
                 .put(MAX_SPILL_BYTES, maxSpillBytesDefault)
                 .put(PLAN_CONSISTENCY_CHECK, planConsistencyCheckEnabled)
+                .put(EXCHANGE_MATERIALIZATION_ENABLED, exchangeMaterializationEnabledDefault)
                 .build();
     }
 

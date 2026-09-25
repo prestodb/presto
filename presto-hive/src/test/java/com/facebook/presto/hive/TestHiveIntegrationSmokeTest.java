@@ -142,6 +142,7 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_SCHEMA;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -246,6 +247,16 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(admin, "DROP TABLE new_schema.test");
 
         assertUpdate(admin, "DROP SCHEMA new_schema");
+
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().deny(privilege(admin.getUser(), "test", CREATE_SCHEMA));
+                assertQueryFails(admin, "CREATE SCHEMA invalid_catalog.test", "Catalog does not exist: invalid_catalog");
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
     }
 
     @Test
@@ -906,6 +917,152 @@ public class TestHiveIntegrationSmokeTest
     public void testCreateTableNonSupportedVarcharColumn()
     {
         assertUpdate("CREATE TABLE test_create_table_non_supported_varchar_column (apple varchar(65536))");
+    }
+
+    @Test
+    public void testEmptyBucketedTable()
+    {
+        // go through all storage formats to make sure the empty buckets are correctly created
+        testWithAllStorageFormats(this::testEmptyBucketedTable);
+    }
+
+    private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat)
+    {
+        testEmptyBucketedTable(session, storageFormat, true, true);
+        testEmptyBucketedTable(session, storageFormat, true, false);
+        testEmptyBucketedTable(session, storageFormat, false, true);
+        testEmptyBucketedTable(session, storageFormat, false, false);
+    }
+
+    private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled, boolean createEmpty)
+    {
+        String tableName = "test_empty_bucketed_table_" + System.nanoTime();
+
+        try {
+            @Language("SQL") String createTable = "" +
+                    "CREATE TABLE " + tableName + " " +
+                    "(bucket_key VARCHAR, col_1 VARCHAR, col_2 VARCHAR) " +
+                    "WITH (" +
+                    "format = '" + storageFormat + "', " +
+                    "bucketed_by = ARRAY[ 'bucket_key' ], " +
+                    "bucket_count = 11 " +
+                    ") ";
+
+            assertUpdate(createTable);
+
+            TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+
+            assertNull(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY));
+            assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("bucket_key"));
+            assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+
+            assertEquals(computeActual("SELECT * from " + tableName).getRowCount(), 0);
+
+            // make sure that we will get one file per bucket regardless of writer count configured
+            Session parallelWriter = Session.builder(getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled))
+                    .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
+                    .build();
+            assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
+            assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
+
+            assertQuery("SELECT * from " + tableName, "VALUES ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
+
+            // Validate one file per bucket by checking bucket numbers in filenames
+            // Note: $path only returns paths for rows with data, so empty bucket files won't appear
+            MaterializedResult paths = computeActual(format("SELECT DISTINCT \"$path\" FROM %s", tableName));
+            java.util.regex.Pattern bucketPattern = java.util.regex.Pattern.compile(".*[/_](\\d{5})(?:[_.]|$)");
+            java.util.Map<Integer, Integer> bucketFileCount = new java.util.HashMap<>();
+
+            for (MaterializedRow row : paths) {
+                String path = (String) row.getField(0);
+                String filename = new File(path).getName();
+                if (!filename.startsWith("_") && !filename.startsWith(".")) {
+                    java.util.regex.Matcher matcher = bucketPattern.matcher(filename);
+                    if (matcher.find()) {
+                        int bucketNum = Integer.parseInt(matcher.group(1));
+                        bucketFileCount.merge(bucketNum, 1, Integer::sum);
+                    }
+                }
+            }
+
+            // Validate: each bucket that has data must have exactly one file (no duplicate files per bucket)
+            for (java.util.Map.Entry<Integer, Integer> entry : bucketFileCount.entrySet()) {
+                assertEquals(entry.getValue().intValue(), 1,
+                        format("Bucket %d has %d files, expected exactly 1 file per bucket", entry.getKey(), entry.getValue()));
+            }
+
+            assertUpdate(session, "DROP TABLE " + tableName);
+            assertFalse(getQueryRunner().tableExists(session, tableName));
+        }
+        finally {
+            // Ensure cleanup even if the test fails before the explicit DROP
+            assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testBucketedTable()
+    {
+        // go through all storage formats to make sure the empty buckets are correctly created
+        testWithAllStorageFormats(this::testBucketedTable);
+    }
+
+    private void testBucketedTable(Session session, HiveStorageFormat storageFormat)
+    {
+        testBucketedTable(session, storageFormat, true, true);
+        testBucketedTable(session, storageFormat, true, false);
+        testBucketedTable(session, storageFormat, false, true);
+        testBucketedTable(session, storageFormat, false, false);
+    }
+
+    private void testBucketedTable(Session session, HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled, boolean createEmpty)
+    {
+        String tableName = "test_bucketed_table_" + System.nanoTime();
+
+        try {
+            @Language("SQL") String createTable = "" +
+                    "CREATE TABLE " + tableName + " " +
+                    "WITH (" +
+                    "format = '" + storageFormat + "', " +
+                    "bucketed_by = ARRAY[ 'bucket_key' ], " +
+                    "bucket_count = 11 " +
+                    ") " +
+                    "AS " +
+                    "SELECT * " +
+                    "FROM (" +
+                    "VALUES " +
+                    "  (VARCHAR 'a', VARCHAR 'b', VARCHAR 'c'), " +
+                    "  ('aa', 'bb', 'cc'), " +
+                    "  ('aaa', 'bbb', 'ccc')" +
+                    ") t (bucket_key, col_1, col_2)";
+
+            Session parallelWriter = Session.builder(getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled))
+                    .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
+                    .build();
+            assertUpdate(parallelWriter, createTable, 3);
+
+            TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+
+            assertNull(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY));
+            assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("bucket_key"));
+            assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+
+            assertQuery("SELECT * from " + tableName, "VALUES ('a', 'b', 'c'), ('aa', 'bb', 'cc'), ('aaa', 'bbb', 'ccc')");
+
+            assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
+            assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
+
+            assertQuery("SELECT * from " + tableName, "VALUES ('a', 'b', 'c'), ('aa', 'bb', 'cc'), ('aaa', 'bbb', 'ccc'), ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
+
+            assertUpdate(session, "DROP TABLE " + tableName);
+            assertFalse(getQueryRunner().tableExists(session, tableName));
+        }
+        finally {
+            // Ensure cleanup even if the test fails before the explicit DROP
+            assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test
@@ -3170,8 +3327,34 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN b bigint COMMENT 'test comment BBB'");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN a varchar", ".* Column 'a' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bad_type", ".* Unknown type 'bad_type' for column 'c'");
-        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA', 19, NULL, NULL), ('b', 'bigint', '', 'test comment BBB', 19, NULL, NULL)");
+        // Hive does not implement the position-aware addColumn, so a position clause must be rejected outright
+        // rather than silently appending the column somewhere the user did not ask for
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bigint FIRST", ".*This connector does not support adding columns with FIRST clause");
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bigint AFTER a", ".*This connector does not support adding columns with AFTER clause");
+        // Omitting the clause appends, which is the connector's existing behavior
+        assertUpdate("ALTER TABLE test_add_column ADD COLUMN c bigint COMMENT 'test comment CCC'");
+        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA', 19, NULL, NULL), ('b', 'bigint', '', 'test comment BBB', 19, NULL, NULL), ('c', 'bigint', '', 'test comment CCC', 19, NULL, NULL)");
         assertUpdate("DROP TABLE test_add_column");
+    }
+
+    @Test
+    public void testSetColumnPosition()
+    {
+        assertUpdate("CREATE TABLE test_set_column_position (a bigint, b bigint)");
+        try {
+            // Hive cannot reorder the columns of an existing table, so every position has to be rejected. Unlike
+            // ADD COLUMN, there is no position the connector can honor for free by leaving the table alone
+            assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN b FIRST", ".*This connector does not support moving columns");
+            assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN a AFTER b", ".*This connector does not support moving columns");
+            // The engine rejects a column that does not exist before reaching the connector
+            assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN missing FIRST", ".*Column 'missing' does not exist");
+            assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN a AFTER missing", ".*Column 'missing' does not exist");
+            assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN a AFTER a", ".*Column 'a' cannot be moved after itself");
+            assertQuery("SHOW COLUMNS FROM test_set_column_position", "VALUES ('a', 'bigint', '', '', 19, NULL, NULL), ('b', 'bigint', '', '', 19, NULL, NULL)");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_set_column_position");
+        }
     }
 
     @Test
@@ -5150,18 +5333,7 @@ public class TestHiveIntegrationSmokeTest
                 "WITH (avro_schema_url = 'dummy_schema',\n" +
                 "      bucket_count = 2, bucketed_by=ARRAY['dummy'])";
 
-        assertQueryFails(createSql, "Bucketing/Partitioning columns not supported when Avro schema url is set");
-    }
-
-    @Test
-    public void testPartitionedTablesFailWithAvroSchemaUrl()
-            throws Exception
-    {
-        @Language("SQL") String createSql = "CREATE TABLE create_avro (dummy VARCHAR)\n" +
-                "WITH (avro_schema_url = 'dummy_schema',\n" +
-                "      partitioned_by=ARRAY['dummy'])";
-
-        assertQueryFails(createSql, "Bucketing/Partitioning columns not supported when Avro schema url is set");
+        assertQueryFails(createSql, "Bucketing columns not supported when Avro schema url is set");
     }
 
     @Test
@@ -5798,7 +5970,7 @@ public class TestHiveIntegrationSmokeTest
                 .execute(session, transactionSession -> {
                     QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
                     Optional<TableHandle> handle = metadata.getMetadataResolver(transactionSession).getTableHandle(objectName);
-                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get());
+                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get(), ImmutableList.of());
                     HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle.getConnectorHandle();
 
                     metadata.finishInsert(transactionSession, insertTableHandle, ImmutableList.of(), ImmutableList.of());
@@ -7222,7 +7394,7 @@ public class TestHiveIntegrationSmokeTest
 
         String catalog = getSession().getCatalog().get();
         String schema = getSession().getSchema().get();
-        String table = "test_textfile_custom_delim";
+        String table = "test_textfile_custom_delim_read";
         String path = new Path(tempDir.toURI().toASCIIString()).toString();
 
         String createTableWithCustomSerdeFormat =
@@ -7289,7 +7461,7 @@ public class TestHiveIntegrationSmokeTest
     {
         String catalog = getSession().getCatalog().get();
         String schema = getSession().getSchema().get();
-        String table = "test_textfile_custom_delim";
+        String table = "test_textfile_custom_delim_write";
 
         String createTableWithCustomSerdeFormat =
                 "CREATE TABLE %s.%s.%s (\n" +

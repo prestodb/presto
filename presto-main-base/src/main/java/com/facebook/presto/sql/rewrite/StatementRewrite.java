@@ -39,12 +39,13 @@ public final class StatementRewrite
             new DescribeOutputRewrite(),
             new ShowQueriesRewrite(),
             new ShowStatsRewrite(),
-            new ExplainRewrite(),
-            new MaterializedViewOptimizationRewrite());
+            new ExplainRewrite());
+
+    private static final MaterializedViewOptimizationRewrite MATERIALIZED_VIEW_OPTIMIZATION_REWRITE = new MaterializedViewOptimizationRewrite();
 
     private StatementRewrite() {}
 
-    public static Statement rewrite(
+    public static MaterializedViewRewriteResult rewrite(
             Session session,
             Metadata metadata,
             SqlParser parser,
@@ -60,7 +61,8 @@ public final class StatementRewrite
         for (Rewrite rewrite : REWRITES) {
             node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, accessControl, warningCollector, query, viewDefinitionReferences), "Statement rewrite returned null");
         }
-        return node;
+
+        return MATERIALIZED_VIEW_OPTIMIZATION_REWRITE.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, accessControl, warningCollector, query, viewDefinitionReferences);
     }
 
     interface Rewrite

@@ -135,6 +135,29 @@ public class MaterializedViewColumnMappingExtractor
         return Collections.unmodifiableList(baseTablesOnOuterJoinSide);
     }
 
+    // Mappings for derived (expression/aggregation) view columns, from DIRECT column lineage.
+    // These are absent from getMaterializedViewColumnMappings(), which only covers 1:1 references.
+    public Map<String, List<TableColumn>> getMaterializedViewDerivedColumnMappings()
+    {
+        Query viewQuery = ((CreateMaterializedView) analysis.getStatement()).getQuery();
+        Set<String> mappedColumns = getMaterializedViewColumnMappings().keySet();
+
+        Map<String, List<TableColumn>> derivedColumnMappings = new HashMap<>();
+        for (Field field : analysis.getOutputDescriptor(viewQuery).getVisibleFields()) {
+            if (!field.getName().isPresent() || mappedColumns.contains(field.getName().get())) {
+                continue;
+            }
+            List<TableColumn> baseColumns = analysis.getDirectLineageEntries(field).stream()
+                    .map(entry -> new TableColumn(toSchemaTableName(entry.getTableName()), entry.getColumnName(), false))
+                    .distinct()
+                    .collect(toImmutableList());
+            if (!baseColumns.isEmpty()) {
+                derivedColumnMappings.put(field.getName().get(), baseColumns);
+            }
+        }
+        return derivedColumnMappings;
+    }
+
     @Override
     protected Void visitSetOperation(SetOperation node, MaterializedViewPlanValidatorContext context)
     {

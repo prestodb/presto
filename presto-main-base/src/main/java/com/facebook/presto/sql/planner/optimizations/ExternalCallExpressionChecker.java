@@ -60,8 +60,7 @@ public class ExternalCallExpressionChecker
     @Override
     public Boolean visitLambda(LambdaDefinitionExpression lambda, Void context)
     {
-        // check in lambda is done in ExpressionAnalyzer so we should never reach here if we have external functions
-        return false;
+        return lambda.getBody().accept(this, null);
     }
 
     @Override

@@ -255,10 +255,10 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         verifyRecordingMode();
-        delegate.updatePartitionStatistics(metastoreContext, databaseName, tableName, partitionName, update);
+        delegate.updatePartitionStatistics(metastoreContext, databaseName, tableName, updates);
     }
 
     @Override

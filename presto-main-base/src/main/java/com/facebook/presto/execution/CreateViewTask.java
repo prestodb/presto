@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.security.AccessControl;
@@ -30,6 +31,7 @@ import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Expression;
@@ -48,6 +50,8 @@ import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.analyzer.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -87,6 +91,15 @@ public class CreateViewTask
     public ListenableFuture<?> execute(CreateView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName(), metadata);
+        MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
+
+        if (!metadataResolver.catalogExists(name.getCatalogName())) {
+            throw new SemanticException(MISSING_CATALOG, "Catalog '%s' does not exist", name.getCatalogName());
+        }
+
+        if (!metadataResolver.schemaExists(name.getCatalogSchemaName())) {
+            throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", name.getSchemaName());
+        }
 
         accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name);
 

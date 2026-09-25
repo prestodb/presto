@@ -130,6 +130,28 @@ public class TestPrestoSparkQueryRunner
     }
 
     @Test
+    public void testDelete()
+    {
+        Session session = getSession();
+        assertUpdate(
+                session,
+                "CREATE TABLE hive.hive_test.test_delete WITH ( partitioned_by=ARRAY['orderstatus']) AS " +
+                        "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus " +
+                        "FROM orders",
+                15000);
+
+        assertQueryFails(
+                session,
+                "DELETE FROM hive.hive_test.test_delete WHERE orderpriority = '1-URGENT'",
+                "This connector only supports delete where one or more partitions are deleted entirely",
+                true);
+
+        assertUpdate(
+                session,
+                "DELETE FROM hive.hive_test.test_delete WHERE orderstatus = 'O'");
+    }
+
+    @Test
     public void testZeroFileCreatorForBucketedTable()
     {
         assertUpdate(

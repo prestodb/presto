@@ -94,6 +94,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 /**
  * This optimizer attempts to group TableScanNode's of an inner-join graph that belong to the same connector
@@ -420,7 +421,9 @@ public class GroupInnerJoinsByConnectorRuleSet
             EqualityInference filterEqualityInference = new EqualityInference.Builder(metadata)
                     .addEqualityInference(multiJoinNode.getJoinFilter().get())
                     .build();
-            Iterable<RowExpression> inequalityPredicates = isInEqualityPushDownEnabled ? filter(extractConjuncts(multiJoinNode.getJoinFilter().get()), isInequalityInferenceCandidate()) : ImmutableSet.of();
+            Iterable<RowExpression> inequalityPredicates = isInEqualityPushDownEnabled ? extractConjuncts(multiJoinNode.getJoinFilter().get()).stream()
+                    .filter(isInequalityInferenceCandidate())
+                    .collect(toList()) : ImmutableSet.of();
             AtomicReference<Boolean> wereSourcesRewritten = new AtomicReference<>(false);
             Set<PlanNode> sources = multiJoinNode.getSources()
                     .stream().flatMap(planNode -> {

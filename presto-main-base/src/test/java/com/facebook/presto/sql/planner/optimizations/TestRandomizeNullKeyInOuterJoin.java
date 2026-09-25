@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
@@ -29,6 +31,7 @@ import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -62,15 +65,14 @@ public class TestRandomizeNullKeyInOuterJoin
                 anyTree(
                         join(
                                 LEFT,
-                                ImmutableList.of(equiJoinClause("leftRandom", "rightRandom")),
+                                ImmutableList.of(equiJoinClause("leftRandom", "rightCol")),
+                                Optional.of("NOT (leftCol IS NULL)"),
                                 anyTree(
                                         project(
-                                                ImmutableMap.of("leftCol", expression("leftCol"), "leftRandom", expression("coalesce(cast(leftCol as varchar), 'l' || cast(random(100) as varchar))")),
+                                                ImmutableMap.of("leftCol", expression("leftCol"), "leftRandom", expression("coalesce(leftCol, -random(100))")),
                                                 tableScan("orders", ImmutableMap.of("leftCol", "orderkey")))),
                                 anyTree(
-                                        project(
-                                                ImmutableMap.of("rightCol", expression("rightCol"), "rightRandom", expression("coalesce(cast(rightCol as varchar), 'r' || cast(random(100) as varchar))")),
-                                                tableScan("lineitem", ImmutableMap.of("rightCol", "orderkey")))))),
+                                        tableScan("lineitem", ImmutableMap.of("rightCol", "orderkey"))))),
                 false);
     }
 
@@ -82,14 +84,15 @@ public class TestRandomizeNullKeyInOuterJoin
                 anyTree(
                         join(
                                 LEFT,
-                                ImmutableList.of(equiJoinClause("leftRandom", "rightRandom"), equiJoinClause("leftIsNull", "rightIsNull")),
+                                ImmutableList.of(equiJoinClause("leftRandom", "rightRandom")),
+                                Optional.of("NOT (leftCol IS NULL)"),
                                 anyTree(
                                         project(
-                                                ImmutableMap.of("leftCol", expression("leftCol"), "leftRandom", expression("coalesce(leftCol, 'l' || cast(random(100) as varchar))"), "leftIsNull", expression("leftCol is NULL")),
+                                                ImmutableMap.of("leftCol", expression("leftCol"), "leftRandom", expression("coalesce(leftCol, cast(random(100) as varchar))")),
                                                 values("leftCol"))),
                                 anyTree(
                                         project(
-                                                ImmutableMap.of("rightCol", expression("rightCol"), "rightRandom", expression("coalesce(rightCol, 'r' || cast(random(100) as varchar))"), "rightIsNull", expression("rightCol is NULL")),
+                                                ImmutableMap.of("rightRandom", expression("cast(rightCol as varchar)")),
                                                 values("rightCol"))))),
                 false);
     }
@@ -103,19 +106,16 @@ public class TestRandomizeNullKeyInOuterJoin
                         join(
                                 LEFT,
                                 ImmutableList.of(equiJoinClause("leftVarcharRandom", "rightVarcharRandom"),
-                                        equiJoinClause("leftVarcharIsNull", "rightVarcharIsNull"),
-                                        equiJoinClause("leftBigIntRandom", "rightBigIntRandom")),
+                                        equiJoinClause("leftBigIntRandom", "rightColBigInt")),
+                                Optional.of("(NOT (leftColVarchar IS NULL)) AND (NOT (leftColBigInt IS NULL))"),
                                 anyTree(
                                         project(
-                                                ImmutableMap.of("leftVarcharRandom", expression("coalesce(leftColVarchar, 'l' || cast(random(100) as varchar))"),
-                                                        "leftVarcharIsNull", expression("leftColVarchar is NULL"),
-                                                        "leftBigIntRandom", expression("coalesce(cast(leftColBigInt as varchar), 'l' || cast(random(100) as varchar))")),
+                                                ImmutableMap.of("leftVarcharRandom", expression("coalesce(leftColVarchar, cast(random(100) as varchar))"),
+                                                        "leftBigIntRandom", expression("coalesce(leftColBigInt, -random(100))")),
                                                 values("leftColVarchar", "leftColBigInt"))),
                                 anyTree(
                                         project(
-                                                ImmutableMap.of("rightVarcharRandom", expression("coalesce(rightColVarchar, 'r' || cast(random(100) as varchar))"),
-                                                        "rightVarcharIsNull", expression("rightColVarchar is NULL"),
-                                                        "rightBigIntRandom", expression("coalesce(cast(rightColBigInt as varchar), 'r' || cast(random(100) as varchar))")),
+                                                ImmutableMap.of("rightVarcharRandom", expression("cast(rightColVarchar as varchar)")),
                                                 values("rightColVarchar", "rightColBigInt"))))),
                 false);
     }
@@ -123,47 +123,49 @@ public class TestRandomizeNullKeyInOuterJoin
     @Test
     public void testRightJoin()
     {
+        // For a RIGHT join the left (non-preserved) side's `leftCol IS NOT NULL` guard is pushed below the
+        // join into a filter over the left scan, so the join itself carries no extra filter.
         assertPlan("SELECT * FROM orders RIGHT JOIN lineitem ON orders.orderkey = lineitem.orderkey ",
                 getSessionAlwaysEnabled(),
                 anyTree(
                         join(
                                 RIGHT,
-                                ImmutableList.of(equiJoinClause("leftRandom", "rightRandom")),
+                                ImmutableList.of(equiJoinClause("leftRandom", "rightCol")),
                                 anyTree(
                                         project(
-                                                ImmutableMap.of("leftCol", expression("leftCol"), "leftRandom", expression("coalesce(cast(leftCol as varchar), 'l' || cast(random(100) as varchar))")),
-                                                tableScan("orders", ImmutableMap.of("leftCol", "orderkey")))),
+                                                ImmutableMap.of("leftRandom", expression("coalesce(leftCol, -random(100))")),
+                                                filter(
+                                                        "NOT (leftCol IS NULL)",
+                                                        tableScan("orders", ImmutableMap.of("leftCol", "orderkey"))))),
                                 anyTree(
-                                        project(
-                                                ImmutableMap.of("rightCol", expression("rightCol"), "rightRandom", expression("coalesce(cast(rightCol as varchar), 'r' || cast(random(100) as varchar))")),
-                                                tableScan("lineitem", ImmutableMap.of("rightCol", "orderkey")))))),
+                                        tableScan("lineitem", ImmutableMap.of("rightCol", "orderkey"))))),
                 false);
     }
 
     @Test
     public void testLeftJoinOnSameKey()
     {
+        // Same left key (ps.partkey) feeds both joins, so both reuse the one randomized variable and only the
+        // right keys (p.partkey, l.partkey) stay raw. Each join is guarded by `ps.partkey IS NOT NULL`.
         assertPlan("select * from partsupp ps left join part p on ps.partkey = p.partkey left join lineitem l on ps.partkey = l.partkey",
                 getSessionAlwaysEnabled(),
                 anyTree(
                         join(
                                 LEFT,
-                                ImmutableList.of(equiJoinClause("ps_partkey_random", "l_partkey_random")),
+                                ImmutableList.of(equiJoinClause("ps_partkey_random", "l_partkey")),
+                                Optional.of("NOT (ps_partkey IS NULL)"),
                                 join(
                                         LEFT,
-                                        ImmutableList.of(equiJoinClause("ps_partkey_random", "p_partkey_random")),
+                                        ImmutableList.of(equiJoinClause("ps_partkey_random", "p_partkey")),
+                                        Optional.of("NOT (ps_partkey IS NULL)"),
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("ps_partkey_random", expression("coalesce(cast(ps_partkey as varchar), 'l' || cast(random(100) as varchar))")),
+                                                        ImmutableMap.of("ps_partkey_random", expression("coalesce(ps_partkey, -random(100))")),
                                                         tableScan("partsupp", ImmutableMap.of("ps_partkey", "partkey")))),
                                         anyTree(
-                                                project(
-                                                        ImmutableMap.of("p_partkey_random", expression("coalesce(cast(p_partkey as varchar), 'r' || cast(random(100) as varchar))")),
-                                                        tableScan("part", ImmutableMap.of("p_partkey", "partkey"))))),
+                                                tableScan("part", ImmutableMap.of("p_partkey", "partkey")))),
                                 anyTree(
-                                        project(
-                                                ImmutableMap.of("l_partkey_random", expression("coalesce(cast(l_partkey as varchar), 'r' || cast(random(100) as varchar))")),
-                                                tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey")))))),
+                                        tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey"))))),
                 false);
     }
 
@@ -175,23 +177,23 @@ public class TestRandomizeNullKeyInOuterJoin
                 anyTree(
                         join(
                                 LEFT,
-                                ImmutableList.of(equiJoinClause("ps_partkey_random", "l_partkey_random")),
+                                ImmutableList.of(equiJoinClause("ps_partkey_random", "l_partkey")),
+                                Optional.of("NOT (ps_partkey IS NULL)"),
                                 anyTree(
                                         project(
-                                                ImmutableMap.of("ps_partkey_random", expression("coalesce(cast(ps_partkey as varchar), 'l' || cast(random(100) as varchar))")),
+                                                ImmutableMap.of("ps_partkey_random", expression("coalesce(ps_partkey, -random(100))")),
                                                 tableScan("partsupp", ImmutableMap.of("ps_partkey", "partkey")))),
                                 anyTree(
                                         join(
                                                 LEFT,
-                                                ImmutableList.of(equiJoinClause("p_partkey_random", "l_partkey_random")),
+                                                ImmutableList.of(equiJoinClause("p_partkey_random", "l_partkey")),
+                                                Optional.of("NOT (p_partkey IS NULL)"),
                                                 anyTree(
                                                         project(
-                                                                ImmutableMap.of("p_partkey_random", expression("coalesce(cast(p_partkey as varchar), 'l' || cast(random(100) as varchar))")),
+                                                                ImmutableMap.of("p_partkey_random", expression("coalesce(p_partkey, -random(100))")),
                                                                 tableScan("part", ImmutableMap.of("p_partkey", "partkey", "name", "name")))),
                                                 anyTree(
-                                                        project(
-                                                                ImmutableMap.of("l_partkey_random", expression("coalesce(cast(l_partkey as varchar), 'r' || cast(random(100) as varchar))")),
-                                                                tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey", "orderkey", "orderkey")))))))),
+                                                        tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey", "orderkey", "orderkey"))))))),
                 false);
     }
 
@@ -203,24 +205,22 @@ public class TestRandomizeNullKeyInOuterJoin
                 anyTree(
                         join(
                                 LEFT,
-                                ImmutableList.of(equiJoinClause("l_orderkey_random", "o_orderkey_random")),
+                                ImmutableList.of(equiJoinClause("l_orderkey_random", "o_orderkey")),
+                                Optional.of("NOT (l_orderkey IS NULL)"),
                                 anyTree(
-                                        project(ImmutableMap.of("l_orderkey_random", expression("coalesce(cast(l_orderkey as varchar), 'l' || cast(random(100) as varchar))")),
+                                        project(ImmutableMap.of("l_orderkey_random", expression("coalesce(l_orderkey, -random(100))")),
                                                 join(
                                                         LEFT,
-                                                        ImmutableList.of(equiJoinClause("p_partkey_random", "l_partkey_random")),
+                                                        ImmutableList.of(equiJoinClause("p_partkey_random", "l_partkey")),
+                                                        Optional.of("NOT (p_partkey IS NULL)"),
                                                         anyTree(
                                                                 project(
-                                                                        ImmutableMap.of("p_partkey_random", expression("coalesce(cast(p_partkey as varchar), 'l' || cast(random(100) as varchar))")),
+                                                                        ImmutableMap.of("p_partkey_random", expression("coalesce(p_partkey, -random(100))")),
                                                                         tableScan("part", ImmutableMap.of("p_partkey", "partkey")))),
                                                         anyTree(
-                                                                project(
-                                                                        ImmutableMap.of("l_partkey_random", expression("coalesce(cast(l_partkey as varchar), 'r' || cast(random(100) as varchar))")),
-                                                                        tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey", "l_orderkey", "orderkey"))))))),
+                                                                tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey", "l_orderkey", "orderkey")))))),
                                 anyTree(
-                                        project(
-                                                ImmutableMap.of("o_orderkey_random", expression("coalesce(cast(o_orderkey as varchar), 'r' || cast(random(100) as varchar))")),
-                                                tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey")))))),
+                                        tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))))),
                 false);
     }
 
@@ -231,31 +231,28 @@ public class TestRandomizeNullKeyInOuterJoin
                 getSessionAlwaysEnabled(),
                 anyTree(
                         join(LEFT,
-                                ImmutableList.of(equiJoinClause("l_orderkey_random", "o_orderkey_random")),
+                                ImmutableList.of(equiJoinClause("l_orderkey_random", "o_orderkey")),
+                                Optional.of("NOT (l_orderkey IS NULL)"),
                                 anyTree(
-                                        project(ImmutableMap.of("l_orderkey_random", expression("coalesce(cast(l_orderkey as varchar), 'l' || cast(random(100) as varchar))")),
+                                        project(ImmutableMap.of("l_orderkey_random", expression("coalesce(l_orderkey, -random(100))")),
                                                 join(
                                                         LEFT,
-                                                        ImmutableList.of(equiJoinClause("ps_partkey_random", "l_partkey_random")),
+                                                        ImmutableList.of(equiJoinClause("ps_partkey_random", "l_partkey")),
+                                                        Optional.of("NOT (ps_partkey IS NULL)"),
                                                         join(
                                                                 LEFT,
-                                                                ImmutableList.of(equiJoinClause("ps_partkey_random", "p_partkey_random")),
+                                                                ImmutableList.of(equiJoinClause("ps_partkey_random", "p_partkey")),
+                                                                Optional.of("NOT (ps_partkey IS NULL)"),
                                                                 anyTree(
                                                                         project(
-                                                                                ImmutableMap.of("ps_partkey_random", expression("coalesce(cast(ps_partkey as varchar), 'l' || cast(random(100) as varchar))")),
+                                                                                ImmutableMap.of("ps_partkey_random", expression("coalesce(ps_partkey, -random(100))")),
                                                                                 tableScan("partsupp", ImmutableMap.of("ps_partkey", "partkey")))),
                                                                 anyTree(
-                                                                        project(
-                                                                                ImmutableMap.of("p_partkey_random", expression("coalesce(cast(p_partkey as varchar), 'r' || cast(random(100) as varchar))")),
-                                                                                tableScan("part", ImmutableMap.of("p_partkey", "partkey"))))),
+                                                                        tableScan("part", ImmutableMap.of("p_partkey", "partkey")))),
                                                         anyTree(
-                                                                project(
-                                                                        ImmutableMap.of("l_partkey_random", expression("coalesce(cast(l_partkey as varchar), 'r' || cast(random(100) as varchar))")),
-                                                                        tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey", "l_orderkey", "orderkey"))))))),
+                                                                tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey", "l_orderkey", "orderkey")))))),
                                 anyTree(
-                                        project(
-                                                ImmutableMap.of("o_orderkey_random", expression("coalesce(cast(o_orderkey as varchar), 'r' || cast(random(100) as varchar))")),
-                                                tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey")))))),
+                                        tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))))),
                 false);
     }
 
@@ -266,9 +263,10 @@ public class TestRandomizeNullKeyInOuterJoin
                 getSessionEnabledWhenJoinKeyFromOuterJoin(),
                 anyTree(
                         join(LEFT,
-                                ImmutableList.of(equiJoinClause("l_orderkey_random", "o_orderkey_random")),
+                                ImmutableList.of(equiJoinClause("l_orderkey_random", "o_orderkey")),
+                                Optional.of("NOT (l_orderkey IS NULL)"),
                                 anyTree(
-                                        project(ImmutableMap.of("l_orderkey_random", expression("coalesce(cast(l_orderkey as varchar), 'l' || cast(random(100) as varchar))")),
+                                        project(ImmutableMap.of("l_orderkey_random", expression("coalesce(l_orderkey, -random(100))")),
                                                 join(
                                                         LEFT,
                                                         ImmutableList.of(equiJoinClause("ps_partkey", "l_partkey")),
@@ -282,9 +280,7 @@ public class TestRandomizeNullKeyInOuterJoin
                                                         anyTree(
                                                                 tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey", "l_orderkey", "orderkey")))))),
                                 anyTree(
-                                        project(
-                                                ImmutableMap.of("o_orderkey_random", expression("coalesce(cast(o_orderkey as varchar), 'r' || cast(random(100) as varchar))")),
-                                                tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey")))))),
+                                        tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))))),
                 false);
     }
 
@@ -314,15 +310,14 @@ public class TestRandomizeNullKeyInOuterJoin
                                 ImmutableList.of(),
                                 join(
                                         LEFT,
-                                        ImmutableList.of(equiJoinClause("ps_partkey_random", "p_partkey_random")),
+                                        ImmutableList.of(equiJoinClause("ps_partkey_random", "p_partkey")),
+                                        Optional.of("NOT (ps_partkey IS NULL)"),
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("ps_partkey", expression("ps_partkey"), "ps_partkey_random", expression("coalesce(cast(ps_partkey as varchar), 'l' || cast(random(100) as varchar))")),
+                                                        ImmutableMap.of("ps_partkey", expression("ps_partkey"), "ps_partkey_random", expression("coalesce(ps_partkey, -random(100))")),
                                                         tableScan("partsupp", ImmutableMap.of("ps_partkey", "partkey")))),
                                         anyTree(
-                                                project(
-                                                        ImmutableMap.of("p_partkey", expression("p_partkey"), "p_partkey_random", expression("coalesce(cast(p_partkey as varchar), 'r' || cast(random(100) as varchar))")),
-                                                        tableScan("part", ImmutableMap.of("p_partkey", "partkey"))))),
+                                                tableScan("part", ImmutableMap.of("p_partkey", "partkey")))),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey"))))),
                 false);

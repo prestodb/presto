@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.297-SNAPSHOT</version>
+        <version>0.300-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-openlineage-event-listener</artifactId>
@@ -24,7 +24,7 @@
         <dependency>
             <groupId>io.openlineage</groupId>
             <artifactId>openlineage-java</artifactId>
-            <version>1.44.1</version>
+            <version>1.47.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>

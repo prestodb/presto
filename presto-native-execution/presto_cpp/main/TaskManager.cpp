@@ -23,6 +23,8 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/operators/MaterializedOutput.h"
+#include "presto_cpp/main/operators/MaterializedOutputBuffer.h"
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/file/FileSystems.h"
@@ -145,7 +147,7 @@ void getData(
     long destination,
     long token,
     protocol::DataSize maxSize,
-    exec::OutputBufferManager& bufferManager) {
+    exec::DefaultOutputBufferManager& bufferManager) {
   if (promiseHolder == nullptr) {
     // promise/future is expired.
     return;
@@ -363,7 +365,11 @@ TaskManager::TaskManager(
           std::make_unique<QueryContextManager>(
               driverExecutor,
               spillerExecutor)),
-      bufferManager_(velox::exec::OutputBufferManager::getInstanceRef()),
+      taskSyncTerminateEnabled_(
+          SystemConfig::instance()->taskSyncTerminateEnabled()),
+      taskSyncTerminateTimeoutMs_(
+          SystemConfig::instance()->taskSyncTerminateTimeoutMs()),
+      bufferManager_(velox::exec::DefaultOutputBufferManager::getInstanceRef()),
       httpSrvCpuExecutor_(httpSrvCpuExecutor),
       lastNotOverloadedTimeInSecs_(velox::getCurrentTimeSec()) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
@@ -396,6 +402,15 @@ bool TaskManager::emptyBaseSpillDirectory() const {
 void TaskManager::setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs) {
   VELOX_CHECK_GE(oldTaskCleanUpMs, 0);
   oldTaskCleanUpMs_ = oldTaskCleanUpMs;
+}
+
+void TaskManager::setTaskSyncTerminateEnabled(bool taskSyncTerminateEnabled) {
+  taskSyncTerminateEnabled_ = taskSyncTerminateEnabled;
+}
+
+void TaskManager::setTaskSyncTerminateTimeoutMs(
+    uint64_t taskSyncTerminateTimeoutMs) {
+  taskSyncTerminateTimeoutMs_ = taskSyncTerminateTimeoutMs;
 }
 
 TaskMap TaskManager::tasks() const {
@@ -571,6 +586,14 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       auto spillDiskOpts =
           getTaskSpillOptions(taskId, planFragment, queryCtx, baseSpillDir);
 
+      // taskUniqueId namespaces the ids AssignUniqueId generates across the
+      // tasks of a stage; Velox reads it from PlanFragment. Last 10 bits of
+      // stageId | last 14 bits of taskId fits PlanFragment's 24-bit budget.
+      auto taskPlanFragment = planFragment;
+      taskPlanFragment.taskUniqueId =
+          (prestoTask->id.stageId() & ((1 << 10) - 1)) << 14 |
+          (prestoTask->id.id() & ((1 << 14) - 1));
+
       // Uses a temp variable to store the created velox task to destroy it
       // under presto task lock if spill directory setup fails. Otherwise, the
       // concurrent task creation retry from the coordinator might see the
@@ -579,13 +602,35 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       // root memory pool.
       auto newExecTask = exec::Task::create(
           taskId,
-          planFragment,
+          taskPlanFragment,
           prestoTask->id.id(),
           std::move(queryCtx),
           exec::Task::ExecutionMode::kParallel,
           static_cast<exec::Consumer>(nullptr),
           prestoTask->id.stageId(),
           spillDiskOpts);
+
+      // Create MaterializedOutputBuffer under task mutex if the plan
+      // uses exchange materialization.
+      if (auto* materializedOutputNode =
+              dynamic_cast<const operators::MaterializedOutputNode*>(
+                  planFragment.planNode.get())) {
+        const auto& shuffleWriterMetadata =
+            materializedOutputNode->shuffleWriterMetadata();
+        auto* shuffleFactory = operators::ShuffleInterfaceFactory::factory(
+            shuffleWriterMetadata.writerFactoryName);
+        VELOX_CHECK_NOT_NULL(
+            shuffleFactory,
+            "ShuffleInterface factory '{}' not registered",
+            shuffleWriterMetadata.writerFactoryName);
+        auto buffer = std::make_shared<operators::MaterializedOutputBuffer>(
+            materializedOutputNode->numPartitions(),
+            shuffleWriterMetadata.writerInfo,
+            shuffleFactory,
+            taskId,
+            newExecTask->queryCtx()->pool());
+        operators::MaterializedOutputBuffer::registerBuffer(taskId, buffer);
+      }
 
       prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;
@@ -812,16 +857,19 @@ void TaskManager::maybeStartNextQueuedTask() {
       auto queuedTasks = std::move(lockedTaskQueue->front());
       lockedTaskQueue->pop_front();
 
-      // Get all the still valid tasks from the entry.
-      bool queryTasksAreGoodToStart{true};
+      // Get all the still valid tasks from the entry. Skip any tasks that
+      // have been aborted or are no longer valid, but still start the
+      // remaining valid tasks. This avoids a bug where aborting one task
+      // (e.g. from a completed fragment) would silently discard other
+      // still-valid tasks from the same query that were grouped in the
+      // same queue entry.
       for (auto& queuedTask : queuedTasks) {
         auto taskToStart = queuedTask.lock();
 
         // Task is already gone or no Velox task (the latter will never happen).
         if (taskToStart == nullptr || taskToStart->task == nullptr) {
           LOG(WARNING) << "TASK QUEUE: Skipping null task in the queue.";
-          queryTasksAreGoodToStart = false;
-          break;
+          continue;
         }
 
         // Sanity check.
@@ -831,22 +879,20 @@ void TaskManager::maybeStartNextQueuedTask() {
             "The queued task must not be started, but it is already started");
 
         const auto taskState = taskToStart->taskState();
-        // If the status is not 'planned' then the tasks were likely aborted.
+        // If the status is not 'planned' then the task was likely aborted.
         if (taskState != PrestoTaskState::kPlanned) {
           LOG(INFO) << "TASK QUEUE: Discarding (not starting) queued task "
                     << taskToStart->info.taskId << " because state is "
                     << prestoTaskStateString(taskState);
-          queryTasksAreGoodToStart = false;
-          break;
+          continue;
         }
 
         tasksToStart.emplace_back(taskToStart);
       }
 
-      if (queryTasksAreGoodToStart) {
+      if (!tasksToStart.empty()) {
         break;
       }
-      tasksToStart.clear();
     }
   }
 
@@ -872,8 +918,11 @@ void TaskManager::maybeStartNextQueuedTask() {
   }
 }
 
-std::unique_ptr<TaskInfo>
-TaskManager::deleteTask(const TaskId& taskId, bool /*abort*/, bool summarize) {
+std::unique_ptr<TaskInfo> TaskManager::deleteTask(
+    const TaskId& taskId,
+    bool /*abort*/,
+    bool summarize,
+    bool shouldDropTask) {
   LOG(INFO) << "Deleting task " << taskId;
   // Fast. non-blocking delete and cancel serialized on 'taskMap'.
   std::shared_ptr<facebook::presto::PrestoTask> prestoTask;
@@ -890,34 +939,64 @@ TaskManager::deleteTask(const TaskId& taskId, bool /*abort*/, bool summarize) {
     prestoTask = findOrCreateTask(taskId, 0);
   }
 
-  std::lock_guard<std::mutex> l(prestoTask->mutex);
-  prestoTask->updateHeartbeatLocked();
-  prestoTask->updateCoordinatorHeartbeatLocked();
-  auto execTask = prestoTask->task;
-  if (execTask) {
-    auto state = execTask->state();
-    if (state == exec::TaskState::kRunning) {
-      execTask->requestAbort();
+  std::unique_ptr<TaskInfo> taskInfo;
+  bool dropTask{false};
+  velox::ContinueFuture taskDrainFuture = velox::ContinueFuture::makeEmpty();
+  {
+    std::lock_guard<std::mutex> l(prestoTask->mutex);
+    prestoTask->updateHeartbeatLocked();
+    prestoTask->updateCoordinatorHeartbeatLocked();
+    auto execTask = prestoTask->task;
+    if (execTask) {
+      taskDrainFuture = execTask->requestAbort();
+      prestoTask->info.stats.endTimeInMillis = velox::getCurrentTimeMs();
+      prestoTask->updateInfoLocked(summarize);
+
+      // Do not erase the finished/aborted tasks, because someone might still
+      // want to get some results from them. Instead, we run a periodic task to
+      // clean up the old finished/aborted tasks.
+      if (prestoTask->info.taskStatus.state == protocol::TaskState::RUNNING) {
+        prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
+      }
+      dropTask = shouldDropTask;
+    } else {
+      // If task is not found than we observe DELETE message coming before
+      // CREATE. In that case we create the task with ABORTED state, so we know
+      // we don't need to do anything on CREATE message and can clean up the
+      // cancelled task later. This marker holds no Velox Task and so pins
+      // nothing; it is kept even under 'shouldDropTask', because dropping it
+      // would let the later CREATE start the task the client just cancelled.
+      prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
     }
-    prestoTask->info.stats.endTimeInMillis = velox::getCurrentTimeMs();
-    prestoTask->updateInfoLocked(summarize);
-  } else {
-    // If task is not found than we observe DELETE message coming before
-    // CREATE. In that case we create the task with ABORTED state, so we know
-    // we don't need to do anything on CREATE message and can clean up the
-    // cancelled task later.
-    prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
-    return std::make_unique<TaskInfo>(prestoTask->info);
+    taskInfo = std::make_unique<TaskInfo>(prestoTask->info);
   }
 
-  // Do not erase the finished/aborted tasks, because someone might still want
-  // to get some results from them. Instead, we run a periodic task to clean up
-  // the old finished/aborted tasks.
-  if (prestoTask->info.taskStatus.state == protocol::TaskState::RUNNING) {
-    prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
+  // The deferral above assumes cleanOldTasks() will eventually reclaim the
+  // task, but it declines to erase any task whose Drivers have not finished
+  // unwinding (see the zombie check there), so a task left in 'taskMap_' can
+  // pin its Velox Task -- and every resource its operators hold on the shared
+  // per-query memory pool -- for the lifetime of the worker process. Drop the
+  // reference here when the caller states it will never read the task again.
+  // The Velox Task itself stays alive until its Drivers finish unwinding the
+  // abort requested above, so this only releases what is already finished
+  // with.
+  if (dropTask) {
+    taskMap_.withWLock([&](auto& taskMap) { taskMap.erase(taskId); });
+  }
+  if (taskSyncTerminateEnabled_) {
+    const auto taskSyncTerminateTimeout =
+        std::chrono::milliseconds(taskSyncTerminateTimeoutMs_);
+    try {
+      std::move(taskDrainFuture).within(taskSyncTerminateTimeout).get();
+    } catch (const folly::FutureTimeout&) {
+      VELOX_FAIL(
+          "Task could not be terminated within {} ms. Task ID: {}",
+          taskSyncTerminateTimeout.count(),
+          taskId);
+    }
   }
 
-  return std::make_unique<TaskInfo>(prestoTask->info);
+  return taskInfo;
 }
 
 size_t TaskManager::cleanOldTasks() {

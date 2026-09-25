@@ -31,10 +31,12 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.Preconditions;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.parquet.batchreader.decoders.Decoders.readNestedPage;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -65,10 +67,10 @@ public abstract class AbstractNestedBatchReader
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
     }
 
-    protected abstract ColumnChunk readNestedNoNull()
+    protected abstract ColumnChunk readNestedNoNull(Optional<DateTimeZone> timezone)
             throws IOException;
 
-    protected abstract ColumnChunk readNestedWithNull()
+    protected abstract ColumnChunk readNestedWithNull(Optional<DateTimeZone> timezone)
             throws IOException;
 
     protected abstract void seek()
@@ -81,7 +83,7 @@ public abstract class AbstractNestedBatchReader
     }
 
     @Override
-    public void init(PageReader pageReader, Field field, RowRanges rowRanges)
+    public void init(PageReader pageReader, Field field, RowRanges rowRanges, Optional<DateTimeZone> timezone)
     {
         Preconditions.checkState(!isInitialized(), "already initialized");
         this.pageReader = requireNonNull(pageReader, "pageReader is null");
@@ -91,7 +93,7 @@ public abstract class AbstractNestedBatchReader
 
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
         if (dictionaryPage != null) {
-            dictionary = Dictionaries.createDictionary(columnDescriptor, dictionaryPage);
+            dictionary = Dictionaries.createDictionary(columnDescriptor, dictionaryPage, timezone);
         }
     }
 
@@ -103,16 +105,16 @@ public abstract class AbstractNestedBatchReader
     }
 
     @Override
-    public ColumnChunk readNext()
+    public ColumnChunk readNext(Optional<DateTimeZone> timezone)
     {
         ColumnChunk columnChunk = null;
         try {
             seek();
             if (field.isRequired()) {
-                columnChunk = readNestedNoNull();
+                columnChunk = readNestedNoNull(timezone);
             }
             else {
-                columnChunk = readNestedWithNull();
+                columnChunk = readNestedWithNull(timezone);
             }
         }
         catch (IOException ex) {

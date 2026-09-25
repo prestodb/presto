@@ -42,6 +42,7 @@ public class PrestoSparkConfig
     private int maxSparkInputPartitionCountForAutoTune = 1000;
     private int initialSparkPartitionCount = 16;
     private DataSize maxSplitsDataSizePerSparkPartition = new DataSize(2, GIGABYTE);
+    private int maxSplitsCountPerSparkPartition = Integer.MAX_VALUE;
     private DataSize shuffleOutputTargetAverageRowSize = new DataSize(1, KILOBYTE);
     private boolean storageBasedBroadcastJoinEnabled;
     private DataSize storageBasedBroadcastJoinWriteBufferSize = new DataSize(24, MEGABYTE);
@@ -61,6 +62,7 @@ public class PrestoSparkConfig
     private DataSize averageInputDataSizePerExecutor = new DataSize(10, GIGABYTE);
     private int maxExecutorCount = 600;
     private int minExecutorCount = 200;
+    private int maxTaskInfosInQueryCompletedEvent = 100000;
     private DataSize averageInputDataSizePerPartition = new DataSize(2, GIGABYTE);
     private int maxHashPartitionCount = 4096;
     private int minHashPartitionCount = 1024;
@@ -138,6 +140,20 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setMaxSplitsDataSizePerSparkPartition(DataSize maxSplitsDataSizePerSparkPartition)
     {
         this.maxSplitsDataSizePerSparkPartition = maxSplitsDataSizePerSparkPartition;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxSplitsCountPerSparkPartition()
+    {
+        return maxSplitsCountPerSparkPartition;
+    }
+
+    @Config("spark.max-splits-count-per-partition")
+    @ConfigDescription("Maximal number of splits assigned to one partition")
+    public PrestoSparkConfig setMaxSplitsCountPerSparkPartition(int maxSplitsCountPerSparkPartition)
+    {
+        this.maxSplitsCountPerSparkPartition = maxSplitsCountPerSparkPartition;
         return this;
     }
 
@@ -350,6 +366,20 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setMinExecutorCount(int minExecutorCount)
     {
         this.minExecutorCount = minExecutorCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxTaskInfosInQueryCompletedEvent()
+    {
+        return maxTaskInfosInQueryCompletedEvent;
+    }
+
+    @Config("spark.max-task-infos-in-query-completed-event")
+    @ConfigDescription("Maximum number of task infos to deserialize and retain when assembling the query completed event; bounds driver memory on queries with very large task counts")
+    public PrestoSparkConfig setMaxTaskInfosInQueryCompletedEvent(int maxTaskInfosInQueryCompletedEvent)
+    {
+        this.maxTaskInfosInQueryCompletedEvent = maxTaskInfosInQueryCompletedEvent;
         return this;
     }
 

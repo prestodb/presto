@@ -19,7 +19,10 @@ import org.apache.parquet.hadoop.api.WriteSupport;
 import org.apache.parquet.io.api.RecordConsumer;
 import org.apache.parquet.schema.MessageType;
 
+import java.time.ZoneId;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.TimeZone;
 
 import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
 
@@ -43,7 +46,9 @@ class TestDataWritableWriteSupport
     public WriteContext init(final Configuration configuration)
     {
         schema = parseMessageType(configuration.get("parquet.hive.schema"));
-        return new WriteContext(schema, new HashMap<>());
+        Map<String, String> metaData = new HashMap();
+        metaData.put("writer.time.zone", TimeZone.getTimeZone(ZoneId.of("UTC")).getID());
+        return new WriteContext(schema, metaData);
     }
 
     @Override

@@ -28,10 +28,10 @@ import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
-import okhttp3.mockwebserver.Dispatcher;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.RecordedRequest;
+import mockwebserver3.Dispatcher;
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
+import mockwebserver3.RecordedRequest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -147,17 +147,19 @@ public class TestPredictorManager
             @Override
             public MockResponse dispatch(RecordedRequest request)
             {
-                switch (request.getPath()) {
+                switch (request.getUrl().encodedPath()) {
                     case "/v1/cpu":
-                        return new MockResponse()
+                        return new MockResponse.Builder()
                                 .addHeader(CONTENT_TYPE, "application/json")
-                                .setBody("{\"cpu_pred_label\": 2, \"cpu_pred_str\": \"1h - 5h\"}");
+                                .body("{\"cpu_pred_label\": 2, \"cpu_pred_str\": \"1h - 5h\"}")
+                                .build();
                     case "/v1/memory":
-                        return new MockResponse()
+                        return new MockResponse.Builder()
                                 .addHeader(CONTENT_TYPE, "application/json")
-                                .setBody("{\"memory_pred_label\": 2, \"memory_pred_str\": \"> 1TB\"}");
+                                .body("{\"memory_pred_label\": 2, \"memory_pred_str\": \"> 1TB\"}")
+                                .build();
                 }
-                return new MockResponse().setResponseCode(404);
+                return new MockResponse.Builder().code(404).build();
             }
         };
 

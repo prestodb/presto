@@ -42,6 +42,37 @@ with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
 
+
+Procedures
+----------
+
+Use the :doc:`/sql/call` statement to perform data manipulation or administrative tasks. Procedures are available in the ``system`` schema of the catalog.
+
+Execute Procedure
+^^^^^^^^^^^^^^^^^
+
+Underlying datasources may support some operation or SQL syntax which is not supported by Presto, either at the parser level or at the connector level.
+Trying to run such SQL statements in Presto can result in errors during parsing or analysing. For example, SingleStore supports creating AUTO_INCREMENT
+primary keys which is not supported in Presto. Running this procedure enables users to do a SQL passthrough to the underlying database, and Presto just acts
+as a middle man for passing the statement.
+
+The following arguments are available:
+
+============= ========== =============== =======================================================================
+Argument Name Required   Type            Description
+============= ========== =============== =======================================================================
+``QUERY``     Yes        string          SQL statement to run
+============= ========== =============== =======================================================================
+
+Examples:
+
+* Create a table with AUTO_INCREMENT primary key::
+
+    CALL singlestore.system.execute('create table schema1.table1 (id BIGINT AUTO_INCREMENT PRIMARY KEY, a int)')
+
+    CALL singlestore.system.execute(QUERY => 'create table schema1.table1 (id BIGINT AUTO_INCREMENT PRIMARY KEY, a int)')
+
+
 Querying SingleStore
 --------------------
 

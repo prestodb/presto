@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.297-SNAPSHOT</version>
+        <version>0.300-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-oracle</artifactId>
@@ -196,6 +196,13 @@
                     <artifactId>annotations</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.oracle.ojdbc</groupId>
+            <artifactId>orai18n</artifactId>
+            <version>19.3.0.0</version>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 

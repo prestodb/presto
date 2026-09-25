@@ -35,7 +35,6 @@ import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.COLUMN_MISMATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.ROW_COUNT_MISMATCH;
-import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.SCHEMA_MISMATCH;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
 import static com.facebook.presto.verifier.framework.QueryStage.forTeardown;
 import static com.facebook.presto.verifier.framework.VerifierUtil.runAndConsume;
@@ -81,14 +80,7 @@ public class DataVerificationUtil
     {
         requireNonNull(controlColumns, "controlColumns is null.");
         if (!controlColumns.equals(testColumns)) {
-            return new DataMatchResult(
-                    dataType,
-                    SCHEMA_MISMATCH,
-                    Optional.empty(),
-                    Optional.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    ImmutableList.of());
+            return DataMatchResult.schemaMismatch(dataType, controlColumns, testColumns);
         }
 
         OptionalLong controlRowCount = OptionalLong.of(controlChecksum.getRowCount());

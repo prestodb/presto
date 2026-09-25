@@ -61,6 +61,12 @@ class ConnectorProtocol {
       const = 0;
   virtual void from_json(const json& j, std::shared_ptr<ColumnHandle>& p)
       const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ColumnHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ColumnHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -81,6 +87,12 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorDistributedProcedureHandle>& p) const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ConnectorDistributedProcedureHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorDistributedProcedureHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -112,6 +124,12 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorPartitioningHandle>& p) const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ConnectorPartitioningHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorPartitioningHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -144,10 +162,28 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorIndexHandle>& p) const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ConnectorIndexHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorIndexHandle>& proto) const = 0;
+
+  // Layer 3b: MERGE handle dispatch (mirrors the ConnectorDeleteTableHandle
+  // pair above). Wired through ConnectorMergeTableHandleType template slot
+  // below; connectors that don't support MERGE leave the slot as
+  // NotImplemented (default), which yields a VELOX_NYI on dispatch.
+  virtual void to_json(
+      json& j,
+      const std::shared_ptr<ConnectorMergeTableHandle>& p) const = 0;
+  virtual void from_json(
+      const json& j,
+      std::shared_ptr<ConnectorMergeTableHandle>& p) const = 0;
 };
 
 namespace {
 struct NotImplemented {};
+struct UnsupportedOperation {};
 } // namespace
 
 template <
@@ -161,7 +197,8 @@ template <
     typename ConnectorTransactionHandleType = NotImplemented,
     typename ConnectorDistributedProcedureHandleType = NotImplemented,
     typename ConnectorDeleteTableHandleType = NotImplemented,
-    typename ConnectorIndexHandleType = NotImplemented>
+    typename ConnectorIndexHandleType = NotImplemented,
+    typename ConnectorMergeTableHandleType = NotImplemented>
 class ConnectorProtocolTemplate final : public ConnectorProtocol {
  public:
   void to_json(json& j, const std::shared_ptr<ConnectorTableHandle>& p)
@@ -208,6 +245,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
   void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) const final {
     from_json_template<ColumnHandleType>(j, p);
   }
+  void serialize(
+      const std::shared_ptr<ColumnHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ColumnHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ColumnHandle>& proto) const final {
+    deserializeTemplate<ColumnHandleType>(thrift, proto);
+  }
 
   void to_json(json& j, const std::shared_ptr<ConnectorInsertTableHandle>& p)
       const final {
@@ -238,6 +285,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const json& j,
       std::shared_ptr<ConnectorDistributedProcedureHandle>& p) const final {
     from_json_template<ConnectorDistributedProcedureHandleType>(j, p);
+  }
+  void serialize(
+      const std::shared_ptr<ConnectorDistributedProcedureHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorDistributedProcedureHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorDistributedProcedureHandle>& proto) const final {
+    deserializeTemplate<ConnectorDistributedProcedureHandleType>(thrift, proto);
   }
 
   void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p)
@@ -284,6 +341,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
   void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p)
       const final {
     from_json_template<ConnectorPartitioningHandleType>(j, p);
+  }
+  void serialize(
+      const std::shared_ptr<ConnectorPartitioningHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorPartitioningHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorPartitioningHandle>& proto) const final {
+    deserializeTemplate<ConnectorPartitioningHandleType>(thrift, proto);
   }
 
   void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p)
@@ -332,8 +399,34 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const final {
     from_json_template<ConnectorIndexHandleType>(j, p);
   }
+  void serialize(
+      const std::shared_ptr<ConnectorIndexHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorIndexHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorIndexHandle>& proto) const final {
+    deserializeTemplate<ConnectorIndexHandleType>(thrift, proto);
+  }
+
+  // Layer 3b: ConnectorMergeTableHandle dispatch.
+  void to_json(json& j, const std::shared_ptr<ConnectorMergeTableHandle>& p)
+      const final {
+    to_json_template<ConnectorMergeTableHandleType>(j, p);
+  }
+  void from_json(const json& j, std::shared_ptr<ConnectorMergeTableHandle>& p)
+      const final {
+    from_json_template<ConnectorMergeTableHandleType>(j, p);
+  }
 
  private:
+  static void throwUnsupportedWriteOperation() {
+    VELOX_UNSUPPORTED(
+        "This connector is read-only and does not support write operations "
+        "(INSERT, CREATE TABLE AS SELECT, DELETE, MERGE). Only SELECT is supported.");
+  }
+
   template <typename DERIVED, typename BASE>
   static void to_json_template(
       json& j,
@@ -351,6 +444,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
           std::is_same<DERIVED, NotImplemented>::value,
           BASE>::type* = 0) {
     VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+  }
+
+  template <typename DERIVED, typename BASE>
+  static void to_json_template(
+      json&,
+      const std::shared_ptr<BASE>&,
+      typename std::enable_if<
+          std::is_same<DERIVED, UnsupportedOperation>::value,
+          BASE>::type* = 0) {
+    throwUnsupportedWriteOperation();
   }
 
   template <typename DERIVED, typename BASE>
@@ -375,6 +478,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
   }
 
   template <typename DERIVED, typename BASE>
+  static void from_json_template(
+      const json&,
+      std::shared_ptr<BASE>&,
+      typename std::enable_if<
+          std::is_same<DERIVED, UnsupportedOperation>::value,
+          BASE>::type* = 0) {
+    throwUnsupportedWriteOperation();
+  }
+
+  template <typename DERIVED, typename BASE>
   static void serializeTemplate(
       const std::shared_ptr<BASE>&,
       std::string&,
@@ -383,6 +496,17 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
           BASE>::type* = 0) {
     VELOX_NYI("Not implemented: {}", typeid(BASE).name());
   }
+
+  template <typename DERIVED, typename BASE>
+  static void serializeTemplate(
+      const std::shared_ptr<BASE>&,
+      std::string&,
+      typename std::enable_if<
+          std::is_same<DERIVED, UnsupportedOperation>::value,
+          BASE>::type* = 0) {
+    throwUnsupportedWriteOperation();
+  }
+
   template <typename DERIVED, typename BASE>
   static void deserializeTemplate(
       const std::string&,
@@ -391,6 +515,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
           std::is_same<DERIVED, NotImplemented>::value,
           BASE>::type* = 0) {
     VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+  }
+
+  template <typename DERIVED, typename BASE>
+  static void deserializeTemplate(
+      const std::string&,
+      std::shared_ptr<BASE>&,
+      typename std::enable_if<
+          std::is_same<DERIVED, UnsupportedOperation>::value,
+          BASE>::type* = 0) {
+    throwUnsupportedWriteOperation();
   }
 
   template <typename DERIVED, typename BASE>
@@ -422,6 +556,7 @@ using SystemConnectorProtocol = ConnectorProtocolTemplate<
     SystemSplit,
     SystemPartitioningHandle,
     SystemTransactionHandle,
+    NotImplemented,
     NotImplemented,
     NotImplemented,
     NotImplemented>;

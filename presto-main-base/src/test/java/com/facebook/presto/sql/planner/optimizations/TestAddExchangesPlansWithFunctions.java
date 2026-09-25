@@ -38,6 +38,7 @@ import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.type.BigintOperators;
 import com.google.common.collect.ImmutableList;
@@ -51,6 +52,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.REMOTE_FUNCTIONS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM;
 import static com.facebook.presto.SystemSessionProperties.SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION;
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser.parseFunctionDefinitions;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
@@ -214,7 +216,11 @@ public class TestAddExchangesPlansWithFunctions
                 .map(TestAddExchangesPlansWithFunctions::convertToSqlInvokedFunction)
                 .forEach(function -> queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(function, true));
         queryRunner.getExpressionManager().addExpressionOptimizerFactory(new NoOpExpressionOptimizerFactory());
-        queryRunner.getExpressionManager().loadExpressionOptimizerFactory(NO_OP_OPTIMIZER, NO_OP_OPTIMIZER, ImmutableMap.of());
+        queryRunner.getExpressionManager().loadExpressionOptimizerFactory(
+                NO_OP_OPTIMIZER,
+                NO_OP_OPTIMIZER,
+                ImmutableMap.of(),
+                defaultAuthClientConfigs(new TestingNodeManager().getCurrentNode().getNodeIdentifier()));
         return queryRunner;
     }
 
@@ -874,6 +880,37 @@ public class TestAddExchangesPlansWithFunctions
                                 project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))));
+    }
+
+    @Test
+    public void testRemoteFunctionFixedParallelismWithUnionAll()
+    {
+        // Test that REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM works correctly when
+        // a UNION ALL exists below the remote function projection (via a GROUP BY
+        // that prevents the remote function from being pushed below the union).
+        // Previously this crashed with "UnsupportedOperationException: not yet implemented: UnionNode"
+        // because derivePropertiesRecursively walked into the UnionNode.
+        assertNativeDistributedPlanWithSession(
+                "SELECT remote_foo(nationkey) FROM (" +
+                        "  SELECT nationkey FROM (" +
+                        "    SELECT nationkey FROM nation WHERE nationkey < 5" +
+                        "    UNION ALL" +
+                        "    SELECT nationkey FROM nation WHERE nationkey >= 20" +
+                        "  ) GROUP BY nationkey" +
+                        ")",
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("tiny")
+                        .setSystemProperty(REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM, "dummy.unittest.remote_foo")
+                        .setSystemProperty(REMOTE_FUNCTIONS_ENABLED, "true")
+                        .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                        .build(),
+                anyTree(
+                        exchange(REMOTE_STREAMING, GATHER,
+                                project(
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        tableScan("nation")))))));
     }
 
     @Test

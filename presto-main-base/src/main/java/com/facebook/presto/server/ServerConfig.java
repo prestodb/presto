@@ -44,6 +44,7 @@ public class ServerConfig
     private Duration clusterResourceGroupStateInfoExpirationDuration = new Duration(0, MILLISECONDS);
     private String clusterTag;
     private boolean webUIEnabled = true;
+    private boolean startupCompleteRequiredForActive;
 
     public boolean isResourceManager()
     {
@@ -264,6 +265,18 @@ public class ServerConfig
     public ServerConfig setClusterTag(String clusterTag)
     {
         this.clusterTag = clusterTag;
+        return this;
+    }
+
+    public boolean isStartupCompleteRequiredForActive()
+    {
+        return startupCompleteRequiredForActive;
+    }
+
+    @Config("server.startup-complete-required-for-active")
+    public ServerConfig setStartupCompleteRequiredForActive(boolean startupCompleteRequiredForActive)
+    {
+        this.startupCompleteRequiredForActive = startupCompleteRequiredForActive;
         return this;
     }
 }

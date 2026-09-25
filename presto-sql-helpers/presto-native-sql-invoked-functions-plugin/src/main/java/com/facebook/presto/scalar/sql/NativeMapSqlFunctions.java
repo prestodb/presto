@@ -28,7 +28,7 @@ public class NativeMapSqlFunctions
     @Description("Returns the top N keys of the given map sorting its keys using the provided lambda comparator.")
     @TypeParameter("K")
     @TypeParameter("V")
-    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "n", type = "bigint"), @SqlParameter(name = "f", type = "function(K, K, bigint)")})
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "n", type = "int"), @SqlParameter(name = "f", type = "function(K, K, int)")})
     @SqlType("array<K>")
     public static String mapTopNKeysComparator()
     {
@@ -39,7 +39,7 @@ public class NativeMapSqlFunctions
     @Description("Returns the top N values of the given map sorted using the provided lambda comparator.")
     @TypeParameter("K")
     @TypeParameter("V")
-    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "n", type = "bigint"), @SqlParameter(name = "f", type = "function(V, V, bigint)")})
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "n", type = "int"), @SqlParameter(name = "f", type = "function(V, V, int)")})
     @SqlType("array<V>")
     public static String mapTopNValuesComparator()
     {

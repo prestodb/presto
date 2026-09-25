@@ -65,7 +65,7 @@ Session property Name                                       Description         
                                                             ``optimizer.history-based-optimizer-timeout`` in the current session.
 ``enforce_history_based_optimizer_register_timeout``        Overrides the behavior of the configuration property                                                 ``optimizer.enforce-timeout-for-hbo-query-registration``
                                                             ``optimizer.enforce-timeout-for-hbo-query-registration`` in the current session.
-``restrict_history_based_optimization_to_complex_query``    Enable history based optimization only for complex queries, i.e. queries with join and aggregation.  ``True``
+``restrict_history_based_optimization_to_complex_query``    Enable history based optimization only for complex queries - queries with joins and aggregations.    ``True``
 ``history_input_table_statistics_matching_threshold``       Overrides the behavior of the configuration property                                                 ``hbo.history-matching-threshold``
                                                             ``hbo.history-matching-threshold`` in the current session.
 ``treat_low_confidence_zero_estimation_unknown_enabled``    Overrides the behavior of the configuration property

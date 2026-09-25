@@ -23,24 +23,24 @@ Array Functions
 
 For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:array functions`.
 
-.. function:: all_match(array(T), function(T,boolean)) -> boolean
+.. function:: all_match(array[T], function(T,boolean)) -> boolean
 
     Returns whether all elements of an array match the given predicate. Returns ``true`` if all the elements
     match the predicate (a special case is when the array is empty); ``false`` if one or more elements don't
     match; ``NULL`` if the predicate function returns ``NULL`` for one or more elements and ``true`` for all
     other elements.
 
-.. function:: any_match(array(T), function(T,boolean)) -> boolean
+.. function:: any_match(array[T], function(T,boolean)) -> boolean
 
     Returns whether any elements of an array match the given predicate. Returns ``true`` if one or more
     elements match the predicate; ``false`` if none of the elements matches (a special case is when the
     array is empty); ``NULL`` if the predicate function returns ``NULL`` for one or more elements and ``false``
     for all other elements.
 
-.. function:: array_cum_sum(array(T)) -> array(T)
+.. function:: array_cum_sum(array[T]) -> array[T]
 
-    Returns the array whose elements are the cumulative sum of the input array, i.e. result[i] = input[1]+input[2]+...+input[i].
-    If there there is null elements in the array, the cumulative sum at and after the element is null. ::
+    Returns the array whose elements are the cumulative sum of the input array: result[i] = input[1]+input[2]+...+input[i].
+    If there are null elements in the array, the cumulative sum at and after the element is null. ::
 
         SELECT array_cum_sum(ARRAY [1, 2, null, 3]) -- array[1, 3, null, null]
 
@@ -49,8 +49,8 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
     Remove duplicate values from the array ``x``.
     This function uses ``IS DISTINCT FROM`` to determine the distinct elements. ::
 
-        SELECT array_distinct(ARRAY [1, 2, null, null, 2]) -- ARRAY[1, 2, null]
-        SELECT array_distinct(ARRAY [ROW(1, null), ROW (1, null)] -- ARRAY[ROW(1, null)
+        SELECT array_distinct(ARRAY[1, 2, null, null, 2]) -- ARRAY[1, 2, null]
+        SELECT array_distinct(ARRAY[ROW(1, null), ROW (1, null)]) -- ARRAY[ROW(1, null)
 
 .. function:: array_except(x, y) -> array
 
@@ -104,7 +104,7 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
     Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
     Null elements are placed at the end of the returned array.
 
-.. function:: array_sort(array(T), function(T,T,int)) -> array(T)
+.. function:: array_sort(array[T], function(T,T,int)) -> array[T]
 
     Sorts and returns the ``array`` based on the given comparator ``function``. The comparator will take
     two nullable arguments representing two nullable elements of the ``array``. It returns -1, 0, or 1
@@ -134,7 +134,7 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
                                        -1,
                                        IF(cardinality(x) = cardinality(y), 0, 1))); -- [[1, 2], [2, 3, 1], [4, 2, 1, 4]]
 
-.. function:: array_sort(array(T), function(T,U)) -> array(T)
+.. function:: array_sort(array[T], function(T,U)) -> array[T]
 
     Sorts and returns the ``array`` using a lambda function to extract sorting keys. The function is applied
     to each element of the array to produce a key, and the array is sorted based on these keys in ascending order.
@@ -146,7 +146,7 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
         SELECT array_sort(ARRAY[CAST(0.0 AS DOUBLE), CAST('NaN' AS DOUBLE), CAST('Infinity' AS DOUBLE), CAST('-Infinity' AS DOUBLE)], x -> x); -- [-Infinity, 0.0, Infinity, NaN]
         SELECT array_sort(ARRAY[ROW('a', 3), ROW('b', 1), ROW('c', 2)], x -> x[2]); -- [ROW('b', 1), ROW('c', 2), ROW('a', 3)]
 
-.. function:: array_sort_desc(array(T), function(T,U)) -> array(T)
+.. function:: array_sort_desc(array[T], function(T,U)) -> array[T]
 
     Sorts and returns the ``array`` in descending order using a lambda function to extract sorting keys.
     The function is applied to each element of the array to produce a key, and the array is sorted based
@@ -158,7 +158,7 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
         SELECT array_sort_desc(ARRAY[CAST(0.0 AS DOUBLE), CAST('NaN' AS DOUBLE), CAST('Infinity' AS DOUBLE), CAST('-Infinity' AS DOUBLE)], x -> x); -- [NaN, Infinity, 0.0, -Infinity]
         SELECT array_sort_desc(ARRAY[ROW('a', 3), ROW('b', 1), ROW('c', 2)], x -> x[2]); -- [ROW('a', 3), ROW('c', 2), ROW('b', 1)]
 
-.. function:: array_sum(array(T)) -> bigint/double
+.. function:: array_sum(array[T]) -> bigint/double
 
     Returns the sum of all non-null elements of the ``array``. If there is no non-null elements, returns ``0``.
     The behavior is similar to aggregation function :func:`!sum`.
@@ -194,7 +194,7 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
     Concatenates the arrays ``array1``, ``array2``, ``...``, ``arrayN``.
     This function provides the same functionality as the SQL-standard concatenation operator (``||``).
 
-.. function:: combinations(array(T), n) -> array(array(T))
+.. function:: combinations(array[T], n) -> array[array[T]]
 
     Returns n-element combinations of the input array.
     If the input array has no duplicates, ``combinations`` returns n-element subsets.
@@ -210,13 +210,13 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
 
     Returns true if the array ``x`` contains the ``element``.
 
-.. function:: element_at(array(E), index) -> E
+.. function:: element_at(array[E], index) -> E
 
     Returns element of ``array`` at given ``index``.
     If ``index`` > 0, this function provides the same functionality as the SQL-standard subscript operator (``[]``), except that it returns ``NULL`` when ``index`` is out of bounds.
     If ``index`` < 0, ``element_at`` accesses elements from the last to the first.
 
-.. function:: filter(array(T), function(T,boolean)) -> array(T)
+.. function:: filter(array[T], function(T,boolean)) -> array[T]
 
     Constructs an array from those elements of ``array`` for which ``function`` returns true::
 
@@ -226,14 +226,14 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
 
 .. function:: flatten(x) -> array
 
-    Flattens an ``array(array(T))`` to an ``array(T)`` by concatenating the contained arrays.
+    Flattens an ``array[array[T]]`` to an ``array[T]`` by concatenating the contained arrays.
 
-.. function:: find_first(array(E), function(T,boolean)) -> E
+.. function:: find_first(array[E], function(T,boolean)) -> E
 
     Returns the first element of ``array`` which returns true for ``function(T,boolean)``, throws exception if the returned element is NULL.
     Returns ``NULL`` if no such element exists.
 
-.. function:: find_first(array(E), index, function(T,boolean)) -> E
+.. function:: find_first(array[E], index, function(T,boolean)) -> E
 
     Returns the first element of ``array`` which returns true for ``function(T,boolean)``, throws exception if the returned element is NULL.
     Returns ``NULL`` if no such element exists.
@@ -245,12 +245,12 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
         SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x < 4); -- NULL
         SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 5); -- NULL
 
-.. function:: find_first_index(array(E), function(T,boolean)) -> BIGINT
+.. function:: find_first_index(array[E], function(T,boolean)) -> BIGINT
 
     Returns the index of the first element of ``array`` which returns true for ``function(T,boolean)``.
     Returns ``NULL`` if no such element exists.
 
-.. function:: find_first_index(array(E), index, function(T,boolean)) -> BIGINT
+.. function:: find_first_index(array[E], index, function(T,boolean)) -> BIGINT
 
     Returns the index of the first element of ``array`` which returns true for ``function(T,boolean)``.
     Returns ``NULL`` if no such element exists.
@@ -262,7 +262,7 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
         SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x < 4); -- NULL
         SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 5); -- NULL
 
-.. function:: ngrams(array(T), n) -> array(array(T))
+.. function:: ngrams(array[T], n) -> array[array[T]]
 
     Returns ``n``-grams for the ``array``::
 
@@ -272,13 +272,13 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
         SELECT ngrams(ARRAY['foo', 'bar', 'baz', 'foo'], 5); -- [['foo', 'bar', 'baz', 'foo']]
         SELECT ngrams(ARRAY[1, 2, 3, 4], 2); -- [[1, 2], [2, 3], [3, 4]]
 
-.. function:: none_match(array(T), function(T,boolean)) -> boolean
+.. function:: none_match(array[T], function(T,boolean)) -> boolean
 
     Returns whether no elements of an array match the given predicate. Returns ``true`` if none of the elements
     matches the predicate (a special case is when the array is empty); ``false`` if one or more elements match;
     ``NULL`` if the predicate function returns ``NULL`` for one or more elements and ``false`` for all other elements.
 
-.. function:: reduce(array(T), initialState S, inputFunction(S,T,S), outputFunction(S,R)) -> R
+.. function:: reduce(array[T], initialState S, inputFunction(S,T,S), outputFunction(S,R)) -> R
 
     Returns a single value reduced from ``array``. ``inputFunction`` will
     be invoked for each element in ``array`` in order. In addition to taking
@@ -307,26 +307,26 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
 
     Returns an array which has the reversed order of array ``x``.
 
-.. function:: sequence(start, stop) -> array(bigint)
+.. function:: sequence(start, stop) -> array[bigint]
 
     Generate a sequence of integers from ``start`` to ``stop``, incrementing
     by ``1`` if ``start`` is less than or equal to ``stop``, otherwise ``-1``.
 
-.. function:: sequence(start, stop, step) -> array(bigint)
+.. function:: sequence(start, stop, step) -> array[bigint]
 
     Generate a sequence of integers from ``start`` to ``stop``, incrementing by ``step``.
 
-.. function:: sequence(start, stop) -> array(date)
+.. function:: sequence(start, stop) -> array[date]
 
     Generate a sequence of dates from ``start`` date to ``stop`` date, incrementing
     by ``1`` day if ``start`` date is less than or equal to ``stop`` date, otherwise ``-1`` day.
 
-.. function:: sequence(start, stop, step) -> array(date)
+.. function:: sequence(start, stop, step) -> array[date]
 
     Generate a sequence of dates from ``start`` to ``stop``, incrementing by ``step``.
     The type of ``step`` can be either ``INTERVAL DAY TO SECOND`` or ``INTERVAL YEAR TO MONTH``.
 
-.. function:: sequence(start, stop, step) -> array(timestamp)
+.. function:: sequence(start, stop, step) -> array[timestamp]
 
     Generate a sequence of timestamps from ``start`` to ``stop``, incrementing by ``step``.
     The type of ``step`` can be either ``INTERVAL DAY TO SECOND`` or ``INTERVAL YEAR TO MONTH``.
@@ -350,7 +350,7 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
         SELECT trim_array(ARRAY[1, 2, 3, 4], 2);
         -- [1, 2]
 
-.. function:: transform(array(T), function(T,U)) -> array(U)
+.. function:: transform(array[T], function(T,U)) -> array[U]
 
     Returns an array that is the result of applying ``function`` to each element of ``array``::
 
@@ -360,7 +360,7 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
         SELECT transform(ARRAY ['x', 'abc', 'z'], x -> x || '0'); -- ['x0', 'abc0', 'z0']
         SELECT transform(ARRAY [ARRAY [1, NULL, 2], ARRAY[3, NULL]], a -> filter(a, x -> x IS NOT NULL)); -- [[1, 2], [3]]
 
-.. function:: zip(array1, array2[, ...]) -> array(row)
+.. function:: zip(array1, array2[, ...]) -> array[row]
 
     Merges the given arrays, element-wise, into a single array of rows. The M-th element of
     the N-th argument will be the N-th field of the M-th output element.
@@ -368,7 +368,7 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
 
         SELECT zip(ARRAY[1, 2], ARRAY['1b', null, '3b']); -- [ROW(1, '1b'), ROW(2, null), ROW(null, '3b')]
 
-.. function:: zip_with(array(T), array(U), function(T,U,R)) -> array(R)
+.. function:: zip_with(array[T], array[U], function(T,U,R)) -> array[R]
 
     Merges the two given arrays, element-wise, into a single array using ``function``.
     If one array is shorter, nulls are appended at the end to match the length of the longer array, before applying ``function``::

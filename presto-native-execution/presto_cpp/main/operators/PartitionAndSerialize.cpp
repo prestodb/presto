@@ -301,7 +301,15 @@ class PartitionAndSerializeOperator : public Operator {
     if (numPartitions_ == 1) {
       std::fill(partitions_.begin(), partitions_.end(), 0);
     } else {
-      partitionFunction_->partition(*input_, partitions_);
+      // partition() may either populate partitions_ directly (e.g. hash), or
+      // return a single partition for the entire batch without writing to
+      // partitions_ (e.g. round-robin). Handle both cases.
+      auto singlePartition =
+          partitionFunction_->partition(*input_, partitions_);
+      if (singlePartition.has_value()) {
+        std::fill(
+            partitions_.begin(), partitions_.end(), singlePartition.value());
+      }
     }
 
     // TODO Avoid copy.

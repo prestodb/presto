@@ -296,6 +296,16 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count), Optional.of(planAssertion));
     }
 
+    protected void assertUpdateExpected(@Language("SQL") String sql)
+    {
+        QueryAssertions.assertUpdate((QueryRunner) expectedQueryRunner, getSession(), sql, OptionalLong.empty(), Optional.empty());
+    }
+
+    protected void assertUpdateExpected(@Language("SQL") String sql, long count)
+    {
+        assertUpdateExpected(getSession(), sql, count);
+    }
+
     protected void assertUpdateExpected(Session session, @Language("SQL") String sql, long count)
     {
         QueryAssertions.assertUpdate((QueryRunner) expectedQueryRunner, session, sql, OptionalLong.of(count), Optional.empty());
@@ -309,6 +319,19 @@ public abstract class AbstractTestQueryFramework
     protected void assertQuerySucceeds(@Language("SQL") String sql)
     {
         QueryAssertions.assertQuerySucceeds(queryRunner, getSession(), sql);
+    }
+
+    /**
+     * Runs {@code sql} against the <em>expected</em> query runner (the runner returned by
+     * {@link #createExpectedQueryRunner()}) and asserts that it succeeds.
+     * <p>
+     * Note: the "Expected" suffix refers to <em>which runner</em> executes the query, not to
+     * the asserted outcome. Use {@link #assertQuerySucceeds(String)} to run against the primary runner.
+     */
+    protected void assertQuerySucceedsExpected(@Language("SQL") String sql)
+    {
+        QueryRunner expectedRunner = (QueryRunner) expectedQueryRunner;
+        QueryAssertions.assertQuerySucceeds(expectedRunner, expectedRunner.getDefaultSession(), sql);
     }
 
     protected void assertQueryFailsEventually(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)
@@ -339,6 +362,20 @@ public abstract class AbstractTestQueryFramework
     protected void assertQueryFails(Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
+    }
+
+    /**
+     * Runs {@code sql} against the <em>expected</em> query runner (the runner returned by
+     * {@link #createExpectedQueryRunner()}) and asserts that it fails with an error message
+     * matching {@code expectedMessageRegExp}.
+     * <p>
+     * Note: the "Expected" suffix refers to <em>which runner</em> executes the query, not to
+     * the asserted outcome. Use {@link #assertQueryFails(String, String)} to run against the primary runner.
+     */
+    protected void assertQueryFailsExpected(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, boolean usePatternMatcher)
+    {
+        QueryRunner expectedRunner = (QueryRunner) expectedQueryRunner;
+        QueryAssertions.assertQueryFails(expectedRunner, expectedRunner.getDefaultSession(), sql, expectedMessageRegExp, usePatternMatcher, false);
     }
 
     protected void assertQueryError(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
@@ -461,6 +498,14 @@ public abstract class AbstractTestQueryFramework
         assertFalse(getQueryRunner().tableExists(session, table));
     }
 
+    protected void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
+    {
+        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
+        assertUpdate(session, "DROP TABLE " + table);
+
+        assertFalse(getQueryRunner().tableExists(session, table));
+    }
+
     private static void assertErrorMessage(String sql, AssertionError error, @Language("RegExp") String regex)
     {
         if (!nullToEmpty(error.getMessage()).matches(regex)) {
@@ -471,6 +516,11 @@ public abstract class AbstractTestQueryFramework
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         return expectedQueryRunner.execute(getSession(), sql, resultTypes);
+    }
+
+    protected MaterializedResult computeExpected(Session session, @Language("SQL") String sql, List<? extends Type> resultTypes)
+    {
+        return expectedQueryRunner.execute(session, sql, resultTypes);
     }
 
     protected void executeExclusively(Runnable executionBlock)

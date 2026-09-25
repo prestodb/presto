@@ -258,6 +258,48 @@ accessed with the field reference operator ``.``
 
 Example: ``CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))``
 
+Field names may also be declared directly in the row constructor, which avoids
+repeating the field types. The ``AS`` keyword is optional, as it is in a
+``SELECT`` clause::
+
+    SELECT ROW(1 AS x, 2.0 AS y)
+    SELECT ROW(1 x, 2.0 y)
+
+Both declare the same field names as the ``CAST`` above. The field types are
+inferred from the expressions rather than declared, so here they are
+``INTEGER`` and ``DECIMAL(2,1)`` rather than ``BIGINT`` and ``DOUBLE``. This is
+useful when the field types are not known in advance, for example in generated
+SQL::
+
+    SELECT ROW(m[1] AS f1, m[2] AS f2, m[3] AS f3)
+
+Fields may be named individually; any field without a name stays anonymous::
+
+    SELECT ROW(1 AS x, 2.0)
+
+Field names follow the same rules as in the ``CAST`` form. An undelimited name
+is folded to lower case, while a delimited name keeps its spelling, so
+``ROW(1 AS Abc)`` and ``CAST(ROW(1) AS ROW(Abc INTEGER))`` produce the same
+type ``ROW("abc" INTEGER)``, and ``ROW(1 AS "Abc")`` produces
+``ROW("Abc" INTEGER)``.
+Two fields of the same row may not resolve to the same name. Field access
+remains case insensitive.
+
+When a row constructor is used directly in ``VALUES``, its field names become
+the column names of the relation::
+
+    SELECT x, y FROM (VALUES ROW(1 AS x, 2.0 AS y))
+
+If the rows of a ``VALUES`` list do not all declare the same name for a field,
+that column is left unnamed.
+
+.. note::
+
+    Declaring field names in a row constructor is an extension to the SQL
+    standard, which allows only ``ROW(<expression>, ...)``. The parenthesized
+    form, ``(1, 2.0)``, always produces an anonymous row and cannot declare
+    field names.
+
 Network Address
 ---------------
 

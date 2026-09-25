@@ -47,7 +47,7 @@ SPI Changes
 -----------
 
 * Add experimental interface ``ConnectorPlanOptimizer`` to allow connectors to
-  participate in query plan optimization (e.g., filter pushdown) (:issue:`13102`).
+  participate in query plan optimization (for example, filter pushdown) (:issue:`13102`).
 * Rename ``LogicalRowExpressions::TRUE`` and ``LogicalRowExpressions::FALSE`` to
   ``LogicalRowExpressions::TRUE_CONSTANT`` and ``LogicalRowExpressions::FALSE_CONSTANT``
   respectively to avoid collision with ``java.lang.Boolean``.

@@ -22,13 +22,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.ql.io.DefaultHivePartitioner;
 import org.apache.hadoop.hive.ql.io.HiveKey;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFHash;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveVarcharObjectInspector;
@@ -36,9 +38,6 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -101,9 +100,9 @@ public class TestHiveBucketing
         assertBucketEquals("string", "\u5f3a\u5927\u7684Presto\u5f15\u64ce"); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
         assertBucketEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF"); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
         assertBucketEquals("date", null);
-        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(1970, 1, 1).toEpochDay())).get());
-        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(2015, 11, 19).toEpochDay())).get());
-        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(1950, 11, 19).toEpochDay())).get());
+        assertBucketEquals("date", new DateWritableV2(toIntExact(LocalDate.of(1970, 1, 1).toEpochDay())).get());
+        assertBucketEquals("date", new DateWritableV2(toIntExact(LocalDate.of(2015, 11, 19).toEpochDay())).get());
+        assertBucketEquals("date", new DateWritableV2(toIntExact(LocalDate.of(1950, 11, 19).toEpochDay())).get());
         assertBucketEquals("array<double>", null);
         assertBucketEquals("array<boolean>", ImmutableList.of());
         assertBucketEquals("array<smallint>", ImmutableList.of((short) 5, (short) 8, (short) 13));
@@ -112,7 +111,7 @@ public class TestHiveBucketing
         assertBucketEquals("map<double,timestamp>", ImmutableMap.of());
         assertBucketEquals("map<string,bigint>", ImmutableMap.of("key", 123L, "key2", 123456789L, "key3", -123456L));
         assertBucketEquals("array<array<bigint>>", ImmutableList.of(ImmutableList.of(10L, 20L), ImmutableList.of(-10L, -20L), asList((Object) null)));
-        assertBucketEquals("map<array<double>,map<int,timestamp>>", ImmutableMap.of(ImmutableList.of(12.3, 45.7), ImmutableMap.of(123, new Timestamp(1_234_567_890_000L))));
+        assertBucketEquals("map<array<double>,map<int,timestamp>>", ImmutableMap.of(ImmutableList.of(12.3, 45.7), ImmutableMap.of(123, Timestamp.ofEpochMilli(1_234_567_890_000L))));
 
         // multiple bucketing columns
         assertBucketEquals(
@@ -129,15 +128,15 @@ public class TestHiveBucketing
     {
         // Test seconds
         assertBucketEquals("timestamp", null);
-        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0).toEpochSecond(ZoneOffset.UTC)));
-        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_000_000).toEpochSecond(ZoneOffset.UTC)));
-        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1950, 11, 19, 12, 34, 56, 789_000_000).toEpochSecond(ZoneOffset.UTC)));
-        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(2015, 11, 19, 7, 6, 5, 432_000_000).toEpochSecond(ZoneOffset.UTC)));
+        assertBucketEquals("timestamp", Timestamp.ofEpochMilli(1000 * LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0).toEpochSecond(ZoneOffset.UTC)));
+        assertBucketEquals("timestamp", Timestamp.ofEpochMilli(1000 * LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_000_000).toEpochSecond(ZoneOffset.UTC)));
+        assertBucketEquals("timestamp", Timestamp.ofEpochMilli(1000 * LocalDateTime.of(1950, 11, 19, 12, 34, 56, 789_000_000).toEpochSecond(ZoneOffset.UTC)));
+        assertBucketEquals("timestamp", Timestamp.ofEpochMilli(1000 * LocalDateTime.of(2015, 11, 19, 7, 6, 5, 432_000_000).toEpochSecond(ZoneOffset.UTC)));
         // Test milliseconds
-        assertBucketEquals("timestamp", new Timestamp(10 + 1000 * LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0).toEpochSecond(ZoneOffset.UTC)));
-        assertBucketEquals("timestamp", new Timestamp(22 + 1000 * LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_000_000).toEpochSecond(ZoneOffset.UTC)));
-        assertBucketEquals("timestamp", new Timestamp(100 + 1000 * LocalDateTime.of(1950, 11, 19, 12, 34, 56, 789_000_000).toEpochSecond(ZoneOffset.UTC)));
-        assertBucketEquals("timestamp", new Timestamp(250 + 1000 * LocalDateTime.of(2015, 11, 19, 7, 6, 5, 432_000_000).toEpochSecond(ZoneOffset.UTC)));
+        assertBucketEquals("timestamp", Timestamp.ofEpochMilli(10 + 1000 * LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0).toEpochSecond(ZoneOffset.UTC)));
+        assertBucketEquals("timestamp", Timestamp.ofEpochMilli(22 + 1000 * LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_000_000).toEpochSecond(ZoneOffset.UTC)));
+        assertBucketEquals("timestamp", Timestamp.ofEpochMilli(100 + 1000 * LocalDateTime.of(1950, 11, 19, 12, 34, 56, 789_000_000).toEpochSecond(ZoneOffset.UTC)));
+        assertBucketEquals("timestamp", Timestamp.ofEpochMilli(250 + 1000 * LocalDateTime.of(2015, 11, 19, 7, 6, 5, 432_000_000).toEpochSecond(ZoneOffset.UTC)));
     }
 
     private static void assertBucketEquals(String hiveTypeStrings, Object hiveValues)
@@ -287,13 +286,12 @@ public class TestHiveBucketing
             case StandardTypes.VARCHAR:
                 return Slices.utf8Slice(hiveValue.toString());
             case StandardTypes.DATE:
-                long daysSinceEpochInLocalZone = ((Date) hiveValue).toLocalDate().toEpochDay();
-                assertEquals(daysSinceEpochInLocalZone, DateWritable.dateToDays((Date) hiveValue));
+                long daysSinceEpochInLocalZone = ((Date) hiveValue).toEpochDay();
+                assertEquals(daysSinceEpochInLocalZone, DateWritableV2.dateToDays((Date) hiveValue));
                 return daysSinceEpochInLocalZone;
             case StandardTypes.TIMESTAMP:
-                Instant instant = ((Timestamp) hiveValue).toInstant();
-                long epochSecond = instant.getEpochSecond();
-                int nano = instant.getNano();
+                long epochSecond = ((Timestamp) hiveValue).toEpochSecond();
+                int nano = ((Timestamp) hiveValue).getNanos();
                 assertEquals(nano % 1_000_000, 0);
                 return epochSecond * 1000 + nano / 1_000_000;
             default:

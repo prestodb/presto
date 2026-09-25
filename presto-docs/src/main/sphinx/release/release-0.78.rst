@@ -38,7 +38,7 @@ For JDBC, the properties can be set by unwrapping the ``Connection`` as follows:
     Specifically, we are planning to require preregistration of properties so
     the user can list available session properties and so the engine can verify
     property values. Additionally, the Presto grammar will be extended to
-    allow setting properties via a query.
+    allow setting properties with a query.
 
 Hive Changes
 ------------

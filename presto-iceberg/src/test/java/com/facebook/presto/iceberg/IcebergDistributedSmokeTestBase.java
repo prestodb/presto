@@ -45,6 +45,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.UpdateProperties;
+import org.apache.parquet.column.ParquetProperties;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -79,6 +80,7 @@ import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.resol
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
@@ -87,6 +89,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -106,7 +110,15 @@ public abstract class IcebergDistributedSmokeTestBase
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.builder().setCatalogType(catalogType).build().getQueryRunner();
+        return IcebergQueryRunner.builder()
+                .setCatalogType(catalogType)
+                // These tests do not rely on long query history (no assertions on past queries,
+                // retries, or timing behavior). The aggressive limits below are chosen solely to
+                // reduce query history memory usage and are safe for all Iceberg distributed tests.
+                .setExtraProperties(ImmutableMap.of("query.max-age", "10s",
+                        "query.max-history", "10"))
+                .build()
+                .getQueryRunner();
     }
 
     @Test
@@ -761,6 +773,169 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testAddColumnWithPosition()
+    {
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_add_column_position (second INTEGER, fourth INTEGER)");
+        assertEquals(columnNames("test_add_column_position"), ImmutableList.of("second", "fourth"));
+
+        assertUpdate(session, "ALTER TABLE test_add_column_position ADD COLUMN first INTEGER FIRST");
+        assertEquals(columnNames("test_add_column_position"), ImmutableList.of("first", "second", "fourth"));
+
+        assertUpdate(session, "ALTER TABLE test_add_column_position ADD COLUMN third INTEGER AFTER second");
+        assertEquals(columnNames("test_add_column_position"), ImmutableList.of("first", "second", "third", "fourth"));
+
+        // AFTER the last column is equivalent to appending
+        assertUpdate(session, "ALTER TABLE test_add_column_position ADD COLUMN fifth INTEGER AFTER fourth");
+        assertEquals(columnNames("test_add_column_position"), ImmutableList.of("first", "second", "third", "fourth", "fifth"));
+
+        // An omitted clause appends the column
+        assertUpdate(session, "ALTER TABLE test_add_column_position ADD COLUMN sixth INTEGER");
+        assertUpdate(session, "ALTER TABLE test_add_column_position ADD COLUMN seventh INTEGER");
+        assertEquals(columnNames("test_add_column_position"), ImmutableList.of("first", "second", "third", "fourth", "fifth", "sixth", "seventh"));
+
+        // Every column gets a distinct value, so a positional mix-up between two columns cannot pass. The
+        // by-name projection is what pins the order: SELECT * expands in whatever order the columns are in
+        // and therefore matches the positional INSERT either way, while the projection below is compared
+        // against the same tuple and fails unless each name holds the value written at its position
+        assertUpdate(session, "INSERT INTO test_add_column_position VALUES (1, 2, 3, 4, 5, 6, 7)", 1);
+        assertQuery(session, "SELECT * FROM test_add_column_position", "VALUES (1, 2, 3, 4, 5, 6, 7)");
+        assertQuery(session, "SELECT first, second, third, fourth, fifth, sixth, seventh FROM test_add_column_position", "VALUES (1, 2, 3, 4, 5, 6, 7)");
+
+        dropTable(session, "test_add_column_position");
+    }
+
+    @Test
+    public void testAddColumnPositionErrors()
+    {
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_add_column_position_errors (a INTEGER, b INTEGER)");
+        assertUpdate(session, "INSERT INTO test_add_column_position_errors VALUES (1, 2)", 1);
+
+        assertQueryFails(
+                "ALTER TABLE test_add_column_position_errors ADD COLUMN c INTEGER AFTER does_not_exist",
+                ".*Column 'does_not_exist' does not exist");
+        // The failed statement must not have added the column
+        assertEquals(columnNames("test_add_column_position_errors"), ImmutableList.of("a", "b"));
+
+        // A column may not be positioned after itself either, because it does not exist yet
+        assertQueryFails(
+                "ALTER TABLE test_add_column_position_errors ADD COLUMN c INTEGER AFTER c",
+                ".*Column 'c' does not exist");
+        assertEquals(columnNames("test_add_column_position_errors"), ImmutableList.of("a", "b"));
+
+        // An existing column is an error with a position clause just as it is without one, and must not move
+        assertQueryFails(
+                "ALTER TABLE test_add_column_position_errors ADD COLUMN b INTEGER FIRST",
+                ".*Column 'b' already exists");
+        assertEquals(columnNames("test_add_column_position_errors"), ImmutableList.of("a", "b"));
+
+        // A synthesized column is exposed by getColumnHandles but is hidden and is not a field of the Iceberg
+        // schema, so it is not a usable target; the engine rejects it before the connector is reached
+        assertQueryFails(
+                "ALTER TABLE test_add_column_position_errors ADD COLUMN c INTEGER AFTER \"$path\"",
+                ".*Cannot position a column after hidden column '\\$path'");
+        assertEquals(columnNames("test_add_column_position_errors"), ImmutableList.of("a", "b"));
+
+        // IF NOT EXISTS makes the same statement a no-op, which must not reorder the existing column either
+        assertUpdate(session, "ALTER TABLE test_add_column_position_errors ADD COLUMN IF NOT EXISTS b INTEGER FIRST");
+        assertEquals(columnNames("test_add_column_position_errors"), ImmutableList.of("a", "b"));
+        assertQuery(session, "SELECT * FROM test_add_column_position_errors", "VALUES (1, 2)");
+
+        dropTable(session, "test_add_column_position_errors");
+    }
+
+    @Test
+    public void testSetColumnPosition()
+    {
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_set_column_position (a INTEGER, b INTEGER, c INTEGER)");
+        assertUpdate(session, "INSERT INTO test_set_column_position VALUES (1, 2, 3)", 1);
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("a", "b", "c"));
+
+        // Moving a column moves its values with it, so reading by name is unaffected while SELECT *, which
+        // expands in table order, reflects the new order. Every column holds a distinct value, so the two
+        // assertions together fail unless the engine and the connector agree on where each column now is
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c FIRST");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("c", "a", "b"));
+        assertQuery(session, "SELECT * FROM test_set_column_position", "VALUES (3, 1, 2)");
+        assertQuery(session, "SELECT a, b, c FROM test_set_column_position", "VALUES (1, 2, 3)");
+
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c AFTER a");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("a", "c", "b"));
+        assertQuery(session, "SELECT * FROM test_set_column_position", "VALUES (1, 3, 2)");
+
+        // With no LAST keyword, a column is moved to the end by naming the column that is currently last
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN a AFTER b");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("c", "b", "a"));
+        assertQuery(session, "SELECT * FROM test_set_column_position", "VALUES (3, 2, 1)");
+
+        // A move to where the column already is has nothing to do, rather than being an error
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN a AFTER b");
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c FIRST");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("c", "b", "a"));
+
+        // Several moves in sequence, restoring the original order
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN a FIRST");
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN b AFTER a");
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c AFTER b");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("a", "b", "c"));
+        assertQuery(session, "SELECT * FROM test_set_column_position", "VALUES (1, 2, 3)");
+
+        // Rows written after the moves round-trip in the current order
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c FIRST");
+        assertUpdate(session, "INSERT INTO test_set_column_position VALUES (30, 10, 20)", 1);
+        assertQuery(session, "SELECT a, b, c FROM test_set_column_position WHERE a = 10", "VALUES (10, 20, 30)");
+        assertQueryOrdered(session, "SELECT * FROM test_set_column_position ORDER BY a", "VALUES (3, 1, 2), (30, 10, 20)");
+
+        dropTable(session, "test_set_column_position");
+    }
+
+    @Test
+    public void testSetColumnPositionErrors()
+    {
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_set_column_position_errors (a INTEGER, b INTEGER)");
+        assertUpdate(session, "INSERT INTO test_set_column_position_errors VALUES (1, 2)", 1);
+
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN does_not_exist FIRST",
+                ".*Column 'does_not_exist' does not exist");
+
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN a AFTER does_not_exist",
+                ".*Column 'does_not_exist' does not exist");
+
+        // Iceberg rejects a move of a column after itself, and the engine rejects it for every connector
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN a AFTER a",
+                ".*Column 'a' cannot be moved after itself");
+
+        // A synthesized column is not part of the table's column order, so it can be neither moved nor a
+        // target. Both are rejected by the engine, so no connector has to guard against them, and the
+        // target is rejected with the same message as for ADD COLUMN
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN \"$path\" FIRST",
+                ".*Cannot move hidden column");
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN a AFTER \"$path\"",
+                ".*Cannot position a column after hidden column '\\$path'");
+
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_missing_table ALTER COLUMN a FIRST",
+                ".*Table '.*test_set_column_position_missing_table' does not exist");
+
+        // IF EXISTS suppresses the missing table, as it does for the other ALTER TABLE statements
+        assertUpdate(session, "ALTER TABLE IF EXISTS test_set_column_position_missing_table ALTER COLUMN a FIRST");
+
+        // No failed statement moved anything
+        assertEquals(columnNames("test_set_column_position_errors"), ImmutableList.of("a", "b"));
+        assertQuery(session, "SELECT * FROM test_set_column_position_errors", "VALUES (1, 2)");
+
+        dropTable(session, "test_set_column_position_errors");
+    }
+
+    @Test
     public void testAddColumnWithMultiplePartitionTransforms()
     {
         Session session = getSession();
@@ -864,8 +1039,7 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testSchemaEvolution()
     {
-        // TODO: Support schema evolution for PARQUET. Schema evolution should be id based.
-        testSchemaEvolution(getSession(), FileFormat.ORC);
+        testWithAllFileFormats(this::testSchemaEvolution);
     }
 
     private void testSchemaEvolution(Session session, FileFormat fileFormat)
@@ -1092,6 +1266,371 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuery(session, select + " WHERE d_bucket = 1", "VALUES(1, 4, 'Greece', 'moscow', 2, 6)");
 
         dropTable(session, "test_bucket_transform");
+    }
+
+    @DataProvider(name = "batchReadAndParquetVersions")
+    public Object[][] batchReadAndParquetVersions()
+    {
+        return new Object[][] {
+                {true, PARQUET_1_0},
+                {false, PARQUET_1_0},
+                {true, PARQUET_2_0},
+                {false, PARQUET_2_0}
+        };
+    }
+
+    @Test(dataProvider = "batchReadAndParquetVersions")
+    public void testAlterColumnType(boolean batchRead, ParquetProperties.WriterVersion writerVersion)
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            session = Session.builder(session)
+                    .setCatalogSessionProperty("iceberg", "parquet_batch_read_optimization_enabled", String.valueOf(batchRead))
+                    .setCatalogSessionProperty("iceberg", "parquet_writer_version", writerVersion.toString())
+                    .build();
+            String tableName = "test_alter_column_type_" + fileFormat.name().toLowerCase(ENGLISH);
+            String schemaName = session.getSchema().get();
+            try {
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                                "int_col INTEGER, " +
+                                "float_col REAL, " +
+                                "decimal_col DECIMAL(10, 2), " +
+                                "bigint_col BIGINT, " +
+                                "decimal_short DECIMAL(10, 3), " +
+                                "decimal_boundary DECIMAL(18, 5)" +
+                                ") WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                                "(100, REAL '1.5', DECIMAL '123.45', 1000, DECIMAL '999.123', DECIMAL '123456789012.12345'), " +
+                                "(200, REAL '2.5', DECIMAL '234.56', 2000, DECIMAL '888.456', DECIMAL '987654321098.54321'), " +
+                                "(NULL, NULL, NULL, NULL, NULL, NULL)",
+                        tableName), 3);
+
+                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES " +
+                                "(100, CAST(1.5 AS REAL), CAST(123.45 AS DECIMAL(10,2)), CAST(1000 AS BIGINT), CAST(999.123 AS DECIMAL(10,3)), CAST(123456789012.12345 AS DECIMAL(18,5))), " +
+                                "(200, CAST(2.5 AS REAL), CAST(234.56 AS DECIMAL(10,2)), CAST(2000 AS BIGINT), CAST(888.456 AS DECIMAL(10,3)), CAST(987654321098.54321 AS DECIMAL(18,5))), " +
+                                "(NULL, NULL, NULL, NULL, NULL, NULL)");
+
+                // Test 1: INTEGER → BIGINT conversion
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN int_col SET DATA TYPE BIGINT", tableName));
+                assertQuery(session, format("SELECT int_col, typeof(int_col) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(100 AS BIGINT), 'bigint'), (CAST(200 AS BIGINT), 'bigint'), (NULL, 'bigint')");
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "real"),
+                                columnDefinition("decimal_col", "decimal(10,2)"),
+                                columnDefinition("bigint_col", "bigint"),
+                                columnDefinition("decimal_short", "decimal(10,3)"),
+                                columnDefinition("decimal_boundary", "decimal(18,5)")),
+                        null,
+                        null);
+
+                // Test 2: REAL → DOUBLE conversion (with NULL handling)
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN float_col SET DATA TYPE DOUBLE", tableName));
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(10,2)"),
+                                columnDefinition("bigint_col", "bigint"),
+                                columnDefinition("decimal_short", "decimal(10,3)"),
+                                columnDefinition("decimal_boundary", "decimal(18,5)")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT float_col, typeof(float_col) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(1.5 AS DOUBLE), 'double'), (CAST(2.5 AS DOUBLE), 'double'), (NULL, 'double')");
+
+                // Test 3: DECIMAL(10,2) → DECIMAL(15,2) - ShortDecimal to ShortDecimal
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(15, 2)", tableName));
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(15,2)"),
+                                columnDefinition("bigint_col", "bigint"),
+                                columnDefinition("decimal_short", "decimal(10,3)"),
+                                columnDefinition("decimal_boundary", "decimal(18,5)")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT decimal_col, typeof(decimal_col) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(123.45 AS DECIMAL(15,2)), 'decimal(15,2)'), (CAST(234.56 AS DECIMAL(15,2)), 'decimal(15,2)'), (NULL, 'decimal(15,2)')");
+
+                // Test 4: DECIMAL(15,2) → DECIMAL(24,2) - ShortDecimal to LongDecimal (crossing precision 18 boundary)
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(24, 2)", tableName));
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(24,2)"),
+                                columnDefinition("bigint_col", "bigint"),
+                                columnDefinition("decimal_short", "decimal(10,3)"),
+                                columnDefinition("decimal_boundary", "decimal(18,5)")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT decimal_col, typeof(decimal_col) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(123.45 AS DECIMAL(24,2)), 'decimal(24,2)'), (CAST(234.56 AS DECIMAL(24,2)), 'decimal(24,2)'), (NULL, 'decimal(24,2)')");
+
+                // Test 5: DECIMAL(10,3) → DECIMAL(18,3) - ShortDecimal to ShortDecimal at boundary
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_short SET DATA TYPE DECIMAL(18, 3)", tableName));
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(24,2)"),
+                                columnDefinition("bigint_col", "bigint"),
+                                columnDefinition("decimal_short", "decimal(18,3)"),
+                                columnDefinition("decimal_boundary", "decimal(18,5)")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT decimal_short, typeof(decimal_short) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(999.123 AS DECIMAL(18,3)), 'decimal(18,3)'), (CAST(888.456 AS DECIMAL(18,3)), 'decimal(18,3)'), (NULL, 'decimal(18,3)')");
+
+                // Test 6: DECIMAL(18,5) → DECIMAL(19,5) - ShortDecimal to LongDecimal at precision 18→19 boundary
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_boundary SET DATA TYPE DECIMAL(19, 5)", tableName));
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(24,2)"),
+                                columnDefinition("bigint_col", "bigint"),
+                                columnDefinition("decimal_short", "decimal(18,3)"),
+                                columnDefinition("decimal_boundary", "decimal(19,5)")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT decimal_boundary, typeof(decimal_boundary) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(123456789012.12345 AS DECIMAL(19,5)), 'decimal(19,5)'), (CAST(987654321098.54321 AS DECIMAL(19,5)), 'decimal(19,5)'), (NULL, 'decimal(19,5)')");
+
+                // Test 7: Verify all columns together after all conversions
+                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES " +
+                                "(CAST(100 AS BIGINT), CAST(1.5 AS DOUBLE), CAST(123.45 AS DECIMAL(24,2)), CAST(1000 AS BIGINT), CAST(999.123 AS DECIMAL(18,3)), CAST(123456789012.12345 AS DECIMAL(19,5))), " +
+                                "(CAST(200 AS BIGINT), CAST(2.5 AS DOUBLE), CAST(234.56 AS DECIMAL(24,2)), CAST(2000 AS BIGINT), CAST(888.456 AS DECIMAL(18,3)), CAST(987654321098.54321 AS DECIMAL(19,5))), " +
+                                "(NULL, NULL, NULL, NULL, NULL, NULL)");
+
+                // Test 8: Verify unsupported conversion (BIGINT → INTEGER should fail)
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN bigint_col SET DATA TYPE INTEGER", tableName),
+                        "Failed to set column type: Cannot change column type: bigint_col: long -> int");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
+    }
+
+    @Test(dataProvider = "batchReadAndParquetVersions")
+    public void testAlterColumnTypeWithSpecialFloatValues(boolean batchRead, ParquetProperties.WriterVersion writerVersion)
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_special_float_" + fileFormat.name().toLowerCase(ENGLISH);
+            try {
+                session = Session.builder(session)
+                        .setCatalogSessionProperty("iceberg", "parquet_batch_read_optimization_enabled", String.valueOf(batchRead))
+                        .setCatalogSessionProperty("iceberg", "parquet_writer_version", writerVersion.toString())
+                        .build();
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (id INTEGER, float_col REAL) WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                // Test with special float values: positive, negative, zero, and very small/large values
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                                "(1, REAL '0.0'), " +
+                                "(2, REAL '-0.0'), " +
+                                "(3, REAL '3.4028235E38'), " +  // Max float
+                                "(4, REAL '-3.4028235E38'), " + // Min float
+                                "(5, REAL '1.401298464324817E-45'), " +  // Smallest positive float (actual representation)
+                                "(6, REAL '0.1')",               // Binary representation precision issue
+                        tableName), 6);
+
+                // Verify initial data
+                assertQuery(session, format("SELECT id, float_col FROM %s ORDER BY id", tableName),
+                        "VALUES " +
+                                "(1, CAST(0.0 AS REAL)), " +
+                                "(2, CAST(-0.0 AS REAL)), " +
+                                "(3, CAST(3.4028235E38 AS REAL)), " +
+                                "(4, CAST(-3.4028235E38 AS REAL)), " +
+                                "(5, CAST(1.401298464324817E-45 AS REAL)), " +
+                                "(6, CAST(0.1 AS REAL))");
+
+                // Convert REAL to DOUBLE
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN float_col SET DATA TYPE DOUBLE", tableName));
+
+                // Verify data after conversion - values should be preserved
+                // Note: When REAL is converted to DOUBLE, the float representation is preserved
+                assertQuery(session, format("SELECT id, float_col FROM %s ORDER BY id", tableName),
+                        "VALUES " +
+                                "(1, CAST(0.0 AS DOUBLE)), " +
+                                "(2, CAST(-0.0 AS DOUBLE)), " +
+                                "(3, CAST(3.4028235E38 AS DOUBLE)), " +
+                                "(4, CAST(-3.4028235E38 AS DOUBLE)), " +
+                                "(5, CAST(1.401298464324817E-45 AS DOUBLE)), " +
+                                "(6, CAST(0.1 AS DOUBLE))");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
+    }
+
+    @Test
+    public void testAlterColumnTypeWithMaxDecimalValues()
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_max_decimal_" + fileFormat.name().toLowerCase(ENGLISH);
+            try {
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                                "id INTEGER, " +
+                                "dec_max_short DECIMAL(18, 0), " +
+                                "dec_near_max DECIMAL(37, 10)" +
+                                ") WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                // Test with maximum values for ShortDecimal and near-maximum for LongDecimal
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                                "(1, DECIMAL '999999999999999999', DECIMAL '9999999999999999999999999.9999999999'), " +
+                                "(2, DECIMAL '-999999999999999999', DECIMAL '-9999999999999999999999999.9999999999'), " +
+                                "(3, DECIMAL '0', DECIMAL '0.0000000001')",
+                        tableName), 3);
+
+                // Verify initial data
+                assertQuery(session, format("SELECT * FROM %s ORDER BY id", tableName),
+                        "VALUES " +
+                                "(1, CAST(999999999999999999 AS DECIMAL(18,0)), CAST(9999999999999999999999999.9999999999 AS DECIMAL(37,10))), " +
+                                "(2, CAST(-999999999999999999 AS DECIMAL(18,0)), CAST(-9999999999999999999999999.9999999999 AS DECIMAL(37,10))), " +
+                                "(3, CAST(0 AS DECIMAL(18,0)), CAST(0.0000000001 AS DECIMAL(37,10)))");
+
+                // Convert ShortDecimal(18,0) to LongDecimal(19,0)
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN dec_max_short SET DATA TYPE DECIMAL(19, 0)", tableName));
+
+                // Verify data preserved after crossing ShortDecimal/LongDecimal boundary
+                assertQuery(session, format("SELECT id, dec_max_short FROM %s ORDER BY id", tableName),
+                        "VALUES " +
+                                "(1, CAST(999999999999999999 AS DECIMAL(19,0))), " +
+                                "(2, CAST(-999999999999999999 AS DECIMAL(19,0))), " +
+                                "(3, CAST(0 AS DECIMAL(19,0)))");
+
+                // Increase LongDecimal precision
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN dec_near_max SET DATA TYPE DECIMAL(38, 10)", tableName));
+
+                // Verify data preserved
+                assertQuery(session, format("SELECT id, dec_near_max FROM %s ORDER BY id", tableName),
+                        "VALUES " +
+                                "(1, CAST(9999999999999999999999999.9999999999 AS DECIMAL(38,10))), " +
+                                "(2, CAST(-9999999999999999999999999.9999999999 AS DECIMAL(38,10))), " +
+                                "(3, CAST(0.0000000001 AS DECIMAL(38,10)))");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
+    }
+
+    @Test
+    public void testAlterColumnTypeUnsupportedConversions()
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_unsupported_" + fileFormat.name().toLowerCase(ENGLISH);
+            try {
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                                "bigint_col BIGINT, " +
+                                "double_col DOUBLE, " +
+                                "decimal_col DECIMAL(20, 5)" +
+                                ") WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES (1000, 1.5, DECIMAL '123.45')",
+                        tableName), 1);
+
+                // Test unsupported: BIGINT → INTEGER (narrowing)
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN bigint_col SET DATA TYPE INTEGER", tableName),
+                        "Failed to set column type: Cannot change column type: bigint_col: long -> int");
+
+                // Test unsupported: DOUBLE → REAL (narrowing)
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN double_col SET DATA TYPE REAL", tableName),
+                        "Failed to set column type: Cannot change column type: double_col: double -> float");
+
+                // Test unsupported: Decimal scale change
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(20, 3)", tableName),
+                        "Failed to set column type: Cannot change column type: decimal_col: decimal\\(20, 5\\) -> decimal\\(20, 3\\)");
+
+                // Test unsupported: Decimal precision decrease
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(15, 5)", tableName),
+                        "Failed to set column type: Cannot change column type: decimal_col: decimal\\(20, 5\\) -> decimal\\(15, 5\\)");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
+    }
+
+    @Test
+    public void testAlterColumnTypeMultipleRowsWithNulls()
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_multiple_nulls_" + fileFormat.name().toLowerCase(ENGLISH);
+            try {
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                                "id INTEGER, " +
+                                "int_col INTEGER, " +
+                                "float_col REAL, " +
+                                "decimal_col DECIMAL(10, 2)" +
+                                ") WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                // Insert multiple rows with various NULL patterns
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                                "(1, 100, REAL '1.5', DECIMAL '123.45'), " +
+                                "(2, NULL, REAL '2.5', DECIMAL '234.56'), " +
+                                "(3, 300, NULL, DECIMAL '345.67'), " +
+                                "(4, 400, REAL '4.5', NULL), " +
+                                "(5, NULL, NULL, NULL), " +
+                                "(6, 600, REAL '6.5', DECIMAL '678.90')",
+                        tableName), 6);
+
+                // Convert all columns
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN int_col SET DATA TYPE BIGINT", tableName));
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN float_col SET DATA TYPE DOUBLE", tableName));
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(20, 2)", tableName));
+
+                // Verify all data including NULLs are preserved
+                assertQuery(session, format("SELECT * FROM %s ORDER BY id", tableName),
+                        "VALUES " +
+                                "(1, CAST(100 AS BIGINT), CAST(1.5 AS DOUBLE), CAST(123.45 AS DECIMAL(20,2))), " +
+                                "(2, NULL, CAST(2.5 AS DOUBLE), CAST(234.56 AS DECIMAL(20,2))), " +
+                                "(3, CAST(300 AS BIGINT), NULL, CAST(345.67 AS DECIMAL(20,2))), " +
+                                "(4, CAST(400 AS BIGINT), CAST(4.5 AS DOUBLE), NULL), " +
+                                "(5, NULL, NULL, NULL), " +
+                                "(6, CAST(600 AS BIGINT), CAST(6.5 AS DOUBLE), CAST(678.90 AS DECIMAL(20,2)))");
+
+                // Verify NULL counts
+                assertQuery(session, format("SELECT COUNT(*) FROM %s WHERE int_col IS NULL", tableName), "VALUES (2)");
+                assertQuery(session, format("SELECT COUNT(*) FROM %s WHERE float_col IS NULL", tableName), "VALUES (2)");
+                assertQuery(session, format("SELECT COUNT(*) FROM %s WHERE decimal_col IS NULL", tableName), "VALUES (2)");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
     }
 
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
@@ -1683,36 +2222,40 @@ public abstract class IcebergDistributedSmokeTestBase
                 "Unsupported type for 'bucket': 1000: col_timestamp_tz_bucket: bucket\\[2\\]\\(1\\)");
         assertUpdate("drop table if exists test_bucket_transform_timestamp_tz");
 
-        //TODO: Not yet support year transform for timestamp with time zone, which was supported by Iceberg
+        // Test year transform for timestamp with time zone
         assertUpdate("create table test_year_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
                 "with (partitioning = ARRAY['year(col_timestamp_tz)'])");
-        assertQueryFails("insert into test_year_transform_timestamp_tz " +
-                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
-                "Unsupported type for 'year': 1000: col_timestamp_tz_year: year\\(1\\)");
+        assertUpdate("insert into test_year_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))", 1);
+        assertQuery("select * from test_year_transform_timestamp_tz",
+                "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))");
         assertUpdate("drop table if exists test_year_transform_timestamp_tz");
 
-        //TODO: Not yet support month transform for timestamp with time zone, which was supported by Iceberg
+        // Test month transform for timestamp with time zone
         assertUpdate("create table test_month_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
                 "with (partitioning = ARRAY['month(col_timestamp_tz)'])");
-        assertQueryFails("insert into test_month_transform_timestamp_tz " +
-                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
-                "Unsupported type for 'month': 1000: col_timestamp_tz_month: month\\(1\\)");
+        assertUpdate("insert into test_month_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))", 1);
+        assertQuery("select * from test_month_transform_timestamp_tz",
+                "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))");
         assertUpdate("drop table if exists test_month_transform_timestamp_tz");
 
-        //TODO: Not yet support day transform for timestamp with time zone, which was supported by Iceberg
+        // Test day transform for timestamp with time zone
         assertUpdate("create table test_day_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
                 "with (partitioning = ARRAY['day(col_timestamp_tz)'])");
-        assertQueryFails("insert into test_day_transform_timestamp_tz " +
-                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
-                "Unsupported type for 'day': 1000: col_timestamp_tz_day: day\\(1\\)");
+        assertUpdate("insert into test_day_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))", 1);
+        assertQuery("select * from test_day_transform_timestamp_tz",
+                "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))");
         assertUpdate("drop table if exists test_day_transform_timestamp_tz");
 
-        //TODO: Not yet support hour transform for timestamp with time zone, which was supported by Iceberg
+        // Test hour transform for timestamp with time zone
         assertUpdate("create table test_hour_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
                 "with (partitioning = ARRAY['hour(col_timestamp_tz)'])");
-        assertQueryFails("insert into test_hour_transform_timestamp_tz " +
-                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
-                "Unsupported type for 'hour': 1000: col_timestamp_tz_hour: hour\\(1\\)");
+        assertUpdate("insert into test_hour_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))", 1);
+        assertQuery("select * from test_hour_transform_timestamp_tz",
+                "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))");
         assertUpdate("drop table if exists test_hour_transform_timestamp_tz");
     }
 
@@ -1758,12 +2301,10 @@ public abstract class IcebergDistributedSmokeTestBase
                 "(time '07:31:55.425', 7)";
         assertUpdate(session, insertSql, 7);
 
-        assertQuery(session, "SELECT COUNT(*) FROM \"test_bucket_transform_on_time$partitions\"", "SELECT 4");
+        assertQuery(session, "SELECT COUNT(*) FROM \"test_bucket_transform_on_time$partitions\"", "SELECT 2");
 
-        assertQuery(session, select + " WHERE a_bucket = 0", "VALUES(0, 2, time '00:00:00.000', time '12:13:14.345', 3, 6)");
-        assertQuery(session, select + " WHERE a_bucket = 1", "VALUES(1, 1, time '23:23:59.999', time '23:23:59.999', 5, 5)");
-        assertQuery(session, select + " WHERE a_bucket = 2", "VALUES(2, 1, time '21:22:50.002', time '21:22:50.002', 2, 2)");
-        assertQuery(session, select + " WHERE a_bucket = 3", "VALUES(3, 3, time '00:00:01.001', time '07:31:55.425', 1, 7)");
+        assertQuery(session, select + " WHERE a_bucket = 0", "VALUES(0, 3, time '00:00:00.000', time '12:13:14.345', 3, 6)");
+        assertQuery(session, select + " WHERE a_bucket = 2", "VALUES(2, 4, time '01:02:03.123', time '23:23:59.999', 1, 7)");
 
         assertQuery(session, "select * from test_bucket_transform_on_time where a = time '01:02:03.123'",
                 "VALUES(time '01:02:03.123', 1)");
@@ -1908,7 +2449,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
         // Test with delete_mode set to copy-on-write
         String tableNameCow = "test_delete_cow";
-        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. Configure write.delete.mode table property to allow row level deletions.";
+        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. To enable row level deletions, change the write.delete.mode table property to `merge-on-read`.";
 
         assertUpdate("CREATE TABLE " + tableNameCow + " (id integer, value integer) WITH (\"format-version\" = '2', \"write.delete.mode\" = 'copy-on-write')");
         assertUpdate("INSERT INTO " + tableNameCow + " VALUES (1, 5)", 1);
@@ -1946,7 +2487,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
         // Test with delete_mode set to copy-on-write
         String tableNameCow = "test_delete_partitioned_cow";
-        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. Configure write.delete.mode table property to allow row level deletions.";
+        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. To enable row level deletions, change the write.delete.mode table property to `merge-on-read`.";
 
         assertUpdate("CREATE TABLE " + tableNameCow + " (id integer, value integer) WITH (\"format-version\" = '2', partitioning = Array['id'], \"write.delete.mode\" = 'copy-on-write')");
         assertUpdate("INSERT INTO " + tableNameCow + " VALUES (1, 10)", 1);
@@ -2085,7 +2626,7 @@ public abstract class IcebergDistributedSmokeTestBase
             assertQueryFails("DELETE FROM " + tableName + " WHERE c > 3", errorMessage);
 
             // Call procedure rewrite_data_files without filter to rewrite all data files
-            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => '" + schemaName + "')", 5);
+            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => '" + schemaName + "', options => map(array['rewrite-all'], array['true']))", 5);
 
             // Then we can do metadata delete on column `c`, because all data files are rewritten under new partition spec
             assertUpdate("DELETE FROM " + tableName + " WHERE c > 3", 2);
@@ -2115,7 +2656,7 @@ public abstract class IcebergDistributedSmokeTestBase
             assertQueryFails("DELETE FROM " + tableName + " WHERE c > 3", errorMessage);
 
             // Call procedure rewrite_data_files with filter to rewrite data files under the prior partition spec
-            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => '" + schemaName + "', filter => 'a in (1, 2)')", 2);
+            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => '" + schemaName + "', filter => 'a in (1, 2)', options => map(array['rewrite-all'], array['true']))", 2);
 
             // Then we can do metadata delete on column `c`, because all data files are now under new partition spec
             assertUpdate("DELETE FROM " + tableName + " WHERE c > 3", 2);
@@ -2470,7 +3011,9 @@ public abstract class IcebergDistributedSmokeTestBase
             Optional<String> commentDescription,
             Map<String, String> propertyDescriptions)
     {
-        MaterializedResult showCreateTable = computeActual(format("SHOW CREATE TABLE %s.%s.%s", catalog, schema, table));
+        // Quote schema name if it contains dots (nested namespace) and is not already quoted
+        String schemaIdentifier = schema.contains(".") && !schema.startsWith("\"") ? format("\"%s\"", schema) : schema;
+        MaterializedResult showCreateTable = computeActual(format("SHOW CREATE TABLE %s.%s.%s", catalog, schemaIdentifier, table));
         String createTableSql = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
 
         SqlParser parser = new SqlParser();
@@ -2498,11 +3041,13 @@ public abstract class IcebergDistributedSmokeTestBase
                     assertEquals(comment, node.getComment().get());
                 });
 
-                ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
-                node.getProperties().forEach(property -> {
-                    propertiesBuilder.put(property.getName().getValue(), property.getValue().toString());
-                });
-                assertEquals(propertyDescriptions, propertiesBuilder.build());
+                if (propertyDescriptions != null) {
+                    ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
+                    node.getProperties().forEach(property -> {
+                        propertiesBuilder.put(property.getName().getValue(), property.getValue().toString());
+                    });
+                    assertEquals(propertyDescriptions, propertiesBuilder.build());
+                }
                 return null;
             }
         }, null);
@@ -2566,5 +3111,50 @@ public abstract class IcebergDistributedSmokeTestBase
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_pushdown_subfields_dml");
         }
+    }
+
+    @Test
+    public void testAggregatePushDownForCountMinMax()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session aggregatePushDownEnabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "true")
+                .build();
+        Session aggregatePushDownDisabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "false")
+                .build();
+
+        String tableName = "test_lineitem_with_partition";
+        try {
+            queryRunner.execute("CREATE TABLE " + tableName +
+                    " with (partitioning = ARRAY['suppkey'])" +
+                    " as select * from tpch.tiny.lineitem");
+
+            @Language("SQL") String query = "select count(*), min(orderkey), max(orderkey), min(shipdate), max(commitdate) from " + tableName;
+            MaterializedResult resultWithAggregatePushDown = getQueryRunner().execute(aggregatePushDownEnabled, query);
+            MaterializedResult resultWithoutAggregatePushDown = getQueryRunner().execute(aggregatePushDownDisabled, query);
+            Assert.assertEquals(resultWithAggregatePushDown, resultWithoutAggregatePushDown);
+
+            @Language("SQL") String queryWithFilter = "select count(*), min(orderkey), max(orderkey), min(shipdate), max(commitdate) from " + tableName +
+                    " where suppkey > 50";
+            resultWithAggregatePushDown = getQueryRunner().execute(aggregatePushDownEnabled, queryWithFilter);
+            resultWithoutAggregatePushDown = getQueryRunner().execute(aggregatePushDownDisabled, queryWithFilter);
+            Assert.assertEquals(resultWithAggregatePushDown, resultWithoutAggregatePushDown);
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    /**
+     * Returns the table's column names in table order, resolved against the default session's schema.
+     * {@code assertQuery} compares results as an unordered multiset, so asserting order requires
+     * comparing the materialized rows directly.
+     */
+    protected List<String> columnNames(String tableName)
+    {
+        return computeActual("SHOW COLUMNS FROM " + tableName).getMaterializedRows().stream()
+                .map(row -> (String) row.getField(0))
+                .collect(toImmutableList());
     }
 }

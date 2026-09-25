@@ -13,18 +13,29 @@
  */
 package com.facebook.presto.functionNamespace.rest;
 
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.functionNamespace.ForRestServer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static com.facebook.presto.server.CommonInternalCommunicationModule.bindInternalAuth;
+import static java.util.Objects.requireNonNull;
 
 public class RestBasedCommunicationModule
         implements Module
 {
+    private final AuthClientConfigs authClientConfigs;
+
+    public RestBasedCommunicationModule(AuthClientConfigs authClientConfigs)
+    {
+        this.authClientConfigs = requireNonNull(authClientConfigs, "authClientConfigs is null");
+    }
+
     @Override
     public void configure(Binder binder)
     {
+        bindInternalAuth(binder, authClientConfigs);
         httpClientBinder(binder).bindHttpClient("restServer", ForRestServer.class);
     }
 }

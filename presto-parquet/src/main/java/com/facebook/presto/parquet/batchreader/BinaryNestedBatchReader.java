@@ -22,6 +22,7 @@ import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValu
 import com.facebook.presto.parquet.reader.ColumnChunk;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,7 +38,7 @@ public class BinaryNestedBatchReader
     }
 
     @Override
-    protected ColumnChunk readNestedWithNull()
+    protected ColumnChunk readNestedWithNull(Optional<DateTimeZone> timezone)
             throws IOException
     {
         int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
@@ -114,7 +115,7 @@ public class BinaryNestedBatchReader
     }
 
     @Override
-    protected ColumnChunk readNestedNoNull()
+    protected ColumnChunk readNestedNoNull(Optional<DateTimeZone> timezone)
             throws IOException
     {
         int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();

@@ -47,10 +47,9 @@ public class NativePlanCheckerProviderFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new NativePlanCheckerModule(context.getNodeManager(), context.getSimplePlanFragmentSerde()),
-                    new NativeSidecarCommunicationModule());
+                    new NativeSidecarCommunicationModule(context.getAuthClientConfigs()));
 
             Injector injector = app
-                    .noStrictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(properties)
                     .quiet()

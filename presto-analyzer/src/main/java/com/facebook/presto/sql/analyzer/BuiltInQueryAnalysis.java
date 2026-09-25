@@ -55,6 +55,12 @@ public class BuiltInQueryAnalysis
     }
 
     @Override
+    public Optional<String> getMaterializedViewRewrittenQuery()
+    {
+        return analysis.getMaterializedViewRewrittenQuery();
+    }
+
+    @Override
     public Map<FunctionKind, Set<String>> getInvokedFunctions()
     {
         return analysis.getInvokedFunctions();

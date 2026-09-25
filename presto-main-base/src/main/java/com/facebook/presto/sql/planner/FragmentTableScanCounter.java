@@ -17,6 +17,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 
 import java.util.Collection;
 
@@ -56,6 +57,18 @@ public final class FragmentTableScanCounter
         public Integer visitTableScan(TableScanNode node, Void context)
         {
             return 1;
+        }
+
+        @Override
+        public Integer visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
+        {
+            // Table functions without a source are leaf nodes that generate data,
+            // similar to table scans. They should be counted to ensure proper
+            // fragment separation in UNION ALL scenarios.
+            if (!node.getSource().isPresent()) {
+                return 1;
+            }
+            return visitPlan(node, context);
         }
 
         @Override

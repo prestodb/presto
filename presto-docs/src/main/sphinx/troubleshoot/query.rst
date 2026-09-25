@@ -9,15 +9,15 @@ This page presents problems encountered with queries in Presto.
     :backlinks: none
     :depth: 1
 
-``Request Header Fields Too Large``
------------------------------------
+Request Header Fields Too Large
+-------------------------------
 
-Problem
-^^^^^^^
+.. rubric:: Problem
 
 A query may return an error similar to the following example: 
 
 .. code-block:: none
+   :class: no-copy
 
     Error running command: Error starting query at http://localhost:8080/v1/statement 
     returned an invalid response: JsonResponse{statusCode=431, statusMessage=Request 
@@ -31,20 +31,16 @@ Some examples of how this can happen are:
 * putting a lot of information in ``clientInfo``
 * large security keys being sent in the session
 
-If such an error happens, increasing the value of ``http-server.max-request-header-size``  
-can help avoid it.
+.. rubric:: Solution
 
-Solution
-^^^^^^^^
+If such an error happens, increasing the value of ``http-server.max-request-header-size`` can help avoid it.
+Edit ``config.properties`` for the Presto coordinator, and set the value to a larger size. For example:
 
-Edit ``config.properties`` for the Presto coordinator, and set the value of the 
-``http-server.max-request-header-size`` configuration property to a larger size. For example:
-
-.. code-block:: none
+.. code-block:: properties
 
     http-server.max-request-header-size=5MB
 
 See :ref:`admin/properties:\`\`http-server.max-request-header-size\`\``.
 
-Alternatively, avoid using prepared statements for large queries. Prepared statements
-place the SQL template in request headers, which can exceed the header size limit. 
+Alternatively, avoid using prepared statements for large queries.
+Prepared statements place the SQL template in request headers, which can exceed the header size limit.

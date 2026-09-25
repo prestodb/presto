@@ -48,8 +48,8 @@ Hive Changes
 * Do not treat file system errors as corruptions for ORC.
 * Prevent reads from tables or partitions with ``object_not_readable`` attribute set.
 * Add support for validating ORC files after they have been written. This behavior can
-  be turned on via the ``hive.orc.writer.validate`` configuration property.
-* Expose ORC writer statistics via JMX.
+  be turned on with the ``hive.orc.writer.validate`` configuration property.
+* Expose ORC writer statistics through JMX.
 * Add configuration options to control ORC writer min/max rows per stripe and row group,
   maximum stripe size, and memory limit for dictionaries.
 * Allow reading empty ORC files.

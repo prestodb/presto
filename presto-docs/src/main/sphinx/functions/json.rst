@@ -115,7 +115,7 @@ JSON Functions
 --------------
 .. function:: is_json_scalar(json) -> boolean
 
-    Determine if ``json`` is a scalar (i.e. a JSON number, a JSON string, ``true``, ``false`` or ``null``)::
+    Determine if ``json`` is a scalar (a JSON number, a JSON string, ``true``, ``false`` or ``null``)::
 
         SELECT is_json_scalar('1'); -- true
         SELECT is_json_scalar('[1, 2, 3]'); -- false

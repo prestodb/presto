@@ -1,2 +1,3 @@
+com.facebook.presto.testng.services.JacksonStreamConstraintsListener
 com.facebook.presto.testng.services.LogTestDurationListener
 com.facebook.presto.testng.services.ReportMultiThreadedBeforeOrAfterMethod

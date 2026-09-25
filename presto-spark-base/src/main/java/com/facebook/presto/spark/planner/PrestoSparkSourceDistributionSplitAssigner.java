@@ -30,6 +30,7 @@ import java.util.PriorityQueue;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxSparkInputPartitionCountForAutoTune;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxSplitsCountPerSparkPartition;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxSplitsDataSizePerSparkPartition;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMinSparkInputPartitionCountForAutoTune;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkInitialPartitionCount;
@@ -48,6 +49,7 @@ public class PrestoSparkSourceDistributionSplitAssigner
 
     private final int maxBatchSize;
     private final long maxSplitsSizePerPartitionInBytes;
+    private final int maxSplitsCountPerPartition;
     private final int initialPartitionCount;
     private final boolean partitionCountAutoTuneEnabled;
     private final int minSparkInputPartitionCountForAutoTune;
@@ -56,6 +58,8 @@ public class PrestoSparkSourceDistributionSplitAssigner
     private final PriorityQueue<Partition> queue = new PriorityQueue<>();
     private int sequenceId;
     private int partitionCount;
+    private int roundRobinWindowStart = -1;
+    private long roundRobinWindowAssignedSplitCount;
 
     public static PrestoSparkSourceDistributionSplitAssigner create(Session session, PlanNodeId tableScanNodeId, SplitSource splitSource, int startSequenceId)
     {
@@ -64,6 +68,7 @@ public class PrestoSparkSourceDistributionSplitAssigner
                 splitSource,
                 getSplitAssignmentBatchSize(session),
                 getMaxSplitsDataSizePerSparkPartition(session).toBytes(),
+                getMaxSplitsCountPerSparkPartition(session),
                 getSparkInitialPartitionCount(session),
                 isSparkPartitionCountAutoTuneEnabled(session),
                 getMinSparkInputPartitionCountForAutoTune(session),
@@ -76,6 +81,7 @@ public class PrestoSparkSourceDistributionSplitAssigner
             SplitSource splitSource,
             int maxBatchSize,
             long maxSplitsSizePerPartitionInBytes,
+            int maxSplitsCountPerPartition,
             int initialPartitionCount,
             boolean partitionCountAutoTuneEnabled,
             int minSparkInputPartitionCountForAutoTune,
@@ -89,6 +95,9 @@ public class PrestoSparkSourceDistributionSplitAssigner
         this.maxSplitsSizePerPartitionInBytes = maxSplitsSizePerPartitionInBytes;
         checkArgument(maxSplitsSizePerPartitionInBytes > 0,
                 "maxSplitsSizePerPartitionInBytes must be greater than zero: %s", maxSplitsSizePerPartitionInBytes);
+        this.maxSplitsCountPerPartition = maxSplitsCountPerPartition;
+        checkArgument(maxSplitsCountPerPartition > 0,
+                "maxSplitsCountPerPartition must be greater than zero: %s", maxSplitsCountPerPartition);
         this.initialPartitionCount = initialPartitionCount;
         checkArgument(initialPartitionCount > 0,
                 "initialPartitionCount must be greater then zero: %s", initialPartitionCount);
@@ -135,9 +144,7 @@ public class PrestoSparkSourceDistributionSplitAssigner
         boolean splitsDataSizeAvailable = splits.stream()
                 .allMatch(split -> split.getSplit().getConnectorSplit().getSplitSizeInBytes().isPresent());
         if (!splitsDataSizeAvailable) {
-            for (int splitIndex = 0; splitIndex < splits.size(); splitIndex++) {
-                result.put(splitIndex % initialPartitionCount, splits.get(splitIndex));
-            }
+            assignSplitsRoundRobin(splits, result);
             return result;
         }
 
@@ -152,9 +159,11 @@ public class PrestoSparkSourceDistributionSplitAssigner
                 int partitionId;
                 long splitSizeInBytes = splits.get(splitIndex).getSplit().getConnectorSplit().getSplitSizeInBytes().getAsLong();
 
-                if ((partitionCount >= minSparkInputPartitionCountForAutoTune &&
-                        queue.peek().getSplitsInBytes() + splitSizeInBytes <= maxSplitsSizePerPartitionInBytes)
-                        || partitionCount == maxSparkInputPartitionCountForAutoTune) {
+                discardPartitionsAtSplitCountLimit();
+                if (!queue.isEmpty() &&
+                        ((partitionCount >= minSparkInputPartitionCountForAutoTune &&
+                                queue.peek().getSplitsInBytes() + splitSizeInBytes <= maxSplitsSizePerPartitionInBytes)
+                                || partitionCount >= maxSparkInputPartitionCountForAutoTune)) {
                     Partition partition = queue.poll();
                     partitionId = partition.getPartitionId();
                     partition.assignSplitWithSize(splitSizeInBytes);
@@ -176,7 +185,8 @@ public class PrestoSparkSourceDistributionSplitAssigner
                 int partitionId;
                 long splitSizeInBytes = splits.get(splitIndex).getSplit().getConnectorSplit().getSplitSizeInBytes().getAsLong();
 
-                if (partitionCount < initialPartitionCount) {
+                discardPartitionsAtSplitCountLimit();
+                if (partitionCount < initialPartitionCount || queue.isEmpty()) {
                     partitionId = partitionCount++;
                     Partition newPartition = new Partition(partitionId);
                     newPartition.assignSplitWithSize(splitSizeInBytes);
@@ -196,6 +206,40 @@ public class PrestoSparkSourceDistributionSplitAssigner
         return result;
     }
 
+    /**
+     * Round robins splits over a window of {@link #initialPartitionCount} partitions. Once every partition in the
+     * window holds {@link #maxSplitsCountPerPartition} splits a fresh window is reserved, so that no partition
+     * exceeds the split count limit. Windows are reserved out of {@link #partitionCount}, the same counter the size
+     * based paths allocate from, because a split source may report sizes for some batches and not others; sharing the
+     * counter keeps the two paths from writing to the same partition and busting the limit between them. Both the
+     * cursor and the window are kept across batches, otherwise the limit would only hold within a single batch.
+     */
+    private void assignSplitsRoundRobin(List<ScheduledSplit> splits, HashMultimap<Integer, ScheduledSplit> result)
+    {
+        long maxSplitsCountPerWindow = (long) initialPartitionCount * maxSplitsCountPerPartition;
+        for (ScheduledSplit split : splits) {
+            if (roundRobinWindowStart < 0 || roundRobinWindowAssignedSplitCount == maxSplitsCountPerWindow) {
+                roundRobinWindowStart = partitionCount;
+                partitionCount += initialPartitionCount;
+                roundRobinWindowAssignedSplitCount = 0;
+            }
+            result.put(roundRobinWindowStart + (int) (roundRobinWindowAssignedSplitCount % initialPartitionCount), split);
+            roundRobinWindowAssignedSplitCount++;
+        }
+    }
+
+    /**
+     * A partition that reached the split count limit can never accept another split, so it is dropped from the queue
+     * of partitions available for assignment. Partitions are only ever dropped from the head, and the split count of a
+     * partition never decreases, so no partition below the limit is discarded.
+     */
+    private void discardPartitionsAtSplitCountLimit()
+    {
+        while (!queue.isEmpty() && queue.peek().getSplitCount() >= maxSplitsCountPerPartition) {
+            queue.poll();
+        }
+    }
+
     @Override
     public void close()
     {
@@ -207,6 +251,7 @@ public class PrestoSparkSourceDistributionSplitAssigner
     {
         private final int partitionId;
         private long splitsInBytes;
+        private int splitCount;
 
         public Partition(int partitionId)
         {
@@ -221,11 +266,17 @@ public class PrestoSparkSourceDistributionSplitAssigner
         public void assignSplitWithSize(long splitSizeInBytes)
         {
             splitsInBytes += splitSizeInBytes;
+            splitCount++;
         }
 
         public long getSplitsInBytes()
         {
             return splitsInBytes;
+        }
+
+        public int getSplitCount()
+        {
+            return splitCount;
         }
 
         @Override

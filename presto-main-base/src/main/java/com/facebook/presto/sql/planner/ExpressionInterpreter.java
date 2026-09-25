@@ -151,7 +151,7 @@ import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
@@ -565,7 +565,7 @@ public class ExpressionInterpreter
             }
 
             if (expressions.size() == 1) {
-                return getOnlyElement(expressions);
+                return expressions.stream().collect(onlyElement());
             }
             return new CoalesceExpression(expressions);
         }
@@ -1129,7 +1129,7 @@ public class ExpressionInterpreter
             Object value = process(node.getExpression(), context);
             Type targetType = metadata.getType(parseTypeSignature(node.getType()));
             if (targetType == null) {
-                throw new IllegalArgumentException("Unsupported type: " + node.getType());
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported type: " + node.getType());
             }
 
             if (value == null) {
@@ -1203,15 +1203,20 @@ public class ExpressionInterpreter
         {
             RowType rowType = (RowType) type(node);
             List<Type> parameterTypes = rowType.getTypeParameters();
-            List<Expression> arguments = node.getItems();
+            List<Row.Field> fields = node.getFields();
 
-            int cardinality = arguments.size();
+            int cardinality = fields.size();
             List<Object> values = new ArrayList<>(cardinality);
-            for (Expression argument : arguments) {
-                values.add(process(argument, context));
+            for (Row.Field field : fields) {
+                values.add(process(field.getExpression(), context));
             }
             if (hasUnresolvedValue(values)) {
-                return new Row(toExpressions(values, parameterTypes));
+                List<Expression> expressions = toExpressions(values, parameterTypes);
+                ImmutableList.Builder<Row.Field> rewritten = ImmutableList.builder();
+                for (int i = 0; i < cardinality; i++) {
+                    rewritten.add(new Row.Field(fields.get(i).getLocation(), fields.get(i).getName(), expressions.get(i)));
+                }
+                return new Row(rewritten.build());
             }
             else {
                 BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);

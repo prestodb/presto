@@ -285,6 +285,38 @@ public class TestHistoryBasedStatsTracking
     }
 
     @Test
+    public void testStatsOfZeroOutputRowsAreNotTracked()
+    {
+        String sql = "SELECT * FROM nation where substr(name, 1, 1) = 'Z'";
+
+        // Every node of this query produces no rows, which is more often an aberration than a property of the query,
+        // so no statistics are written at all
+        executeAndNoHistoryWritten(sql, createSession());
+        assertPlan(sql, anyTree(node(FilterNode.class, any()).withOutputRowCount(Double.NaN)));
+    }
+
+    @Test
+    public void testStatsOfFailedStagesAreInvalidated()
+    {
+        Session session = Session.builder(createSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .build();
+        String sql = "SELECT o.orderstatus, count(*) FROM orders o JOIN lineitem l ON o.orderkey = l.orderkey WHERE length(o.comment) > 10 GROUP BY 1";
+        // Same aggregation over the same join, but the stage computing the aggregation fails
+        String failingSql = "SELECT o.orderstatus, if(count(*) = 0, 1, fail(1, 'failed')) FROM orders o JOIN lineitem l ON o.orderkey = l.orderkey WHERE length(o.comment) > 10 GROUP BY 1";
+
+        executeAndTrackHistory(sql, session);
+        assertPlan(session, sql, anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).with(validOutputRowCountMatcher())));
+
+        assertQueryFails(session, failingSql, ".*failed.*");
+        getHistoryProvider().waitProcessQueryEvents();
+
+        // History of the aggregation is dropped, since the stage computing it no longer completes
+        assertPlan(session, sql, anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+    }
+
+    @Test
     public void testUnion()
     {
         assertPlan(

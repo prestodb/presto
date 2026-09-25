@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner;
+import com.facebook.presto.sidecar.SidecarRetryConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -279,11 +280,6 @@ public class TestNativeExpressionInterpreter
     @Test(enabled = false)
     public void testVarbinaryLiteral() {}
 
-    // TODO: current timestamp returns the session timestamp and this should be evaluated on the sidecar plugin.
-    @Override
-    @Test(enabled = false)
-    public void testCurrentTimestamp() {}
-
     /// TODO: current_user should be evaluated in the sidecar plugin and not in the sidecar.
     @Override
     @Test(enabled = false)
@@ -426,6 +422,7 @@ public class TestNativeExpressionInterpreter
             binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
             binder.install(new ThriftCodecModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
+            configBinder(binder).bindConfig(SidecarRetryConfig.class, SidecarRetryConfig.CONFIG_PREFIX);
 
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             newSetBinder(binder, Type.class);
@@ -434,7 +431,7 @@ public class TestNativeExpressionInterpreter
             newSetBinder(binder, BlockEncoding.class);
             jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
             jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
-            jsonCodecBinder(binder).bindListJsonCodec(RowExpression.class);
+            jsonCodecBinder(binder).bindJsonCodec(ExpressionOptimizationRequest.class);
             jsonCodecBinder(binder).bindListJsonCodec(RowExpressionOptimizationResult.class);
 
             httpClientBinder(binder).bindHttpClient("sidecar", ForSidecarInfo.class);

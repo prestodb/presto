@@ -49,7 +49,7 @@ public class DeltaParquetDereferencePushDown
     {
         checkArgument(columnHandle instanceof DeltaColumnHandle,
                 "Expected Delta column handle, instead got: " + columnHandle.getClass());
-        return ((DeltaColumnHandle) columnHandle).getName();
+        return ((DeltaColumnHandle) columnHandle).getLogicalName();
     }
 
     @Override
@@ -58,6 +58,8 @@ public class DeltaParquetDereferencePushDown
         checkArgument(baseColumnHandle instanceof DeltaColumnHandle,
                 "Expected Delta column handle, instead got: " + baseColumnHandle.getClass());
         return new DeltaColumnHandle(
+                ((DeltaColumnHandle) baseColumnHandle).getId(),
+                ((DeltaColumnHandle) baseColumnHandle).getPhysicalName(),
                 subfieldColumnName,
                 subfieldDataType.getTypeSignature(),
                 SUBFIELD,

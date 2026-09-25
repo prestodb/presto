@@ -17,6 +17,8 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.stream.SharedBuffer;
 import com.facebook.presto.orc.writer.CompressionBufferPool;
+import com.facebook.presto.orc.zstd.ZstdJniCompressor;
+import com.facebook.presto.orc.zstd.ZstdJniDecompressor;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
@@ -43,6 +45,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestOrcOutputBuffer
@@ -186,6 +189,78 @@ public class TestOrcOutputBuffer
         orcOutputBuffer.writeBytes(byteArray, 0, ZSTD.getMinCompressibleSize() + 10);
         orcOutputBuffer.flush();
         assertTrue(pool.getLastUsedSize() > ZSTD.getMinCompressibleSize() + 10);
+    }
+
+    @Test
+    public void testVerifyCompressionRoundTrips()
+    {
+        int size = 1024 * 1024;
+        byte[] data = new byte[size];
+        Arrays.fill(data, (byte) 0xA);
+
+        ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder()
+                .setCompressionKind(ZSTD)
+                .setCompressionLevel(OptionalInt.of(7))
+                .setCompressionMaxBufferSize(new DataSize(256, KILOBYTE))
+                .setVerifyCompression(true)
+                .build();
+        OrcOutputBuffer orcOutputBuffer = new OrcOutputBuffer(columnWriterOptions, Optional.empty());
+
+        // A well-formed ZSTD chunk must pass verification (no throw) and still round-trip on read.
+        orcOutputBuffer.writeBytes(data, 0, size);
+        orcOutputBuffer.flush();
+
+        DynamicSliceOutput output = new DynamicSliceOutput(orcOutputBuffer.size());
+        orcOutputBuffer.writeDataTo(output);
+        assertEquals(wrappedBuffer(decompress(output.slice()).bytes), wrappedBuffer(data));
+    }
+
+    @Test
+    public void testVerifyCompressionDetectsCorruptFrame()
+    {
+        int length = 4096;
+        byte[] original = new byte[length];
+        Arrays.fill(original, (byte) 0xA);
+        // Not a valid ZSTD frame; decompression fails and must surface as a verification error.
+        byte[] garbage = new byte[64];
+        Arrays.fill(garbage, (byte) 0xFF);
+
+        assertThrows(
+                OrcCompressionVerificationException.class,
+                () -> OrcOutputBuffer.verifyCompressedChunk(
+                        new ZstdJniDecompressor(),
+                        new CompressionBufferPool.LastUsedCompressionBufferPool(),
+                        original,
+                        0,
+                        length,
+                        garbage,
+                        garbage.length));
+    }
+
+    @Test
+    public void testVerifyCompressionDetectsContentMismatch()
+    {
+        int length = 4096;
+        byte[] original = new byte[length];
+        Arrays.fill(original, (byte) 0xA);
+
+        // Validly compress DIFFERENT bytes: the frame decodes fine but not back to 'original'.
+        byte[] other = new byte[length];
+        Arrays.fill(other, (byte) 0xB);
+        ZstdJniCompressor compressor = new ZstdJniCompressor(OptionalInt.of(7));
+        byte[] compressed = new byte[compressor.maxCompressedLength(length)];
+        int compressedLength = compressor.compress(other, 0, length, compressed, 0, compressed.length);
+
+        assertThrows(
+                OrcCompressionVerificationException.class,
+                () -> OrcOutputBuffer.verifyCompressedChunk(
+                        new ZstdJniDecompressor(),
+                        new CompressionBufferPool.LastUsedCompressionBufferPool(),
+                        original,
+                        0,
+                        length,
+                        compressed,
+                        compressedLength));
     }
 
     @Test

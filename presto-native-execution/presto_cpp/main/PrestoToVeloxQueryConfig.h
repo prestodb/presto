@@ -40,6 +40,10 @@ velox::core::QueryConfig toVeloxConfigs(
     const protocol::SessionRepresentation& session,
     const std::map<std::string, std::string>& extraCredentials);
 
+std::unordered_map<std::string, std::string>
+toVeloxConfigsFromSessionProperties(
+    const std::map<std::string, std::string>& sessionProperties);
+
 std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>
 toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest);
 

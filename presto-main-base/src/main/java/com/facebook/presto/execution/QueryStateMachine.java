@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.QueryTracer;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
@@ -79,6 +80,8 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.airlift.units.DataSize.succinctBytes;
+import static com.facebook.presto.SystemSessionProperties.getRuntimeStatsTracingMaxEvents;
+import static com.facebook.presto.SystemSessionProperties.isRuntimeStatsTracingEnabled;
 import static com.facebook.presto.execution.BasicStageExecutionStats.EMPTY_STAGE_STATS;
 import static com.facebook.presto.execution.QueryState.DISPATCHING;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -139,6 +142,8 @@ public class QueryStateMachine
     private final AtomicInteger peakRunningTaskCount = new AtomicInteger();
 
     private final QueryStateTimer queryStateTimer;
+    @Nullable
+    private final QueryTracer queryTracer;
 
     private final StateMachine<QueryState> queryState;
 
@@ -168,6 +173,7 @@ public class QueryStateMachine
 
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
     private final AtomicReference<Optional<String>> expandedQuery = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<Optional<String>> materializedViewRewrittenQuery = new AtomicReference<>(Optional.empty());
 
     private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = new ConcurrentHashMap<>();
     private final Set<SqlFunctionId> removedSessionFunctions = Sets.newConcurrentHashSet();
@@ -176,6 +182,10 @@ public class QueryStateMachine
     private final AtomicReference<Set<String>> scalarFunctions = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Set<String>> aggregateFunctions = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Set<String>> windowFunctions = new AtomicReference<>(ImmutableSet.of());
+
+    private final AtomicReference<QueryStateTransitionMonitor> stateTransitionMonitor = new AtomicReference<>();
+    private final AtomicReference<QueryState> previousState = new AtomicReference<>(WAITING_FOR_PREREQUISITES);
+    private final AtomicLong previousStateTimestamp = new AtomicLong(System.currentTimeMillis());
 
     private QueryStateMachine(
             String query,
@@ -205,6 +215,8 @@ public class QueryStateMachine
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.queryTracer = isRuntimeStatsTracingEnabled(session) || session.getRuntimeStats().isTracingEnabled() ?
+                session.getRuntimeStats().startQueryTrace(getRuntimeStatsTracingMaxEvents(session)) : null;
     }
 
     /**
@@ -400,6 +412,7 @@ public class QueryStateMachine
                 stageStats.getCompletedSplits(),
 
                 succinctBytes(stageStats.getRawInputDataSizeInBytes()),
+                succinctBytes(stageStats.getScanRawInputDataSizeInBytes()),
                 stageStats.getRawInputPositions(),
 
                 stageStats.getCumulativeUserMemory(),
@@ -482,6 +495,7 @@ public class QueryStateMachine
                 outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
                 query,
                 expandedQuery.get(),
+                materializedViewRewrittenQuery.get(),
                 preparedQuery,
                 queryStats,
                 Optional.ofNullable(setCatalog.get()),
@@ -774,6 +788,11 @@ public class QueryStateMachine
         this.expandedQuery.set(expandedQuery);
     }
 
+    public void setMaterializedViewRewrittenQuery(Optional<String> materializedViewRewrittenQuery)
+    {
+        this.materializedViewRewrittenQuery.set(materializedViewRewrittenQuery);
+    }
+
     public QueryState getQueryState()
     {
         return queryState.get();
@@ -839,7 +858,7 @@ public class QueryStateMachine
     {
         queryStateTimer.beginFinishing();
 
-        if (!queryState.setIf(FINISHING, currentState -> currentState != FINISHING && !currentState.isDone())) {
+        if (!transitionToFinishingState()) {
             return false;
         }
 
@@ -870,6 +889,16 @@ public class QueryStateMachine
         return true;
     }
 
+    private boolean transitionToFinishingState()
+    {
+        if (queryTracer == null) {
+            return queryState.setIf(FINISHING, currentState -> currentState != FINISHING && !currentState.isDone());
+        }
+        synchronized (this) {
+            return queryState.setIf(FINISHING, currentState -> currentState != FINISHING && !currentState.isDone());
+        }
+    }
+
     // TODO: Simplify the commit logic of the transaction manager.
     private void processConnectorCommitHandle(Object result)
     {
@@ -891,7 +920,7 @@ public class QueryStateMachine
         cleanupQueryQuietly();
         queryStateTimer.endQuery();
 
-        queryState.setIf(FINISHED, currentState -> !currentState.isDone());
+        transitionToDoneState(FINISHED, currentState -> !currentState.isDone(), false);
     }
 
     public boolean transitionToFailed(Throwable throwable)
@@ -917,25 +946,22 @@ public class QueryStateMachine
         // can only be observed if the transition to FAILED is successful.
         requireNonNull(throwable, "throwable is null");
         failureCause.compareAndSet(null, toFailure(throwable));
-
-        boolean failed = queryState.setIf(QueryState.FAILED, predicate);
-        if (failed) {
-            QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
-            // if the transaction is already gone, do nothing
-            session.getTransactionId().flatMap(transactionManager::getOptionalTransactionInfo).ifPresent(transaction -> {
-                if (transaction.isAutoCommitContext()) {
-                    transactionManager.asyncAbort(transaction.getTransactionId());
-                }
-                else {
-                    transactionManager.fail(transaction.getTransactionId());
-                }
-            });
-        }
-        else {
+        if (!transitionToDoneState(QueryState.FAILED, predicate, true)) {
             QUERY_STATE_LOG.debug(throwable, "Failure after query %s finished", queryId);
+            return false;
         }
 
-        return failed;
+        QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
+        // if the transaction is already gone, do nothing
+        session.getTransactionId().flatMap(transactionManager::getOptionalTransactionInfo).ifPresent(transaction -> {
+            if (transaction.isAutoCommitContext()) {
+                transactionManager.asyncAbort(transaction.getTransactionId());
+            }
+            else {
+                transactionManager.fail(transaction.getTransactionId());
+            }
+        });
+        return true;
     }
 
     public boolean transitionToCanceled()
@@ -947,21 +973,36 @@ public class QueryStateMachine
         // listeners can observe the exception. This is safe because the failure cause
         // can only be observed if the transition to FAILED is successful.
         failureCause.compareAndSet(null, toFailure(new PrestoException(USER_CANCELED, "Query was canceled")));
-
-        boolean canceled = queryState.setIf(QueryState.FAILED, currentState -> !currentState.isDone());
-        if (canceled) {
-            // if the transaction is already gone, do nothing
-            session.getTransactionId().flatMap(transactionManager::getOptionalTransactionInfo).ifPresent(transaction -> {
-                if (transaction.isAutoCommitContext()) {
-                    transactionManager.asyncAbort(transaction.getTransactionId());
-                }
-                else {
-                    transactionManager.fail(transaction.getTransactionId());
-                }
-            });
+        if (!transitionToDoneState(QueryState.FAILED, currentState -> !currentState.isDone(), true)) {
+            return false;
         }
 
-        return canceled;
+        // if the transaction is already gone, do nothing
+        session.getTransactionId().flatMap(transactionManager::getOptionalTransactionInfo).ifPresent(transaction -> {
+            if (transaction.isAutoCommitContext()) {
+                transactionManager.asyncAbort(transaction.getTransactionId());
+            }
+            else {
+                transactionManager.fail(transaction.getTransactionId());
+            }
+        });
+        return true;
+    }
+
+    private boolean transitionToDoneState(QueryState doneState, Predicate<QueryState> predicate, boolean failed)
+    {
+        if (queryTracer == null) {
+            return queryState.setIf(doneState, predicate);
+        }
+        synchronized (this) {
+            if (!predicate.test(queryState.get())) {
+                return false;
+            }
+
+            // The completed trace must be visible before terminal-state listeners run.
+            queryTracer.finishQueryTrace(failed);
+            return queryState.setIf(doneState, predicate);
+        }
     }
 
     private void cleanupQueryQuietly()
@@ -982,6 +1023,42 @@ public class QueryStateMachine
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         queryState.addStateChangeListener(stateChangeListener);
+    }
+
+    /**
+     * Sets the state transition monitor for this query state machine.
+     * The monitor will track state transition durations and detect anomalies.
+     */
+    public void setStateTransitionMonitor(QueryStateTransitionMonitor monitor)
+    {
+        requireNonNull(monitor, "monitor is null");
+        if (stateTransitionMonitor.compareAndSet(null, monitor)) {
+            monitor.registerQuery(queryId);
+            addStateChangeListener(newState -> trackStateTransition(newState));
+        }
+    }
+
+    /**
+     * Tracks a state transition and reports it to the monitor if present.
+     */
+    private void trackStateTransition(QueryState newState)
+    {
+        QueryStateTransitionMonitor monitor = stateTransitionMonitor.get();
+        if (monitor == null) {
+            return;
+        }
+
+        QueryState prevState = previousState.get();
+        long prevTimestamp = previousStateTimestamp.get();
+        long currentTimestamp = System.currentTimeMillis();
+        long durationMillis = currentTimestamp - prevTimestamp;
+
+        if (prevState != null) {
+            monitor.recordStateTransition(queryId, prevState, newState, durationMillis);
+        }
+
+        previousState.set(newState);
+        previousStateTimestamp.set(currentTimestamp);
     }
 
     /**
@@ -1127,6 +1204,7 @@ public class QueryStateMachine
                 queryInfo.getFieldNames(),
                 queryInfo.getQuery(),
                 queryInfo.getExpandedQuery(),
+                queryInfo.getMaterializedViewRewrittenQuery(),
                 queryInfo.getPreparedQuery(),
                 queryInfo.getQueryStats(),
                 queryInfo.getSetCatalog(),
@@ -1215,6 +1293,7 @@ public class QueryStateMachine
                         plan.getOutputOrderingScheme(),
                         plan.getStageExecutionDescriptor(),
                         plan.isOutputTableWriterFragment(),
+                        plan.getOutputTransportType(),
                         plan.getStatsAndCosts().map(QueryStateMachine::pruneHistogramsFromStatsAndCosts),
                         plan.getJsonRepresentation())), // Remove the plan
                 stage.getLatestAttemptExecutionInfo(),
@@ -1246,6 +1325,7 @@ public class QueryStateMachine
                 queryInfo.getFieldNames(),
                 queryInfo.getQuery(),
                 queryInfo.getExpandedQuery(),
+                queryInfo.getMaterializedViewRewrittenQuery(),
                 queryInfo.getPreparedQuery(),
                 pruneQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getSetCatalog(),

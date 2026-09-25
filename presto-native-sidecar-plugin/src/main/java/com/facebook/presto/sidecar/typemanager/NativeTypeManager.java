@@ -41,6 +41,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
+import static com.facebook.presto.common.type.StandardTypes.BING_TILE;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.DATE;
 import static com.facebook.presto.common.type.StandardTypes.DECIMAL;
@@ -59,6 +60,7 @@ import static com.facebook.presto.common.type.StandardTypes.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.StandardTypes.QDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.REAL;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
+import static com.facebook.presto.common.type.StandardTypes.SETDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.TIME;
@@ -82,6 +84,7 @@ public class NativeTypeManager
     private static final Set<String> NATIVE_ENGINE_SUPPORTED_TYPES =
             ImmutableSet.of(
                     BIGINT,
+                    BING_TILE,
                     REAL,
                     VARBINARY,
                     TIMESTAMP,
@@ -95,6 +98,7 @@ public class NativeTypeManager
                     HYPER_LOG_LOG,
                     K_HYPER_LOG_LOG,
                     P4_HYPER_LOG_LOG,
+                    SETDIGEST,
                     JSON,
                     TIME_WITH_TIME_ZONE,
                     TIMESTAMP_WITH_TIME_ZONE,
@@ -192,6 +196,22 @@ public class NativeTypeManager
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public void addType(Type type)
+    {
+        requireNonNull(type, "type is null");
+        Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
+        checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
+    }
+
+    @Override
+    public void addParametricType(ParametricType parametricType)
+    {
+        String name = parametricType.getName().toLowerCase(Locale.ENGLISH);
+        checkArgument(!parametricTypes.containsKey(name), "Parametric type already registered: %s", name);
+        parametricTypes.putIfAbsent(name, parametricType);
+    }
+
     private void addAllTypes(List<Type> typesList, List<ParametricType> parametricTypesList)
     {
         typesList.forEach(this::addType);
@@ -201,20 +221,6 @@ public class NativeTypeManager
     private Type instantiateParametricType(ExactTypeSignature exactTypeSignature)
     {
         return typeManager.instantiateParametricType(exactTypeSignature.getTypeSignature());
-    }
-
-    private void addType(Type type)
-    {
-        requireNonNull(type, "type is null");
-        Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
-        checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
-    }
-
-    private void addParametricType(ParametricType parametricType)
-    {
-        String name = parametricType.getName().toLowerCase(Locale.ENGLISH);
-        checkArgument(!parametricTypes.containsKey(name), "Parametric type already registered: %s", name);
-        parametricTypes.putIfAbsent(name, parametricType);
     }
 
     private static <T> List<T> filterSupportedTypes(

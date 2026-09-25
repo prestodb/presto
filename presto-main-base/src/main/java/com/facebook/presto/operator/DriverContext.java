@@ -39,9 +39,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.airlift.units.Duration.succinctNanos;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getFirst;
-import static com.google.common.collect.Iterables.getLast;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.max;
 import static java.lang.System.currentTimeMillis;
 import static java.lang.System.nanoTime;
@@ -261,7 +259,7 @@ public class DriverContext
 
     public CounterStat getInputDataSize()
     {
-        OperatorContext inputOperator = getFirst(operatorContexts, null);
+        OperatorContext inputOperator = operatorContexts.stream().findFirst().orElse(null);
         if (inputOperator != null) {
             return inputOperator.getInputDataSize();
         }
@@ -272,7 +270,7 @@ public class DriverContext
 
     public CounterStat getInputPositions()
     {
-        OperatorContext inputOperator = getFirst(operatorContexts, null);
+        OperatorContext inputOperator = operatorContexts.stream().findFirst().orElse(null);
         if (inputOperator != null) {
             return inputOperator.getInputPositions();
         }
@@ -283,7 +281,7 @@ public class DriverContext
 
     public CounterStat getOutputDataSize()
     {
-        OperatorContext inputOperator = getLast(operatorContexts, null);
+        OperatorContext inputOperator = operatorContexts.stream().reduce((first, second) -> second).orElse(null);
         if (inputOperator != null) {
             return inputOperator.getOutputDataSize();
         }
@@ -294,7 +292,7 @@ public class DriverContext
 
     public CounterStat getOutputPositions()
     {
-        OperatorContext inputOperator = getLast(operatorContexts, null);
+        OperatorContext inputOperator = operatorContexts.stream().reduce((first, second) -> second).orElse(null);
         if (inputOperator != null) {
             return inputOperator.getOutputPositions();
         }
@@ -340,8 +338,10 @@ public class DriverContext
         long executionEndTimeInMillis = this.executionEndTime.get();
         Duration elapsedTime = new Duration(nanosBetween(createNanos, executionEndTimeInMillis == 0 ? nanoTime() : endNanos.get()), NANOSECONDS);
 
-        List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats));
-        OperatorStats inputOperator = getFirst(operators, null);
+        List<OperatorStats> operators = operatorContexts.stream()
+                .map(OperatorContext::getOperatorStats)
+                .collect(toImmutableList());
+        OperatorStats inputOperator = operators.stream().findFirst().orElse(null);
         long rawInputDataSize;
         long rawInputPositions;
         Duration rawInputReadTime;
@@ -357,7 +357,7 @@ public class DriverContext
             processedInputDataSize = inputOperator.getInputDataSizeInBytes();
             processedInputPositions = inputOperator.getInputPositions();
 
-            OperatorStats outputOperator = requireNonNull(getLast(operators, null));
+            OperatorStats outputOperator = requireNonNull(operators.stream().reduce((first, second) -> second).orElse(null));
             outputDataSize = outputOperator.getOutputDataSizeInBytes();
             outputPositions = outputOperator.getOutputPositions();
         }

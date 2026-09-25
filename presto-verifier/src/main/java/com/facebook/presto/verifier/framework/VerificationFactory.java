@@ -110,6 +110,7 @@ public class VerificationFactory
         switch (queryType) {
             case CREATE_TABLE_AS_SELECT:
             case INSERT:
+            case DELETE:
                 if (verifierConfig.isExtendedVerification()) {
                     return new ExtendedVerification(
                             queryActions,

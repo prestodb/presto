@@ -208,6 +208,12 @@ public class Decoders
                     return new TimestampRLEDictionaryValuesDecoder(bitWidth, inputStream, (TimestampDictionary) dictionary);
                 }
                 case BINARY: {
+                    if (isDecimalType(columnDescriptor)) {
+                        if (isShortDecimalType(columnDescriptor)) {
+                            return new ShortDecimalRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
+                        }
+                        return new LongDecimalRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
+                    }
                     return new BinaryRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
                 }
                 case FIXED_LEN_BYTE_ARRAY:

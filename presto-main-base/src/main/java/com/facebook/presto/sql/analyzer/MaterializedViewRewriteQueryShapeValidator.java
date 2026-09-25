@@ -14,15 +14,9 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.GroupBy;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuerySpecification;
 
 import java.util.Optional;
-
-import static com.facebook.presto.sql.MaterializedViewUtils.SUPPORTED_FUNCTION_CALLS;
-import static java.lang.String.format;
 
 /**
  * Validates that the {@link QuerySpecification} provided to
@@ -44,14 +38,10 @@ public final class MaterializedViewRewriteQueryShapeValidator
             extends DefaultTraversalVisitor<Void, Void>
     {
         private Optional<String> errorMessage = Optional.empty();
-        boolean hasGroupBy;
 
         public Optional<String> validateMaterializedViewOptimizationQueryShape(QuerySpecification querySpecification)
         {
-            if (querySpecification.getHaving().isPresent()) {
-                errorMessage = Optional.of("Query shape invalid: HAVING is not supported for materialized view optimizations");
-            }
-            else if (!querySpecification.getFrom().isPresent()) {
+            if (!querySpecification.getFrom().isPresent()) {
                 errorMessage = Optional.of("Query shape invalid: QuerySpecification without from clause is not supported for materialized view optimization");
             }
             else {
@@ -60,23 +50,6 @@ public final class MaterializedViewRewriteQueryShapeValidator
 
             // TODO: add a check requiring GROUP BY or WHERE to be present
             return errorMessage;
-        }
-
-        @Override
-        protected Void visitGroupBy(GroupBy node, Void context)
-        {
-            hasGroupBy = true;
-            return super.visitGroupBy(node, context);
-        }
-
-        @Override
-        protected Void visitFunctionCall(FunctionCall node, Void context)
-        {
-            QualifiedName name = node.getName();
-            if (!SUPPORTED_FUNCTION_CALLS.contains(name)) {
-                errorMessage = Optional.of(format("Query shape invalid: %s function is not supported for materialized view optimizations", name));
-            }
-            return super.visitFunctionCall(node, context);
         }
     }
 }

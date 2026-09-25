@@ -15,33 +15,35 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.resolver.ArtifactResolver;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.resolver.ArtifactResolver;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 public class PluginManagerConfig
 {
-    private File installedPluginsDir = new File("plugin");
+    private Path installedPluginsDir = Paths.get("plugin");
     private List<String> plugins;
-    private File pluginConfigurationDir = new File("etc/");
+    private Path pluginConfigurationDir = Paths.get("etc/");
     private String mavenLocalRepository = ArtifactResolver.USER_LOCAL_REPO;
     private List<String> mavenRemoteRepository = ImmutableList.of(ArtifactResolver.MAVEN_CENTRAL_URI);
     private ImmutableSet<String> disabledConnectors = ImmutableSet.of();
 
     public File getInstalledPluginsDir()
     {
-        return installedPluginsDir;
+        return installedPluginsDir.toFile();
     }
 
     @Config("plugin.dir")
     public PluginManagerConfig setInstalledPluginsDir(File installedPluginsDir)
     {
-        this.installedPluginsDir = installedPluginsDir;
+        this.installedPluginsDir = installedPluginsDir.toPath();
         return this;
     }
 

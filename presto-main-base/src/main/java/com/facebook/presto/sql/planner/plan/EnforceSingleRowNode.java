@@ -20,12 +20,12 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -81,7 +81,7 @@ public class EnforceSingleRowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new EnforceSingleRowNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren));
+        return new EnforceSingleRowNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.stream().collect(onlyElement()));
     }
 
     @Override

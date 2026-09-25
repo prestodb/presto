@@ -833,7 +833,9 @@ public class ParquetTester
                         .setMaxBlockSize(DataSize.succinctBytes(100000))
                         .setWriterVersion(writerVersion)
                         .build(),
-                compressionCodecName.getHadoopCompressionCodecClassName());
+                compressionCodecName.getHadoopCompressionCodecClassName(),
+                HIVE_STORAGE_TIME_ZONE,
+                "test_version");
 
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int i = 0; i < types.size(); ++i) {
@@ -923,7 +925,7 @@ public class ParquetTester
                 type.writeLong(blockBuilder, days);
             }
             else if (TIMESTAMP.equals(type)) {
-                long millis = ((SqlTimestamp) value).getMillisUtc();
+                long millis = ((SqlTimestamp) value).getMillis();
                 type.writeLong(blockBuilder, millis);
             }
             else {

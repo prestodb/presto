@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -58,11 +57,13 @@ import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPE
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestTables;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -91,7 +92,7 @@ public class TestCassandraConnector
             System.currentTimeMillis(),
             new CassandraSessionProperties(new CassandraClientConfig()).getSessionProperties(),
             ImmutableMap.of(),
-            true,
+            false,
             Optional.empty(),
             ImmutableSet.of(),
             Optional.empty(),
@@ -122,7 +123,9 @@ public class TestCassandraConnector
         connector = connectorFactory.create(connectorId, ImmutableMap.of(
                         "cassandra.contact-points", server.getHost(),
                         "cassandra.native-protocol-port", Integer.toString(server.getPort()),
-                        "cassandra.allow-drop-table", "true"),
+                        "cassandra.allow-drop-table", "true",
+                        "cassandra.load-policy.use-dc-aware", "true",
+                        "cassandra.load-policy.dc-aware.local-dc", "datacenter1"),
                 new TestingConnectorContext());
 
         splitManager = connector.getSplitManager();
@@ -222,7 +225,7 @@ public class TestCassandraConnector
 
                     assertEquals(keyValue, String.format("key %d", rowId));
 
-                    assertEquals(Bytes.toHexString(cursor.getSlice(columnIndex.get("typebytes")).getBytes()), String.format("0x%08X", rowId));
+                    assertEquals(bytesToHex(cursor.getSlice(columnIndex.get("typebytes")).getBytes()), String.format("0x%08X", rowId));
 
                     // VARINT is returned as a string
                     assertEquals(cursor.getSlice(columnIndex.get("typeinteger")).toStringUtf8(), String.valueOf(rowId));
@@ -231,7 +234,7 @@ public class TestCassandraConnector
 
                     assertEquals(cursor.getSlice(columnIndex.get("typeuuid")).toStringUtf8(), String.format("00000000-0000-0000-0000-%012d", rowId));
 
-                    assertEquals(cursor.getSlice(columnIndex.get("typetimestamp")).toStringUtf8(), Long.valueOf(DATE.getTime()).toString());
+                    assertEquals(cursor.getLong(columnIndex.get("typetimestamp")), packDateTimeWithZone(DATE.getTime(), UTC_KEY));
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);
@@ -293,6 +296,9 @@ public class TestCassandraConnector
                 else if (TIMESTAMP.equals(type)) {
                     cursor.getLong(columnIndex);
                 }
+                else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                    cursor.getLong(columnIndex);
+                }
                 else if (DOUBLE.equals(type)) {
                     cursor.getDouble(columnIndex);
                 }
@@ -340,5 +346,14 @@ public class TestCassandraConnector
             i++;
         }
         return index.build();
+    }
+
+    private static String bytesToHex(byte[] bytes)
+    {
+        StringBuilder sb = new StringBuilder("0x");
+        for (byte b : bytes) {
+            sb.append(String.format("%02X", b));
+        }
+        return sb.toString();
     }
 }

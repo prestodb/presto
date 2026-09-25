@@ -12,7 +12,7 @@
 
 add_library(presto_theta_sketch_functions ThetaSketchAggregate.cpp ThetaSketchFunctions.cpp)
 
-target_link_libraries(presto_theta_sketch_functions velox_common_base Folly::folly)
+target_link_libraries(presto_theta_sketch_functions velox Folly::folly)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

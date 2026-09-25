@@ -12,7 +12,9 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/TaskResource.h"
+#include <glog/logging.h>
 #include <presto_cpp/main/common/Exception.h>
+#include <typeinfo>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
@@ -24,6 +26,11 @@
 namespace facebook::presto {
 
 namespace {
+
+// Query parameter on DELETE /v1/task/<taskId> with which a client states that
+// it will never read from the task again, so the task can be released now
+// rather than left for the periodic cleanOldTasks() sweep.
+constexpr const char* kDropTaskOnDeleteUrlParam{"dropTaskOnDelete"};
 
 void sendTaskNotFound(
     proxygen::ResponseHandler* downstream,
@@ -261,10 +268,34 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
                     summarize,
                     startProcessCpuTimeNs,
                     receiveThrift);
-              } catch (const velox::VeloxException&) {
+              } catch (const velox::VeloxException& ex) {
+                // Log VeloxException before converting to an error task so
+                // the failure reason is captured in worker stderr.
+                LOG(ERROR) << "createOrUpdateTask VeloxException for taskId="
+                           << taskId << " bodyLen=" << requestBody.size()
+                           << " what=" << ex.what();
                 // Creating an empty task, putting errors inside so that next
                 // status fetch from coordinator will catch the error and well
                 // categorize it.
+                try {
+                  taskInfo = taskManager_.createOrUpdateErrorTask(
+                      taskId,
+                      std::current_exception(),
+                      summarize,
+                      startProcessCpuTimeNs);
+                } catch (const velox::VeloxUserError&) {
+                  throw;
+                }
+              } catch (const std::exception& ex) {
+                // Catch non-Velox std::exception (e.g., nlohmann::json
+                // deserialization errors) and route through the same
+                // error-task path. Without this, such exceptions propagate
+                // past the VeloxException catch and proxygen returns HTTP
+                // 500 with no log line, making the root cause invisible.
+                LOG(ERROR) << "createOrUpdateTask std::exception for taskId="
+                           << taskId << " bodyLen=" << requestBody.size()
+                           << " type=" << typeid(ex).name()
+                           << " what=" << ex.what();
                 try {
                   taskInfo = taskManager_.createOrUpdateErrorTask(
                       taskId,
@@ -288,7 +319,9 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
             })
             .thenError(
                 folly::tag_t<std::exception>{},
-                [downstream, handlerState](auto&& e) {
+                [downstream, handlerState, taskId](auto&& e) {
+                  LOG(ERROR) << "Error creating/updating task " << taskId
+                             << ": " << e.what();
                   if (!handlerState->requestExpired()) {
                     http::sendErrorResponse(downstream, e.what());
                   }
@@ -385,6 +418,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
                   taskId, updateRequest);
 
           VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool_);
+
           planFragment = converter.toVeloxQueryPlan(
               prestoPlan, updateRequest.tableWriteInfo, taskId);
           if (SystemConfig::instance()->planConsistencyCheckEnabled()) {
@@ -413,19 +447,25 @@ proxygen::RequestHandler* TaskResource::deleteTask(
         message->getQueryParam(protocol::PRESTO_ABORT_TASK_URL_PARAM) == "true";
   }
   bool summarize = message->hasQueryParam("summarize");
+  bool dropTaskOnDelete = false;
+  if (message->hasQueryParam(kDropTaskOnDeleteUrlParam)) {
+    dropTaskOnDelete =
+        message->getQueryParam(kDropTaskOnDeleteUrlParam) == "true";
+  }
   const auto sendThrift = shouldUseThrift(*message);
 
   return new http::CallbackRequestHandler(
-      [this, taskId, abort, summarize, sendThrift](
+      [this, taskId, abort, summarize, dropTaskOnDelete, sendThrift](
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream,
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
         folly::via(
             httpSrvCpuExecutor_,
-            [this, taskId, abort, downstream, summarize]() {
+            [this, taskId, abort, downstream, summarize, dropTaskOnDelete]() {
               std::unique_ptr<protocol::TaskInfo> taskInfo;
-              taskInfo = taskManager_.deleteTask(taskId, abort, summarize);
+              taskInfo = taskManager_.deleteTask(
+                  taskId, abort, summarize, dropTaskOnDelete);
               return std::move(taskInfo);
             })
             .via(

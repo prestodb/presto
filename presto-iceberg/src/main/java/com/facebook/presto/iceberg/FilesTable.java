@@ -55,9 +55,15 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INCOMPATIBLE_VERSION;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_METADATA_TABLES;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableScan;
+import static com.facebook.presto.iceberg.IcebergUtil.isAvroException;
+import static com.facebook.presto.iceberg.IcebergUtil.opsFromTable;
 import static com.facebook.presto.iceberg.util.PageListBuilder.forTable;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FilesTable
@@ -128,9 +134,24 @@ public class FilesTable
         TableScan tableScan = getTableScan(TupleDomain.all(), snapshotId, icebergTable, runtimeStats).includeColumnStats();
         Map<Integer, Type> idToTypeMap = getIdToTypeMap(icebergTable.schema());
 
+        // Validate table format version - manifest file reading not supported for v3+
+        int formatVersion = opsFromTable(icebergTable).current().formatVersion();
+        if (formatVersion > MAX_FORMAT_VERSION_FOR_METADATA_TABLES) {
+            throw new PrestoException(ICEBERG_INCOMPATIBLE_VERSION,
+                    format("Cannot read Iceberg manifest files for table format version %d (max supported: %d). Upgrade Presto to read this table.",
+                            formatVersion, MAX_FORMAT_VERSION_FOR_METADATA_TABLES));
+        }
+
+        int fileCount = 0;
+        int manifestCount = 0;
+        if (icebergTable.currentSnapshot() != null) {
+            manifestCount = icebergTable.currentSnapshot().allManifests(icebergTable.io()).size();
+        }
+
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
             for (FileScanTask fileScanTask : fileScanTasks) {
                 DataFile dataFile = fileScanTask.file();
+                fileCount++;
                 pagesBuilder.beginRow();
                 pagesBuilder.appendInteger(dataFile.content().id());
                 pagesBuilder.appendVarchar(dataFile.path().toString());
@@ -178,7 +199,37 @@ public class FilesTable
             }
         }
         catch (IOException e) {
-            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "failed to read table files", e);
+            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "Failed to read table files", e);
+        }
+        catch (RuntimeException e) {
+            // Catch Avro-specific exceptions that may occur during manifest deserialization
+            if (isAvroException(e)) {
+                throw new PrestoException(ICEBERG_INVALID_METADATA,
+                        "Cannot read manifest files. Manifests may be written by a newer Iceberg version.", e);
+            }
+            throw e;
+        }
+
+        // Validate that we successfully read files if manifests exist
+        // Check snapshot summary to avoid false positives on legitimately empty tables
+        if (manifestCount > 0 && fileCount == 0) {
+            long expectedFileCount = 0;
+            if (icebergTable.currentSnapshot() != null) {
+                Map<String, String> summary = icebergTable.currentSnapshot().summary();
+                try {
+                    expectedFileCount = Long.parseLong(summary.getOrDefault("total-data-files", "0"));
+                }
+                catch (NumberFormatException e) {
+                    throw new PrestoException(ICEBERG_INVALID_METADATA,
+                            format("Invalid total-data-files value in snapshot summary: %s", summary.get("total-data-files")), e);
+                }
+            }
+
+            // Only throw if snapshot indicates files should exist
+            if (expectedFileCount > 0) {
+                throw new PrestoException(ICEBERG_INVALID_METADATA,
+                        format("Found %d manifest(s) but no data files. Version incompatibility or corrupt manifests.", manifestCount));
+            }
         }
 
         return pagesBuilder.build();

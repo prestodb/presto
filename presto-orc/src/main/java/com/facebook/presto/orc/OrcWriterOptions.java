@@ -51,6 +51,7 @@ public class OrcWriterOptions
     public static final boolean DEFAULT_STRING_DICTIONARY_SORTING_ENABLED = true;
     public static final boolean DEFAULT_RESET_OUTPUT_BUFFER = false;
     public static final boolean DEFAULT_LAZY_OUTPUT_BUFFER = false;
+    public static final boolean DEFAULT_VERIFY_COMPRESSION = false;
     private final OrcWriterFlushPolicy flushPolicy;
     private final int rowGroupMaxRowCount;
     private final DataSize dictionaryMaxMemory;
@@ -77,6 +78,7 @@ public class OrcWriterOptions
     private final int maxFlattenedMapKeyCount;
     private final boolean resetOutputBuffer;
     private final boolean lazyOutputBuffer;
+    private final boolean verifyCompression;
 
     /**
      * Contains indexes of columns (not nodes!) for which writer should use flattened encoding, e.g. flat maps.
@@ -106,7 +108,8 @@ public class OrcWriterOptions
             boolean mapStatisticsEnabled,
             int maxFlattenedMapKeyCount,
             boolean resetOutputBuffer,
-            boolean lazyOutputBuffer)
+            boolean lazyOutputBuffer,
+            boolean verifyCompression)
     {
         requireNonNull(flushPolicy, "flushPolicy is null");
         checkArgument(rowGroupMaxRowCount >= 1, "rowGroupMaxRowCount must be at least 1");
@@ -146,6 +149,7 @@ public class OrcWriterOptions
         this.maxFlattenedMapKeyCount = maxFlattenedMapKeyCount;
         this.resetOutputBuffer = resetOutputBuffer;
         this.lazyOutputBuffer = lazyOutputBuffer;
+        this.verifyCompression = verifyCompression;
     }
 
     public OrcWriterFlushPolicy getFlushPolicy()
@@ -263,6 +267,11 @@ public class OrcWriterOptions
         return lazyOutputBuffer;
     }
 
+    public boolean isVerifyCompression()
+    {
+        return verifyCompression;
+    }
+
     @Override
     public String toString()
     {
@@ -288,6 +297,7 @@ public class OrcWriterOptions
                 .add("maxFlattenedMapKeyCount", maxFlattenedMapKeyCount)
                 .add("resetOutputBuffer", resetOutputBuffer)
                 .add("lazyOutputBuffer", lazyOutputBuffer)
+                .add("verifyCompression", verifyCompression)
                 .toString();
     }
 
@@ -328,6 +338,7 @@ public class OrcWriterOptions
         private int maxFlattenedMapKeyCount = DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT;
         private boolean resetOutputBuffer = DEFAULT_RESET_OUTPUT_BUFFER;
         private boolean lazyOutputBuffer = DEFAULT_LAZY_OUTPUT_BUFFER;
+        private boolean verifyCompression = DEFAULT_VERIFY_COMPRESSION;
 
         public Builder withFlushPolicy(OrcWriterFlushPolicy flushPolicy)
         {
@@ -481,6 +492,12 @@ public class OrcWriterOptions
             return this;
         }
 
+        public Builder withVerifyCompression(boolean verifyCompression)
+        {
+            this.verifyCompression = verifyCompression;
+            return this;
+        }
+
         public OrcWriterOptions build()
         {
             Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
@@ -514,7 +531,8 @@ public class OrcWriterOptions
                     mapStatisticsEnabled,
                     maxFlattenedMapKeyCount,
                     resetOutputBuffer,
-                    lazyOutputBuffer);
+                    lazyOutputBuffer,
+                    verifyCompression);
         }
     }
 }

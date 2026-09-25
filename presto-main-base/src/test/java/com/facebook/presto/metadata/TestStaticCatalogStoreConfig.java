@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -30,7 +30,7 @@ public class TestStaticCatalogStoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(StaticCatalogStoreConfig.class)
-                .setCatalogConfigurationDir(new File("etc/catalog"))
+                .setCatalogConfigurationDir(Paths.get("etc/catalog").toFile())
                 .setDisabledCatalogs((String) null));
     }
 
@@ -43,7 +43,7 @@ public class TestStaticCatalogStoreConfig
                 .build();
 
         StaticCatalogStoreConfig expected = new StaticCatalogStoreConfig()
-                .setCatalogConfigurationDir(new File("/foo"))
+                .setCatalogConfigurationDir(Paths.get("/foo").toFile())
                 .setDisabledCatalogs(ImmutableList.of("abc", "xyz"));
 
         assertFullMapping(properties, expected);

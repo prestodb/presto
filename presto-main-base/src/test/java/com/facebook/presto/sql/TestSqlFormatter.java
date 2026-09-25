@@ -45,6 +45,24 @@ public class TestSqlFormatter
         assertQuery("ALTER TABLE sales.orders DROP COLUMN \"Customer\"");
     }
 
+    @Test
+    public void testAddColumnPosition()
+    {
+        assertQuery("ALTER TABLE sales.orders ADD COLUMN customer VARCHAR FIRST");
+        assertQuery("ALTER TABLE sales.orders ADD COLUMN customer VARCHAR AFTER order_id");
+        assertQuery("ALTER TABLE IF EXISTS sales.orders ADD COLUMN IF NOT EXISTS customer VARCHAR AFTER order_id");
+        assertQuery("ALTER TABLE sales.orders ADD COLUMN customer VARCHAR AFTER \"OrderId\"");
+    }
+
+    @Test
+    public void testSetColumnPosition()
+    {
+        assertQuery("ALTER TABLE sales.orders ALTER COLUMN customer FIRST");
+        assertQuery("ALTER TABLE sales.orders ALTER COLUMN customer AFTER order_id");
+        assertQuery("ALTER TABLE IF EXISTS sales.orders ALTER COLUMN customer AFTER order_id");
+        assertQuery("ALTER TABLE sales.orders ALTER COLUMN \"Customer\" AFTER \"OrderId\"");
+    }
+
     private void assertQuery(String query)
     {
         SqlParser parser = new SqlParser();

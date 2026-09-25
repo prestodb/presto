@@ -23,7 +23,7 @@ _______________
 * Improve sort-merge join performance when one side of the join input is already sorted. `#26361 <https://github.com/prestodb/presto/pull/26361>`_
 * Improve query performance for semi joins (used in ``IN`` and ``EXISTS`` subqueries) when join keys contain many null values. `#26251 <https://github.com/prestodb/presto/pull/26251>`_
 * Improve connector optimizer to support queries involving multiple connectors. `#26246 <https://github.com/prestodb/presto/pull/26246>`_
-* Add :func:`array_transpose` to return a transpose of an array. `#26470 <https://github.com/prestodb/presto/pull/26470>`_
+* Add :func:`!array_transpose` to return a transpose of an array. `#26470 <https://github.com/prestodb/presto/pull/26470>`_
 * Add :ref:`admin/properties:\`\`cluster-tag\`\`` configuration property to assign a custom identifier to the cluster, which is displayed in the Web UI. `#26485 <https://github.com/prestodb/presto/pull/26485>`_
 * Add a session property ``query_types_enabled_for_history_based_optimization`` to specify query types which will use HBO. See :doc:`/optimizer/history-based-optimization`. `#26183 <https://github.com/prestodb/presto/pull/26183>`_
 * Add data compression support for HTTP/2 protocol. `#26381 <https://github.com/prestodb/presto/pull/26381>`_ `#26382 <https://github.com/prestodb/presto/pull/26382>`_
@@ -35,8 +35,8 @@ _______________
 * Add support for the :doc:`/sql/merge` command in the Presto engine. `#26278 <https://github.com/prestodb/presto/pull/26278>`_
 * Add ``enable-java-cluster-query-retry`` configuration property in ``router-scheduler.properties`` to retry queries on ``router-java-url`` when they fail on ``router-native-url``. `#25720 <https://github.com/prestodb/presto/pull/25720>`_
 * Add :func:`array_to_map_int_keys` function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
-* Add :func:`map_int_keys_to_array` function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
-* Add :func:`t_cdf` and :func:`inverse_t_cdf` functions for Student's t-distribution calculations. `#26363 <https://github.com/prestodb/presto/pull/26363>`_
+* Add :func:`!map_int_keys_to_array` function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
+* Add :func:`!t_cdf` and :func:`!inverse_t_cdf` functions for Student's t-distribution calculations. `#26363 <https://github.com/prestodb/presto/pull/26363>`_
 * Add support for distributed execution of procedures. `#26373 <https://github.com/prestodb/presto/pull/26373>`_
 * Add support for :doc:`Materialized Views </admin/materialized-views>`. `#26492 <https://github.com/prestodb/presto/pull/26492>`_
 * Update encoding of refresh token secret key from HMAC to AES. `#26487 <https://github.com/prestodb/presto/pull/26487>`_

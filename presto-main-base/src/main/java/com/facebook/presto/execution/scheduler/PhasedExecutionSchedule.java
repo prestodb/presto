@@ -27,6 +27,7 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -218,6 +219,13 @@ public class PhasedExecutionSchedule
         public Set<PlanFragmentId> visitSemiJoin(SemiJoinNode node, PlanFragmentId currentFragmentId)
         {
             return processJoin(node.getFilteringSource(), node.getSource(), currentFragmentId);
+        }
+
+        @Override
+        public Set<PlanFragmentId> visitRPC(RPCNode node, PlanFragmentId currentFragmentId)
+        {
+            // RPCNode has a single source, just visit it
+            return node.getSource().accept(this, currentFragmentId);
         }
 
         @Override

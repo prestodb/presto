@@ -6,7 +6,7 @@ General Changes
 ---------------
 
 * Fix failure due to implicit coercion issue in ``IN`` expressions for
-  certain combinations of data types (e.g., ``double`` and ``decimal``).
+  certain combinations of data types, such as ``double`` and ``decimal``.
 * Add ``query.max-length`` config flag to set the maximum length of a SQL query.
   The default maximum length is 1MB.
 * Improve performance of :func:`!approx_percentile`.

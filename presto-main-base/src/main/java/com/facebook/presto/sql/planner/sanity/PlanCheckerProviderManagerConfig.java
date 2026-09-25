@@ -18,21 +18,23 @@ import com.facebook.airlift.configuration.Config;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class PlanCheckerProviderManagerConfig
 {
-    private File planCheckerConfigurationDir = new File("etc/plan-checker-providers/");
+    private Path planCheckerConfigurationDir = Paths.get("etc/plan-checker-providers/");
 
     @NotNull
     public File getPlanCheckerConfigurationDir()
     {
-        return planCheckerConfigurationDir;
+        return planCheckerConfigurationDir.toFile();
     }
 
     @Config("plan-checker.config-dir")
     public PlanCheckerProviderManagerConfig setPlanCheckerConfigurationDir(File dir)
     {
-        this.planCheckerConfigurationDir = dir;
+        this.planCheckerConfigurationDir = dir.toPath();
         return this;
     }
 }

@@ -62,6 +62,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -178,7 +179,7 @@ public class TestSqlTaskExecution
                             Optional.empty())),
                     ImmutableList.of(TABLE_SCAN_NODE_ID),
                     executionStrategy == GROUPED_EXECUTION
-                            ? StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(ImmutableList.of(TABLE_SCAN_NODE_ID), 8)
+                            ? StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(ImmutableList.of(TABLE_SCAN_NODE_ID), 8, ImmutableList.of(), ImmutableMap.of())
                             : StageExecutionDescriptor.ungroupedExecution());
             TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
             SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
@@ -440,7 +441,7 @@ public class TestSqlTaskExecution
                                     Optional.empty())),
                     ImmutableList.of(scan2NodeId, scan0NodeId),
                     executionStrategy == GROUPED_EXECUTION
-                            ? StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(ImmutableList.of(scan0NodeId, scan2NodeId), 4)
+                            ? StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(ImmutableList.of(scan0NodeId, scan2NodeId), 4, ImmutableList.of(), ImmutableMap.of())
                             : StageExecutionDescriptor.ungroupedExecution());
             TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
             SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(

@@ -57,7 +57,7 @@ public class NativeFunctionNamespaceManagerFactory
             Bootstrap app = new Bootstrap(
                     new NativeFunctionNamespaceManagerModule(catalogName, context.getNodeManager(), context.getFunctionMetadataManager()),
                     new NoopSqlFunctionExecutorsModule(),
-                    new NativeSidecarCommunicationModule());
+                    new NativeSidecarCommunicationModule(context.getAuthClientConfigs()));
 
             Injector injector = app
                     .doNotInitializeLogging()

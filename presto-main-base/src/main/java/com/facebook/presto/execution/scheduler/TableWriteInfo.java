@@ -22,6 +22,7 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.ExecuteProc
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.MergeHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
@@ -33,12 +34,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.graph.Traverser.forTree;
 import static java.lang.String.format;
@@ -90,7 +94,13 @@ public class TableWriteInfo
             }
             if (target instanceof TableWriterNode.InsertReference) {
                 TableWriterNode.InsertReference insert = (TableWriterNode.InsertReference) target;
-                return Optional.of(new ExecutionWriterTarget.InsertHandle(metadata.beginInsert(session, insert.getHandle()), insert.getSchemaTableName()));
+                // Extract column names from the INSERT statement
+                List<String> insertColumnNames = insert.getOutputColumns()
+                        .map(columns -> columns.stream()
+                                .map(com.facebook.presto.spi.eventlistener.OutputColumnMetadata::getColumnName)
+                                .collect(Collectors.toList()))
+                        .orElse(Collections.emptyList());
+                return Optional.of(new ExecutionWriterTarget.InsertHandle(metadata.beginInsert(session, insert.getHandle(), insertColumnNames), insert.getSchemaTableName()));
             }
             if (target instanceof TableWriterNode.DeleteHandle) {
                 TableWriterNode.DeleteHandle delete = (TableWriterNode.DeleteHandle) target;
@@ -98,7 +108,7 @@ public class TableWriteInfo
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
                 TableWriterNode.RefreshMaterializedViewReference refresh = (TableWriterNode.RefreshMaterializedViewReference) target;
-                return Optional.of(new ExecutionWriterTarget.RefreshMaterializedViewHandle(metadata.beginRefreshMaterializedView(session, refresh.getHandle()), refresh.getSchemaTableName()));
+                return Optional.of(new ExecutionWriterTarget.RefreshMaterializedViewHandle(metadata.beginRefreshMaterializedView(session, refresh.getHandle(), refresh.getRefreshScopePredicate()), refresh.getSchemaTableName()));
             }
             if (target instanceof TableWriterNode.UpdateTarget) {
                 TableWriterNode.UpdateTarget update = (TableWriterNode.UpdateTarget) target;
@@ -121,6 +131,11 @@ public class TableWriteInfo
                 Optional<MergeHandle> mergeHandle = mergeTarget.getMergeHandle();
                 return Optional.of(new ExecutionWriterTarget.MergeHandle(mergeHandle.orElseThrow(
                         () -> new VerifyException("mergeHandle is absent: " + target.getClass().getSimpleName()))));
+            }
+            if (target instanceof TableWriterNode.CreateVectorIndexReference) {
+                throw new PrestoException(NOT_SUPPORTED,
+                        "This connector does not support creating vector indexes. " +
+                        "The connector must provide a ConnectorPlanOptimizer to handle CREATE VECTOR INDEX.");
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
@@ -168,7 +183,7 @@ public class TableWriteInfo
             case 0:
                 return Optional.empty();
             case 1:
-                return Optional.of(getOnlyElement(allMatches));
+                return Optional.of(allMatches.stream().collect(onlyElement()));
             default:
                 throw new IllegalArgumentException(format("Multiple matches found for class %s", clazz));
         }

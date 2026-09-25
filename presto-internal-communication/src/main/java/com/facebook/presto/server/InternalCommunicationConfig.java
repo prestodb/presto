@@ -47,6 +47,7 @@ public class InternalCommunicationConfig
     private DataSize maxTaskUpdateSize = new DataSize(16, MEGABYTE);
     private CommunicationProtocol taskCommunicationProtocol = CommunicationProtocol.HTTP;
     private CommunicationProtocol serverInfoCommunicationProtocol = CommunicationProtocol.HTTP;
+    private CommunicationProtocol resourceManagerCommunicationProtocol = CommunicationProtocol.THRIFT;
     private boolean memoizeDeadNodesEnabled;
     private String sharedSecret;
     private long nodeStatsRefreshIntervalMillis = 1_000;
@@ -350,6 +351,19 @@ public class InternalCommunicationConfig
     {
         this.internalJwtEnabled = internalJwtEnabled;
         return this;
+    }
+
+    @Config("internal-communication.resource-manager-communication-protocol")
+    @ConfigDescription("Protocol for internal communication with resource managers.")
+    public InternalCommunicationConfig setResourceManagerCommunicationProtocol(CommunicationProtocol resourceManagerCommunicationProtocol)
+    {
+        this.resourceManagerCommunicationProtocol = resourceManagerCommunicationProtocol;
+        return this;
+    }
+
+    public CommunicationProtocol getResourceManagerCommunicationProtocol()
+    {
+        return resourceManagerCommunicationProtocol;
     }
 
     @AssertTrue(message = "When internal JWT(internal-communication.jwt.enabled) authentication is enabled, a shared secret(internal-communication.shared-secret) is required")

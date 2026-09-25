@@ -14,6 +14,7 @@
 package com.facebook.presto.delta.rule;
 
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableSet;
@@ -21,15 +22,26 @@ import jakarta.inject.Inject;
 
 import java.util.Set;
 
+import static java.util.Objects.requireNonNull;
+
 public class DeltaPlanOptimizerProvider
         implements ConnectorPlanOptimizerProvider
 {
     private final Set<ConnectorPlanOptimizer> planOptimizers;
 
     @Inject
-    public DeltaPlanOptimizerProvider(RowExpressionService rowExpressionService)
+    public DeltaPlanOptimizerProvider(RowExpressionService rowExpressionService, ConnectorSystemConfig connectorSystemConfig)
     {
-        planOptimizers = ImmutableSet.of(new DeltaParquetDereferencePushDown(rowExpressionService));
+        requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
+
+        // DeltaParquetDereferencePushDown hoists a nested field into a top level column whose name is the
+        // flattened subfield path ("msg$_$_$x") while its required subfield keeps the original root ("msg.x").
+        // The Java Parquet reader resolves such columns through the subfield path and ignores the column name,
+        // but Velox requires the required subfield root to match the column handle name and fails the scan with
+        // "Required subfield does not match column name".
+        planOptimizers = connectorSystemConfig.isNativeExecution()
+                ? ImmutableSet.of()
+                : ImmutableSet.of(new DeltaParquetDereferencePushDown(rowExpressionService));
     }
 
     @Override

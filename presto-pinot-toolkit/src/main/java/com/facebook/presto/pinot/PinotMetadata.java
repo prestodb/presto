@@ -67,11 +67,13 @@ public class PinotMetadata
         return ImmutableList.of(SCHEMA_NAME);
     }
 
-    private String getPinotTableNameFromPrestoTableName(String prestoTableName)
+    private String getPinotTableNameFromPrestoTableName(ConnectorSession session, String prestoTableName)
     {
         List<String> allTables = pinotPrestoConnection.getTableNames();
+        String normalizedPrestoTableName = normalizeIdentifier(session, prestoTableName);
         for (String pinotTableName : allTables) {
-            if (prestoTableName.equals(pinotTableName)) {
+            String normalizedPinotTableName = normalizeIdentifier(session, pinotTableName);
+            if (normalizedPrestoTableName.equals(normalizedPinotTableName)) {
                 return pinotTableName;
             }
         }
@@ -84,7 +86,7 @@ public class PinotMetadata
         if (!SCHEMA_NAME.equals(normalizeIdentifier(session, tableName.getSchemaName()))) {
             throw new PrestoException(NOT_FOUND, format("Schema %s does not exist", tableName.getSchemaName()));
         }
-        String pinotTableName = getPinotTableNameFromPrestoTableName(tableName.getTableName());
+        String pinotTableName = getPinotTableNameFromPrestoTableName(session, tableName.getTableName());
         return new PinotTableHandle(connectorId, tableName.getSchemaName(), pinotTableName);
     }
 
@@ -114,7 +116,7 @@ public class PinotMetadata
         checkArgument(pinotTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
         SchemaTableName tableName = new SchemaTableName(pinotTableHandle.getSchemaName(), pinotTableHandle.getTableName());
 
-        return getTableMetadata(tableName);
+        return getTableMetadata(session, tableName);
     }
 
     @Override
@@ -136,7 +138,7 @@ public class PinotMetadata
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
         checkArgument(pinotTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
 
-        String pinotTableName = getPinotTableNameFromPrestoTableName(pinotTableHandle.getTableName());
+        String pinotTableName = getPinotTableNameFromPrestoTableName(session, pinotTableHandle.getTableName());
         PinotTable table = pinotPrestoConnection.getTable(pinotTableName);
         if (table == null) {
             throw new TableNotFoundException(pinotTableHandle.toSchemaTableName());
@@ -155,7 +157,7 @@ public class PinotMetadata
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
-            ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
+            ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableName);
             // table can disappear during listing operation
             if (tableMetadata != null) {
                 columns.put(tableName, tableMetadata.getColumns());
@@ -164,9 +166,9 @@ public class PinotMetadata
         return columns.build();
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
-        String pinotTableName = getPinotTableNameFromPrestoTableName(tableName.getTableName());
+        String pinotTableName = getPinotTableNameFromPrestoTableName(session, tableName.getTableName());
         PinotTable table = pinotPrestoConnection.getTable(pinotTableName);
         if (table == null) {
             return null;

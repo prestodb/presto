@@ -42,7 +42,7 @@ public class TestNativeIcebergJmxMetadataMetrics
                 .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
                 .setAddStorageFormatToPath(false)
                 .setAddJmxPlugin(false)
-                .buildIcebergQueryRunner();
+                .buildIcebergQueryRunner(false);
         return icebergQueryRunner.getQueryRunner();
     }
 

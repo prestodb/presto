@@ -15,6 +15,7 @@
 
 #include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "velox/core/PlanNode.h"
+#include "velox/exec/Exchange.h"
 #include "velox/exec/Operator.h"
 
 namespace facebook::presto::operators {

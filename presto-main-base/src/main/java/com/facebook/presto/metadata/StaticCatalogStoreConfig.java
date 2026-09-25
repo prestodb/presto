@@ -20,26 +20,28 @@ import com.google.common.collect.ImmutableList;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 public class StaticCatalogStoreConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private File catalogConfigurationDir = new File("etc/catalog/");
+    private Path catalogConfigurationDir = Paths.get("etc/catalog/");
     private List<String> disabledCatalogs;
 
     @NotNull
     public File getCatalogConfigurationDir()
     {
-        return catalogConfigurationDir;
+        return catalogConfigurationDir.toFile();
     }
 
     @LegacyConfig("plugin.config-dir")
     @Config("catalog.config-dir")
     public StaticCatalogStoreConfig setCatalogConfigurationDir(File dir)
     {
-        this.catalogConfigurationDir = dir;
+        this.catalogConfigurationDir = dir.toPath();
         return this;
     }
 

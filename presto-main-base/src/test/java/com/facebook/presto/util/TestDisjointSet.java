@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.util;
 
-import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import java.util.Collection;
@@ -24,6 +23,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -67,7 +67,7 @@ public class TestDisjointSet
         }
         Collection<Set<Integer>> equivalentClasses = disjoint.getEquivalentClasses();
         assertEquals(equivalentClasses.size(), 1);
-        assertEquals(Iterables.getOnlyElement(equivalentClasses).size(), 101);
+        assertEquals(equivalentClasses.stream().collect(onlyElement()).size(), 101);
     }
 
     @Test
@@ -94,7 +94,7 @@ public class TestDisjointSet
         }
         Collection<Set<Integer>> equivalentClasses = disjoint.getEquivalentClasses();
         assertEquals(equivalentClasses.size(), 1);
-        assertEquals(Iterables.getOnlyElement(equivalentClasses).size(), 101);
+        assertEquals(equivalentClasses.stream().collect(onlyElement()).size(), 101);
     }
 
     @Test

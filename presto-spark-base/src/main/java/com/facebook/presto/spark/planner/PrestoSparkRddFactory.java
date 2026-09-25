@@ -21,6 +21,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
@@ -36,6 +37,7 @@ import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTask
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -99,6 +101,7 @@ public class PrestoSparkRddFactory
     private static final Logger log = Logger.get(PrestoSparkRddFactory.class);
 
     private final SplitManager splitManager;
+    private final Metadata metadata;
     private final PartitioningProviderManager partitioningProviderManager;
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final Codec<TaskSource> taskSourceCodec;
@@ -107,12 +110,14 @@ public class PrestoSparkRddFactory
     @Inject
     public PrestoSparkRddFactory(
             SplitManager splitManager,
+            Metadata metadata,
             PartitioningProviderManager partitioningProviderManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             Codec<TaskSource> taskSourceCodec,
             FeaturesConfig featuresConfig)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "taskDescriptorJsonCodec is null");
         this.taskSourceCodec = requireNonNull(taskSourceCodec, "taskSourceCodec is null");
@@ -225,7 +230,7 @@ public class PrestoSparkRddFactory
         List<PrestoSparkSource> sources = findTableScanNodes(fragment.getRoot());
         if (!sources.isEmpty()) {
             try (CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager)) {
-                SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP);
+                SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP, metadata);
                 Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(fragment, session, tableWriteInfo);
                 taskSourceRdd = Optional.of(createTaskSourcesRdd(
                         fragment.getId(),
@@ -365,7 +370,7 @@ public class PrestoSparkRddFactory
     private static List<PrestoSparkSource> findTableScanNodes(PlanNode node)
     {
         return searchFrom(node)
-                .where(TableScanNode.class::isInstance)
+                .where(n -> n instanceof TableScanNode || n instanceof IndexSourceNode)
                 .findAll().stream().map(t -> new PrestoSparkSource(t.getId(), t)).collect(Collectors.toList());
     }
 

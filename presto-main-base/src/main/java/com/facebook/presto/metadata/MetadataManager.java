@@ -57,6 +57,7 @@ import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
@@ -118,6 +119,7 @@ import static com.facebook.presto.SystemSessionProperties.isIgnoreStatsCalculato
 import static com.facebook.presto.common.RuntimeMetricName.GET_IDENTIFIER_NORMALIZATION_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_LAYOUT_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_STATISTICS_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -587,7 +589,9 @@ public class MetadataManager
         try {
             ConnectorId connectorId = tableHandle.getConnectorId();
             ConnectorMetadata metadata = getMetadata(session, connectorId);
-            return metadata.getTableStatistics(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tableHandle.getLayout(), columnHandles, constraint);
+            return session.getRuntimeStats().recordWallTime(
+                    GET_TABLE_STATISTICS_TIME_NANOS,
+                    () -> metadata.getTableStatistics(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tableHandle.getLayout(), columnHandles, constraint));
         }
         catch (RuntimeException e) {
             if (isIgnoreStatsCalculatorFailures(session)) {
@@ -808,11 +812,19 @@ public class MetadataManager
     }
 
     @Override
-    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        metadata.addColumn(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column);
+        metadata.addColumn(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column, position);
+    }
+
+    @Override
+    public void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.setColumnDefault(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), columnName, defaultValue);
     }
 
     @Override
@@ -821,6 +833,22 @@ public class MetadataManager
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
         metadata.dropColumn(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column);
+    }
+
+    @Override
+    public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.setColumnType(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column, type);
+    }
+
+    @Override
+    public void setColumnPosition(Session session, TableHandle tableHandle, ColumnHandle column, ColumnPosition position)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.setColumnPosition(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column, position);
     }
 
     @Override
@@ -958,13 +986,37 @@ public class MetadataManager
     }
 
     @Override
-    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
+    public OutputTableHandle beginCreateVectorIndex(Session session, String catalogName, ConnectorTableMetadata indexMetadata, Optional<NewTableLayout> layout, SchemaTableName sourceTableName)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        ConnectorOutputTableHandle handle = metadata.beginCreateVectorIndex(connectorSession, indexMetadata, layout.map(NewTableLayout::getLayout), sourceTableName);
+        return new OutputTableHandle(connectorId, transactionHandle, handle);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateVectorIndex(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        return metadata.finishCreateVectorIndex(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
+    }
+
+    @Override
+    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<String> insertColumnNames)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        List<String> normalizedColumnNames = insertColumnNames.stream()
+                .map(name -> normalizeIdentifier(session, connectorId.getCatalogName(), name))
+                .collect(toImmutableList());
+        ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), normalizedColumnNames);
         return new InsertTableHandle(tableHandle.getConnectorId(), transactionHandle, handle);
     }
 
@@ -1246,6 +1298,19 @@ public class MetadataManager
     }
 
     @Override
+    public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Object> properties)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.setMaterializedViewProperties(
+                session.toConnectorSession(connectorId),
+                toSchemaTableName(viewName.getSchemaName(), viewName.getObjectName()),
+                properties);
+    }
+
+    @Override
     public List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
@@ -1352,13 +1417,13 @@ public class MetadataManager
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, Optional<RowExpression> refreshScopePredicate)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), refreshScopePredicate);
         return new InsertTableHandle(tableHandle.getConnectorId(), transactionHandle, handle);
     }
 
@@ -1366,7 +1431,10 @@ public class MetadataManager
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        // Use the write-mode metadata so finish runs on the same ConnectorMetadata instance as
+        // beginRefreshMaterializedView (some connectors, e.g. Prism, return distinct read/write
+        // instances); this lets a connector read state set during begin (e.g. the refresh scope).
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
         return metadata.finishRefreshMaterializedView(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
     }
 

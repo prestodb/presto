@@ -19,9 +19,15 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions;
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.ReadPreference;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 import jakarta.inject.Singleton;
+
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
@@ -46,38 +52,67 @@ public class MongoClientModule
     {
         requireNonNull(config, "config is null");
 
-        MongoClientOptions.Builder options = MongoClientOptions.builder()
-                .connectionsPerHost(config.getConnectionsPerHost())
-                .connectTimeout(config.getConnectionTimeout())
-                .socketTimeout(config.getSocketTimeout())
-                .socketKeepAlive(config.getSocketKeepAlive())
-                .maxWaitTime(config.getMaxWaitTime())
-                .minConnectionsPerHost(config.getMinConnectionsPerHost())
-                .writeConcern(config.getWriteConcern().getWriteConcern());
+        MongoClientSettings.Builder settingsBuilder = MongoClientSettings.builder();
+
+        String connectionString = buildConnectionString(config);
+        settingsBuilder.applyConnectionString(new ConnectionString(connectionString));
+
+        config.getCredentials().ifPresent(settingsBuilder::credential);
+
+        settingsBuilder.applyToConnectionPoolSettings(builder -> builder
+                .maxSize(config.getConnectionsPerHost())
+                .minSize(config.getMinConnectionsPerHost())
+                .maxWaitTime(config.getMaxWaitTime(), TimeUnit.MILLISECONDS));
+
+        settingsBuilder.applyToSocketSettings(builder -> builder
+                .connectTimeout(config.getConnectionTimeout(), TimeUnit.MILLISECONDS)
+                .readTimeout(config.getSocketTimeout(), TimeUnit.MILLISECONDS));
+
+        settingsBuilder.writeConcern(config.getWriteConcern().getWriteConcern());
+
+        settingsBuilder.readPreference(configureReadPreference(config));
 
         if (config.getRequiredReplicaSetName() != null) {
-            options.requiredReplicaSetName(config.getRequiredReplicaSetName());
+            settingsBuilder.applyToClusterSettings(builder ->
+                    builder.requiredReplicaSetName(config.getRequiredReplicaSetName()));
         }
 
-        configureReadPreference(options, config);
-        configureSsl(options, config);
+        configureSsl(settingsBuilder, config);
 
-        MongoClient client = new MongoClient(config.getSeeds(), config.getCredentials(), options.build());
+        MongoClient client = MongoClients.create(settingsBuilder.build());
 
         return new MongoSession(typeManager, client, config);
     }
 
-    private static void configureReadPreference(MongoClientOptions.Builder options, MongoClientConfig config)
+    private static String buildConnectionString(MongoClientConfig config)
+    {
+        StringBuilder connectionString = new StringBuilder("mongodb://");
+
+        connectionString.append(config.getSeeds().stream()
+                .map(addr -> addr.getHost() + ":" + addr.getPort())
+                .collect(Collectors.joining(",")));
+
+        config.getCredentials().ifPresent(credential ->
+                connectionString.append("/")
+                        .append(credential.getSource()));
+
+        // Enable replica set discovery when replica set name is configured or multiple seeds are provided
+        if (config.getRequiredReplicaSetName() != null || config.getSeeds().size() > 1) {
+            connectionString.append("?directConnection=false");
+        }
+        return connectionString.toString();
+    }
+    private static ReadPreference configureReadPreference(MongoClientConfig config)
     {
         if (config.getReadPreferenceTags().isEmpty()) {
-            options.readPreference(config.getReadPreference().getReadPreference());
+            return config.getReadPreference().getReadPreference();
         }
         else {
-            options.readPreference(config.getReadPreference().getReadPreferenceWithTags(config.getReadPreferenceTags()));
+            return config.getReadPreference().getReadPreferenceWithTags(config.getReadPreferenceTags());
         }
     }
 
-    private static void configureSsl(MongoClientOptions.Builder options, MongoClientConfig config)
+    private static void configureSsl(MongoClientSettings.Builder settings, MongoClientConfig config)
     {
         if (config.isTlsEnabled()) {
             SslContextProvider sslContextProvider = new SslContextProvider(
@@ -88,8 +123,9 @@ public class MongoClientModule
 
             sslContextProvider.buildSslContext()
                     .ifPresent(sslContext -> {
-                        options.sslContext(sslContext);
-                        options.sslEnabled(true);
+                        settings.applyToSslSettings(builder -> builder
+                                .enabled(true)
+                                .context(sslContext));
                     });
         }
     }

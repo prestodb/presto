@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.planner;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.Metadata;
@@ -25,6 +26,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
@@ -42,17 +45,18 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
+import com.facebook.presto.sql.planner.plan.TransportType;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -67,6 +71,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignPartitioningVariables;
@@ -99,6 +104,8 @@ import static java.util.Objects.requireNonNull;
 public abstract class BasePlanFragmenter
         extends SimplePlanRewriter<FragmentProperties>
 {
+    private static final Logger log = Logger.get(BasePlanFragmenter.class);
+
     private final Session session;
     private final Metadata metadata;
     private final PlanNodeIdAllocator idAllocator;
@@ -139,12 +146,19 @@ public abstract class BasePlanFragmenter
 
     private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
     {
-        List<PlanNodeId> schedulingOrder = scheduleOrder(root);
+        Set<PlanNodeId> partitionedSourcesSet = properties.getPartitionedSources();
+        // Filter the scheduling order to only include partitioned sources.
+        // The visitor always includes all source nodes (e.g. IndexSourceNode),
+        // but not all of them need coordinator-scheduled splits (e.g. non-bucketed
+        // index tables, or index sources in Java execution).
+        List<PlanNodeId> schedulingOrder = scheduleOrder(root).stream()
+                .filter(partitionedSourcesSet::contains)
+                .collect(toImmutableList());
         Preconditions.checkArgument(
-                properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder)),
+                partitionedSourcesSet.equals(ImmutableSet.copyOf(schedulingOrder)),
                 "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)",
                 schedulingOrder,
-                properties.getPartitionedSources());
+                partitionedSourcesSet);
 
         Set<VariableReferenceExpression> fragmentVariableTypes = extractOutputVariables(root);
         Set<PlanNodeId> tableWriterNodeIds = PlanFragmenterUtils.getTableWriterNodeIds(root);
@@ -167,6 +181,7 @@ public abstract class BasePlanFragmenter
                 properties.getOutputOrderingScheme(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 outputTableWriterFragment,
+                properties.getOutputTransportType(),
                 Optional.of(statsAndCosts.getForSubplan(root)),
                 Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, statsAndCosts.getForSubplan(root), metadata.getFunctionAndTypeManager(), session)));
 
@@ -262,6 +277,26 @@ public abstract class BasePlanFragmenter
     }
 
     @Override
+    public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<FragmentProperties> context)
+    {
+        // Only register the index source for coordinator-scheduled splits in
+        // native execution when the underlying table is bucketed (has table
+        // partitioning). Bucketed index tables need coordinator splits for
+        // file-aligned grouped execution. Non-bucketed index tables handle
+        // data fetching internally in the worker via
+        // connector::createIndexSource() and do not need coordinator splits.
+        // Java execution uses the Index SPI at runtime and never needs
+        // coordinator-scheduled splits.
+        if (isNativeExecutionEnabled(session)
+                && metadata.getLayout(session, node.getTableHandle())
+                        .getTablePartitioning()
+                        .isPresent()) {
+            context.get().addPartitionedSource(node.getId());
+        }
+        return context.defaultRewrite(node, context.get());
+    }
+
+    @Override
     public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<FragmentProperties> context)
     {
         if (node.isSingleWriterPerPartitionRequired()) {
@@ -272,6 +307,12 @@ public abstract class BasePlanFragmenter
 
     @Override
     public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<FragmentProperties> context)
+    {
+        return context.defaultRewrite(node, context.get());
+    }
+
+    @Override
+    public PlanNode visitRPC(RPCNode node, RewriteContext<FragmentProperties> context)
     {
         return context.defaultRewrite(node, context.get());
     }
@@ -342,10 +383,24 @@ public abstract class BasePlanFragmenter
 
         setDistributionForExchange(exchange.getType(), partitioningScheme, context);
 
+        // Use ANY (e.g. UCX) for worker-to-worker exchanges, but fall back to
+        // HTTP when a child fragment runs on the coordinator (which only speaks HTTP).
+        TransportType transportType = TransportType.HTTP;
+        boolean anyChildOnCoordinator = exchange.getSources().stream()
+                .anyMatch(PlannerUtils::containsCoordinatorOnlyNode);
+        if (!anyChildOnCoordinator) {
+            transportType = TransportType.ANY;
+        }
+        log.debug("[ANY_EXCHANGE] exchange=%s transport=%s partitioning=%s",
+                exchange.getId(),
+                transportType,
+                context.get().getPartitioningHandle());
+
         ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
         for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
             PartitioningScheme childPartitioningScheme = translateOutputLayout(partitioningScheme, exchange.getInputs().get(sourceIndex));
             FragmentProperties childProperties = new FragmentProperties(childPartitioningScheme);
+            childProperties.setOutputTransportType(transportType);
 
             // If the exchange has ordering requirements, translate them for the child fragment
             Optional<OrderingScheme> childOutputOrderingScheme = Optional.empty();
@@ -375,7 +430,8 @@ public abstract class BasePlanFragmenter
                 exchange.isEnsureSourceOrdering(),
                 exchange.getOrderingScheme(),
                 exchange.getType(),
-                exchange.getPartitioningScheme().getEncoding());
+                exchange.getPartitioningScheme().getEncoding(),
+                transportType);
     }
 
     protected void setDistributionForExchange(ExchangeNode.Type exchangeType, PartitioningScheme partitioningScheme, RewriteContext<FragmentProperties> context)
@@ -388,6 +444,8 @@ public abstract class BasePlanFragmenter
         }
     }
 
+    // Materialized exchanges write to temporary tables and are read back via table scans,
+    // so network transport type is irrelevant (defaults to HTTP).
     private PlanNode createRemoteMaterializedExchange(Metadata metadata, Session session, ExchangeNode exchange, RewriteContext<FragmentProperties> context)
     {
         checkArgument(exchange.getType() == REPARTITION, "Unexpected exchange type: %s", exchange.getType());
@@ -492,9 +550,21 @@ public abstract class BasePlanFragmenter
         // Output ordering scheme for the fragment - this gets transferred to the PlanFragment
         private Optional<OrderingScheme> outputOrderingScheme = Optional.empty();
 
+        private TransportType outputTransportType = TransportType.HTTP;
+
         public FragmentProperties(PartitioningScheme partitioningScheme)
         {
             this.partitioningScheme = partitioningScheme;
+        }
+
+        public void setOutputTransportType(TransportType outputTransportType)
+        {
+            this.outputTransportType = requireNonNull(outputTransportType, "outputTransportType is null");
+        }
+
+        public TransportType getOutputTransportType()
+        {
+            return outputTransportType;
         }
 
         public void setOutputOrderingScheme(Optional<OrderingScheme> outputOrderingScheme)
@@ -590,6 +660,13 @@ public abstract class BasePlanFragmenter
 
             partitioningHandle = Optional.of(COORDINATOR_DISTRIBUTION);
 
+            return this;
+        }
+
+        public FragmentProperties addPartitionedSource(PlanNodeId source)
+        {
+            requireNonNull(source, "source is null");
+            partitionedSources.add(source);
             return this;
         }
 

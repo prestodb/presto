@@ -16,7 +16,7 @@ package com.facebook.presto.metadata;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -29,7 +29,7 @@ public class TestSessionPropertyProviderConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SessionPropertyProviderConfig.class)
-                .setSessionPropertyProvidersConfigurationDir(new File("etc/session-property-providers")));
+                .setSessionPropertyProvidersConfigurationDir(Paths.get("etc/session-property-providers").toFile()));
     }
 
     @Test
@@ -40,7 +40,7 @@ public class TestSessionPropertyProviderConfig
                 .build();
 
         SessionPropertyProviderConfig expected = new SessionPropertyProviderConfig()
-                .setSessionPropertyProvidersConfigurationDir(new File("/foo"));
+                .setSessionPropertyProvidersConfigurationDir(Paths.get("/foo").toFile());
 
         assertFullMapping(properties, expected);
     }

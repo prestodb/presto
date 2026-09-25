@@ -131,6 +131,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
     public void checkCanDropColumn(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
     }

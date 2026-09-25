@@ -12,10 +12,11 @@
  * limitations under the License.
  */
 #include <folly/init/Init.h>
-#include <gflags/gflags.h>
-#include <gflags/gflags_declare.h>
+#include <folly/portability/GFlags.h>
 #include <glog/logging.h>
 #include "presto_cpp/main/PrestoServer.h"
+#include "presto_cpp/main/common/ConfigReader.h"
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/common/base/StatsReporter.h"
@@ -28,6 +29,13 @@ int main(int argc, char* argv[]) {
 
   PRESTO_STARTUP_LOG(INFO) << "Entering main()";
   facebook::presto::PrestoServer presto(FLAGS_etc_dir);
+
+  // Apply gflag.* properties from config.properties to Velox gflags.
+  // Must be after folly::Init (which parses command-line flags) so that
+  // SET_FLAG_IF_DEFAULT respects command-line overrides.
+  facebook::presto::applyGFlags(
+      facebook::presto::util::readConfig(FLAGS_etc_dir + "/config.properties"));
+
   presto.run();
   PRESTO_SHUTDOWN_LOG(INFO) << "Exiting main()";
 }

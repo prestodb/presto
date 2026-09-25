@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.297-SNAPSHOT</version>
+        <version>0.300-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-client</artifactId>
@@ -14,7 +14,6 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
-        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencies>
@@ -87,7 +86,7 @@
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
+            <artifactId>okhttp-jvm</artifactId>
         </dependency>
 
         <dependency>
@@ -103,12 +102,6 @@
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
-        </dependency>
-
-        <!-- pull up to the version used in okio-jvm to avoid conlict with okhttp-* -->
-        <dependency>
-            <groupId>org.jetbrains.kotlin</groupId>
-            <artifactId>kotlin-stdlib-jdk8</artifactId>
         </dependency>
 
         <dependency>
@@ -166,7 +159,7 @@
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>mockwebserver</artifactId>
+            <artifactId>mockwebserver3</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -178,9 +171,8 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
                     <ignoredUnusedDeclaredDependencies>
-                        <!-- This is needed to keep Okio in the build and prevent conflicts with OkHttp and Kotlin dependencies. -->
+                        <!-- This is needed to keep Okio in the build and prevent conflicts with OkHttp dependencies. -->
                         <ignoredUnusedDeclaredDependency>com.squareup.okio:okio-jvm</ignoredUnusedDeclaredDependency>
-                        <ignoredUnusedDeclaredDependency>org.jetbrains.kotlin:kotlin-stdlib-jdk8</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>javax.inject:javax.inject</ignoredNonTestScopedDependency>

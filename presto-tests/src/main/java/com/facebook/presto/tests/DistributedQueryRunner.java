@@ -93,6 +93,7 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.common.type.TypeUtils.isNumericType;
 import static com.facebook.presto.spi.NodePoolType.INTERMEDIATE;
 import static com.facebook.presto.spi.NodePoolType.LEAF;
@@ -788,7 +789,21 @@ public class DistributedQueryRunner
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
         for (TestingPrestoServer server : servers) {
-            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager());
+            server.getMetadata().getFunctionAndTypeManager()
+                    .loadFunctionNamespaceManager(
+                            functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager(), server.getAuthClientConfigs());
+        }
+    }
+
+    @Override
+    public void loadExpressionOptimizer(String expressionOptimizerFactoryName, String expressionOptimizerName, Map<String, String> properties)
+    {
+        for (TestingPrestoServer server : servers) {
+            server.getExpressionManager().loadExpressionOptimizerFactory(
+                    expressionOptimizerFactoryName,
+                    expressionOptimizerName,
+                    properties,
+                    server.getAuthClientConfigs());
         }
     }
 
@@ -1058,7 +1073,13 @@ public class DistributedQueryRunner
             if (coordinatorOnly && !server.isCoordinator()) {
                 continue;
             }
-            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager());
+            server.getMetadata().getFunctionAndTypeManager()
+                    .loadFunctionNamespaceManager(
+                            functionNamespaceManagerName,
+                            catalogName,
+                            properties,
+                            server.getPluginNodeManager(),
+                            defaultAuthClientConfigs(server.getPluginNodeManager().getCurrentNode().getNodeIdentifier()));
         }
     }
 
@@ -1104,7 +1125,8 @@ public class DistributedQueryRunner
                     sessionPropertyProviderName,
                     properties,
                     Optional.ofNullable(server.getMetadata().getFunctionAndTypeManager()),
-                    Optional.ofNullable(server.getPluginNodeManager()));
+                    Optional.ofNullable(server.getPluginNodeManager()),
+                    server.getAuthClientConfigs());
         }
     }
 
@@ -1120,7 +1142,9 @@ public class DistributedQueryRunner
     public void loadPlanCheckerProviderManager(String planCheckerProviderName, Map<String, String> properties)
     {
         for (TestingPrestoServer server : servers) {
-            server.getPlanCheckerProviderManager().loadPlanCheckerProvider(planCheckerProviderName, properties, server.getPluginNodeManager());
+            server.getPlanCheckerProviderManager()
+                    .loadPlanCheckerProvider(
+                            planCheckerProviderName, properties, server.getPluginNodeManager(), server.getAuthClientConfigs());
         }
     }
 

@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slices;
@@ -62,6 +63,7 @@ public class HivePageSource
     private final ConnectorPageSource delegate;
 
     public HivePageSource(
+            ConnectorSession session,
             List<ColumnMapping> columnMappings,
             Optional<BucketAdaptation> bucketAdaptation,
             DateTimeZone hiveStorageTimeZone,
@@ -103,7 +105,7 @@ public class HivePageSource
             }
 
             if (columnMapping.getKind() == PREFILLED) {
-                prefilledValues[columnIndex] = typedPartitionKey(columnMapping.getPrefilledValue(), type, name, hiveStorageTimeZone);
+                prefilledValues[columnIndex] = typedPartitionKey(session, columnMapping.getPrefilledValue(), type, name, hiveStorageTimeZone);
             }
         }
     }

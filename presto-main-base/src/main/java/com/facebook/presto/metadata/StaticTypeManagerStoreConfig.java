@@ -17,21 +17,23 @@ import com.facebook.airlift.configuration.Config;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class StaticTypeManagerStoreConfig
 {
-    private File typeManagerConfigurationDir = new File("etc/type-managers/");
+    private Path typeManagerConfigurationDir = Paths.get("etc/type-managers/");
 
     @NotNull
     public File getTypeManagerConfigurationDir()
     {
-        return typeManagerConfigurationDir;
+        return typeManagerConfigurationDir.toFile();
     }
 
     @Config("type-manager.config-dir")
     public StaticTypeManagerStoreConfig setTypeManagerConfigurationDir(File dir)
     {
-        this.typeManagerConfigurationDir = dir;
+        this.typeManagerConfigurationDir = dir.toPath();
         return this;
     }
 }

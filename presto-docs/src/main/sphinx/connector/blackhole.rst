@@ -6,7 +6,7 @@ Primarily Black Hole connector is designed for high performance testing of
 other components. It works like the ``/dev/null`` device on Unix-like
 operating systems for data writing and like ``/dev/null`` or ``/dev/zero``
 for data reading. However, it also has some other features that allow testing Presto
-in a more controlled manner. Metadata for any tables created via this connector
+in a more controlled manner. Metadata for any tables created with this connector
 is kept in memory on the coordinator and discarded when Presto restarts.
 Created tables are by default always empty, and any data written to them
 will be ignored and data reads will return no rows.

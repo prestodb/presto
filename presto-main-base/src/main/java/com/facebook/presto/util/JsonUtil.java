@@ -71,6 +71,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeUtils.isDistinctType;
@@ -544,7 +545,7 @@ public final class JsonUtil
             }
             else {
                 long value = TIMESTAMP.getLong(block, position);
-                jsonGenerator.writeString(printTimestampWithoutTimeZone(properties.getTimeZoneKey(), value));
+                jsonGenerator.writeString(printTimestampWithoutTimeZone(properties.isLegacyTimestamp() ? properties.getTimeZoneKey() : UTC_KEY, value));
             }
         }
     }

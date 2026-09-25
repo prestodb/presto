@@ -25,10 +25,10 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -114,7 +114,7 @@ public class MultipleDistinctAggregationToMarkDistinct
         // the distinct marker for the given set of input columns
         Map<Set<VariableReferenceExpression>, VariableReferenceExpression> markers = new HashMap<>();
 
-        Map<VariableReferenceExpression, Aggregation> newAggregations = new HashMap<>();
+        Map<VariableReferenceExpression, Aggregation> newAggregations = new LinkedHashMap<>();
         PlanNode subPlan = parent.getSource();
 
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : parent.getAggregations().entrySet()) {
@@ -127,7 +127,7 @@ public class MultipleDistinctAggregationToMarkDistinct
 
                 VariableReferenceExpression marker = markers.get(inputs);
                 if (marker == null) {
-                    marker = context.getVariableAllocator().newVariable(Iterables.getLast(inputs).getName(), BOOLEAN, "distinct");
+                    marker = context.getVariableAllocator().newVariable(inputs.stream().reduce((first, second) -> second).get().getName(), BOOLEAN, "distinct");
                     markers.put(inputs, marker);
 
                     ImmutableSet.Builder<VariableReferenceExpression> distinctVariables = ImmutableSet.<VariableReferenceExpression>builder()

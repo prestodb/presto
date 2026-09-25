@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
@@ -362,6 +363,16 @@ public class AbstractAnalyzerTest
                         ColumnMetadata.builder().setName("z").setType(BIGINT).build())),
                 false));
 
+        // table with id and embedding columns for vector index tests
+        SchemaTableName table14 = new SchemaTableName("s1", "t14");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table14, ImmutableList.of(
+                        ColumnMetadata.builder().setName("id").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("embedding_real").setType(new ArrayType(RealType.REAL)).build(),
+                        ColumnMetadata.builder().setName("embedding_double").setType(new ArrayType(DOUBLE)).build(),
+                        ColumnMetadata.builder().setName("name").setType(VARCHAR).build())),
+                false));
+
         // materialized view referencing table in same schema
         List<SchemaTableName> baseTables = new ArrayList<>(Collections.singletonList(table2));
         MaterializedViewDefinition.TableColumn baseTableColumns = new MaterializedViewDefinition.TableColumn(table2, "a", true);
@@ -416,6 +427,48 @@ public class AbstractAnalyzerTest
                 new SchemaTableName("s1", "v2"),
                 ImmutableList.of(ColumnMetadata.builder().setName("a").setType(VARCHAR).build()));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata2, viewData2, false));
+
+        // valid view with symmetric type coercion between stored and analyzed types
+        String viewDataSymmetricCoercion = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select CAST(a AS INTEGER) a from t1",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", BIGINT)),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataSymmetricCoercion = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_symmetric_coercion"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataSymmetricCoercion, viewDataSymmetricCoercion, false));
+
+        // issue-shaped view: stored char(3), analyzed char(20); should be valid with symmetric coercion
+        String viewDataCharSymmetricCoercion = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select CAST('abc' AS CHAR(20)) a",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", CharType.createCharType(3))),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataCharSymmetricCoercion = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_char_symmetric_coercion"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(CharType.createCharType(3)).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataCharSymmetricCoercion, viewDataCharSymmetricCoercion, false));
+
+        // issue-shaped view: stored char(3), analyzed varchar; should remain stale under default coercion rules
+        String viewDataCharVarcharStale = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select b from t6",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("b", CharType.createCharType(3))),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataCharVarcharStale = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_char_varchar_stale"),
+                ImmutableList.of(ColumnMetadata.builder().setName("b").setType(CharType.createCharType(3)).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataCharVarcharStale, viewDataCharVarcharStale, false));
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -594,6 +647,19 @@ public class AbstractAnalyzerTest
                     Analysis analysis = analyzer.analyzeSemantic(statement, false);
                     AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
                     checkAccessPermissions(accessControlReferences, analysis.getViewDefinitionReferences(), query, session.getPreparedStatements(), session.getIdentity(), accessControl, session.getAccessControlContext());
+                });
+    }
+
+    protected Analysis analyzeAndGetAnalysis(Session clientSession, @Language("SQL") String query)
+    {
+        return transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .readOnly()
+                .execute(clientSession, session -> {
+                    Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP, Optional.empty(), query);
+                    Statement statement = SQL_PARSER.createStatement(query);
+                    return analyzer.analyzeSemantic(statement, false);
                 });
     }
 

@@ -28,12 +28,14 @@ import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.LocationProvider;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -78,7 +80,7 @@ public class IcebergPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
     {
-        return createPageSink(session, (IcebergWritableTableHandle) insertTableHandle);
+        return createPageSink(session, (IcebergInsertTableHandle) insertTableHandle);
     }
 
     @Override
@@ -88,6 +90,16 @@ public class IcebergPageSinkProvider
     }
 
     private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle)
+    {
+        return createPageSink(session, tableHandle, ImmutableList.of());
+    }
+
+    private ConnectorPageSink createPageSink(ConnectorSession session, IcebergInsertTableHandle tableHandle)
+    {
+        return createPageSink(session, tableHandle, tableHandle.getInsertedColumns());
+    }
+
+    private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle, List<String> insertedColumns)
     {
         HdfsContext hdfsContext = new HdfsContext(session, tableHandle.getSchemaName(), tableHandle.getTableName().getTableName());
         Schema schema = toIcebergSchema(tableHandle.getSchema());
@@ -103,12 +115,14 @@ public class IcebergPageSinkProvider
                 hdfsEnvironment,
                 hdfsContext,
                 tableHandle.getInputColumns(),
+                insertedColumns,
                 jsonCodec,
                 session,
                 tableHandle.getFileFormat(),
                 getMaxPartitionsPerWriter(session),
                 tableHandle.getSortOrder(),
-                sortParameters);
+                sortParameters,
+                IcebergSessionProperties.getTargetMaxFileSize(session).toBytes());
     }
 
     @Override

@@ -30,6 +30,7 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.util.Backoff;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
@@ -129,6 +130,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.addExact;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
@@ -543,7 +545,7 @@ public final class HttpRemoteTaskWithEventLoop
             // to start we just need to trigger an update
             started = true;
             startedTime = System.nanoTime();
-            schedulerStatsTracker.recordStartWaitForEventLoop(startedTime - startTime);
+            schedulerStatsTracker.recordStartWaitForEventLoop(startTime, startedTime);
             scheduleUpdate();
 
             taskStatusFetcher.start();
@@ -802,7 +804,13 @@ public final class HttpRemoteTaskWithEventLoop
                 future.set(null);
             }
             else {
-                whenSplitQueueHasSpace.createNewListener().addListener(() -> future.set(null), taskEventLoop);
+                ListenableFuture<?> innerListener = whenSplitQueueHasSpace.createNewListener();
+                innerListener.addListener(() -> future.set(null), taskEventLoop);
+                future.addListener(() -> {
+                    if (future.isCancelled()) {
+                        innerListener.cancel(false);
+                    }
+                }, directExecutor());
             }
         }, "whenSplitQueueHasSpace");
         return future;
@@ -1312,12 +1320,12 @@ public final class HttpRemoteTaskWithEventLoop
                 }
                 taskUpdateTimeline.removeElements(0, deliveredUpdates);
 
-                updateStats(currentRequestStartNanos);
+                updateStats(currentRequestStartNanos, false);
                 processTaskUpdate(value, sources);
                 updateErrorTracker.requestSucceeded();
                 if (oldestTaskUpdateTime != 0) {
                     schedulerStatsTracker.recordDeliveredUpdates(deliveredUpdates);
-                    schedulerStatsTracker.recordTaskUpdateDeliveredTime(System.nanoTime() - oldestTaskUpdateTime);
+                    schedulerStatsTracker.recordTaskUpdateDeliveredTime(oldestTaskUpdateTime, System.nanoTime());
                 }
             }
             finally {
@@ -1334,7 +1342,7 @@ public final class HttpRemoteTaskWithEventLoop
                 long currentRequestStartNanos;
                 currentRequest = null;
                 currentRequestStartNanos = HttpRemoteTaskWithEventLoop.this.currentRequestStartNanos;
-                updateStats(currentRequestStartNanos);
+                updateStats(currentRequestStartNanos, true);
 
                 // on failure assume we need to update again
                 needsUpdate = true;
@@ -1365,12 +1373,13 @@ public final class HttpRemoteTaskWithEventLoop
             failTask(cause);
         }
 
-        private void updateStats(long currentRequestStartNanos)
+        private void updateStats(long currentRequestStartNanos, boolean failed)
         {
             verify(taskEventLoop.inEventLoop());
-            Duration requestRoundTrip = Duration.nanosSince(currentRequestStartNanos);
-            stats.updateRoundTripMillis(requestRoundTrip.toMillis());
-            schedulerStatsTracker.recordRoundTripTime(requestRoundTrip.toMillis() * 1000000);
+            long endTimeNanos = System.nanoTime();
+            long roundTripMillis = NANOSECONDS.toMillis(endTimeNanos - currentRequestStartNanos);
+            stats.updateRoundTripMillis(roundTripMillis);
+            schedulerStatsTracker.recordRoundTripTime(MILLISECONDS.toNanos(roundTripMillis), currentRequestStartNanos, endTimeNanos, failed);
         }
     }
 

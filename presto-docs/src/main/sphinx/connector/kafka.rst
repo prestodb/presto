@@ -15,7 +15,7 @@ Each message is presented as a row in Presto.
 
 Topics can be live: rows will appear as data arrives and disappear as
 messages get dropped. This can result in strange behavior if accessing the
-same table multiple times in a single query (e.g., performing a self join).
+same table multiple times in a single query (for example, performing a self join).
 
 .. note::
 
@@ -448,7 +448,7 @@ used for standard table columns and a number of decoders for date and time
 based types.
 
 Table below lists Presto data types which can be used as in ``type`` and matching field decoders
-which can be specified via ``dataFormat`` attribute
+which can be specified with ``dataFormat`` attribute
 
 +-------------------------------------+--------------------------------------------------------------------------------+
 | Presto data type                    | Allowed ``dataFormat`` values                                                  |
@@ -489,7 +489,7 @@ To convert values from JSON objects into Presto ``DATE``, ``TIME``, ``TIME WITH 
 * ``iso8601`` - text based, parses a text field as an ISO 8601 timestamp.
 * ``rfc2822`` - text based, parses a text field as an :rfc:`2822` timestamp.
 * ``custom-date-time`` - text based, parses a text field according to Joda format pattern
-                         specified via ``formatHint`` attribute. Format pattern should conform
+                         specified with ``formatHint`` attribute. Format pattern should conform
                          to https://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html.
 * ``milliseconds-since-epoch`` - number based, interprets a text or number as number of milliseconds since the epoch.
 * ``seconds-since-epoch`` - number based, interprets a text or number as number of milliseconds since the epoch.
@@ -506,7 +506,7 @@ Presto does not support schema-less Avro decoding.
 
 For key/message, using ``avro`` decoder, the ``dataSchema`` must be defined.
 This should point to the location of a valid Avro schema file of the message which needs to be decoded. This location can be a remote web server
-(e.g.: ``dataSchema: 'http://example.org/schema/avro_data.avsc'``) or local file system(e.g.: ``dataSchema: '/usr/local/schema/avro_data.avsc'``).
+(such as ``dataSchema: 'http://example.org/schema/avro_data.avsc'``) or local file system (such as ``dataSchema: '/usr/local/schema/avro_data.avsc'``).
 The decoder will fail if this location is not accessible from the Presto coordinator node.
 
 For fields, the following attributes are supported:

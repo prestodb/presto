@@ -15,6 +15,7 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.PlanCheckerProviderContext;
 import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
@@ -24,24 +25,27 @@ import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.Map;
 
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.sql.planner.sanity.TestPlanCheckerProviderManager.TestingPlanCheckerProvider.TESTING_PLAN_CHECKER_PROVIDER;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 public class TestPlanCheckerProviderManager
 {
+    private final NodeManager nodeManager = new TestingNodeManager();
+
     @Test
     public void testLoadPlanCheckerProviders()
             throws IOException
     {
         PlanCheckerProviderManagerConfig planCheckerProviderManagerConfig = new PlanCheckerProviderManagerConfig()
-                .setPlanCheckerConfigurationDir(new File("src/test/resources/plan-checkers"));
+                .setPlanCheckerConfigurationDir(Paths.get("src/test/resources/plan-checkers").toFile());
         PlanCheckerProviderManager planCheckerProviderManager = new PlanCheckerProviderManager(new JsonCodecSimplePlanFragmentSerde(JsonCodec.jsonCodec(SimplePlanFragment.class)), planCheckerProviderManagerConfig);
         planCheckerProviderManager.addPlanCheckerProviderFactory(new TestingPlanCheckerProviderFactory());
-        planCheckerProviderManager.loadPlanCheckerProviders(new TestingNodeManager());
+        planCheckerProviderManager.loadPlanCheckerProviders(nodeManager, defaultAuthClientConfigs(nodeManager.getCurrentNode().getNodeIdentifier()));
         assertEquals(planCheckerProviderManager.getPlanCheckerProviders(), ImmutableList.of(TESTING_PLAN_CHECKER_PROVIDER));
     }
 
@@ -50,9 +54,9 @@ public class TestPlanCheckerProviderManager
             throws IOException
     {
         PlanCheckerProviderManagerConfig planCheckerProviderManagerConfig = new PlanCheckerProviderManagerConfig()
-                .setPlanCheckerConfigurationDir(new File("src/test/resources/plan-checkers"));
+                .setPlanCheckerConfigurationDir(Paths.get("src/test/resources/plan-checkers").toFile());
         PlanCheckerProviderManager planCheckerProviderManager = new PlanCheckerProviderManager(new JsonCodecSimplePlanFragmentSerde(JsonCodec.jsonCodec(SimplePlanFragment.class)), planCheckerProviderManagerConfig);
-        planCheckerProviderManager.loadPlanCheckerProviders(new TestingNodeManager());
+        planCheckerProviderManager.loadPlanCheckerProviders(nodeManager, defaultAuthClientConfigs(nodeManager.getCurrentNode().getNodeIdentifier()));
     }
 
     public static class TestingPlanCheckerProviderFactory

@@ -34,6 +34,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
@@ -43,6 +44,7 @@ import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -314,7 +316,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
+    public void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         throw new UnsupportedOperationException();
     }
@@ -333,6 +341,18 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setColumnPosition(Session session, TableHandle tableHandle, ColumnHandle column, ColumnPosition position)
     {
         throw new UnsupportedOperationException();
     }
@@ -392,7 +412,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<String> insertColumnNames)
     {
         throw new UnsupportedOperationException();
     }
@@ -580,7 +600,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Object> properties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, Optional<RowExpression> refreshScopePredicate)
     {
         throw new UnsupportedOperationException();
     }

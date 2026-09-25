@@ -15,6 +15,7 @@ package com.facebook.presto.spark;
 
 import com.facebook.airlift.log.Level;
 import com.facebook.airlift.log.Logging;
+import com.facebook.presto.Session;
 import com.facebook.presto.nativeworker.AbstractTestNativeGeneralQueries;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.ExpectedQueryRunner;
@@ -24,6 +25,8 @@ import org.testng.annotations.Ignore;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 
 public class TestPrestoSparkNativeGeneralQueries
         extends AbstractTestNativeGeneralQueries
@@ -55,6 +58,14 @@ public class TestPrestoSparkNativeGeneralQueries
         // Install plugins needed for extra array functions.
         queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
         return queryRunner;
+    }
+
+    @Override
+    protected Session getSession()
+    {
+        return Session.builder(super.getSession())
+                .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "false")
+                .build();
     }
 
     @Override

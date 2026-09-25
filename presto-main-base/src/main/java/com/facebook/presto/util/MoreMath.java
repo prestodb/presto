@@ -110,4 +110,15 @@ public final class MoreMath
         }
         throw new IllegalArgumentException("All values are NaN");
     }
+
+    public static long saturatingAdd(long a, long b)
+    {
+        long sum = a + b;
+        // Both operands changed sign relative to sum — overflow occurred
+        if (((a ^ sum) & (b ^ sum)) < 0) {
+            return Long.MAX_VALUE;
+        }
+        // Clamp to zero in case either input was already negative (corrupt data)
+        return Math.max(sum, 0);
+    }
 }

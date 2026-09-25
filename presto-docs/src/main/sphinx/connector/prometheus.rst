@@ -24,7 +24,6 @@ replacing the properties as appropriate:
     prometheus.query-chunk-duration=1d
     prometheus.max-query-duration=1h
     prometheus.cache-ttl=30s
-    prometheus.bearer-token-file=/path/to/bearer/token/file
     prometheus.tls.enabled=true
     prometheus.tls.truststore-path=/path/to/truststore
     prometheus.tls.truststore-password=truststorePassword
@@ -43,10 +42,13 @@ Property Name                                   Description
 ``prometheus.max-query-duration``        Width of overall query to Prometheus, will be divided into query-chunk-duration queries
 ``prometheus.cache-ttl``                 How long the config values are cached
 ``prometheus.bearer-token-file``         File holding bearer token for access to Prometheus
+``prometheus.auth.user``                 Username for Basic authentication to Prometheus
+``prometheus.auth.password``             Password for Basic authentication to Prometheus
 ``prometheus.tls.enabled``               Enable or disable TLS for securing communication with Prometheus
 ``prometheus.tls.truststore-path``       Path to the trust store containing the SSL certificates
 ``prometheus.tls.truststore-password``   Password to access the trust store for TLS verification
 ``verify-host-name``                     Enable or disable hostname verification in the SSL certificate
+``case-sensitive-name-matching``         Enable or disable case-sensitive matching for table names. The default is ``false``.
 ======================================== ============================================================================================
 
 Not Exhausting Your Presto Available Heap
@@ -73,9 +75,72 @@ If the query does not include a WHERE clause limit, these config
 settings are meant to protect against an unlimited query.
 
 
-Bearer Token Authentication
----------------------------
+Authentication
+--------------
 
-Prometheus can be setup to require a Authorization header with every query. The value in
-``prometheus.bearer-token-file`` allows for a bearer token to be read from the configured file. This file
-is optional and not required unless your Prometheus setup requires it.
+The connector supports three mutually exclusive authentication modes. Choose **one** of the
+following options:
+
+**No authentication (default)**
+
+No additional properties are required when Prometheus is accessible without authentication.
+
+**Bearer token authentication**
+
+Prometheus can be configured to require an ``Authorization`` header for every query.
+Set ``prometheus.bearer-token-file`` to a file containing the bearer token:
+
+.. code-block:: none
+
+    prometheus.bearer-token-file=/path/to/bearer/token/file
+
+The token is read from the file for each request. The file must contain only the raw token value.
+
+**Basic authentication**
+
+Prometheus 2.24.0 and later can be configured to require HTTP Basic authentication.
+Set both ``prometheus.auth.user`` and ``prometheus.auth.password``:
+
+.. code-block:: none
+
+    prometheus.auth.user=admin
+    prometheus.auth.password=password
+
+The following rules apply to Basic authentication:
+
+* Both ``prometheus.auth.user`` and ``prometheus.auth.password`` must be set together.
+  Setting only one of them causes the connector to fail at startup.
+* Basic authentication cannot be combined with ``prometheus.bearer-token-file``.
+  Configuring both causes the connector to fail at startup.
+* ``prometheus.auth.user`` must not contain a colon (``:``) character.
+
+Case-Sensitive Name Matching
+----------------------------
+
+By default, Prometheus metric names (which appear as table names in Presto) are treated as case-insensitive. 
+This means that querying ``up`` or ``UP`` would refer to the same metric. However, since Prometheus itself 
+is case-sensitive, you can enable case-sensitive name matching to preserve the exact case of metric names.
+
+To enable case-sensitive name matching, add the following property to your ``prometheus.properties`` file:
+
+.. code-block:: none
+
+    case-sensitive-name-matching=true
+
+When case-sensitive name matching is enabled:
+
+* Table names must exactly match the case of the corresponding Prometheus metric name.
+* Queries using a different case than the actual metric name will fail with a ``Table not found`` error.
+
+This is useful when you have metrics with similar names that differ only by case.
+
+For example, with case-sensitive name matching enabled:
+
+.. code-block:: sql
+
+    -- This will work if the metric name is exactly "up"
+    SELECT * FROM prometheus.default.up;
+    
+    -- This will fail if the metric name is "up" (not "UP")
+    SELECT * FROM prometheus.default.UP;
+

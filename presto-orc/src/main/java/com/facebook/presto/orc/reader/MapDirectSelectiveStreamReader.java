@@ -39,10 +39,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -112,7 +112,6 @@ public class MapDirectSelectiveStreamReader
             Map<Subfield, TupleDomainFilter> filters,
             List<Subfield> requiredSubfields,
             Optional<Type> outputType,
-            DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
             OrcAggregatedMemoryContext systemMemoryContext,
             boolean isLowMemory)
@@ -146,8 +145,8 @@ public class MapDirectSelectiveStreamReader
                         .collect(toImmutableList());
             }
 
-            this.keyReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(0), keyFilter, keyOutputType, ImmutableList.of(), hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
-            this.valueReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(1), ImmutableMap.of(), valueOutputType, elementRequiredSubfields, hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
+            this.keyReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(0), keyFilter, keyOutputType, ImmutableList.of(), options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
+            this.valueReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(1), ImmutableMap.of(), valueOutputType, elementRequiredSubfields, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
         }
         else {
             this.keyReader = null;
@@ -685,7 +684,7 @@ public class MapDirectSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
             throws IOException
     {
         presentStreamSource = getBooleanMissingStreamSource();
@@ -700,8 +699,8 @@ public class MapDirectSelectiveStreamReader
         rowGroupOpen = false;
 
         if (outputRequired) {
-            keyReader.startStripe(stripe);
-            valueReader.startStripe(stripe);
+            keyReader.startStripe(timezone, stripe);
+            valueReader.startStripe(timezone, stripe);
         }
     }
 

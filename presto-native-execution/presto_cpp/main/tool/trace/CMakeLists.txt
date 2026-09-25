@@ -12,13 +12,7 @@
 
 add_library(presto_tool_trace_replayers PartitionAndSerializeReplayer.cpp)
 
-target_link_libraries(
-  presto_tool_trace_replayers
-  presto_operators
-  velox_core
-  velox_exec
-  velox_query_trace_replayer_base
-)
+target_link_libraries(presto_tool_trace_replayers presto_operators velox)
 
 add_executable(presto_trace_replayer TraceReplayerMain.cpp)
 
@@ -27,9 +21,7 @@ target_link_libraries(
   presto_tool_trace_replayers
   presto_operators
   presto_type_converter
-  velox_core
-  velox_exec
-  velox_query_trace_replayer_base
+  velox
   ${FOLLY_WITH_DEPENDENCIES}
   ${GFLAGS_LIBRARIES}
 )

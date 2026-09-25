@@ -70,7 +70,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -333,7 +333,7 @@ public class MetadataQueryOptimizer
             Assignments.Builder assignmentsBuilder = Assignments.builder();
             for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
                 Aggregation aggregation = node.getAggregations().get(outputVariable);
-                RowExpression inputVariable = getOnlyElement(aggregation.getArguments());
+                RowExpression inputVariable = aggregation.getArguments().stream().collect(onlyElement());
                 RowExpression result = evaluateMinMax(
                         metadata.getFunctionAndTypeManager().getFunctionMetadata(node.getAggregations().get(outputVariable).getFunctionHandle()),
                         inputColumnValues.get(inputVariable));
@@ -393,7 +393,7 @@ public class MetadataQueryOptimizer
                 }
                 arguments = reducedArguments;
             }
-            return getOnlyElement(arguments);
+            return arguments.stream().collect(onlyElement());
         }
 
         private static Optional<TableScanNode> findTableScan(PlanNode source, RowExpressionDeterminismEvaluator determinismEvaluator)
@@ -408,7 +408,7 @@ public class MetadataQueryOptimizer
                 else if (source instanceof ProjectNode) {
                     // verify projections are deterministic
                     ProjectNode project = (ProjectNode) source;
-                    if (!Iterables.all(project.getAssignments().getExpressions(), determinismEvaluator::isDeterministic)) {
+                    if (!project.getAssignments().getExpressions().stream().allMatch(determinismEvaluator::isDeterministic)) {
                         return Optional.empty();
                     }
                     source = project.getSource();

@@ -54,7 +54,6 @@ import java.util.concurrent.Executor;
 
 import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.getAnalyzerType;
-import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -329,11 +328,7 @@ public class DispatchManager
         catch (Throwable throwable) {
             // creation must never fail, so register a failed query in this case
             if (session == null) {
-                session = Session.builder(createTestingSessionPropertyManager())
-                        .setQueryId(queryId)
-                        .setIdentity(sessionContext.getIdentity())
-                        .setSource(sessionContext.getSource())
-                        .build();
+                session = sessionSupplier.createSessionForFailedQuery(queryId, sessionContext, warningCollectorFactory);
             }
             DispatchQuery failedDispatchQuery = failedDispatchQueryFactory.createFailedDispatchQuery(session, query, Optional.empty(), throwable);
             queryCreated(failedDispatchQuery);

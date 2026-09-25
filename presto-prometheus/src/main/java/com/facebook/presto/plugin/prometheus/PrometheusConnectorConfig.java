@@ -36,10 +36,13 @@ public class PrometheusConnectorConfig
     private Duration maxQueryRangeDuration = new Duration(1, TimeUnit.HOURS);
     private Duration cacheDuration = new Duration(30, TimeUnit.SECONDS);
     private File bearerTokenFile;
+    private String basicAuthUser;
+    private String basicAuthPassword;
     private boolean tlsEnabled;
     private String trustStorePath;
     private String truststorePassword;
     private boolean verifyHostName;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
     public URI getPrometheusURI()
@@ -110,6 +113,33 @@ public class PrometheusConnectorConfig
         return this;
     }
 
+    public Optional<String> getBasicAuthUser()
+    {
+        return Optional.ofNullable(basicAuthUser);
+    }
+
+    @Config("prometheus.auth.user")
+    @ConfigDescription("Username for Basic authentication when connecting to Prometheus")
+    public PrometheusConnectorConfig setBasicAuthUser(String basicAuthUser)
+    {
+        this.basicAuthUser = basicAuthUser;
+        return this;
+    }
+
+    public Optional<String> getBasicAuthPassword()
+    {
+        return Optional.ofNullable(basicAuthPassword);
+    }
+
+    @Config("prometheus.auth.password")
+    @ConfigDescription("Password for Basic authentication when connecting to Prometheus")
+    @ConfigSecuritySensitive
+    public PrometheusConnectorConfig setBasicAuthPassword(String basicAuthPassword)
+    {
+        this.basicAuthPassword = basicAuthPassword;
+        return this;
+    }
+
     @PostConstruct
     public void checkConfig()
     {
@@ -118,7 +148,17 @@ public class PrometheusConnectorConfig
         if (maxQueryRangeDuration < queryChunkSizeDuration) {
             throw new ConfigurationException(ImmutableList.of(new Message("prometheus.max-query-duration must be greater than prometheus.query-chunk-duration")));
         }
+        if (getBearerTokenFile().isPresent() && (getBasicAuthUser().isPresent() || getBasicAuthPassword().isPresent())) {
+            throw new ConfigurationException(ImmutableList.of(new Message("prometheus.bearer-token-file and prometheus.auth.user/prometheus.auth.password cannot be used together")));
+        }
+        if (getBasicAuthUser().isPresent() != getBasicAuthPassword().isPresent()) {
+            throw new ConfigurationException(ImmutableList.of(new Message("Both prometheus.auth.user and prometheus.auth.password must be set for Basic Auth")));
+        }
+        if (getBasicAuthUser().isPresent() && getBasicAuthUser().get().contains(":")) {
+            throw new ConfigurationException(ImmutableList.of(new Message("Illegal character ':' found in prometheus.auth.user")));
+        }
     }
+
     public boolean isTlsEnabled()
     {
         return tlsEnabled;
@@ -165,6 +205,19 @@ public class PrometheusConnectorConfig
     public PrometheusConnectorConfig setVerifyHostName(boolean val)
     {
         this.verifyHostName = val;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatchingEnabled()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable or disable case-sensitive matching for table names")
+    public PrometheusConnectorConfig setCaseSensitiveNameMatchingEnabled(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }

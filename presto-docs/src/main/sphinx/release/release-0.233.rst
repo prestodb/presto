@@ -9,7 +9,7 @@ Release 0.233
 
 General Changes
 _______________
-* Fix an optimizer failure introduced in ``0.229``, where a ``LIKE`` pattern is deduced into a constant, e.g., ``col LIKE 'a' and col = 'b'``.
+* Fix an optimizer failure introduced in ``0.229``, where a ``LIKE`` pattern is deduced into a constant. For example: ``col LIKE 'a' and col = 'b'``.
 * Fix correctness issue in queries with joins over ``UNNEST``. (:issue:`14257`).
 * Fix ``ArbitraryOutputBuffer`` to avoid skewing output data distribution. (:pr:`14083`).
 * Fix an issue where :func:`!classification_fall_out` cannot be found.

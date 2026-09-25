@@ -36,10 +36,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -119,7 +119,6 @@ public class ListSelectiveStreamReader
             ListFilter listFilter,
             int subfieldLevel,  // 0 - top level
             Optional<Type> outputType,
-            DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
             OrcAggregatedMemoryContext systemMemoryContext,
             boolean isLowMemory)
@@ -207,7 +206,6 @@ public class ListSelectiveStreamReader
                 Optional.ofNullable(this.listFilter),
                 elementOutputType,
                 elementSubfields,
-                hiveStorageTimeZone,
                 options,
                 systemMemoryContext,
                 isLowMemory);
@@ -706,7 +704,7 @@ public class ListSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
             throws IOException
     {
         presentStreamSource = getBooleanMissingStreamSource();
@@ -721,7 +719,7 @@ public class ListSelectiveStreamReader
         rowGroupOpen = false;
 
         if (elementStreamReader != null) {
-            elementStreamReader.startStripe(stripe);
+            elementStreamReader.startStripe(timezone, stripe);
         }
     }
 

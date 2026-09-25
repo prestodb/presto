@@ -69,6 +69,11 @@ const PrestoToVeloxConnector& getPrestoToVeloxConnector(
   return *(it->second);
 }
 
+bool hasPrestoToVeloxConnector(const std::string& connectorName) {
+  auto it = connectors().find(connectorName);
+  return it != connectors().end();
+}
+
 std::unique_ptr<velox::connector::ConnectorSplit>
 TpchPrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,
@@ -102,6 +107,8 @@ TpchPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) const {
+  VELOX_CHECK_NOT_NULL(
+      tableHandle.connectorTableLayout, "Missing table layout");
   auto tpchLayout =
       std::dynamic_pointer_cast<const protocol::tpch::TpchTableLayoutHandle>(
           tableHandle.connectorTableLayout);
@@ -153,6 +160,8 @@ TpcdsPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) const {
+  VELOX_CHECK_NOT_NULL(
+      tableHandle.connectorTableLayout, "Missing table layout");
   auto tpcdsLayout =
       std::dynamic_pointer_cast<const protocol::tpcds::TpcdsTableLayoutHandle>(
           tableHandle.connectorTableLayout);

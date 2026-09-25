@@ -53,6 +53,7 @@ import io.airlift.slice.Slice;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +62,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.SortedMap;
+import java.util.TimeZone;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
@@ -78,6 +80,7 @@ import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -331,7 +334,9 @@ public class DwrfMetadataReader
                 toColumnEncoding(types, stripeFooter.getColumnsList()),
                 stripeFooter.getEncryptedGroupsList().stream()
                         .map(OrcMetadataReader::byteStringToSlice)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                Optional.ofNullable(emptyToNull(stripeFooter.getWriterTimezone()))
+                        .map(timezone -> TimeZone.getTimeZone(ZoneId.of(timezone)).toZoneId()));
     }
 
     private static Stream toStream(OrcDataSourceId orcDataSourceId, DwrfProto.Stream stream)
@@ -541,7 +546,7 @@ public class DwrfMetadataReader
         Slice minimum = stringStatistics.hasMinimum() ? minStringTruncateToValidRange(byteStringToSlice(stringStatistics.getMinimumBytes()), hiveWriterVersion) : null;
         long sum = stringStatistics.hasSum() ? stringStatistics.getSum() : 0;
 
-        return new StringStatistics(minimum, maximum, sum);
+        return new StringStatistics(minimum, maximum, false, false, sum);
     }
 
     private static BinaryStatistics toBinaryStatistics(DwrfProto.BinaryStatistics binaryStatistics)
@@ -566,9 +571,25 @@ public class DwrfMetadataReader
         return new MapStatistics(mapStatisticsEntries.build());
     }
 
-    private static OrcType toType(DwrfProto.Type type)
+    static OrcType toType(DwrfProto.Type type)
     {
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), Optional.empty(), Optional.empty(), Optional.empty());
+        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), Optional.empty(), Optional.empty(), Optional.empty(), toMap(type.getAttributesList()));
+    }
+
+    // Mirrors OrcMetadataReader.toMap. DWRF files written by older writers (or by writers
+    // that don't set attributes) yield an empty list here, producing an empty map -- no
+    // change in observable behavior for the attribute-less case.
+    static Map<String, String> toMap(List<DwrfProto.StringPair> attributes)
+    {
+        ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
+        if (attributes != null) {
+            for (DwrfProto.StringPair attribute : attributes) {
+                if (attribute.hasKey() && attribute.hasValue()) {
+                    results.put(attribute.getKey(), attribute.getValue());
+                }
+            }
+        }
+        return results.build();
     }
 
     private static List<OrcType> toType(List<DwrfProto.Type> types)

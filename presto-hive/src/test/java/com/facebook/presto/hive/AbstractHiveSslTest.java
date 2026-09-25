@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
-import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE3_IMAGE;
+import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE4_IMAGE;
 import static com.facebook.presto.tests.SslKeystoreManager.initializeKeystoreAndTruststore;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -48,7 +48,7 @@ public abstract class AbstractHiveSslTest
     protected QueryRunner createQueryRunner() throws Exception
     {
         this.bucketName = "test-hive-ssl-enable-" + randomTableSuffix();
-        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), HIVE3_IMAGE, true);
+        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), HIVE4_IMAGE, true);
         this.dockerizedS3DataLake.start();
         return S3HiveQueryRunner.create(
                 this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
@@ -58,6 +58,7 @@ public abstract class AbstractHiveSslTest
                 ImmutableMap.<String, String>builder()
                         // This is required when using MinIO which requires path style access
                         .put("hive.s3.path-style-access", "true")
+                        .put("hive.non-managed-table-writes-enabled", "true")
                         .build(), sslConfig);
     }
 

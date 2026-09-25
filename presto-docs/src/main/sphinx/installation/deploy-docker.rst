@@ -16,7 +16,7 @@ Otherwise, follow the instructions below to install Docker and Colima using Home
 
 1. Install `Homebrew <https://brew.sh/>`_ if it is not already present on the system.
 
-2. Install the Docker command line and `Colima <https://github.com/abiosoft/colima>`_ tools via the following command:
+2. Install the Docker command line and `Colima <https://github.com/abiosoft/colima>`_ tools by running the following command:
 
    .. code-block:: shell
 

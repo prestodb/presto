@@ -27,6 +27,7 @@ ARTIFACTS = {
     'spark-package': ('presto-spark-package', 'tar.gz', None),
     'spark-launcher': ('presto-spark-launcher', 'jar', None),
     'router': ('presto-router', 'tar.gz', None),
+    'flightshim': ('presto-flight-shim', 'tar.gz', None),
 }
 
 

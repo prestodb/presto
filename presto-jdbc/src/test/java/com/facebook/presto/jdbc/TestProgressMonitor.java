@@ -19,8 +19,8 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.common.type.BigintType;
 import com.google.common.collect.ImmutableList;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -109,9 +109,10 @@ public class TestProgressMonitor
             throws SQLException
     {
         for (String result : createResults()) {
-            server.enqueue(new MockResponse()
+            server.enqueue(new MockResponse.Builder()
                     .addHeader(CONTENT_TYPE, "application/json")
-                    .setBody(result));
+                    .body(result)
+                    .build());
         }
 
         try (Connection connection = createConnection()) {

@@ -16,15 +16,23 @@ package com.facebook.presto.spi.procedure;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorProcedureContext;
 import io.airlift.slice.Slice;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.procedure.DistributedProcedure.DistributedProcedureType.TABLE_DATA_REWRITE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -32,6 +40,10 @@ import static java.util.Objects.requireNonNull;
 public class TableDataRewriteDistributedProcedure
         extends DistributedProcedure
 {
+    private static final Pattern ZORDER_PATTERN = Pattern.compile(
+            "^zorder\\s*\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\\s*,\\s*[a-zA-Z_][a-zA-Z0-9_]*)*)?\\s*\\)$",
+            Pattern.CASE_INSENSITIVE);
+
     public static final String SCHEMA = "schema";
     public static final String TABLE_NAME = "table_name";
     public static final String FILTER = "filter";
@@ -129,5 +141,82 @@ public class TableDataRewriteDistributedProcedure
     public interface FinishCallDistributedProcedure
     {
         void finish(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments);
+    }
+
+    public static List<String> extractSortFieldStrings(Object[] arguments, OptionalInt sortOrderIndex)
+    {
+        List<String> sortFieldStrings = Collections.emptyList();
+        if (sortOrderIndex.isPresent()) {
+            Object value = arguments[sortOrderIndex.getAsInt()];
+            if (value == null) {
+                sortFieldStrings = Collections.emptyList();
+            }
+            else if (value instanceof List<?>) {
+                try {
+                    sortFieldStrings = Collections.unmodifiableList(((List<?>) value).stream()
+                            .map(element -> {
+                                if (!(element instanceof String)) {
+                                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT,
+                                            format("sorted_by array must contain only varchar elements, found: %s",
+                                                    element == null ? "null" : element.getClass().getSimpleName()));
+                                }
+                                return (String) element;
+                            })
+                            .collect(Collectors.toList()));
+                }
+                catch (PrestoException e) {
+                    throw e;
+                }
+                catch (ClassCastException e) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT,
+                            "sorted_by array must contain only varchar elements", e);
+                }
+            }
+            else {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "sorted_by must be an array(varchar)");
+            }
+        }
+        return sortFieldStrings;
+    }
+
+    public static Optional<List<String>> extractZOrderColumns(List<String> sortFieldStrings)
+    {
+        Optional<List<String>> zorderColumns = Optional.empty();
+        for (String sortField : sortFieldStrings) {
+            if (isZorderExpression(sortField)) {
+                if (zorderColumns.isPresent()) {
+                    throw new PrestoException(
+                            INVALID_FUNCTION_ARGUMENT,
+                            "Multiple zorder(...) expressions are not supported in sorted_by");
+                }
+                zorderColumns = Optional.of(
+                        parse(sortField)
+                                .orElseThrow(() -> new PrestoException(
+                                        INVALID_FUNCTION_ARGUMENT,
+                                        "Malformed zorder(...) expression: " + sortField)));
+            }
+        }
+        return zorderColumns;
+    }
+
+    private static boolean isZorderExpression(String input)
+    {
+        return input != null && input.regionMatches(true, 0, "zorder(", 0, "zorder(".length());
+    }
+
+    private static Optional<List<String>> parse(String input)
+    {
+        Matcher matcher = ZORDER_PATTERN.matcher(input);
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+
+        String group = matcher.group(1);
+        if (group == null || group.trim().isEmpty()) {
+            return Optional.of(Collections.emptyList());
+        }
+
+        String[] parts = group.split("\\s*,\\s*");
+        return Optional.of(Arrays.asList(parts));
     }
 }

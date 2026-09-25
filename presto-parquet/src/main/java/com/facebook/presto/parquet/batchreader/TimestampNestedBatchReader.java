@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.TimestampValuesDecoder;
 import com.facebook.presto.parquet.reader.ColumnChunk;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -32,7 +33,7 @@ public class TimestampNestedBatchReader
     }
 
     @Override
-    protected ColumnChunk readNestedWithNull()
+    protected ColumnChunk readNestedWithNull(Optional<DateTimeZone> timezone)
             throws IOException
     {
         int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
@@ -64,7 +65,7 @@ public class TimestampNestedBatchReader
         boolean[] isNull = new boolean[newBatchSize];
         int offset = 0;
         for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
-            ((TimestampValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
+            ((TimestampValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount(), timezone);
 
             int valueDestinationIndex = offset + valuesDecoderContext.getValueCount() - 1;
             int valueSourceIndex = offset + valuesDecoderContext.getNonNullCount() - 1;
@@ -90,7 +91,7 @@ public class TimestampNestedBatchReader
     }
 
     @Override
-    protected ColumnChunk readNestedNoNull()
+    protected ColumnChunk readNestedNoNull(Optional<DateTimeZone> timezone)
             throws IOException
     {
         int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
@@ -112,7 +113,7 @@ public class TimestampNestedBatchReader
         long[] values = new long[newBatchSize];
         int offset = 0;
         for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
-            ((TimestampValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
+            ((TimestampValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount(), timezone);
             offset += valuesDecoderContext.getValueCount();
         }
 

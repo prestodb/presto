@@ -83,6 +83,7 @@ import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.iterative.ConfidenceBasedBroadcastUtil.confidenceBasedBroadcast;
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.isBelowMaxBroadcastSize;
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.mustPartition;
+import static com.facebook.presto.sql.planner.iterative.rule.DynamicFilterUtils.addApplicableDynamicFilters;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.INFINITE_COST_RESULT;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.UNKNOWN_COST_RESULT;
 import static com.facebook.presto.sql.planner.optimizations.JoinNodeUtils.toRowExpression;
@@ -95,7 +96,7 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.powerSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
@@ -412,7 +413,7 @@ public class ReorderJoins
         private JoinEnumerationResult getJoinSource(LinkedHashSet<PlanNode> nodes, List<VariableReferenceExpression> outputVariables)
         {
             if (nodes.size() == 1) {
-                PlanNode planNode = getOnlyElement(nodes);
+                PlanNode planNode = nodes.stream().collect(onlyElement());
                 ImmutableList.Builder<RowExpression> predicates = ImmutableList.builder();
                 predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(outputVariables::contains).getScopeEqualities());
                 EqualityInference.Builder builder = new EqualityInference.Builder(metadata);
@@ -591,6 +592,9 @@ public class ReorderJoins
 
         private JoinEnumerationResult createJoinEnumerationResult(PlanNode planNode)
         {
+            if (planNode instanceof JoinNode) {
+                planNode = addApplicableDynamicFilters(session, (JoinNode) planNode, context.getStatsProvider(), idAllocator);
+            }
             return JoinEnumerationResult.createJoinEnumerationResult(Optional.of(planNode), costProvider.getCost(planNode));
         }
     }

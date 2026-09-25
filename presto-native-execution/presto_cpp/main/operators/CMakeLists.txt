@@ -13,26 +13,28 @@
 # limitations under the License.
 add_library(
   presto_operators
+  BinarySortableSerializer.cpp
+  BroadcastExchangeSource.cpp
+  BroadcastFile.cpp
+  BroadcastWrite.cpp
+  IcebergMergeProcessorOperator.cpp
+  MaterializedExchange.cpp
+  MaterializedOutput.cpp
+  MaterializedOutputBuffer.cpp
+  LocalShuffle.cpp
   PartitionAndSerialize.cpp
   ShuffleExchangeSource.cpp
+  ShuffleInterface.cpp
   ShuffleRead.cpp
   ShuffleWrite.cpp
-  LocalShuffle.cpp
-  BroadcastWrite.cpp
-  BroadcastFile.cpp
-  BroadcastExchangeSource.cpp
-  BinarySortableSerializer.cpp
 )
 
 target_link_libraries(
   presto_operators
   presto_common
   presto_native-cpp2
-  velox_core
-  velox_exec
-  velox_presto_serializer
-  velox_vector
-  velox_row_fast
+  velox
+  velox_hive_iceberg_splitreader
 )
 
 if(PRESTO_ENABLE_TESTING)

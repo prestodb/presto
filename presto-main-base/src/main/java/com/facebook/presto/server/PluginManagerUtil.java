@@ -14,21 +14,23 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.resolver.ArtifactResolver;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.RouterPlugin;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import io.airlift.resolver.ArtifactResolver;
-import io.airlift.resolver.DefaultArtifact;
-import org.sonatype.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.DefaultArtifact;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,11 +41,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.server.PluginDiscovery.discoverPlugins;
 import static com.facebook.presto.server.PluginDiscovery.writePluginServices;
+import static com.google.common.base.Preconditions.checkState;
 
 public class PluginManagerUtil
 {
     private static final Logger log = Logger.get(PluginManagerUtil.class);
-
     /*
      When generating code the AfterBurner module loads classes with *some* classloader.
      When the AfterBurner module is configured not to use the value classloader
@@ -75,44 +77,50 @@ public class PluginManagerUtil
     public static void loadPlugins(
             AtomicBoolean pluginsLoading,
             AtomicBoolean pluginsLoaded,
-            File installedPluginsDir,
-            List<String> plugins,
             Metadata metadata,
-            ArtifactResolver resolver,
-            List<String> spiPackages,
-            String coordinatorPluginServicesFile,
-            String pluginServicesFile,
             PluginInstaller pluginInstaller,
-            ClassLoader parent)
+            List<PluginClassLoaderHandle> pluginClassLoaderHandles)
             throws Exception
+    {
+        loadCoordinatorPluginsOnly(
+                pluginsLoading,
+                pluginInstaller,
+                pluginClassLoaderHandles);
+        loadRemainingPlugins(
+                pluginsLoading,
+                pluginsLoaded,
+                metadata,
+                pluginInstaller,
+                pluginClassLoaderHandles);
+    }
+
+    public static void loadCoordinatorPluginsOnly(
+            AtomicBoolean pluginsLoading,
+            PluginInstaller pluginInstaller,
+            List<PluginClassLoaderHandle> pluginClassLoaderHandles)
     {
         if (!pluginsLoading.compareAndSet(false, true)) {
             return;
         }
 
-        for (File file : listFiles(installedPluginsDir)) {
-            if (file.isDirectory()) {
-                loadPlugin(
-                        file.getAbsolutePath(),
-                        resolver,
-                        spiPackages,
-                        coordinatorPluginServicesFile,
-                        pluginServicesFile,
-                        pluginInstaller,
-                        parent);
-            }
+        loadPlugins(pluginClassLoaderHandles, CoordinatorPlugin.class, pluginInstaller);
+    }
+
+    public static void loadRemainingPlugins(
+            AtomicBoolean pluginsLoading,
+            AtomicBoolean pluginsLoaded,
+            Metadata metadata,
+            PluginInstaller pluginInstaller,
+            List<PluginClassLoaderHandle> pluginClassLoaderHandles)
+    {
+        if (pluginsLoaded.get()) {
+            return;
         }
 
-        for (String plugin : plugins) {
-            loadPlugin(
-                    plugin,
-                    resolver,
-                    spiPackages,
-                    coordinatorPluginServicesFile,
-                    pluginServicesFile,
-                    pluginInstaller,
-                    parent);
-        }
+        checkState(pluginsLoading.get(), "loadCoordinatorPluginsOnly should be called before loadRemainingPlugins");
+
+        loadPlugins(pluginClassLoaderHandles, Plugin.class, pluginInstaller);
+        loadPlugins(pluginClassLoaderHandles, RouterPlugin.class, pluginInstaller);
 
         if (metadata != null) {
             metadata.verifyComparableOrderableContract();
@@ -121,33 +129,81 @@ public class PluginManagerUtil
         pluginsLoaded.set(true);
     }
 
-    public static void loadPlugin(
-            String plugin,
+    public static List<PluginClassLoaderHandle> buildClassLoaders(
+            File installedPluginsDir,
+            List<String> plugins,
             ArtifactResolver resolver,
             List<String> spiPackages,
             String coordinatorPluginServicesFile,
             String pluginServicesFile,
-            PluginInstaller pluginInstaller,
             ClassLoader parent)
             throws Exception
     {
-        log.info("-- Loading plugin %s --", plugin);
-        URLClassLoader pluginClassLoader = buildClassLoader(
-                plugin,
-                resolver,
+        return buildClassLoaders(
+                installedPluginsDir,
+                plugins,
+                () -> resolver,
                 spiPackages,
                 coordinatorPluginServicesFile,
                 pluginServicesFile,
                 parent);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
-            loadPlugin(pluginClassLoader, RouterPlugin.class, pluginInstaller);
-            loadPlugin(pluginClassLoader, CoordinatorPlugin.class, pluginInstaller);
-            loadPlugin(pluginClassLoader, Plugin.class, pluginInstaller);
-        }
-        log.info("-- Finished loading plugin %s --", plugin);
     }
 
-    public static void loadPlugin(
+    public static List<PluginClassLoaderHandle> buildClassLoaders(
+            File installedPluginsDir,
+            List<String> plugins,
+            Supplier<ArtifactResolver> resolver,
+            List<String> spiPackages,
+            String coordinatorPluginServicesFile,
+            String pluginServicesFile,
+            ClassLoader parent)
+            throws Exception
+    {
+        List<String> pluginsToLoad = new ArrayList<>();
+        for (File file : listFiles(installedPluginsDir)) {
+            if (file.isDirectory()) {
+                pluginsToLoad.add(file.getAbsolutePath());
+            }
+        }
+        pluginsToLoad.addAll(plugins);
+
+        List<PluginClassLoaderHandle> pluginClassLoaders = new ArrayList<>();
+        try {
+            for (String plugin : pluginsToLoad) {
+                pluginClassLoaders.add(new PluginClassLoaderHandle(
+                        plugin,
+                        buildClassLoader(
+                                plugin,
+                                resolver,
+                                spiPackages,
+                                coordinatorPluginServicesFile,
+                                pluginServicesFile,
+                                parent)));
+            }
+        }
+        catch (Exception e) {
+            closePluginClassLoaders(pluginClassLoaders);
+            throw e;
+        }
+
+        return pluginClassLoaders;
+    }
+
+    private static void loadPlugins(
+            List<PluginClassLoaderHandle> pluginClassLoaders,
+            Class<?> clazz,
+            PluginInstaller pluginInstaller)
+    {
+        for (PluginClassLoaderHandle pluginClassLoader : pluginClassLoaders) {
+            log.info("-- Loading %s from plugin %s --", clazz.getSimpleName(), pluginClassLoader.getPlugin());
+            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader.getClassLoader())) {
+                loadPlugin(pluginClassLoader.getClassLoader(), clazz, pluginInstaller);
+            }
+            log.info("-- Finished loading %s from plugin %s --", clazz.getSimpleName(), pluginClassLoader.getPlugin());
+        }
+    }
+
+    private static void loadPlugin(
             URLClassLoader pluginClassLoader,
             Class<?> clazz,
             PluginInstaller pluginInstaller)
@@ -161,6 +217,7 @@ public class PluginManagerUtil
 
         for (Object plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
+
             if (plugin instanceof Plugin) {
                 pluginInstaller.installPlugin((Plugin) plugin);
             }
@@ -178,21 +235,21 @@ public class PluginManagerUtil
 
     private static URLClassLoader buildClassLoader(
             String plugin,
-            ArtifactResolver resolver,
+            Supplier<ArtifactResolver> resolver,
             List<String> spiPackages,
             String coordinatorPluginServicesFile,
             String pluginServicesFile,
             ClassLoader parent)
             throws Exception
     {
-        File file = new File(plugin);
+        File file = Paths.get(plugin).toFile();
         if (file.isFile() && (file.getName().equals("pom.xml") || file.getName().endsWith(".pom"))) {
-            return buildClassLoaderFromPom(file, resolver, spiPackages, coordinatorPluginServicesFile, pluginServicesFile, parent);
+            return buildClassLoaderFromPom(file, resolver.get(), spiPackages, coordinatorPluginServicesFile, pluginServicesFile, parent);
         }
         if (file.isDirectory()) {
             return buildClassLoaderFromDirectory(file, spiPackages, parent);
         }
-        return buildClassLoaderFromCoordinates(plugin, resolver, spiPackages, parent);
+        return buildClassLoaderFromCoordinates(plugin, resolver.get(), spiPackages, parent);
     }
 
     private static URLClassLoader buildClassLoaderFromPom(
@@ -291,6 +348,40 @@ public class PluginManagerUtil
         Set<String> plugins = discoverPlugins(artifact, classLoader, servicesFile, className);
         if (!plugins.isEmpty()) {
             writePluginServices(plugins, artifact.getFile(), servicesFile);
+        }
+    }
+
+    private static void closePluginClassLoaders(List<PluginClassLoaderHandle> pluginClassLoaders)
+    {
+        for (PluginClassLoaderHandle pluginClassLoader : pluginClassLoaders) {
+            try {
+                pluginClassLoader.getClassLoader().close();
+            }
+            catch (IOException e) {
+                log.warn(e, "Failed to close plugin classloader for %s", pluginClassLoader.getPlugin());
+            }
+        }
+    }
+
+    public static class PluginClassLoaderHandle
+    {
+        private final String plugin;
+        private final URLClassLoader classLoader;
+
+        private PluginClassLoaderHandle(String plugin, URLClassLoader classLoader)
+        {
+            this.plugin = plugin;
+            this.classLoader = classLoader;
+        }
+
+        public String getPlugin()
+        {
+            return plugin;
+        }
+
+        public URLClassLoader getClassLoader()
+        {
+            return classLoader;
         }
     }
 }

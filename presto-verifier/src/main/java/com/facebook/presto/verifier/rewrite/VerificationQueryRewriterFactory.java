@@ -46,6 +46,8 @@ import static java.util.Objects.requireNonNull;
 public class VerificationQueryRewriterFactory
         implements QueryRewriterFactory
 {
+    public static final String VERIFICATION_QUERY_REWRITER_FACTORY = "default";
+
     private final SqlParser sqlParser;
     private final TypeManager typeManager;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -96,7 +98,7 @@ public class VerificationQueryRewriterFactory
                 jsonParseSafetyWrapperEnabled);
     }
 
-    private static List<Property> constructProperties(Map<String, Object> propertiesMap)
+    public static List<Property> constructProperties(Map<String, Object> propertiesMap)
     {
         ImmutableList.Builder<Property> properties = ImmutableList.builder();
         for (Entry<String, Object> entry : propertiesMap.entrySet()) {

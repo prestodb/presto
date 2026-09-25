@@ -27,11 +27,13 @@ import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.MVRewriteCandidatesNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.RefreshMaterializedViewNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.SpatialJoinNode;
@@ -141,6 +143,11 @@ public class Patterns
         return typeOf(MaterializedViewScanNode.class);
     }
 
+    public static Pattern<MVRewriteCandidatesNode> mvRewriteCandidates()
+    {
+        return typeOf(MVRewriteCandidatesNode.class);
+    }
+
     public static Pattern<OutputNode> output()
     {
         return typeOf(OutputNode.class);
@@ -204,6 +211,11 @@ public class Patterns
     public static Pattern<TableWriterNode> tableWriterNode()
     {
         return typeOf(TableWriterNode.class);
+    }
+
+    public static Pattern<RefreshMaterializedViewNode> refreshMaterializedViewNode()
+    {
+        return typeOf(RefreshMaterializedViewNode.class);
     }
 
     public static Pattern<TableWriterMergeNode> tableWriterMergeNode()

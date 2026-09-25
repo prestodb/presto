@@ -14,7 +14,9 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
@@ -43,7 +45,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -58,8 +60,12 @@ public final class FunctionSignatureMatcher
 
     public Optional<Signature> match(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameterTypes, boolean coercionAllowed)
     {
+        // An "any" variadic tail matches almost anything, so treat such functions as generic (not exact):
+        // this lets a same-named fixed-arity overload (e.g. the concrete (varchar, json) an "any" tail is
+        // folded into) win the exact match first, instead of colliding ambiguously with the variadic one.
         List<SqlFunction> exactCandidates = candidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
+                .filter(function -> !isAnyVariadic(function))
                 .collect(Collectors.toList());
 
         Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
@@ -68,7 +74,7 @@ public final class FunctionSignatureMatcher
         }
 
         List<SqlFunction> genericCandidates = candidates.stream()
-                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
+                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty() || isAnyVariadic(function))
                 .collect(Collectors.toList());
 
         match = matchFunctionGeneric(genericCandidates, parameterTypes);
@@ -86,6 +92,17 @@ public final class FunctionSignatureMatcher
         return Optional.empty();
     }
 
+    // A variable-arity function whose tail is the internal "any" sentinel (StandardTypes.ANY). It binds
+    // almost any argument list, so it is matched as a generic candidate rather than an exact one.
+    private static boolean isAnyVariadic(SqlFunction function)
+    {
+        Signature signature = function.getSignature();
+        List<TypeSignature> argumentTypes = signature.getArgumentTypes();
+        return signature.isVariableArity()
+                && !argumentTypes.isEmpty()
+                && StandardTypes.ANY.equals(argumentTypes.get(argumentTypes.size() - 1).getBase());
+    }
+
     private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, false);
@@ -99,7 +116,7 @@ public final class FunctionSignatureMatcher
         }
 
         if (applicableFunctions.size() == 1) {
-            return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
+            return Optional.of(applicableFunctions.stream().collect(onlyElement()).getBoundSignature());
         }
 
         List<Signature> deduplicatedSignatures = applicableFunctions.stream()
@@ -107,7 +124,7 @@ public final class FunctionSignatureMatcher
                 .distinct()
                 .collect(toImmutableList());
         if (deduplicatedSignatures.size() == 1) {
-            return Optional.of(getOnlyElement(deduplicatedSignatures));
+            return Optional.of(deduplicatedSignatures.stream().collect(onlyElement()));
         }
 
         throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, getErrorMessage(applicableFunctions));
@@ -131,7 +148,7 @@ public final class FunctionSignatureMatcher
         }
 
         if (applicableFunctions.size() == 1) {
-            return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
+            return Optional.of(applicableFunctions.stream().collect(onlyElement()).getBoundSignature());
         }
 
         throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, getErrorMessage(applicableFunctions));

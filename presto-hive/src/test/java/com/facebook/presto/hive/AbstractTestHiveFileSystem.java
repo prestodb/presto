@@ -232,6 +232,8 @@ public abstract class AbstractTestHiveFileSystem
 
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
+                config.getDateTimeZone(),
+                FUNCTION_AND_TYPE_MANAGER,
                 transactionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,

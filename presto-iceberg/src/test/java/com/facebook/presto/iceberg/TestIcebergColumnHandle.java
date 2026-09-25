@@ -23,18 +23,31 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.types.Types;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.STRUCT;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.DELETE_FILE_PATH_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.IS_DELETED_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.ROW_ID_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
+import static com.facebook.presto.iceberg.IcebergUtil.buildColumnMetadata;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
+import static org.apache.iceberg.MetadataColumns.ROW_ID;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergColumnHandle
 {
@@ -59,6 +72,97 @@ public class TestIcebergColumnHandle
                 Optional.empty(),
                 REGULAR);
         testRoundTrip(nestedColumn);
+    }
+
+    @Test
+    public void testRowLineageColumnHandles()
+    {
+        // Verify ROW_ID column handle
+        assertEquals(ROW_ID_COLUMN_HANDLE.getName(), ROW_ID.name());
+        assertEquals(ROW_ID_COLUMN_HANDLE.getId(), ROW_ID.fieldId());
+        assertEquals(ROW_ID_COLUMN_HANDLE.getType(), BIGINT);
+        assertTrue(ROW_ID_COLUMN_HANDLE.isRowIdColumn());
+        assertFalse(ROW_ID_COLUMN_HANDLE.isLastUpdatedSequenceNumberColumn());
+
+        // Verify LAST_UPDATED_SEQUENCE_NUMBER column handle
+        assertEquals(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getName(), LAST_UPDATED_SEQUENCE_NUMBER.name());
+        assertEquals(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getId(), LAST_UPDATED_SEQUENCE_NUMBER.fieldId());
+        assertEquals(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getType(), BIGINT);
+        assertTrue(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.isLastUpdatedSequenceNumberColumn());
+        assertFalse(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.isRowIdColumn());
+
+        // Verify that _row_id and _last_updated_sequence_number are NOT treated as metadata column IDs
+        // so that IcebergPartitionInsertingPageSource passes them through to the Parquet reader.
+        // Predicate pushdown exclusion is handled separately in getNonMetadataColumnConstraints().
+        assertFalse(IcebergMetadataColumn.isMetadataColumnId(ROW_ID_COLUMN_HANDLE.getId()));
+        assertFalse(IcebergMetadataColumn.isMetadataColumnId(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getId()));
+    }
+
+    @Test
+    public void testSynthesizedColumnHandlesAreHidden()
+    {
+        assertTrue(buildColumnMetadata(PATH_COLUMN_HANDLE).isHidden());
+        assertTrue(buildColumnMetadata(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE).isHidden());
+        assertTrue(buildColumnMetadata(IS_DELETED_COLUMN_HANDLE).isHidden());
+        assertTrue(buildColumnMetadata(DELETE_FILE_PATH_COLUMN_HANDLE).isHidden());
+    }
+
+    @Test
+    public void testRegularColumnHandleIsNotHidden()
+    {
+        IcebergColumnHandle regularColumn = primitiveIcebergColumnHandle(1, "amount", BIGINT, Optional.empty());
+        assertFalse(buildColumnMetadata(regularColumn).isHidden());
+        assertFalse(buildColumnMetadata(ROW_ID_COLUMN_HANDLE).isHidden());
+        assertFalse(buildColumnMetadata(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE).isHidden());
+    }
+
+    @Test
+    public void testTypeAttributesRoundTrip()
+    {
+        ColumnIdentity.IcebergTypeAttributes attributes = new ColumnIdentity.IcebergTypeAttributes(
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("UUID"), Optional.empty(), Optional.of(16));
+        ColumnIdentity uuidColumn = new ColumnIdentity(9, "uuid_col", PRIMITIVE, ImmutableList.of(), Optional.of(attributes));
+        IcebergColumnHandle handle = new IcebergColumnHandle(
+                uuidColumn,
+                VARBINARY,
+                Optional.empty(),
+                REGULAR);
+        testRoundTrip(handle);
+        assertEquals(handle.getColumnIdentity().getTypeAttributes(), Optional.of(attributes));
+    }
+
+    @Test
+    public void testCreateColumnIdentityDerivesBinaryAttributes()
+    {
+        ColumnIdentity uuidColumn = ColumnIdentity.createColumnIdentity(
+                Types.NestedField.optional(1, "u", Types.UUIDType.get()));
+        assertEquals(uuidColumn.getTypeAttributes().get().getBinaryType(), Optional.of("UUID"));
+        assertEquals(uuidColumn.getTypeAttributes().get().getLength(), Optional.of(16));
+
+        ColumnIdentity fixedColumn = ColumnIdentity.createColumnIdentity(
+                Types.NestedField.optional(2, "f", Types.FixedType.ofLength(12)));
+        assertEquals(fixedColumn.getTypeAttributes().get().getBinaryType(), Optional.of("FIXED"));
+        assertEquals(fixedColumn.getTypeAttributes().get().getLength(), Optional.of(12));
+
+        // Types that are not ambiguous after conversion to Presto carry no
+        // attributes, leaving the column identity unchanged.
+        ColumnIdentity longColumn = ColumnIdentity.createColumnIdentity(
+                Types.NestedField.optional(3, "l", Types.LongType.get()));
+        assertFalse(longColumn.getTypeAttributes().isPresent());
+    }
+
+    @Test
+    public void testMissingTypeAttributesDeserializesToNull()
+    {
+        // A column with no V3 attributes serializes without the typeAttributes
+        // field, and an old-shape JSON deserializes back to a null attributes.
+        IcebergColumnHandle handle = primitiveIcebergColumnHandle(7, "plain", BIGINT, Optional.empty());
+        ObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(createTestFunctionAndTypeManager())));
+        JsonCodec<IcebergColumnHandle> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(IcebergColumnHandle.class);
+        String json = codec.toJson(handle);
+        assertFalse(json.contains("typeAttributes"));
+        assertFalse(codec.fromJson(json).getColumnIdentity().getTypeAttributes().isPresent());
     }
 
     private void testRoundTrip(IcebergColumnHandle expected)

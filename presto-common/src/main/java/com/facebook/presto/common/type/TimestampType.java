@@ -13,107 +13,144 @@
  */
 package com.facebook.presto.common.type;
 
-import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.function.SqlFunctionProperties;
-
-import java.util.Objects;
-import java.util.concurrent.TimeUnit;
-
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static java.util.concurrent.TimeUnit.MICROSECONDS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.lang.String.format;
 
-//
-// TIMESTAMP is stored as milliseconds from 1970-01-01T00:00:00 UTC.  When performing calculations
-// on a timestamp the client's time zone must be taken into account.
-// TIMESTAMP_MICROSECONDS is stored as microseconds from 1970-01-01T00:00:00 UTC.  When performing calculations
-// on a timestamp the client's time zone must be taken into account.
-//
-public final class TimestampType
-        extends AbstractLongType
+/**
+ * TIMESTAMP(p), the public factory and common base for both storage representations. Like
+ * {@link DecimalType}, the representation is chosen by the subclass rather than by branching
+ * inside a single class:
+ * <ul>
+ *   <li>{@link ShortTimestampType} for p &lt;= {@link #MAX_SHORT_PRECISION}: a single epoch-scaled
+ *       {@code long} (e.g. p=3 is epoch-millis, p=6 is epoch-micros), Java type {@code long.class}.</li>
+ *   <li>{@link LongTimestampType} for p &gt; {@link #MAX_SHORT_PRECISION}: an
+ *       {@code (epochMicros, picosOfMicro)} pair in a {@code Fixed12ArrayBlock},
+ *       Java type {@link LongTimestamp}.</li>
+ * </ul>
+ * Generic code therefore needs no timestamp-specific special case: dispatching on
+ * {@link #getJavaType()} lands on {@code getLong}/{@code writeLong} for short precisions and on
+ * {@code getObject}/{@code writeObject} for long precisions.
+ *
+ * <p>SQL grammar, operator registration, and connector I/O for p=7-12 are tracked in
+ * <a href="https://github.com/prestodb/presto/issues/27934">#27934</a>.
+ */
+public abstract class TimestampType
+        extends AbstractPrimitiveType
+        implements FixedWidthType
 {
-    public static final TimestampType TIMESTAMP = new TimestampType(MILLISECONDS);
-    public static final TimestampType TIMESTAMP_MICROSECONDS = new TimestampType(MICROSECONDS);
+    public static final int MAX_PRECISION = 12;
+    public static final int MAX_SHORT_PRECISION = 6;
+    public static final int DEFAULT_PRECISION = 3;
 
-    private final TimeUnit precision;
+    private static final TimestampType[] INSTANCES = new TimestampType[MAX_PRECISION + 1];
 
-    private TimestampType(TimeUnit precision)
+    static {
+        for (int precision = 0; precision <= MAX_SHORT_PRECISION; precision++) {
+            INSTANCES[precision] = new ShortTimestampType(precision);
+        }
+        for (int precision = MAX_SHORT_PRECISION + 1; precision <= MAX_PRECISION; precision++) {
+            INSTANCES[precision] = new LongTimestampType(precision);
+        }
+    }
+
+    public static final TimestampType TIMESTAMP = INSTANCES[DEFAULT_PRECISION];
+
+    // Keeps the legacy "timestamp microseconds" type signature so existing code that matches
+    // on type-signature base strings continues to work without changes.
+    public static final TimestampType TIMESTAMP_MICROSECONDS = INSTANCES[MAX_SHORT_PRECISION];
+
+    private final int precision;
+
+    TimestampType(int precision, Class<?> javaType)
     {
-        super(parseTypeSignature(getType(precision)));
+        super(buildTypeSignature(precision), javaType);
         this.precision = precision;
     }
 
-    @Override
-    public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
+    // Only p=3 and p=6 are registered in the type manager; other precisions tracked in #27934.
+    public static TimestampType createTimestampType(int precision)
     {
-        if (block.isNull(position)) {
-            return null;
+        if (precision < 0 || precision > MAX_PRECISION) {
+            throw new IllegalArgumentException(format(
+                    "TIMESTAMP precision must be in range [0, %d]: %d", MAX_PRECISION, precision));
         }
-
-        if (properties.isLegacyTimestamp()) {
-            return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey(), precision);
-        }
-        else {
-            return new SqlTimestamp(block.getLong(position), precision);
-        }
+        return INSTANCES[precision];
     }
 
-    public TimeUnit getPrecision()
+    private static TypeSignature buildTypeSignature(int precision)
     {
-        return this.precision;
+        if (precision == DEFAULT_PRECISION) {
+            // Preserve "timestamp" (no parameter) so existing serialized metadata continues to parse.
+            return parseTypeSignature(StandardTypes.TIMESTAMP);
+        }
+        if (precision == MAX_SHORT_PRECISION) {
+            // Preserve "timestamp microseconds" for the same reason.
+            return parseTypeSignature(StandardTypes.TIMESTAMP_MICROSECONDS);
+        }
+        // TODO(#27934 Phase 2): Register TimestampParametricType for type-registry round-trip.
+        return new TypeSignature(StandardTypes.TIMESTAMP, TypeSignatureParameter.of((long) precision));
+    }
+
+    public final int getPrecision()
+    {
+        return precision;
+    }
+
+    public final boolean isShort()
+    {
+        return precision <= MAX_SHORT_PRECISION;
+    }
+
+    // Used by Iceberg partition value conversion.
+    public final boolean isMillisPrecision()
+    {
+        return precision == DEFAULT_PRECISION;
     }
 
     @Override
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
-    public boolean equals(Object other)
+    public final boolean isComparable()
     {
-        if (precision == MICROSECONDS) {
-            return other == TIMESTAMP_MICROSECONDS;
-        }
-        if (precision == MILLISECONDS) {
-            return other == TIMESTAMP;
-        }
-        throw new UnsupportedOperationException("Unsupported precision " + precision);
+        return true;
     }
 
     @Override
-    public int hashCode()
+    public final boolean isOrderable()
     {
-        return Objects.hash(getClass(), precision);
+        return true;
+    }
+
+    // Instances are interned, so reference equality is correct; overridden only for checkstyle's EqualsHashCode rule.
+    @Override
+    public final boolean equals(Object other)
+    {
+        return this == other;
+    }
+
+    @Override
+    public final int hashCode()
+    {
+        return System.identityHashCode(this);
     }
 
     /**
-     * Gets the timestamp's number of total seconds.
-     * The epoch second count is a simple incrementing count of seconds where second 0 is 1970-01-01T00:00:00Z.
-     *
-     * Returns:
-     * the total seconds in timestamp
+     * Number of whole seconds since 1970-01-01T00:00:00 UTC in a short-precision value.
+     * Long precisions carry their fractional part outside the {@code long} and throw.
      */
-    public long getEpochSecond(long timestamp)
-    {
-        return this.precision.toSeconds(timestamp);
-    }
+    // TODO(#27934 Phase 3): Add getEpochSecond(LongTimestamp) for date_trunc/date_add/AT TIME ZONE.
+    public abstract long getEpochSecond(long timestamp);
 
     /**
-     * Gets the timestamp's nanosecond portion.
-     *
-     * Returns:
-     * this timestamp's fractional seconds component
+     * Nanosecond-of-second of a short-precision value. Long precisions throw.
      */
-    public int getNanos(long timestamp)
-    {
-        long unitsPerSecond = precision.convert(1, TimeUnit.SECONDS);
-        return (int) precision.toNanos(timestamp % unitsPerSecond);
-    }
+    // TODO(#27934 Phase 3): Add getNanos(LongTimestamp) for date_format/date_trunc.
+    public abstract int getNanos(long timestamp);
 
-    private static String getType(TimeUnit precision)
-    {
-        if (precision == MICROSECONDS) {
-            return StandardTypes.TIMESTAMP_MICROSECONDS;
-        }
-        if (precision == MILLISECONDS) {
-            return StandardTypes.TIMESTAMP;
-        }
-        throw new IllegalArgumentException("Unsupported precision " + precision);
-    }
+    // TODO(#27934 Phase 4): Add toEpochMillis(LongTimestamp) for Iceberg/ORC/Parquet/JDBC.
+    public abstract long toEpochMillis(long timestamp);
+
+    // TODO(#27934 Phase 4): Add toEpochMicros(LongTimestamp) for ORC/Parquet microsecond writes.
+    public abstract long toEpochMicros(long timestamp);
+
+    // TODO(#27934 Phase 4): Add fromEpochComponents(epochSecond, nanos) -> LongTimestamp for Parquet/ORC nanosecond reads.
+    public abstract long fromEpochComponents(long epochSecond, int nanos);
 }

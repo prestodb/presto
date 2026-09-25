@@ -5,12 +5,12 @@ Release 0.103
 Cluster Resource Management
 ---------------------------
 
-There is a new cluster resource manager, which can be enabled via the
+There is a new cluster resource manager, which can be enabled with the
 ``experimental.cluster-memory-manager-enabled`` flag. Currently, the only
 resource that's tracked is memory, and the cluster resource manager guarantees
 that the cluster will not deadlock waiting for memory. However, in a low memory
 situation it is possible that only one query will make progress. Memory limits can
-now be configured via ``query.max-memory`` which controls the total distributed
+now be configured by using ``query.max-memory`` which controls the total distributed
 memory a query may use and ``query.max-memory-per-node`` which limits the amount
 of memory a query may use on any one node. On each worker, the
 ``resources.reserved-system-memory`` flags controls how much memory is reserved

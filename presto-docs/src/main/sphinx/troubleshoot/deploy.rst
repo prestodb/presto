@@ -9,71 +9,76 @@ This page presents common problems encountered when deploying Presto.
     :backlinks: none
     :depth: 1
 
-``Permission denied: ‘/private/var/presto/data/var/run/launcher.pid``
----------------------------------------------------------------------
+Permission denied for ``launcher.pid``
+--------------------------------------
 
-Problem
-^^^^^^^
+.. rubric:: Problem
 
-``bin/launcher run`` or ``bin/launcher start`` returns the following error: 
-
-``Permission denied: ‘/private/var/presto/data/var/run/launcher.pid``
-
-Solution
-^^^^^^^^
-
-Run the command as root or using ``sudo``. 
+Running ``bin/launcher run`` or ``bin/launcher start`` returns the following error:
 
 .. code-block:: none
+   :class: no-copy
 
-    sudo bin/launcher run
-    sudo bin/launcher start
+   Permission denied: '/private/var/presto/data/var/run/launcher.pid'
 
 
-``xcode select failed to locate python``
-----------------------------------------
+.. rubric:: Solution
 
-Problem
-^^^^^^^
+Run the command as root or using ``sudo``:
 
-(OS X only) ``bin/launcher run`` or ``bin/launcher start`` returns the following error: 
+.. code-block:: shell
 
-``xcode select failed to locate python requesting installation of command``
+   sudo bin/launcher run
+   sudo bin/launcher start
 
-Solution
-^^^^^^^^
+
+
+Xcode failed to locate Python
+-----------------------------
+
+.. rubric:: Problem
+
+.. note::
+
+   macOS only
+
+Running ``bin/launcher run`` or ``bin/launcher start`` returns the following error:
+
+.. code-block:: none
+   :class: no-copy
+
+   xcode select failed to locate python requesting installation of command
+
+
+.. rubric:: Solution
 
 Create a symlink where XCode looks for python that links to python3. An example of such a command: 
 
-.. code-block:: none
+.. code-block:: shell
 
     ln -s /Library/Developer/CommandLineTools/usr/bin/python3 /Library/Developer/CommandLineTools/usr/bin/python
 
 
 
+JVM option 'UseG1GC' is experimental
+------------------------------------
 
-``Error: VM option ‘UseG1GC’ is experimental``
-----------------------------------------------
+.. rubric:: Problem
 
-Problem
-^^^^^^^
-``bin/launcher run`` or ``bin/launcher start`` returns the following error: 
+Running ``bin/launcher run`` or ``bin/launcher start`` returns the following error:
 
 .. code-block:: none
+   :class: no-copy
 
-    Error: VM option ‘UseG1GC’ is experimental and must be enabled via -XX:+UnlockExperimentalVM Options.
+    Error: VM option 'UseG1GC' is experimental and must be enabled via -XX:+UnlockExperimentalVM Options.
 
     Error: Could not create the Java Virtual Machine.
 
     Error: A fatal exception has occurred. Program will exit.
 
-Solution
-^^^^^^^^
 
-This error occurs with some versions of Java. 
+.. rubric:: Solution
 
-1. Check the version of Java that is installed on the system. 
+This error occurs with some versions of Java.
 
-2. If the installed version of Java is not the version in 
-   `Requirements <https://github.com/prestodb/presto?tab=readme-ov-file#requirements>`_, 
-   then uninstall Java and install a recommended version.
+Ensure installed Java version meets the `Requirements <https://github.com/prestodb/presto?tab=readme-ov-file#requirements>`_.

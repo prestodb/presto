@@ -21,7 +21,7 @@ General Changes
 * Improve performance of window functions with similar ``PARTITION BY`` clauses.
 * Improve performance of certain multi-way JOINs by automatically choosing the
   best evaluation order. This feature is turned off by default and can be enabled
-  via the ``reorder-joins`` config option or ``reorder_joins`` session property.
+  with the ``reorder-joins`` config option or ``reorder_joins`` session property.
 * Add :func:`!xxhash64` and :func:`!to_big_endian_64` functions.
 * Add aggregated operator statistics to final query statistics.
 * Allow specifying column comments for :doc:`/sql/create-table`.

@@ -19,7 +19,7 @@ General Changes
 Remove "Big Query" Support
 --------------------------
 The experimental support for big queries has been removed in favor of
-the new resource manager which can be enabled via the
+the new resource manager which can be enabled by using the
 ``experimental.cluster-memory-manager-enabled`` config option.
 The ``experimental_big_query`` session property and the following config
 options are no longer supported: ``experimental.big-query-initial-hash-partitions``,

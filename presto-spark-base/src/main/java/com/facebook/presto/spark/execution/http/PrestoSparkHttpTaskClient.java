@@ -95,6 +95,7 @@ import static java.util.Objects.requireNonNull;
 public class PrestoSparkHttpTaskClient
 {
     private static final String TASK_URI = "/v1/task/";
+    private static final String DROP_TASK_ON_DELETE_URL_PARAM = "dropTaskOnDelete";
     private static final Logger log = Logger.get(PrestoSparkHttpTaskClient.class);
     private final OkHttpClient httpClient;
     private final URI location;
@@ -188,6 +189,40 @@ public class PrestoSparkHttpTaskClient
         SettableFuture<Void> result = SettableFuture.create();
         scheduleVoidRequest(request, new BytesResponseHandler(), errorTracker, result);
         return result;
+    }
+
+    /**
+     * Whether the worker should release a deleted task immediately rather than leaving it for the periodic
+     * cleanOldTasks() sweep. Only correct where nothing reads the task after the DELETE, so it is off here and
+     * opted into by the subclass whose deployment guarantees that.
+     */
+    protected boolean isDropTaskOnDeleteEnabled()
+    {
+        return false;
+    }
+
+    public void deleteTask(TaskId taskId)
+    {
+        HttpUrl.Builder url = HttpUrl.get(getTaskUri(taskId)).newBuilder();
+        if (isDropTaskOnDeleteEnabled()) {
+            url.addQueryParameter(DROP_TASK_ON_DELETE_URL_PARAM, "true");
+        }
+        Request request = new Request.Builder()
+                .url(url.build())
+                .delete()
+                .build();
+
+        RequestErrorTracker errorTracker = new RequestErrorTracker(
+                "NativeExecution",
+                location,
+                NATIVE_EXECUTION_TASK_ERROR,
+                "deleteTask encountered too many errors talking to native process",
+                remoteTaskMaxErrorDuration,
+                scheduledExecutorService,
+                "delete native task");
+        SettableFuture<Void> result = SettableFuture.create();
+        scheduleVoidRequest(request, new BytesResponseHandler(), errorTracker, result);
+        getFutureValue(result);
     }
 
     public TaskInfo getTaskInfo(TaskId taskId)

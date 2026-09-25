@@ -99,7 +99,7 @@ public class TestDataVerification
     @Test
     public void testSchemaMismatch()
     {
-        Optional<VerifierQueryEvent> event = runVerification("SELECT 1", "SELECT 1.00001");
+        Optional<VerifierQueryEvent> event = runVerification("SELECT 1 x", "SELECT BIGINT '1' x");
         assertTrue(event.isPresent());
         assertEvent(
                 event.get(),
@@ -107,7 +107,44 @@ public class TestDataVerification
                 Optional.empty(),
                 Optional.of("SCHEMA_MISMATCH"),
                 Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n\n" +
-                        "SCHEMA MISMATCH\n"));
+                        "SCHEMA MISMATCH\n" +
+                        "Differing Columns:\n" +
+                        "  x: integer -> bigint\n"));
+    }
+
+    @Test
+    public void testSchemaMismatchDifferentColumns()
+    {
+        Optional<VerifierQueryEvent> event = runVerification("SELECT 1 x, 2 y", "SELECT 1 x, 2 z");
+        assertTrue(event.isPresent());
+        assertEvent(
+                event.get(),
+                FAILED,
+                Optional.empty(),
+                Optional.of("SCHEMA_MISMATCH"),
+                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n\n" +
+                        "SCHEMA MISMATCH\n" +
+                        "Only in Control:\n" +
+                        "  y: integer\n" +
+                        "Only in Test:\n" +
+                        "  z: integer\n"));
+    }
+
+    @Test
+    public void testSchemaMismatchColumnOrder()
+    {
+        Optional<VerifierQueryEvent> event = runVerification("SELECT 1 w, 2 x, 3 y, 4 z", "SELECT 1 w, 3 y, 2 x, 4 z");
+        assertTrue(event.isPresent());
+        assertEvent(
+                event.get(),
+                FAILED,
+                Optional.empty(),
+                Optional.of("SCHEMA_MISMATCH"),
+                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n\n" +
+                        "SCHEMA MISMATCH\n" +
+                        "Column Order Differs \\(positions 2-3\\):\n" +
+                        "  control: x, y\n" +
+                        "  test: y, x\n"));
     }
 
     @Test

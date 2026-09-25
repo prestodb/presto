@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
@@ -35,6 +36,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
+import static com.facebook.presto.sql.tree.SetProperties.Type.MATERIALIZED_VIEW;
 import static com.facebook.presto.sql.tree.SetProperties.Type.TABLE;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
@@ -64,6 +66,19 @@ public class SetPropertiesTask
                     parameterExtractor(statement, parameters)).build();
             setTableProperties(statement, tableName, metadata, accessControl, session, properties);
         }
+        else if (statement.getType() == MATERIALIZED_VIEW) {
+            if (SystemSessionProperties.isLegacyMaterializedViews(session)) {
+                throw new PrestoException(NOT_SUPPORTED, "ALTER MATERIALIZED VIEW ... SET PROPERTIES is not supported when legacy_materialized_views=true");
+            }
+            Map<String, Object> properties = metadata.getMaterializedViewPropertyManager().getUserSpecifiedProperties(
+                    getConnectorIdOrThrow(session, metadata, tableName.getCatalogName()),
+                    tableName.getCatalogName(),
+                    sqlProperties,
+                    session,
+                    metadata,
+                    parameterExtractor(statement, parameters)).build();
+            setMaterializedViewProperties(statement, tableName, metadata, accessControl, session, properties);
+        }
         else {
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported target type: %s", statement.getType()));
         }
@@ -91,5 +106,18 @@ public class SetPropertiesTask
 
         accessControl.checkCanSetTableProperties(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, properties);
         metadata.setTableProperties(session, tableHandle.get(), properties);
+    }
+
+    private void setMaterializedViewProperties(SetProperties statement, QualifiedObjectName viewName, Metadata metadata, AccessControl accessControl, Session session, Map<String, Object> properties)
+    {
+        if (!metadata.getMetadataResolver(session).getMaterializedView(viewName).isPresent()) {
+            if (!statement.isTableExists()) {
+                throw new PrestoException(NOT_FOUND, format("Materialized view does not exist: %s", viewName));
+            }
+            return;
+        }
+
+        accessControl.checkCanSetTableProperties(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName, properties);
+        metadata.setMaterializedViewProperties(session, viewName, properties);
     }
 }

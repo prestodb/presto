@@ -18,6 +18,7 @@
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/time/Timer.h"
 
 using namespace facebook::velox;
@@ -119,6 +120,8 @@ protocol::TaskState toProtocolTaskState(PrestoTaskState state) {
 protocol::ExecutionFailureInfo toPrestoError(std::exception_ptr ex) {
   try {
     rethrow_exception(ex);
+  } catch (const ExecutionFailureException& e) {
+    return e.getFailureInfo();
   } catch (const VeloxException& e) {
     return translateToPrestoException(e);
   } catch (const std::exception& e) {
@@ -858,6 +861,7 @@ void PrestoTask::updateExecutionInfoLocked(
 
   prestoTaskStats.rawInputPositions = 0;
   prestoTaskStats.rawInputDataSizeInBytes = 0;
+  prestoTaskStats.scanRawInputDataSizeInBytes = 0;
   prestoTaskStats.processedInputPositions = 0;
   prestoTaskStats.processedInputDataSizeInBytes = 0;
   prestoTaskStats.outputPositions = 0;
@@ -908,6 +912,12 @@ void PrestoTask::updateExecutionInfoLocked(
             firstVeloxOpStats.rawInputPositions;
         prestoTaskStats.rawInputDataSizeInBytes +=
             firstVeloxOpStats.rawInputBytes;
+        // Velox has no fused scan+filter+project (only TableScan and
+        // FilterProject), so a leaf scan is always reported as TableScan.
+        if (firstVeloxOpStats.operatorType == "TableScan") {
+          prestoTaskStats.scanRawInputDataSizeInBytes +=
+              firstVeloxOpStats.rawInputBytes;
+        }
         prestoTaskStats.processedInputPositions +=
             firstVeloxOpStats.inputPositions;
         prestoTaskStats.processedInputDataSizeInBytes +=
@@ -998,11 +1008,13 @@ folly::dynamic PrestoTask::toJson() const {
 protocol::RuntimeMetric toRuntimeMetric(
     const std::string& name,
     const RuntimeMetric& metric) {
+  // Use Velox provided saturate cast to safely convert uint64_t to int64_t
+  // without overflow.
   return protocol::RuntimeMetric{
       name,
       toPrestoRuntimeUnit(metric.unit),
       metric.sum,
-      metric.count,
+      saturateCast(metric.count),
       metric.max,
       metric.min};
 }

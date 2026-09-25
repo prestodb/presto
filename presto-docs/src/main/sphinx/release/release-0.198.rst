@@ -8,8 +8,8 @@ General Changes
 * Perform semantic analysis before enqueuing queries.
 * Add support for selective aggregates (``FILTER``) with ``DISTINCT`` argument qualifiers.
 * Support ``ESCAPE`` for ``LIKE`` predicate in ``SHOW SCHEMAS`` and ``SHOW TABLES`` queries.
-* Parse decimal literals (e.g. ``42.0``) as ``DECIMAL`` by default. Previously, they were parsed as
-  ``DOUBLE``. This behavior can be turned off via the ``parse-decimal-literals-as-double`` config option or
+* Parse decimal literals (for example, ``42.0``) as ``DECIMAL`` by default. Previously, they were parsed as
+  ``DOUBLE``. This behavior can be turned off with the ``parse-decimal-literals-as-double`` config option or
   the ``parse_decimal_literals_as_double`` session property.
 * Fix ``current_date`` failure when the session time zone has a "gap" at ``1970-01-01 00:00:00``.
   The time zone ``America/Bahia_Banderas`` is one such example.

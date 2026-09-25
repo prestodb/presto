@@ -113,7 +113,7 @@ SystemDataSource::SystemDataSource(
         handle,
         "ColumnHandle must be an instance of SystemColumnHandle "
         "for '{}' on table '{}'",
-        handle->name(),
+        it->second->name(),
         systemTableHandle->tableName());
 
     auto columnIndex = taskSchema->getChildIdxIfExists(handle->name());

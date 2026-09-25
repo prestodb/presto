@@ -59,7 +59,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import org.testng.annotations.AfterMethod;
@@ -95,6 +94,7 @@ import static com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy.
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -200,6 +200,7 @@ public class TestNodeScheduler
                     0,
                     0,
                     DataSize.valueOf("1MB"),
+                    DataSize.valueOf("1MB"),
                     0,
                     0,
                     0,
@@ -255,7 +256,7 @@ public class TestNodeScheduler
         Split split = new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitLocal());
         Set<Split> splits = ImmutableSet.of(split);
 
-        Map.Entry<InternalNode, Split> assignment = Iterables.getOnlyElement(nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments().entries());
+        Map.Entry<InternalNode, Split> assignment = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments().entries().stream().collect(onlyElement());
         ModularHashingNodeProvider modularHashingNodeProvider = new ModularHashingNodeProvider(nodeSelector.getAllNodes());
         assertEquals(assignment.getKey().getHostAndPort(), split.getPreferredNodes((key) -> modularHashingNodeProvider.get(key, 3)).get(0));
         assertEquals(assignment.getValue(), split);
@@ -949,7 +950,7 @@ public class TestNodeScheduler
             throws Exception
     {
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
-        InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
+        InternalNode chosenNode = nodeManager.getActiveConnectorNodes(CONNECTOR_ID).stream().findFirst().get();
         TaskId taskId = new TaskId("test", 1, 0, 1, 0);
         RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(
                 taskId,
@@ -970,7 +971,7 @@ public class TestNodeScheduler
     public void testSplitCount()
     {
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
-        InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
+        InternalNode chosenNode = nodeManager.getActiveConnectorNodes(CONNECTOR_ID).stream().findFirst().get();
 
         TaskId taskId1 = new TaskId("test", 1, 0, 1, 0);
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1,
@@ -1060,7 +1061,7 @@ public class TestNodeScheduler
     public void testCpuUsage()
     {
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
-        InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
+        InternalNode chosenNode = nodeManager.getActiveConnectorNodes(CONNECTOR_ID).stream().findFirst().get();
 
         TaskId taskId1 = new TaskId("test", 1, 0, 1, 0);
         List<Split> splits = ImmutableList.of(
@@ -1100,7 +1101,7 @@ public class TestNodeScheduler
     public void testMemoryUsage()
     {
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
-        InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
+        InternalNode chosenNode = nodeManager.getActiveConnectorNodes(CONNECTOR_ID).stream().findFirst().get();
 
         TaskId taskId1 = new TaskId("test", 1, 0, 1, 0);
         List<Split> splits = ImmutableList.of(

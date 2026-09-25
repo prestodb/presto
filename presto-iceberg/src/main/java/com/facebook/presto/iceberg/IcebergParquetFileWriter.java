@@ -24,6 +24,7 @@ import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.parquet.ParquetUtil;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 
 import java.io.OutputStream;
 import java.util.List;
@@ -54,7 +55,9 @@ public class IcebergParquetFileWriter
             Path outputPath,
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
-            MetricsConfig metricsConfig)
+            MetricsConfig metricsConfig,
+            DateTimeZone writerTimezone,
+            String prestoVersion)
     {
         super(outputStream,
                 rollbackAction,
@@ -64,7 +67,9 @@ public class IcebergParquetFileWriter
                 primitiveTypes,
                 parquetWriterOptions,
                 fileInputColumnIndexes,
-                compressionCodecName);
+                compressionCodecName,
+                writerTimezone,
+                prestoVersion);
         this.outputPath = requireNonNull(outputPath, "outputPath is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");

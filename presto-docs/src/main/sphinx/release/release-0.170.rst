@@ -8,7 +8,7 @@ General Changes
 * Fix race condition that could cause queries to fail with ``InterruptedException`` in rare cases.
 * Fix a performance regression for ``GROUP BY`` queries over ``UNION``.
 * Fix a performance regression that occurs when a significant number of exchange
-  sources produce no data during an exchange (e.g., in a skewed hash join).
+  sources produce no data during an exchange (for example, in a skewed hash join).
 
 Web UI Changes
 --------------
@@ -36,7 +36,7 @@ Cassandra Changes
   config options are no longer supported.
 * Remove partition key cache to improve consistency and reduce load on the Cassandra cluster due to background cache refresh.
 * Reduce the number of connections opened to the Cassandra cluster. Now Presto opens a single connection from each node.
-* Use exponential backoff for retries when Cassandra hosts are down. The retry timeout can be controlled via the
+* Use exponential backoff for retries when Cassandra hosts are down. The retry timeout can be controlled with the
   ``cassandra.no-host-available-retry-timeout`` config option, which has a default value of ``1m``.
   The ``cassandra.no-host-available-retry-count`` config option is no longer supported.
 

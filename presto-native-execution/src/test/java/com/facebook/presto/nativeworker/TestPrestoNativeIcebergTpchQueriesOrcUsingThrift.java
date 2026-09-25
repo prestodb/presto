@@ -22,6 +22,12 @@ public class TestPrestoNativeIcebergTpchQueriesOrcUsingThrift
     private final String storageFormat = "ORC";
 
     @Override
+    protected String getStorageFormat()
+    {
+        return storageFormat;
+    }
+
+    @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
         return PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder()

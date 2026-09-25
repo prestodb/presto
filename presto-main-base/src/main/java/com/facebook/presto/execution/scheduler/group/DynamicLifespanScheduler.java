@@ -50,6 +50,7 @@ public class DynamicLifespanScheduler
     private final List<InternalNode> nodeByTaskId;
     private final List<ConnectorPartitionHandle> partitionHandles;
     private final OptionalInt concurrentLifespansPerTask;
+    private final int partitionsPerBucket;
 
     private final IntSet[] runningDriverGroupIdsByTask;
     private final int[] taskByDriverGroup;
@@ -84,20 +85,26 @@ public class DynamicLifespanScheduler
         this.concurrentLifespansPerTask = requireNonNull(concurrentLifespansPerTask, "concurrentLifespansPerTask is null");
         concurrentLifespansPerTask.ifPresent(lifespansPerTask -> checkArgument(lifespansPerTask >= 1, "concurrentLifespansPerTask must be great or equal to 1 if present"));
 
-        int bucketCount = partitionHandles.size();
-        verify(bucketCount > 0);
+        int totalLifespans = partitionHandles.size();
+        int physicalBucketCount = bucketNodeMap.getBucketCount();
+        checkArgument(totalLifespans % physicalBucketCount == 0,
+                "totalLifespans (%s) must be a multiple of physicalBucketCount (%s)", totalLifespans, physicalBucketCount);
+        this.partitionsPerBucket = totalLifespans / physicalBucketCount;
+        verify(this.partitionsPerBucket > 0);
         this.runningDriverGroupIdsByTask = new IntSet[nodeByTaskId.size()];
         for (int i = 0; i < nodeByTaskId.size(); i++) {
             runningDriverGroupIdsByTask[i] = new IntOpenHashSet();
         }
-        this.taskByDriverGroup = new int[bucketCount];
+        this.taskByDriverGroup = new int[totalLifespans];
         this.noPreferenceDriverGroups = new IntArrayFIFOQueue();
         this.nodeToPreferredDriverGroups = new HashMap<>();
         Set<InternalNode> nodeSet = ImmutableSet.copyOf(nodeByTaskId);
-        for (int i = 0; i < bucketCount; i++) {
+        for (int i = 0; i < totalLifespans; i++) {
             taskByDriverGroup[i] = NOT_ASSIGNED;
-            if (bucketNodeMap.getAssignedNode(i).isPresent() && nodeSet.contains(bucketNodeMap.getAssignedNode(i).get())) {
-                InternalNode preferredNode = bucketNodeMap.getAssignedNode(i).get();
+            // Interleaved ordering: physicalBucket = lifespanId % bucketCount
+            int physicalBucket = i % physicalBucketCount;
+            if (bucketNodeMap.getAssignedNode(physicalBucket).isPresent() && nodeSet.contains(bucketNodeMap.getAssignedNode(physicalBucket).get())) {
+                InternalNode preferredNode = bucketNodeMap.getAssignedNode(physicalBucket).get();
                 nodeToPreferredDriverGroups.computeIfAbsent(preferredNode, k -> new IntArrayFIFOQueue());
                 nodeToPreferredDriverGroups.get(preferredNode).enqueue(i);
             }
@@ -235,7 +242,9 @@ public class DynamicLifespanScheduler
         }
         else if (!noPreferenceDriverGroups.isEmpty()) {
             driverGroupId = OptionalInt.of(noPreferenceDriverGroups.dequeueInt());
-            bucketNodeMap.assignOrUpdateBucketToNode(driverGroupId.getAsInt(), node, false);
+            // Interleaved ordering: physicalBucket = lifespanId % bucketCount
+            int physicalBucket = driverGroupId.getAsInt() % bucketNodeMap.getBucketCount();
+            bucketNodeMap.assignOrUpdateBucketToNode(physicalBucket, node, false);
         }
         return driverGroupId;
     }

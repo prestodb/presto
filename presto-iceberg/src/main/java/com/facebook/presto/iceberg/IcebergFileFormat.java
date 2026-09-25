@@ -17,4 +17,5 @@ public enum IcebergFileFormat
 {
     ORC,
     PARQUET,
+    NIMBLE,
 }

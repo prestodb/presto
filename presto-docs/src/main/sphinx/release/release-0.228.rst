@@ -6,7 +6,7 @@ General Changes
 _______________
 * Reduce excessive memory usage by ExchangeClient.
 * Improve coordinator stability on parsing functions that may create large constant
-  arrays/maps/rows (e.g., ``SEQUENCE``, ``REPEAT``, ``ARRAY[...]``, etc) by delaying the
+  arrays/maps/rows (for example, ``SEQUENCE``, ``REPEAT``, ``ARRAY[...]``, etc) by delaying the
   evaluation on these functions on workers.
 * Optimize queries with ``LIMIT 0``.
 * Allow Bing Tiles at zoom level 0.

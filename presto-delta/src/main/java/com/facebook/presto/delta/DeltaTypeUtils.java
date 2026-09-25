@@ -15,6 +15,7 @@ package com.facebook.presto.delta;
 
 import com.facebook.presto.common.type.DateTimeEncoding;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.JsonType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.StandardTypes;
@@ -44,13 +45,16 @@ import io.delta.kernel.types.StringType;
 import io.delta.kernel.types.StructType;
 import io.delta.kernel.types.TimestampNTZType;
 import io.delta.kernel.types.TimestampType;
+import io.delta.kernel.types.VariantType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -123,16 +127,15 @@ public class DeltaTypeUtils
         else if (deltaType instanceof ArrayType) {
             ArrayType deltaArrayType = (ArrayType) deltaType;
             TypeSignature elementType = convertDeltaDataTypePrestoDataType(tableName, columnName, deltaArrayType.getElementType());
-            return new TypeSignature(ARRAY, ImmutableList.of(TypeSignatureParameter.of(elementType)));
+            return new TypeSignature(ARRAY, List.of(TypeSignatureParameter.of(elementType)));
         }
         else if (deltaType instanceof MapType) {
             MapType deltaMapType = (MapType) deltaType;
             TypeSignature keyType = convertDeltaDataTypePrestoDataType(tableName, columnName, deltaMapType.getKeyType());
             TypeSignature valueType = convertDeltaDataTypePrestoDataType(tableName, columnName, deltaMapType.getValueType());
             return new TypeSignature(MAP,
-                    ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
+                    List.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
         }
-
         return convertDeltaPrimitiveTypeToPrestoPrimitiveType(tableName, columnName, deltaType).getTypeSignature();
     }
 
@@ -173,7 +176,7 @@ public class DeltaTypeUtils
             if (isShortDecimal(type) || isLongDecimal(type)) {
                 com.facebook.presto.common.type.DecimalType decimalType = (com.facebook.presto.common.type.DecimalType) type;
                 BigDecimal decimal = new BigDecimal(valueString);
-                decimal = decimal.setScale(decimalType.getScale(), BigDecimal.ROUND_UNNECESSARY);
+                decimal = decimal.setScale(decimalType.getScale(), RoundingMode.UNNECESSARY);
                 if (decimal.precision() > decimalType.getPrecision()) {
                     throw new IllegalArgumentException();
                 }
@@ -242,6 +245,9 @@ public class DeltaTypeUtils
         }
         else if (deltaType instanceof TimestampNTZType) {
             return TIMESTAMP;
+        }
+        else if (deltaType instanceof VariantType) {
+            return JsonType.JSON;
         }
 
         throw new PrestoException(DELTA_UNSUPPORTED_COLUMN_TYPE,

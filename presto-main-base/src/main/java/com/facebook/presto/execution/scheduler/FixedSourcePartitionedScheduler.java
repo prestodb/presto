@@ -104,6 +104,12 @@ public class FixedSourcePartitionedScheduler
 
         checkArgument(splitSources.keySet().equals(ImmutableSet.copyOf(schedulingOrder)));
 
+        int totalLifespans = partitionHandles.size();
+        int physicalBucketCount = bucketNodeMap.getBucketCount();
+        if (stageExecutionDescriptor.isStageGroupedExecution()) {
+            checkArgument(totalLifespans % physicalBucketCount == 0,
+                    "totalLifespans (%s) must be a multiple of physicalBucketCount (%s)", totalLifespans, physicalBucketCount);
+        }
         BucketedSplitPlacementPolicy splitPlacementPolicy = new BucketedSplitPlacementPolicy(nodeSelector, nodes, bucketNodeMap, stage::getAllTasks);
 
         ArrayList<SourceScheduler> sourceSchedulers = new ArrayList<>();
@@ -340,7 +346,7 @@ public class FixedSourcePartitionedScheduler
 
         public InternalNode getNodeForBucket(int bucketId)
         {
-            return bucketNodeMap.getAssignedNode(bucketId).get();
+            return bucketNodeMap.getAssignedNode(bucketId % bucketNodeMap.getBucketCount()).get();
         }
     }
 

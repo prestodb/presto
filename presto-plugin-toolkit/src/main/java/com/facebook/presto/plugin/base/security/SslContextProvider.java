@@ -26,9 +26,9 @@ import javax.net.ssl.X509TrustManager;
 import javax.security.auth.x500.X500Principal;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -152,7 +152,7 @@ public class SslContextProvider
         catch (IOException | GeneralSecurityException e) {
             log.debug("Failed to load keystore as PEM, attempting JKS format: {}", e.getMessage());
             keystore = getInstance(getDefaultType());
-            try (InputStream in = new FileInputStream(keystoreFile)) {
+            try (InputStream in = Files.newInputStream(keystoreFile.toPath())) {
                 keystore.load(in, keystorePassword.map(String::toCharArray).orElse(null));
             }
             log.debug("Successfully loaded keystore as JKS format");
@@ -232,7 +232,7 @@ public class SslContextProvider
         if (!loaded) {
             try {
                 log.debug("Attempting to load truststore as JKS format");
-                try (InputStream inputStream = new FileInputStream(trustStorePath)) {
+                try (InputStream inputStream = Files.newInputStream(trustStorePath.toPath())) {
                     trustStore.load(inputStream, trustStorePassword.map(String::toCharArray).orElse(null));
                 }
                 log.debug("Successfully loaded truststore as JKS format");

@@ -16,10 +16,14 @@ package com.facebook.presto.server;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.memory.HighMemoryTaskKiller;
 import com.facebook.presto.memory.LowMemoryMonitor;
+import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.transaction.NoOpTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.inject.Binder;
@@ -28,6 +32,8 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import jakarta.inject.Singleton;
 
+import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.google.common.reflect.Reflection.newProxy;
 
 public class WorkerModule
@@ -57,9 +63,16 @@ public class WorkerModule
             return true;
         }));
 
+        jsonCodecBinder(binder).bindJsonCodec(NodeStatus.class);
+        jsonCodecBinder(binder).bindJsonCodec(BasicQueryInfo.class);
+        jsonCodecBinder(binder).bindListJsonCodec(ResourceGroupRuntimeInfo.class);
+        jsonCodecBinder(binder).bindMapJsonCodec(MemoryPoolId.class, ClusterMemoryPoolInfo.class);
+
         binder.bind(LowMemoryMonitor.class).in(Scopes.SINGLETON);
 
         binder.bind(HighMemoryTaskKiller.class).in(Scopes.SINGLETON);
+
+        httpClientBinder(binder).bindHttpClient("resourceManager", ForResourceManager.class);
     }
 
     @Provides

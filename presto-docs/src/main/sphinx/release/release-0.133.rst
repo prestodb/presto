@@ -11,7 +11,7 @@ General Changes
   and nothing else.
 * Fix possible deadlock in worker communication when task restart is detected.
 * Performance improvements for aggregations on dictionary encoded data.
-  This optimization is turned off by default. It can be configured via the
+  This optimization is turned off by default. It can be configured with the
   ``optimizer.dictionary-aggregation`` config property or the
   ``dictionary_aggregation`` session property.
 * Fix race which could cause queries to fail when using :func:`!concat` on

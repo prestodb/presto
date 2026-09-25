@@ -11,7 +11,7 @@ Release 0.218
 General Changes
 ---------------
 
-* Fix failures in regular expression functions for certain inputs where the pattern contains word boundaries (e.g. ``\b``).
+* Fix failures in regular expression functions for certain inputs where the pattern contains word boundaries (for example, ``\b``).
 * Fix an issue that may cause a crash when using plugins that provide an event listener. (:issue:`11951`)
 * Fix a memory leak that occurs when a query fails with a semantic or permission error.
 * Improve performance for queries with ``FULL OUTER JOIN`` where join keys have the :func:`!`COALESCE`` function applied.

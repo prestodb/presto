@@ -13,7 +13,16 @@
  * limitations under the License.
  */
 namespace facebook::presto::protocol {
-struct ConnectorDistributedProcedureHandle : public JsonEncodedSubclass {};
+struct ConnectorDistributedProcedureHandle : public JsonEncodedSubclass {
+  static std::string serialize(const ConnectorDistributedProcedureHandle& /* handle */) {
+    VELOX_NYI("ConnectorDistributedProcedureHandle::serialize not implemented");
+  }
+  static std::shared_ptr<ConnectorDistributedProcedureHandle> deserialize(
+      const std::string& data,
+      std::shared_ptr<ConnectorDistributedProcedureHandle> p) {
+    VELOX_NYI("Deserialization not implemented for ConnectorDistributedProcedureHandle");
+  }
+};
 void to_json(
     json& j,
     const std::shared_ptr<ConnectorDistributedProcedureHandle>& p);

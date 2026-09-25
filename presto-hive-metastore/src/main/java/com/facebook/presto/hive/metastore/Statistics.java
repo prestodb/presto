@@ -411,7 +411,7 @@ public final class Statistics
             result.setDateStatistics(new DateStatistics(getDateValue(session, type, min), getDateValue(session, type, max)));
         }
         else if (type.equals(TIMESTAMP)) {
-            result.setIntegerStatistics(new IntegerStatistics(getTimestampValue(timeZone, min), getTimestampValue(timeZone, max)));
+            result.setIntegerStatistics(new IntegerStatistics(getTimestampValue(session, timeZone, min), getTimestampValue(session, timeZone, max)));
         }
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(getDecimalValue(session, type, min), getDecimalValue(session, type, max)));
@@ -437,10 +437,13 @@ public final class Statistics
         return block.isNull(0) ? Optional.empty() : Optional.of(LocalDate.ofEpochDay(((SqlDate) type.getObjectValue(session.getSqlFunctionProperties(), block, 0)).getDays()));
     }
 
-    private static OptionalLong getTimestampValue(DateTimeZone timeZone, Block block)
+    private static OptionalLong getTimestampValue(ConnectorSession session, DateTimeZone timeZone, Block block)
     {
-        // TODO #7122
-        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(MILLISECONDS.toSeconds(timeZone.convertUTCToLocal(block.getLong(0))));
+        return block.isNull(0) ?
+                OptionalLong.empty() :
+                session.getSqlFunctionProperties().isLegacyTimestamp() ?
+                        OptionalLong.of(MILLISECONDS.toSeconds(timeZone.convertUTCToLocal(block.getLong(0)))) :
+                        OptionalLong.of(MILLISECONDS.toSeconds(block.getLong(0)));
     }
 
     private static Optional<BigDecimal> getDecimalValue(ConnectorSession session, Type type, Block block)

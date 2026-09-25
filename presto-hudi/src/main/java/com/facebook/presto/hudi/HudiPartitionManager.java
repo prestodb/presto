@@ -93,6 +93,7 @@ public class HudiPartitionManager
                 .map(PartitionNameWithVersion::getPartitionName)
                 // Apply extra filters which could not be done by getPartitionNamesByFilter, similar to filtering in HivePartitionManager#getPartitionsIterator
                 .filter(partitionName -> parseValuesAndFilterPartition(
+                        connectorSession,
                         partitionName,
                         hudiColumnHandles,
                         partitionTypes,
@@ -101,6 +102,7 @@ public class HudiPartitionManager
     }
 
     private boolean parseValuesAndFilterPartition(
+            ConnectorSession session,
             String partitionName,
             List<HudiColumnHandle> partitionColumns,
             List<Type> partitionColumnTypes,
@@ -111,7 +113,7 @@ public class HudiPartitionManager
         }
 
         Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().orElseGet(ImmutableMap::of);
-        Map<HudiColumnHandle, NullableValue> partitionValues = parsePartition(partitionName, partitionColumns, partitionColumnTypes);
+        Map<HudiColumnHandle, NullableValue> partitionValues = parsePartition(session, partitionName, partitionColumns, partitionColumnTypes);
         for (HudiColumnHandle column : partitionColumns) {
             NullableValue value = partitionValues.get(column);
             Domain allowedDomain = domains.get(column);
@@ -124,6 +126,7 @@ public class HudiPartitionManager
     }
 
     private static Map<HudiColumnHandle, NullableValue> parsePartition(
+            ConnectorSession session,
             String partitionName,
             List<HudiColumnHandle> partitionColumns,
             List<Type> partitionColumnTypes)
@@ -135,7 +138,7 @@ public class HudiPartitionManager
         ImmutableMap.Builder<HudiColumnHandle, NullableValue> builder = ImmutableMap.builder();
         for (int i = 0; i < partitionColumns.size(); i++) {
             HudiColumnHandle column = partitionColumns.get(i);
-            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), partitionColumnTypes.get(i), ZoneId.of(TimeZone.getDefault().getID()));
+            NullableValue parsedValue = parsePartitionValue(session, partitionName, partitionValues.get(i), partitionColumnTypes.get(i), ZoneId.of(TimeZone.getDefault().getID()));
             builder.put(column, parsedValue);
         }
         return builder.build();

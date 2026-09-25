@@ -22,6 +22,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableFinishNode;
@@ -34,7 +35,6 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter.RewriteContext;
@@ -45,7 +45,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.stream.Collectors.toSet;
 
 public class RewriteWriterTarget
@@ -148,7 +148,7 @@ public class RewriteWriterTarget
                 Set<Optional<WriterTarget>> writerTargets = node.getSources().stream()
                         .map(this::getWriterTarget)
                         .collect(toSet());
-                return getOnlyElement(writerTargets);
+                return writerTargets.stream().collect(onlyElement());
             }
 
             return Optional.empty();

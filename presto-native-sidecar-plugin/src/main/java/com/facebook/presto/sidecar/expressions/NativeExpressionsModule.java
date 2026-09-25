@@ -14,6 +14,7 @@
 package com.facebook.presto.sidecar.expressions;
 
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RowExpressionSerde;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -25,7 +26,9 @@ import com.google.inject.Scopes;
 
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.sidecar.NativeSidecarCommunicationModule.installMBeanModule;
 import static java.util.Objects.requireNonNull;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class NativeExpressionsModule
         implements Module
@@ -34,13 +37,15 @@ public class NativeExpressionsModule
     private final RowExpressionSerde rowExpressionSerde;
     private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution functionResolution;
+    private final TypeManager typeManager;
 
-    public NativeExpressionsModule(NodeManager nodeManager, RowExpressionSerde rowExpressionSerde, FunctionMetadataManager functionMetadataManager, StandardFunctionResolution functionResolution)
+    public NativeExpressionsModule(NodeManager nodeManager, RowExpressionSerde rowExpressionSerde, FunctionMetadataManager functionMetadataManager, StandardFunctionResolution functionResolution, TypeManager typeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.rowExpressionSerde = requireNonNull(rowExpressionSerde, "rowExpressionSerde is null");
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -51,15 +56,20 @@ public class NativeExpressionsModule
         binder.bind(RowExpressionSerde.class).toInstance(rowExpressionSerde);
         binder.bind(FunctionMetadataManager.class).toInstance(functionMetadataManager);
         binder.bind(StandardFunctionResolution.class).toInstance(functionResolution);
+        binder.bind(TypeManager.class).toInstance(typeManager);
 
         // JSON dependencies and setup
         binder.install(new JsonModule());
         jsonBinder(binder).addDeserializerBinding(RowExpression.class).to(RowExpressionDeserializer.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addSerializerBinding(RowExpression.class).to(RowExpressionSerializer.class).in(Scopes.SINGLETON);
-        jsonCodecBinder(binder).bindListJsonCodec(RowExpression.class);
+        jsonCodecBinder(binder).bindJsonCodec(ExpressionOptimizationRequest.class);
         jsonCodecBinder(binder).bindListJsonCodec(RowExpressionOptimizationResult.class);
 
         binder.bind(NativeSidecarExpressionInterpreter.class).in(Scopes.SINGLETON);
+
+        // jmx metrics
+        installMBeanModule(binder);
+        newExporter(binder).export(NativeSidecarExpressionInterpreter.class).withGeneratedName();
 
         // The main service provider
         binder.bind(NativeExpressionOptimizer.class).in(Scopes.SINGLETON);

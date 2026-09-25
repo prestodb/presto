@@ -244,4 +244,28 @@ public class TestExpressionFormatter
                 ExpressionFormatter.formatExpression(reparsed, Optional.empty()),
                 "Comparison expression must be semantically preserved through format/parse cycle");
     }
+
+    @Test
+    public void testFormatRowWithFieldNames()
+    {
+        assertFormatted("ROW(1 AS a, 2 AS b)", "ROW (1 AS a, 2 AS b)");
+        // the optional AS is always emitted
+        assertFormatted("ROW(1 a, 2 b)", "ROW (1 AS a, 2 AS b)");
+        assertFormatted("ROW(1 AS a, 2)", "ROW (1 AS a, 2)");
+        assertFormatted("ROW(1, 2)", "ROW (1, 2)");
+        // delimited names must stay quoted so that the output re-parses to the same field name
+        assertFormatted("ROW(1 AS \"Mixed Case\")", "ROW (1 AS \"Mixed Case\")");
+        assertFormatted("ROW(ROW(1 AS a) AS b)", "ROW (ROW (1 AS a) AS b)");
+    }
+
+    private static void assertFormatted(String expression, String expectedFormat)
+    {
+        Expression parsed = SQL_PARSER.createExpression(expression, new ParsingOptions());
+        String formatted = ExpressionFormatter.formatExpression(parsed, Optional.empty());
+        assertEquals(formatted, expectedFormat);
+
+        // formatted SQL must round-trip: CREATE VIEW relies on this via SqlFormatterUtil
+        Expression reparsed = SQL_PARSER.createExpression(formatted, new ParsingOptions());
+        assertEquals(reparsed, parsed, "row expression must survive a format/parse cycle");
+    }
 }

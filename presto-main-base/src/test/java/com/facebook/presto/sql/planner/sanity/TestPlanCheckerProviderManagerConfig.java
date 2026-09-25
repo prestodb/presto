@@ -17,7 +17,7 @@ package com.facebook.presto.sql.planner.sanity;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -30,7 +30,7 @@ public class TestPlanCheckerProviderManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(PlanCheckerProviderManagerConfig.class)
-                .setPlanCheckerConfigurationDir(new File("etc/plan-checker-providers")));
+                .setPlanCheckerConfigurationDir(Paths.get("etc/plan-checker-providers").toFile()));
     }
 
     @Test
@@ -41,7 +41,7 @@ public class TestPlanCheckerProviderManagerConfig
                 .build();
 
         PlanCheckerProviderManagerConfig expected = new PlanCheckerProviderManagerConfig()
-                .setPlanCheckerConfigurationDir(new File("/foo"));
+                .setPlanCheckerConfigurationDir(Paths.get("/foo").toFile());
 
         assertFullMapping(properties, expected);
     }

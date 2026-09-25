@@ -98,7 +98,7 @@ public class TestFileSingleStreamSpiller
     private void assertSpill(CompressionCodec compressionCodec, boolean encryption)
             throws Exception
     {
-        File spillPath = new File(tempDirectory, UUID.randomUUID().toString());
+        File spillPath = tempDirectory.toPath().resolve(UUID.randomUUID().toString()).toFile();
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 new BlockEncodingManager(),

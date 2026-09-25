@@ -116,7 +116,7 @@ public class DwrfBatchPageSourceFactory
                 columns,
                 false,
                 effectivePredicate,
-                hiveStorageTimeZone,
+                session.getSqlFunctionProperties().isLegacyTimestamp() ? hiveStorageTimeZone : DateTimeZone.UTC,
                 typeManager,
                 false,
                 stats,

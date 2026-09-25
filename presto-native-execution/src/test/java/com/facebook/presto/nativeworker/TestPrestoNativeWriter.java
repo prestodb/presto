@@ -33,6 +33,7 @@ import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.SCALE_WRITERS;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
@@ -273,6 +274,109 @@ public class TestPrestoNativeWriter
                 assertQuery(String.format("SELECT nationkey FROM %s", tmpTableName), String.format("VALUES('A%sB')", specialCharacter));
                 getQueryRunner().execute(writeSession, String.format("DELETE FROM %s", tmpTableName));
             }
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    @Test(groups = {"writer"})
+    public void testNotNullColumnEnforcement()
+    {
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(format("CREATE TABLE %s (c1 BIGINT, c2 DOUBLE NOT NULL, c3 VARCHAR, c4 BIGINT NOT NULL)", tmpTableName));
+
+            // Columns without the constraint still accept NULL.
+            assertUpdate(format("INSERT INTO %s VALUES (NULL, 2.3, NULL, 4)", tmpTableName), 1);
+
+            // Rows that satisfy the constraint are written, so enforcement does not reject valid data.
+            long numberOfRowsInOrdersTable = (long) getQueryRunner().execute("SELECT count(*) FROM orders").getOnlyValue();
+            assertUpdate(format("INSERT INTO %s SELECT orderkey, totalprice, comment, orderkey FROM orders", tmpTableName), numberOfRowsInOrdersTable);
+
+            assertNotNullViolation(format("INSERT INTO %s VALUES (1, NULL, 'abc', 4)", tmpTableName), "c2");
+            assertNotNullViolation(format("INSERT INTO %s VALUES (1, 2.3, 'abc', NULL)", tmpTableName), "c4");
+
+            // A NOT NULL column left out of the insert column list is written as a constant NULL.
+            assertNotNullViolation(format("INSERT INTO %s (c1, c3) VALUES (1, 'abc')", tmpTableName), "c2");
+
+            // Reordering the insert column list does not change which target columns are constrained.
+            assertNotNullViolation(format("INSERT INTO %s (c4, c3, c2, c1) VALUES (NULL, 'abc', 2.3, 1)", tmpTableName), "c4");
+            assertUpdate(format("INSERT INTO %s (c4, c3, c2, c1) VALUES (4, 'abc', 2.3, 1)", tmpTableName), 1);
+
+            // Only the three successful inserts landed: a rejected insert writes nothing.
+            assertEquals(
+                    (long) computeActual(format("SELECT count(*) FROM %s", tmpTableName)).getOnlyValue(),
+                    numberOfRowsInOrdersTable + 2);
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    @Test(groups = {"writer"})
+    public void testNotNullColumnEnforcementWithSharedSourceVariable()
+    {
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(format("CREATE TABLE %s (c1 BIGINT NOT NULL, c2 BIGINT NOT NULL)", tmpTableName));
+
+            // Selecting one source column into two target columns makes both columns share a single
+            // plan variable, so the constraint covers both target names and the violation names the
+            // first of them.
+            assertNotNullViolation(format("INSERT INTO %s (c1, c2) SELECT v, v FROM (VALUES (CAST(1 AS BIGINT)), (CAST(NULL AS BIGINT))) t(v)", tmpTableName), "c1");
+
+            assertUpdate(format("INSERT INTO %s (c1, c2) SELECT v, v FROM (VALUES (CAST(1 AS BIGINT))) t(v)", tmpTableName), 1);
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    @Test(groups = {"writer"})
+    public void testCreateTableAsSelectDoesNotInheritNotNull()
+    {
+        String sourceTableName = generateRandomTableName();
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT NOT NULL)", sourceTableName));
+            assertUpdate(format("INSERT INTO %s VALUES (NULL, 2)", sourceTableName), 1);
+
+            // CREATE TABLE AS has no column constraint syntax and does not carry the source table's
+            // constraints over, so every column of the new table is nullable and the write is
+            // unconstrained even where it reads a NOT NULL column.
+            assertUpdate(format("CREATE TABLE %s AS SELECT c1, c2 FROM %s", tmpTableName, sourceTableName), 1);
+            assertQuery(format("SELECT c1, c2 FROM %s", tmpTableName), "VALUES (CAST(NULL AS BIGINT), CAST(2 AS BIGINT))");
+
+            // c2 of the new table is nullable even though it reads the NOT NULL c2 of the source.
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tmpTableName), 1);
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+            dropTableIfExists(sourceTableName);
+        }
+    }
+
+    @Test(groups = {"writer"})
+    public void testAlterColumnSetAndDropNotNull()
+    {
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(format("CREATE TABLE %s (c1 BIGINT, c2 DOUBLE)", tmpTableName));
+
+            // NULLs are allowed before the constraint is added.
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tmpTableName), 1);
+
+            // ALTER TABLE runs against the native coordinator. Both coordinators read the same
+            // file-based metastore with metadata caching off, so the java coordinator also sees
+            // the constraint.
+            getQueryRunner().execute(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tmpTableName));
+            assertNotNullViolation(format("INSERT INTO %s VALUES (1, NULL)", tmpTableName), "c2");
+
+            // The constrained columns are derived per query, so dropping the constraint takes effect
+            // on the next insert.
+            getQueryRunner().execute(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tmpTableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tmpTableName), 1);
         }
         finally {
             dropTableIfExists(tmpTableName);
@@ -751,6 +855,14 @@ public class TestPrestoNativeWriter
         computeExpected(String.format("DROP TABLE IF EXISTS %s", tableName), ImmutableList.of(BIGINT));
     }
 
+    private void assertNotNullViolation(String sql, String columnName)
+    {
+        assertQueryFails(sql, "NULL value not allowed for NOT NULL column: " + columnName, true);
+        // The java worker names the column by the source channel of its plan variable rather than
+        // by the target column, so only the violation itself is asserted there.
+        assertQueryFailsExpected(sql, "NULL value not allowed for NOT NULL column", true);
+    }
+
     private String generateRandomTableName()
     {
         String tableName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
@@ -765,6 +877,7 @@ public class TestPrestoNativeWriter
                 .setSystemProperty("scale_writers", "true")
                 .setSystemProperty("task_writer_count", "1")
                 .setSystemProperty("task_partitioned_writer_count", "2")
+                .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
                 .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
                 .build();

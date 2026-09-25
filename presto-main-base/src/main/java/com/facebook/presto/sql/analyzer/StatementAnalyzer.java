@@ -16,14 +16,19 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.ColumnLineageEntry;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.RuntimeMetricName;
 import com.facebook.presto.common.SourceColumn;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.TransformationSubtype;
+import com.facebook.presto.common.TransformationType;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
@@ -36,10 +41,10 @@ import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.metadata.TableFunctionMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
@@ -56,12 +61,15 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.function.table.ArgumentSpecification;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+import com.facebook.presto.spi.function.table.DescribedTableReturnTypeSpecification;
 import com.facebook.presto.spi.function.table.Descriptor;
 import com.facebook.presto.spi.function.table.DescriptorArgument;
 import com.facebook.presto.spi.function.table.DescriptorArgumentSpecification;
@@ -71,6 +79,7 @@ import com.facebook.presto.spi.function.table.ScalarArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableArgument;
 import com.facebook.presto.spi.function.table.TableArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableFunctionAnalysis;
+import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -85,8 +94,10 @@ import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.MaterializedViewUtils;
 import com.facebook.presto.sql.analyzer.Analysis.MergeAnalysis;
+import com.facebook.presto.sql.analyzer.Analysis.ResolvedWindow;
 import com.facebook.presto.sql.analyzer.Analysis.TableArgumentAnalysis;
 import com.facebook.presto.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
+import com.facebook.presto.sql.analyzer.procedure.TableDataRewriteAnalysisContext;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -109,8 +120,10 @@ import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
+import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
@@ -142,6 +155,7 @@ import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
@@ -154,6 +168,7 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Merge;
 import com.facebook.presto.sql.tree.MergeCase;
+import com.facebook.presto.sql.tree.MergeDelete;
 import com.facebook.presto.sql.tree.MergeInsert;
 import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.NaturalJoin;
@@ -169,6 +184,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.QueryWithMVRewriteCandidates;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
@@ -182,11 +198,14 @@ import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetOperation;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
@@ -206,8 +225,12 @@ import com.facebook.presto.sql.tree.Update;
 import com.facebook.presto.sql.tree.UpdateAssignment;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowDefinition;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowReference;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.facebook.presto.sql.util.AstUtils;
@@ -219,6 +242,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import java.util.ArrayList;
@@ -232,12 +256,14 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.SystemSessionProperties.isAllowWindowOrderByLiterals;
+import static com.facebook.presto.SystemSessionProperties.isAlwaysAnalyzeCreateTableQueryEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
@@ -250,9 +276,11 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.CallTask.extractParameterValuesInOrder;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.DATATYPE_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ROW_FILTER;
@@ -268,13 +296,19 @@ import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionTyp
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
-import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static com.facebook.presto.spi.function.table.GenericTableReturnTypeSpecification.GENERIC_TABLE;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractSortFieldStrings;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractZOrderColumns;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
+import static com.facebook.presto.sql.MaterializedViewUtils.buildMaterializedViewScanFilter;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
+import static com.facebook.presto.sql.MaterializedViewUtils.buildPartitionsToRecomputeFilter;
 import static com.facebook.presto.sql.MaterializedViewUtils.generateBaseTablePredicates;
 import static com.facebook.presto.sql.MaterializedViewUtils.generateFalsePredicates;
 import static com.facebook.presto.sql.MaterializedViewUtils.getOwnerIdentity;
+import static com.facebook.presto.sql.MaterializedViewUtils.projectBaseTablePartitionsToView;
+import static com.facebook.presto.sql.MaterializedViewUtils.requiresOuterFilter;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.QueryUtil.selectList;
@@ -301,12 +335,16 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PARAMETER_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_WINDOW_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_OFFSET_ROW_COUNT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDER_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARTITION_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_REFERENCE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_IS_RECURSIVE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
@@ -372,11 +410,12 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
@@ -387,6 +426,14 @@ class StatementAnalyzer
 {
     private static final Logger log = Logger.get(StatementAnalyzer.class);
     private static final int UNION_DISTINCT_FIELDS_WARNING_THRESHOLD = 3;
+    // Time functions are deterministic within a query but vary across refreshes, so they are disallowed in MV definitions
+    private static final Set<QualifiedObjectName> SESSION_TIME_FUNCTIONS = ImmutableSet.of(
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "now"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "current_timestamp"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "current_date"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "current_time"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "localtime"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "localtimestamp"));
     private final Analysis analysis;
     private final Metadata metadata;
     private final FunctionAndTypeResolver functionAndTypeResolver;
@@ -550,8 +597,10 @@ class StatementAnalyzer
                             .map(Type::toString),
                     Column::new);
 
+            // Query-level indirect sources (WHERE, JOIN, GROUP BY, etc.) apply to all columns.
+            // Per-field indirect sources (CONDITIONAL, WINDOW) apply only to the column whose expression contains them.
             analysis.setUpdatedSourceColumns(Optional.of(Streams.zip(
-                            columnStream, queryScope.getRelationType().getVisibleFields().stream(), (column, field) -> new OutputColumnMetadata(column.getName(), column.getType(), analysis.getSourceColumns(field)))
+                            columnStream, queryScope.getRelationType().getVisibleFields().stream(), (column, field) -> OutputColumnMetadata.fromColumnLineage(column.getName(), column.getType(), analysis.getColumnLineageForField(field)))
                     .collect(toImmutableList())));
 
             return createAndAssignScope(insert, scope, Field.newUnqualified(insert.getLocation(), "rows", BIGINT));
@@ -586,7 +635,7 @@ class StatementAnalyzer
                     node = rows.get(0);
                     if (node instanceof Row) {
                         int columnIndex = Math.min(i, queryColumnTypes.size() - 1);
-                        node = ((Row) rows.get(0)).getItems().get(columnIndex);
+                        node = ((Row) rows.get(0)).getFields().get(columnIndex).getExpression();
                     }
                 }
                 if (i == expectedColumns.size()) {
@@ -743,7 +792,9 @@ class StatementAnalyzer
 
             // user must have read and insert permission in order to analyze stats of a table
             Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
-                    .putAll(tableName, metadataResolver.getColumnHandles(tableHandle).keySet().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet()))
+                    .putAll(tableName, session.getRuntimeStats().recordWallTime(
+                            RuntimeMetricName.GET_COLUMN_HANDLE_TIME_NANOS,
+                            () -> metadataResolver.getColumnHandles(tableHandle)).keySet().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet()))
                     .build();
             analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), tableColumnMap, tableColumnMap);
             analysis.addAccessControlCheckForTable(TABLE_INSERT, new AccessControlInfoForTable(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), tableName));
@@ -767,6 +818,10 @@ class StatementAnalyzer
                     warningCollector.add(new PrestoWarning(
                             StandardWarningCode.SEMANTIC_WARNING,
                             format("Table '%s' already exists, skipping table creation", targetTable)));
+                    // Analyze the inner query to populate view definitions for access control checks
+                    if (isAlwaysAnalyzeCreateTableQueryEnabled(session)) {
+                        process(node.getQuery(), scope);
+                    }
                     return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
                 }
                 throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
@@ -796,7 +851,7 @@ class StatementAnalyzer
                         throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
                     String columnName = node.getColumnAliases().get().get(aliasPosition).getValue();
-                    outputColumns.add(new OutputColumnMetadata(columnName, field.getType().toString(), analysis.getSourceColumns(field)));
+                    outputColumns.add(OutputColumnMetadata.fromColumnLineage(columnName, field.getType().toString(), analysis.getColumnLineageForField(field)));
                     aliasPosition++;
                 }
             }
@@ -812,7 +867,7 @@ class StatementAnalyzer
 
         private OutputColumnMetadata createOutputColumn(Field field)
         {
-            return new OutputColumnMetadata(field.getName().get(), field.getType().toString(), analysis.getSourceColumns(field));
+            return OutputColumnMetadata.fromColumnLineage(field.getName().get(), field.getType().toString(), analysis.getColumnLineageForField(field));
         }
 
         @Override
@@ -862,7 +917,45 @@ class StatementAnalyzer
 
             validateBaseTables(analysis.getTableNodes(), node);
 
+            validateDeterministicFunctionsInMV(node);
+
             return createAndAssignScope(node, scope);
+        }
+
+        private void validateDeterministicFunctionsInMV(CreateMaterializedView node)
+        {
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+            // now()/current_timestamp() are FunctionCalls; CURRENT_TIMESTAMP/CURRENT_DATE parse as CurrentTime nodes
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitFunctionCall(FunctionCall functionCall, Void context)
+                {
+                    FunctionHandle functionHandle = analysis.getFunctionHandle(functionCall);
+                    if (functionHandle != null) {
+                        FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(functionHandle);
+                        if (!functionMetadata.isDeterministic() || SESSION_TIME_FUNCTIONS.contains(functionMetadata.getName())) {
+                            throw rejectNonDeterministicInMV(functionCall, functionCall.getName().toString());
+                        }
+                    }
+                    return super.visitFunctionCall(functionCall, context);
+                }
+
+                @Override
+                protected Void visitCurrentTime(CurrentTime currentTime, Void context)
+                {
+                    throw rejectNonDeterministicInMV(currentTime, currentTime.getFunction().getName());
+                }
+            }.process(node.getQuery(), null);
+        }
+
+        private SemanticException rejectNonDeterministicInMV(Node node, String functionName)
+        {
+            return new SemanticException(
+                    NOT_SUPPORTED,
+                    node,
+                    "Non-deterministic function '%s' is not allowed in a materialized view definition",
+                    functionName);
         }
 
         @Override
@@ -912,12 +1005,13 @@ class StatementAnalyzer
                     buildSubqueryWithPredicate(viewQuery, tablePredicates.get(toSchemaTableName(viewName)))
                     : viewQuery;
             // Check if the owner has SELECT permission on the base tables
+            String ownerSessionSchema = isLegacyMaterializedViews(session) ? view.getSchema() : viewName.getSchemaName();
             StatementAnalyzer queryAnalyzer = new StatementAnalyzer(
                     analysis,
                     metadata,
                     sqlParser,
                     accessControl,
-                    buildOwnerSession(session, view.getOwner(), metadata.getSessionPropertyManager(), viewName.getCatalogName(), view.getSchema()),
+                    buildOwnerSession(session, view.getOwner(), metadata.getSessionPropertyManager(), viewName.getCatalogName(), ownerSessionSchema),
                     warningCollector);
             queryAnalyzer.analyze(refreshQuery, Scope.create());
 
@@ -930,10 +1024,38 @@ class StatementAnalyzer
                     .filter(column -> !column.isHidden())
                     .map(column -> columnHandles.get(column.getName()))
                     .collect(toImmutableList());
+            // Capture the refresh scope (the WHERE predicate) here, where the full unfactored predicate
+            // with its MV/base column mapping is still available. It is carried on the analysis ->
+            // RefreshMaterializedViewReference -> beginRefreshMaterializedView so the connector receives
+            // it at execution time, rather than calling the connector SPI during analysis.
+            Optional<RowExpression> refreshScopePredicate = Optional.empty();
+            if (isLegacyMaterializedViews(session) && node.getWhere().isPresent()) {
+                Expression refreshWhere = node.getWhere().get();
+                // Analyze with AllowAllAccessControl (as for the view scope above): refresh must not require
+                // SELECT on the materialized view, only INSERT. This only populates expression types for translation.
+                ExpressionAnalyzer.analyzeExpression(
+                        session,
+                        metadata,
+                        new AllowAllAccessControl(),
+                        sqlParser,
+                        viewScope,
+                        analysis,
+                        refreshWhere,
+                        warningCollector);
+                refreshScopePredicate = Optional.of(SqlToRowExpressionTranslator.translate(
+                        refreshWhere,
+                        analysis.getTypes(),
+                        ImmutableMap.of(),
+                        metadata.getFunctionAndTypeManager(),
+                        session));
+            }
+
             analysis.setRefreshMaterializedViewAnalysis(new Analysis.RefreshMaterializedViewAnalysis(
                     tableHandle,
                     targetColumnHandles,
-                    refreshQuery));
+                    refreshQuery,
+                    toSchemaTableName(viewName),
+                    refreshScopePredicate));
 
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
         }
@@ -942,7 +1064,9 @@ class StatementAnalyzer
                 RefreshMaterializedView node,
                 QualifiedObjectName viewName)
         {
-            MaterializedViewStatus viewStatus = metadataResolver.getMaterializedViewStatus(viewName, TupleDomain.all());
+            MaterializedViewStatus viewStatus = session.getRuntimeStats().recordWallTime(
+                    RuntimeMetricName.GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS,
+                    () -> metadataResolver.getMaterializedViewStatus(viewName, TupleDomain.all()));
             Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> missingPartitionsPerTable =
                     viewStatus.getPartitionsFromBaseTables();
 
@@ -1144,6 +1268,97 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitCreateVectorIndex(CreateVectorIndex node, Optional<Scope> scope)
+        {
+            QualifiedObjectName sourceTableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
+            if (!metadataResolver.tableExists(sourceTableName)) {
+                throw new SemanticException(MISSING_TABLE, node, "Source table '%s' does not exist", sourceTableName);
+            }
+
+            QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getIndexName(), metadata);
+
+            // Analyze the source table to build a proper scope with typed columns
+            // Use AllowAllAccessControl since we check permissions separately below
+            StatementAnalyzer analyzer = new StatementAnalyzer(
+                    analysis,
+                    metadata,
+                    sqlParser,
+                    new AllowAllAccessControl(),
+                    session,
+                    warningCollector);
+
+            Table sourceTable = new Table(node.getTableName());
+            Scope tableScope = analyzer.analyze(sourceTable, scope);
+
+            // Check for duplicate columns
+            Set<String> seenColumns = new HashSet<>();
+            for (Identifier column : node.getColumns()) {
+                if (!seenColumns.add(column.getValue())) {
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getValue());
+                }
+            }
+
+            // Validate that specified columns exist in the source table
+            TableHandle sourceTableHandle = session.getRuntimeStats().recordWallTime(
+                    RuntimeMetricName.GET_TABLE_HANDLE_TIME_NANOS,
+                    () -> metadataResolver.getTableHandle(sourceTableName)).get();
+            Map<String, ColumnHandle> sourceColumns = session.getRuntimeStats().recordWallTime(
+                    RuntimeMetricName.GET_COLUMN_HANDLE_TIME_NANOS,
+                    () -> metadataResolver.getColumnHandles(sourceTableHandle));
+            for (Identifier column : node.getColumns()) {
+                if (!sourceColumns.containsKey(column.getValue())) {
+                    throw new SemanticException(MISSING_COLUMN, column, "Column '%s' does not exist in source table '%s'", column.getValue(), sourceTableName);
+                }
+            }
+
+            // Validate that the last column (embedding column) is array(real) or array(double)
+            Identifier embeddingColumn = node.getColumns().get(node.getColumns().size() - 1);
+            String embeddingColumnName = embeddingColumn.getValue();
+            Type embeddingType = metadataResolver.getColumns(sourceTableHandle).stream()
+                    .filter(col -> col.getName().equals(embeddingColumnName))
+                    .findFirst()
+                    .orElseThrow(() -> new SemanticException(MISSING_COLUMN, embeddingColumn,
+                            "Column '%s' does not exist in source table '%s'", embeddingColumnName, sourceTableName))
+                    .getType();
+            if (!(embeddingType instanceof ArrayType)
+                    || (!(((ArrayType) embeddingType).getElementType() instanceof RealType)
+                    && !(((ArrayType) embeddingType).getElementType() instanceof DoubleType))) {
+                throw new SemanticException(TYPE_MISMATCH, embeddingColumn,
+                        "Embedding column '%s' must be of type array(real) or array(double), but was %s",
+                        embeddingColumnName, embeddingType);
+            }
+
+            // Analyze UPDATING FOR predicate (validates column references, types, etc.)
+            node.getUpdatingFor().ifPresent(where -> analyzeWhere(node, tableScope, where));
+
+            validateProperties(node.getProperties(), scope);
+
+            Map<String, Expression> allProperties = mapFromProperties(node.getProperties());
+
+            // user must have read permission on the source table to create a vector index
+            Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
+                    .putAll(sourceTableName, sourceColumns.keySet().stream()
+                            .map(column -> new Subfield(column, ImmutableList.of()))
+                            .collect(toImmutableSet()))
+                    .build();
+            analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(),
+                    session.getTransactionId(), session.getAccessControlContext(), tableColumnMap, tableColumnMap);
+
+            analysis.addAccessControlCheckForTable(TABLE_CREATE,
+                    new AccessControlInfoForTable(accessControl, session.getIdentity(),
+                            session.getTransactionId(), session.getAccessControlContext(), targetTable));
+
+            analysis.setCreateVectorIndexAnalysis(new Analysis.CreateVectorIndexAnalysis(
+                    sourceTableName,
+                    targetTable,
+                    node.getColumns(),
+                    allProperties,
+                    node.getUpdatingFor()));
+
+            return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "result", VARCHAR));
+        }
+
+        @Override
         protected Scope visitProperty(Property node, Optional<Scope> scope)
         {
             // Property value expressions must be constant
@@ -1272,6 +1487,12 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitSetColumnType(SetColumnType node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
         protected Scope visitPrepare(Prepare node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
@@ -1327,9 +1548,8 @@ class StatementAnalyzer
             accessControl.checkCanCallProcedure(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), procedureName);
 
             analysis.setUpdateInfo(call.getUpdateInfo());
-            analysis.setDistributedProcedureType(Optional.of(procedure.getType()));
-            analysis.setProcedureArguments(Optional.of(values));
-            switch (procedure.getType()) {
+            DistributedProcedure.DistributedProcedureType procedureType = procedure.getType();
+            switch (procedureType) {
                 case TABLE_DATA_REWRITE:
                     TableDataRewriteDistributedProcedure tableDataRewriteDistributedProcedure = (TableDataRewriteDistributedProcedure) procedure;
                     QualifiedName qualifiedName = QualifiedName.of(tableDataRewriteDistributedProcedure.getSchema(values), tableDataRewriteDistributedProcedure.getTableName(values));
@@ -1352,6 +1572,8 @@ class StatementAnalyzer
                                     session.getAccessControlContext(),
                                     tableName));
 
+                    List<String> sortFieldStrings = extractSortFieldStrings(values, tableDataRewriteDistributedProcedure.getSortOrderIndex());
+                    Optional<List<String>> zOrderColumns = extractZOrderColumns(sortFieldStrings);
                     String filter = tableDataRewriteDistributedProcedure.getFilter(values);
                     Expression filterExpression = sqlParser.createExpression(filter);
                     QuerySpecification querySpecification = new QuerySpecification(
@@ -1360,15 +1582,16 @@ class StatementAnalyzer
                             Optional.of(filterExpression),
                             Optional.empty(),
                             Optional.empty(),
+                            ImmutableList.of(),
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty());
                     analyze(querySpecification, scope);
-                    analysis.setTargetQuery(querySpecification);
 
                     TableHandle tableHandle = metadata.getHandleVersion(session, tableName, Optional.empty())
                             .orElseThrow(() -> (new SemanticException(MISSING_TABLE, call, "Table '%s' does not exist", tableName)));
-                    analysis.setCallTarget(tableHandle);
+                    TableDataRewriteAnalysisContext tableDataRewriteAnalysisContext = new TableDataRewriteAnalysisContext(tableHandle, querySpecification, zOrderColumns);
+                    analysis.setCallDistributedProcedureAnalysis(new Analysis.CallDistributedProcedureAnalysis(procedureType, values, Optional.of(tableDataRewriteAnalysisContext)));
                     break;
                 default:
                     throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported distributed procedure type: " + procedure.getType());
@@ -1502,6 +1725,7 @@ class StatementAnalyzer
         protected Scope visitUnnest(Unnest node, Optional<Scope> scope)
         {
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
+            int fieldsBefore = 0;
             for (Expression expression : node.getExpressions()) {
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
                 if (!expressionAnalysis.getScalarSubqueries().isEmpty()) {
@@ -1529,6 +1753,13 @@ class StatementAnalyzer
                 else {
                     throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
                 }
+
+                ImmutableList<Field> allFields = outputFields.build();
+                Set<SourceColumn> sourceColumns = analysis.getExpressionSourceColumns(expression);
+                for (int i = fieldsBefore; i < allFields.size(); i++) {
+                    analysis.addSourceColumns(allFields.get(i), sourceColumns);
+                }
+                fieldsBefore = allFields.size();
             }
             if (node.isWithOrdinality()) {
                 outputFields.add(Field.newUnqualified(node.getLocation(), Optional.empty(), BIGINT));
@@ -1666,7 +1897,7 @@ class StatementAnalyzer
         private Descriptor verifyProperColumnsDescriptor(TableFunctionInvocation node, ConnectorTableFunction function, ReturnTypeSpecification returnTypeSpecification, Optional<Descriptor> analyzedProperColumnsDescriptor)
         {
             switch (returnTypeSpecification.getReturnType()) {
-                case ReturnTypeSpecification.OnlyPassThrough.returnType:
+                case "PASSTHROUGH":
                     if (analysis.isAliased(node)) {
                         // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
                         // table alias is prohibited for a table function with ONLY PASS THROUGH returned type.
@@ -1688,7 +1919,7 @@ class StatementAnalyzer
                         throw new SemanticException(TABLE_FUNCTION_IMPLEMENTATION_ERROR, "A table function with ONLY_PASS_THROUGH return type must have a table argument with pass-through columns.");
                     }
                     return null;
-                case ReturnTypeSpecification.GenericTable.returnType:
+                case "GENERIC":
                     // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
                     // table alias is mandatory for a polymorphic table function invocation which produces proper columns.
                     // We don't enforce this requirement.
@@ -1704,7 +1935,7 @@ class StatementAnalyzer
                         // so the function's analyze() method should not return the proper columns descriptor.
                         throw new SemanticException(TABLE_FUNCTION_AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
                     }
-                    return ((ReturnTypeSpecification.DescribedTable) returnTypeSpecification).getDescriptor();
+                    return ((DescribedTableReturnTypeSpecification) returnTypeSpecification).getDescriptor();
             }
         }
 
@@ -2057,7 +2288,7 @@ class StatementAnalyzer
                     if (candidates.size() > 1) {
                         throw new SemanticException(TABLE_FUNCTION_INVALID_COPARTITIONING, name.getOriginalParts().get(0), "Ambiguous reference: multiple table arguments found for name: " + name);
                     }
-                    TableArgumentAnalysis argument = getOnlyElement(candidates);
+                    TableArgumentAnalysis argument = candidates.stream().collect(onlyElement());
                     if (!referencedArguments.add(argument.getArgumentName())) {
                         // multiple references to argument in COPARTITION clause are implicitly prohibited by
                         // ISO/IEC TR REPORT 19075-7, p.33, Feature B203, “More than one copartition specification”
@@ -2160,7 +2391,7 @@ class StatementAnalyzer
                                     inputField.getOriginColumnName(),
                                     inputField.isAliased());
                             fieldBuilder.add(field);
-                            analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
+                            analysis.propagateLineage(field, inputField);
                         }
 
                         fields = fieldBuilder.build();
@@ -2178,7 +2409,7 @@ class StatementAnalyzer
                                     inputField.getOriginColumnName(),
                                     inputField.isAliased());
                             fieldBuilder.add(field);
-                            analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
+                            analysis.propagateLineage(field, inputField);
                         }
                         fields = fieldBuilder.build();
                     }
@@ -2267,7 +2498,9 @@ class StatementAnalyzer
                         false);
                 fields.add(field);
                 ColumnHandle columnHandle = columnHandles.get(column.getName());
-                checkArgument(columnHandle != null, "Unknown field %s", field);
+                if (columnHandle == null) {
+                    throw new PrestoException(COLUMN_NOT_FOUND, format("Unknown field %s", field));
+                }
                 analysis.setColumn(field, columnHandle);
                 analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, column.getName())));
             }
@@ -2364,9 +2597,10 @@ class StatementAnalyzer
             }
             Object evalStateExpr = evaluateConstantExpression(stateExpr, stateExprType, metadata, session, analysis.getParameters());
             if (tableVersionType == TIMESTAMP) {
-                if (!(stateExprType instanceof TimestampWithTimeZoneType || stateExprType instanceof TimestampType)) {
+                if (!(stateExprType instanceof TimestampWithTimeZoneType || stateExprType instanceof TimestampType
+                        || stateExprType instanceof BigintType || stateExprType instanceof VarcharType)) {
                     throw new SemanticException(TYPE_MISMATCH, stateExpr,
-                            "Type %s is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.",
+                            "Type %s is invalid. Supported table version AS OF/BEFORE expression type is Timestamp, Timestamp with Time Zone, BIGINT, or VARCHAR.",
                             stateExprType.getDisplayName());
                 }
             }
@@ -2459,6 +2693,18 @@ class StatementAnalyzer
                             false))
                     .collect(toImmutableList());
 
+            // Propagate source columns from the view's underlying query to the view's output fields.
+            // We use analysis.getOutputDescriptor(query) to get the original fields (before withAlias)
+            // since withAlias creates new Field objects that don't have source columns in Analysis.
+            // isViewStale above guarantees the two field lists have the same size and order.
+            List<Field> viewQueryFields = ImmutableList.copyOf(analysis.getOutputDescriptor(query).getVisibleFields());
+            checkState(viewQueryFields.size() == outputFields.size(),
+                    "View '%s' output field count (%s) does not match query visible field count (%s)",
+                    name, outputFields.size(), viewQueryFields.size());
+            for (int i = 0; i < outputFields.size(); i++) {
+                analysis.propagateLineage(outputFields.get(i), viewQueryFields.get(i));
+            }
+
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
 
             Scope accessControlScope = Scope.builder()
@@ -2490,6 +2736,19 @@ class StatementAnalyzer
 
                 Scope queryScope = process(query, scope);
                 RelationType relationType = queryScope.getRelationType().withAlias(materializedViewName.getObjectName(), null);
+
+                // Propagate lineage from the query's output fields to the aliased fields
+                // (withAlias creates new Field objects that don't have lineage in Analysis).
+                // withAlias preserves field count and order, so the two lists pair by index.
+                List<Field> queryFields = ImmutableList.copyOf(analysis.getOutputDescriptor(query).getVisibleFields());
+                List<Field> aliasedFields = ImmutableList.copyOf(relationType.getVisibleFields());
+                checkState(queryFields.size() == aliasedFields.size(),
+                        "Materialized view '%s' aliased field count (%s) does not match stitched query visible field count (%s)",
+                        materializedViewName, aliasedFields.size(), queryFields.size());
+                for (int i = 0; i < aliasedFields.size(); i++) {
+                    analysis.propagateLineage(aliasedFields.get(i), queryFields.get(i));
+                }
+
                 analysis.unregisterMaterializedViewForAnalysis(materializedView);
 
                 Scope accessControlScope = Scope.builder()
@@ -2545,7 +2804,7 @@ class StatementAnalyzer
 
                 Session materializedViewSession = createViewSession(
                         Optional.of(materializedViewName.getCatalogName()),
-                        Optional.of(materializedViewDefinition.getSchema()),
+                        Optional.of(materializedViewName.getSchemaName()),
                         queryIdentity);
 
                 StatementAnalyzer materializedViewAnalyzer = new StatementAnalyzer(
@@ -2557,8 +2816,45 @@ class StatementAnalyzer
                         warningCollector);
                 materializedViewAnalyzer.analyze(viewQuery, scope);
 
-                Scope queryScope = process(dataTable, scope);
-                RelationType relationType = queryScope.getRelationType().withOnlyVisibleFields().withAlias(materializedViewName.getObjectName(), null);
+                // The storage table is a system-managed implementation detail; access control on it
+                // is bypassed during MV expansion. Direct access by name still goes through the
+                // outer analyzer's accessControl.
+                StatementAnalyzer storageTableAnalyzer = new StatementAnalyzer(
+                        analysis,
+                        metadata,
+                        sqlParser,
+                        new AllowAllAccessControl(),
+                        session,
+                        warningCollector);
+                Scope queryScope = storageTableAnalyzer.analyze(dataTable, scope);
+                // Re-point each field's originTable at the MV name (as processView does) so the
+                // outer ExpressionAnalyzer records column refs against the MV, not the storage table.
+                List<Field> outputFields = queryScope.getRelationType().withOnlyVisibleFields().getAllFields().stream()
+                        .map(field -> Field.newQualified(
+                                field.getNodeLocation(),
+                                QualifiedName.of(materializedViewName.getObjectName()),
+                                field.getName(),
+                                field.getType(),
+                                field.isHidden(),
+                                Optional.of(materializedViewName),
+                                field.getOriginColumnName(),
+                                field.isAliased()))
+                        .collect(toImmutableList());
+                RelationType relationType = new RelationType(outputFields);
+
+                // Propagate lineage from the view's defining query (which has lineage to the base tables)
+                // onto the re-qualified data-table fields. Without this, lineage would only reach the
+                // storage data table, not the original base tables referenced in the view definition.
+                // The MV's data table columns are derived from the view query's output, so the two
+                // field lists pair by index.
+                List<Field> viewQueryFields = ImmutableList.copyOf(analysis.getOutputDescriptor(viewQuery).getVisibleFields());
+                checkState(viewQueryFields.size() == outputFields.size(),
+                        "Materialized view '%s' output field count (%s) does not match defining query visible field count (%s)",
+                        materializedViewName, outputFields.size(), viewQueryFields.size());
+                for (int i = 0; i < outputFields.size(); i++) {
+                    analysis.propagateLineage(outputFields.get(i), viewQueryFields.get(i));
+                }
+
                 analysis.unregisterMaterializedViewForAnalysis(materializedView);
 
                 Scope accessControlScope = Scope.builder()
@@ -2588,13 +2884,33 @@ class StatementAnalyzer
             Statement createSqlStatement = sqlParser.createStatement(materializedViewCreateSql, createParsingOptions(session, warningCollector));
 
             Map<SchemaTableName, Expression> baseTablePredicates = emptyMap();
+            Optional<Expression> materializedViewScanFilter = Optional.empty();
+            Optional<Expression> outerBaseTablesFilter = Optional.empty();
             if (materializedViewStatus.isFullyMaterialized()) {
                 // We need to include base table queries by Union in order to add required access control for the base tables and utilized columns during visit.
                 // Here we stitch with the predicate WHERE FALSE, and the optimizer will then prune the FALSE branch with no extra overhead introduced.
                 baseTablePredicates = generateFalsePredicates(materializedViewDefinition.getBaseTables());
             }
             else if (materializedViewStatus.isPartiallyMaterialized()) {
-                baseTablePredicates = generateBaseTablePredicates(materializedViewStatus.getPartitionsFromBaseTables(), metadata);
+                Map<String, Map<SchemaTableName, String>> columnMappings = materializedViewDefinition.getDirectColumnMappingsAsMap();
+                List<SchemaTableName> baseTables = materializedViewDefinition.getBaseTables();
+                Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> partitionsFromBaseTables = materializedViewStatus.getPartitionsFromBaseTables();
+
+                // Connector reports the predicates to recompute in base space; project to view space for the scan exclusion.
+                Optional<MaterializedViewStatus.MaterializedDataPredicates> mvPredicatesToRecompute =
+                        Optional.of(projectBaseTablePartitionsToView(partitionsFromBaseTables, columnMappings));
+                materializedViewScanFilter = buildMaterializedViewScanFilter(mvPredicatesToRecompute, metadata);
+                if (requiresOuterFilter(mvPredicatesToRecompute, columnMappings, baseTables)) {
+                    // A recompute column doesn't map onto every base (cross-base join, UNION constant, OUTER JOIN): recompute
+                    // via one outer filter over the view definition. The per-base branch would emit WHERE FALSE on the
+                    // non-recomputing join side and drop the new partitions, so prune it.
+                    outerBaseTablesFilter = buildPartitionsToRecomputeFilter(mvPredicatesToRecompute, metadata);
+                    baseTablePredicates = generateFalsePredicates(baseTables);
+                }
+                else {
+                    // Single base, or partition keys shared across all bases: recompute per base table.
+                    baseTablePredicates = generateBaseTablePredicates(partitionsFromBaseTables, metadata);
+                }
             }
 
             Query predicateStitchedQuery = (Query) new PredicateStitcher(session, baseTablePredicates, metadata).process(createSqlStatement, new PredicateStitcherContext());
@@ -2603,20 +2919,27 @@ class StatementAnalyzer
             QuerySpecification materializedViewQuerySpecification = new QuerySpecification(
                     selectList(new AllColumns()),
                     Optional.of(materializedView),
+                    materializedViewScanFilter,
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty(),
+                    ImmutableList.of(),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty());
 
             // When union, keep predicateStitchedQuery before materializedViewQuerySpecification. Given Scope of Union contains RelationType of the first Relation,
             // this would allow utilizedTableColumnReferences to trace back to base table columns, which is required for correct materialized view access control.
-            Union union = new Union(ImmutableList.of(predicateStitchedQuery.getQueryBody(), materializedViewQuerySpecification), Optional.of(Boolean.FALSE));
+            ImmutableList.Builder<Relation> unionRelations = ImmutableList.builder();
+            unionRelations.add(predicateStitchedQuery.getQueryBody());
+            if (outerBaseTablesFilter.isPresent()) {
+                // Recompute fresh data from the base tables via the outer filter over the view definition.
+                Query freshDataFromBaseTables = (Query) sqlParser.createStatement(materializedViewCreateSql, createParsingOptions(session, warningCollector));
+                unionRelations.add(buildSubqueryWithPredicate(freshDataFromBaseTables, outerBaseTablesFilter.get()).getQueryBody());
+            }
+            unionRelations.add(materializedViewQuerySpecification);
+            Union union = new Union(unionRelations.build(), Optional.of(Boolean.FALSE));
             Query unionQuery = new Query(predicateStitchedQuery.getWith(), union, predicateStitchedQuery.getOrderBy(), predicateStitchedQuery.getOffset(), predicateStitchedQuery.getLimit());
-            // can we return the above query object, instead of building a query string?
-            // in case of returning the query object, make sure to clone the original query object.
-            return getFormattedSql(unionQuery, sqlParser, Optional.empty());
+            return formatSql(unionQuery, Optional.empty());
         }
 
         /**
@@ -2643,7 +2966,9 @@ class StatementAnalyzer
                 Optional<MaterializedViewDefinition> materializedViewDefinition = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), materializedViewName);
                 if (!materializedViewDefinition.isPresent()) {
                     log.warn("Materialized view definition not present as expected when fetching materialized view status");
-                    return metadataResolver.getMaterializedViewStatus(materializedViewName, baseQueryDomain);
+                    return session.getRuntimeStats().recordWallTime(
+                            RuntimeMetricName.GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS,
+                            () -> metadataResolver.getMaterializedViewStatus(materializedViewName, TupleDomain.all()));
                 }
 
                 Scope sourceScope = getScopeFromTable(table, scope);
@@ -2685,7 +3010,9 @@ class StatementAnalyzer
 
                     Map<String, Map<SchemaTableName, String>> directColumnMappings = materializedViewDefinition.get().getDirectColumnMappingsAsMap();
 
-                    // Get base query domain we have mapped from view query- if there are not direct mappings, don't filter partition count for predicate
+                    // Rewrite view column domains to base table column domains. Skip columns
+                    // with no direct mapping (computed columns). Bail out entirely if a column
+                    // maps to multiple base tables since the target column name is ambiguous.
                     boolean mappedToOneTable = true;
                     Map<String, Domain> rewrittenDomain = new HashMap<>();
 
@@ -2698,7 +3025,11 @@ class StatementAnalyzer
                             }
                         }
 
-                        if (baseTableMapping == null || baseTableMapping.size() != 1) {
+                        if (baseTableMapping == null || baseTableMapping.isEmpty()) {
+                            continue;
+                        }
+
+                        if (baseTableMapping.size() != 1) {
                             mappedToOneTable = false;
                             break;
                         }
@@ -2713,7 +3044,10 @@ class StatementAnalyzer
                 }
             }
 
-            return metadataResolver.getMaterializedViewStatus(materializedViewName, baseQueryDomain);
+            TupleDomain<String> finalBaseQueryDomain = baseQueryDomain;
+            return session.getRuntimeStats().recordWallTime(
+                    RuntimeMetricName.GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS,
+                    () -> metadataResolver.getMaterializedViewStatus(materializedViewName, finalBaseQueryDomain));
         }
 
         @Override
@@ -2757,7 +3091,7 @@ class StatementAnalyzer
             Streams.forEachPair(
                     descriptor.getAllFields().stream(),
                     inputFields.stream(),
-                    (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumns(field)));
+                    (newField, field) -> analysis.propagateLineage(newField, field));
 
             return createAndAssignScope(relation, scope, descriptor);
         }
@@ -2916,6 +3250,9 @@ class StatementAnalyzer
         {
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
+            // Note: per-field indirect sources (CONDITIONAL, WINDOW) are preserved because
+            // createAndAssignScope reuses the same Field objects from queryScope's RelationType.
+            // If the subquery is aliased, visitAliasedRelation handles explicit propagation.
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
 
@@ -2928,6 +3265,12 @@ class StatementAnalyzer
             analysis.setCurrentSubquery(node);
             Scope sourceScope = analyzeFrom(node, scope);
 
+            // Windows must be resolved before any expression that may contain a window function is
+            // analyzed. Window definitions are analyzed in the source scope so that, when a window
+            // function appears in ORDER BY, the predefined window parts still resolve to source symbols.
+            analyzeWindowDefinitions(node, sourceScope);
+            resolveFunctionCallWindows(node);
+
             if (node.getWhere().isPresent()) {
                 Expression predicate = node.getWhere().get();
                 // If analysis already contains where clause information for this node, analyzeWhere
@@ -2938,6 +3281,14 @@ class StatementAnalyzer
             }
 
             List<Expression> outputExpressions = analyzeSelect(node, sourceScope);
+
+            // DISTINCT is semantically GROUP BY on all projected columns (query-level)
+            if (node.getSelect().isDistinct()) {
+                for (Expression expression : outputExpressions) {
+                    collectIndirectSources(expression, TransformationSubtype.GROUP_BY);
+                }
+            }
+
             List<Expression> groupByExpressions = analyzeGroupBy(node, sourceScope, outputExpressions);
             analyzeHaving(node, sourceScope);
 
@@ -2955,6 +3306,14 @@ class StatementAnalyzer
 
                 orderByExpressions = analyzeOrderBy(node, orderBy.getSortItems(), orderByScope.get());
 
+                // Only collect ORDER BY as indirect source for outermost query.
+                // Inner ORDER BY (in subqueries or CTEs) has no effect on outer query output.
+                if (!sourceScope.getOuterQueryParent().isPresent()) {
+                    for (Expression expression : orderByExpressions) {
+                        collectIndirectSources(expression, TransformationSubtype.SORT);
+                    }
+                }
+
                 if (sourceScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent()) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(orderBy);
@@ -2967,9 +3326,23 @@ class StatementAnalyzer
             analysis.setOrderByExpressions(node, orderByExpressions);
 
             List<Expression> sourceExpressions = new ArrayList<>(outputExpressions);
-            // Use the rewritten HAVING expression (to resolve SELECT alias references)
-            if (node.getHaving().isPresent()) {
-                sourceExpressions.add(analysis.getHaving(node));
+            node.getHaving().ifPresent(sourceExpressions::add);
+            // Windows declared in the WINDOW clause obey the same grouping rules as inline ones.
+            // The specification is taken as written, so a refining window only contributes what it adds.
+            for (WindowDefinition windowDefinition : node.getWindows()) {
+                WindowSpecification window = windowDefinition.getWindow();
+                sourceExpressions.addAll(window.getPartitionBy());
+                getSortItemsFromOrderBy(window.getOrderBy()).stream()
+                        .map(SortItem::getSortKey)
+                        .forEach(sourceExpressions::add);
+                window.getFrame()
+                        .map(WindowFrame::getStart)
+                        .flatMap(FrameBound::getValue)
+                        .ifPresent(sourceExpressions::add);
+                window.getFrame()
+                        .flatMap(WindowFrame::getEnd)
+                        .flatMap(FrameBound::getValue)
+                        .ifPresent(sourceExpressions::add);
             }
 
             analyzeGroupingOperations(node, sourceExpressions, orderByExpressions);
@@ -2996,6 +3369,18 @@ class StatementAnalyzer
             }
 
             return outputScope;
+        }
+
+        @Override
+        protected Scope visitQueryWithMVRewriteCandidates(QueryWithMVRewriteCandidates node, Optional<Scope> scope)
+        {
+            Scope originalScope = process(node.getOriginalQuery(), scope);
+
+            for (QueryWithMVRewriteCandidates.MVRewriteCandidate candidate : node.getCandidates()) {
+                process(candidate.getRewrittenQuery(), scope);
+            }
+
+            return createAndAssignScope(node, scope, originalScope.getRelationType());
         }
 
         @Override
@@ -3065,12 +3450,11 @@ class StatementAnalyzer
                         oldField.isAliased());
 
                 int index = i;
-                analysis.addSourceColumns(
-                        outputDescriptorFields[index],
-                        relationScopes.stream()
-                                .map(relationType -> relationType.getRelationType().getFieldByIndex(index))
-                                .flatMap(field -> analysis.getSourceColumns(field).stream())
-                                .collect(toImmutableSet()));
+                for (Scope relationScope : relationScopes) {
+                    analysis.propagateLineage(
+                            outputDescriptorFields[index],
+                            relationScope.getRelationType().getFieldByIndex(index));
+                }
             }
 
             for (int i = 0; i < node.getRelations().size(); i++) {
@@ -3194,6 +3578,7 @@ class StatementAnalyzer
 
                 analysis.recordSubqueries(node, expressionAnalysis);
                 analysis.setJoinCriteria(node, expression);
+                collectIndirectSources(expression, TransformationSubtype.JOIN);
             }
             else {
                 throw new UnsupportedOperationException("unsupported join criteria: " + criteria.getClass().getName());
@@ -3387,6 +3772,21 @@ class StatementAnalyzer
 
             for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
                 MergeCase mergeCase = merge.getMergeCases().get(caseCounter);
+
+                if (mergeCase.getCondition().isPresent()) {
+                    Expression caseCondition = mergeCase.getCondition().get();
+                    ExpressionAnalysis caseConditionAnalysis = analyzeExpression(caseCondition, joinScope);
+                    Type caseConditionType = caseConditionAnalysis.getType(caseCondition);
+                    if (!caseConditionType.equals(BOOLEAN)) {
+                        if (!caseConditionType.equals(UNKNOWN)) {
+                            throw new SemanticException(TYPE_MISMATCH, caseCondition, "The MERGE WHEN condition must evaluate to a boolean: actual type %s", caseConditionType);
+                        }
+                        analysis.addCoercion(caseCondition, BOOLEAN, false);
+                    }
+                    verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), functionAndTypeResolver, caseCondition, "MERGE WHEN clause");
+                    analysis.recordSubqueries(merge, caseConditionAnalysis);
+                }
+
                 List<String> setColumnNames = lowercaseIdentifierList(mergeCase.getSetColumns());
                 if (mergeCase instanceof MergeUpdate) {
                     allUpdateColumnNames.addAll(setColumnNames);
@@ -3453,6 +3853,13 @@ class StatementAnalyzer
                     .filter(mergeCase -> mergeCase instanceof MergeInsert)
                     .findFirst()
                     .ifPresent(mergeCase -> accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(),
+                            session.getIdentity(), session.getAccessControlContext(), targetTableQualifiedName));
+
+            // Check if the user has permission to delete from the target table
+            merge.getMergeCases().stream()
+                    .filter(mergeCase -> mergeCase instanceof MergeDelete)
+                    .findFirst()
+                    .ifPresent(mergeCase -> accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(),
                             session.getIdentity(), session.getAccessControlContext(), targetTableQualifiedName));
 
             // If there are any columns to update then verify the user has permission to update these columns.
@@ -3600,6 +4007,10 @@ class StatementAnalyzer
                 analysis.addTypes(ImmutableMap.of(NodeRef.of(column), type.get()));
 
                 joinFields.add(Field.newUnqualified(column.getLocation(), column.getValue(), type.get()));
+                // Propagate source columns from both sides to the merged USING column
+                Field joinField = joinFields.get(joinFields.size() - 1);
+                analysis.propagateLineage(joinField, leftField.get().getField());
+                analysis.propagateLineage(joinField, rightField.get().getField());
 
                 leftJoinFields.add(leftField.get().getRelationFieldIndex());
                 rightJoinFields.add(rightField.get().getRelationFieldIndex());
@@ -3614,6 +4025,9 @@ class StatementAnalyzer
                     Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), new Subfield(rightField.get().getField().getOriginColumnName().get(), ImmutableList.of()));
                     analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), tableColumnMap, tableColumnMap);
                 }
+
+                collectIndirectSourcesFromField(leftField.get().getField(), TransformationSubtype.JOIN);
+                collectIndirectSourcesFromField(rightField.get().getField(), TransformationSubtype.JOIN);
             }
 
             ImmutableList.Builder<Field> outputs = ImmutableList.builder();
@@ -3653,13 +4067,16 @@ class StatementAnalyzer
         {
             checkState(node.getRows().size() >= 1);
 
-            List<List<Type>> rowTypes = node.getRows().stream()
+            List<Type> analyzedRowTypes = node.getRows().stream()
                     .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
+                    .collect(toImmutableList());
+
+            List<List<Type>> rowTypes = analyzedRowTypes.stream()
                     .map(type -> {
                         if (type instanceof RowType) {
                             return type.getTypeParameters();
                         }
-                        return ImmutableList.of(type);
+                        return ImmutableList.<Type>of(type);
                     })
                     .collect(toImmutableList());
 
@@ -3691,13 +4108,33 @@ class StatementAnalyzer
                 }
             }
 
+            // A field name declared consistently by every row becomes the relation's column name.
+            // Merged separately from the types so that the type merge stays a per-field scalar
+            // operation: merging whole RowTypes instead would build a RowType, and with it a
+            // TypeSignature, for every row of the VALUES.
+            List<Optional<String>> fieldNames = new ArrayList<>(nCopies(fieldTypes.size(), Optional.empty()));
+            boolean firstRow = true;
+            for (Type type : analyzedRowTypes) {
+                List<RowType.Field> rowFields = type instanceof RowType ? ((RowType) type).getFields() : null;
+                for (int i = 0; i < fieldTypes.size(); i++) {
+                    Optional<String> name = rowFields == null ? Optional.empty() : rowFields.get(i).getName();
+                    if (firstRow) {
+                        fieldNames.set(i, name);
+                    }
+                    else if (!fieldNames.get(i).equals(name)) {
+                        fieldNames.set(i, Optional.empty());
+                    }
+                }
+                firstRow = false;
+            }
+
             // add coercions for the rows
             for (Expression row : node.getRows()) {
                 if (row instanceof Row) {
-                    List<Expression> items = ((Row) row).getItems();
-                    for (int i = 0; i < items.size(); i++) {
+                    List<Row.Field> rowFields = ((Row) row).getFields();
+                    for (int i = 0; i < rowFields.size(); i++) {
                         Type expectedType = fieldTypes.get(i);
-                        Expression item = items.get(i);
+                        Expression item = rowFields.get(i).getExpression();
                         Type actualType = analysis.getType(item);
                         if (!actualType.equals(expectedType)) {
                             analysis.addCoercion(item, expectedType, functionAndTypeResolver.isTypeOnlyCoercion(actualType, expectedType));
@@ -3713,11 +4150,153 @@ class StatementAnalyzer
                 }
             }
 
-            List<Field> fields = fieldTypes.stream()
-                    .map(valueType -> Field.newUnqualified(node.getLocation(), Optional.empty(), valueType))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
+            for (int i = 0; i < fieldTypes.size(); i++) {
+                fieldsBuilder.add(Field.newUnqualified(node.getLocation(), fieldNames.get(i), fieldTypes.get(i)));
+            }
+            List<Field> fields = fieldsBuilder.build();
 
             return createAndAssignScope(node, scope, fields);
+        }
+
+        private void analyzeWindowDefinitions(QuerySpecification node, Scope scope)
+        {
+            for (WindowDefinition windowDefinition : node.getWindows()) {
+                String canonicalName = windowDefinition.getName().getValueLowerCase();
+
+                if (analysis.getWindowDefinition(node, canonicalName) != null) {
+                    throw new SemanticException(DUPLICATE_WINDOW_NAME, windowDefinition, "WINDOW name '%s' specified more than once", windowDefinition.getName().getValue());
+                }
+
+                ResolvedWindow resolvedWindow = resolveWindowSpecification(node, windowDefinition.getWindow());
+
+                List<FunctionCall> nestedWindowFunctions = extractWindowFunctions(windowParts(resolvedWindow));
+                if (!nestedWindowFunctions.isEmpty()) {
+                    throw new SemanticException(NESTED_WINDOW, windowDefinition, "Cannot nest window functions inside window specification");
+                }
+
+                // Analyze the window only after it is resolved, because resolution can supply properties that
+                // the remaining analysis depends on, such as the ORDER BY required for frame analysis.
+                analyzeWindow(node, resolvedWindow, scope, windowDefinition.getWindow());
+
+                // A frame declared here is validated here rather than at every use, mirroring how the
+                // frame of an inline window specification is validated in analyzeWindowFunctions.
+                if (resolvedWindow.getFrame().isPresent() && !resolvedWindow.isFrameInherited()) {
+                    analyzeWindowFrame(resolvedWindow.getFrame().get());
+                }
+
+                analysis.addWindowDefinition(node, canonicalName, resolvedWindow);
+            }
+        }
+
+        private ResolvedWindow resolveWindowSpecification(QuerySpecification querySpecification, Window window)
+        {
+            if (window instanceof WindowReference) {
+                WindowReference windowReference = (WindowReference) window;
+                ResolvedWindow referencedWindow = getReferencedWindow(querySpecification, windowReference.getName());
+
+                return new ResolvedWindow(
+                        referencedWindow.getPartitionBy(),
+                        referencedWindow.getOrderBy(),
+                        referencedWindow.getFrame(),
+                        !referencedWindow.getPartitionBy().isEmpty(),
+                        referencedWindow.getOrderBy().isPresent(),
+                        referencedWindow.getFrame().isPresent());
+            }
+
+            WindowSpecification windowSpecification = (WindowSpecification) window;
+
+            if (!windowSpecification.getExistingWindowName().isPresent()) {
+                return new ResolvedWindow(windowSpecification.getPartitionBy(), windowSpecification.getOrderBy(), windowSpecification.getFrame(), false, false, false);
+            }
+
+            Identifier referencedName = windowSpecification.getExistingWindowName().get();
+            ResolvedWindow referencedWindow = getReferencedWindow(querySpecification, referencedName);
+
+            if (!windowSpecification.getPartitionBy().isEmpty()) {
+                throw new SemanticException(INVALID_PARTITION_BY, windowSpecification.getPartitionBy().get(0), "WINDOW specification with named WINDOW reference cannot specify PARTITION BY");
+            }
+            if (windowSpecification.getOrderBy().isPresent() && referencedWindow.getOrderBy().isPresent()) {
+                throw new SemanticException(INVALID_ORDER_BY, windowSpecification.getOrderBy().get(), "Cannot specify ORDER BY if referenced named WINDOW specifies ORDER BY");
+            }
+            if (referencedWindow.getFrame().isPresent()) {
+                throw new SemanticException(INVALID_WINDOW_REFERENCE, referencedName, "Cannot reference named WINDOW containing frame specification");
+            }
+
+            Optional<OrderBy> orderBy = windowSpecification.getOrderBy();
+            boolean orderByInherited = false;
+            if (!orderBy.isPresent() && referencedWindow.getOrderBy().isPresent()) {
+                orderBy = referencedWindow.getOrderBy();
+                orderByInherited = true;
+            }
+
+            List<Expression> partitionBy = windowSpecification.getPartitionBy();
+            boolean partitionByInherited = false;
+            if (!referencedWindow.getPartitionBy().isEmpty()) {
+                partitionBy = referencedWindow.getPartitionBy();
+                partitionByInherited = true;
+            }
+
+            return new ResolvedWindow(partitionBy, orderBy, windowSpecification.getFrame(), partitionByInherited, orderByInherited, false);
+        }
+
+        private ResolvedWindow getReferencedWindow(QuerySpecification querySpecification, Identifier name)
+        {
+            ResolvedWindow referencedWindow = analysis.getWindowDefinition(querySpecification, name.getValueLowerCase());
+            if (referencedWindow == null) {
+                throw new SemanticException(INVALID_WINDOW_REFERENCE, name, "Cannot resolve WINDOW name %s", name.getValue());
+            }
+
+            return referencedWindow;
+        }
+
+        private void analyzeWindow(QuerySpecification querySpecification, ResolvedWindow window, Scope scope, Node originalNode)
+        {
+            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeWindow(
+                    session,
+                    metadata,
+                    accessControl,
+                    sqlParser,
+                    scope,
+                    analysis,
+                    warningCollector,
+                    window,
+                    originalNode);
+            analysis.recordSubqueries(querySpecification, expressionAnalysis);
+        }
+
+        private void resolveFunctionCallWindows(QuerySpecification querySpecification)
+        {
+            ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
+
+            // Only SELECT and ORDER BY expressions may contain window functions
+            for (SelectItem item : querySpecification.getSelect().getSelectItems()) {
+                if (item instanceof SingleColumn) {
+                    expressions.add(((SingleColumn) item).getExpression());
+                }
+            }
+            for (SortItem sortItem : getSortItemsFromOrderBy(querySpecification.getOrderBy())) {
+                expressions.add(sortItem.getSortKey());
+            }
+
+            for (FunctionCall windowFunction : extractWindowFunctions(expressions.build())) {
+                analysis.setWindow(windowFunction, resolveWindowSpecification(querySpecification, windowFunction.getWindow().get()));
+            }
+        }
+
+        private List<Node> windowParts(ResolvedWindow window)
+        {
+            ImmutableList.Builder<Node> parts = ImmutableList.builder();
+            if (!window.isPartitionByInherited()) {
+                parts.addAll(window.getPartitionBy());
+            }
+            if (!window.isOrderByInherited()) {
+                window.getOrderBy().ifPresent(orderBy -> parts.addAll(orderBy.getSortItems()));
+            }
+            if (!window.isFrameInherited()) {
+                window.getFrame().ifPresent(parts::add);
+            }
+            return parts.build();
         }
 
         private void analyzeWindowFunctions(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
@@ -3746,7 +4325,8 @@ class StatementAnalyzer
                     throw new SemanticException(NOT_SUPPORTED, windowFunction, "Window function with ORDER BY is not supported");
                 }
 
-                Window window = windowFunction.getWindow().get();
+                ResolvedWindow window = analysis.getWindow(windowFunction);
+                checkState(window != null, "no resolved window for: %s", windowFunction);
                 if (window.getOrderBy().filter(orderBy -> orderBy.getSortItems().stream().anyMatch(item -> item.getSortKey() instanceof Literal)).isPresent()) {
                     if (isAllowWindowOrderByLiterals(session)) {
                         warningCollector.add(
@@ -3767,9 +4347,7 @@ class StatementAnalyzer
 
                 ImmutableList.Builder<Node> toExtract = ImmutableList.builder();
                 toExtract.addAll(windowFunction.getArguments());
-                toExtract.addAll(window.getPartitionBy());
-                window.getOrderBy().ifPresent(orderBy -> toExtract.addAll(orderBy.getSortItems()));
-                window.getFrame().ifPresent(toExtract::add);
+                toExtract.addAll(windowParts(window));
 
                 List<FunctionCall> nestedWindowFunctions = extractWindowFunctions(toExtract.build());
 
@@ -3783,7 +4361,7 @@ class StatementAnalyzer
                     throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", windowFunction);
                 }
 
-                if (window.getFrame().isPresent()) {
+                if (window.getFrame().isPresent() && !window.isFrameInherited()) {
                     analyzeWindowFrame(window.getFrame().get());
                 }
 
@@ -3823,12 +4401,7 @@ class StatementAnalyzer
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
 
-                // Reuse OrderByExpressionRewriter to resolve SELECT aliases in HAVING
-                Multimap<QualifiedName, Expression> namedOutputExpressions = extractNamedOutputExpressions(node.getSelect());
-                Expression rewrittenPredicate = ExpressionTreeRewriter.rewriteWith(new OrderByExpressionRewriter(namedOutputExpressions, "HAVING"), predicate);
-
-                // Analyze the rewritten expression
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(rewrittenPredicate, scope);
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
 
                 expressionAnalysis.getWindowFunctions().stream()
                         .findFirst()
@@ -3838,12 +4411,13 @@ class StatementAnalyzer
 
                 analysis.recordSubqueries(node, expressionAnalysis);
 
-                Type predicateType = expressionAnalysis.getType(rewrittenPredicate);
+                Type predicateType = expressionAnalysis.getType(predicate);
                 if (!predicateType.equals(BOOLEAN) && !predicateType.equals(UNKNOWN)) {
-                    throw new SemanticException(TYPE_MISMATCH, rewrittenPredicate, "HAVING clause must evaluate to a boolean: actual type %s", predicateType);
+                    throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", predicateType);
                 }
 
-                analysis.setHaving(node, rewrittenPredicate);
+                analysis.setHaving(node, predicate);
+                collectIndirectSources(predicate, TransformationSubtype.FILTER);
             }
         }
 
@@ -3894,17 +4468,10 @@ class StatementAnalyzer
                 extends ExpressionRewriter<Void>
         {
             private final Multimap<QualifiedName, Expression> assignments;
-            private final String clauseName;
 
             public OrderByExpressionRewriter(Multimap<QualifiedName, Expression> assignments)
             {
-                this(assignments, "ORDER BY");
-            }
-
-            public OrderByExpressionRewriter(Multimap<QualifiedName, Expression> assignments, String clauseName)
-            {
                 this.assignments = assignments;
-                this.clauseName = clauseName;
             }
 
             @Override
@@ -3917,11 +4484,11 @@ class StatementAnalyzer
                         .collect(Collectors.toSet());
 
                 if (expressions.size() > 1) {
-                    throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in '%s' is ambiguous", name, clauseName);
+                    throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in ORDER BY is ambiguous", name);
                 }
 
                 if (expressions.size() == 1) {
-                    return getOnlyElement(expressions);
+                    return expressions.stream().collect(onlyElement());
                 }
 
                 // otherwise, couldn't resolve name against output aliases, so fall through...
@@ -4059,6 +4626,10 @@ class StatementAnalyzer
                 analysis.setGroupByExpressions(node, expressions);
                 analysis.setGroupingSets(node, new Analysis.GroupingSetAnalysis(cubes.build(), rollups.build(), sets.build(), complexExpressions.build()));
 
+                for (Expression expression : expressions) {
+                    collectIndirectSources(expression, TransformationSubtype.GROUP_BY);
+                }
+
                 return expressions;
             }
 
@@ -4076,7 +4647,7 @@ class StatementAnalyzer
 
                     for (Field field : sourceScope.getRelationType().resolveFieldsWithPrefix(starPrefix)) {
                         Field newField = Field.newUnqualified(node.getSelect().getLocation(), field.getName(), field.getType(), field.getOriginTable(), field.getOriginColumnName(), false);
-                        analysis.addSourceColumns(newField, analysis.getSourceColumns(field));
+                        analysis.propagateLineage(newField, field);
                         outputFields.add(newField);
                     }
                 }
@@ -4111,14 +4682,64 @@ class StatementAnalyzer
                         }
                     }
                     Field newField = Field.newUnqualified(expression.getLocation(), field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent());
-                    if (originTable.isPresent()) {
-                        analysis.addSourceColumns(newField, ImmutableSet.of(
-                                new SourceColumn(originTable.get(), originColumn.orElseThrow(
-                                        () -> new NoSuchElementException("originColumn not found")))));
+                    TransformationSubtype directSubtype = determineDirectSubtype(expression);
+                    if (directSubtype == TransformationSubtype.IDENTITY) {
+                        // Bare Identifier / DereferenceExpression — preserve upstream subtype verbatim
+                        // so a chain like SELECT x FROM (SELECT sum(a) AS x ...) keeps AGGREGATION on `a`.
+                        // CASE/window cannot appear inside a bare reference, so no exclude filter is needed.
+                        Set<ColumnLineageEntry> inheritedDirect = analysis.getExpressionDirectLineageEntries(expression);
+                        if (!inheritedDirect.isEmpty()) {
+                            analysis.addColumnLineageEntries(newField, inheritedDirect);
+                        }
+                        else if (originTable.isPresent()) {
+                            analysis.addSourceColumns(newField, ImmutableSet.of(
+                                    new SourceColumn(originTable.get(), originColumn.orElseThrow(
+                                            () -> new NoSuchElementException("originColumn not found")))),
+                                    TransformationSubtype.IDENTITY);
+                        }
                     }
                     else {
-                        analysis.addSourceColumns(newField, analysis.getExpressionSourceColumns(expression));
+                        // TRANSFORMATION or AGGREGATION — retag all source columns with the new subtype.
+                        // Use getExpressionSourceColumns first — it correctly traces through UNION,
+                        // subqueries, and CTEs to all base table columns. Only fall back to the
+                        // originTable shortcut if expression tracing returns empty.
+                        Set<SourceColumn> expressionSources = analysis.getExpressionSourceColumns(expression);
+                        if (!expressionSources.isEmpty()) {
+                            // Remove CASE/IF condition-only and window-only columns from direct sources.
+                            // They are tracked separately as INDIRECT/CONDITIONAL and INDIRECT/WINDOW.
+                            Set<SourceColumn> excludeFromDirect = ImmutableSet.<SourceColumn>builder()
+                                    .addAll(getConditionOnlySourceColumns(expression))
+                                    .addAll(getWindowOnlySourceColumns(expression))
+                                    .build();
+                            if (!excludeFromDirect.isEmpty()) {
+                                expressionSources = ImmutableSet.copyOf(Sets.difference(expressionSources, excludeFromDirect));
+                            }
+                            analysis.addSourceColumns(newField, expressionSources, directSubtype);
+                        }
+                        else if (originTable.isPresent()) {
+                            analysis.addSourceColumns(newField, ImmutableSet.of(
+                                    new SourceColumn(originTable.get(), originColumn.orElseThrow(
+                                            () -> new NoSuchElementException("originColumn not found")))),
+                                    directSubtype);
+                        }
                     }
+
+                    // Collect per-field indirect sources (CONDITIONAL, WINDOW).
+                    // Both traversals are additive to the same builder, and ImmutableSet deduplicates.
+                    // When CASE appears inside a window's PARTITION BY (e.g., SUM(x) OVER (PARTITION BY
+                    // CASE WHEN a > 0 THEN b ELSE c END)), the CASE condition 'a' gets both CONDITIONAL
+                    // and WINDOW entries. This is semantically correct: 'a' is both a condition controlling
+                    // the partition key value and a column influencing the window frame.
+                    ImmutableSet.Builder<ColumnLineageEntry> perFieldIndirect = ImmutableSet.builder();
+                    collectConditionalForExpression(expression, perFieldIndirect);
+                    collectWindowForExpression(expression, perFieldIndirect);
+                    // Inherit per-field indirect from source fields (propagation through subqueries/CTEs)
+                    Collection<Field> sourceFields = analysis.getExpressionFields(expression);
+                    for (Field sourceField : sourceFields) {
+                        perFieldIndirect.addAll(analysis.getPerFieldIndirectSources(sourceField));
+                    }
+                    analysis.addPerFieldIndirectSources(newField, perFieldIndirect.build());
+
                     outputFields.add(newField);
                 }
                 else {
@@ -4258,6 +4879,433 @@ class StatementAnalyzer
             }
 
             analysis.setWhere(node, predicate);
+            collectIndirectSources(predicate, TransformationSubtype.FILTER);
+        }
+
+        private void collectIndirectSources(Expression expression, TransformationSubtype subtype)
+        {
+            addAsIndirect(analysis.getExpressionSourceColumns(expression), subtype);
+        }
+
+        private void collectIndirectSourcesFromField(Field field, TransformationSubtype subtype)
+        {
+            addAsIndirect(analysis.getSourceColumns(field), subtype);
+        }
+
+        private void addAsIndirect(Set<SourceColumn> sourceColumns, TransformationSubtype subtype)
+        {
+            Set<ColumnLineageEntry> entries = sourceColumns.stream()
+                    .map(sc -> new ColumnLineageEntry(sc.getTableName(), sc.getColumnName(), TransformationType.INDIRECT, subtype))
+                    .collect(toImmutableSet());
+            analysis.addIndirectSourceColumns(entries);
+        }
+
+        /**
+         * Pick the {@link TransformationSubtype} for the direct sources of a
+         * SELECT-list expression:
+         * <ul>
+         *   <li>{@link TransformationSubtype#AGGREGATION} if the expression
+         *   contains an aggregate function call (e.g. {@code sum(x)},
+         *   including aggregate functions used as window functions like
+         *   {@code sum(x) OVER (...)}).</li>
+         *   <li>{@link TransformationSubtype#IDENTITY} if the expression is a
+         *   bare column reference (an {@link Identifier} or
+         *   {@link DereferenceExpression}) — the output column is literally
+         *   that source column.</li>
+         *   <li>{@link TransformationSubtype#TRANSFORMATION} otherwise (any
+         *   non-aggregate scalar expression: arithmetic, function calls,
+         *   {@code CAST}, {@code CASE}, etc.). Pure window functions like
+         *   {@code ROW_NUMBER() OVER (...)} also fall into this bucket — they
+         *   are non-aggregate function calls. INDIRECT window-frame columns
+         *   (PARTITION BY / ORDER BY inputs) are tracked separately as
+         *   {@link TransformationSubtype#WINDOW}.</li>
+         * </ul>
+         */
+        private TransformationSubtype determineDirectSubtype(Expression expression)
+        {
+            if (!extractAggregateFunctions(analysis.getFunctionHandles(), ImmutableList.of(expression), functionAndTypeResolver).isEmpty()) {
+                return TransformationSubtype.AGGREGATION;
+            }
+            if (expression instanceof Identifier || expression instanceof DereferenceExpression) {
+                return TransformationSubtype.IDENTITY;
+            }
+            return TransformationSubtype.TRANSFORMATION;
+        }
+
+        /**
+         * Collects CONDITIONAL entries for CASE/IF conditions into the provided builder.
+         * CASE-aware: when a condition expression contains a nested CASE, only the inner
+         * condition columns are collected, not inner value columns.
+         */
+        private void collectConditionalForExpression(Expression expression, ImmutableSet.Builder<ColumnLineageEntry> target)
+        {
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+                {
+                    for (WhenClause whenClause : node.getWhenClauses()) {
+                        collectConditionColumnRefsInto(whenClause.getOperand(), TransformationSubtype.CONDITIONAL, target);
+                        process(whenClause.getResult(), context);
+                    }
+                    node.getDefaultValue().ifPresent(val -> process(val, context));
+                    return null;
+                }
+
+                @Override
+                protected Void visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+                {
+                    collectConditionColumnRefsInto(node.getOperand(), TransformationSubtype.CONDITIONAL, target);
+                    for (WhenClause whenClause : node.getWhenClauses()) {
+                        collectConditionColumnRefsInto(whenClause.getOperand(), TransformationSubtype.CONDITIONAL, target);
+                        process(whenClause.getResult(), context);
+                    }
+                    node.getDefaultValue().ifPresent(val -> process(val, context));
+                    return null;
+                }
+
+                @Override
+                protected Void visitIfExpression(IfExpression node, Void context)
+                {
+                    collectConditionColumnRefsInto(node.getCondition(), TransformationSubtype.CONDITIONAL, target);
+                    process(node.getTrueValue(), context);
+                    node.getFalseValue().ifPresent(val -> process(val, context));
+                    return null;
+                }
+            }.process(expression, null);
+        }
+
+        /**
+         * Like collectColumnRefsInto but CASE-aware: when the expression contains a nested
+         * CASE/IF, only collects from condition sub-expressions, skipping value branches.
+         */
+        private void collectConditionColumnRefsInto(Expression expression, TransformationSubtype subtype, ImmutableSet.Builder<ColumnLineageEntry> target)
+        {
+            ImmutableSet.Builder<SourceColumn> sources = ImmutableSet.builder();
+            collectConditionSourceColumns(expression, sources);
+            for (SourceColumn sc : sources.build()) {
+                target.add(new ColumnLineageEntry(sc.getTableName(), sc.getColumnName(), TransformationType.INDIRECT, subtype));
+            }
+        }
+
+        /**
+         * Collects WINDOW entries for window function PARTITION BY and ORDER BY into the provided builder.
+         * Used for per-field indirect source tracking.
+         */
+        private void collectWindowForExpression(Expression expression, ImmutableSet.Builder<ColumnLineageEntry> target)
+        {
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitFunctionCall(FunctionCall node, Void context)
+                {
+                    if (node.getWindow().isPresent()) {
+                        ResolvedWindow window = analysis.getWindow(node);
+                        for (Expression partitionExpr : window == null ? ImmutableList.<Expression>of() : window.getPartitionBy()) {
+                            collectColumnRefsInto(partitionExpr, TransformationSubtype.WINDOW, target);
+                        }
+                        (window == null ? Optional.<OrderBy>empty() : window.getOrderBy()).ifPresent(orderBy -> {
+                            for (SortItem sortItem : orderBy.getSortItems()) {
+                                collectColumnRefsInto(sortItem.getSortKey(), TransformationSubtype.WINDOW, target);
+                            }
+                        });
+                    }
+                    return super.visitFunctionCall(node, context);
+                }
+            }.process(expression, null);
+        }
+
+        /**
+         * Resolves a column reference expression to its source columns via columnReferenceFields.
+         * Returns empty if the expression is not a column reference.
+         */
+        private Set<SourceColumn> resolveSourceColumns(Expression expression)
+        {
+            Collection<FieldId> fieldIds = analysis.getColumnReferenceFields().get(NodeRef.of(expression));
+            if (fieldIds.isEmpty()) {
+                return ImmutableSet.of();
+            }
+            ImmutableSet.Builder<SourceColumn> result = ImmutableSet.builder();
+            for (FieldId fieldId : fieldIds) {
+                Field field = analysis.getScope(fieldId.getRelationId().getSourceNode())
+                        .getRelationType()
+                        .getFieldByIndex(fieldId.getFieldIndex());
+                result.addAll(analysis.getSourceColumns(field));
+            }
+            return result.build();
+        }
+
+        /**
+         * Walks an expression tree and calls the callback for each column reference's source columns.
+         */
+        private void forEachColumnRef(Expression expression, Consumer<Set<SourceColumn>> callback)
+        {
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitIdentifier(Identifier node, Void context)
+                {
+                    Set<SourceColumn> sources = resolveSourceColumns(node);
+                    if (!sources.isEmpty()) {
+                        callback.accept(sources);
+                    }
+                    return null;
+                }
+
+                @Override
+                protected Void visitDereferenceExpression(DereferenceExpression node, Void context)
+                {
+                    Set<SourceColumn> sources = resolveSourceColumns(node);
+                    if (!sources.isEmpty()) {
+                        callback.accept(sources);
+                        return null;
+                    }
+                    return super.visitDereferenceExpression(node, context);
+                }
+            }.process(expression, null);
+        }
+
+        private void collectColumnRefsInto(Expression expression, TransformationSubtype subtype, ImmutableSet.Builder<ColumnLineageEntry> target)
+        {
+            forEachColumnRef(expression, sources -> {
+                for (SourceColumn sc : sources) {
+                    target.add(new ColumnLineageEntry(sc.getTableName(), sc.getColumnName(), TransformationType.INDIRECT, subtype));
+                }
+            });
+        }
+
+        /**
+         * Returns source columns that appear ONLY in CASE/IF condition sub-expressions
+         * and not in any value branch. These should be excluded from direct sources.
+         */
+        private Set<SourceColumn> getConditionOnlySourceColumns(Expression expression)
+        {
+            ImmutableSet.Builder<SourceColumn> conditionSourcesBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<SourceColumn> valueSourcesBuilder = ImmutableSet.builder();
+
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+                {
+                    for (WhenClause whenClause : node.getWhenClauses()) {
+                        collectConditionSourceColumns(whenClause.getOperand(), conditionSourcesBuilder);
+                        collectValueSourceColumns(whenClause.getResult(), valueSourcesBuilder);
+                        process(whenClause.getResult(), context);
+                    }
+                    node.getDefaultValue().ifPresent(val -> {
+                        collectValueSourceColumns(val, valueSourcesBuilder);
+                        process(val, context);
+                    });
+                    return null;
+                }
+
+                @Override
+                protected Void visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+                {
+                    collectConditionSourceColumns(node.getOperand(), conditionSourcesBuilder);
+                    for (WhenClause whenClause : node.getWhenClauses()) {
+                        collectConditionSourceColumns(whenClause.getOperand(), conditionSourcesBuilder);
+                        collectValueSourceColumns(whenClause.getResult(), valueSourcesBuilder);
+                        process(whenClause.getResult(), context);
+                    }
+                    node.getDefaultValue().ifPresent(val -> {
+                        collectValueSourceColumns(val, valueSourcesBuilder);
+                        process(val, context);
+                    });
+                    return null;
+                }
+
+                @Override
+                protected Void visitIfExpression(IfExpression node, Void context)
+                {
+                    collectConditionSourceColumns(node.getCondition(), conditionSourcesBuilder);
+                    collectValueSourceColumns(node.getTrueValue(), valueSourcesBuilder);
+                    process(node.getTrueValue(), context);
+                    node.getFalseValue().ifPresent(val -> {
+                        collectValueSourceColumns(val, valueSourcesBuilder);
+                        process(val, context);
+                    });
+                    return null;
+                }
+            }.process(expression, null);
+
+            Set<SourceColumn> conditionSources = conditionSourcesBuilder.build();
+            Set<SourceColumn> valueSources = valueSourcesBuilder.build();
+            // Return columns that are in conditions but NOT in any value branch
+            return ImmutableSet.copyOf(Sets.difference(conditionSources, valueSources));
+        }
+
+        /**
+         * Returns source columns that appear ONLY in window function PARTITION BY / ORDER BY
+         * and not in function arguments or anywhere else in the expression outside the window.
+         * These should be excluded from direct sources since they define the window frame,
+         * not the output value.
+         */
+        private Set<SourceColumn> getWindowOnlySourceColumns(Expression expression)
+        {
+            ImmutableSet.Builder<SourceColumn> windowSourcesBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<SourceColumn> nonWindowSourcesBuilder = ImmutableSet.builder();
+
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitFunctionCall(FunctionCall node, Void context)
+                {
+                    if (node.getWindow().isPresent()) {
+                        ResolvedWindow window = analysis.getWindow(node);
+                        for (Expression partitionExpr : window == null ? ImmutableList.<Expression>of() : window.getPartitionBy()) {
+                            forEachColumnRef(partitionExpr, windowSourcesBuilder::addAll);
+                        }
+                        (window == null ? Optional.<OrderBy>empty() : window.getOrderBy()).ifPresent(orderBy -> {
+                            for (SortItem sortItem : orderBy.getSortItems()) {
+                                forEachColumnRef(sortItem.getSortKey(), windowSourcesBuilder::addAll);
+                            }
+                        });
+                        for (Expression arg : node.getArguments()) {
+                            forEachColumnRef(arg, nonWindowSourcesBuilder::addAll);
+                        }
+                        return null;
+                    }
+                    return super.visitFunctionCall(node, context);
+                }
+
+                // Column refs outside any window function are non-window sources
+                @Override
+                protected Void visitIdentifier(Identifier node, Void context)
+                {
+                    nonWindowSourcesBuilder.addAll(resolveSourceColumns(node));
+                    return null;
+                }
+
+                @Override
+                protected Void visitDereferenceExpression(DereferenceExpression node, Void context)
+                {
+                    Set<SourceColumn> sources = resolveSourceColumns(node);
+                    if (!sources.isEmpty()) {
+                        nonWindowSourcesBuilder.addAll(sources);
+                        return null;
+                    }
+                    return super.visitDereferenceExpression(node, context);
+                }
+            }.process(expression, null);
+
+            Set<SourceColumn> windowSources = windowSourcesBuilder.build();
+            Set<SourceColumn> nonWindowSources = nonWindowSourcesBuilder.build();
+            return ImmutableSet.copyOf(Sets.difference(windowSources, nonWindowSources));
+        }
+
+        /**
+         * Collects source columns from an expression, treating it as a condition context.
+         * CASE-aware: when the expression contains a nested CASE/IF, only collects from
+         * condition sub-expressions, skipping value branches. For non-CASE nodes, collects
+         * all column refs normally (they're part of the condition).
+         */
+        private void collectConditionSourceColumns(Expression expression, ImmutableSet.Builder<SourceColumn> builder)
+        {
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+                {
+                    for (WhenClause whenClause : node.getWhenClauses()) {
+                        process(whenClause.getOperand(), context);
+                    }
+                    return null;
+                }
+
+                @Override
+                protected Void visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+                {
+                    process(node.getOperand(), context);
+                    for (WhenClause whenClause : node.getWhenClauses()) {
+                        process(whenClause.getOperand(), context);
+                    }
+                    return null;
+                }
+
+                @Override
+                protected Void visitIfExpression(IfExpression node, Void context)
+                {
+                    process(node.getCondition(), context);
+                    return null;
+                }
+
+                @Override
+                protected Void visitIdentifier(Identifier node, Void context)
+                {
+                    builder.addAll(resolveSourceColumns(node));
+                    return null;
+                }
+
+                @Override
+                protected Void visitDereferenceExpression(DereferenceExpression node, Void context)
+                {
+                    Set<SourceColumn> sources = resolveSourceColumns(node);
+                    if (!sources.isEmpty()) {
+                        builder.addAll(sources);
+                        return null;
+                    }
+                    return super.visitDereferenceExpression(node, context);
+                }
+            }.process(expression, null);
+        }
+
+        /**
+         * Collects source columns from an expression, treating it as a value context.
+         * CASE-aware: when it encounters nested CASE/IF, it only collects from value branches,
+         * skipping condition sub-expressions.
+         */
+        private void collectValueSourceColumns(Expression expression, ImmutableSet.Builder<SourceColumn> builder)
+        {
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+                {
+                    for (WhenClause whenClause : node.getWhenClauses()) {
+                        process(whenClause.getResult(), context);
+                    }
+                    node.getDefaultValue().ifPresent(val -> process(val, context));
+                    return null;
+                }
+
+                @Override
+                protected Void visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+                {
+                    for (WhenClause whenClause : node.getWhenClauses()) {
+                        process(whenClause.getResult(), context);
+                    }
+                    node.getDefaultValue().ifPresent(val -> process(val, context));
+                    return null;
+                }
+
+                @Override
+                protected Void visitIfExpression(IfExpression node, Void context)
+                {
+                    process(node.getTrueValue(), context);
+                    node.getFalseValue().ifPresent(val -> process(val, context));
+                    return null;
+                }
+
+                @Override
+                protected Void visitIdentifier(Identifier node, Void context)
+                {
+                    builder.addAll(resolveSourceColumns(node));
+                    return null;
+                }
+
+                @Override
+                protected Void visitDereferenceExpression(DereferenceExpression node, Void context)
+                {
+                    Set<SourceColumn> sources = resolveSourceColumns(node);
+                    if (!sources.isEmpty()) {
+                        builder.addAll(sources);
+                        return null;
+                    }
+                    return super.visitDereferenceExpression(node, context);
+                }
+            }.process(expression, null);
         }
 
         private Scope analyzeFrom(QuerySpecification node, Optional<Scope> scope)
@@ -4271,7 +5319,7 @@ class StatementAnalyzer
 
         private void analyzeGroupingOperations(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
         {
-            List<GroupingOperation> groupingOperations = extractExpressions(Iterables.concat(outputExpressions, orderByExpressions), GroupingOperation.class);
+            List<GroupingOperation> groupingOperations = extractExpressions(Stream.concat(outputExpressions.stream(), orderByExpressions.stream()).collect(toImmutableList()), GroupingOperation.class);
             boolean isGroupingOperationPresent = !groupingOperations.isEmpty();
 
             if (isGroupingOperationPresent && !node.getGroupBy().isPresent()) {
@@ -4289,7 +5337,7 @@ class StatementAnalyzer
                 List<Expression> outputExpressions,
                 List<Expression> orderByExpressions)
         {
-            List<FunctionCall> aggregates = extractAggregateFunctions(analysis.getFunctionHandles(), Iterables.concat(outputExpressions, orderByExpressions), functionAndTypeResolver);
+            List<FunctionCall> aggregates = extractAggregateFunctions(analysis.getFunctionHandles(), Stream.concat(outputExpressions.stream(), orderByExpressions.stream()).collect(toImmutableList()), functionAndTypeResolver);
             analysis.setAggregates(node, aggregates);
             return aggregates;
         }
@@ -4356,6 +5404,7 @@ class StatementAnalyzer
         {
             Session.SessionBuilder viewSessionBuilder = Session.builder(metadata.getSessionPropertyManager())
                     .setQueryId(session.getQueryId())
+                    .setRuntimeStats(session.getRuntimeStats())
                     .setTransactionId(session.getTransactionId().orElse(null))
                     .setIdentity(identity)
                     .setSource(session.getSource().orElse(null))
@@ -4392,12 +5441,29 @@ class StatementAnalyzer
                 ViewDefinition.ViewColumn column = columns.get(i);
                 Field field = fieldList.get(i);
                 if (!column.getName().equalsIgnoreCase(field.getName().orElse(null)) ||
-                        !functionAndTypeResolver.canCoerce(field.getType(), column.getType())) {
+                        !areViewColumnTypesCompatible(column.getType(), field.getType())) {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        private boolean areViewColumnTypesCompatible(Type storedType, Type analyzedType)
+        {
+            return functionAndTypeResolver.canCoerce(analyzedType, storedType) ||
+                    functionAndTypeResolver.canCoerce(storedType, analyzedType) ||
+                    isCharacterStringCompatibility(storedType, analyzedType);
+        }
+
+        private boolean isCharacterStringCompatibility(Type first, Type second)
+        {
+            return isCharacterStringType(first) && isCharacterStringType(second);
+        }
+
+        private boolean isCharacterStringType(Type type)
+        {
+            return type instanceof CharType || type instanceof VarcharType;
         }
 
         private ExpressionAnalysis analyzeExpression(Expression expression, Scope scope)
@@ -4514,8 +5580,9 @@ class StatementAnalyzer
                         expression,
                         warningCollector);
             }
-            catch (PrestoException e) {
-                throw new PrestoException(e::getErrorCode, format("Invalid column mask for '%s.%s: %s'", tableName, column, e.getMessage()), e);
+            catch (PrestoException | SemanticException e) {
+                ErrorCodeSupplier errorCodeSupplier = e instanceof PrestoException ? ((PrestoException) e)::getErrorCode : INVALID_COLUMN_MASK;
+                throw new PrestoException(errorCodeSupplier, format("Invalid column mask for '%s.%s': %s", tableName, column, e.getMessage()), e);
             }
             finally {
                 analysis.unregisterTableForColumnMasking(tableName, column, currentIdentity);

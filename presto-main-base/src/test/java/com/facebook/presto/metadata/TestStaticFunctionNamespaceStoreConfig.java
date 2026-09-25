@@ -16,7 +16,7 @@ package com.facebook.presto.metadata;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -29,7 +29,7 @@ public class TestStaticFunctionNamespaceStoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(StaticFunctionNamespaceStoreConfig.class)
-                .setFunctionNamespaceConfigurationDir(new File("etc/function-namespace")));
+                .setFunctionNamespaceConfigurationDir(Paths.get("etc/function-namespace").toFile()));
     }
 
     @Test
@@ -40,7 +40,7 @@ public class TestStaticFunctionNamespaceStoreConfig
                 .build();
 
         StaticFunctionNamespaceStoreConfig expected = new StaticFunctionNamespaceStoreConfig()
-                .setFunctionNamespaceConfigurationDir(new File("/foo"));
+                .setFunctionNamespaceConfigurationDir(Paths.get("/foo").toFile());
 
         assertFullMapping(properties, expected);
     }

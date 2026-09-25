@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.query;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.JoinNode;
@@ -30,6 +31,10 @@ import org.testng.annotations.Test;
 
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.EXPLOIT_CONSTRAINTS;
+import static com.facebook.presto.SystemSessionProperties.IN_PREDICATES_AS_INNER_JOINS_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
@@ -63,6 +68,40 @@ public class TestSubqueries
     {
         assertions.close();
         assertions = null;
+    }
+
+    // Session that makes the distinct-inner-join early-out rules eligible, with verbose optimizer info
+    // forcing the rules to be evaluated even when they would otherwise be skipped.
+    private Session earlyOutJoinSession()
+    {
+        return Session.builder(assertions.getQueryRunner().getDefaultSession())
+                .setSystemProperty(EXPLOIT_CONSTRAINTS, "true")
+                .setSystemProperty(IN_PREDICATES_AS_INNER_JOINS_ENABLED, "true")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "AUTOMATIC")
+                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true")
+                .build();
+    }
+
+    @Test
+    public void testDistinctInnerJoinEarlyOutWithAntiJoinAndVerboseOptimizerInfo()
+    {
+        // Exercises TransformDistinctInnerJoinTo{Left,Right}EarlyOutJoin end to end on a distinct
+        // aggregation over inner joins combined with an anti-join, under the session configuration that
+        // makes these rules eligible (exploit_constraints + in_predicates_as_inner_joins + AUTOMATIC join
+        // reordering) with verbose_optimizer_info_enabled forcing the rules to be evaluated. Guards the
+        // guard added to canAggregationBePushedDown so the rules bail out gracefully rather than throwing.
+        assertions.assertQuery(
+                earlyOutJoinSession(),
+                "WITH " +
+                        "  deleted AS (SELECT k FROM (VALUES 2, 4) t(k) GROUP BY k), " +
+                        "  u2url AS (SELECT uid, url FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c'), (1, 'd')) n(uid, url)), " +
+                        "  users AS (SELECT uid FROM u2url GROUP BY uid), " +
+                        "  users_filtered AS (SELECT users.uid FROM users LEFT JOIN deleted ON users.uid = deleted.k WHERE deleted.k IS NULL), " +
+                        "  url2p AS (SELECT url, p FROM (VALUES ('a', 100), ('b', 200), ('c', 300), ('d', 400)) m(url, p)) " +
+                        "SELECT u.uid, count(*) cnt " +
+                        "FROM (u2url u INNER JOIN users_filtered f ON u.uid = f.uid) INNER JOIN url2p ON u.url = url2p.url " +
+                        "GROUP BY u.uid",
+                "VALUES (1, BIGINT '2'), (3, BIGINT '1')");
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG)

@@ -49,6 +49,9 @@ public class OAuth2Config
     private Optional<File> userMappingFile = Optional.empty();
     private boolean enableRefreshTokens;
     private boolean enableDiscovery = true;
+    private boolean userinfoCacheEnabled;
+    private Duration userinfoCacheTtl = new Duration(10, TimeUnit.MINUTES);
+    private Optional<String> authorizationEndpoint = Optional.empty();
 
     public Optional<String> getStateKey()
     {
@@ -248,6 +251,47 @@ public class OAuth2Config
     public OAuth2Config setEnableDiscovery(boolean enableDiscovery)
     {
         this.enableDiscovery = enableDiscovery;
+        return this;
+    }
+
+    @Config("http-server.authentication.oauth2.authorization-endpoint")
+    @ConfigDescription("Use for IdPs that have separate authorization endpoints and issuers")
+    public OAuth2Config setAuthorizationEndpoint(String authorizationEndpoint)
+    {
+        this.authorizationEndpoint = Optional.ofNullable(authorizationEndpoint);
+        return this;
+    }
+
+    public Optional<String> getAuthorizationEndpoint()
+    {
+        return authorizationEndpoint;
+    }
+
+    public boolean isUserinfoCacheEnabled()
+    {
+        return userinfoCacheEnabled;
+    }
+
+    @Config("http-server.authentication.oauth2.userinfo-cache")
+    @ConfigDescription("Enable caching of userinfo endpoint responses")
+    public OAuth2Config setUserinfoCacheEnabled(boolean userinfoCacheEnabled)
+    {
+        this.userinfoCacheEnabled = userinfoCacheEnabled;
+        return this;
+    }
+
+    @MinDuration("1m")
+    @NotNull
+    public Duration getUserinfoCacheTtl()
+    {
+        return userinfoCacheTtl;
+    }
+
+    @Config("http-server.authentication.oauth2.userinfo-cache-ttl")
+    @ConfigDescription("TTL for userinfo cache entries")
+    public OAuth2Config setUserinfoCacheTtl(Duration userinfoCacheTtl)
+    {
+        this.userinfoCacheTtl = userinfoCacheTtl;
         return this;
     }
 }

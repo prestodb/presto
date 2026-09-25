@@ -81,6 +81,7 @@ public class TaskStats
     private final long totalAllocationInBytes;
 
     private final long rawInputDataSizeInBytes;
+    private final long scanRawInputDataSizeInBytes;
     private final long rawInputPositions;
 
     private final long processedInputDataSizeInBytes;
@@ -140,6 +141,7 @@ public class TaskStats
                 ImmutableSet.of(),
                 0L,
                 0L,
+                0L,
                 0,
                 0L,
                 0,
@@ -191,6 +193,7 @@ public class TaskStats
                 0L,
                 false,
                 ImmutableSet.of(),
+                0L,
                 0L,
                 0L,
                 0,
@@ -255,6 +258,7 @@ public class TaskStats
             @JsonProperty("totalAllocationInBytes") long totalAllocationInBytes,
 
             @JsonProperty("rawInputDataSizeInBytes") long rawInputDataSizeInBytes,
+            @JsonProperty("scanRawInputDataSizeInBytes") long scanRawInputDataSizeInBytes,
             @JsonProperty("rawInputPositions") long rawInputPositions,
 
             @JsonProperty("processedInputDataSizeInBytes") long processedInputDataSizeInBytes,
@@ -346,6 +350,7 @@ public class TaskStats
         this.totalAllocationInBytes = totalAllocationInBytes;
 
         this.rawInputDataSizeInBytes = rawInputDataSizeInBytes;
+        this.scanRawInputDataSizeInBytes = scanRawInputDataSizeInBytes;
         this.rawInputPositions = (rawInputPositions >= 0) ? rawInputPositions : Long.MAX_VALUE;
 
         this.processedInputDataSizeInBytes = processedInputDataSizeInBytes;
@@ -732,6 +737,13 @@ public class TaskStats
         return completedNewDrivers;
     }
 
+    @JsonProperty
+    @ThriftField(50)
+    public long getScanRawInputDataSizeInBytes()
+    {
+        return scanRawInputDataSizeInBytes;
+    }
+
     public TaskStats summarize()
     {
         return new TaskStats(
@@ -774,6 +786,7 @@ public class TaskStats
                 blockedReasons,
                 totalAllocationInBytes,
                 rawInputDataSizeInBytes,
+                scanRawInputDataSizeInBytes,
                 rawInputPositions,
                 processedInputDataSizeInBytes,
                 processedInputPositions,
@@ -828,6 +841,7 @@ public class TaskStats
                 blockedReasons,
                 totalAllocationInBytes,
                 rawInputDataSizeInBytes,
+                scanRawInputDataSizeInBytes,
                 rawInputPositions,
                 processedInputDataSizeInBytes,
                 processedInputPositions,

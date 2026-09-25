@@ -18,10 +18,12 @@ import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.cache.CachingModule;
 import com.facebook.presto.hive.HiveCommonModule;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
+import com.facebook.presto.hive.azure.HiveAzureModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.HiveMetastoreModule;
 import com.facebook.presto.hive.s3.HiveS3Module;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -60,11 +62,13 @@ public class DeltaConnectorFactory
                     new HiveS3Module(catalogName),
                     new CachingModule(),
                     new HiveGcsModule(),
+                    new HiveAzureModule(),
                     new HiveAuthenticationModule(),
                     new HiveMetastoreModule(catalogName, Optional.empty()),
                     new HiveCommonModule(),
                     binder -> {
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
+                        binder.bind(ConnectorSystemConfig.class).toInstance(context.getConnectorSystemConfig());
                     });
 
             Injector injector = app

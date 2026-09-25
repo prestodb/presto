@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.DataTypeMismatchException;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
@@ -160,6 +162,7 @@ public final class SortedRangeSet
     }
 
     @Override
+    @JsonIgnore
     public Object getSingleValue()
     {
         if (!isSingleValue()) {
@@ -239,6 +242,7 @@ public final class SortedRangeSet
     }
 
     @Override
+    @JsonIgnore
     public ValuesProcessor getValuesProcessor()
     {
         return new ValuesProcessor()
@@ -353,7 +357,7 @@ public final class SortedRangeSet
     private SortedRangeSet checkCompatibility(ValueSet other)
     {
         if (!getType().equals(other.getType())) {
-            throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
+            throw new DataTypeMismatchException(format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
         if (!(other instanceof SortedRangeSet)) {
             throw new IllegalStateException(format("ValueSet is not a SortedRangeSet: %s", other.getClass()));

@@ -19,8 +19,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -41,6 +44,10 @@ public class RelationType
 
     private final Map<Field, Integer> fieldIndexes;
 
+    // Index for O(1) field resolution by name (lowercased).
+    // Maps lowercased field name -> list of fields with that name.
+    private final Map<String, List<Field>> fieldsByName;
+
     public RelationType(Field... fields)
     {
         this(ImmutableList.copyOf(fields));
@@ -58,6 +65,17 @@ public class RelationType
             builder.put(field, index++);
         }
         fieldIndexes = builder.build();
+
+        // Build name index for resolveFields()
+        HashMap<String, List<Field>> nameIndex = new HashMap<>();
+        for (Field field : fields) {
+            field.getName().ifPresent(name ->
+                    nameIndex.computeIfAbsent(name.toLowerCase(Locale.ENGLISH), k -> new ArrayList<>()).add(field));
+        }
+        // Convert to immutable lists
+        ImmutableMap.Builder<String, List<Field>> nameIndexBuilder = ImmutableMap.builder();
+        nameIndex.forEach((name, fieldList) -> nameIndexBuilder.put(name, ImmutableList.copyOf(fieldList)));
+        this.fieldsByName = nameIndexBuilder.build();
     }
 
     /**
@@ -130,8 +148,12 @@ public class RelationType
      */
     public List<Field> resolveFields(QualifiedName name)
     {
-        return allFields.stream()
-                .filter(input -> input.canResolve(name))
+        List<Field> candidates = fieldsByName.getOrDefault(name.getSuffix().toLowerCase(Locale.ENGLISH), ImmutableList.of());
+        if (candidates.isEmpty()) {
+            return ImmutableList.of();
+        }
+        return candidates.stream()
+                .filter(field -> field.matchesPrefix(name.getPrefix()))
                 .collect(toImmutableList());
     }
 

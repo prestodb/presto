@@ -118,7 +118,9 @@ SYNOPSIS
                 [--password] [--resource-estimate <resource-estimate>...]
                 [--runtime-stats] [--schema <schema>] [--server <server>]
                 [--session <session>...] [--socks-proxy <socks-proxy>]
-                [--source <source>] [--truststore-password <truststore password>]
+                [--source <source>] [--external-authentication]
+                [--external-authentication-redirect-handler <redirect-handler>]
+                [--truststore-password <truststore password>]
                 [--truststore-path <truststore path>]
                 [--truststore-type <truststore type>] [--user <user>]
                 [--validate-nexturi-source] [--version]
@@ -233,6 +235,12 @@ OPTIONS
 
         --source <source>
             Name of source making query
+
+        --external-authentication
+            Enable external authentication (such as OAuth2)
+
+        --external-authentication-redirect-handler <redirect-handler>
+            External authentication redirect handler (OPEN, PRINT, or DESKTOP)
 
         --truststore-password <truststore password>
             Truststore password

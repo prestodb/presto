@@ -232,7 +232,7 @@ public class TestRestSqlFunctionExecutor
                 "",
                 createRemoteScalarFunctionImplementation(FUNCTION_ABS_INT),
                 createPage(types, arguments),
-                new ArrayList<>(),
+                List.of(0),
                 types,
                 returnType);
         assertEquals(returnType.getLong(output.get().getResult(), 0), expected);
@@ -253,7 +253,7 @@ public class TestRestSqlFunctionExecutor
                 "",
                 createRemoteScalarFunctionImplementation(FUNCTION_POWER_TOWER_DOUBLE_UPDATED),
                 createPage(types, arguments),
-                new ArrayList<>(),
+                List.of(0),
                 types,
                 returnType);
         assertEquals(returnType.getDouble(output.get().getResult(), 0), expectedValue);
@@ -274,7 +274,7 @@ public class TestRestSqlFunctionExecutor
                 "",
                 createRemoteScalarFunctionImplementation(FUNCTION_BOOL_AND),
                 createPage(types, arguments),
-                new ArrayList<>(),
+                List.of(0),
                 types,
                 returnType);
 
@@ -285,7 +285,7 @@ public class TestRestSqlFunctionExecutor
                 "",
                 createRemoteScalarFunctionImplementation(FUNCTION_BOOL_AND),
                 createPage(types, arguments),
-                new ArrayList<>(),
+                List.of(0, 1),
                 types,
                 returnType);
 
@@ -308,7 +308,7 @@ public class TestRestSqlFunctionExecutor
                 "",
                 createRemoteScalarFunctionImplementation(FUNCTION_REV_STRING),
                 createPage(types, arguments),
-                new ArrayList<>(),
+                List.of(0),
                 types,
                 returnType);
         assertEquals(returnType.getSlice(output.get().getResult(), 0).toStringUtf8(), expected);
@@ -332,7 +332,7 @@ public class TestRestSqlFunctionExecutor
                 "",
                 createRemoteScalarFunctionImplementation(FUNCTION_ARRAY_SUM),
                 createPage(types, arguments),
-                new ArrayList<>(),
+                List.of(0),
                 types,
                 returnType);
         assertEquals(returnType.getLong(output.get().getResult(), 0), expected);

@@ -13,36 +13,29 @@
  */
 package com.facebook.presto.resourcemanager;
 
-import com.facebook.drift.annotations.ThriftMethod;
-import com.facebook.drift.annotations.ThriftService;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
-@ThriftService("PrestoResourceManager")
 public interface ResourceManagerClient
 {
-    @ThriftMethod
-    void queryHeartbeat(String internalNode, BasicQueryInfo basicQueryInfo, long sequenceId);
+    void queryHeartbeat(Optional<URI> target, String internalNode, BasicQueryInfo basicQueryInfo, long sequenceId);
 
-    @ThriftMethod
-    List<ResourceGroupRuntimeInfo> getResourceGroupInfo(String excludingNode)
+    List<ResourceGroupRuntimeInfo> getResourceGroupInfo(Optional<URI> target, String excludingNode)
             throws ResourceManagerInconsistentException;
 
-    @ThriftMethod
-    void nodeHeartbeat(NodeStatus nodeStatus);
+    void nodeHeartbeat(Optional<URI> target, NodeStatus nodeStatus);
 
-    @ThriftMethod
-    Map<MemoryPoolId, ClusterMemoryPoolInfo> getMemoryPoolInfo();
+    Map<MemoryPoolId, ClusterMemoryPoolInfo> getMemoryPoolInfo(Optional<URI> target);
 
-    @ThriftMethod
-    void resourceGroupRuntimeHeartbeat(String node, List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo);
+    void resourceGroupRuntimeHeartbeat(Optional<URI> target, String node, List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo);
 
-    @ThriftMethod
-    int getRunningTaskCount();
+    int getRunningTaskCount(Optional<URI> target);
 }

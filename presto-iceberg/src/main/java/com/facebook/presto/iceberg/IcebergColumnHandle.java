@@ -23,12 +23,19 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import org.apache.iceberg.types.Type.TypeID;
 import org.apache.iceberg.types.Types;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.iceberg.ColumnIdentity.createColumnIdentity;
@@ -44,6 +51,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
+import static org.apache.iceberg.MetadataColumns.ROW_ID;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 
 public class IcebergColumnHandle
@@ -57,9 +66,25 @@ public class IcebergColumnHandle
     public static final ColumnMetadata IS_DELETED_COLUMN_METADATA = getColumnMetadata(IS_DELETED);
     public static final IcebergColumnHandle DELETE_FILE_PATH_COLUMN_HANDLE = getIcebergColumnHandle(DELETE_FILE_PATH);
     public static final ColumnMetadata DELETE_FILE_PATH_COLUMN_METADATA = getColumnMetadata(DELETE_FILE_PATH);
+    public static final IcebergColumnHandle ROW_ID_COLUMN_HANDLE = primitiveIcebergColumnHandle(
+            ROW_ID.fieldId(), ROW_ID.name(), BIGINT, Optional.ofNullable(ROW_ID.doc()));
+    public static final ColumnMetadata ROW_ID_COLUMN_METADATA = ColumnMetadata.builder()
+            .setName(ROW_ID.name())
+            .setType(BIGINT)
+            .setHidden(true)
+            .build();
+    public static final IcebergColumnHandle LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE = primitiveIcebergColumnHandle(
+            LAST_UPDATED_SEQUENCE_NUMBER.fieldId(), LAST_UPDATED_SEQUENCE_NUMBER.name(), BIGINT, Optional.ofNullable(LAST_UPDATED_SEQUENCE_NUMBER.doc()));
+    public static final ColumnMetadata LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_METADATA = ColumnMetadata.builder()
+            .setName(LAST_UPDATED_SEQUENCE_NUMBER.name())
+            .setType(BIGINT)
+            .setHidden(true)
+            .build();
 
     private final ColumnIdentity columnIdentity;
     private final Type type;
+    private final Optional<String> defaultValue;
+    private final Optional<String> writeDefaultValue;
 
     @JsonCreator
     public IcebergColumnHandle(
@@ -67,17 +92,31 @@ public class IcebergColumnHandle
             @JsonProperty("type") Type type,
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("columnType") ColumnType columnType,
-            @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields)
+            @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields,
+            @JsonProperty("defaultValue") Optional<String> defaultValue,
+            @JsonProperty("writeDefaultValue") Optional<String> writeDefaultValue)
     {
         super(columnIdentity.getName(), comment, columnType, requiredSubfields);
 
         this.columnIdentity = requireNonNull(columnIdentity, "columnIdentity is null");
         this.type = requireNonNull(type, "type is null");
+        this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
+        this.writeDefaultValue = requireNonNull(writeDefaultValue, "writeDefaultValue is null");
     }
 
     public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment, ColumnType columnType)
     {
-        this(columnIdentity, type, comment, columnType, ImmutableList.of());
+        this(columnIdentity, type, comment, columnType, ImmutableList.of(), Optional.empty(), Optional.empty());
+    }
+
+    public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment, ColumnType columnType, Optional<String> defaultValue)
+    {
+        this(columnIdentity, type, comment, columnType, ImmutableList.of(), defaultValue, Optional.empty());
+    }
+
+    public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment, ColumnType columnType, Optional<String> defaultValue, Optional<String> writeDefaultValue)
+    {
+        this(columnIdentity, type, comment, columnType, ImmutableList.of(), defaultValue, writeDefaultValue);
     }
 
     @JsonProperty
@@ -98,6 +137,18 @@ public class IcebergColumnHandle
         return type;
     }
 
+    @JsonProperty
+    public Optional<String> getDefaultValue()
+    {
+        return defaultValue;
+    }
+
+    @JsonProperty
+    public Optional<String> getWriteDefaultValue()
+    {
+        return writeDefaultValue;
+    }
+
     @JsonIgnore
     public boolean isRowPositionColumn()
     {
@@ -116,6 +167,12 @@ public class IcebergColumnHandle
         return columnIdentity.getId() == MERGE_TARGET_ROW_ID_DATA.getId();
     }
 
+    @JsonIgnore
+    public boolean hasDefaultValue()
+    {
+        return defaultValue.isPresent();
+    }
+
     @Override
     public ColumnHandle withRequiredSubfields(List<Subfield> subfields)
     {
@@ -124,13 +181,13 @@ public class IcebergColumnHandle
             return this;
         }
 
-        return new IcebergColumnHandle(columnIdentity, type, getComment(), getColumnType(), subfields);
+        return new IcebergColumnHandle(columnIdentity, type, getComment(), getColumnType(), subfields, defaultValue, writeDefaultValue);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnIdentity, type, getComment(), getColumnType(), getRequiredSubfields());
+        return Objects.hash(columnIdentity, type, getComment(), getColumnType(), getRequiredSubfields(), defaultValue, writeDefaultValue);
     }
 
     @Override
@@ -147,7 +204,9 @@ public class IcebergColumnHandle
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.getComment(), other.getComment()) &&
                 Objects.equals(this.getColumnType(), other.getColumnType()) &&
-                Objects.equals(this.getRequiredSubfields(), other.getRequiredSubfields());
+                Objects.equals(this.getRequiredSubfields(), other.getRequiredSubfields()) &&
+                Objects.equals(this.defaultValue, other.defaultValue) &&
+                Objects.equals(this.writeDefaultValue, other.writeDefaultValue);
     }
 
     @Override
@@ -203,6 +262,16 @@ public class IcebergColumnHandle
         return getColumnIdentity().getId() == DELETE_FILE_PATH.getId();
     }
 
+    public boolean isRowIdColumn()
+    {
+        return getColumnIdentity().getId() == ROW_ID.fieldId();
+    }
+
+    public boolean isLastUpdatedSequenceNumberColumn()
+    {
+        return getColumnIdentity().getId() == LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
+    }
+
     public static IcebergColumnHandle primitiveIcebergColumnHandle(int id, String name, Type type, Optional<String> comment)
     {
         return new IcebergColumnHandle(primitiveColumnIdentity(id, name), type, comment, REGULAR);
@@ -210,11 +279,21 @@ public class IcebergColumnHandle
 
     public static IcebergColumnHandle create(Types.NestedField column, TypeManager typeManager, ColumnType columnType)
     {
+        Optional<String> defaultValue = Optional.empty();
+        if (column.initialDefault() != null) {
+            defaultValue = Optional.of(icebergDefaultToString(column.type().typeId(), column.initialDefault()));
+        }
+        Optional<String> writeDefaultValue = Optional.empty();
+        if (column.writeDefault() != null) {
+            writeDefaultValue = Optional.of(icebergDefaultToString(column.type().typeId(), column.writeDefault()));
+        }
         return new IcebergColumnHandle(
                 createColumnIdentity(column),
                 toPrestoType(column.type(), typeManager),
                 Optional.ofNullable(column.doc()),
-                columnType);
+                columnType,
+                defaultValue,
+                writeDefaultValue);
     }
 
     public static Subfield getPushedDownSubfield(IcebergColumnHandle column)
@@ -240,6 +319,45 @@ public class IcebergColumnHandle
                 pushdownColumnType,
                 Optional.of("nested column pushdown"),
                 SYNTHESIZED,
-                requiredSubfields);
+                requiredSubfields,
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    /**
+     * Converts an Iceberg initial-default value to a string that both the Java
+     * deserialization path ({@link IcebergUtil#deserializeIcebergValue}) and the
+     * native C++ worker ({@code PartitionValue::fromString}) can parse.
+     *
+     * DATE defaults are stored internally as integer days-since-epoch; we emit
+     * them as ISO-8601 strings (e.g. {@code "2023-01-01"}) so the C++ path can
+     * parse them without the {@code kDaysSinceEpoch} flag.
+     *
+     * TIMESTAMP defaults are stored as microseconds-since-epoch; we emit them as
+     * ISO-8601 datetime strings with microsecond precision
+     * (e.g. {@code "2023-01-01 11:00:00.000000"}).
+     */
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
+
+    private static String icebergDefaultToString(TypeID typeId, Object value)
+    {
+        switch (typeId) {
+            case DATE: {
+                // Iceberg stores DATE defaults as Integer days since epoch.
+                int daysSinceEpoch = (Integer) value;
+                return LocalDate.ofEpochDay(daysSinceEpoch).toString();
+            }
+            case TIMESTAMP: {
+                // Iceberg stores TIMESTAMP defaults as Long microseconds since epoch.
+                long microsSinceEpoch = (Long) value;
+                long seconds = Math.floorDiv(microsSinceEpoch, 1_000_000L);
+                int nanos = (int) Math.floorMod(microsSinceEpoch, 1_000_000L) * 1_000;
+                LocalDateTime dt = LocalDateTime.ofInstant(Instant.ofEpochSecond(seconds, nanos), ZoneOffset.UTC);
+                return dt.format(TIMESTAMP_FORMATTER);
+            }
+            default:
+                return String.valueOf(value);
+        }
     }
 }

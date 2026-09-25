@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.sql.tree.Statement;
@@ -24,6 +25,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.ALWAYS_ANALYZE_CREATE_TABLE_QUERY_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY;
+import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_WITH_SUBFIELDS;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static org.testng.Assert.assertEquals;
@@ -57,6 +62,26 @@ public class TestViewDefinitionCollector
         @Language("SQL") String query = "CREATE TABLE top_level_view1 AS SELECT view_definer1.a, view_definer1.c, view_invoker2.y FROM view_definer1 left join view_invoker2 on view_invoker2.y = view_definer1.c";
 
         assertViewDefinitions(query, ImmutableMap.of(
+                "tpch.s1.view_invoker2", "select x, y, z from t13",
+                "tpch.s1.view_definer1", "select a,b,c from t1"
+        ), ImmutableMap.of());
+    }
+
+    public void testCreateTableAsSelectIfNotExistsWithViews()
+    {
+        // t1 already exists, so this hits the IF NOT EXISTS no-op path.
+        // With always_analyze_create_table_query_enabled, view definitions should still be populated.
+        Session sessionWithProperty = testSessionBuilder()
+                .setCatalog(TPCH_CATALOG)
+                .setSchema("s1")
+                .setSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, "true")
+                .setSystemProperty(CHECK_ACCESS_CONTROL_WITH_SUBFIELDS, "true")
+                .setSystemProperty(ALWAYS_ANALYZE_CREATE_TABLE_QUERY_ENABLED, "true")
+                .build();
+
+        @Language("SQL") String query = "CREATE TABLE IF NOT EXISTS t1 AS SELECT view_definer1.a, view_definer1.c, view_invoker2.y FROM view_definer1 left join view_invoker2 on view_invoker2.y = view_definer1.c";
+
+        assertViewDefinitions(sessionWithProperty, query, ImmutableMap.of(
                 "tpch.s1.view_invoker2", "select x, y, z from t13",
                 "tpch.s1.view_definer1", "select a,b,c from t1"
         ), ImmutableMap.of());
@@ -194,11 +219,16 @@ public class TestViewDefinitionCollector
 
     private void assertViewDefinitions(@Language("SQL") String query, Map<String, String> expectedViewDefinitions, Map<String, String> expectedMaterializedViewDefinitions)
     {
+        assertViewDefinitions(CLIENT_SESSION, query, expectedViewDefinitions, expectedMaterializedViewDefinitions);
+    }
+
+    private void assertViewDefinitions(Session clientSession, @Language("SQL") String query, Map<String, String> expectedViewDefinitions, Map<String, String> expectedMaterializedViewDefinitions)
+    {
         transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
                 .readOnly()
-                .execute(CLIENT_SESSION, session -> {
+                .execute(clientSession, session -> {
                     Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP, Optional.of(createTestingQueryExplainer(session, accessControl, metadata)), query);
                     Statement statement = SQL_PARSER.createStatement(query);
                     Analysis analysis = analyzer.analyzeSemantic(statement, false);

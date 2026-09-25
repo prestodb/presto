@@ -39,7 +39,6 @@ public class TestSqlFunctionProperties
                 .setFieldNamesInJsonCastEnabled(true)
                 .setLegacyJsonCast(false)
                 .setExtraCredentials(Collections.singletonMap("key", "value"))
-                .setWarnOnCommonNanPatterns(false)
                 .setCanonicalizedJsonExtract(true)
                 .build();
         SqlFunctionProperties properties2 = SqlFunctionProperties.builder()
@@ -54,7 +53,6 @@ public class TestSqlFunctionProperties
                 .setFieldNamesInJsonCastEnabled(true)
                 .setLegacyJsonCast(false)
                 .setExtraCredentials(Collections.singletonMap("key", "value"))
-                .setWarnOnCommonNanPatterns(false)
                 .setCanonicalizedJsonExtract(true)
                 .build();
         assertEquals(properties1, properties2);
@@ -74,7 +72,6 @@ public class TestSqlFunctionProperties
                 .setFieldNamesInJsonCastEnabled(true)
                 .setLegacyJsonCast(false)
                 .setExtraCredentials(Collections.singletonMap("key", "value"))
-                .setWarnOnCommonNanPatterns(false)
                 .setCanonicalizedJsonExtract(true)
                 .build();
         SqlFunctionProperties properties2 = SqlFunctionProperties.builder()
@@ -89,7 +86,6 @@ public class TestSqlFunctionProperties
                 .setFieldNamesInJsonCastEnabled(true)
                 .setLegacyJsonCast(false)
                 .setExtraCredentials(Collections.singletonMap("key", "value"))
-                .setWarnOnCommonNanPatterns(false)
                 .setCanonicalizedJsonExtract(false) // Different value
                 .build();
         assertNotEquals(properties1, properties2);

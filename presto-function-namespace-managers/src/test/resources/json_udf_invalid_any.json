@@ -1,0 +1,22 @@
+{
+  "udfSignatureMap": {
+    "bad_any": [
+      {
+        "docString": "invalid: 'any' is not the last argument of a variable-arity function",
+        "functionKind": "SCALAR",
+        "outputType": "varchar",
+        "paramTypes": [
+          "__ANY__",
+          "varchar"
+        ],
+        "schema": "test_schema",
+        "variableArity": true,
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      }
+    ]
+  }
+}

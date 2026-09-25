@@ -23,6 +23,10 @@
 
 namespace facebook::presto::util {
 
+std::string boolToLowerCaseString(bool value) {
+  return value ? "true" : "false";
+}
+
 DateTime toISOTimestamp(uint64_t timeMilli) {
   char buf[80];
   time_t timeSecond = timeMilli / 1000;
@@ -72,6 +76,20 @@ void installSignalHandler() {
 #else
   facebook::velox::process::addDefaultFatalSignalHandler();
 #endif // __APPLE__
+}
+
+std::string dumpJson(const nlohmann::json& j) {
+  try {
+    return j.dump();
+  } catch (const std::exception&) {
+    auto body =
+        j.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace);
+    LOG(WARNING) << "Failed to serialize json to string. "
+                    "Will retry with 'replace' option. "
+                    "Json Dump:\n"
+                 << body;
+    return body;
+  }
 }
 
 std::string extractMessageBody(
@@ -137,7 +155,7 @@ std::string decompressMessageBody(
   }
 }
 
-const std::vector<std::string> getFunctionNameParts(
+std::vector<std::string> getFunctionNameParts(
     const std::string& registeredFunction) {
   std::vector<std::string> parts;
   folly::split('.', registeredFunction, parts, true);

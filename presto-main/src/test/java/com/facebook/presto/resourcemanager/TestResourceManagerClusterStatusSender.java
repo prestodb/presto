@@ -21,6 +21,7 @@ import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.memory.MemoryInfo;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.ConnectorId;
@@ -56,7 +57,9 @@ public class TestResourceManagerClusterStatusSender
             2.0,
             1,
             2,
-            3);
+            3,
+            0,
+            0);
     private static final int HEARTBEAT_INTERVAL = 100;
     private static final int SLEEP_DURATION = 1000;
     private static final int TARGET_HEARTBEATS = SLEEP_DURATION / HEARTBEAT_INTERVAL;
@@ -83,6 +86,7 @@ public class TestResourceManagerClusterStatusSender
 
         sender = new ResourceManagerClusterStatusSender(
                 (addressSelectionContext, headers) -> resourceManagerClient,
+                null,
                 nodeManager,
                 () -> NODE_STATUS,
                 newSingleThreadScheduledExecutor(),
@@ -90,6 +94,7 @@ public class TestResourceManagerClusterStatusSender
                         .setNodeHeartbeatInterval(new Duration(HEARTBEAT_INTERVAL, MILLISECONDS))
                         .setQueryHeartbeatInterval(new Duration(HEARTBEAT_INTERVAL, MILLISECONDS)),
                 new ServerConfig().setCoordinator(false),
+                new InternalCommunicationConfig(),
                 new NoOpResourceGroupManager());
     }
 

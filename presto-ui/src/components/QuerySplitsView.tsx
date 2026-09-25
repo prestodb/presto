@@ -120,25 +120,18 @@ export default function SplitView({ data, show }): React.ReactElement {
 
     return (
         <div className={clsx(!show && "visually-hidden")}>
-            <div id="legend" className="row">
-                <div>
+            <div id="legend">
+                <div className="legend-bars">
                     <div className="red bar"></div>
-                    <div className="text">Created</div>
-                </div>
-                <div>
                     <div className="green bar"></div>
-                    <div className="text">First split started</div>
-                </div>
-                <div>
                     <div className="blue bar"></div>
-                    <div className="text">Last split started</div>
-                </div>
-                <div>
                     <div className="orange bar"></div>
-                    <div className="text">Last split ended</div>
                 </div>
-                <div>
-                    <div className="bar empty"></div>
+                <div className="legend-labels">
+                    <div className="text">Created</div>
+                    <div className="text">First split started</div>
+                    <div className="text">Last split started</div>
+                    <div className="text">Last split ended</div>
                     <div className="text">Ended</div>
                 </div>
             </div>

@@ -141,7 +141,7 @@ public class TestInvalidateMetastoreCacheProcedure
                 .hasRowsCount(5);
         assertThat(onPresto().executeQuery("SELECT DISTINCT regionkey FROM hive_with_metastore_cache.test_invalidate_metastore_cache_schema1.nation_partitioned"))
                 .hasRowsCount(5);
-        assertThat(onPresto().executeQuery("select tablecachesize, partitioncachesize, partitionnamescachesize from jmx.current.\"com.facebook.presto.hive.metastore:name=hive_with_metastore_cache,type=metastorecachestats\""))
+        assertThat(onPresto().executeQuery("select tablecachesize, partitioncachesize, partitionfiltercachesize from jmx.current.\"com.facebook.presto.hive.metastore:name=hive_with_metastore_cache,type=metastorecachestats\""))
                 .contains(row(1, 5, 1));
 
         // Add new partition outside Presto
@@ -152,19 +152,19 @@ public class TestInvalidateMetastoreCacheProcedure
                 .hasRowsCount(5);
         assertThat(onPresto().executeQuery("SELECT DISTINCT regionkey FROM hive_with_metastore_cache.test_invalidate_metastore_cache_schema1.nation_partitioned"))
                 .hasRowsCount(5);
-        assertThat(onPresto().executeQuery("select tablecachesize, partitioncachesize, partitionnamescachesize from jmx.current.\"com.facebook.presto.hive.metastore:name=hive_with_metastore_cache,type=metastorecachestats\""))
+        assertThat(onPresto().executeQuery("select tablecachesize, partitioncachesize, partitionfiltercachesize from jmx.current.\"com.facebook.presto.hive.metastore:name=hive_with_metastore_cache,type=metastorecachestats\""))
                 .contains(row(1, 5, 1));
 
         // After invalidating the cache, we should be able to see the new partition once we invalidate any partition in the table
         onPresto().executeQuery("CALL hive_with_metastore_cache.system.invalidate_metastore_cache('test_invalidate_metastore_cache_schema1', 'nation_partitioned', ARRAY['regionkey'], ARRAY['0'])");
-        assertThat(onPresto().executeQuery("select tablecachesize, partitioncachesize, partitionnamescachesize from jmx.current.\"com.facebook.presto.hive.metastore:name=hive_with_metastore_cache,type=metastorecachestats\""))
+        assertThat(onPresto().executeQuery("select tablecachesize, partitioncachesize, partitionfiltercachesize from jmx.current.\"com.facebook.presto.hive.metastore:name=hive_with_metastore_cache,type=metastorecachestats\""))
                 .contains(row(1, 4, 0));
         assertThat(onPresto().executeQuery("SELECT * FROM hive_with_metastore_cache.test_invalidate_metastore_cache_schema1.\"nation_partitioned$partitions\""))
                 .hasRowsCount(6);
         assertThat(onPresto().executeQuery("SELECT DISTINCT regionkey FROM hive_with_metastore_cache.test_invalidate_metastore_cache_schema1.nation_partitioned"))
                 .hasRowsCount(6)
                 .contains(row(5));
-        assertThat(onPresto().executeQuery("select tablecachesize, partitioncachesize, partitionnamescachesize from jmx.current.\"com.facebook.presto.hive.metastore:name=hive_with_metastore_cache,type=metastorecachestats\""))
+        assertThat(onPresto().executeQuery("select tablecachesize, partitioncachesize, partitionfiltercachesize from jmx.current.\"com.facebook.presto.hive.metastore:name=hive_with_metastore_cache,type=metastorecachestats\""))
                 .contains(row(1, 6, 1));
     }
 

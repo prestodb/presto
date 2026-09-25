@@ -21,13 +21,17 @@ import org.testng.annotations.Test;
 public class TestPrestoNativeTpchQueriesParquetUsingJSON
         extends AbstractTestNativeTpchQueries
 {
-    private final String storageFormat = "PARQUET";
+    @Override
+    protected String getStorageFormat()
+    {
+        return "PARQUET";
+    }
 
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
         return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
-                .setStorageFormat(storageFormat)
+                .setStorageFormat(getStorageFormat())
                 .setAddStorageFormatToPath(true)
                 .build();
     }
@@ -36,7 +40,7 @@ public class TestPrestoNativeTpchQueriesParquetUsingJSON
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
         return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
-                .setStorageFormat(storageFormat)
+                .setStorageFormat(getStorageFormat())
                 .setAddStorageFormatToPath(true)
                 .build();
     }

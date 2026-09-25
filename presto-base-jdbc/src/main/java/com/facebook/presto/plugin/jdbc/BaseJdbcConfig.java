@@ -25,6 +25,7 @@ import com.google.inject.ConfigurationException;
 import com.google.inject.spi.Message;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.Set;
@@ -54,6 +55,8 @@ public class BaseJdbcConfig
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> listSchemasIgnoredSchemas = ImmutableSet.of("information_schema");
     private boolean caseSensitiveNameMatchingEnabled;
+    @Min(1)
+    private int fetchSize = 20000;
 
     @NotNull
     public String getConnectionUrl()
@@ -190,5 +193,18 @@ public class BaseJdbcConfig
         if (connectionUrl == null) {
             throw new ConfigurationException(ImmutableList.of(new Message("connection-url is required but was not provided")));
         }
+    }
+
+    public int getFetchSize()
+    {
+        return fetchSize;
+    }
+
+    @Config("jdbc-fetch-size")
+    @ConfigDescription("Number of rows to fetch from the database at a time")
+    public BaseJdbcConfig setFetchSize(int fetchSize)
+    {
+        this.fetchSize = fetchSize;
+        return this;
     }
 }

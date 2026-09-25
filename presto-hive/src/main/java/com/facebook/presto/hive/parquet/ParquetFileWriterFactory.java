@@ -58,6 +58,8 @@ public class ParquetFileWriterFactory
 {
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
+    private final DateTimeZone writerTimezone;
+    private final NodeVersion nodeVersion;
 
     @Inject
     public ParquetFileWriterFactory(
@@ -77,10 +79,12 @@ public class ParquetFileWriterFactory
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone writerTimezone)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.writerTimezone = requireNonNull(writerTimezone, "writerTimezone is null");
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
     }
 
     @Override
@@ -139,7 +143,9 @@ public class ParquetFileWriterFactory
                     schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     fileInputColumnIndexes,
-                    compressionCodecName));
+                    compressionCodecName,
+                    writerTimezone,
+                    nodeVersion.toString()));
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating Parquet file", e);

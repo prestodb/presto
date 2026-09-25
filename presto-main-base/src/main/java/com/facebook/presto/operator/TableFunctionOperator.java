@@ -24,7 +24,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import jakarta.annotation.Nullable;
@@ -33,14 +32,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.concat;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class TableFunctionOperator
@@ -372,14 +370,14 @@ public class TableFunctionOperator
 
             if (preSortedPrefix > 0) {
                 // preSortedPrefix > 0 implies that all partition channels are already pre-partitioned (enforced by check in the constructor), so we only need to do the remaining sort
-                this.remainingPartitionAndSortChannels = ImmutableList.copyOf(Iterables.skip(sortChannels, preSortedPrefix));
-                this.remainingSortOrders = ImmutableList.copyOf(Iterables.skip(sortOrders, preSortedPrefix));
+                this.remainingPartitionAndSortChannels = sortChannels.stream().skip(preSortedPrefix).collect(toImmutableList());
+                this.remainingSortOrders = sortOrders.stream().skip(preSortedPrefix).collect(toImmutableList());
             }
             else {
                 // we need to sort by the remaining partition channels so that the input is fully partitioned,
                 // and then need to we sort by all the sort channels so that the input is fully sorted
-                this.remainingPartitionAndSortChannels = ImmutableList.copyOf(concat(remainingPartitionChannels, sortChannels));
-                this.remainingSortOrders = ImmutableList.copyOf(concat(nCopies(remainingPartitionChannels.size(), ASC_NULLS_LAST), sortOrders));
+                this.remainingPartitionAndSortChannels = Stream.concat(remainingPartitionChannels.stream(), sortChannels.stream()).collect(toImmutableList());
+                this.remainingSortOrders = Stream.concat(Stream.generate(() -> ASC_NULLS_LAST).limit(remainingPartitionChannels.size()), sortOrders.stream()).collect(toImmutableList());
             }
 
             this.prePartitionedChannelsArray = Ints.toArray(prePartitionedChannels);

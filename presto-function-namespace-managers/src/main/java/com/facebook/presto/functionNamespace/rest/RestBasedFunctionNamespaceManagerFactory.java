@@ -54,7 +54,7 @@ public class RestBasedFunctionNamespaceManagerFactory
     {
         try {
             Bootstrap app = new Bootstrap(
-                    new RestBasedCommunicationModule(),
+                    new RestBasedCommunicationModule(context.getAuthClientConfigs()),
                     new RestBasedFunctionNamespaceManagerModule(catalogName),
                     new RestSqlFunctionExecutorsModule());
 

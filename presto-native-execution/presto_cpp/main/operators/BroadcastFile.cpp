@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/operators/BroadcastFile.h"
 #include "presto_cpp/external/json/nlohmann/json.hpp"
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/presto_native_types.h"
@@ -256,8 +257,14 @@ velox::BufferPtr BroadcastFileReader::next() {
   return pageBuffer;
 }
 
+void BroadcastFileReader::close() {
+  inputStream_.reset();
+  closed_ = true;
+}
+
 void BroadcastFileReader::ensureFooterRead() {
-  // Read the footer on first access
+  VELOX_CHECK(
+      !closed_, "BroadcastFileReader is closed; cannot read after close()");
   if (inputStream_ != nullptr) {
     return;
   }
@@ -271,7 +278,9 @@ void BroadcastFileReader::ensureFooterRead() {
 
   // Create the input stream for sequential reads
   inputStream_ = std::make_unique<velox::common::FileInputStream>(
-      std::move(readFile), 8 * 1024 * 1024, pool_); // 8MB buffer
+      std::move(readFile),
+      SystemConfig::instance()->broadcastExchangeSourceReadBufferBytes(),
+      pool_);
 }
 
 std::vector<int64_t> BroadcastFileReader::remainingPageSizes() {

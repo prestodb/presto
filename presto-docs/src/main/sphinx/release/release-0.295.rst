@@ -12,8 +12,8 @@ Release 0.295
 * Add OAuth2 support for WebUI and JDBC Presto Client. `#24443 <https://github.com/prestodb/presto/pull/24443>`_
 * Add a new configuration property ``query.max-queued-time`` to specify maximum queued time for a query before killing it. This can be overridden by the ``query_max_queued_time`` session property. `#25589 <https://github.com/prestodb/presto/pull/25589>`_
 * Add spatial join support for native execution. `#25823 <https://github.com/prestodb/presto/pull/25823>`_
-* Add support for `mutual TLS (mTLS) authentication <https://prestodb.io/docs/current/connector/base-arrow-flight.html#mutual-tls-mtls-support>`_ in the Arrow Flight connector. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
-* Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the PostgreSQL connector. `#25240 <https://github.com/prestodb/presto/pull/25240>`_
+* Add support for :ref:`mutual TLS (mTLS) authentication <connector/base-arrow-flight:Mutual TLS (mTLS) Support>` in the Arrow Flight connector. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
+* Add support for :ref:`GEOMETRY <language/types:Geospatial>` type in the PostgreSQL connector. `#25240 <https://github.com/prestodb/presto/pull/25240>`_
 * Add documentation about the Presto :doc:`/develop/release-process` and :doc:`/admin/version-support`. `#25742 <https://github.com/prestodb/presto/pull/25742>`_
 * Add support for configuring http2 server on worker for communication between coordinator and workers. To enable, set the configuration property ``http-server.http2.enabled`` to ``true``. `#25708 <https://github.com/prestodb/presto/pull/25708>`_
 * Add support for cross-cluster query retry. Failed queries can be automatically retried on a backup cluster by providing the retry URL and expiration time as query parameters. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
@@ -91,7 +91,7 @@ ______________
 
 Arrow Flight Connector Changes
 ______________________________
-* Add support for `mutual TLS (mTLS) authentication <https://prestodb.io/docs/current/connector/base-arrow-flight.html#mutual-tls-mtls-support>`_. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
+* Add support for :ref:`mutual TLS (mTLS) authentication <connector/base-arrow-flight:Mutual TLS (mTLS) Support>`. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
 
 BigQuery Connector Changes
 __________________________
@@ -146,7 +146,7 @@ _________________________
 
 PostgreSQL Connector Changes
 ____________________________
-* Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the PostgreSQL connector. `#25240 <https://github.com/prestodb/presto/pull/25240>`_
+* Add support for :ref:`GEOMETRY <language/types:Geospatial>` type in the PostgreSQL connector. `#25240 <https://github.com/prestodb/presto/pull/25240>`_
 
 Redis Connector Changes
 _______________________

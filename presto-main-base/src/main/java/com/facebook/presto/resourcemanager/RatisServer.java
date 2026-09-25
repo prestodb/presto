@@ -28,6 +28,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 
 import java.io.File;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
@@ -77,7 +78,7 @@ public class RatisServer
     {
         RaftProperties properties = new RaftProperties();
         GrpcConfigKeys.Server.setPort(properties, port);
-        File storage = new File(storageDir + "/" + id);
+        File storage = Paths.get(storageDir + "/" + id).toFile();
         RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storage));
         final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(UUID.nameUUIDFromBytes(groupId.getBytes())), getPeers());
 

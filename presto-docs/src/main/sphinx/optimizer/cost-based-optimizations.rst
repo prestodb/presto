@@ -74,9 +74,9 @@ Capping replicated table size
 
 Join distribution type will be chosen automatically when join reordering strategy
 is set to ``COST_BASED`` or when join distribution type is set to ``AUTOMATIC``.
-In such case it is possible to cap the maximum size of replicated table via
-``join-max-broadcast-table-size`` config property (e.g. ``join-max-broadcast-table-size=100MB``)
-or via ``join_max_broadcast_table_size`` session property (e.g. ``set session join_max_broadcast_table_size='100MB';``)
+In such case it is possible to cap the maximum size of replicated table by using the 
+``join-max-broadcast-table-size`` configuration property (for example, ``join-max-broadcast-table-size=100MB``)
+or by using the ``join_max_broadcast_table_size`` session property (``set session join_max_broadcast_table_size='100MB';``)
 This allows improving cluster concurrency and prevents bad plans when CBO misestimates size of joined tables.
 
 By default replicated table size is capped to 100MB.
@@ -84,5 +84,5 @@ By default replicated table size is capped to 100MB.
 Connector Implementations
 -------------------------
 
-In order for the Presto optimizer to use the cost based strategies,
+In order for the Presto optimizer to use the cost based strategies, 
 the connector implementation must provide :doc:`statistics`.

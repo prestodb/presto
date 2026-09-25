@@ -24,10 +24,22 @@ public class TestTextReaderWithTpchQueriesUsingJSON
     private static final String TEXTFILE = "TEXTFILE";
 
     @Override
+    protected String getStorageFormat()
+    {
+        return TEXTFILE;
+    }
+
+    @Override
+    protected void createTables()
+    {
+        NativeTestsUtils.createTables(getStorageFormat());
+    }
+
+    @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
         return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
-                .setStorageFormat(TEXTFILE)
+                .setStorageFormat(getStorageFormat())
                 .setAddStorageFormatToPath(true)
                 .build();
     }
@@ -36,7 +48,7 @@ public class TestTextReaderWithTpchQueriesUsingJSON
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
         return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
-                .setStorageFormat(TEXTFILE)
+                .setStorageFormat(getStorageFormat())
                 .setAddStorageFormatToPath(true)
                 .build();
     }

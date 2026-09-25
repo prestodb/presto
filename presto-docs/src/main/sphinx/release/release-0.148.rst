@@ -14,7 +14,7 @@ General Changes
   would incorrectly use the first row as the window frame for the first two
   rows rather than using an empty frame.
 * Fix correctness issue when grouping on columns that are also arguments to aggregation functions.
-* Fix failure when chaining ``AT TIME ZONE``, e.g.
+* Fix failure when chaining ``AT TIME ZONE``, for example, 
   ``SELECT TIMESTAMP '2016-01-02 12:34:56' AT TIME ZONE 'America/Los_Angeles' AT TIME ZONE 'UTC'``.
 * Fix data duplication when ``task.writer-count`` configuration mismatches between coordinator and worker.
 * Fix bug where ``node-scheduler.max-pending-splits-per-node-per-task`` config is not always

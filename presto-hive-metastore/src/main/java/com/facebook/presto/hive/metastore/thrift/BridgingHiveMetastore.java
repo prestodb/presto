@@ -154,9 +154,10 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
-        delegate.updatePartitionStatistics(metastoreContext, databaseName, tableName, partitionName, update);
+        updates.forEach(
+                (partitionName, update) -> delegate.updatePartitionStatistics(metastoreContext, databaseName, tableName, partitionName, update));
     }
 
     @Override

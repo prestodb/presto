@@ -18,8 +18,10 @@ import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProvider;
 import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProviderFactory;
 import com.google.common.collect.ImmutableMap;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
@@ -28,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 
 public class NodeStatusNotificationManager
 {
-    private static final File NODE_STATUS_NOTIFICATION_CONFIG = new File("etc/node-status-notification.properties");
+    private static final Path NODE_STATUS_NOTIFICATION_CONFIG = Paths.get("etc/node-status-notification.properties");
     private NodeStatusNotificationProviderFactory notificationProviderFactory;
     private NodeStatusNotificationProvider notificationProvider = new NoOpNodeStatusNotificationProvider();
     private boolean isNotificationProviderAdded;
@@ -52,8 +54,8 @@ public class NodeStatusNotificationManager
     private Map<String, String> getConfig()
             throws IOException
     {
-        if (NODE_STATUS_NOTIFICATION_CONFIG.exists()) {
-            return loadProperties(NODE_STATUS_NOTIFICATION_CONFIG);
+        if (Files.exists(NODE_STATUS_NOTIFICATION_CONFIG)) {
+            return loadProperties(NODE_STATUS_NOTIFICATION_CONFIG.toFile());
         }
         return ImmutableMap.of();
     }

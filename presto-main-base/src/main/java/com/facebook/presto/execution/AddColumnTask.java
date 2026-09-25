@@ -23,14 +23,17 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.connector.ColumnPosition;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
@@ -39,8 +42,11 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.execution.ColumnPositionUtil.toConnectorColumnPosition;
+import static com.facebook.presto.execution.CreateTableTask.normalizeDerivedColumnSpec;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
+import static com.facebook.presto.spi.ColumnMetadata.DEFAULT_VALUE_PROPERTY;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
@@ -96,7 +102,8 @@ public class AddColumnTask
         if (type.equals(UNKNOWN)) {
             throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
-        if (columnHandles.containsKey(element.getName().getValueLowerCase())) {
+        String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), element.getName().getValue());
+        if (columnHandles.containsKey(name)) {
             if (!statement.isColumnNotExists()) {
                 throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
             }
@@ -115,18 +122,32 @@ public class AddColumnTask
                 metadata,
                 parameterExtractor(statement, parameters));
 
-        Identifier columnIdentifier = element.getName();
-        String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnIdentifier.getValue());
-
+        if (element.getDefaultExpression().isPresent() && element.getDerivedColumnSpec().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, element, "Both default expression and derived column expression cannot be set on the same column %s.", element.getName());
+        }
+        // Handle default expression if present
+        if (element.getDefaultExpression().isPresent()) {
+            Map<String, Object> updatedProperties = new java.util.HashMap<>(columnProperties);
+            Expression defaultExpr = element.getDefaultExpression().get();
+            Object defaultValue = ExpressionInterpreter.evaluateConstantExpression(defaultExpr, type, metadata, session, ImmutableMap.of());
+            updatedProperties.put(DEFAULT_VALUE_PROPERTY, defaultValue);
+            columnProperties = updatedProperties;
+        }
+        Optional<DerivedColumnSpec> derivedColumnSpec = normalizeDerivedColumnSpec(element, name);
         ColumnMetadata column = ColumnMetadata.builder()
                 .setName(name)
                 .setType(type)
                 .setNullable(element.isNullable())
                 .setComment(element.getComment().orElse(null))
                 .setProperties(columnProperties)
+                .setDerivedColumnSpec(derivedColumnSpec)
                 .build();
 
-        metadata.addColumn(session, tableHandle.get(), column);
+        ColumnPosition position = statement.getPosition()
+                .map(p -> toConnectorColumnPosition(p, statement, metadata, session, tableName.getCatalogName(), tableHandle.get(), columnHandles))
+                .orElseGet(ColumnPosition.Last::new);
+
+        metadata.addColumn(session, tableHandle.get(), column, position);
 
         return immediateFuture(null);
     }

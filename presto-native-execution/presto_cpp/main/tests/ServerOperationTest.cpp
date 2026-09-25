@@ -222,7 +222,7 @@ TEST_F(ServerOperationTest, taskEndpoint) {
 
   // Cleanup and shutdown
   for (const auto& taskId : taskIds) {
-    taskManager->deleteTask(taskId, true, true);
+    taskManager->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
   }
   taskManager->shutdown();
   connector::unregisterConnector("test-hive");
@@ -246,7 +246,7 @@ TEST_F(ServerOperationTest, systemConfigEndpoint) {
       {.target = ServerOperation::Target::kSystemConfig,
        .action = ServerOperation::Action::kGetProperty},
       &httpMessage);
-  EXPECT_EQ(std::stoi(getPropertyResponse), folly::hardware_concurrency());
+  EXPECT_EQ(std::stoi(getPropertyResponse), folly::available_concurrency());
 }
 
 TEST_F(ServerOperationTest, veloxQueryConfigEndpoint) {
@@ -270,7 +270,7 @@ TEST_F(ServerOperationTest, veloxQueryConfigEndpoint) {
       {.target = ServerOperation::Target::kVeloxQueryConfig,
        .action = ServerOperation::Action::kGetProperty},
       &httpMessage);
-  EXPECT_EQ(std::stoi(getPropertyResponse), folly::hardware_concurrency());
+  EXPECT_EQ(std::stoi(getPropertyResponse), folly::available_concurrency());
 
   // Setting a registered property returns a message with "velox query config"
   // wording (verifying the copy-paste bug fix from systemConfigOperation).

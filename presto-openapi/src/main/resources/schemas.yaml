@@ -486,6 +486,55 @@ components:
           type: integer
         min:
           type: integer
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeMetricEvent'
+    RuntimeMetricEvent:
+      type: object
+      required:
+        - spanId
+        - parentSpanId
+        - startTimeNanos
+        - endTimeNanos
+        - durationNanos
+        - startThreadId
+        - endThreadId
+        - failed
+      properties:
+        spanId:
+          type: integer
+          format: int64
+        parentSpanId:
+          type: integer
+          format: int64
+        startTimeNanos:
+          type: integer
+          format: int64
+          description: Nanoseconds since the Unix epoch, anchored to a millisecond-resolution wall clock.
+        endTimeNanos:
+          type: integer
+          format: int64
+          description: Nanoseconds since the Unix epoch, anchored to a millisecond-resolution wall clock.
+        durationNanos:
+          type: integer
+          format: int64
+          description: Duration measured with a monotonic clock.
+          readOnly: true
+        startThreadId:
+          type: integer
+          format: int64
+        endThreadId:
+          type: integer
+          format: int64
+        startThreadName:
+          type: string
+          nullable: true
+        endThreadName:
+          type: string
+          nullable: true
+        failed:
+          type: boolean
     RuntimeUnit:
       type: string
       enum:
@@ -1072,8 +1121,5 @@ components:
         aggregationFunctionMetadata:
           $ref: '#/components/schemas/AggregationFunctionMetadata'
           description: Optional Aggregate-specific metadata (required for aggregation functions)
-
-
-
 
 

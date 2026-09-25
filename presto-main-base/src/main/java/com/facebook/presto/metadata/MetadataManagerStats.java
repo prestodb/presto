@@ -55,6 +55,8 @@ public class MetadataManagerStats
     private final AtomicLong getNewTableLayoutCalls = new AtomicLong();
     private final AtomicLong beginCreateTableCalls = new AtomicLong();
     private final AtomicLong finishCreateTableCalls = new AtomicLong();
+    private final AtomicLong beginCreateVectorIndexCalls = new AtomicLong();
+    private final AtomicLong finishCreateVectorIndexCalls = new AtomicLong();
     private final AtomicLong getInsertLayoutCalls = new AtomicLong();
     private final AtomicLong getStatisticsCollectionMetadataForWriteCalls = new AtomicLong();
     private final AtomicLong getStatisticsCollectionMetadataCalls = new AtomicLong();
@@ -122,10 +124,13 @@ public class MetadataManagerStats
     private final AtomicLong dropTagCalls = new AtomicLong();
     private final AtomicLong dropConstraintCalls = new AtomicLong();
     private final AtomicLong addConstraintCalls = new AtomicLong();
+    private final AtomicLong setColumnTypeCalls = new AtomicLong();
+    private final AtomicLong setColumnPositionCalls = new AtomicLong();
     private final AtomicLong renameTableCalls = new AtomicLong();
     private final AtomicLong setTablePropertiesCalls = new AtomicLong();
     private final AtomicLong addColumnCalls = new AtomicLong();
     private final AtomicLong dropColumnCalls = new AtomicLong();
+    private final AtomicLong setColumnDefaultCalls = new AtomicLong();
     private final AtomicLong renameColumnCalls = new AtomicLong();
     private final AtomicLong normalizeIdentifierCalls = new AtomicLong();
     private final AtomicLong getTableLayoutFilterCoverageCalls = new AtomicLong();
@@ -165,6 +170,8 @@ public class MetadataManagerStats
     private final TimeStat getNewTableLayoutTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat beginCreateTableTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat finishCreateTableTime = new TimeStat(TimeUnit.NANOSECONDS);
+    private final TimeStat beginCreateVectorIndexTime = new TimeStat(TimeUnit.NANOSECONDS);
+    private final TimeStat finishCreateVectorIndexTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat getInsertLayoutTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat getStatisticsCollectionMetadataForWriteTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat getStatisticsCollectionMetadataTime = new TimeStat(TimeUnit.NANOSECONDS);
@@ -231,11 +238,14 @@ public class MetadataManagerStats
     private final TimeStat createTagTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat dropTagTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat dropConstraintTime = new TimeStat(TimeUnit.NANOSECONDS);
+    private final TimeStat setColumnTypeTime = new TimeStat(TimeUnit.NANOSECONDS);
+    private final TimeStat setColumnPositionTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat addConstraintTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat renameTableTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat setTablePropertiesTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat addColumnTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat dropColumnTime = new TimeStat(TimeUnit.NANOSECONDS);
+    private final TimeStat setColumnDefaultTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat renameColumnTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat normalizeIdentifierTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat getTableLayoutFilterCoverageTime = new TimeStat(TimeUnit.NANOSECONDS);
@@ -400,6 +410,12 @@ public class MetadataManagerStats
     }
 
     @Managed
+    public long getSetColumnDefaultCalls()
+    {
+        return setColumnDefaultCalls.get();
+    }
+
+    @Managed
     public long getNormalizeIdentifierCalls()
     {
         return normalizeIdentifierCalls.get();
@@ -415,6 +431,516 @@ public class MetadataManagerStats
     public long getGetTableStatisticsCalls()
     {
         return getTableStatisticsCalls.get();
+    }
+
+    @Managed
+    public long getGetCatalogNamesWithConnectorContextCalls()
+    {
+        return getCatalogNamesWithConnectorContextCalls.get();
+    }
+
+    @Managed
+    public long getIsPushdownSupportedForFilterCalls()
+    {
+        return isPushdownSupportedForFilterCalls.get();
+    }
+
+    @Managed
+    public long getCreateTableCalls()
+    {
+        return createTableCalls.get();
+    }
+
+    @Managed
+    public long getCreateTemporaryTableCalls()
+    {
+        return createTemporaryTableCalls.get();
+    }
+
+    @Managed
+    public long getDropTableCalls()
+    {
+        return dropTableCalls.get();
+    }
+
+    @Managed
+    public long getTruncateTableCalls()
+    {
+        return truncateTableCalls.get();
+    }
+
+    @Managed
+    public long getGetNewTableLayoutCalls()
+    {
+        return getNewTableLayoutCalls.get();
+    }
+
+    @Managed
+    public long getBeginCreateTableCalls()
+    {
+        return beginCreateTableCalls.get();
+    }
+
+    @Managed
+    public long getFinishCreateTableCalls()
+    {
+        return finishCreateTableCalls.get();
+    }
+
+    @Managed
+    public long getBeginCreateVectorIndexCalls()
+    {
+        return beginCreateVectorIndexCalls.get();
+    }
+
+    @Managed
+    public long getFinishCreateVectorIndexCalls()
+    {
+        return finishCreateVectorIndexCalls.get();
+    }
+
+    @Managed
+    public long getGetInsertLayoutCalls()
+    {
+        return getInsertLayoutCalls.get();
+    }
+
+    @Managed
+    public long getGetStatisticsCollectionMetadataForWriteCalls()
+    {
+        return getStatisticsCollectionMetadataForWriteCalls.get();
+    }
+
+    @Managed
+    public long getGetStatisticsCollectionMetadataCalls()
+    {
+        return getStatisticsCollectionMetadataCalls.get();
+    }
+
+    @Managed
+    public long getBeginStatisticsCollectionCalls()
+    {
+        return beginStatisticsCollectionCalls.get();
+    }
+
+    @Managed
+    public long getFinishStatisticsCollectionCalls()
+    {
+        return finishStatisticsCollectionCalls.get();
+    }
+
+    @Managed
+    public long getBeginQueryCalls()
+    {
+        return beginQueryCalls.get();
+    }
+
+    @Managed
+    public long getCleanupQueryCalls()
+    {
+        return cleanupQueryCalls.get();
+    }
+
+    @Managed
+    public long getBeginInsertCalls()
+    {
+        return beginInsertCalls.get();
+    }
+
+    @Managed
+    public long getFinishInsertCalls()
+    {
+        return finishInsertCalls.get();
+    }
+
+    @Managed
+    public long getGetDeleteRowIdColumnCalls()
+    {
+        return getDeleteRowIdColumnCalls.get();
+    }
+
+    @Managed
+    public long getGetUpdateRowIdColumnCalls()
+    {
+        return getUpdateRowIdColumnCalls.get();
+    }
+
+    @Managed
+    public long getSupportsMetadataDeleteCalls()
+    {
+        return supportsMetadataDeleteCalls.get();
+    }
+
+    @Managed
+    public long getMetadataDeleteCalls()
+    {
+        return metadataDeleteCalls.get();
+    }
+
+    @Managed
+    public long getBeginDeleteCalls()
+    {
+        return beginDeleteCalls.get();
+    }
+
+    @Managed
+    public long getFinishDeleteWithOutputCalls()
+    {
+        return finishDeleteWithOutputCalls.get();
+    }
+
+    @Managed
+    public long getBeginCallDistributedProcedureCalls()
+    {
+        return beginCallDistributedProcedureCalls.get();
+    }
+
+    @Managed
+    public long getFinishCallDistributedProcedureCalls()
+    {
+        return finishCallDistributedProcedureCalls.get();
+    }
+
+    @Managed
+    public long getBeginUpdateCalls()
+    {
+        return beginUpdateCalls.get();
+    }
+
+    @Managed
+    public long getFinishUpdateCalls()
+    {
+        return finishUpdateCalls.get();
+    }
+
+    @Managed
+    public long getGetRowChangeParadigmCalls()
+    {
+        return getRowChangeParadigmCalls.get();
+    }
+
+    @Managed
+    public long getGetMergeTargetTableRowIdColumnHandleCalls()
+    {
+        return getMergeTargetTableRowIdColumnHandleCalls.get();
+    }
+
+    @Managed
+    public long getBeginMergeCalls()
+    {
+        return beginMergeCalls.get();
+    }
+
+    @Managed
+    public long getFinishMergeCalls()
+    {
+        return finishMergeCalls.get();
+    }
+
+    @Managed
+    public long getGetCatalogHandleCalls()
+    {
+        return getCatalogHandleCalls.get();
+    }
+
+    @Managed
+    public long getGetCatalogNamesCalls()
+    {
+        return getCatalogNamesCalls.get();
+    }
+
+    @Managed
+    public long getListViewsCalls()
+    {
+        return listViewsCalls.get();
+    }
+
+    @Managed
+    public long getGetViewsCalls()
+    {
+        return getViewsCalls.get();
+    }
+
+    @Managed
+    public long getCreateViewCalls()
+    {
+        return createViewCalls.get();
+    }
+
+    @Managed
+    public long getRenameViewCalls()
+    {
+        return renameViewCalls.get();
+    }
+
+    @Managed
+    public long getDropViewCalls()
+    {
+        return dropViewCalls.get();
+    }
+
+    @Managed
+    public long getCreateMaterializedViewCalls()
+    {
+        return createMaterializedViewCalls.get();
+    }
+
+    @Managed
+    public long getDropMaterializedViewCalls()
+    {
+        return dropMaterializedViewCalls.get();
+    }
+
+    @Managed
+    public long getListMaterializedViewsCalls()
+    {
+        return listMaterializedViewsCalls.get();
+    }
+
+    @Managed
+    public long getGetMaterializedViewsCalls()
+    {
+        return getMaterializedViewsCalls.get();
+    }
+
+    @Managed
+    public long getBeginRefreshMaterializedViewCalls()
+    {
+        return beginRefreshMaterializedViewCalls.get();
+    }
+
+    @Managed
+    public long getFinishRefreshMaterializedViewCalls()
+    {
+        return finishRefreshMaterializedViewCalls.get();
+    }
+
+    @Managed
+    public long getGetReferencedMaterializedViewsCalls()
+    {
+        return getReferencedMaterializedViewsCalls.get();
+    }
+
+    @Managed
+    public long getGetMaterializedViewStatusCalls()
+    {
+        return getMaterializedViewStatusCalls.get();
+    }
+
+    @Managed
+    public long getResolveIndexCalls()
+    {
+        return resolveIndexCalls.get();
+    }
+
+    @Managed
+    public long getCreateRoleCalls()
+    {
+        return createRoleCalls.get();
+    }
+
+    @Managed
+    public long getDropRoleCalls()
+    {
+        return dropRoleCalls.get();
+    }
+
+    @Managed
+    public long getListRolesCalls()
+    {
+        return listRolesCalls.get();
+    }
+
+    @Managed
+    public long getListRoleGrantsCalls()
+    {
+        return listRoleGrantsCalls.get();
+    }
+
+    @Managed
+    public long getGrantRolesCalls()
+    {
+        return grantRolesCalls.get();
+    }
+
+    @Managed
+    public long getRevokeRolesCalls()
+    {
+        return revokeRolesCalls.get();
+    }
+
+    @Managed
+    public long getListApplicableRolesCalls()
+    {
+        return listApplicableRolesCalls.get();
+    }
+
+    @Managed
+    public long getListEnabledRolesCalls()
+    {
+        return listEnabledRolesCalls.get();
+    }
+
+    @Managed
+    public long getGrantTablePrivilegesCalls()
+    {
+        return grantTablePrivilegesCalls.get();
+    }
+
+    @Managed
+    public long getRevokeTablePrivilegesCalls()
+    {
+        return revokeTablePrivilegesCalls.get();
+    }
+
+    @Managed
+    public long getListTablePrivilegesCalls()
+    {
+        return listTablePrivilegesCalls.get();
+    }
+
+    @Managed
+    public long getCommitPageSinkAsyncCalls()
+    {
+        return commitPageSinkAsyncCalls.get();
+    }
+
+    @Managed
+    public long getGetFunctionAndTypeManagerCalls()
+    {
+        return getFunctionAndTypeManagerCalls.get();
+    }
+
+    @Managed
+    public long getGetProcedureRegistryCalls()
+    {
+        return getProcedureRegistryCalls.get();
+    }
+
+    @Managed
+    public long getGetBlockEncodingSerdeCalls()
+    {
+        return getBlockEncodingSerdeCalls.get();
+    }
+
+    @Managed
+    public long getGetSessionPropertyManagerCalls()
+    {
+        return getSessionPropertyManagerCalls.get();
+    }
+
+    @Managed
+    public long getGetSchemaPropertyManagerCalls()
+    {
+        return getSchemaPropertyManagerCalls.get();
+    }
+
+    @Managed
+    public long getGetTablePropertyManagerCalls()
+    {
+        return getTablePropertyManagerCalls.get();
+    }
+
+    @Managed
+    public long getGetColumnPropertyManagerCalls()
+    {
+        return getColumnPropertyManagerCalls.get();
+    }
+
+    @Managed
+    public long getGetAnalyzePropertyManagerCalls()
+    {
+        return getAnalyzePropertyManagerCalls.get();
+    }
+
+    @Managed
+    public long getGetMetadataResolverCalls()
+    {
+        return getMetadataResolverCalls.get();
+    }
+
+    @Managed
+    public long getGetConnectorCapabilitiesCalls()
+    {
+        return getConnectorCapabilitiesCalls.get();
+    }
+
+    @Managed
+    public long getDropBranchCalls()
+    {
+        return dropBranchCalls.get();
+    }
+
+    @Managed
+    public long getCreateBranchCalls()
+    {
+        return createBranchCalls.get();
+    }
+
+    @Managed
+    public long getCreateTagCalls()
+    {
+        return createTagCalls.get();
+    }
+
+    @Managed
+    public long getDropTagCalls()
+    {
+        return dropTagCalls.get();
+    }
+
+    @Managed
+    public long getDropConstraintCalls()
+    {
+        return dropConstraintCalls.get();
+    }
+
+    @Managed
+    public long getAddConstraintCalls()
+    {
+        return addConstraintCalls.get();
+    }
+
+    @Managed
+    public long getSetColumnTypeCalls()
+    {
+        return setColumnTypeCalls.get();
+    }
+
+    @Managed
+    public long getSetColumnPositionCalls()
+    {
+        return setColumnPositionCalls.get();
+    }
+
+    @Managed
+    public long getRenameTableCalls()
+    {
+        return renameTableCalls.get();
+    }
+
+    @Managed
+    public long getSetTablePropertiesCalls()
+    {
+        return setTablePropertiesCalls.get();
+    }
+
+    @Managed
+    public long getAddColumnCalls()
+    {
+        return addColumnCalls.get();
+    }
+
+    @Managed
+    public long getDropColumnCalls()
+    {
+        return dropColumnCalls.get();
+    }
+
+    @Managed
+    public long getRenameColumnCalls()
+    {
+        return renameColumnCalls.get();
     }
 
     @Managed
@@ -646,6 +1172,20 @@ public class MetadataManagerStats
     public TimeStat getFinishCreateTableTime()
     {
         return finishCreateTableTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getBeginCreateVectorIndexTime()
+    {
+        return beginCreateVectorIndexTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getFinishCreateVectorIndexTime()
+    {
+        return finishCreateVectorIndexTime;
     }
 
     @Managed
@@ -1084,6 +1624,20 @@ public class MetadataManagerStats
 
     @Managed
     @Nested
+    public TimeStat getCreateBranchTime()
+    {
+        return createBranchTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getCreateTagTime()
+    {
+        return createTagTime;
+    }
+
+    @Managed
+    @Nested
     public TimeStat getDropTagTime()
     {
         return dropTagTime;
@@ -1126,9 +1680,30 @@ public class MetadataManagerStats
 
     @Managed
     @Nested
+    public TimeStat getSetColumnTypeTime()
+    {
+        return setColumnTypeTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getSetColumnPositionTime()
+    {
+        return setColumnPositionTime;
+    }
+
+    @Managed
+    @Nested
     public TimeStat getDropColumnTime()
     {
         return dropColumnTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getSetColumnDefaultTime()
+    {
+        return setColumnDefaultTime;
     }
 
     @Managed
@@ -1157,6 +1732,20 @@ public class MetadataManagerStats
     public TimeStat getGetTableStatisticsTime()
     {
         return getTableStatisticsTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getGetCatalogNamesWithConnectorContextTime()
+    {
+        return getCatalogNamesWithConnectorContextTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getIsPushdownSupportedForFilterTime()
+    {
+        return isPushdownSupportedForFilterTime;
     }
 
     public void recordApplyTableFunctionCall(long duration)
@@ -1355,6 +1944,18 @@ public class MetadataManagerStats
     {
         finishCreateTableCalls.incrementAndGet();
         finishCreateTableTime.add(duration, TimeUnit.NANOSECONDS);
+    }
+
+    public void recordBeginCreateVectorIndexCall(long duration)
+    {
+        beginCreateVectorIndexCalls.incrementAndGet();
+        beginCreateVectorIndexTime.add(duration, TimeUnit.NANOSECONDS);
+    }
+
+    public void recordFinishCreateVectorIndexCall(long duration)
+    {
+        finishCreateVectorIndexCalls.incrementAndGet();
+        finishCreateVectorIndexTime.add(duration, TimeUnit.NANOSECONDS);
     }
 
     public void recordGetInsertLayoutCall(long duration)
@@ -1777,6 +2378,18 @@ public class MetadataManagerStats
         addColumnTime.add(duration, TimeUnit.NANOSECONDS);
     }
 
+    public void recordSetColumnTypeCall(long duration)
+    {
+        setColumnTypeCalls.incrementAndGet();
+        setColumnTypeTime.add(duration, TimeUnit.NANOSECONDS);
+    }
+
+    public void recordSetColumnPositionCall(long duration)
+    {
+        setColumnPositionCalls.incrementAndGet();
+        setColumnPositionTime.add(duration, TimeUnit.NANOSECONDS);
+    }
+
     public void recordDropColumnCall(long duration)
     {
         dropColumnCalls.incrementAndGet();
@@ -1787,6 +2400,12 @@ public class MetadataManagerStats
     {
         renameColumnCalls.incrementAndGet();
         renameColumnTime.add(duration, TimeUnit.NANOSECONDS);
+    }
+
+    public void recordSetColumnDefaultCall(long duration)
+    {
+        setColumnDefaultCalls.incrementAndGet();
+        setColumnDefaultTime.add(duration, TimeUnit.NANOSECONDS);
     }
 
     public void recordNormalizeIdentifierCall(long duration)
@@ -1807,36 +2426,10 @@ public class MetadataManagerStats
         getTableStatisticsTime.add(duration, TimeUnit.NANOSECONDS);
     }
 
-    @Managed
-    public long getGetCatalogNamesWithConnectorContextCalls()
-    {
-        return getCatalogNamesWithConnectorContextCalls.get();
-    }
-
-    @Managed
-    @Nested
-    public TimeStat getGetCatalogNamesWithConnectorContextTime()
-    {
-        return getCatalogNamesWithConnectorContextTime;
-    }
-
     public void recordGetCatalogNamesWithConnectorContextCall(long duration)
     {
         getCatalogNamesWithConnectorContextCalls.incrementAndGet();
         getCatalogNamesWithConnectorContextTime.add(duration, TimeUnit.NANOSECONDS);
-    }
-
-    @Managed
-    public long getIsPushdownSupportedForFilterCalls()
-    {
-        return isPushdownSupportedForFilterCalls.get();
-    }
-
-    @Managed
-    @Nested
-    public TimeStat getIsPushdownSupportedForFilterTime()
-    {
-        return isPushdownSupportedForFilterTime;
     }
 
     public void recordIsPushdownSupportedForFilterCall(long duration)

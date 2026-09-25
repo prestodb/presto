@@ -6,6 +6,7 @@ Installation
     :maxdepth: 1
 
     installation/deployment
+    installation/deploy-custom-plugins
     installation/deploy-brew
     installation/deploy-docker
     installation/deploy-helm

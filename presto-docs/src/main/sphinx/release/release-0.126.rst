@@ -27,8 +27,8 @@ General Changes
 * Improve performance of queries that use an ``IN`` expression with a large
   list of constant values.
 * Enable connector predicate push down for all comparable and equatable types.
-* Fix query planning failure when using certain operations such as ``GROUP BY``,
-  ``DISTINCT``, etc. on the output columns of ``UNNEST``.
+* Fix query planning failure when using certain operations such as ``GROUP BY`` or
+  ``DISTINCT`` on the output columns of ``UNNEST``.
 * In ``ExchangeClient`` set ``maxResponseSize`` to be slightly smaller than
   the configured value. This reduces the possibility of encountering
   ``PageTooLargeException``.

@@ -13,6 +13,7 @@ find_package(Arrow REQUIRED CONFIG)
 find_package(ArrowFlight REQUIRED)
 
 add_subdirectory(auth)
+add_subdirectory(arrow_federation)
 
 add_library(presto_flight_connector_utils INTERFACE Macros.h)
 target_link_libraries(presto_flight_connector_utils INTERFACE velox_exception)
@@ -29,7 +30,7 @@ target_compile_definitions(presto_flight_connector PUBLIC PRESTO_ENABLE_ARROW_FL
 
 target_link_libraries(
   presto_flight_connector
-  velox_connector
+  velox
   ArrowFlight::arrow_flight_shared
   presto_flight_connector_utils
   presto_flight_connector_auth

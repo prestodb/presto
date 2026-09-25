@@ -150,6 +150,18 @@ Binary Functions
 
     Computes the xxhash64 hash of ``binary`` with seed ``bigint``.
 
+.. function:: xxhash128(binary) -> varbinary
+
+    Computes the XXH3 128-bit hash of ``binary``, returned as the 16-byte
+    big-endian canonical representation.
+
+.. function:: xxhash128(binary, bigint) -> varbinary
+
+    Computes the XXH3 128-bit hash of ``binary`` with seed ``bigint``, returned
+    as the 16-byte big-endian canonical representation. The seed accepts the full
+    ``bigint`` range; XXH3 consumes it as an unsigned 64-bit value, so a negative
+    seed is used as-is with its two's-complement bit pattern.
+
 .. function:: spooky_hash_v2_32(binary) -> varbinary
 
     Computes the 32-bit SpookyHashV2 hash of ``binary``.

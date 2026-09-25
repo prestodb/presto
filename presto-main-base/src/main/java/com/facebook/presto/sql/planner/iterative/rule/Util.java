@@ -23,6 +23,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -43,6 +44,15 @@ class Util
 {
     private Util()
     {
+    }
+
+    /**
+     * Returns true if the given plan node is a memo group reference whose logical properties have been derived.
+     * Callers that consult logical properties must guard on this, as properties are not derivable for every plan shape.
+     */
+    public static boolean hasLogicalProperties(PlanNode node)
+    {
+        return node instanceof GroupReference && ((GroupReference) node).getLogicalProperties().isPresent();
     }
 
     /**

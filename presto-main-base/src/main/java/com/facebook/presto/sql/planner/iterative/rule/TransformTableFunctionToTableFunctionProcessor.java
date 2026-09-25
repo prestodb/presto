@@ -80,7 +80,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -184,12 +184,12 @@ public class TransformTableFunctionToTableFunctionProcessor
             // If the source has row semantics, its specification is empty.
             // If the source has set semantics, its specification is present, even if there is no partitioning or ordering specified.
             // This property can be used later to choose optimal distribution.
-            TableArgumentProperties sourceProperties = getOnlyElement(node.getTableArgumentProperties());
+            TableArgumentProperties sourceProperties = node.getTableArgumentProperties().stream().collect(onlyElement());
             return Result.ofPlanNode(new TableFunctionProcessorNode(
                     node.getId(),
                     node.getName(),
                     node.getProperOutputs(),
-                    Optional.of(getOnlyElement(node.getSources())),
+                    Optional.of(node.getSources().stream().collect(onlyElement())),
                     sourceProperties.isPruneWhenEmpty(),
                     ImmutableList.of(sourceProperties.getPassThroughSpecification()),
                     ImmutableList.of(sourceProperties.getRequiredColumns()),
@@ -244,7 +244,7 @@ public class TransformTableFunctionToTableFunctionProcessor
 
         List<NodeWithVariables> intermediateResultSources = intermediateResultsBuilder.build();
         if (intermediateResultSources.size() == 1) {
-            finalResultSource = getOnlyElement(intermediateResultSources);
+            finalResultSource = intermediateResultSources.stream().collect(onlyElement());
         }
         else {
             NodeWithVariables first = intermediateResultSources.get(0);

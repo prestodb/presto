@@ -73,7 +73,7 @@ To enable mTLS, the following properties must be configured:
 - ``arrow-flight.client-ssl-certificate``: Path to the client's SSL certificate.
 - ``arrow-flight.client-ssl-key``: Path to the client's SSL private key.
 
-These properties must be used alongside the existing SSL configurations for the server, such as ``arrow-flight.server-ssl-certificate`` and ``arrow-flight.server-ssl-enabled=true``. Make sure the server is configured to trust the client certificates (typically via a shared CA).
+These properties must be used alongside the existing SSL configurations for the server, such as ``arrow-flight.server-ssl-certificate`` and ``arrow-flight.server-ssl-enabled=true``. Make sure the server is configured to trust the client certificates (typically through a shared CA).
 
 Below is an example code snippet to configure the Arrow Flight server with mTLS:
 

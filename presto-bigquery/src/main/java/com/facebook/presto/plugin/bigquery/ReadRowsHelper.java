@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.bigquery;
 
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsRequest;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsResponse;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
+import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -25,14 +25,14 @@ import static java.util.Objects.requireNonNull;
 
 public class ReadRowsHelper
 {
-    private BigQueryStorageClient client;
+    private BigQueryReadClient client;
     private ReadRowsRequest.Builder request;
     private int maxReadRowsRetries;
 
-    public ReadRowsHelper(BigQueryStorageClient client, ReadRowsRequest.Builder request, int maxReadRowsRetries)
+    public ReadRowsHelper(BigQueryReadClient client, ReadRowsRequest.Builder request, int maxReadRowsRetries)
     {
         this.client = requireNonNull(client, "client cannot be null");
-        this.request = requireNonNull(request, "client cannot be null");
+        this.request = requireNonNull(request, "request cannot be null");
         this.maxReadRowsRetries = maxReadRowsRetries;
     }
 
@@ -52,13 +52,13 @@ public class ReadRowsHelper
             catch (RuntimeException e) {
                 // if relevant, retry the read, from the last read position
                 if (BigQueryUtil.isRetryable(e) && retries < maxReadRowsRetries) {
-                    request.getReadPositionBuilder().setOffset(readRowsCount);
+                    request.setOffset(readRowsCount);
                     serverResponses = fetchResponses(request);
                     retries++;
                 }
                 else {
                     // to safely close the client
-                    try (BigQueryStorageClient ignored = client) {
+                    try (BigQueryReadClient ignored = client) {
                         throw e;
                     }
                 }

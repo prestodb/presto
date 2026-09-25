@@ -30,17 +30,27 @@ public class MergeUpdate
 
     public MergeUpdate(List<Assignment> assignments)
     {
-        this(Optional.empty(), assignments);
+        this(Optional.empty(), Optional.empty(), assignments);
     }
 
     public MergeUpdate(NodeLocation location, List<Assignment> assignments)
     {
-        this(Optional.of(location), assignments);
+        this(Optional.of(location), Optional.empty(), assignments);
     }
 
     public MergeUpdate(Optional<NodeLocation> location, List<Assignment> assignments)
     {
-        super(location);
+        this(location, Optional.empty(), assignments);
+    }
+
+    public MergeUpdate(NodeLocation location, Optional<Expression> condition, List<Assignment> assignments)
+    {
+        this(Optional.of(location), condition, assignments);
+    }
+
+    public MergeUpdate(Optional<NodeLocation> location, Optional<Expression> condition, List<Assignment> assignments)
+    {
+        super(location, condition);
         this.assignments = ImmutableList.copyOf(requireNonNull(assignments, "assignments is null"));
     }
 
@@ -75,6 +85,7 @@ public class MergeUpdate
     public List<? extends Node> getChildren()
     {
         ImmutableList.Builder<Node> builder = ImmutableList.builder();
+        getCondition().ifPresent(builder::add);
         assignments.forEach(assignment -> {
             builder.add(assignment.getTarget());
             builder.add(assignment.getValue());
@@ -85,7 +96,7 @@ public class MergeUpdate
     @Override
     public int hashCode()
     {
-        return Objects.hash(assignments);
+        return Objects.hash(getCondition(), assignments);
     }
 
     @Override
@@ -98,13 +109,15 @@ public class MergeUpdate
             return false;
         }
         MergeUpdate o = (MergeUpdate) obj;
-        return Objects.equals(assignments, o.assignments);
+        return Objects.equals(getCondition(), o.getCondition()) &&
+                Objects.equals(assignments, o.assignments);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
+                .add("condition", getCondition().orElse(null))
                 .add("assignments", assignments)
                 .omitNullValues()
                 .toString();

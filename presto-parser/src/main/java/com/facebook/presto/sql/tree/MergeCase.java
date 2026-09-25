@@ -16,12 +16,22 @@ package com.facebook.presto.sql.tree;
 import java.util.List;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public abstract class MergeCase
         extends Node
 {
-    protected MergeCase(Optional<NodeLocation> location)
+    private final Optional<Expression> condition;
+
+    protected MergeCase(Optional<NodeLocation> location, Optional<Expression> condition)
     {
         super(location);
+        this.condition = requireNonNull(condition, "condition is null");
+    }
+
+    public Optional<Expression> getCondition()
+    {
+        return condition;
     }
 
     @Override

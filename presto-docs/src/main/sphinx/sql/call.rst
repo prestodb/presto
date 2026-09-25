@@ -37,7 +37,7 @@ Intermediate parameters cannot be omitted::
 Some connectors, such as the :doc:`/connector/postgresql`, are for systems
 that have their own stored procedures. These stored procedures are separate
 from the connector-defined procedures discussed here and thus are not
-directly callable via ``CALL``.
+directly callable with ``CALL``.
 
 See connector documentation for details on available procedures.
 

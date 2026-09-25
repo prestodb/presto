@@ -26,7 +26,7 @@ function install_proxygen {
   ${SUDO} apt update
   ${SUDO} apt install -y gperf python3 libc-ares-dev
   wget_and_untar https://github.com/facebook/proxygen/archive/refs/tags/${FB_OS_VERSION}.tar.gz proxygen
-  cmake_install_dir proxygen -DBUILD_TESTS=OFF
+  cmake_install_dir proxygen -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
 }
 
 function install_datasketches {

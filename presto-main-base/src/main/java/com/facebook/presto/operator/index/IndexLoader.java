@@ -35,7 +35,6 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -54,9 +53,6 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INDEX_LOADER_TIMEOUT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.filter;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -209,7 +205,10 @@ public class IndexLoader
                 // Try loading just my request
                 if (requests.size() > 1) {
                     // Add all other requests back into the queue
-                    Iterables.addAll(updateRequests, filter(requests, not(equalTo(myUpdateRequest))));
+                    final UpdateRequest currentRequest = myUpdateRequest;
+                    requests.stream()
+                            .filter(request -> !request.equals(currentRequest))
+                            .forEach(updateRequests::add);
 
                     if (indexSnapshotLoader.load(ImmutableList.of(myUpdateRequest))) {
                         stats.recordSuccessfulIndexJoinLookupBySingleRequest();

@@ -25,14 +25,22 @@ import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
@@ -46,6 +54,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNK
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_WINDOW_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
@@ -54,9 +63,11 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_OFFSET_
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDER_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARTITION_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_REFERENCE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
@@ -100,6 +111,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_FUNCTION_ORDERBY_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -308,32 +320,7 @@ public class TestAnalyzer
     @Test
     public void testHavingReferencesOutputAlias()
     {
-        // HAVING now support referencing SELECT aliases for improved SQL compatibility
-        analyze("SELECT sum(a) x FROM t1 HAVING x > 5");
-        analyze("SELECT sum(a) AS total FROM t1 GROUP BY b HAVING total > 10");
-        analyze("SELECT count(*) AS cnt, sum(a) AS total FROM t1 GROUP BY b HAVING cnt > 5 AND total > 100");
-        analyze("SELECT sum(a) as sum_a FROM t1 GROUP BY b HAVING sum_a > 1");
-    }
-
-    @Test
-    public void testHavingAmbiguousAlias()
-    {
-        // Ambiguous alias referenced in HAVING should throw appropriate error
-        assertFails(AMBIGUOUS_ATTRIBUTE, "SELECT sum(a) AS x, count(b) AS x FROM t1 GROUP BY c HAVING x > 5");
-    }
-
-    @Test
-    public void testHavingNonExistentAlias()
-    {
-        // Non-existent alias in HAVING should fail with MISSING_ATTRIBUTE
-        assertFails(MISSING_ATTRIBUTE, "SELECT sum(a) AS total FROM t1 GROUP BY b HAVING unknown_alias > 5");
-    }
-
-    @Test
-    public void testHavingWindowFunctionViaAlias()
-    {
-        // Window functions are not allowed in HAVING, even when referenced via alias
-        assertFails(NESTED_WINDOW, "SELECT row_number() OVER () AS rn FROM t1 GROUP BY b HAVING rn > 1");
+        assertFails(MISSING_ATTRIBUTE, "SELECT sum(a) x FROM t1 HAVING x > 5");
     }
 
     @Test
@@ -860,6 +847,93 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testWindowClause()
+    {
+        // reference a window declared in the WINDOW clause
+        analyze("SELECT rank() OVER w FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ORDER BY y)");
+
+        // the same window referenced by several window functions
+        analyze("SELECT rank() OVER w, count(*) OVER w FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ORDER BY y)");
+
+        // window chaining: a definition refines another definition
+        analyze("SELECT sum(y) OVER w2 FROM (VALUES (1, 2)) T(x, y) WINDOW w1 AS (PARTITION BY x), w2 AS (w1 ORDER BY y)");
+
+        // refine a named window at the point of use
+        analyze("SELECT sum(y) OVER (w ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ORDER BY y)");
+        analyze("SELECT sum(y) OVER (w RANGE BETWEEN 1 PRECEDING AND CURRENT ROW) FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (ORDER BY x)");
+
+        // a derived window may add an offset RANGE frame to an inherited ordering
+        analyze("SELECT sum(y) OVER w2 FROM (VALUES (1, 2)) T(x, y) WINDOW w1 AS (ORDER BY x), w2 AS (w1 RANGE BETWEEN 1 PRECEDING AND CURRENT ROW)");
+
+        // window names are matched case insensitively, like other identifiers
+        analyze("SELECT rank() OVER W FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ORDER BY y)");
+
+        // a window function in ORDER BY can reference the WINDOW clause
+        analyze("SELECT x FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ORDER BY y) ORDER BY rank() OVER w");
+
+        // an unreferenced window definition is still analyzed
+        analyze("SELECT 1 FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x)");
+        analyze("SELECT 1 FROM (VALUES (1), (2)) T(x) WINDOW w AS (ORDER BY sum(x))");
+
+        // window names fold case like other Presto identifiers, including when quoted
+        analyze("SELECT rank() OVER W FROM (VALUES (1, 2)) T(x, y) WINDOW \"w\" AS (PARTITION BY x)");
+
+        // an unreferenced window definition containing a subquery is analyzed
+        analyze("SELECT 1 FROM (VALUES 1) T(x) WINDOW w AS (PARTITION BY (SELECT 1))");
+
+        // a named window may use aggregates and grouping columns of a grouped query
+        analyze("SELECT rank() OVER w FROM (VALUES (1, 2)) T(x, y) GROUP BY x WINDOW w AS (ORDER BY sum(y))");
+        analyze("SELECT rank() OVER w FROM (VALUES (1, 2)) T(x, y) GROUP BY x WINDOW w AS (PARTITION BY x)");
+
+        // a window name is scoped to the query specification that declares it, so a subquery
+        // resolves its own WINDOW clause rather than the enclosing one
+        analyze("SELECT (SELECT rank() OVER w FROM (VALUES 1) T2(y) WINDOW w AS (PARTITION BY y)) FROM (VALUES 1) T(x)");
+        analyze("SELECT rank() OVER w FROM (SELECT 1 AS y) T WINDOW w AS (PARTITION BY y)");
+    }
+
+    @Test
+    public void testInvalidWindowClause()
+    {
+        assertFails(INVALID_WINDOW_REFERENCE, "SELECT rank() OVER w FROM (VALUES 1) T(x)");
+        assertFails(INVALID_WINDOW_REFERENCE, "SELECT rank() OVER (w ORDER BY x) FROM (VALUES 1) T(x)");
+        assertFails(DUPLICATE_WINDOW_NAME, "SELECT 1 FROM (VALUES 1) T(x) WINDOW w AS (PARTITION BY x), w AS (ORDER BY x)");
+        assertFails(DUPLICATE_WINDOW_NAME, "SELECT 1 FROM (VALUES 1) T(x) WINDOW w AS (PARTITION BY x), W AS (ORDER BY x)");
+        assertFails(DUPLICATE_WINDOW_NAME, "SELECT 1 FROM (VALUES 1) T(x) WINDOW \"W\" AS (PARTITION BY x), \"w\" AS (ORDER BY x)");
+
+        // a window definition may only reference a window declared before it
+        assertFails(INVALID_WINDOW_REFERENCE, "SELECT 1 FROM (VALUES 1) T(x) WINDOW w1 AS (w2 ORDER BY x), w2 AS (PARTITION BY x)");
+
+        // a window declared in a subquery is not visible to the enclosing query specification
+        assertFails(INVALID_WINDOW_REFERENCE, "SELECT rank() OVER w FROM (SELECT 1 AS y FROM (VALUES 1) T2(z) WINDOW w AS (PARTITION BY z)) T");
+
+        // a specification that references a named window cannot add PARTITION BY
+        assertFails(INVALID_PARTITION_BY, "SELECT rank() OVER (w PARTITION BY y) FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x)");
+
+        // ORDER BY cannot be specified twice
+        assertFails(INVALID_ORDER_BY, "SELECT rank() OVER (w ORDER BY y) FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (ORDER BY x)");
+
+        // a referenced window with a frame cannot be refined
+        assertFails(INVALID_WINDOW_REFERENCE, "SELECT rank() OVER (w ORDER BY y) FROM (VALUES (1, 2)) T(x, y) WINDOW w AS (PARTITION BY x ROWS CURRENT ROW)");
+
+        // window functions cannot be nested inside a window specification
+        assertFails(NESTED_WINDOW, "SELECT 1 FROM (VALUES 1) T(x) WINDOW w AS (PARTITION BY rank() OVER ())");
+
+        // a named window is subject to the grouping rules, like an inline one
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT max(x) FROM (VALUES (1, 2)) T(x, y) GROUP BY y WINDOW w AS (PARTITION BY x)");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT max(x) FROM (VALUES (1, 2)) T(x, y) GROUP BY y WINDOW w AS (ORDER BY x)");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT max(x) FROM (VALUES (1, 2)) T(x, y) GROUP BY y WINDOW w AS (ORDER BY y ROWS BETWEEN x PRECEDING AND CURRENT ROW)");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (VALUES (1), (2)) T(x) WINDOW w AS (ORDER BY sum(x))");
+
+        // nested aggregates are rejected in an unreferenced window definition
+        assertFails(NESTED_AGGREGATION, "SELECT 1 FROM (VALUES 1) T(x) WINDOW w AS (ORDER BY sum(sum(x)))");
+
+        // type checks still apply to a window declared in the WINDOW clause
+        assertFails(TYPE_MISMATCH, "SELECT rank() OVER w FROM (VALUES CAST(NULL AS HyperLogLog)) T(x) WINDOW w AS (PARTITION BY x)");
+        assertFails(MISSING_ORDER_BY, "SELECT array_agg(x) OVER w FROM (VALUES 1) T(x) WINDOW w AS (RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING)");
+        assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER w FROM (VALUES 1) T(x) WINDOW w AS (ORDER BY x GROUPS UNBOUNDED FOLLOWING)");
+    }
+
+    @Test
     public void testInvalidWindowFrameTypeGroups()
     {
         assertFails(INVALID_WINDOW_FRAME, "SELECT rank() OVER (ORDER BY x GROUPS UNBOUNDED FOLLOWING) FROM (VALUES 1) T(x)");
@@ -1101,6 +1175,29 @@ public class TestAnalyzer
                 "WITH a AS (SELECT * FROM t1)," +
                         "     a AS (SELECT * FROM t1)" +
                         "SELECT * FROM a");
+    }
+
+    @Test
+    public void testRowWithDuplicateFieldNames()
+    {
+        // a row type with duplicate field names cannot be round-tripped through its TypeSignature,
+        // so it has to be rejected during analysis rather than surfacing later
+        assertFails(DUPLICATE_COLUMN_NAME, "SELECT ROW(1 AS a, 2 AS a)");
+        assertFails(DUPLICATE_COLUMN_NAME, "SELECT ROW(1 AS \"a\", 2 AS a)");
+        // undelimited names are folded to lower case, exactly as CAST(... AS ROW(a integer, A integer))
+        // is, so these collide too
+        assertFails(DUPLICATE_COLUMN_NAME, "SELECT ROW(1 AS a, 2 AS A)");
+        // duplicates need not be adjacent
+        assertFails(DUPLICATE_COLUMN_NAME, "SELECT ROW(1 AS a, 2 AS b, 3 AS a)");
+        // and are detected independently in a nested row
+        assertFails(DUPLICATE_COLUMN_NAME, "SELECT ROW(ROW(1 AS a, 2 AS a) AS r)");
+        // a name repeated across nesting levels is not a duplicate
+        analyze("SELECT ROW(ROW(1 AS a) AS a)");
+
+        // a delimited name is kept verbatim, so it does not collide with the folded one
+        analyze("SELECT ROW(1 AS a, 2 AS \"A\")");
+        analyze("SELECT ROW(1 AS a, 2)");
+        analyze("SELECT ROW(1, 2)");
     }
 
     @Test
@@ -1554,6 +1651,24 @@ public class TestAnalyzer
     public void testStaleView()
     {
         assertFails(VIEW_IS_STALE, "SELECT * FROM v2");
+    }
+
+    @Test
+    public void testViewWithSymmetricTypeCoercionIsNotStale()
+    {
+        analyze("SELECT * FROM v_symmetric_coercion");
+    }
+
+    @Test
+    public void testViewWithSymmetricCharTypeCoercionIsNotStale()
+    {
+        analyze("SELECT * FROM v_char_symmetric_coercion");
+    }
+
+    @Test
+    public void testViewWithCharAndVarcharTypeMismatchIsNotStale()
+    {
+        analyze("SELECT * FROM v_char_varchar_stale");
     }
 
     @Test
@@ -2398,5 +2513,222 @@ public class TestAnalyzer
 
         assertFails(NOT_SUPPORTED, "line 1:1: Merging into materialized views is not supported",
                 "MERGE INTO mv1 USING t1 ON mv1.a = t1.a WHEN MATCHED THEN  UPDATE SET id = bar.id + 1");
+    }
+
+    @Test
+    public void testCreateVectorIndex()
+    {
+        // basic success cases — t14 has id:BIGINT, embedding_real:array(real), embedding_double:array(double), name:VARCHAR
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real)");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_double)");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'val1')");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'val1', p2 = 'val2')");
+
+        // with UPDATING FOR clause
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real) UPDATING FOR id > 10");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'val1') UPDATING FOR id BETWEEN 1 AND 100");
+
+        // single column (embedding only)
+        analyze("CREATE VECTOR INDEX test_index ON t14(embedding_real)");
+        analyze("CREATE VECTOR INDEX test_index ON t14(embedding_double)");
+
+        // source table does not exist
+        assertFails(MISSING_TABLE, ".*Source table '.*' does not exist",
+                "CREATE VECTOR INDEX test_index ON nonexistent_table(a, b)");
+
+        // destination table already exists — allowed (connector decides how to handle)
+        analyze("CREATE VECTOR INDEX t1 ON t14(id, embedding_real)");
+
+        // column does not exist in source table
+        assertFails(MISSING_COLUMN, ".*Column 'unknown' does not exist in source table '.*'",
+                "CREATE VECTOR INDEX test_index ON t14(id, unknown)");
+        assertFails(MISSING_COLUMN, ".*Column 'nonexistent' does not exist in source table '.*'",
+                "CREATE VECTOR INDEX test_index ON t14(nonexistent)");
+
+        // duplicate columns
+        assertFails(DUPLICATE_COLUMN_NAME, ".*Column name 'id' specified more than once",
+                "CREATE VECTOR INDEX test_index ON t14(id, id)");
+
+        // embedding column type validation — last column must be array(real) or array(double)
+        assertFails(TYPE_MISMATCH, ".*Embedding column 'id' must be of type array\\(real\\) or array\\(double\\).*",
+                "CREATE VECTOR INDEX test_index ON t14(id)");
+        assertFails(TYPE_MISMATCH, ".*Embedding column 'name' must be of type array\\(real\\) or array\\(double\\).*",
+                "CREATE VECTOR INDEX test_index ON t14(id, name)");
+
+        // duplicate columns
+        assertFails(DUPLICATE_COLUMN_NAME, ".*Column name 'a' specified more than once",
+                "CREATE VECTOR INDEX test_index ON t1(a, a)");
+
+        // duplicate properties
+        assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1",
+                "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'v1', p2 = 'v2', p1 = 'v3')");
+        assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1",
+                "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'v1', \"p1\" = 'v2')");
+
+        // unresolved property value
+        assertFails(MISSING_ATTRIBUTE, ".*'y' cannot be resolved",
+                "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = y)");
+
+        // UPDATING FOR with invalid column reference
+        assertFails(MISSING_ATTRIBUTE, ".*",
+                "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) UPDATING FOR nonexistent_col > 10");
+    }
+
+    // Regression test for the MetadataExtractor.Visitor missing a
+    // visitCreateVectorIndex override. With pre_process_metadata_calls=true
+    // (the default on prism interactive clusters), the extractor walks the
+    // parsed AST and prefetches metadata for every referenced table in
+    // parallel before analysis. CreateVectorIndex.getChildren() does not
+    // expose its source table as a Table AST child (the table name is a
+    // QualifiedName field), so without an explicit override the source
+    // table is never registered for prefetch. The downstream analyzer
+    // lookup then takes the cache-only branch in MetadataUtils, finds
+    // nothing, and throws VIEW_NOT_FOUND with an empty available-views
+    // list. This test asserts the override is in place and that CVI
+    // analysis succeeds when the prefetcher is enabled.
+    @Test
+    public void testCreateVectorIndexWithPreProcessMetadataCalls()
+    {
+        Session preProcessEnabledSession = Session.builder(CLIENT_SESSION)
+                .setSystemProperty(SystemSessionProperties.PRE_PROCESS_METADATA_CALLS, "true")
+                .build();
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            transaction(transactionManager, accessControl)
+                    .singleStatement()
+                    .readUncommitted()
+                    .readOnly()
+                    .execute(preProcessEnabledSession, session -> {
+                        String query = "CREATE VECTOR INDEX test_index ON t14(id, embedding_real)";
+                        Analyzer analyzer = new Analyzer(
+                                session,
+                                metadata,
+                                SQL_PARSER,
+                                new AllowAllAccessControl(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                ImmutableMap.of(),
+                                WarningCollector.NOOP,
+                                Optional.of(executor),
+                                query,
+                                new ViewDefinitionReferences());
+                        Statement statement = SQL_PARSER.createStatement(query);
+                        analyzer.analyzeSemantic(statement, false);
+                    });
+        }
+        finally {
+            executor.shutdownNow();
+        }
+    }
+
+    // The refresh scope (the REFRESH MATERIALIZED VIEW WHERE predicate) is captured during analysis and
+    // carried to the connector. These tests pin down the exact RowExpression StatementAnalyzer produces.
+    @Test
+    public void testRefreshMaterializedViewCapturesWhereScopePredicate()
+    {
+        // the integer literal coerces to the BIGINT column type, so no explicit cast is needed
+        assertEquals(refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a = 5"), Optional.of("EQUAL(a, 5)"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesCompoundScopePredicate()
+    {
+        assertEquals(
+                refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a >= 1 AND a <= 10"),
+                Optional.of("AND(GREATER_THAN_OR_EQUAL(a, 1), LESS_THAN_OR_EQUAL(a, 10))"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesGreaterThanScopePredicate()
+    {
+        assertEquals(refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a > 5"), Optional.of("GREATER_THAN(a, 5)"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesNotEqualScopePredicate()
+    {
+        assertEquals(refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a <> 5"), Optional.of("NOT_EQUAL(a, 5)"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesOrScopePredicate()
+    {
+        assertEquals(
+                refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a = 1 OR a = 2"),
+                Optional.of("OR(EQUAL(a, 1), EQUAL(a, 2))"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewCapturesInScopePredicate()
+    {
+        assertEquals(
+                refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1 WHERE a IN (1, 2, 3)"),
+                Optional.of("IN(a, 1, 2, 3)"));
+    }
+
+    @Test
+    public void testRefreshMaterializedViewWithoutWhereHasEmptyScope()
+    {
+        assertEquals(refreshScopePredicate("REFRESH MATERIALIZED VIEW mv1"), Optional.empty());
+    }
+
+    // Negative cases: unsupported WHERE shapes are rejected during analysis (no scope predicate is produced),
+    // so the connector never receives a scope it cannot reason about.
+    @Test
+    public void testRefreshMaterializedViewRejectsNonColumnLeftSide()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a + 1 = 5");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewRejectsNonLiteralRightSide()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a = a");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewRejectsNegation()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE NOT (a = 5)");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewRejectsNonLiteralInList()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a IN (a)");
+    }
+
+    @Test
+    public void testCreateMaterializedViewRejectsNonDeterministicFunction()
+    {
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, rand() r FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a FROM t1 WHERE rand() >= 0");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, sum(b * random()) s FROM t1 GROUP BY a");
+    }
+
+    @Test
+    public void testCreateMaterializedViewRejectsSessionTimeFunction()
+    {
+        // now()/current_timestamp() are function calls; CURRENT_TIMESTAMP/CURRENT_DATE are CurrentTime nodes
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, now() ts FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, current_timestamp ts FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, current_date d FROM t1");
+        assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a FROM t1 WHERE current_timestamp IS NOT NULL");
+    }
+
+    @Test
+    public void testCreateMaterializedViewAllowsDeterministicFunction()
+    {
+        analyze("CREATE MATERIALIZED VIEW s1.mv_det AS SELECT a, abs(b) c FROM t1");
+    }
+
+    private Optional<String> refreshScopePredicate(String query)
+    {
+        Optional<RowExpression> predicate = analyzeAndGetAnalysis(CLIENT_SESSION, query)
+                .getRefreshMaterializedViewAnalysis()
+                .orElseThrow(() -> new AssertionError("no refresh materialized view analysis"))
+                .getRefreshScopePredicate();
+        return predicate.map(RowExpression::toString);
     }
 }

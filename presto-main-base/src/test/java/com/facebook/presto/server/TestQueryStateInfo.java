@@ -222,6 +222,7 @@ public class TestQueryStateInfo
                 query,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 new QueryStats(
                         new DateTime("1991-09-06T05:00").getMillis(),
                         new DateTime("1991-09-06T05:01").getMillis(),

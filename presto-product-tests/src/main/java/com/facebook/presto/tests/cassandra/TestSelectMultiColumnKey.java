@@ -58,7 +58,7 @@ public class TestSelectMultiColumnKey
     public void testSelectWithEqualityFilterOnPrimaryAndClusteringKeys()
     {
         String sql = format(
-                "SELECT value FROM %s.%s.%s WHERE user_id = 'Alice' and key = 'a1' and updated_at = TIMESTAMP '2015-01-01 01:01:01'",
+                "SELECT value FROM %s.%s.%s WHERE user_id = 'Alice' and key = 'a1' and updated_at = TIMESTAMP '2015-01-01 01:01:01Z'",
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_MULTI_COLUMN_KEY.getName());
@@ -72,7 +72,7 @@ public class TestSelectMultiColumnKey
     public void testSelectWithMixedFilterOnPrimaryAndClusteringKeys()
     {
         String sql = format(
-                "SELECT value FROM %s.%s.%s WHERE user_id = 'Alice' and key < 'b' and updated_at >= TIMESTAMP '2015-01-01 01:01:01'",
+                "SELECT value FROM %s.%s.%s WHERE user_id = 'Alice' and key < 'b' and updated_at >= TIMESTAMP '2015-01-01 01:01:01Z'",
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_MULTI_COLUMN_KEY.getName());
@@ -115,7 +115,7 @@ public class TestSelectMultiColumnKey
     {
         // Since update_at is the second clustering key, this forces a full table scan.
         String sql = format(
-                "SELECT value FROM %s.%s.%s WHERE user_id = 'Bob' and updated_at = TIMESTAMP '2014-02-02 03:04:05'",
+                "SELECT value FROM %s.%s.%s WHERE user_id = 'Bob' and updated_at = TIMESTAMP '2014-02-02 03:04:05Z'",
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_MULTI_COLUMN_KEY.getName());

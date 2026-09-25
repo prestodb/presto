@@ -9,7 +9,7 @@ Download the Presto router tarball, :maven_download:`router`, and unpack it.
 The tarball will contain a single top-level directory,
 |presto_router_release|, which we will call the *installation* directory.
 
-Router needs a *data* directory for storing logs, etc.
+Router needs a *data* directory for storing logs and other data. 
 We recommend creating a data directory outside of the installation directory,
 which allows it to be easily preserved when upgrading Presto.
 
@@ -24,15 +24,11 @@ Similar to the installation of Presto, this will hold the following configuratio
 * Config Properties: configuration for the Presto router
 * Router Properties: configuration and rules for running the router
 
-.. _router_node_properties:
-
 Node Properties
 ^^^^^^^^^^^^^^^
 
 The node properties file, ``etc/node.properties``, shares the same configuration
 as the main Presto server. Details can be found at :doc:`/installation/deployment`.
-
-.. _router_jvm_config:
 
 JVM Config
 ^^^^^^^^^^
@@ -50,8 +46,6 @@ The following provides an example of ``etc/jvm.config``.
     -XX:+UseGCOverheadLimit
     -XX:+ExplicitGCInvokesConcurrent
     -Xmx12G
-
-.. _config_properties:
 
 Config Properties
 ^^^^^^^^^^^^^^^^^
@@ -77,8 +71,6 @@ If Kerberos authentication is required, adding the following configs:
     query-tracker.http-client.authentication.krb5.principal=presto@REMOTE.BIZ
     query-tracker.http-client.authentication.krb5.remote-service-name=HTTP/PRESTO@REMOTE.BIZ
     query-tracker.http-client.authentication.krb5.service-principal-pattern=PATTERN
-
-.. _router_properties:
 
 Router Properties
 ^^^^^^^^^^^^^^^^^
@@ -133,15 +125,11 @@ These properties requires some explanation:
   An optional parameter to specify to the router which credentials to use when communicating
   with Presto coordinator endpoints.
 
-.. _authentication:
-
 Authentication
 ------------------
 The router supports password file based authentication. This can be configured in the same
 way that it is with the regular Presto coordinator but within the router module (the ``etc`` folder
 within presto-router). See :ref:`Password File Authentication <password_file_auth>`.
-
-.. _running_router:
 
 Running Router
 --------------

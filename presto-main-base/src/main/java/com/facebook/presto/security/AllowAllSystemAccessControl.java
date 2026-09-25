@@ -109,6 +109,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public void checkCanRenameSchema(Identity identity, AccessControlContext context, CatalogSchemaName schema, String newSchemaName)
     {
     }

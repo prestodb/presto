@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.297-SNAPSHOT</version>
+        <version>0.300-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main-tests</artifactId>
@@ -14,7 +14,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <air.test.jvmsize>4g</air.test.jvmsize>
     </properties>
 
@@ -80,12 +79,6 @@
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>units</artifactId>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

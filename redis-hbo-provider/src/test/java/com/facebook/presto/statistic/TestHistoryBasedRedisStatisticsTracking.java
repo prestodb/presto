@@ -203,17 +203,18 @@ public class TestHistoryBasedRedisStatisticsTracking
         checkCompletionService(completionService);
 
         // HBO Stats
-        Map<Character, Integer> rowCountMap = new HashMap<>();
-        rowCountMap.put('A', 2);
-        rowCountMap.put('B', 1);
-        rowCountMap.put('C', 2);
-        rowCountMap.put('D', 0);
-        rowCountMap.put('E', 2);
-        rowCountMap.put('F', 1);
-        rowCountMap.put('G', 1);
-        rowCountMap.put('H', 0);
-        rowCountMap.put('I', 4);
-        rowCountMap.put('J', 2);
+        Map<Character, Double> rowCountMap = new HashMap<>();
+        rowCountMap.put('A', 2D);
+        rowCountMap.put('B', 1D);
+        rowCountMap.put('C', 2D);
+        // No nation name starts with D or H, and statistics of a plan node which produced no rows are not recorded
+        rowCountMap.put('D', Double.NaN);
+        rowCountMap.put('E', 2D);
+        rowCountMap.put('F', 1D);
+        rowCountMap.put('G', 1D);
+        rowCountMap.put('H', Double.NaN);
+        rowCountMap.put('I', 4D);
+        rowCountMap.put('J', 2D);
 
         for (int i = 0; i < 10; i++) {
             char letter = (char) ('A' + i);

@@ -59,6 +59,7 @@ public class OidcDiscovery
     private final Optional<String> jwksUrl;
     private final Optional<String> userinfoUrl;
     private final NimbusHttpClient httpClient;
+    private final Optional<String> authorizationEndpoint;
 
     @Inject
     public OidcDiscovery(OAuth2Config oauthConfig, OidcDiscoveryConfig oidcConfig, NimbusHttpClient httpClient)
@@ -73,6 +74,7 @@ public class OidcDiscovery
         tokenUrl = requireNonNull(oidcConfig.getTokenUrl(), "tokenUrl is null");
         jwksUrl = requireNonNull(oidcConfig.getJwksUrl(), "jwksUrl is null");
         userinfoUrl = requireNonNull(oidcConfig.getUserinfoUrl(), "userinfoUrl is null");
+        authorizationEndpoint = requireNonNull(oauthConfig.getAuthorizationEndpoint(), "authorizationEndpoint is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
     }
 
@@ -123,7 +125,11 @@ public class OidcDiscovery
                     // It's not a part of the OIDC standard thus have to be handled separately.
                     // see: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-oidce/f629647a-4825-465b-80bb-32c7e9cec2c8
                     getOptionalField("access_token_issuer", Optional.ofNullable(metadataJson.get("access_token_issuer")).map(JsonNode::textValue), ACCESS_TOKEN_ISSUER, accessTokenIssuer),
-                    getRequiredField("authorization_endpoint", metadata.getAuthorizationEndpointURI(), AUTH_URL, authUrl),
+                    getRequiredField(
+                            "authorization_endpoint",
+                            URI.create(authorizationEndpoint.orElse(metadata.getAuthorizationEndpointURI().toString())),
+                            AUTH_URL,
+                            authUrl),
                     getRequiredField("token_endpoint", metadata.getTokenEndpointURI(), TOKEN_URL, tokenUrl),
                     getRequiredField("jwks_uri", metadata.getJWKSetURI(), JWKS_URL, jwksUrl),
                     userinfoEndpoint.map(URI::create));

@@ -255,7 +255,9 @@
     "groupedExecutionScanNodes":[
 
     ],
-    "totalLifespans":1
+    "totalLifespans":1,
+    "groupedExecutionPartitionValues":[],
+    "partitionColumnMappings": {}
   },
   "outputTableWriterFragment":false,
   "statsAndCosts":{

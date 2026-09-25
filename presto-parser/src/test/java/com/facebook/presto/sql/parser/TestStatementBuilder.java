@@ -42,6 +42,11 @@ public class TestStatementBuilder
         printStatement("explain (type distributed, format graphviz) select * from foo");
 
         printStatement("select * from foo /* end */");
+
+        printStatement("select row(1 as a, 2 as b)");
+        printStatement("select row(1 a, 2)");
+        printStatement("select row(1 as \"Mixed Case\")");
+        printStatement("values row(1 as a, 'x' as b)");
         printStatement("/* start */ select * from foo");
         printStatement("/* start */ select * /* middle */ from foo /* end */");
         printStatement("-- start\nselect * -- junk\n-- hi\nfrom foo -- done");
@@ -262,6 +267,9 @@ public class TestStatementBuilder
         printStatement("create or replace view foo as select 123 from t");
 
         printStatement("drop view foo");
+
+        printStatement("alter table foo alter column x set data type bigint");
+        printStatement("alter table a.b.c alter column x set data type bigint");
 
         printStatement("insert into t select * from t");
         printStatement("insert into t (c1, c2) select * from t");

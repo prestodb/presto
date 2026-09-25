@@ -1,0 +1,39 @@
+name: Registry login
+description: Log in to docker.io or ghcr.io based on the REGISTRY input.
+
+inputs:
+  registry:
+    description: Registry host. Must be 'docker.io' or 'ghcr.io'.
+    required: true
+  dockerhub_username:
+    required: false
+  dockerhub_token:
+    required: false
+  ghcr_username:
+    description: Defaults to github.actor when empty.
+    required: false
+  ghcr_token:
+    description: Defaults to the auto GITHUB_TOKEN when empty.
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Login to Docker Hub
+      if: inputs.registry == 'docker.io'
+      uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      with:
+        username: ${{ inputs.dockerhub_username }}
+        password: ${{ inputs.dockerhub_token }}
+
+    - name: Login to GHCR
+      if: inputs.registry == 'ghcr.io'
+      uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      with:
+        registry: ghcr.io
+        # GHCR packages are namespaced under the account that owns them.
+        # The auto GITHUB_TOKEN (default) can only write to this repo
+        # owner's namespace; override ghcr_token (and ghcr_username) to
+        # publish elsewhere.
+        username: ${{ inputs.ghcr_username || github.actor }}
+        password: ${{ inputs.ghcr_token || github.token }}

@@ -111,8 +111,7 @@ public class TestHivePushdownFilterQueries
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables(),
                 ImmutableMap.of("experimental.pushdown-subfields-enabled", "true",
-                        "experimental.pushdown-dereference-enabled", "true",
-                        "use-new-nan-definition", "true"),
+                        "experimental.pushdown-dereference-enabled", "true"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true",
                         "hive.enable-parquet-dereference-pushdown", "true",

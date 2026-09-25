@@ -26,15 +26,15 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.matching.Capture.newCapture;
@@ -89,11 +89,22 @@ public class InlineProjections
 
         // inline the expressions
         Assignments assignments = child.getAssignments().filter(targets::contains);
+        Set<VariableReferenceExpression> targetVars = assignments.getVariables();
         Map<VariableReferenceExpression, RowExpression> parentAssignments = parent.getAssignments()
                 .entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
-                        entry -> inlineReferences(entry.getValue(), assignments)));
+                        entry -> {
+                            RowExpression expression = entry.getValue();
+                            // Skip inlining for simple variable references that aren't targets.
+                            // For wide projections, the majority of assignments are passthrough
+                            // variables that don't reference any inlining target.
+                            if (expression instanceof VariableReferenceExpression
+                                    && !targetVars.contains(expression)) {
+                                return expression;
+                            }
+                            return inlineReferences(expression, assignments);
+                        }));
 
         // Synthesize identity assignments for the inputs of expressions that were inlined
         // to place in the child projection.
@@ -144,25 +155,22 @@ public class InlineProjections
         // which come from the child, as opposed to an enclosing scope.
 
         Set<VariableReferenceExpression> childOutputSet = ImmutableSet.copyOf(child.getOutputVariables());
-        TypeProvider types = TypeProvider.viewOf(context.getVariableAllocator().getVariables());
 
-        Map<VariableReferenceExpression, Long> dependencies = parent.getAssignments()
-                .getExpressions()
-                .stream()
-                .flatMap(expression -> extractAll(expression).stream())
-                .filter(childOutputSet::contains)
-                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        // Single pass over parent expressions: count variable references and collect TRY arguments
+        Map<VariableReferenceExpression, Long> dependencies = new HashMap<>();
+        Set<VariableReferenceExpression> tryArguments = new HashSet<>();
+        for (RowExpression expression : parent.getAssignments().getExpressions()) {
+            for (VariableReferenceExpression variable : extractAll(expression)) {
+                if (childOutputSet.contains(variable)) {
+                    dependencies.merge(variable, 1L, Long::sum);
+                }
+            }
+            tryArguments.addAll(extractTryArguments(expression));
+        }
 
         // find references to simple constants
         Set<VariableReferenceExpression> constants = dependencies.keySet().stream()
                 .filter(input -> isConstant(child.getAssignments().get(input)))
-                .collect(toSet());
-
-        // exclude any complex inputs to TRY expressions. Inlining them would potentially
-        // change the semantics of those expressions
-        Set<VariableReferenceExpression> tryArguments = parent.getAssignments()
-                .getExpressions().stream()
-                .flatMap(expression -> extractTryArguments(expression).stream())
                 .collect(toSet());
 
         Set<VariableReferenceExpression> singletons = dependencies.entrySet().stream()

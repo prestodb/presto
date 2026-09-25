@@ -109,7 +109,7 @@ public class TestTempStorageSingleStreamSpiller
     private void assertSpill(CompressionCodec compressionCodec, boolean encryption)
             throws Exception
     {
-        File spillPath = new File(tempDirectory, UUID.randomUUID().toString());
+        File spillPath = tempDirectory.toPath().resolve(UUID.randomUUID().toString()).toFile();
 
         TempStorageSingleStreamSpillerFactory spillerFactory = new TempStorageSingleStreamSpillerFactory(
                 new TestingTempStorageManager(spillPath.toString()),

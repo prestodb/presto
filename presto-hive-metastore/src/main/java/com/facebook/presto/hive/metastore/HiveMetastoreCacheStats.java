@@ -22,9 +22,32 @@ public class HiveMetastoreCacheStats
         implements MetastoreCacheStats
 {
     private final CounterStat partitionsWithColumnCountGreaterThanThreshold = new CounterStat();
+    private LoadingCache<?, ?> databaseCache;
+    private LoadingCache<?, ?> databaseNamesCache;
     private LoadingCache<?, ?> tableCache;
-    private LoadingCache<?, ?> partitionNamesCache;
+    private LoadingCache<?, ?> tableNamesCache;
+    private LoadingCache<?, ?> tableStatisticsCache;
+    private LoadingCache<?, ?> tableConstraintsCache;
+    private LoadingCache<?, ?> partitionStatisticsCache;
+    private LoadingCache<?, ?> viewNamesCache;
     private LoadingCache<?, ?> partitionCache;
+    private LoadingCache<?, ?> partitionFilterCache;
+    private LoadingCache<?, ?> partitionNamesCache;
+    private LoadingCache<?, ?> tablePrivilegesCache;
+    private LoadingCache<?, ?> rolesCache;
+    private LoadingCache<?, ?> roleGrantsCache;
+
+    @Override
+    public void setDatabaseCache(LoadingCache<?, ?> databaseCache)
+    {
+        this.databaseCache = databaseCache;
+    }
+
+    @Override
+    public void setDatabaseNamesCache(LoadingCache<?, ?> databaseNamesCache)
+    {
+        this.databaseNamesCache = databaseNamesCache;
+    }
 
     @Override
     public void setTableCache(LoadingCache<?, ?> tableCache)
@@ -33,9 +56,33 @@ public class HiveMetastoreCacheStats
     }
 
     @Override
-    public void setPartitionNamesCache(LoadingCache<?, ?> partitionNamesCache)
+    public void setTableNamesCache(LoadingCache<?, ?> tableNamesCache)
     {
-        this.partitionNamesCache = partitionNamesCache;
+        this.tableNamesCache = tableNamesCache;
+    }
+
+    @Override
+    public void setTableStatisticsCache(LoadingCache<?, ?> tableStatisticsCache)
+    {
+        this.tableStatisticsCache = tableStatisticsCache;
+    }
+
+    @Override
+    public void setTableConstraintsCache(LoadingCache<?, ?> tableConstraintsCache)
+    {
+        this.tableConstraintsCache = tableConstraintsCache;
+    }
+
+    @Override
+    public void setPartitionStatisticsCache(LoadingCache<?, ?> partitionStatisticsCache)
+    {
+        this.partitionStatisticsCache = partitionStatisticsCache;
+    }
+
+    @Override
+    public void setViewNamesCache(LoadingCache<?, ?> viewNamesCache)
+    {
+        this.viewNamesCache = viewNamesCache;
     }
 
     @Override
@@ -45,9 +92,95 @@ public class HiveMetastoreCacheStats
     }
 
     @Override
+    public void setPartitionFilterCache(LoadingCache<?, ?> partitionFilterCache)
+    {
+        this.partitionFilterCache = partitionFilterCache;
+    }
+
+    @Override
+    public void setPartitionNamesCache(LoadingCache<?, ?> partitionNamesCache)
+    {
+        this.partitionNamesCache = partitionNamesCache;
+    }
+
+    @Override
+    public void setTablePrivilegesCache(LoadingCache<?, ?> tablePrivilegesCache)
+    {
+        this.tablePrivilegesCache = tablePrivilegesCache;
+    }
+
+    @Override
+    public void setRolesCache(LoadingCache<?, ?> rolesCache)
+    {
+        this.rolesCache = rolesCache;
+    }
+
+    @Override
+    public void setRoleGrantsCache(LoadingCache<?, ?> roleGrantsCache)
+    {
+        this.roleGrantsCache = roleGrantsCache;
+    }
+
+    @Override
     public void incrementPartitionsWithColumnCountGreaterThanThreshold()
     {
         partitionsWithColumnCountGreaterThanThreshold.update(1);
+    }
+
+    @Managed
+    @Override
+    public long getDatabaseCacheHit()
+    {
+        return databaseCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getDatabaseCacheMiss()
+    {
+        return databaseCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getDatabaseCacheEviction()
+    {
+        return databaseCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getDatabaseCacheSize()
+    {
+        return databaseCache.size();
+    }
+
+    @Managed
+    @Override
+    public long getDatabaseNamesCacheHit()
+    {
+        return databaseNamesCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getDatabaseNamesCacheMiss()
+    {
+        return databaseNamesCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getDatabaseNamesCacheEviction()
+    {
+        return databaseNamesCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getDatabaseNamesCacheSize()
+    {
+        return databaseNamesCache.size();
     }
 
     @Managed
@@ -80,30 +213,142 @@ public class HiveMetastoreCacheStats
 
     @Managed
     @Override
-    public long getPartitionNamesCacheHit()
+    public long getTableNamesCacheHit()
     {
-        return partitionNamesCache.stats().hitCount();
+        return tableNamesCache.stats().hitCount();
     }
 
     @Managed
     @Override
-    public long getPartitionNamesCacheMiss()
+    public long getTableNamesCacheMiss()
     {
-        return partitionNamesCache.stats().missCount();
+        return tableNamesCache.stats().missCount();
     }
 
     @Managed
     @Override
-    public long getPartitionNamesCacheEviction()
+    public long getTableNamesCacheEviction()
     {
-        return partitionNamesCache.stats().evictionCount();
+        return tableNamesCache.stats().evictionCount();
     }
 
     @Managed
     @Override
-    public long getPartitionNamesCacheSize()
+    public long getTableNamesCacheSize()
     {
-        return partitionNamesCache.size();
+        return tableNamesCache.size();
+    }
+
+    @Managed
+    @Override
+    public long getTableStatisticsCacheHit()
+    {
+        return tableStatisticsCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getTableStatisticsCacheMiss()
+    {
+        return tableStatisticsCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getTableStatisticsCacheEviction()
+    {
+        return tableStatisticsCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getTableStatisticsCacheSize()
+    {
+        return tableStatisticsCache.size();
+    }
+
+    @Managed
+    @Override
+    public long getTableConstraintsCacheHit()
+    {
+        return tableConstraintsCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getTableConstraintsCacheMiss()
+    {
+        return tableConstraintsCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getTableConstraintsCacheEviction()
+    {
+        return tableConstraintsCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getTableConstraintsCacheSize()
+    {
+        return tableConstraintsCache.size();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionStatisticsCacheHit()
+    {
+        return partitionStatisticsCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionStatisticsCacheMiss()
+    {
+        return partitionStatisticsCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionStatisticsCacheEviction()
+    {
+        return partitionStatisticsCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionStatisticsCacheSize()
+    {
+        return partitionStatisticsCache.size();
+    }
+
+    @Managed
+    @Override
+    public long getViewNamesCacheHit()
+    {
+        return viewNamesCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getViewNamesCacheMiss()
+    {
+        return viewNamesCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getViewNamesCacheEviction()
+    {
+        return viewNamesCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getViewNamesCacheSize()
+    {
+        return viewNamesCache.size();
     }
 
     @Managed
@@ -132,6 +377,146 @@ public class HiveMetastoreCacheStats
     public long getPartitionCacheSize()
     {
         return partitionCache.size();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionFilterCacheHit()
+    {
+        return partitionFilterCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionFilterCacheMiss()
+    {
+        return partitionFilterCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionFilterCacheEviction()
+    {
+        return partitionFilterCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionFilterCacheSize()
+    {
+        return partitionFilterCache.size();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionNamesCacheHit()
+    {
+        return partitionNamesCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionNamesCacheMiss()
+    {
+        return partitionNamesCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionNamesCacheEviction()
+    {
+        return partitionNamesCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionNamesCacheSize()
+    {
+        return partitionNamesCache.size();
+    }
+
+    @Managed
+    @Override
+    public long getTablePrivilegesCacheHit()
+    {
+        return tablePrivilegesCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getTablePrivilegesCacheMiss()
+    {
+        return tablePrivilegesCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getTablePrivilegesCacheEviction()
+    {
+        return tablePrivilegesCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getTablePrivilegesCacheSize()
+    {
+        return tablePrivilegesCache.size();
+    }
+
+    @Managed
+    @Override
+    public long getRolesCacheHit()
+    {
+        return rolesCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getRolesCacheMiss()
+    {
+        return rolesCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getRolesCacheEviction()
+    {
+        return rolesCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getRolesCacheSize()
+    {
+        return rolesCache.size();
+    }
+
+    @Managed
+    @Override
+    public long getRoleGrantsCacheHit()
+    {
+        return roleGrantsCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getRoleGrantsCacheMiss()
+    {
+        return roleGrantsCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getRoleGrantsCacheEviction()
+    {
+        return roleGrantsCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getRoleGrantsCacheSize()
+    {
+        return roleGrantsCache.size();
     }
 
     @Managed

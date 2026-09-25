@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/common/Configs.h"
+#include <folly/portability/GFlags.h>
 #include <folly/system/HardwareConcurrency.h>
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -21,6 +22,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <algorithm>
 #include <limits>
 #if __has_include("filesystem")
 #include <filesystem>
@@ -40,9 +42,9 @@ std::string bool2String(bool value) {
 }
 
 uint32_t hardwareConcurrency() {
-  const auto numLogicalCores = folly::hardware_concurrency();
-  // The spec says folly::hardware_concurrency() might return 0.
-  // But we depend on folly::hardware_concurrency() to create executors.
+  const auto numLogicalCores = folly::available_concurrency();
+  // The spec says folly::available_concurrency() might return 0.
+  // But we depend on folly::available_concurrency() to create executors.
   // Check to ensure numThreads is > 0.
   VELOX_CHECK_GT(numLogicalCores, 0);
   return numLogicalCores;
@@ -137,6 +139,7 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kPrestoVersion),
           NONE_PROP(kHttpServerHttpPort),
           BOOL_PROP(kHttpServerReusePort, false),
+          BOOL_PROP(kHttpServerReportBoundPortToFile, false),
           BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, false),
           NONE_PROP(kDiscoveryUri),
           NUM_PROP(kMaxDriversPerTask, hardwareConcurrency()),
@@ -231,13 +234,28 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kLargestSizeClassPages, 256),
           BOOL_PROP(kEnableVeloxTaskLogging, false),
           BOOL_PROP(kEnableVeloxExprSetLogging, false),
-          NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
+          NUM_PROP(kLocalShuffleMaxPartitionBytes, 65536),
           STR_PROP(kShuffleName, ""),
+          BOOL_PROP(kExchangeMaterializationEnabled, false),
+          NUM_PROP(
+              kExchangeMaterializationPartitioningRowBatchBufferSize,
+              16L << 20),
+          NUM_PROP(kExchangeMaterializationOutputBufferMaxBytes, 1L << 30),
+          NUM_PROP(
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes,
+              130L * 1024),
+          NUM_PROP(kExchangeMaterializationOutputBufferHighWatermarkRatio, 0.9),
+          NUM_PROP(kExchangeMaterializationOutputBufferLowWatermarkRatio, 0.7),
+          NUM_PROP(
+              kExchangeMaterializationOutputBufferDrainChunkMultiplier, 2.0),
+          NUM_PROP(kExchangeMaterializationReclaimDrainThresholdRatio, 0.67),
+          BOOL_PROP(kExchangeMaterializationUseZeroCopyCollect, true),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
           BOOL_PROP(kHttpEnableAccessLog, false),
           BOOL_PROP(kHttpEnableStatsFilter, false),
           BOOL_PROP(kHttpEnableEndpointLatencyFilter, false),
+          BOOL_PROP(kHttpEnableRequestSizeHistogram, false),
           NUM_PROP(kHttpMaxAllocateBytes, 65536),
           STR_PROP(kQueryMaxMemoryPerNode, "4GB"),
           BOOL_PROP(kEnableMemoryLeakCheck, true),
@@ -263,6 +281,8 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
           NUM_PROP(kOldTaskCleanUpMs, 60'000),
+          BOOL_PROP(kTaskSyncTerminateEnabled, false),
+          NUM_PROP(kTaskSyncTerminateTimeoutMs, 3'000),
           BOOL_PROP(kEnableOldTaskCleanUp, true),
           BOOL_PROP(kInternalCommunicationJwtEnabled, false),
           STR_PROP(kInternalCommunicationSharedSecret, ""),
@@ -282,6 +302,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kAggregationSpillEnabled, true),
           BOOL_PROP(kOrderBySpillEnabled, true),
           NUM_PROP(kMaxSpillBytes, 100UL << 30), // 100GB
+          NUM_PROP(kBroadcastExchangeSourceReadBufferBytes, 1 << 20), // 1MB
           BOOL_PROP(kBroadcastJoinTableCachingEnabled, false),
           BOOL_PROP(kExchangeLazyFetchingEnabled, false),
           NUM_PROP(kRequestDataSizesMaxWaitSec, 10),
@@ -296,7 +317,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kTextReaderEnabled, true),
           BOOL_PROP(kCharNToVarcharImplicitCast, false),
           BOOL_PROP(kEnumTypesEnabled, true),
-          BOOL_PROP(kPlanConsistencyCheckEnabled, false),
+          BOOL_PROP(kPlanConsistencyCheckEnabled, true),
       };
 }
 
@@ -312,6 +333,10 @@ int SystemConfig::httpServerHttpPort() const {
 
 bool SystemConfig::httpServerReusePort() const {
   return optionalProperty<bool>(kHttpServerReusePort).value();
+}
+
+bool SystemConfig::httpServerReportBoundPortToFile() const {
+  return optionalProperty<bool>(kHttpServerReportBoundPortToFile).value();
 }
 
 bool SystemConfig::httpServerBindToNodeInternalAddressOnlyEnabled() const {
@@ -451,6 +476,11 @@ bool SystemConfig::aggregationSpillEnabled() const {
 
 bool SystemConfig::orderBySpillEnabled() const {
   return optionalProperty<bool>(kOrderBySpillEnabled).value();
+}
+
+uint64_t SystemConfig::broadcastExchangeSourceReadBufferBytes() const {
+  return optionalProperty<uint64_t>(kBroadcastExchangeSourceReadBufferBytes)
+      .value();
 }
 
 bool SystemConfig::broadcastJoinTableCachingEnabled() const {
@@ -762,6 +792,74 @@ std::string SystemConfig::shuffleName() const {
   return optionalProperty(kShuffleName).value();
 }
 
+bool SystemConfig::exchangeMaterializationEnabled() const {
+  return optionalProperty<bool>(kExchangeMaterializationEnabled)
+      .value_or(false);
+}
+
+int64_t SystemConfig::exchangeMaterializationPartitioningRowBatchBufferSize()
+    const {
+  return optionalProperty<int64_t>(
+             kExchangeMaterializationPartitioningRowBatchBufferSize)
+      .value_or(16L << 20);
+}
+
+int64_t SystemConfig::exchangeMaterializationOutputBufferMaxBytes() const {
+  return optionalProperty<int64_t>(kExchangeMaterializationOutputBufferMaxBytes)
+      .value_or(1L << 30);
+}
+
+int64_t SystemConfig::exchangeMaterializationOutputBufferPerPartitionMaxBytes()
+    const {
+  return optionalProperty<int64_t>(
+             kExchangeMaterializationOutputBufferPerPartitionMaxBytes)
+      .value_or(130L * 1024);
+}
+
+double SystemConfig::exchangeMaterializationOutputBufferHighWatermarkRatio()
+    const {
+  return optionalProperty<double>(
+             kExchangeMaterializationOutputBufferHighWatermarkRatio)
+      .value_or(0.9);
+}
+
+double SystemConfig::exchangeMaterializationOutputBufferLowWatermarkRatio()
+    const {
+  return optionalProperty<double>(
+             kExchangeMaterializationOutputBufferLowWatermarkRatio)
+      .value_or(0.7);
+}
+
+double SystemConfig::exchangeMaterializationOutputBufferDrainChunkMultiplier()
+    const {
+  return optionalProperty<double>(
+             kExchangeMaterializationOutputBufferDrainChunkMultiplier)
+      .value_or(2.0);
+}
+
+double SystemConfig::exchangeMaterializationReclaimDrainThresholdRatio() const {
+  return optionalProperty<double>(
+             kExchangeMaterializationReclaimDrainThresholdRatio)
+      .value_or(0.67);
+}
+
+bool SystemConfig::exchangeMaterializationReclaimWaitForWriterDrainEnabled()
+    const {
+  return optionalProperty<bool>(
+             kExchangeMaterializationReclaimWaitForWriterDrainEnabled)
+      .value_or(false);
+}
+
+bool SystemConfig::exchangeMaterializationReclaimHighPriority() const {
+  return optionalProperty<bool>(kExchangeMaterializationReclaimHighPriority)
+      .value_or(false);
+}
+
+bool SystemConfig::exchangeMaterializationUseZeroCopyCollect() const {
+  return optionalProperty<bool>(kExchangeMaterializationUseZeroCopyCollect)
+      .value_or(true);
+}
+
 bool SystemConfig::enableSerializedPageChecksum() const {
   return optionalProperty<bool>(kEnableSerializedPageChecksum).value();
 }
@@ -933,6 +1031,10 @@ bool SystemConfig::enableHttpEndpointLatencyFilter() const {
   return optionalProperty<bool>(kHttpEnableEndpointLatencyFilter).value();
 }
 
+bool SystemConfig::enableHttpRequestSizeHistogram() const {
+  return optionalProperty<bool>(kHttpEnableRequestSizeHistogram).value();
+}
+
 uint64_t SystemConfig::httpMaxAllocateBytes() const {
   return optionalProperty<uint64_t>(kHttpMaxAllocateBytes).value();
 }
@@ -1056,6 +1158,14 @@ bool SystemConfig::includeNodeInSpillPath() const {
 
 int32_t SystemConfig::oldTaskCleanUpMs() const {
   return optionalProperty<int32_t>(kOldTaskCleanUpMs).value();
+}
+
+bool SystemConfig::taskSyncTerminateEnabled() const {
+  return optionalProperty<bool>(kTaskSyncTerminateEnabled).value();
+}
+
+uint64_t SystemConfig::taskSyncTerminateTimeoutMs() const {
+  return optionalProperty<uint64_t>(kTaskSyncTerminateTimeoutMs).value();
 }
 
 bool SystemConfig::enableOldTaskCleanUp() const {
@@ -1229,6 +1339,32 @@ std::string NodeConfig::nodeInternalAddress(
     VELOX_FAIL(
         "Node Internal Address or IP was not found in NodeConfigs. Default IP was not provided "
         "either.");
+  }
+}
+
+void applyGFlags(
+    const std::unordered_map<std::string, std::string>& configs) noexcept {
+  static constexpr std::string_view kGflagPrefix{"gflag."};
+  static constexpr size_t kPrefixLen = kGflagPrefix.size();
+  for (const auto& [key, value] : configs) {
+    if (!key.starts_with(kGflagPrefix)) {
+      continue;
+    }
+    // Strip "gflag." prefix and convert hyphens to underscores to get the
+    // flag name. e.g., "gflag.velox-memory-num-shared-leaf-pools" becomes
+    // "velox_memory_num_shared_leaf_pools".
+    std::string flagName = key.substr(kPrefixLen);
+    std::ranges::replace(flagName, '-', '_');
+
+    const std::string result = gflags::SetCommandLineOptionWithMode(
+        flagName.c_str(), value.c_str(), gflags::SET_FLAG_IF_DEFAULT);
+    if (result.empty()) {
+      PRESTO_STARTUP_LOG(WARNING) << "Failed to set gflag '" << flagName
+                                  << "' from config property '" << key << "'";
+    } else {
+      PRESTO_STARTUP_LOG(INFO)
+          << "Set gflag '" << flagName << "' from config.properties";
+    }
   }
 }
 

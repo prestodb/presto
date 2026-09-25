@@ -26,4 +26,4 @@ Hive Changes
 
 * Fix issue where some files are not deleted on cancellation of ``INSERT`` or ``CREATE`` queries.
 * Allow writing to non-managed (external) Hive tables. This is disabled by default but can be
-  enabled via the ``hive.non-managed-table-writes-enabled`` configuration option.
+  enabled with the ``hive.non-managed-table-writes-enabled`` configuration option.

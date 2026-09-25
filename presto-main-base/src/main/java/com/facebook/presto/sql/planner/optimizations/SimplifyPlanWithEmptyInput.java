@@ -38,6 +38,7 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -154,7 +155,25 @@ public class SimplifyPlanWithEmptyInput
 
         private static boolean isEmptyNode(PlanNode planNode)
         {
-            return planNode instanceof ValuesNode && ((ValuesNode) planNode).getRows().size() == 0;
+            if (planNode instanceof ValuesNode && ((ValuesNode) planNode).getRows().size() == 0) {
+                return true;
+            }
+            // See through a single-source local ExchangeNode whose source is empty.
+            // AddLocalExchanges may wrap an already-empty source (e.g. a TableScan that
+            // the connector PHYSICAL stage pruned to empty Values), which prevents a
+            // parent Project/Filter/etc. from recognizing its input as empty. Treating
+            // such an Exchange as empty here lets the parent collapse to empty Values
+            // without us having to drop the Exchange itself (which would be unsafe for
+            // structural Exchanges that downstream sinks rely on, e.g. TableWriter).
+            if (planNode instanceof ExchangeNode) {
+                ExchangeNode exchange = (ExchangeNode) planNode;
+                if (exchange.getScope().isLocal()
+                        && exchange.getSources().size() == 1
+                        && isEmptyNode(exchange.getSources().get(0))) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         public boolean isPlanChanged()
@@ -399,6 +418,75 @@ public class SimplifyPlanWithEmptyInput
         public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Void> context)
         {
             return convertToEmptyNodeIfInputEmpty(node, context);
+        }
+
+        @Override
+        public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> rewrittenSources = node.getSources().stream()
+                    .map(context::rewrite)
+                    .collect(toImmutableList());
+            // Restrict to LOCAL multi-source exchanges, matching the scope of the see-through
+            // logic in isEmptyNode. Remote exchanges represent fragment boundaries; rewriting
+            // them deserves its own analysis (mirroring the connector PHYSICAL stage that
+            // produced the empty subtrees in the first place is non-trivial across fragments).
+            if (rewrittenSources.size() <= 1 || !node.getScope().isLocal()) {
+                return node.replaceChildren(rewrittenSources);
+            }
+            List<Integer> nonEmptyIndex = IntStream.range(0, rewrittenSources.size())
+                    .filter(i -> !isEmptyNode(rewrittenSources.get(i)))
+                    .boxed()
+                    .collect(toImmutableList());
+            if (nonEmptyIndex.size() == rewrittenSources.size()) {
+                // No empty sources; nothing to do beyond propagating the rewritten children.
+                return node.replaceChildren(rewrittenSources);
+            }
+            if (nonEmptyIndex.isEmpty()) {
+                // Every source ended up empty. We deliberately keep the Exchange (downstream
+                // sinks like TableWriter rely on its presence for commit-fragment signalling),
+                // but consolidate the N empty children into a single empty ValuesNode so we
+                // don't spawn N idle no-op operators at runtime. The single child carries the
+                // first source's output schema since the Exchange's per-source `inputs` mapping
+                // collapses to one entry; the Exchange's own output variables are unchanged.
+                this.planChanged = true;
+                List<VariableReferenceExpression> firstSourceOutputs = rewrittenSources.get(0).getOutputVariables();
+                ValuesNode singleEmpty = new ValuesNode(
+                        node.getSourceLocation(),
+                        idAllocator.getNextId(),
+                        firstSourceOutputs,
+                        ImmutableList.of(),
+                        Optional.empty());
+                return new ExchangeNode(
+                        node.getSourceLocation(),
+                        idAllocator.getNextId(),
+                        node.getType(),
+                        node.getScope(),
+                        node.getPartitioningScheme(),
+                        ImmutableList.of(singleEmpty),
+                        ImmutableList.of(node.getInputs().get(0)),
+                        node.isEnsureSourceOrdering(),
+                        node.getOrderingScheme());
+            }
+            // Mixed empty / non-empty: drop the empty sources from the Exchange so they don't
+            // spawn single-task no-op operators at runtime (a multi-source LocalExchange in a
+            // wide UNION ALL with mixed empty/non-empty branches is the canonical case).
+            this.planChanged = true;
+            List<PlanNode> nonEmptySources = nonEmptyIndex.stream()
+                    .map(rewrittenSources::get)
+                    .collect(toImmutableList());
+            List<List<VariableReferenceExpression>> nonEmptyInputs = nonEmptyIndex.stream()
+                    .map(node.getInputs()::get)
+                    .collect(toImmutableList());
+            return new ExchangeNode(
+                    node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    node.getType(),
+                    node.getScope(),
+                    node.getPartitioningScheme(),
+                    nonEmptySources,
+                    nonEmptyInputs,
+                    node.isEnsureSourceOrdering(),
+                    node.getOrderingScheme());
         }
 
         private PlanNode convertToEmptyValuesNode(PlanNode node)

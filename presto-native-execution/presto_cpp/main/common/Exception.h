@@ -13,14 +13,13 @@
  */
 #pragma once
 
-#include <folly/Singleton.h>
+#include <exception>
 #include <unordered_map>
+
+#include <folly/Singleton.h>
+
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/VeloxException.h"
-
-namespace std {
-class exception;
-}
 
 namespace facebook::presto {
 namespace protocol {
@@ -35,6 +34,30 @@ using namespace folly::string_literals;
 inline constexpr auto kExceededLocalBroadcastJoinMemoryLimit =
     "EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT"_fs;
 } // namespace error_code
+
+class ExecutionFailureException : public velox::VeloxException {
+ public:
+  explicit ExecutionFailureException(
+      const std::string& message,
+      protocol::ExecutionFailureInfo failureInfo)
+      : VeloxException(
+            "",
+            1,
+            "",
+            "",
+            message,
+            velox::error_source::kErrorSourceSystem,
+            velox::error_code::kUnknown,
+            false),
+        failureInfo_(std::move(failureInfo)) {}
+
+  protocol::ExecutionFailureInfo getFailureInfo() const {
+    return failureInfo_;
+  }
+
+ private:
+  protocol::ExecutionFailureInfo failureInfo_;
+};
 
 // Exception translator singleton for converting Velox exceptions to Presto
 // errors. This follows the same pattern as velox/common/base/StatsReporter.h.

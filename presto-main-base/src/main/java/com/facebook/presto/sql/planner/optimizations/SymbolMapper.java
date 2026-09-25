@@ -22,6 +22,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
@@ -45,11 +46,11 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
@@ -152,6 +153,13 @@ public class SymbolMapper
 
     public RowExpression map(RowExpression value)
     {
+        // Fast path: leaf expressions don't need TreeRewriter machinery
+        if (value instanceof VariableReferenceExpression) {
+            return map((VariableReferenceExpression) value);
+        }
+        if (value instanceof ConstantExpression) {
+            return value;
+        }
         return RowExpressionTreeRewriter.rewriteWith(new RowExpressionRewriter<Void>()
         {
             @Override

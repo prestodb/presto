@@ -20,6 +20,7 @@ import org.apache.arrow.memory.BufferAllocator;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -37,7 +38,8 @@ public abstract class LanceBasePageSource
             List<LanceColumnHandle> columns,
             ScannerFactory scannerFactory,
             ArrowBlockBuilder arrowBlockBuilder,
-            BufferAllocator parentAllocator)
+            BufferAllocator parentAllocator,
+            Optional<String> filter)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         requireNonNull(columns, "columns is null");
@@ -53,7 +55,8 @@ public abstract class LanceBasePageSource
                     bufferAllocator,
                     columns,
                     scannerFactory,
-                    arrowBlockBuilder);
+                    arrowBlockBuilder,
+                    filter);
         }
         catch (RuntimeException e) {
             bufferAllocator.close();

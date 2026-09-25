@@ -15,19 +15,51 @@ package com.facebook.presto.lance;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
+
+/**
+ * Configuration for Lance connector.
+ * <p>
+ * This class contains only the connector-specific configuration properties.
+ * All other properties (e.g., lance.root, lance.uri, etc.) are passed through
+ * to the LanceNamespace implementation via the catalog properties map.
+ * <p>
+ * Directory namespace example:
+ * <pre>
+ * connector.name=lance
+ * lance.impl=dir
+ * lance.root=/path/to/warehouse
+ * </pre>
+ * <p>
+ * REST namespace example:
+ * <pre>
+ * connector.name=lance
+ * lance.impl=rest
+ * lance.uri=https://api.lancedb.com
+ * </pre>
+ * <p>
+ * All properties prefixed with "lance." are passed to the namespace implementation.
+ */
 public class LanceConfig
 {
     private String impl = "dir";
-    private String rootUrl = "";
     private boolean singleLevelNs = true;
+    private String parent;
     private int readBatchSize = 8192;
     private int maxRowsPerFile = 1_000_000;
     private int maxRowsPerGroup = 100_000;
     private int writeBatchSize = 10_000;
+    private DataSize indexCacheSize = new DataSize(128, MEGABYTE);
+    private DataSize metadataCacheSize = new DataSize(128, MEGABYTE);
+    private int datasetCacheMaxEntries = 100;
+    private Duration datasetCacheTtl = new Duration(60, MINUTES);
 
     @NotNull
     public String getImpl()
@@ -36,24 +68,10 @@ public class LanceConfig
     }
 
     @Config("lance.impl")
-    @ConfigDescription("Namespace implementation: 'dir' or full class name")
+    @ConfigDescription("Namespace implementation: 'dir', 'rest', or full class name")
     public LanceConfig setImpl(String impl)
     {
         this.impl = impl;
-        return this;
-    }
-
-    @NotNull
-    public String getRootUrl()
-    {
-        return rootUrl;
-    }
-
-    @Config("lance.root-url")
-    @ConfigDescription("Lance root storage path")
-    public LanceConfig setRootUrl(String rootUrl)
-    {
-        this.rootUrl = rootUrl;
         return this;
     }
 
@@ -63,10 +81,23 @@ public class LanceConfig
     }
 
     @Config("lance.single-level-ns")
-    @ConfigDescription("Access 1st level namespace with virtual 'default' schema")
+    @ConfigDescription("Access 1st level namespace with virtual 'default' schema (no CREATE SCHEMA)")
     public LanceConfig setSingleLevelNs(boolean singleLevelNs)
     {
         this.singleLevelNs = singleLevelNs;
+        return this;
+    }
+
+    public String getParent()
+    {
+        return parent;
+    }
+
+    @Config("lance.parent")
+    @ConfigDescription("Parent namespace prefix for 3+ level namespaces (use $ as delimiter)")
+    public LanceConfig setParent(String parent)
+    {
+        this.parent = parent;
         return this;
     }
 
@@ -123,6 +154,62 @@ public class LanceConfig
     public LanceConfig setWriteBatchSize(int writeBatchSize)
     {
         this.writeBatchSize = writeBatchSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getIndexCacheSize()
+    {
+        return indexCacheSize;
+    }
+
+    @Config("lance.index-cache-size")
+    @ConfigDescription("Size of Lance index cache per worker")
+    public LanceConfig setIndexCacheSize(DataSize indexCacheSize)
+    {
+        this.indexCacheSize = indexCacheSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMetadataCacheSize()
+    {
+        return metadataCacheSize;
+    }
+
+    @Config("lance.metadata-cache-size")
+    @ConfigDescription("Size of Lance metadata cache per worker")
+    public LanceConfig setMetadataCacheSize(DataSize metadataCacheSize)
+    {
+        this.metadataCacheSize = metadataCacheSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getDatasetCacheMaxEntries()
+    {
+        return datasetCacheMaxEntries;
+    }
+
+    @Config("lance.dataset-cache-max-entries")
+    @ConfigDescription("Maximum number of cached Lance datasets per worker")
+    public LanceConfig setDatasetCacheMaxEntries(int datasetCacheMaxEntries)
+    {
+        this.datasetCacheMaxEntries = datasetCacheMaxEntries;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDatasetCacheTtl()
+    {
+        return datasetCacheTtl;
+    }
+
+    @Config("lance.dataset-cache-ttl")
+    @ConfigDescription("TTL for cached Lance datasets")
+    public LanceConfig setDatasetCacheTtl(Duration datasetCacheTtl)
+    {
+        this.datasetCacheTtl = datasetCacheTtl;
         return this;
     }
 }

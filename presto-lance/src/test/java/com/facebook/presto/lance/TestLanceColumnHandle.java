@@ -59,6 +59,7 @@ public class TestLanceColumnHandle
         assertEquals(LanceColumnHandle.toPrestoType(field("b", new ArrowType.Int(32, true))), INTEGER);
         assertEquals(LanceColumnHandle.toPrestoType(field("c", new ArrowType.Int(64, true))), BIGINT);
         assertEquals(LanceColumnHandle.toPrestoType(field("d", new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE))), REAL);
+        assertEquals(LanceColumnHandle.toPrestoType(field("d2", new ArrowType.FloatingPoint(FloatingPointPrecision.HALF))), REAL);
         assertEquals(LanceColumnHandle.toPrestoType(field("e", new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE))), DOUBLE);
         assertEquals(LanceColumnHandle.toPrestoType(field("f", ArrowType.Utf8.INSTANCE)), VARCHAR);
     }

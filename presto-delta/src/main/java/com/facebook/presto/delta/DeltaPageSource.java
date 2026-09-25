@@ -73,7 +73,7 @@ public class DeltaPageSource
             Block[] blocksWithPartitionColumns = new Block[columnHandles.size()];
             for (DeltaColumnHandle columnHandle : columnHandles) {
                 if (columnHandle.getColumnType() == PARTITION) {
-                    Block partitionValue = partitionValues.get(columnHandle.getName());
+                    Block partitionValue = partitionValues.get(columnHandle.getLogicalName());
                     blocksWithPartitionColumns[columnIndex++] = new RunLengthEncodedBlock(partitionValue, positionCount);
                 }
                 else {

@@ -21,7 +21,7 @@ _______________
 * Fix a race condition in enum key lookup which caused queries using ``enum_key`` to crash occasionally with an internal error. (:pr:`15607`).
 * Add an implementation of :func:`!array_intersect` that takes an array of arrays as input.
 * Add support for temporary (session-scoped) functions.
-* Add support for specifying session properties via regex matching on client info using :doc:`/admin/session-property-managers`.
+* Add support for specifying session properties by using regex matching on client info using :doc:`/admin/session-property-managers`.
 
 SPI Changes
 ___________

@@ -188,12 +188,30 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    public R visitWindow(Window node, C context)
+    public R visitWindowSpecification(WindowSpecification node, C context)
     {
+        // The name of the referenced window is deliberately not traversed. It is a reference into the
+        // window namespace of the enclosing query specification, not a column reference, and visitors
+        // that collect identifiers would otherwise treat it as one.
         node.getPartitionBy().forEach(expression -> process(expression, context));
 
         node.getOrderBy().ifPresent(orderBy -> process(orderBy, context));
         node.getFrame().ifPresent(frame -> process(frame, context));
+
+        return null;
+    }
+
+    @Override
+    public R visitWindowReference(WindowReference node, C context)
+    {
+        // The window name is deliberately not traversed. See visitWindowSpecification.
+        return null;
+    }
+
+    @Override
+    public R visitWindowDefinition(WindowDefinition node, C context)
+    {
+        process(node.getWindow(), context);
 
         return null;
     }
@@ -351,6 +369,7 @@ public abstract class DefaultTraversalVisitor<R, C>
         node.getWhere().ifPresent(where -> process(where, context));
         node.getGroupBy().ifPresent(groupBy -> process(groupBy, context));
         node.getHaving().ifPresent(having -> process(having, context));
+        node.getWindows().forEach(windowDefinition -> process(windowDefinition, context));
         node.getOrderBy().ifPresent(orderBy -> process(orderBy, context));
 
         return null;
@@ -373,7 +392,17 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitRow(Row node, C context)
     {
-        node.getItems().forEach(expression -> process(expression, context));
+        node.getFields().forEach(field -> process(field, context));
+        return null;
+    }
+
+    @Override
+    protected R visitRowField(Row.Field node, C context)
+    {
+        // Only the value expression is traversed. A declared field name is a declaration, not a
+        // reference, so visitors that collect identifiers (e.g. FreeLambdaReferenceExtractor,
+        // VariablesExtractor, SubqueryPlanner) must not mistake it for a column reference.
+        process(node.getExpression(), context);
         return null;
     }
 
@@ -486,6 +515,23 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitSetColumnDefault(SetColumnDefault node, C context)
+    {
+        process(node.getDefaultExpression(), context);
+        return null;
+    }
+
+    @Override
+    protected R visitSetColumnPosition(SetColumnPosition node, C context)
+    {
+        process(node.getColumn(), context);
+        if (node.getPosition() instanceof ColumnPosition.After) {
+            process(((ColumnPosition.After) node.getPosition()).getColumn(), context);
+        }
+        return null;
+    }
+
+    @Override
     protected R visitMerge(Merge node, C context)
     {
         process(node.getTarget(), context);
@@ -498,6 +544,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitMergeInsert(MergeInsert node, C context)
     {
+        node.getCondition().ifPresent(condition -> process(condition, context));
         node.getColumns().forEach(column -> process(column, context));
         node.getValues().forEach(expression -> process(expression, context));
         return null;
@@ -506,10 +553,18 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitMergeUpdate(MergeUpdate node, C context)
     {
+        node.getCondition().ifPresent(condition -> process(condition, context));
         node.getAssignments().forEach(assignment -> {
             process(assignment.getTarget(), context);
             process(assignment.getValue(), context);
         });
+        return null;
+    }
+
+    @Override
+    protected R visitMergeDelete(MergeDelete node, C context)
+    {
+        node.getCondition().ifPresent(condition -> process(condition, context));
         return null;
     }
 
@@ -577,6 +632,9 @@ public abstract class DefaultTraversalVisitor<R, C>
     protected R visitAddColumn(AddColumn node, C context)
     {
         process(node.getColumn(), context);
+        node.getPosition()
+                .filter(position -> position instanceof ColumnPosition.After)
+                .ifPresent(position -> process(((ColumnPosition.After) position).getColumn(), context));
 
         return null;
     }
@@ -587,6 +645,19 @@ public abstract class DefaultTraversalVisitor<R, C>
         node.getElements().forEach(tableElement -> process(tableElement, context));
         node.getProperties().forEach(property -> process(property, context));
 
+        return null;
+    }
+
+    @Override
+    protected R visitCreateVectorIndex(CreateVectorIndex node, C context)
+    {
+        for (Identifier column : node.getColumns()) {
+            process(column, context);
+        }
+        node.getUpdatingFor().ifPresent(updatingFor -> process(updatingFor, context));
+        for (Property property : node.getProperties()) {
+            process(property, context);
+        }
         return null;
     }
 

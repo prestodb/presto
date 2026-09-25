@@ -51,6 +51,9 @@ import com.facebook.presto.execution.ResetSessionTask;
 import com.facebook.presto.execution.RevokeRolesTask;
 import com.facebook.presto.execution.RevokeTask;
 import com.facebook.presto.execution.RollbackTask;
+import com.facebook.presto.execution.SetColumnDefaultTask;
+import com.facebook.presto.execution.SetColumnPositionTask;
+import com.facebook.presto.execution.SetColumnTypeTask;
 import com.facebook.presto.execution.SetPropertiesTask;
 import com.facebook.presto.execution.SetRoleTask;
 import com.facebook.presto.execution.SetSessionTask;
@@ -94,6 +97,9 @@ import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.SetColumnDefault;
+import com.facebook.presto.sql.tree.SetColumnPosition;
+import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
@@ -140,6 +146,8 @@ public class PrestoDataDefBindingHelper
         dataDefBuilder.put(DropConstraint.class, DropConstraintTask.class);
         dataDefBuilder.put(AddConstraint.class, AddConstraintTask.class);
         dataDefBuilder.put(AlterColumnNotNull.class, AlterColumnNotNullTask.class);
+        dataDefBuilder.put(SetColumnDefault.class, SetColumnDefaultTask.class);
+        dataDefBuilder.put(SetColumnPosition.class, SetColumnPositionTask.class);
         dataDefBuilder.put(DropTable.class, DropTableTask.class);
         dataDefBuilder.put(TruncateTable.class, TruncateTableTask.class);
         dataDefBuilder.put(CreateView.class, CreateViewTask.class);
@@ -155,6 +163,7 @@ public class PrestoDataDefBindingHelper
         dataDefBuilder.put(RevokeRoles.class, RevokeRolesTask.class);
         dataDefBuilder.put(Grant.class, GrantTask.class);
         dataDefBuilder.put(Revoke.class, RevokeTask.class);
+        dataDefBuilder.put(SetColumnType.class, SetColumnTypeTask.class);
 
         transactionDefBuilder.put(Use.class, UseTask.class);
         transactionDefBuilder.put(SetSession.class, SetSessionTask.class);

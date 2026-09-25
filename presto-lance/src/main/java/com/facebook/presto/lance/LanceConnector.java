@@ -19,11 +19,15 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -38,6 +42,8 @@ public class LanceConnector
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
+    private final LanceSessionProperties sessionProperties;
+    private final ConnectorPlanOptimizerProvider planOptimizerProvider;
 
     @Inject
     public LanceConnector(
@@ -46,7 +52,9 @@ public class LanceConnector
             LanceNamespaceHolder namespaceHolder,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
-            ConnectorPageSinkProvider pageSinkProvider)
+            ConnectorPageSinkProvider pageSinkProvider,
+            LanceSessionProperties sessionProperties,
+            ConnectorPlanOptimizerProvider planOptimizerProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -54,6 +62,8 @@ public class LanceConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
+        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
+        this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
     }
 
     @Override
@@ -84,6 +94,18 @@ public class LanceConnector
     public ConnectorPageSinkProvider getPageSinkProvider()
     {
         return pageSinkProvider;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties.getSessionProperties();
+    }
+
+    @Override
+    public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
+    {
+        return planOptimizerProvider;
     }
 
     @Override

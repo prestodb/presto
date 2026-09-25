@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnType;
 import com.facebook.presto.spi.security.ViewSecurity;
+import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -36,6 +39,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.ColumnPosition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
@@ -48,6 +52,7 @@ import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateTag;
 import com.facebook.presto.sql.tree.CreateType;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -116,6 +121,7 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Merge;
 import com.facebook.presto.sql.tree.MergeCase;
+import com.facebook.presto.sql.tree.MergeDelete;
 import com.facebook.presto.sql.tree.MergeInsert;
 import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.NaturalJoin;
@@ -155,6 +161,9 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetColumnDefault;
+import com.facebook.presto.sql.tree.SetColumnPosition;
+import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
@@ -201,7 +210,10 @@ import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowDefinition;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowReference;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -229,6 +241,7 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NO
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.sql.tree.SetProperties.Type.MATERIALIZED_VIEW;
 import static com.facebook.presto.sql.tree.SetProperties.Type.TABLE;
 import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.descriptorArgument;
 import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
@@ -369,6 +382,35 @@ class AstBuilder
     }
 
     @Override
+    public Node visitCreateVectorIndex(SqlBaseParser.CreateVectorIndexContext context)
+    {
+        QualifiedName indexName = getQualifiedName(context.qualifiedName(0));
+        QualifiedName tableName = getQualifiedName(context.qualifiedName(1));
+
+        List<Identifier> columns = context.identifier().stream()
+                .map(id -> (Identifier) visit(id))
+                .collect(toImmutableList());
+
+        Optional<Expression> updatingFor = Optional.empty();
+        if (context.UPDATING() != null) {
+            updatingFor = Optional.of((Expression) visit(context.booleanExpression()));
+        }
+
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+
+        return new CreateVectorIndex(
+                getLocation(context),
+                indexName,
+                tableName,
+                columns,
+                updatingFor,
+                properties);
+    }
+
+    @Override
     public Node visitCreateType(SqlBaseParser.CreateTypeContext context)
     {
         if (context.type() == null) {
@@ -501,6 +543,7 @@ class AstBuilder
     {
         return new MergeInsert(
                 getLocation(context),
+                visitIfPresent(context.condition, Expression.class),
                 visitIdentifiers(context.columns),
                 visit(context.values, Expression.class));
     }
@@ -522,7 +565,13 @@ class AstBuilder
                     (Expression) visit(context.values.get(i))));
         }
 
-        return new MergeUpdate(getLocation(context), assignments.build());
+        return new MergeUpdate(getLocation(context), visitIfPresent(context.condition, Expression.class), assignments.build());
+    }
+
+    @Override
+    public Node visitMergeDelete(SqlBaseParser.MergeDeleteContext context)
+    {
+        return new MergeDelete(getLocation(context), visitIfPresent(context.condition, Expression.class));
     }
 
     @Override
@@ -542,6 +591,21 @@ class AstBuilder
         return new SetProperties(getLocation(context),
                 TABLE,
                 getQualifiedName(context.tableName),
+                properties,
+                context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitSetMaterializedViewProperties(SqlBaseParser.SetMaterializedViewPropertiesContext context)
+    {
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+
+        return new SetProperties(getLocation(context),
+                MATERIALIZED_VIEW,
+                getQualifiedName(context.qualifiedName()),
                 properties,
                 context.EXISTS() != null);
     }
@@ -583,8 +647,20 @@ class AstBuilder
         return new AddColumn(getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (ColumnDefinition) visit(context.columnDefinition()),
+                getColumnPosition(context),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
+    }
+
+    private Optional<ColumnPosition> getColumnPosition(SqlBaseParser.AddColumnContext context)
+    {
+        if (context.FIRST() != null) {
+            return Optional.of(new ColumnPosition.First());
+        }
+        if (context.AFTER() != null) {
+            return Optional.of(new ColumnPosition.After((Identifier) visit(context.after)));
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -790,6 +866,43 @@ class AstBuilder
                 (Identifier) visit(context.column),
                 context.EXISTS() != null,
                 true);
+    }
+
+    @Override
+    public Node visitSetColumnDefault(SqlBaseParser.SetColumnDefaultContext context)
+    {
+        return new SetColumnDefault(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                (Expression) visit(context.expression()),
+                context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitSetColumnPosition(SqlBaseParser.SetColumnPositionContext context)
+    {
+        return new SetColumnPosition(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                getColumnPosition(context),
+                context.EXISTS() != null);
+    }
+
+    /**
+     * The position clause is shared with {@code ADD COLUMN}, but ANTLR generates an unrelated context class
+     * per statement alternative, so the two cannot read it through one method.
+     */
+    private ColumnPosition getColumnPosition(SqlBaseParser.SetColumnPositionContext context)
+    {
+        if (context.FIRST() != null) {
+            return new ColumnPosition.First();
+        }
+        if (context.after != null) {
+            return new ColumnPosition.After((Identifier) visit(context.after));
+        }
+        throw new IllegalStateException("SET COLUMN POSITION must specify FIRST or AFTER");
     }
 
     @Override
@@ -1038,6 +1151,17 @@ class AstBuilder
     }
 
     @Override
+    public Node visitSetColumnType(SqlBaseParser.SetColumnTypeContext context)
+    {
+        return new SetColumnType(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.columnName),
+                getType(context.type()),
+                context.EXISTS() != null);
+    }
+
+    @Override
     public Node visitQueryNoWith(SqlBaseParser.QueryNoWithContext context)
     {
         QueryBody term = (QueryBody) visit(context.queryTerm());
@@ -1078,6 +1202,7 @@ class AstBuilder
                             query.getWhere(),
                             query.getGroupBy(),
                             query.getHaving(),
+                            query.getWindows(),
                             orderBy,
                             offset,
                             limit),
@@ -1121,9 +1246,35 @@ class AstBuilder
                 visitIfPresent(context.where, Expression.class),
                 visitIfPresent(context.groupBy(), GroupBy.class),
                 visitIfPresent(context.having, Expression.class),
+                visit(context.windowDefinition(), WindowDefinition.class),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    @Override
+    public Node visitWindowSpecification(SqlBaseParser.WindowSpecificationContext context)
+    {
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        }
+
+        return new WindowSpecification(
+                getLocation(context),
+                visitIfPresent(context.existingWindowName, Identifier.class),
+                visit(context.partition, Expression.class),
+                orderBy,
+                visitIfPresent(context.windowFrame(), WindowFrame.class));
+    }
+
+    @Override
+    public Node visitWindowDefinition(SqlBaseParser.WindowDefinitionContext context)
+    {
+        return new WindowDefinition(
+                getLocation(context),
+                (Identifier) visit(context.name),
+                (WindowSpecification) visit(context.windowSpecification()));
     }
 
     @Override
@@ -2010,7 +2161,20 @@ class AstBuilder
     @Override
     public Node visitRowConstructor(SqlBaseParser.RowConstructorContext context)
     {
-        return new Row(getLocation(context), visit(context.expression(), Expression.class));
+        // The parenthesized form -- (a, b) -- cannot declare field names.
+        if (context.fieldConstructor().isEmpty()) {
+            return Row.unnamed(getLocation(context), visit(context.expression(), Expression.class));
+        }
+        return new Row(getLocation(context), visit(context.fieldConstructor(), Row.Field.class));
+    }
+
+    @Override
+    public Node visitFieldConstructor(SqlBaseParser.FieldConstructorContext context)
+    {
+        return new Row.Field(
+                getLocation(context),
+                visitIfPresent(context.identifier(), Identifier.class),
+                (Expression) visit(context.expression()));
     }
 
     @Override
@@ -2246,16 +2410,11 @@ class AstBuilder
     @Override
     public Node visitOver(SqlBaseParser.OverContext context)
     {
-        Optional<OrderBy> orderBy = Optional.empty();
-        if (context.ORDER() != null) {
-            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        if (context.windowName != null) {
+            return new WindowReference(getLocation(context), (Identifier) visit(context.windowName));
         }
 
-        return new Window(
-                getLocation(context),
-                visit(context.partition, Expression.class),
-                orderBy,
-                visitIfPresent(context.windowFrame(), WindowFrame.class));
+        return visit(context.windowSpecification());
     }
 
     @Override
@@ -2273,12 +2432,56 @@ class AstBuilder
 
         boolean nullable = context.NOT() == null;
 
+        if (context.DEFAULT() != null && (context.GENERATED() != null || context.AS() != null)) {
+            throw new ParsingException("Setting a default expression on a derived column is not supported.", getLocation(context));
+        }
+
+        Optional<Expression> defaultExpression = Optional.empty();
+        if (context.DEFAULT() != null && context.expression() != null) {
+            defaultExpression = Optional.of((Expression) visit(context.expression().get(0)));
+        }
+
+        Optional<DerivedColumnSpec> derivedColumnExpressionSpec = Optional.empty();
+        Identifier columnIdentifier = (Identifier) visit(context.identifier());
+        Optional<Expression> derivedColumnExpression = Optional.empty();
+        if (context.AS() != null && !context.expression().isEmpty()) {
+            SqlBaseParser.ExpressionContext tree = context.expression().get(0);
+            check(tree != null, "expression is null ", context);
+            Expression validatedDerivedColumnExpression = (Expression) visit(tree);
+            DerivedColumnType derivedColumnType = DerivedColumnType.PERSISTENT;
+            if (context.GENERATED() != null && context.ALWAYS() != null) {
+                derivedColumnType = DerivedColumnType.GENERATED_ALWAYS_PERSISTENT;
+            }
+            if (context.VIRTUAL() != null) {
+                derivedColumnType = DerivedColumnType.VIRTUAL;
+            }
+            derivedColumnExpression = Optional.of(validatedDerivedColumnExpression);
+            // tree.getText() gets the expression as text, but messes it up by removing spaces. e.g. (CAST(c1 AS decimal) * DECIMAL '10.5') becomes (CAST(c1ASdecimal)*DECIMAL'10.5')
+            derivedColumnExpressionSpec = Optional.of(
+                    new DerivedColumnSpec(derivedColumnType,
+                            ExpressionFormatter.formatExpression(validatedDerivedColumnExpression, Optional.empty()),
+                            columnIdentifier.getValue(),
+                            -1,
+                            getType(context.type())));
+        }
+
+        if (derivedColumnExpressionSpec.isPresent()) {
+            return new ColumnDefinition(Optional.of(getLocation(context)),
+                    columnIdentifier,
+                    getType(context.type()),
+                    nullable,
+                    properties,
+                    comment,
+                    derivedColumnExpression,
+                    derivedColumnExpressionSpec);
+        }
         return new ColumnDefinition(
                 getLocation(context),
-                (Identifier) visit(context.identifier()),
+                columnIdentifier,
                 getType(context.type()),
                 nullable, properties,
-                comment);
+                comment,
+                defaultExpression);
     }
 
     @Override

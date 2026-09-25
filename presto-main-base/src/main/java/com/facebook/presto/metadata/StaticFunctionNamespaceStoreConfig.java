@@ -17,21 +17,23 @@ import com.facebook.airlift.configuration.Config;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class StaticFunctionNamespaceStoreConfig
 {
-    private File functionNamespaceConfigurationDir = new File("etc/function-namespace/");
+    private Path functionNamespaceConfigurationDir = Paths.get("etc/function-namespace/");
 
     @NotNull
     public File getFunctionNamespaceConfigurationDir()
     {
-        return functionNamespaceConfigurationDir;
+        return functionNamespaceConfigurationDir.toFile();
     }
 
     @Config("function-namespace.config-dir")
     public StaticFunctionNamespaceStoreConfig setFunctionNamespaceConfigurationDir(File dir)
     {
-        this.functionNamespaceConfigurationDir = dir;
+        this.functionNamespaceConfigurationDir = dir.toPath();
         return this;
     }
 }

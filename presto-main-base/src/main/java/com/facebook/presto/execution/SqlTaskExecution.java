@@ -37,7 +37,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -61,6 +60,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getInitialSplitsPerNode;
 import static com.facebook.presto.SystemSessionProperties.getMaxDriversPerTask;
@@ -350,10 +350,12 @@ public class SqlTaskExecution
             }
         }
 
-        for (DriverSplitRunnerFactory driverSplitRunnerFactory :
-                Iterables.concat(driverRunnerFactoriesWithSplitLifeCycle.values(), driverRunnerFactoriesWithTaskLifeCycle, driverRunnerFactoriesWithDriverGroupLifeCycle)) {
-            driverSplitRunnerFactory.closeDriverFactoryIfFullyCreated();
-        }
+        Stream.concat(
+                        Stream.concat(
+                                driverRunnerFactoriesWithSplitLifeCycle.values().stream(),
+                                driverRunnerFactoriesWithTaskLifeCycle.stream()),
+                        driverRunnerFactoriesWithDriverGroupLifeCycle.stream())
+                .forEach(DriverSplitRunnerFactory::closeDriverFactoryIfFullyCreated);
 
         // update maxAcknowledgedSplit
         maxAcknowledgedSplit = sources.stream()

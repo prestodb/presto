@@ -21,8 +21,9 @@ import com.facebook.presto.spi.function.CatalogSchemaFunctionName;
 import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.function.table.ArgumentSpecification;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
-import com.facebook.presto.spi.function.table.ReturnTypeSpecification.DescribedTable;
+import com.facebook.presto.spi.function.table.DescribedTableReturnTypeSpecification;
 import com.facebook.presto.spi.function.table.TableArgumentSpecification;
+import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
@@ -157,8 +158,8 @@ public class TableFunctionRegistry
         // Such a table argument is implicitly 'prune when empty'. The TableArgumentSpecification.Builder enforces the 'prune when empty' property
         // for a table argument with row semantics.
 
-        if (tableFunction.getReturnTypeSpecification() instanceof DescribedTable) {
-            DescribedTable describedTable = (DescribedTable) tableFunction.getReturnTypeSpecification();
+        if (tableFunction.getReturnTypeSpecification() instanceof DescribedTableReturnTypeSpecification) {
+            DescribedTableReturnTypeSpecification describedTable = (DescribedTableReturnTypeSpecification) tableFunction.getReturnTypeSpecification();
             checkArgument(describedTable.getDescriptor().isTyped(), "field types missing in returned type specification");
         }
     }

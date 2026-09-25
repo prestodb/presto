@@ -37,6 +37,10 @@ addShuffleReadNode(const velox::RowTypePtr& outputType);
 
 std::function<
     velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
+addMaterializedExchangeNode(const velox::RowTypePtr& outputType);
+
+std::function<
+    velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
 addShuffleWriteNode(
     uint32_t numPartitions,
     const std::string& shuffleName,

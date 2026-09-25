@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.DataType;
-import com.datastax.driver.core.LocalDate;
-import com.datastax.driver.core.ProtocolVersion;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.TupleValue;
-import com.datastax.driver.core.utils.Bytes;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.data.CqlVector;
+import com.datastax.oss.driver.api.core.data.TupleValue;
+import com.datastax.oss.driver.api.core.type.DataType;
+import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DateType;
@@ -29,11 +31,13 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
@@ -42,15 +46,17 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Collection;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -77,7 +83,8 @@ public enum CassandraType
     TINYINT(TinyintType.TINYINT, Byte.class),
     TEXT(createUnboundedVarcharType(), String.class),
     DATE(DateType.DATE, LocalDate.class),
-    TIMESTAMP(TimestampType.TIMESTAMP, Date.class),
+    TIMESTAMP(TimestampType.TIMESTAMP, Instant.class),
+    TIMESTAMP_WITH_TIMEZONE(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE, Instant.class),
     UUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH), java.util.UUID.class),
     TIMEUUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH), java.util.UUID.class),
     VARCHAR(createUnboundedVarcharType(), String.class),
@@ -85,7 +92,10 @@ public enum CassandraType
     LIST(createUnboundedVarcharType(), null),
     MAP(createUnboundedVarcharType(), null),
     SET(createUnboundedVarcharType(), null),
-    TUPLE(createUnboundedVarcharType(), null);
+    TUPLE(createUnboundedVarcharType(), null),
+    // Placeholder native type; the precise element type is derived from the type argument
+    // via getPrestoType(). A vector<float, N> column reports ARRAY(REAL).
+    VECTOR(new ArrayType(RealType.REAL), null);
 
     private static class Constants
     {
@@ -115,6 +125,7 @@ public enum CassandraType
         switch (this) {
             case LIST:
             case SET:
+            case VECTOR:
                 return 1;
             case MAP:
                 return 2;
@@ -123,59 +134,110 @@ public enum CassandraType
         }
     }
 
-    public static CassandraType getCassandraType(DataType.Name name)
+    /**
+     * Returns the Presto type for a column, resolving parametric types from their type arguments.
+     * A Cassandra {@code vector<elem, N>} maps to {@code ARRAY(<elem>)} (e.g. {@code vector<float, N>}
+     * to {@code ARRAY(REAL)}) so the column plugs into Presto's vector index and similarity functions.
+     * All other types use their fixed native type.
+     */
+    public static Type getPrestoType(CassandraType cassandraType, List<CassandraType> typeArguments)
     {
-        switch (name) {
-            case ASCII:
-                return ASCII;
-            case BIGINT:
-                return BIGINT;
-            case BLOB:
-                return BLOB;
-            case BOOLEAN:
-                return BOOLEAN;
-            case COUNTER:
-                return COUNTER;
-            case CUSTOM:
-                return CUSTOM;
-            case DATE:
-                return DATE;
-            case DECIMAL:
-                return DECIMAL;
-            case DOUBLE:
-                return DOUBLE;
-            case FLOAT:
-                return FLOAT;
-            case INET:
-                return INET;
-            case INT:
-                return INT;
-            case LIST:
-                return LIST;
-            case MAP:
-                return MAP;
-            case SET:
-                return SET;
-            case SMALLINT:
-                return SMALLINT;
-            case TEXT:
-                return TEXT;
-            case TIMESTAMP:
+        if (cassandraType == VECTOR) {
+            checkTypeArguments(VECTOR, 1, typeArguments);
+            return new ArrayType(typeArguments.get(0).getNativeType());
+        }
+        return cassandraType.getNativeType();
+    }
+
+    /**
+     * Returns the CQL type name to use in CREATE TABLE statements.
+     * Driver 4.x properly supports all CQL type names including 'date'.
+     */
+    public String getCqlTypeName()
+    {
+        return name().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    public static CassandraType getCassandraType(ConnectorSession connectorSession, DataType dataType)
+    {
+        if (dataType.equals(DataTypes.ASCII)) {
+            return ASCII;
+        }
+        else if (dataType.equals(DataTypes.BIGINT)) {
+            return BIGINT;
+        }
+        else if (dataType.equals(DataTypes.BLOB)) {
+            return BLOB;
+        }
+        else if (dataType.equals(DataTypes.BOOLEAN)) {
+            return BOOLEAN;
+        }
+        else if (dataType.equals(DataTypes.COUNTER)) {
+            return COUNTER;
+        }
+        else if (dataType.equals(DataTypes.DATE)) {
+            return DATE;
+        }
+        else if (dataType.equals(DataTypes.DECIMAL)) {
+            return DECIMAL;
+        }
+        else if (dataType.equals(DataTypes.DOUBLE)) {
+            return DOUBLE;
+        }
+        else if (dataType.equals(DataTypes.FLOAT)) {
+            return FLOAT;
+        }
+        else if (dataType.equals(DataTypes.INET)) {
+            return INET;
+        }
+        else if (dataType.equals(DataTypes.INT)) {
+            return INT;
+        }
+        else if (dataType.equals(DataTypes.SMALLINT)) {
+            return SMALLINT;
+        }
+        else if (dataType.equals(DataTypes.TEXT)) {
+            return TEXT;
+        }
+        else if (dataType.equals(DataTypes.TIMESTAMP)) {
+            if (connectorSession.getSqlFunctionProperties().isLegacyTimestamp()) {
                 return TIMESTAMP;
-            case TIMEUUID:
-                return TIMEUUID;
-            case TINYINT:
-                return TINYINT;
-            case TUPLE:
-                return TUPLE;
-            case UUID:
-                return UUID;
-            case VARCHAR:
-                return VARCHAR;
-            case VARINT:
-                return VARINT;
-            default:
-                throw new NotSupportedException(format("Unsupported Cassandra type: %s", name));
+            }
+            return TIMESTAMP_WITH_TIMEZONE;
+        }
+        else if (dataType.equals(DataTypes.TIMEUUID)) {
+            return TIMEUUID;
+        }
+        else if (dataType.equals(DataTypes.TINYINT)) {
+            return TINYINT;
+        }
+        else if (dataType.equals(DataTypes.UUID)) {
+            return UUID;
+        }
+        else if (dataType.equals(DataTypes.VARINT)) {
+            return VARINT;
+        }
+        else if (dataType instanceof com.datastax.oss.driver.api.core.type.ListType) {
+            return LIST;
+        }
+        else if (dataType instanceof com.datastax.oss.driver.api.core.type.MapType) {
+            return MAP;
+        }
+        else if (dataType instanceof com.datastax.oss.driver.api.core.type.SetType) {
+            return SET;
+        }
+        else if (dataType instanceof com.datastax.oss.driver.api.core.type.TupleType) {
+            return TUPLE;
+        }
+        // VectorType extends CustomType, so this branch must precede the CustomType check below.
+        else if (dataType instanceof com.datastax.oss.driver.api.core.type.VectorType) {
+            return VECTOR;
+        }
+        else if (dataType instanceof com.datastax.oss.driver.api.core.type.CustomType) {
+            return CUSTOM;
+        }
+        else {
+            throw new NotSupportedException(format("Unsupported Cassandra type: %s", dataType));
         }
     }
 
@@ -213,18 +275,20 @@ public enum CassandraType
                 case FLOAT:
                     return NullableValue.of(nativeType, (long) floatToRawIntBits(row.getFloat(position)));
                 case DECIMAL:
-                    return NullableValue.of(nativeType, row.getDecimal(position).doubleValue());
+                    return NullableValue.of(nativeType, row.getBigDecimal(position).doubleValue());
                 case UUID:
                 case TIMEUUID:
-                    return NullableValue.of(nativeType, utf8Slice(row.getUUID(position).toString()));
+                    return NullableValue.of(nativeType, utf8Slice(row.getUuid(position).toString()));
                 case TIMESTAMP:
-                    return NullableValue.of(nativeType, row.getTimestamp(position).getTime());
+                    return NullableValue.of(nativeType, row.getInstant(position).toEpochMilli());
+                case TIMESTAMP_WITH_TIMEZONE:
+                    return NullableValue.of(nativeType, packDateTimeWithZone(row.getInstant(position).toEpochMilli(), TimeZoneKey.UTC_KEY));
                 case DATE:
-                    return NullableValue.of(nativeType, (long) row.getDate(position).getDaysSinceEpoch());
+                    return NullableValue.of(nativeType, (long) row.getLocalDate(position).toEpochDay());
                 case INET:
-                    return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(position))));
+                    return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInetAddress(position))));
                 case VARINT:
-                    return NullableValue.of(nativeType, utf8Slice(row.getVarint(position).toString()));
+                    return NullableValue.of(nativeType, utf8Slice(row.getBigInteger(position).toString()));
                 case BLOB:
                 case CUSTOM:
                     return NullableValue.of(nativeType, wrappedBuffer(row.getBytesUnsafe(position)));
@@ -240,6 +304,11 @@ public enum CassandraType
                 case TUPLE:
                     TupleValue tupleValue = row.getTupleValue(position);
                     return NullableValue.of(nativeType, utf8Slice(tupleValue.toString()));
+                case VECTOR:
+                    checkTypeArguments(cassandraType, 1, typeArguments);
+                    CassandraType elementType = typeArguments.get(0);
+                    ArrayType arrayType = new ArrayType(elementType.getNativeType());
+                    return NullableValue.of(arrayType, buildVectorBlock(row, position, arrayType, elementType));
                 default:
                     throw new IllegalStateException("Handling of type " + cassandraType
                             + " is not implemented");
@@ -260,7 +329,7 @@ public enum CassandraType
                 return NullableValue.of(nativeType, utf8Slice(row.getString(position)));
             case UUID:
             case TIMEUUID:
-                return NullableValue.of(nativeType, utf8Slice(row.getUUID(position).toString()));
+                return NullableValue.of(nativeType, utf8Slice(row.getUuid(position).toString()));
             default:
                 return getColumnValue(row, position, cassandraType, typeArguments);
         }
@@ -307,6 +376,42 @@ public enum CassandraType
         return sb.toString();
     }
 
+    private static Block buildVectorBlock(Row row, int position, ArrayType arrayType, CassandraType elementType)
+    {
+        CqlVector<?> vector = row.getVector(position, elementType.javaType);
+        Type elementNativeType = arrayType.getElementType();
+        BlockBuilder builder = elementNativeType.createBlockBuilder(null, vector.size());
+        for (Object element : vector) {
+            writeVectorElement(elementNativeType, elementType, element, builder);
+        }
+        return builder.build();
+    }
+
+    private static void writeVectorElement(Type elementNativeType, CassandraType elementType, Object element, BlockBuilder builder)
+    {
+        if (element == null) {
+            builder.appendNull();
+            return;
+        }
+        switch (elementType) {
+            case FLOAT:
+                // REAL is stored as the raw int bits of the float, widened to long (see getColumnValue FLOAT).
+                elementNativeType.writeLong(builder, floatToRawIntBits((Float) element));
+                break;
+            case DOUBLE:
+                elementNativeType.writeDouble(builder, (Double) element);
+                break;
+            case INT:
+            case SMALLINT:
+            case TINYINT:
+            case BIGINT:
+                elementNativeType.writeLong(builder, ((Number) element).longValue());
+                break;
+            default:
+                throw new IllegalStateException("Unsupported Cassandra vector element type: " + elementType);
+        }
+    }
+
     private static void checkTypeArguments(CassandraType type, int expectedSize, List<CassandraType> typeArguments)
     {
         if (typeArguments == null || typeArguments.size() != expectedSize) {
@@ -342,21 +447,22 @@ public enum CassandraType
                 case FLOAT:
                     return Float.toString(row.getFloat(position));
                 case DECIMAL:
-                    return row.getDecimal(position).toString();
+                    return row.getBigDecimal(position).toString();
                 case UUID:
                 case TIMEUUID:
-                    return row.getUUID(position).toString();
+                    return row.getUuid(position).toString();
                 case TIMESTAMP:
-                    return Long.toString(row.getTimestamp(position).getTime());
+                case TIMESTAMP_WITH_TIMEZONE:
+                    return Long.toString(row.getInstant(position).toEpochMilli());
                 case DATE:
-                    return row.getDate(position).toString();
+                    return row.getLocalDate(position).toString();
                 case INET:
-                    return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(position)));
+                    return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInetAddress(position)));
                 case VARINT:
-                    return row.getVarint(position).toString();
+                    return row.getBigInteger(position).toString();
                 case BLOB:
                 case CUSTOM:
-                    return Bytes.toHexString(row.getBytesUnsafe(position));
+                    return bytesToHex(row.getBytesUnsafe(position));
                 default:
                     throw new IllegalStateException("Handling of type " + cassandraType
                             + " is not implemented");
@@ -373,6 +479,7 @@ public enum CassandraType
             case UUID:
             case TIMEUUID:
             case TIMESTAMP:
+            case TIMESTAMP_WITH_TIMEZONE:
             case DATE:
             case INET:
             case VARINT:
@@ -380,7 +487,7 @@ public enum CassandraType
 
             case BLOB:
             case CUSTOM:
-                return CassandraCqlUtils.quoteStringLiteralForJson(Bytes.toHexString((ByteBuffer) object));
+                return CassandraCqlUtils.quoteStringLiteralForJson(bytesToHex((ByteBuffer) object));
             case SMALLINT:
             case TINYINT:
             case INT:
@@ -420,6 +527,19 @@ public enum CassandraType
         }
     }
 
+    private static String bytesToHex(ByteBuffer buffer)
+    {
+        if (buffer == null) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("0x");
+        for (int i = buffer.position(); i < buffer.limit(); i++) {
+            sb.append(String.format("%02x", buffer.get(i)));
+        }
+        return sb.toString();
+    }
+
     public Object getJavaValue(Object nativeValue)
     {
         switch (this) {
@@ -447,9 +567,11 @@ public enum CassandraType
                 // Otherwise partition id doesn't match
                 return new BigDecimal(nativeValue.toString());
             case TIMESTAMP:
-                return new Date((Long) nativeValue);
+                return Instant.ofEpochMilli((Long) nativeValue);
+            case TIMESTAMP_WITH_TIMEZONE:
+                return Instant.ofEpochMilli(unpackMillisUtc((Long) nativeValue));
             case DATE:
-                return LocalDate.fromDaysSinceEpoch(((Long) nativeValue).intValue());
+                return LocalDate.ofEpochDay((Long) nativeValue);
             case UUID:
             case TIMEUUID:
                 return java.util.UUID.fromString(((Slice) nativeValue).toStringUtf8());
@@ -480,6 +602,7 @@ public enum CassandraType
             case FLOAT:
             case DECIMAL:
             case TIMESTAMP:
+            case TIMESTAMP_WITH_TIMEZONE:
             case UUID:
             case TIMEUUID:
                 return true;
@@ -495,40 +618,7 @@ public enum CassandraType
         }
     }
 
-    public Object validateClusteringKey(Object value)
-    {
-        switch (this) {
-            case ASCII:
-            case TEXT:
-            case VARCHAR:
-            case BIGINT:
-            case BOOLEAN:
-            case DOUBLE:
-            case INET:
-            case INT:
-            case SMALLINT:
-            case TINYINT:
-            case FLOAT:
-            case DECIMAL:
-            case TIMESTAMP:
-            case DATE:
-            case UUID:
-            case TIMEUUID:
-                return value;
-            case COUNTER:
-            case BLOB:
-            case CUSTOM:
-            case VARINT:
-            case SET:
-            case LIST:
-            case MAP:
-            default:
-                // todo should we just skip partition pruning instead of throwing an exception?
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported clustering key type: " + this);
-        }
-    }
-
-    public static CassandraType toCassandraType(Type type, ProtocolVersion protocolVersion)
+    public static CassandraType toCassandraType(Type type)
     {
         if (type.equals(BooleanType.BOOLEAN)) {
             return BOOLEAN;
@@ -555,12 +645,12 @@ public enum CassandraType
             return TEXT;
         }
         else if (type.equals(DateType.DATE)) {
-            return protocolVersion.toInt() <= ProtocolVersion.V3.toInt() ? TEXT : DATE;
+            return DATE;
         }
         else if (type.equals(VarbinaryType.VARBINARY)) {
             return BLOB;
         }
-        else if (type.equals(TimestampType.TIMESTAMP)) {
+        else if (type.equals(TimestampType.TIMESTAMP) || type.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
             return TIMESTAMP;
         }
         throw new IllegalArgumentException("unsupported type: " + type);

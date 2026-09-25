@@ -19,7 +19,7 @@ _______________
 * Add listener-based revocation model for spilling strategy ``PER_TASK_MEMORY_THRESHOLD``.
 * Disable spill to disk for join queries where the probe side uses grouped execution and the build does not. Previously these queries would fail with ``GENERIC_INTERNAL_ERRORS``.
 * Disallow ``ORDER BY`` literals used with Window functions as it's not useful, expensive and most often used wrongly.
-* Add support for fragment result caching for queries with local exchange (e.g. intermediate aggregation).
+* Add support for fragment result caching for queries with local exchange (for example, intermediate aggregation).
 * Improve queries that have unnecessary limits and order bys.
   This feature is enabled by default and can be disabled by using the configuration property ``optimizer.skip-redundant-sort`` or session property ``skip_redundant_sort``.
 

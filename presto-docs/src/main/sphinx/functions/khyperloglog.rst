@@ -32,7 +32,7 @@ Functions
 .. function:: cardinality(khll) -> bigint
     :noindex:
 
-    This calculates the cardinality of the MinHash sketch, i.e. ``x``'s cardinality.
+    This calculates the cardinality of the MinHash sketch, that is, ``x``'s cardinality.
 
 .. function:: intersection_cardinality(khll1, khll2) ->  bigint
 
@@ -71,6 +71,6 @@ Functions
     Returns the ``KHyperLogLog`` of the aggregate union of the individual ``KHyperLogLog``
     structures.
 
-.. function:: merge_khll(array(khll)) -> KHyperLogLog
+.. function:: merge_khll(array[khll]) -> KHyperLogLog
 
     Returns the ``KHyperLogLog`` of the union of an array of KHyperLogLog structures.

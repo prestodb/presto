@@ -18,6 +18,7 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropSchema;
@@ -30,6 +31,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
@@ -56,8 +58,13 @@ public class DropSchemaTask
         }
 
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()), metadata);
+        MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
 
-        if (!metadata.getMetadataResolver(session).schemaExists(schema)) {
+        if (!metadataResolver.catalogExists(schema.getCatalogName())) {
+            throw new SemanticException(MISSING_CATALOG, "Catalog '%s' does not exist", schema.getCatalogName());
+        }
+
+        if (!metadataResolver.schemaExists(schema)) {
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", schema);
             }

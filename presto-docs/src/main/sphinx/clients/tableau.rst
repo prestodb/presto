@@ -35,6 +35,6 @@ for further analysis with Tableau.
      ``bool``, ``date``, ``datetime``, ``float``, ``int`` and ``string``.
      Presto ``boolean`` and ``date`` types will be converted to the Tableau
      data types ``bool`` and ``date``, respectively, on the Tableau client side.
-     Any other Presto types such as ``array``, ``map``, ``row``, ``double``,
-     ``bigint``, etc., will be converted to a Tableau ``string`` as they do
+     Any other Presto types such as ``array``, ``map``, ``row``, ``double``, or
+     ``bigint`` will be converted to a Tableau ``string`` as they do
      not map to any Tableau type.

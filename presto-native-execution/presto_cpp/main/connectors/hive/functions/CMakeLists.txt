@@ -11,11 +11,7 @@
 # limitations under the License.
 
 add_library(presto_hive_functions HiveFunctionRegistration.cpp)
-target_link_libraries(
-  presto_hive_functions
-  presto_dynamic_function_registrar
-  velox_functions_string
-)
+target_link_libraries(presto_hive_functions presto_dynamic_function_registrar velox)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

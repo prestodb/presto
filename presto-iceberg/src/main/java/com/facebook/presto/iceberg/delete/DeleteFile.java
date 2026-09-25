@@ -42,6 +42,16 @@ public final class DeleteFile
     private final List<Integer> equalityFieldIds;
     private final Map<Integer, byte[]> lowerBounds;
     private final Map<Integer, byte[]> upperBounds;
+    // Iceberg V3 deletion vector (Puffin blob) coordinates. Absent for V2
+    // positional / equality delete files. `contentOffset` /
+    // `contentSizeInBytes` locate the DV blob within the Puffin file;
+    // `referencedDataFile` names the single data file the DV applies to.
+    private final Optional<Long> contentOffset;
+    private final Optional<Long> contentSizeInBytes;
+    private final Optional<String> referencedDataFile;
+    // Iceberg sequence number of the delete file. The Velox-side DV applier
+    // uses this to skip DVs whose sequence number is <= the data file's.
+    private final long dataSequenceNumber;
 
     public static DeleteFile fromIceberg(org.apache.iceberg.DeleteFile deleteFile)
     {
@@ -58,7 +68,11 @@ public final class DeleteFile
                 deleteFile.fileSizeInBytes(),
                 Optional.ofNullable(deleteFile.equalityFieldIds()).orElseGet(ImmutableList::of),
                 lowerBounds,
-                upperBounds);
+                upperBounds,
+                Optional.ofNullable(deleteFile.contentOffset()),
+                Optional.ofNullable(deleteFile.contentSizeInBytes()),
+                Optional.ofNullable(deleteFile.referencedDataFile()),
+                deleteFile.dataSequenceNumber());
     }
 
     @JsonCreator
@@ -70,7 +84,11 @@ public final class DeleteFile
             @JsonProperty("fileSizeInBytes") long fileSizeInBytes,
             @JsonProperty("equalityFieldIds") List<Integer> equalityFieldIds,
             @JsonProperty("lowerBounds") Map<Integer, byte[]> lowerBounds,
-            @JsonProperty("upperBounds") Map<Integer, byte[]> upperBounds)
+            @JsonProperty("upperBounds") Map<Integer, byte[]> upperBounds,
+            @JsonProperty("contentOffset") Optional<Long> contentOffset,
+            @JsonProperty("contentSizeInBytes") Optional<Long> contentSizeInBytes,
+            @JsonProperty("referencedDataFile") Optional<String> referencedDataFile,
+            @JsonProperty("dataSequenceNumber") long dataSequenceNumber)
     {
         this.content = requireNonNull(content, "content is null");
         this.path = requireNonNull(path, "path is null");
@@ -80,6 +98,10 @@ public final class DeleteFile
         this.equalityFieldIds = ImmutableList.copyOf(requireNonNull(equalityFieldIds, "equalityFieldIds is null"));
         this.lowerBounds = ImmutableMap.copyOf(requireNonNull(lowerBounds, "lowerBounds is null"));
         this.upperBounds = ImmutableMap.copyOf(requireNonNull(upperBounds, "upperBounds is null"));
+        this.contentOffset = requireNonNull(contentOffset, "contentOffset is null");
+        this.contentSizeInBytes = requireNonNull(contentSizeInBytes, "contentSizeInBytes is null");
+        this.referencedDataFile = requireNonNull(referencedDataFile, "referencedDataFile is null");
+        this.dataSequenceNumber = dataSequenceNumber;
     }
 
     @JsonProperty
@@ -128,6 +150,30 @@ public final class DeleteFile
     public Map<Integer, byte[]> getUpperBounds()
     {
         return upperBounds;
+    }
+
+    @JsonProperty
+    public Optional<Long> getContentOffset()
+    {
+        return contentOffset;
+    }
+
+    @JsonProperty
+    public Optional<Long> getContentSizeInBytes()
+    {
+        return contentSizeInBytes;
+    }
+
+    @JsonProperty
+    public Optional<String> getReferencedDataFile()
+    {
+        return referencedDataFile;
+    }
+
+    @JsonProperty
+    public long getDataSequenceNumber()
+    {
+        return dataSequenceNumber;
     }
 
     @Override

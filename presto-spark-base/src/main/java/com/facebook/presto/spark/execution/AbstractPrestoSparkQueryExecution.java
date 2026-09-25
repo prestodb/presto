@@ -132,6 +132,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxTaskInfosInQueryCompletedEvent;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isStorageBasedBroadcastJoinEnabled;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG;
@@ -643,15 +644,33 @@ public abstract class AbstractPrestoSparkQueryExecution
     protected void queryCompletedEvent(Optional<ExecutionFailureInfo> failureInfo, OptionalLong updateCount)
     {
         List<SerializedTaskInfo> serializedTaskInfos = taskInfoCollector.value();
+        int maxTaskInfos = getMaxTaskInfosInQueryCompletedEvent(session);
         HashMap<String, TaskInfo> taskInfoMap = new HashMap<>();
         long totalSerializedTaskInfoSizeInBytes = 0;
+        // When the task info count exceeds the configured maximum, drop ALL task infos instead of deserializing
+        // and retaining them. Each TaskInfo carries the full pipeline/operator/runtime-stats tree, so on queries
+        // with very large task counts retaining them would blow up driver memory. This is deliberately
+        // all-or-nothing: an empty stats set makes it obvious that statistics could not be collected, whereas a
+        // partial set would be silently misleading.
+        boolean taskInfoLimitExceeded = serializedTaskInfos.size() > maxTaskInfos;
         for (SerializedTaskInfo serializedTaskInfo : serializedTaskInfos) {
+            // Always clear the compressed buffer to free driver memory, even when over the limit.
             byte[] bytes = serializedTaskInfo.getBytesAndClear();
             totalSerializedTaskInfoSizeInBytes += bytes.length;
+            if (taskInfoLimitExceeded) {
+                continue;
+            }
             TaskInfo taskInfo = deserializeZstdCompressed(taskInfoCodec, bytes);
             updateTaskInfoMap(taskInfoMap, taskInfo);
         }
         taskInfoCollector.reset();
+
+        if (taskInfoLimitExceeded) {
+            log.warn("Query %s task info count (%s) exceeded the max task info count (%s) for the query completed event; DROPPING ALL task infos - stage statistics will be empty",
+                    session.getQueryId(),
+                    serializedTaskInfos.size(),
+                    maxTaskInfos);
+        }
 
         log.info("Total serialized task info count %s size: %s. Total deduped task info count %s",
                 serializedTaskInfos.size(),
@@ -816,6 +835,12 @@ public abstract class AbstractPrestoSparkQueryExecution
     }
 
     @VisibleForTesting
+    public Session getSession()
+    {
+        return session;
+    }
+
+    @VisibleForTesting
     public TableWriteInfo getTableWriteInfo(Session session, SubPlan plan)
     {
         StreamingPlanSection streamingPlanSection = extractStreamingSections(plan);
@@ -841,7 +866,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     {
         ConnectorId connectorId;
         if (writerTarget instanceof ExecutionWriterTarget.DeleteHandle) {
-            throw new PrestoException(NOT_SUPPORTED, "delete queries are not supported by presto on spark");
+            connectorId = ((ExecutionWriterTarget.DeleteHandle) writerTarget).getHandle().getConnectorId();
         }
         else if (writerTarget instanceof ExecutionWriterTarget.CreateHandle) {
             connectorId = ((ExecutionWriterTarget.CreateHandle) writerTarget).getHandle().getConnectorId();

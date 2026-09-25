@@ -24,9 +24,8 @@ target_link_libraries(
   presto_common
   presto_protocol
   presto_type_test_utils
-  velox_aggregates
-  velox_functions_prestosql
-  velox_window
+  velox
+  velox_async_rpc_function_registry
   GTest::gtest
   GTest::gtest_main
 )

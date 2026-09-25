@@ -24,6 +24,87 @@ PYTHON_VENV ?= .venv
 
 EXTRA_CMAKE_FLAGS ?= ""
 
+# Define comma for use in substitution
+comma := ,
+
+# Comma-separated optional features
+PRESTO_OPTIONAL_FEATURES ?=
+
+# Process comma-separated features
+ifneq ($(PRESTO_OPTIONAL_FEATURES),)
+  # Convert comma-separated list to space-separated and strip whitespace
+  FEATURES_LIST := $(subst $(comma), ,$(PRESTO_OPTIONAL_FEATURES))
+  FEATURES_LIST := $(strip $(FEATURES_LIST))
+  # Further strip whitespace from each individual feature
+  FEATURES_LIST := $(foreach feature,$(FEATURES_LIST),$(strip $(feature)))
+
+  # Validate features
+  VALID_FEATURES := s3 hdfs gcs abfs parquet cudf remote-functions jwt arrow-flight spatial no-parquet no-spatial
+  INVALID_FEATURES := $(filter-out $(VALID_FEATURES),$(FEATURES_LIST))
+
+  ifneq ($(INVALID_FEATURES),)
+    $(error Invalid features in PRESTO_OPTIONAL_FEATURES: $(INVALID_FEATURES). Valid features are: $(VALID_FEATURES))
+  endif
+
+  # Conflict detection
+  ifneq ($(and $(filter parquet,$(FEATURES_LIST)),$(filter no-parquet,$(FEATURES_LIST))),)
+    $(error Conflicting features: both 'parquet' and 'no-parquet' specified in PRESTO_OPTIONAL_FEATURES)
+  endif
+  ifneq ($(and $(filter spatial,$(FEATURES_LIST)),$(filter no-spatial,$(FEATURES_LIST))),)
+    $(error Conflicting features: both 'spatial' and 'no-spatial' specified in PRESTO_OPTIONAL_FEATURES)
+  endif
+
+  # Map features to CMake flags
+  ifneq ($(filter s3,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_S3=ON
+  endif
+
+  ifneq ($(filter hdfs,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_HDFS=ON
+  endif
+
+  ifneq ($(filter gcs,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_GCS=ON
+  endif
+
+  ifneq ($(filter abfs,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_ABFS=ON
+  endif
+
+  ifneq ($(filter parquet,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_PARQUET=ON
+  endif
+
+  ifneq ($(filter cudf,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_CUDF=ON
+  endif
+
+  ifneq ($(filter remote-functions,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON
+  endif
+
+  ifneq ($(filter jwt,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_JWT=ON
+  endif
+
+  ifneq ($(filter arrow-flight,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR=ON
+  endif
+
+  ifneq ($(filter spatial,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_SPATIAL=ON
+  endif
+
+  # Disable default-ON features
+  ifneq ($(filter no-parquet,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_PARQUET=OFF
+  endif
+
+  ifneq ($(filter no-spatial,$(FEATURES_LIST)),)
+    EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_SPATIAL=OFF
+  endif
+endif
+
 define deprecate_message
   $(eval $@_VAR_NAME = $(1))
   $(warning ${$@_VAR_NAME} environment variable is deprecated and will be removed in the future. Use EXTRA_CMAKE_FLAGS.)

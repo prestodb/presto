@@ -17,11 +17,16 @@ import com.facebook.presto.orc.checkpoint.InputStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.writer.CompressionBufferPool;
 import com.facebook.presto.orc.zlib.DeflateCompressor;
+import com.facebook.presto.orc.zlib.InflateDecompressor;
 import com.facebook.presto.orc.zstd.ZstdJniCompressor;
+import com.facebook.presto.orc.zstd.ZstdJniDecompressor;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.compress.Compressor;
+import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Compressor;
+import io.airlift.compress.lz4.Lz4Decompressor;
 import io.airlift.compress.snappy.SnappyCompressor;
+import io.airlift.compress.snappy.SnappyDecompressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
@@ -62,6 +67,16 @@ public class OrcOutputBuffer
     private final Optional<DwrfDataEncryptor> dwrfEncryptor;
     @Nullable
     private final Compressor compressor;
+    // When non-null, each freshly compressed chunk is decompressed and compared
+    // against its source bytes before being written, so a corrupt frame aborts
+    // the write instead of being persisted. Null when verification is disabled.
+    @Nullable
+    private final Decompressor verifyDecompressor;
+    // Dedicated scratch-buffer pool holding the decompressed bytes produced during
+    // verification, kept separate from 'compressionBufferPool' so the compressed chunk
+    // being verified and its decoded copy never alias. Null when verification is disabled.
+    @Nullable
+    private final CompressionBufferPool verifyDecompressionBufferPool;
 
     private OrcChunkedOutputBuffer compressedOutputStream;
     private Slice slice;
@@ -115,6 +130,13 @@ public class OrcOutputBuffer
         else {
             throw new IllegalArgumentException("Unsupported compression " + compressionKind);
         }
+
+        this.verifyDecompressor = (columnWriterOptions.isVerifyCompression() && compressor != null)
+                ? createVerifyDecompressor(compressionKind)
+                : null;
+        this.verifyDecompressionBufferPool = verifyDecompressor != null
+                ? new CompressionBufferPool.LastUsedCompressionBufferPool()
+                : null;
     }
 
     public long getOutputDataSize()
@@ -527,6 +549,9 @@ public class OrcOutputBuffer
                 compressionBuffer = compressionBufferPool.checkOut(minCompressionBufferSize);
                 int compressedSize = compressor.compress(chunk, offset, length, compressionBuffer, 0, compressionBuffer.length);
                 if (compressedSize < length) {
+                    if (verifyDecompressor != null) {
+                        verifyCompressedChunk(verifyDecompressor, verifyDecompressionBufferPool, chunk, offset, length, compressionBuffer, compressedSize);
+                    }
                     isCompressed = true;
                     chunk = compressionBuffer;
                     length = compressedSize;
@@ -558,6 +583,69 @@ public class OrcOutputBuffer
         compressedOutputStream.ensureAvailable(3, length + 3);
         compressedOutputStream.writeHeader(header);
         compressedOutputStream.writeBytes(chunk, offset, length);
+    }
+
+    private static Decompressor createVerifyDecompressor(CompressionKind compressionKind)
+    {
+        switch (compressionKind) {
+            case SNAPPY:
+                return new SnappyDecompressor();
+            case ZLIB:
+                return new InflateDecompressor();
+            case LZ4:
+                return new Lz4Decompressor();
+            case ZSTD:
+                return new ZstdJniDecompressor();
+            default:
+                throw new IllegalArgumentException("Unsupported compression for verification: " + compressionKind);
+        }
+    }
+
+    /**
+     * Decompresses a freshly compressed chunk and checks it round-trips to the original bytes.
+     * Throws {@link OrcCompressionVerificationException} on decode failure or content mismatch so
+     * the write is aborted before a corrupt chunk is persisted. The scratch buffer is borrowed
+     * from a dedicated 'decompressionBufferPool', kept separate from the compression buffer pool
+     * so the compressed chunk being verified and its decoded copy never alias.
+     */
+    @VisibleForTesting
+    static void verifyCompressedChunk(
+            Decompressor verifyDecompressor,
+            CompressionBufferPool decompressionBufferPool,
+            byte[] original,
+            int offset,
+            int length,
+            byte[] compressed,
+            int compressedLength)
+    {
+        byte[] decompressed = decompressionBufferPool.checkOut(length);
+        try {
+            int decompressedLength;
+            try {
+                decompressedLength = verifyDecompressor.decompress(compressed, 0, compressedLength, decompressed, 0, length);
+            }
+            catch (RuntimeException e) {
+                // Any decode failure (ZstdException, MalformedInputException, ...) means the
+                // freshly compressed chunk is not decodable. Chain the cause so the original
+                // decoder stack trace is preserved.
+                throw new OrcCompressionVerificationException(
+                        e,
+                        "Write-side compression verification failed: %s (uncompressedSize=%s compressedSize=%s)",
+                        e.getMessage(),
+                        length,
+                        compressedLength);
+            }
+            if (decompressedLength != length || !Arrays.equals(decompressed, 0, length, original, offset, offset + length)) {
+                throw new OrcCompressionVerificationException(
+                        "Write-side compression verification failed: chunk does not decode back to the original bytes (uncompressedSize=%s compressedSize=%s decompressedSize=%s)",
+                        length,
+                        compressedLength,
+                        decompressedLength);
+            }
+        }
+        finally {
+            decompressionBufferPool.checkIn(decompressed);
+        }
     }
 
     @VisibleForTesting

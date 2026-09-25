@@ -19,7 +19,9 @@ import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 
+import java.util.HashSet;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -45,10 +47,11 @@ public class DynamicFilterStats
         this.producerNodeIds = requireNonNull(producerNodeIds, "producerNodeIds is null");
     }
 
+    @VisibleForTesting
     public static DynamicFilterStats copyOf(DynamicFilterStats dynamicFilterStats)
     {
         requireNonNull(dynamicFilterStats, "dynamicFilterStats is null");
-        return new DynamicFilterStats(dynamicFilterStats.getProducerNodeIds());
+        return new DynamicFilterStats(new HashSet<>(dynamicFilterStats.getProducerNodeIds()));
     }
 
     public void mergeWith(DynamicFilterStats other)

@@ -56,7 +56,7 @@ Hive Changes
 * Fix query failures for the file-based metastore implementation when partition
   column values contain a colon.
 * Improve performance for writing to bucketed tables when the data being written
-  is already partitioned appropriately (e.g., the output is from a bucketed join).
+  is already partitioned appropriately (for example, the output is from a bucketed join).
 * Add config property ``hive.max-outstanding-splits-size`` for the maximum
   amount of memory used to buffer splits for a single table scan. Additionally,
   the default value is substantially higher than the previous hard-coded limit,

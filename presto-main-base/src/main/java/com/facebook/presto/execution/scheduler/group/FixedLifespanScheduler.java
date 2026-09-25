@@ -61,14 +61,20 @@ public class FixedLifespanScheduler
     public FixedLifespanScheduler(BucketNodeMap bucketNodeMap, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
     {
         checkArgument(!partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)));
-        checkArgument(partitionHandles.size() == bucketNodeMap.getBucketCount());
+        int bucketCount = bucketNodeMap.getBucketCount();
+        int totalLifespans = partitionHandles.size();
+        checkArgument(totalLifespans >= bucketCount && totalLifespans % bucketCount == 0,
+                "partitionHandles size (%s) must be >= bucketCount (%s) and a multiple of it", totalLifespans, bucketCount);
 
+        // Partition handles are interleaved: [b0/p0, b1/p0, ..., bN/p0, b0/p1, b1/p1, ...]
+        // Physical bucket = lifespanId % bucketCount. All lifespans for the same bucket go to the same node.
         Map<InternalNode, IntList> nodeToDriverGroupMap = new HashMap<>();
         Int2ObjectMap<InternalNode> driverGroupToNodeMap = new Int2ObjectOpenHashMap<>();
-        for (int bucket = 0; bucket < bucketNodeMap.getBucketCount(); bucket++) {
+        for (int lifespanId = 0; lifespanId < totalLifespans; lifespanId++) {
+            int bucket = lifespanId % bucketCount;
             InternalNode node = bucketNodeMap.getAssignedNode(bucket).get();
-            nodeToDriverGroupMap.computeIfAbsent(node, key -> new IntArrayList()).add(bucket);
-            driverGroupToNodeMap.put(bucket, node);
+            nodeToDriverGroupMap.computeIfAbsent(node, key -> new IntArrayList()).add(lifespanId);
+            driverGroupToNodeMap.put(lifespanId, node);
         }
 
         this.driverGroupToNodeMap = driverGroupToNodeMap;

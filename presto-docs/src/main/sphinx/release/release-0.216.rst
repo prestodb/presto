@@ -30,7 +30,7 @@ Hive Connector Changes
 * Fix a corner case where the ORC writer fails with integer overflow when writing
   highly compressible data using dictionary encoding (:issue:`11930`).
 * Fail queries reading Parquet files if statistics in those Parquet files are
-  corrupt (e.g., min > max). To disable this behavior, set the configuration
+  corrupt (such as min > max). To disable this behavior, set the configuration
   property ``hive.parquet.fail-on-corrupted-statistics``
   or session property ``parquet_fail_with_corrupted_statistics`` to false.
 * Add support for :ref:`S3 select pushdown <s3selectpushdown>`, which enables pushing down

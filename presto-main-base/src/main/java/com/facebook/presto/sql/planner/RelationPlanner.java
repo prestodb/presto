@@ -38,6 +38,7 @@ import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.MVRewriteCandidatesNode;
 import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -89,6 +90,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.QueryWithMVRewriteCandidates;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
@@ -105,7 +107,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.UnmodifiableIterator;
 import jakarta.annotation.Nullable;
@@ -734,7 +735,7 @@ class RelationPlanner
             for (Expression complexExpression : complexJoinExpressions) {
                 Set<InPredicate> inPredicates = subqueryPlanner.collectInPredicateSubqueries(complexExpression, node);
                 if (!inPredicates.isEmpty()) {
-                    InPredicate inPredicate = Iterables.getLast(inPredicates);
+                    InPredicate inPredicate = inPredicates.stream().reduce((first, second) -> second).get();
                     throw notSupportedException(inPredicate, "IN with subquery predicate in join condition");
                 }
             }
@@ -1103,6 +1104,35 @@ class RelationPlanner
     }
 
     @Override
+    protected RelationPlan visitQueryWithMVRewriteCandidates(QueryWithMVRewriteCandidates node, SqlPlannerContext context)
+    {
+        // Plan the original query
+        RelationPlan originalPlan = process(node.getOriginalQuery(), context);
+
+        // Plan each MV candidate
+        ImmutableList.Builder<MVRewriteCandidatesNode.MVRewriteCandidate> candidatePlans = ImmutableList.builder();
+        for (QueryWithMVRewriteCandidates.MVRewriteCandidate candidate : node.getCandidates()) {
+            RelationPlan candidatePlan = process(candidate.getRewrittenQuery(), context);
+            candidatePlans.add(new MVRewriteCandidatesNode.MVRewriteCandidate(
+                    candidatePlan.getRoot(),
+                    candidate.getMaterializedViewCatalog(),
+                    candidate.getMaterializedViewSchema(),
+                    candidate.getMaterializedViewName()));
+        }
+
+        // Create the MVRewriteCandidatesNode
+        MVRewriteCandidatesNode mvNode = new MVRewriteCandidatesNode(
+                getSourceLocation(node),
+                idAllocator.getNextId(),
+                originalPlan.getRoot(),
+                candidatePlans.build(),
+                originalPlan.getFieldMappings());
+
+        Scope scope = analysis.getScope(node);
+        return new RelationPlan(mvNode, scope, originalPlan.getFieldMappings());
+    }
+
+    @Override
     protected RelationPlan visitValues(Values node, SqlPlannerContext context)
     {
         Scope scope = analysis.getScope(node);
@@ -1115,8 +1145,8 @@ class RelationPlanner
         for (Expression row : node.getRows()) {
             ImmutableList.Builder<RowExpression> values = ImmutableList.builder();
             if (row instanceof Row) {
-                for (Expression item : ((Row) row).getItems()) {
-                    values.add(rewriteRow(item, context));
+                for (Row.Field field : ((Row) row).getFields()) {
+                    values.add(rewriteRow(field.getExpression(), context));
                 }
             }
             else {

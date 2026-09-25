@@ -18,8 +18,10 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import org.lance.Fragment;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -27,6 +29,7 @@ import java.net.URL;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -43,6 +46,7 @@ public class TestLanceFragmentPageSource
     private LanceNamespaceHolder namespaceHolder;
     private LanceTableHandle tableHandle;
     private String tablePath;
+    private long datasetVersion;
     private List<Fragment> fragments;
     private ArrowBlockBuilder arrowBlockBuilder;
 
@@ -54,13 +58,25 @@ public class TestLanceFragmentPageSource
         assertNotNull(dbUrl, "example_db resource not found");
         String rootPath = Paths.get(dbUrl.toURI()).toString();
         LanceConfig config = new LanceConfig()
-                .setRootUrl(rootPath)
                 .setSingleLevelNs(true);
-        namespaceHolder = new LanceNamespaceHolder(config);
+
+        Map<String, String> namespaceProperties = ImmutableMap.of("lance.root", rootPath);
+        namespaceHolder = new LanceNamespaceHolder(config, namespaceProperties);
         arrowBlockBuilder = new ArrowBlockBuilder(createTestFunctionAndTypeManager());
-        tableHandle = new LanceTableHandle("default", "test_table1");
-        tablePath = namespaceHolder.getTablePath("test_table1");
-        fragments = namespaceHolder.getFragments("test_table1");
+
+        // Resolve the table handle through the namespace API
+        tablePath = namespaceHolder.getTablePath("default", "test_table1");
+        assertNotNull(tablePath);
+        List<String> tableId = namespaceHolder.getTableId("default", "test_table1");
+        datasetVersion = namespaceHolder.getLatestVersion(tablePath);
+        tableHandle = new LanceTableHandle("default", "test_table1", tablePath, tableId, Optional.of(datasetVersion));
+        fragments = namespaceHolder.getFragments(tablePath, Optional.of(datasetVersion));
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        namespaceHolder.shutdown();
     }
 
     @Test
@@ -75,8 +91,12 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
+                namespaceHolder,
+                Optional.of(datasetVersion),
                 arrowBlockBuilder,
-                namespaceHolder.getAllocator())) {
+                namespaceHolder.getAllocator(),
+                Optional.empty(),
+                ImmutableList.of())) {
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             assertEquals(page.getChannelCount(), 4);
@@ -107,8 +127,12 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
+                namespaceHolder,
+                Optional.of(datasetVersion),
                 arrowBlockBuilder,
-                namespaceHolder.getAllocator())) {
+                namespaceHolder.getAllocator(),
+                Optional.empty(),
+                ImmutableList.of())) {
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             assertEquals(page.getChannelCount(), 2);
@@ -139,8 +163,12 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
+                namespaceHolder,
+                Optional.of(datasetVersion),
                 arrowBlockBuilder,
-                namespaceHolder.getAllocator())) {
+                namespaceHolder.getAllocator(),
+                Optional.empty(),
+                ImmutableList.of())) {
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             assertEquals(page.getChannelCount(), 2);

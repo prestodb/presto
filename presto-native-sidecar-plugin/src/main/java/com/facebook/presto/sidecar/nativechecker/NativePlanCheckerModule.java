@@ -25,7 +25,9 @@ import com.google.inject.Scopes;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.sidecar.NativeSidecarCommunicationModule.installMBeanModule;
 import static java.util.Objects.requireNonNull;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class NativePlanCheckerModule
         implements Module
@@ -50,5 +52,9 @@ public class NativePlanCheckerModule
         jsonCodecBinder(binder).bindJsonCodec(SimplePlanFragment.class);
         binder.bind(NativePlanChecker.class).in(Scopes.SINGLETON);
         binder.bind(PlanCheckerProvider.class).to(NativePlanCheckerProvider.class).in(Scopes.SINGLETON);
+
+        // jmx metrics
+        installMBeanModule(binder);
+        newExporter(binder).export(NativePlanChecker.class).withGeneratedName();
     }
 }

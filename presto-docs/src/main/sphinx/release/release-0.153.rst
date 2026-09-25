@@ -11,7 +11,7 @@ General Changes
 * Fix null handling in :func:`!array_distinct` when applied to the ``array(bigint)`` type.
 * Fix handling of ``-2^63`` as the element index for :func:`!json_array_get`.
 * Fix correctness issue when the input to ``TRY_CAST`` evaluates to null.
-  For types such as booleans, numbers, dates, timestamps, etc., rather than
+  For types such as booleans, numbers, dates, or timestamps, rather than
   returning null, a default value specific to the type such as
   ``false``, ``0`` or ``1970-01-01`` was returned.
 * Fix potential thread deadlock in coordinator.
@@ -54,8 +54,8 @@ Pluggable Resource Groups
 -------------------------
 
 Resource group management is now pluggable. A ``Plugin`` can
-provide management factories via ``getResourceGroupConfigurationManagerFactories()``
-and the factory can be enabled via the ``etc/resource-groups.properties``
+provide management factories through ``getResourceGroupConfigurationManagerFactories()``
+and the factory can be enabled with the ``etc/resource-groups.properties``
 configuration file by setting the ``resource-groups.configuration-manager``
 property. See the ``presto-resource-group-managers`` plugin for an example
 and :doc:`/admin/resource-groups` for more details.

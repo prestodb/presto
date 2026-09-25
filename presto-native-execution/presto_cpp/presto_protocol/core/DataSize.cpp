@@ -13,7 +13,7 @@
  */
 #include "presto_cpp/presto_protocol/core/DataSize.h"
 #include <fmt/format.h>
-#include <math.h>
+#include <cmath>
 
 namespace facebook::presto::protocol {
 

@@ -107,7 +107,7 @@ public class FileFragmentResultCacheManager
                 .build();
         this.inputDataStatsEnabled = cacheConfig.isInputDataStatsEnabled();
 
-        File target = new File(baseDirectory.toUri());
+        File target = Paths.get(baseDirectory.toUri()).toFile();
         if (!target.exists()) {
             try {
                 Files.createDirectories(target.toPath());
@@ -189,7 +189,7 @@ public class FileFragmentResultCacheManager
     private static void tryDeleteFile(Path path)
     {
         try {
-            File file = new File(path.toUri());
+            File file = Paths.get(path.toUri()).toFile();
             if (file.exists()) {
                 Files.delete(file.toPath());
             }

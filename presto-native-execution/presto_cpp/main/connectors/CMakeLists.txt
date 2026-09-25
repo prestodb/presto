@@ -22,18 +22,13 @@ add_library(
 if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
   add_subdirectory(arrow_flight)
   target_compile_definitions(presto_connectors PUBLIC PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
-  target_link_libraries(presto_connectors presto_flight_connector)
+  target_link_libraries(presto_connectors presto_flight_connector presto_federation_connector)
 endif()
 
 if(PRESTO_ENABLE_CUDF)
   target_link_libraries(presto_connectors velox_cudf_hive_connector cudf::cudf)
 endif()
 
-target_link_libraries(
-  presto_connectors
-  presto_velox_expr_conversion
-  velox_type_fbhive
-  velox_tpcds_connector
-)
+target_link_libraries(presto_connectors presto_velox_expr_conversion velox)
 
 add_subdirectory(hive)

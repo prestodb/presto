@@ -42,7 +42,33 @@ public class TestLancePlugin
         try {
             factory.create(
                     "test",
-                    ImmutableMap.of("lance.root-url", tempDir.toString()),
+                    ImmutableMap.of("lance.root", tempDir.toString()),
+                    new TestingConnectorContext())
+                    .shutdown();
+        }
+        finally {
+            deleteRecursively(tempDir);
+        }
+    }
+
+    @Test
+    public void testCreateConnectorWithUnknownLanceProperties()
+            throws Exception
+    {
+        // Only the properties in LanceConnectorFactory.KNOWN_CONFIG_PROPERTIES are handed to
+        // Bootstrap. Any other lance.* property is a namespace option, and Bootstrap must not
+        // reject it as unrecognized configuration.
+        ConnectorFactory factory = StreamSupport
+                .stream(new LancePlugin().getConnectorFactories().spliterator(), false)
+                .collect(MoreCollectors.onlyElement());
+        Path tempDir = Files.createTempDirectory("lance-test");
+        try {
+            factory.create(
+                    "test",
+                    ImmutableMap.of(
+                            "lance.root", tempDir.toString(),
+                            "lance.storage.region", "us-east-1",
+                            "lance.some-future-namespace-option", "value"),
                     new TestingConnectorContext())
                     .shutdown();
         }

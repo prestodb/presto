@@ -6,7 +6,7 @@ The JMX connector provides the ability to query JMX information from all
 nodes in a Presto cluster. This is very useful for monitoring or debugging.
 Java Management Extensions (JMX) provides information about the Java
 Virtual Machine and all of the software running inside it. Presto itself
-is heavily instrumented via JMX.
+is heavily instrumented with JMX.
 
 This connector can also be configured so that chosen JMX information will
 be periodically dumped and stored in memory for later access.
@@ -41,7 +41,6 @@ Commas in MBean names should be escaped in the following manner:
 
     connector.name=jmx
     jmx.dump-tables=com.facebook.presto.memory:type=memorypool\\,name=general,\
-       com.facebook.presto.memory:type=memorypool\\,name=system,\
        com.facebook.presto.memory:type=memorypool\\,name=reserved
 
 Querying JMX
@@ -97,8 +96,7 @@ returns information from the different Presto memory pools on each node::
     ------------+---------+----------------------------------------------------------
       214748364 | example | com.facebook.presto.memory:type=MemoryPool,name=reserved
      1073741825 | example | com.facebook.presto.memory:type=MemoryPool,name=general
-      858993459 | example | com.facebook.presto.memory:type=MemoryPool,name=system
-    (3 rows)
+    (2 rows)
 
 History Schema
 ^^^^^^^^^^^^^^

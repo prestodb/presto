@@ -16,6 +16,8 @@ package com.facebook.presto.server.security.oauth2;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.server.security.oauth2.OAuth2ServerConfigProvider.OAuth2ServerConfig;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.nimbusds.jose.JOSEException;
@@ -93,7 +95,6 @@ public class NimbusOAuth2Client
         implements OAuth2Client
 {
     private static final Logger LOG = Logger.get(NimbusAirliftHttpClient.class);
-
     private final Issuer issuer;
     private final ClientID clientId;
     private final ClientSecretBasic clientAuth;
@@ -111,10 +112,16 @@ public class NimbusOAuth2Client
     private JWTProcessor<SecurityContext> accessTokenProcessor;
     private AuthorizationCodeFlow flow;
 
+    // Cache for UserInfo endpoint responses (initialized conditionally based on config)
+    // Key: SHA-256 hash of access token, Value: UserInfo claims
+    private final Cache<String, JWTClaimsSet> userInfoCache;
+    private final boolean userinfoCacheEnabled;
+
     @Inject
     public NimbusOAuth2Client(OAuth2Config oauthConfig, OAuth2ServerConfigProvider serverConfigurationProvider, NimbusHttpClient httpClient)
     {
         requireNonNull(oauthConfig, "oauthConfig is null");
+
         issuer = new Issuer(oauthConfig.getIssuer());
         clientId = new ClientID(oauthConfig.getClientId());
         clientAuth = new ClientSecretBasic(clientId, new Secret(oauthConfig.getClientSecret()));
@@ -128,6 +135,21 @@ public class NimbusOAuth2Client
 
         this.serverConfigurationProvider = requireNonNull(serverConfigurationProvider, "serverConfigurationProvider is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+
+        // Initialize UserInfo cache based on configuration
+        this.userinfoCacheEnabled = oauthConfig.isUserinfoCacheEnabled();
+        if (this.userinfoCacheEnabled) {
+            Duration cacheTtl = oauthConfig.getUserinfoCacheTtl();
+            this.userInfoCache = CacheBuilder.newBuilder()
+                    .maximumSize(1000)  // Max 1k entries
+                    .expireAfterWrite(cacheTtl.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
+                    .build();
+            LOG.info("UserInfo cache enabled with TTL of %s", cacheTtl);
+        }
+        else {
+            this.userInfoCache = null;
+            LOG.info("UserInfo cache disabled");
+        }
     }
 
     @Override
@@ -148,12 +170,14 @@ public class NimbusOAuth2Client
 
         DefaultJWTProcessor<SecurityContext> processor = new DefaultJWTProcessor<>();
         processor.setJWSKeySelector(jwsKeySelector);
+        // user specified principal claim may not be a required claim in the access token
+        // manually validate it with the response of the userinfo endpoint
         DefaultJWTClaimsVerifier<SecurityContext> accessTokenVerifier = new DefaultJWTClaimsVerifier<>(
                 accessTokenAudiences,
                 new JWTClaimsSet.Builder()
                         .issuer(config.getAccessTokenIssuer().orElse(issuer.getValue()))
                         .build(),
-                ImmutableSet.of(principalField),
+                ImmutableSet.of(),
                 ImmutableSet.of());
         accessTokenVerifier.setMaxClockSkew((int) maxClockSkew.roundTo(SECONDS));
         processor.setJWTClaimsSetVerifier(accessTokenVerifier);
@@ -244,11 +268,44 @@ public class NimbusOAuth2Client
         {
             AccessToken accessToken = tokens.getAccessToken();
             RefreshToken refreshToken = tokens.getRefreshToken();
-            JWTClaimsSet claims = getJWTClaimsSet(accessToken.getValue()).orElseThrow(() -> new ChallengeFailedException("invalid access token"));
+
+            // For pure OAuth2 (no ID token), try UserInfo first, then access token
+            JWTClaimsSet claims = getUserClaims(accessToken.getValue())
+                    .orElseThrow(() -> new ChallengeFailedException("Cannot retrieve user claims"));
+
             return new Response(
                     accessToken.getValue(),
                     determineExpiration(getExpiration(accessToken), claims.getExpirationTime()),
-                    buildRefreshToken(refreshToken, existingRefreshToken));
+                    buildRefreshToken(refreshToken, existingRefreshToken),
+                    claims.getClaims());
+        }
+
+        /**
+         * Retrieves user claims for pure OAuth2 flow (no ID token).
+         * Tries UserInfo endpoint first, then falls back to access token parsing.
+         *
+         * @param accessToken the access token
+         * @return Optional containing claims
+         */
+        private Optional<JWTClaimsSet> getUserClaims(String accessToken)
+        {
+            // Try UserInfo endpoint first (preferred for OAuth2)
+            if (userinfoUrl.isPresent()) {
+                Optional<JWTClaimsSet> userInfoClaims = queryUserInfo(accessToken);
+                if (userInfoClaims.isPresent() && userInfoClaims.get().getClaim(principalField) != null) {
+                    return userInfoClaims;
+                }
+            }
+
+            // Fallback: try parsing access token (only if it's a JWT)
+            Optional<JWTClaimsSet> accessTokenClaims = parseAccessToken(accessToken);
+            if (accessTokenClaims.isPresent() && accessTokenClaims.get().getClaim(principalField) != null) {
+                LOG.warn("Using access token for principal extraction - this is not recommended. Consider using OIDC with ID tokens.");
+                return accessTokenClaims;
+            }
+
+            LOG.error("Cannot find principal field '%s' in UserInfo or access token", principalField);
+            return Optional.empty();
         }
     }
 
@@ -306,11 +363,42 @@ public class NimbusOAuth2Client
         {
             AccessToken accessToken = tokens.getAccessToken();
             RefreshToken refreshToken = tokens.getRefreshToken();
-            JWTClaimsSet claims = getJWTClaimsSet(accessToken.getValue()).orElseThrow(() -> new ChallengeFailedException("invalid access token"));
+
+            // FIXED: Get claims from ID token (primary source per OIDC spec)
+            JWTClaimsSet claims = getJWTClaimsSetFromIdToken(tokens.getIDToken())
+                    .orElseThrow(() -> new ChallengeFailedException("invalid ID token"));
+
+            // Fallback to UserInfo if principal field not in ID token
+            if (claims.getClaim(principalField) == null) {
+                LOG.debug("Principal field '%s' not found in ID token, querying UserInfo endpoint", principalField);
+                claims = queryUserInfo(accessToken.getValue())
+                        .orElseThrow(() -> new ChallengeFailedException(
+                                String.format("Principal field '%s' not found in ID token or UserInfo", principalField)));
+            }
+
             return new Response(
                     accessToken.getValue(),
                     determineExpiration(getExpiration(accessToken), claims.getExpirationTime()),
-                    buildRefreshToken(refreshToken, existingRefreshToken));
+                    buildRefreshToken(refreshToken, existingRefreshToken),
+                    claims.getClaims());
+        }
+
+        /**
+         * Extracts JWT claims from a validated ID token.
+         * This is the correct source for user identity per OIDC specification.
+         *
+         * @param idToken the validated ID token
+         * @return Optional containing claims if successful
+         */
+        private Optional<JWTClaimsSet> getJWTClaimsSetFromIdToken(com.nimbusds.jwt.JWT idToken)
+        {
+            try {
+                return Optional.of(idToken.getJWTClaimsSet());
+            }
+            catch (java.text.ParseException e) {
+                LOG.error(e, "Failed to parse ID token claims");
+                return Optional.empty();
+            }
         }
 
         private void validateTokens(OIDCTokens tokens, Optional<String> nonce)
@@ -368,39 +456,142 @@ public class NimbusOAuth2Client
         return tokenResponse;
     }
 
+    /**
+     * Retrieves JWT claims for the given access token.
+     *
+     * IMPORTANT: This method should NOT be used for extracting the principal field.
+     * Per OIDC specification, the principal should come from the ID token, not the access token.
+     * This method is kept for backward compatibility and the getClaims() API method.
+     *
+     * @param accessToken the access token value
+     * @return Optional containing claims from access token or UserInfo endpoint
+     */
     private Optional<JWTClaimsSet> getJWTClaimsSet(String accessToken)
     {
+        // Try parsing access token as JWT
+        Optional<JWTClaimsSet> claims = parseAccessToken(accessToken);
+        if (claims.isPresent()) {
+            return claims;
+        }
+
+        // Fallback to UserInfo endpoint
         if (userinfoUrl.isPresent()) {
             return queryUserInfo(accessToken);
         }
-        return parseAccessToken(accessToken);
+
+        return Optional.empty();
     }
 
+    /**
+     * Queries the UserInfo endpoint to retrieve user claims.
+     * This should be used as a fallback when the principal field is not in the ID token,
+     * or for pure OAuth2 flows without ID tokens.
+     *
+     * Results are cached if caching is enabled to reduce redundant API calls.
+     *
+     * @param accessToken the OAuth2 access token for authentication
+     * @return Optional containing JWTClaimsSet if successful, empty otherwise
+     */
     private Optional<JWTClaimsSet> queryUserInfo(String accessToken)
     {
-        try {
-            UserInfoResponse response = httpClient.execute(new UserInfoRequest(userinfoUrl.get(), new BearerAccessToken(accessToken)), this::parse);
-            if (!response.indicatesSuccess()) {
-                LOG.error("Received bad response from userinfo endpoint: " + response.toErrorResponse().getErrorObject());
-                return Optional.empty();
-            }
-            return Optional.of(response.toSuccessResponse().getUserInfo().toJWTClaimsSet());
-        }
-        catch (ParseException | RuntimeException e) {
-            LOG.error(e, "Received bad response from userinfo endpoint");
+        // Validate input
+        if (accessToken == null || accessToken.trim().isEmpty()) {
+            LOG.error("Invalid access token provided to queryUserInfo");
             return Optional.empty();
         }
+
+        if (!userinfoUrl.isPresent()) {
+            LOG.debug("UserInfo URL not configured, cannot query user information");
+            return Optional.empty();
+        }
+
+        String cacheKey = null;
+
+        // Check cache if enabled
+        if (userinfoCacheEnabled) {
+            cacheKey = computeCacheKey(accessToken);
+
+            JWTClaimsSet cachedClaims = userInfoCache.getIfPresent(cacheKey);
+            if (cachedClaims != null) {
+                LOG.debug("UserInfo cache hit for token hash: %s", cacheKey.substring(0, 8));
+                return Optional.of(cachedClaims);
+            }
+
+            LOG.debug("UserInfo cache miss for token hash: %s", cacheKey.substring(0, 8));
+        }
+
+        // Query UserInfo endpoint
+        try {
+            JWTClaimsSet claims = fetchUserInfoClaims(accessToken);
+
+            // Store in cache if enabled
+            if (userinfoCacheEnabled && cacheKey != null) {
+                userInfoCache.put(cacheKey, claims);
+                LOG.debug("UserInfo cached for token hash: %s", cacheKey.substring(0, 8));
+            }
+
+            return Optional.of(claims);
+        }
+        catch (ParseException e) {
+            LOG.error(e, "Failed to parse UserInfo response from %s", userinfoUrl.get());
+            return Optional.empty();
+        }
+        catch (RuntimeException e) {
+            LOG.error(e, "Failed to query UserInfo endpoint %s", userinfoUrl.get());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Computes a cache key from the access token using SHA-256 hashing.
+     * This prevents storing sensitive tokens directly in the cache.
+     *
+     * @param accessToken the access token to hash
+     * @return SHA-256 hash of the token as a hex string
+     */
+    private String computeCacheKey(String accessToken)
+    {
+        return sha256()
+                .hashString(accessToken, UTF_8)
+                .toString();
+    }
+
+    /**
+     * Fetches user information claims from the UserInfo endpoint.
+     *
+     * @param accessToken the OAuth2 access token for authentication
+     * @return JWTClaimsSet containing user information
+     * @throws ParseException if the response cannot be parsed
+     * @throws RuntimeException if the HTTP request fails
+     */
+    private JWTClaimsSet fetchUserInfoClaims(String accessToken) throws ParseException
+    {
+        UserInfoResponse response = httpClient.execute(
+                new UserInfoRequest(userinfoUrl.get(), new BearerAccessToken(accessToken)),
+                this::parse);
+
+        if (!response.indicatesSuccess()) {
+            UserInfoErrorResponse errorResponse = response.toErrorResponse();
+            LOG.error("Received error from UserInfo endpoint: %s", errorResponse.getErrorObject());
+            throw new RuntimeException("UserInfo endpoint returned error: " + errorResponse.getErrorObject());
+        }
+
+        return response.toSuccessResponse().getUserInfo().toJWTClaimsSet();
     }
 
     // Using this parsing method for our /userinfo response from the IdP in order to allow for different principal
     // fields as defined, and in the absence of the `sub` claim. This is a "hack" solution to alter the claims
     // present in the response before calling the parser provided by the oidc sdk, which fails hard if the
-    // `sub` claim is missing. Note we also have to offload audience verification to this method since it
-    // is not handled in the library
+    // `sub` claim is missing.
     public UserInfoResponse parse(HTTPResponse httpResponse)
             throws ParseException
     {
-        JSONObject body = httpResponse.getContentAsJSONObject();
+        // Check status code first and only process payload if successful
+        if (httpResponse.getStatusCode() != 200) {
+            return UserInfoErrorResponse.parse(httpResponse);
+        }
+
+        JSONObject body = httpResponse.getBodyAsJSONObject();
 
         String principal = (String) body.get(principalField);
         if (principal == null) {
@@ -413,28 +604,29 @@ public class NimbusOAuth2Client
         }
 
         Object audClaim = body.get("aud");
-        List<String> audiences;
+        // only validate aud claim if it exists
+        if (audClaim != null) {
+            List<String> audiences;
 
-        if (audClaim instanceof String) {
-            audiences = List.of((String) audClaim);
-        }
-        else if (audClaim instanceof List<?>) {
-            audiences = ((List<?>) audClaim).stream()
-                    .filter(String.class::isInstance)
-                    .map(String.class::cast)
-                    .collect(toImmutableList());
-        }
-        else {
-            throw new ParseException("Unsupported or missing 'aud' claim type in /userinfo response");
+            if (audClaim instanceof String) {
+                audiences = List.of((String) audClaim);
+            }
+            else if (audClaim instanceof List<?>) {
+                audiences = ((List<?>) audClaim).stream()
+                        .filter(String.class::isInstance)
+                        .map(String.class::cast)
+                        .collect(toImmutableList());
+            }
+            else {
+                throw new ParseException("Unsupported 'aud' claim type in /userinfo response");
+            }
+
+            if (!audiences.contains(clientId.getValue()) && Collections.disjoint(audiences, accessTokenAudiences)) {
+                throw new ParseException("Invalid audience in /userinfo response");
+            }
         }
 
-        if (!(audiences.contains(clientId.getValue()) || !Collections.disjoint(audiences, accessTokenAudiences))) {
-            throw new ParseException("Invalid audience in /userinfo response");
-        }
-
-        return (httpResponse.getStatusCode() == 200)
-                ? UserInfoSuccessResponse.parse(httpResponse)
-                : UserInfoErrorResponse.parse(httpResponse);
+        return UserInfoSuccessResponse.parse(httpResponse);
     }
 
     private Optional<JWTClaimsSet> parseAccessToken(String accessToken)
@@ -443,7 +635,7 @@ public class NimbusOAuth2Client
             return Optional.of(accessTokenProcessor.process(accessToken, null));
         }
         catch (java.text.ParseException | BadJOSEException | JOSEException e) {
-            LOG.error(e, "Failed to parse JWT access token");
+            LOG.debug(e, "Failed to parse JWT access token");
             return Optional.empty();
         }
     }

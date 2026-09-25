@@ -30,6 +30,7 @@ import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.io.CloseableIterable;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -41,9 +42,11 @@ import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_METADATA_TABLES;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class TestIcebergV3
         extends AbstractTestQueryFramework
@@ -268,10 +271,38 @@ public class TestIcebergV3
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
                     "VALUES (1, 'A', 100.0), (2, 'B', 200.0), (3, 'A', 150.0), (4, 'C', 300.0)");
 
-            assertQuerySucceeds(format("CALL system.rewrite_data_files('%s', '%s')", TEST_SCHEMA, tableName));
+            assertQuerySucceeds(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['rewrite-all'], array['true']))", TEST_SCHEMA, tableName));
 
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
                     "VALUES (1, 'A', 100.0), (2, 'B', 200.0), (3, 'A', 150.0), (4, 'C', 300.0)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMetadataTablesThrowOnUnsupportedFormatVersion()
+    {
+        // Tests unsupported format versions throw clear errors instead of silent data loss
+        int unsupportedVersion = MAX_FORMAT_VERSION_FOR_METADATA_TABLES + 1;
+        String tableName = "test_unsupported_version_table";
+        try {
+            assertUpdate("CREATE TABLE " + tableName
+                    + " (id INTEGER, category VARCHAR, value DOUBLE) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'A', 100.0)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'B', 200.0)", 1);
+            Table table = loadTable(tableName);
+            table.updateProperties().set("format-version", String.valueOf(unsupportedVersion)).commit();
+            assertQueryFails("SELECT * FROM \"" + tableName + "$files\"",
+                    format("Cannot read Iceberg manifest files for table format version %s \\(max supported: %s\\).*",
+                            unsupportedVersion, MAX_FORMAT_VERSION_FOR_METADATA_TABLES));
+            assertQueryFails("SELECT * FROM \"" + tableName + "$partitions\"",
+                    format("Cannot read Iceberg manifest files for table format version %s \\(max supported: %s\\).*",
+                            unsupportedVersion, MAX_FORMAT_VERSION_FOR_METADATA_TABLES));
+            assertQueryFails("SELECT * FROM \"" + tableName + "$manifests\"",
+                    format("Cannot read Iceberg manifest files for table format version %s \\(max supported: %s\\).*",
+                            unsupportedVersion, MAX_FORMAT_VERSION_FOR_METADATA_TABLES));
         }
         finally {
             dropTable(tableName);
@@ -439,6 +470,297 @@ public class TestIcebergV3
             // Use Iceberg API to drop table directly, bypassing Presto's
             // validateTableForPresto
             dropTableViaIceberg(tableName);
+        }
+    }
+
+    @Test
+    public void testAddColumnWithDefaultRequiresV3()
+    {
+        String tableName = "test_add_column_default_v2";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '2')");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 2);
+            assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'IN'",
+                    "ADD COLUMN with DEFAULT values is only supported with Iceberg format version 3 or higher.*");
+
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + tableName + "' ORDER BY ordinal_position",
+                    "VALUES ('id'), ('name')");
+
+            BaseTable baseTable = (BaseTable) table;
+            TableOperations operations = baseTable.operations();
+            TableMetadata currentMetadata = operations.current();
+            operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(3));
+            table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'IN'");
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + tableName + "' ORDER BY ordinal_position",
+                    "VALUES ('id'), ('name'), ('country')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testAddColumnWithDefaultAndPosition()
+    {
+        String tableName = "test_add_column_default_position";
+        String columnOrderQuery = "SELECT column_name FROM information_schema.columns" +
+                " WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + tableName + "' ORDER BY ordinal_position";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
+
+            // The default literal and the move are staged on a single UpdateSchema, so both have to survive one commit
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'IN' FIRST");
+            // Asserted with assertQueryOrdered, because assertQuery compares results as an unordered multiset
+            // and would pass for any column order
+            assertQueryOrdered(columnOrderQuery, "VALUES ('country'), ('id'), ('name')");
+            Table table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "IN");
+            assertEquals(table.schema().findField("country").writeDefault(), "IN");
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN region VARCHAR DEFAULT 'APAC' AFTER id");
+            assertQueryOrdered(columnOrderQuery, "VALUES ('country'), ('id'), ('region'), ('name')");
+            table = loadTable(tableName);
+            assertEquals(table.schema().findField("region").initialDefault(), "APAC");
+            assertEquals(table.schema().findField("region").writeDefault(), "APAC");
+
+            // A row written without the defaulted columns reads them back in their requested positions
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (1, 'Alice')", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('IN', 1, 'APAC', 'Alice')");
+            assertQuery("SELECT country, region FROM " + tableName, "VALUES ('IN', 'APAC')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testSetColumnDefaultRequiresV3()
+    {
+        String tableName = "test_set_column_default_v2";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '2')");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 2);
+            // Try to set default on V2 table - should fail with V3 requirement error
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN name SET DEFAULT 'test'",
+                    "SET COLUMN DEFAULT is only supported with Iceberg format version 3 or higher.*");
+
+            // Upgrade to V3
+            BaseTable baseTable = (BaseTable) table;
+            TableOperations operations = baseTable.operations();
+            TableMetadata currentMetadata = operations.current();
+            operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(3));
+            table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+
+            // Add column with initial-default in V3
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'UK'");
+            table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "UK");
+            assertEquals(table.schema().findField("country").writeDefault(), "UK");
+
+            // Now update write-default only (initial-default should remain 'UK')
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN country SET DEFAULT 'US'");
+            table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "UK");
+            assertEquals(table.schema().findField("country").writeDefault(), "US");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testSetColumnDefaultToNull()
+    {
+        String tableName = "test_set_column_default_null";
+        try {
+            // Create V3 table with a column that has a default value
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN name VARCHAR DEFAULT 'default_name'");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+            // Verify initial default is set
+            assertEquals(table.schema().findField("name").initialDefault(), "default_name");
+            assertEquals(table.schema().findField("name").writeDefault(), "default_name");
+            // Set default to NULL - this should not throw NPE and should clear the write-default
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN name SET DEFAULT NULL");
+            table = loadTable(tableName);
+            // Verify initial-default remains but write-default is now null
+            assertEquals(table.schema().findField("name").initialDefault(), "default_name");
+            assertNull(table.schema().findField("name").writeDefault());
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInsertWithWriteDefault()
+    {
+        String tableName = "test_insert_with_write_default";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
+            // Add a column with default value
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'US'");
+            // Verify the default is set
+            Table table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "US");
+            assertEquals(table.schema().findField("country").writeDefault(), "US");
+            // Insert without specifying the country column - should use write-default
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (1, 'Alice')", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'Alice', 'US')");
+            // Change the write-default (initial-default remains 'US')
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN country SET DEFAULT 'UK'");
+            table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "US");
+            assertEquals(table.schema().findField("country").writeDefault(), "UK");
+            // Insert again without specifying country - should use new write-default 'UK'
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (2, 'Bob')", 1);
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', 'US'), (2, 'Bob', 'UK')");
+            // Insert with explicit value - should override default
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'Charlie', 'CA')", 1);
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', 'US'), (2, 'Bob', 'UK'), (3, 'Charlie', 'CA')");
+            // Set write-default to NULL
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN country SET DEFAULT NULL");
+            table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "US");
+            assertNull(table.schema().findField("country").writeDefault());
+            // Insert without specifying country - should preserve materialized NULL, not initial-default
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (4, 'Dave')", 1);
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', 'US'), (2, 'Bob', 'UK'), (3, 'Charlie', 'CA'), (4, 'Dave', NULL)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @DataProvider(name = "withPartitioning")
+    public String[][] withPartitioning()
+    {
+        return new String[][] {
+                {"PARQUET", ""},
+                {"PARQUET", " WITH(partitioning = 'identity')"},
+                {"ORC", ""},
+                {"ORC", " WITH(partitioning = 'identity')"}
+        };
+    }
+    @Test(dataProvider = "withPartitioning")
+    public void testInsertWithPartitionEvolution(String fileFormat, String withPartitioning)
+    {
+        String tableName = "test_insert_with_write_default_" + fileFormat.toLowerCase() + (withPartitioning.isEmpty() ? "_unpartitioned" : "_partitioned");
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES(1, 'Alice'), (2, 'Bob')", 2);
+            // Add a column with default value
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'US'" + withPartitioning);
+            // Verify the default is set
+            Table table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "US");
+            assertEquals(table.schema().findField("country").writeDefault(), "US");
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN country SET DEFAULT 'UK'");
+            // Insert without specifying the country column - should use write-default
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (3, 'Carol')", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'Alice', 'US'), (2, 'Bob', 'US'), (3, 'Carol', 'UK')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country = 'US'", "VALUES(1, 'Alice', 'US'), (2, 'Bob', 'US')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country = 'UK'", "VALUES(3, 'Carol', 'UK')");
+            assertUpdate("INSERT INTO " + tableName + " (id, name, country) VALUES (4, 'David', NULL), (5, 'Frank', 'FR')", 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'Alice', 'US'), (2, 'Bob', 'US'), (3, 'Carol', 'UK'), (4, 'David', NULL), (5, 'Frank', 'FR')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country = 'US'", "VALUES(1, 'Alice', 'US'), (2, 'Bob', 'US')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country <> 'US'", "VALUES(3, 'Carol', 'UK'), (5, 'Frank', 'FR')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country = 'UK'", "VALUES(3, 'Carol', 'UK')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country IS NULL", "VALUES(4, 'David', NULL)");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country IS NOT NULL", "VALUES(1, 'Alice', 'US'), (2, 'Bob', 'US'), (3, 'Carol', 'UK'), (5, 'Frank', 'FR')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country in ('US', 'FR', 'CN')", "VALUES(1, 'Alice', 'US'), (2, 'Bob', 'US'), (5, 'Frank', 'FR')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInsertWithExplicitNullOverridesWriteDefault()
+    {
+        String tableName = "test_insert_explicit_null_overrides_write_default";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN status VARCHAR DEFAULT 'ACTIVE'");
+
+            assertUpdate("INSERT INTO " + tableName + " (id, status) VALUES (1, NULL)", 1);
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (2)", 1);
+
+            assertQuery("SELECT id, status FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, NULL), (2, 'ACTIVE')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInsertWithMultipleWriteDefaultColumns()
+    {
+        String tableName = "test_insert_multiple_write_default_columns";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'US'");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN priority INTEGER DEFAULT 10");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN is_enabled BOOLEAN DEFAULT true");
+
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+            assertUpdate("INSERT INTO " + tableName + " (id, country) VALUES (2, 'UK')", 1);
+
+            assertQuery("SELECT id, country, priority, is_enabled FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'US', 10, true), (2, 'UK', 10, true)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInsertWithWriteDefaultDifferentDataTypes()
+    {
+        String tableName = "test_insert_write_default_different_types";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN name VARCHAR DEFAULT 'Unknown'");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN score DOUBLE DEFAULT 0.0");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN count BIGINT DEFAULT 0");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN active BOOLEAN DEFAULT false");
+
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+
+            assertQuery("SELECT id, name, score, count, active FROM " + tableName,
+                    "VALUES (1, 'Unknown', 0.0, 0, false)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInsertWithWriteDefaultOnPartitionedTable()
+    {
+        String tableName = "test_insert_write_default_partitioned_table";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, ds DATE) WITH (\"format-version\" = '3', format = 'PARQUET', partitioning = ARRAY['ds'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, DATE '2023-01-01')", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN region VARCHAR DEFAULT 'US'");
+
+            assertUpdate("INSERT INTO " + tableName + " (id, ds) VALUES (2, DATE '2023-01-02')", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN region SET DEFAULT 'EU'");
+            assertUpdate("INSERT INTO " + tableName + " (id, ds) VALUES (3, DATE '2023-01-03')", 1);
+
+            assertQuery("SELECT id, ds, region FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, DATE '2023-01-01', 'US'), (2, DATE '2023-01-02', 'US'), (3, DATE '2023-01-03', 'EU')");
+        }
+        finally {
+            dropTable(tableName);
         }
     }
 

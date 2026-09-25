@@ -14,7 +14,6 @@
 package com.facebook.presto.server;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -24,7 +23,9 @@ import java.net.URLClassLoader;
 import java.util.Enumeration;
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.StreamSupport.stream;
 
 class PluginClassLoader
         extends URLClassLoader
@@ -43,7 +44,9 @@ class PluginClassLoader
         this(urls,
                 spiClassLoader,
                 spiPackages,
-                Iterables.transform(spiPackages, PluginClassLoader::classNameToResource));
+                stream(spiPackages.spliterator(), false)
+                        .map(PluginClassLoader::classNameToResource)
+                        .collect(toImmutableList()));
     }
 
     private PluginClassLoader(

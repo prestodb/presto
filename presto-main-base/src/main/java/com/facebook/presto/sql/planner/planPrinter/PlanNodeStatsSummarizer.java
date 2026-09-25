@@ -23,6 +23,7 @@ import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.operator.WindowInfo;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.util.MoreMath;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
@@ -36,7 +37,6 @@ import java.util.Set;
 import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.airlift.units.DataSize.succinctDataSize;
 import static com.facebook.presto.util.MoreMaps.mergeMaps;
-import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Lists.reverse;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
@@ -107,7 +107,7 @@ public class PlanNodeStatsSummarizer
 
             Set<PlanNodeId> processedNodes = new HashSet<>();
             PlanNodeId inputPlanNode = pipelineStats.getOperatorSummaries().iterator().next().getPlanNodeId();
-            PlanNodeId outputPlanNode = getLast(pipelineStats.getOperatorSummaries()).getPlanNodeId();
+            PlanNodeId outputPlanNode = pipelineStats.getOperatorSummaries().stream().reduce((first, second) -> second).get().getPlanNodeId();
 
             // Gather input statistics
             for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries()) {
@@ -161,11 +161,11 @@ public class PlanNodeStatsSummarizer
                     windowNodeStats.merge(planNodeId, WindowOperatorStats.create(windowInfo), (left, right) -> left.mergeWith(right));
                 }
 
-                planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
-                planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSizeInBytes(), Long::sum);
+                planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), MoreMath::saturatingAdd);
+                planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSizeInBytes(), MoreMath::saturatingAdd);
 
-                planNodeRawInputPositions.merge(planNodeId, operatorStats.getRawInputPositions(), Long::sum);
-                planNodeRawInputBytes.merge(planNodeId, operatorStats.getRawInputDataSizeInBytes(), Long::sum);
+                planNodeRawInputPositions.merge(planNodeId, operatorStats.getRawInputPositions(), MoreMath::saturatingAdd);
+                planNodeRawInputBytes.merge(planNodeId, operatorStats.getRawInputDataSizeInBytes(), MoreMath::saturatingAdd);
 
                 planNodeNullJoinBuildKeyCount.merge(planNodeId, operatorStats.getNullJoinBuildKeyCount(), Long::sum);
                 planNodeJoinBuildKeyCount.merge(planNodeId, operatorStats.getJoinBuildKeyCount(), Long::sum);
@@ -190,8 +190,8 @@ public class PlanNodeStatsSummarizer
                     continue;
                 }
 
-                planNodeOutputPositions.merge(planNodeId, operatorStats.getOutputPositions(), Long::sum);
-                planNodeOutputBytes.merge(planNodeId, operatorStats.getOutputDataSizeInBytes(), Long::sum);
+                planNodeOutputPositions.merge(planNodeId, operatorStats.getOutputPositions(), MoreMath::saturatingAdd);
+                planNodeOutputBytes.merge(planNodeId, operatorStats.getOutputDataSizeInBytes(), MoreMath::saturatingAdd);
                 processedNodes.add(planNodeId);
             }
         }

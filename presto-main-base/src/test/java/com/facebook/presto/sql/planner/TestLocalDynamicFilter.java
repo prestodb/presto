@@ -26,7 +26,6 @@ import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.testng.annotations.Test;
 
@@ -45,6 +44,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.assertFalse;
 
 public class TestLocalDynamicFilter
@@ -202,8 +202,8 @@ public class TestLocalDynamicFilter
                 false);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
         LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).orElseThrow(NoSuchElementException::new);
-        String filterId = Iterables.getOnlyElement(filter.getBuildChannels().keySet());
-        VariableReferenceExpression probeVariable = Iterables.getOnlyElement(joinNode.getCriteria()).getLeft();
+        String filterId = filter.getBuildChannels().keySet().stream().collect(onlyElement());
+        VariableReferenceExpression probeVariable = joinNode.getCriteria().stream().collect(onlyElement()).getLeft();
 
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 filterId, Domain.singleValue(BIGINT, 3L))));
@@ -270,8 +270,8 @@ public class TestLocalDynamicFilter
         assertEquals(joinNodes.size(), 2);
         for (JoinNode joinNode : joinNodes) {
             LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).orElseThrow(NoSuchElementException::new);
-            String filterId = Iterables.getOnlyElement(filter.getBuildChannels().keySet());
-            VariableReferenceExpression probeVariable = Iterables.getOnlyElement(joinNode.getCriteria()).getLeft();
+            String filterId = filter.getBuildChannels().keySet().stream().collect(onlyElement());
+            VariableReferenceExpression probeVariable = joinNode.getCriteria().stream().collect(onlyElement()).getLeft();
 
             filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                     filterId, Domain.singleValue(BIGINT, 6L))));
@@ -293,7 +293,7 @@ public class TestLocalDynamicFilter
                 true);
         JoinNode joinNode = searchJoins(subplan.getFragment()).findOnlyElement();
         LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).orElseThrow(NoSuchElementException::new);
-        String filterId = Iterables.getOnlyElement(filter.getBuildChannels().keySet());
+        String filterId = filter.getBuildChannels().keySet().stream().collect(onlyElement());
 
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 filterId, Domain.singleValue(BIGINT, 7L))));

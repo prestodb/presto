@@ -69,7 +69,7 @@ Unsupported Features
 
 The following features are not supported:
 
-* Adding columns via ``ALTER TABLE``: While you cannot add columns via SQL, you can using a tool.
+* Adding columns with ``ALTER TABLE``: While you cannot add columns through SQL, you can do so using a tool.
   See the below section on `Adding Columns <#adding-columns>`__ for more details.
 * ``DELETE``: Deletion of rows is not yet implemented for the connector.
 
@@ -181,7 +181,7 @@ You can then issue ``INSERT`` statements to put data into Accumulo.
      row2      | Alan Turing  | 103 | 1912-06-23
     (2 rows)
 
-As you'd expect, rows inserted into Accumulo via the shell or
+As you'd expect, rows inserted into Accumulo through the shell or
 programmatically will also show up when queried. (The Accumulo shell
 thinks "-5321" is an option and not a number... so we'll just make TBL a
 little younger.)
@@ -221,10 +221,10 @@ Indexing Columns
 
 Internally, the connector creates an Accumulo ``Range`` and packs it in
 a split. This split gets passed to a Presto Worker to read the data from
-the ``Range`` via a ``BatchScanner``. When issuing a query that results
+the ``Range`` through a ``BatchScanner``. When issuing a query that results
 in a full table scan, each Presto Worker gets a single ``Range`` that
 maps to a single tablet of the table. When issuing a query with a
-predicate (i.e. ``WHERE x = 10`` clause), Presto passes the values
+predicate such as a ``WHERE x = 10`` clause, Presto passes the values
 within the predicate (``10``) to the connector so it can use this
 information to scan less data. When the Accumulo row ID is used as part
 of the predicate clause, this narrows down the ``Range`` lookup to quickly
@@ -234,8 +234,8 @@ But what about the other columns? If you're frequently querying on
 non-row ID columns, you should consider using the **indexing**
 feature built into the Accumulo connector. This feature can drastically
 reduce query runtime when selecting a handful of values from the table,
-and the heavy lifting is done for you when loading data via Presto
-``INSERT`` statements (though, keep in mind writing data to Accumulo via
+and the heavy lifting is done for you when loading data with Presto
+``INSERT`` statements (though, keep in mind writing data to Accumulo by using 
 ``INSERT`` does not have high throughput).
 
 To enable indexing, add the ``index_columns`` table property and specify
@@ -311,7 +311,7 @@ scans the data table.
 Loading Data
 ------------
 
-The Accumulo connector supports loading data via INSERT statements, however
+The Accumulo connector supports loading data with INSERT statements, however
 this method tends to be low-throughput and should not be relied on when throughput
 is a concern. Instead, users of the connector should use the ``PrestoBatchWriter``
 tool that is provided as part of the presto-accumulo-tools subproject in the
@@ -325,12 +325,12 @@ Usage of the tool is provided in the README in the `repository <https://github.c
 External Tables
 ---------------
 
-By default, the tables created using SQL statements via Presto are
+By default, the tables created using SQL statements with Presto are
 *internal* tables, that is both the Presto table metadata and the
 Accumulo tables are managed by Presto. When you create an internal
 table, the Accumulo table is created as well. You will receive an error
 if the Accumulo table already exists. When an internal table is dropped
-via Presto, the Accumulo table (and any index tables) are dropped as
+through Presto, the Accumulo table (and any index tables) are dropped as
 well.
 
 To change this behavior, set the ``external`` property to ``true`` when
@@ -465,11 +465,11 @@ Property Name        Default Value    Description
                                       Otherwise, Presto will create and drop Accumulo tables where appropriate.
 ``locality_groups``  (none)           List of locality groups to set on the Accumulo table. Only valid on internal tables.
                                       String format is locality group name, colon, comma delimited list of column families in the group.
-                                      Groups are delimited by pipes. Example: ``group1:famA,famB,famC|group2:famD,famE,famF|etc...``
+                                      Groups are delimited by pipes. Example: ``group1:famA,famB,famC|group2:famD,famE,famF|(...)``
 ``row_id``           (first column)   Presto column name that maps to the Accumulo row ID.
-``serializer``       ``default``      Serializer for Accumulo data encodings. Can either be ``default``, ``string``, ``lexicoder``
-                                      or a Java class name. Default is ``default``,
-                                      i.e. the value from ``AccumuloRowSerializer.getDefault()``, i.e. ``lexicoder``.
+``serializer``       ``default``      Serializer for Accumulo data encodings. Default is ``default``. Can either be ``default``, 
+                                      ``string``, ``lexicoder``, or a Java class name that is 
+                                      the value from ``AccumuloRowSerializer.getDefault()``, such as ``lexicoder``.
 ``scan_auths``       (user auths)     Scan-time authorizations set on the batch scanner.
 ==================== ================ ======================================================================================================
 
@@ -501,7 +501,7 @@ Property Name                                 Default Value Description
 Adding Columns
 --------------
 
-Adding a new column to an existing table cannot be done today via
+Adding a new column to an existing table cannot be done today by using 
 ``ALTER TABLE [table] ADD COLUMN [name] [type]`` because of the additional
 metadata required for the columns to work; the column family, qualifier,
 and if the column is indexed.

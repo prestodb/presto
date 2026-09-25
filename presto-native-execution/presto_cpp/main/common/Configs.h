@@ -171,6 +171,10 @@ class SystemConfig : public ConfigBase {
   /// startup.
   static constexpr std::string_view kHttpServerReusePort{
       "http-server.reuse-port"};
+  /// If true, write the bound HTTP port to
+  /// `<etc_dir>/http-server.port` after bind.
+  static constexpr std::string_view kHttpServerReportBoundPortToFile{
+      "http-server.report-bound-port-to-file"};
   /// By default the server binds to 0.0.0.0
   /// With this option enabled the server will bind strictly to the
   /// address set in node.internal-address property
@@ -662,12 +666,95 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kLocalShuffleMaxPartitionBytes{
       "shuffle.local.max-partition-bytes"};
   static constexpr std::string_view kShuffleName{"shuffle.name"};
+
+  /// Enable materialized exchange I/O (MaterializedOutput/MaterializedExchange
+  /// operators). When false, falls back to PartitionAndSerialize +
+  /// LocalPartition + ShuffleWrite.
+  /// Default: false.
+  static constexpr std::string_view kExchangeMaterializationEnabled{
+      "exchange.materialization.enabled"};
+
+  /// MaterializedOutput flat buffer flush threshold in bytes. Controls how much
+  /// serialized CompactRow data accumulates per driver before flushing to
+  /// the MaterializedOutputBuffer. Default: 16MB.
+  static constexpr std::string_view
+      kExchangeMaterializationPartitioningRowBatchBufferSize{
+          "exchange.materialization.partitioning-row-batch-buffer-size"};
+
+  /// MaterializedOutputBuffer total size in bytes. Needed until reclaim is
+  /// implemented; acts as the backpressure cap for the output buffer.
+  /// The per-partition drain threshold is dynamically computed as
+  /// min(output-buffer.per-partition-max-bytes, output-buffer.max-bytes /
+  /// numPartitions). Default: 1GB.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferMaxBytes{
+          "exchange.materialization.output-buffer.max-bytes"};
+
+  /// MaterializedOutputBuffer per-partition drain threshold in bytes. When a
+  /// partition accumulates this much data, it is drained to the writer.
+  /// Default: 130KB.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferPerPartitionMaxBytes{
+          "exchange.materialization.output-buffer.per-partition-max-bytes"};
+
+  /// Producer-blocking watermark. Must exceed the low ratio. Default: 0.9.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferHighWatermarkRatio{
+          "exchange.materialization.output-buffer.high-watermark-ratio"};
+
+  /// Producer-wake watermark. Must be below the high ratio. Default: 0.7.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferLowWatermarkRatio{
+          "exchange.materialization.output-buffer.low-watermark-ratio"};
+
+  /// Maximum collect() size as a multiple of the partition drain threshold.
+  /// Default: 2.0.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferDrainChunkMultiplier{
+          "exchange.materialization.output-buffer.drain-chunk-multiplier"};
+
+  /// Fraction of the per-partition drain threshold used during memory reclaim.
+  /// The reclaim drain threshold is generally lower than the regular drain
+  /// threshold, but high enough that draining actually reduces memory. Without
+  /// this lower bound, reclaim would flush small partition buffers that don't
+  /// produce compressible packages — low ROI flushes that move data to the
+  /// writer without freeing meaningful memory.
+  /// Default: 0.67.
+  static constexpr std::string_view
+      kExchangeMaterializationReclaimDrainThresholdRatio{
+          "exchange.materialization.reclaim-drain-threshold-ratio"};
+
+  /// Wait for the writer to drain after flushing partition buffers during
+  /// reclaim. Default: false.
+  static constexpr std::string_view
+      kExchangeMaterializationReclaimWaitForWriterDrainEnabled{
+          "exchange.materialization.reclaim-wait-for-writer-drain-enabled"};
+
+  /// Use high reclaim priority (-1) for the output buffer pool.
+  /// Default: false (uses default priority 0).
+  static constexpr std::string_view kExchangeMaterializationReclaimHighPriority{
+      "exchange.materialization.reclaim-high-priority"};
+
+  /// Skip coalescing MaterializedOutput RowGroups before handing them to the
+  /// ShuffleWriter's owned-buffer collect path. When disabled, the existing
+  /// contiguous collect path is unchanged. Applies to non-sort shuffle only.
+  /// Default: true.
+  static constexpr std::string_view kExchangeMaterializationUseZeroCopyCollect{
+      "exchange.materialization.use-zero-copy-collect"};
+
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatsFilter{
       "http-server.enable-stats-filter"};
   static constexpr std::string_view kHttpEnableEndpointLatencyFilter{
       "http-server.enable-endpoint-latency-filter"};
+
+  /// Enables the http request size histogram metric
+  /// (presto_cpp.http_request_size_bytes). This histogram has a large number of
+  /// buckets which can significantly slow down Prometheus metrics scraping, so
+  /// it is disabled by default.
+  static constexpr std::string_view kHttpEnableRequestSizeHistogram{
+      "http-server.enable-request-size-histogram"};
 
   /// The options to configure the max quantized memory allocation size to store
   /// the received http response data.
@@ -696,6 +783,14 @@ class SystemConfig : public ConfigBase {
   /// Time (ms) since the task execution ended, when task is considered old for
   /// cleanup.
   static constexpr std::string_view kOldTaskCleanUpMs{"old-task-cleanup-ms"};
+
+  /// If true, wait for task Drivers to stop after aborting a dropped task.
+  static constexpr std::string_view kTaskSyncTerminateEnabled{
+      "task.sync-terminate-enabled"};
+
+  /// Maximum time to wait for task Drivers to stop after abort.
+  static constexpr std::string_view kTaskSyncTerminateTimeoutMs{
+      "task.sync-terminate-timeout-ms"};
 
   /// Enable periodic old task clean up. Typically enabled for presto (default)
   /// and disabled for presto-on-spark.
@@ -863,6 +958,12 @@ class SystemConfig : public ConfigBase {
       "order-by-spill-enabled"};
   static constexpr std::string_view kMaxSpillBytes{"max-spill-bytes"};
 
+  /// Input stream buffer size in bytes for reading broadcast files. Controls
+  /// per-source memory footprint when many broadcast sources are active.
+  /// Default: 1MB.
+  static constexpr std::string_view kBroadcastExchangeSourceReadBufferBytes{
+      "broadcast-exchange-source-read-buffer-bytes"};
+
   /// When enabled, hash tables built for broadcast joins are cached and reused
   /// across tasks within the same query and stage.
   static constexpr std::string_view kBroadcastJoinTableCachingEnabled{
@@ -926,6 +1027,8 @@ class SystemConfig : public ConfigBase {
   int httpServerHttpPort() const;
 
   bool httpServerReusePort() const;
+
+  bool httpServerReportBoundPortToFile() const;
 
   bool httpServerBindToNodeInternalAddressOnlyEnabled() const;
 
@@ -1115,6 +1218,28 @@ class SystemConfig : public ConfigBase {
 
   std::string shuffleName() const;
 
+  bool exchangeMaterializationEnabled() const;
+
+  int64_t exchangeMaterializationPartitioningRowBatchBufferSize() const;
+
+  int64_t exchangeMaterializationOutputBufferMaxBytes() const;
+
+  int64_t exchangeMaterializationOutputBufferPerPartitionMaxBytes() const;
+
+  double exchangeMaterializationOutputBufferHighWatermarkRatio() const;
+
+  double exchangeMaterializationOutputBufferLowWatermarkRatio() const;
+
+  double exchangeMaterializationOutputBufferDrainChunkMultiplier() const;
+
+  double exchangeMaterializationReclaimDrainThresholdRatio() const;
+
+  bool exchangeMaterializationReclaimWaitForWriterDrainEnabled() const;
+
+  bool exchangeMaterializationReclaimHighPriority() const;
+
+  bool exchangeMaterializationUseZeroCopyCollect() const;
+
   bool enableSerializedPageChecksum() const;
 
   bool enableVeloxTaskLogging() const;
@@ -1164,6 +1289,8 @@ class SystemConfig : public ConfigBase {
   bool enableHttpStatsFilter() const;
 
   bool enableHttpEndpointLatencyFilter() const;
+
+  bool enableHttpRequestSizeHistogram() const;
 
   bool registerTestFunctions() const;
 
@@ -1219,6 +1346,10 @@ class SystemConfig : public ConfigBase {
 
   int32_t oldTaskCleanUpMs() const;
 
+  bool taskSyncTerminateEnabled() const;
+
+  uint64_t taskSyncTerminateTimeoutMs() const;
+
   bool enableOldTaskCleanUp() const;
 
   bool internalCommunicationJwtEnabled() const;
@@ -1254,6 +1385,8 @@ class SystemConfig : public ConfigBase {
   bool aggregationSpillEnabled() const;
 
   bool orderBySpillEnabled() const;
+
+  uint64_t broadcastExchangeSourceReadBufferBytes() const;
 
   bool broadcastJoinTableCachingEnabled() const;
 
@@ -1318,5 +1451,12 @@ class NodeConfig : public ConfigBase {
 
   std::string nodeLocation() const;
 };
+
+/// Applies gflag.* properties from a config map to gflags.
+/// Strips the "gflag." prefix and converts hyphens to underscores to derive
+/// the flag name. Uses SET_FLAG_IF_DEFAULT so command-line flags take
+/// precedence.
+void applyGFlags(
+    const std::unordered_map<std::string, std::string>& configs) noexcept;
 
 } // namespace facebook::presto

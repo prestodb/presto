@@ -263,7 +263,7 @@ a bit more complex.
   you want, and the framework will generate all the implementations and
   serializers for you. If you need a more complex state object, you will need
   to implement ``AccumulatorStateFactory`` and ``AccumulatorStateSerializer``
-  and provide these via the ``AccumulatorStateMetadata`` annotation.
+  and provide these through the ``AccumulatorStateMetadata`` annotation.
 
 The following code implements the aggregation function ``avg_double`` which computes the
 average of a ``DOUBLE`` column:
@@ -334,8 +334,8 @@ function follows:
   you must annotate the arguments with ``@SqlType``.  Note that, unlike in the above
   scalar example where ``Slice`` is used to hold ``VARCHAR``, the primitive
   ``double`` type is used for the argument to input. In this example, the input
-  function simply keeps track of the running count of rows (via ``setLong()``)
-  and the running sum (via ``setDouble()``).
+  function simply keeps track of the running count of rows (through ``setLong()``)
+  and the running sum (through ``setDouble()``).
 
 * ``@CombineFunction``:
 

@@ -29,12 +29,14 @@ import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.MergeHandle;
 import com.facebook.presto.spi.NewTableLayout;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
@@ -196,6 +198,30 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public OutputTableHandle beginCreateVectorIndex(Session session, String catalogName, ConnectorTableMetadata indexMetadata, Optional<NewTableLayout> layout, SchemaTableName sourceTableName)
+    {
+        long startTime = System.nanoTime();
+        try {
+            return delegate.beginCreateVectorIndex(session, catalogName, indexMetadata, layout, sourceTableName);
+        }
+        finally {
+            stats.recordBeginCreateVectorIndexCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateVectorIndex(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        long startTime = System.nanoTime();
+        try {
+            return delegate.finishCreateVectorIndex(session, tableHandle, fragments, computedStatistics);
+        }
+        finally {
+            stats.recordFinishCreateVectorIndexCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target)
     {
         long startTime = System.nanoTime();
@@ -280,11 +306,11 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
-    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<String> insertColumnNames)
     {
         long startTime = System.nanoTime();
         try {
-            return delegate.beginInsert(session, tableHandle);
+            return delegate.beginInsert(session, tableHandle, insertColumnNames);
         }
         finally {
             stats.recordBeginInsertCall(System.nanoTime() - startTime);
@@ -592,6 +618,18 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Object> properties)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.setMaterializedViewProperties(session, viewName, properties);
+        }
+        finally {
+            stats.recordSetTablePropertiesCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix)
     {
         long startTime = System.nanoTime();
@@ -616,11 +654,11 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, Optional<RowExpression> refreshScopePredicate)
     {
         long startTime = System.nanoTime();
         try {
-            return delegate.beginRefreshMaterializedView(session, tableHandle);
+            return delegate.beginRefreshMaterializedView(session, tableHandle, refreshScopePredicate);
         }
         finally {
             stats.recordBeginRefreshMaterializedViewCall(System.nanoTime() - startTime);
@@ -1110,14 +1148,38 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
-    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         long startTime = System.nanoTime();
         try {
-            delegate.addColumn(session, tableHandle, column);
+            delegate.addColumn(session, tableHandle, column, position);
         }
         finally {
             stats.recordAddColumnCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
+    public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.setColumnType(session, tableHandle, column, type);
+        }
+        finally {
+            stats.recordSetColumnTypeCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
+    public void setColumnPosition(Session session, TableHandle tableHandle, ColumnHandle column, ColumnPosition position)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.setColumnPosition(session, tableHandle, column, position);
+        }
+        finally {
+            stats.recordSetColumnPositionCall(System.nanoTime() - startTime);
         }
     }
 
@@ -1142,6 +1204,18 @@ public class StatsRecordingMetadataManager
         }
         finally {
             stats.recordRenameColumnCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
+    public void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.setColumnDefault(session, tableHandle, columnName, defaultValue);
+        }
+        finally {
+            stats.recordSetColumnDefaultCall(System.nanoTime() - startTime);
         }
     }
 

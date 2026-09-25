@@ -82,7 +82,7 @@ public class PrimitiveTypeMapBuilder
         parent = ImmutableList.<String>builder().addAll(parent).add(name).build();
         for (RowType.Field field : type.getFields()) {
             checkArgument(field.getName().isPresent(), "field in struct type doesn't have name");
-            visitType(field.getType(), field.getName().get(), parent);
+            visitType(field.getType(), makeCompatibleName(field.getName().get()), parent);
         }
     }
 }

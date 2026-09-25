@@ -31,7 +31,7 @@ _______________
 * Fix addition, subtraction, multiplication and division of ``INTERVAL YEAR MONTH`` values. `#24617 <https://github.com/prestodb/presto/pull/24617>`_
 * Fix index error when a map column is passed into an unnest function by using the column analyzer to correctly map key and value output fields back to correct input expression. `#24789 <https://github.com/prestodb/presto/pull/24789>`_
 * Fix silently returning incorrect results when trying to construct a TimestampWithTimeZone from a value that has a unix timestamp that is too large/small. `#24674 <https://github.com/prestodb/presto/pull/24674>`_
-* Fix a potential block by making the number of task event loop configurable via a configuration file. `#24565 <https://github.com/prestodb/presto/pull/24565>`_
+* Fix a potential block by making the number of task event loop configurable with a configuration file. `#24565 <https://github.com/prestodb/presto/pull/24565>`_
 * Improve analysis of utilized columns in a query by exploring view definitions and checking the utilized columns of the underlying tables. `#24638 <https://github.com/prestodb/presto/pull/24638>`_
 * Improve error handling of ``INTERVAL DAY``, ``INTERVAL HOUR``, and ``INTERVAL SECOND`` operators when experiencing overflows. `#24353 <https://github.com/prestodb/presto/pull/24353>`_
 * Improve scheduling by using long instead of DataSize for critical path. `#24582 <https://github.com/prestodb/presto/pull/24582>`_

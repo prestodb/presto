@@ -26,7 +26,7 @@ import java.util.Map;
 
 import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
+import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESS_RESULT;
 import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
 
 public final class ConfigurationUtils
@@ -58,6 +58,11 @@ public final class ConfigurationUtils
             return new CopyOnFirstWriteConfiguration(copy(((CopyOnFirstWriteConfiguration) configuration).getConfig()));
         }
         Configuration copy = new Configuration(false);
+        // new Configuration() captures Thread.currentThread().getContextClassLoader(), and the
+        // copy below carries key/value entries only, so the source's ClassLoader has to be
+        // carried over explicitly. Otherwise a copy taken on a thread that cannot see plugin
+        // classes loses the ClassLoader pinned by HiveHdfsConfiguration.
+        copy.setClassLoader(configuration.getClassLoader());
         copy(configuration, copy);
         return copy;
     }
@@ -103,7 +108,7 @@ public final class ConfigurationUtils
     private static void setCompressionProperties(Configuration config, HiveCompressionCodec compression)
     {
         boolean compressed = compression != HiveCompressionCodec.NONE;
-        config.setBoolean(COMPRESSRESULT.varname, compressed);
+        config.setBoolean(COMPRESS_RESULT.varname, compressed);
         config.setBoolean("mapreduce.output.fileoutputformat.compress", compressed);
         config.setBoolean(FileOutputFormat.COMPRESS, compressed);
         // For DWRF

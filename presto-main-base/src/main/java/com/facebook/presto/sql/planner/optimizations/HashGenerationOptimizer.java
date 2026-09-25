@@ -56,7 +56,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 
@@ -91,6 +90,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Stream.concat;
 
@@ -226,7 +226,7 @@ public class HashGenerationOptimizer
         private boolean canSkipHashGeneration(List<VariableReferenceExpression> partitionVariables)
         {
             // HACK: bigint grouped aggregation has special operators that do not use precomputed hash, so we can skip hash generation
-            return partitionVariables.isEmpty() || (partitionVariables.size() == 1 && Iterables.getOnlyElement(partitionVariables).getType().equals(BIGINT));
+            return partitionVariables.isEmpty() || (partitionVariables.size() == 1 && partitionVariables.stream().collect(onlyElement()).getType().equals(BIGINT));
         }
 
         @Override
@@ -765,7 +765,7 @@ public class HashGenerationOptimizer
             }
 
             // There is not requirement to produce hash variables and only preference for variables
-            PlanWithProperties source = planAndEnforce(Iterables.getOnlyElement(node.getSources()), new HashComputationSet(), alwaysPruneExtraHashVariables, preferredHashes);
+            PlanWithProperties source = planAndEnforce(node.getSources().stream().collect(onlyElement()), new HashComputationSet(), alwaysPruneExtraHashVariables, preferredHashes);
             PlanNode result = replaceChildren(node, ImmutableList.of(source.getNode()));
 
             // return only hash variables that are passed through the new node
@@ -969,7 +969,7 @@ public class HashGenerationOptimizer
 
         public boolean isSingleBigIntVariable()
         {
-            return fields.size() == 1 && Iterables.getOnlyElement(fields).getType().equals(BIGINT);
+            return fields.size() == 1 && fields.stream().collect(onlyElement()).getType().equals(BIGINT);
         }
 
         private RowExpression getHashExpression()

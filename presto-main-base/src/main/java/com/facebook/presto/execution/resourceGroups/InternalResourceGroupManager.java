@@ -47,7 +47,9 @@ import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.ObjectNames;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,7 +89,7 @@ public final class InternalResourceGroupManager<C>
         implements ResourceGroupManager<C>, ClusterOverloadStateListener
 {
     private static final Logger log = Logger.get(InternalResourceGroupManager.class);
-    private static final File RESOURCE_GROUPS_CONFIGURATION = new File("etc/resource-groups.properties");
+    private static final Path RESOURCE_GROUPS_CONFIGURATION = Paths.get("etc/resource-groups.properties");
     private static final String CONFIGURATION_MANAGER_PROPERTY_NAME = "resource-groups.configuration-manager";
     private static final int REFRESH_EXECUTOR_POOL_SIZE = 2;
 
@@ -301,12 +303,12 @@ public final class InternalResourceGroupManager<C>
     public void loadConfigurationManager()
             throws Exception
     {
-        if (RESOURCE_GROUPS_CONFIGURATION.exists()) {
-            Map<String, String> properties = new HashMap<>(loadProperties(RESOURCE_GROUPS_CONFIGURATION));
+        if (Files.exists(RESOURCE_GROUPS_CONFIGURATION)) {
+            Map<String, String> properties = new HashMap<>(loadProperties(RESOURCE_GROUPS_CONFIGURATION.toFile()));
 
             String configurationManagerName = properties.remove(CONFIGURATION_MANAGER_PROPERTY_NAME);
             checkArgument(!isNullOrEmpty(configurationManagerName),
-                    "Resource groups configuration %s does not contain %s", RESOURCE_GROUPS_CONFIGURATION.getAbsoluteFile(), CONFIGURATION_MANAGER_PROPERTY_NAME);
+                    "Resource groups configuration %s does not contain %s", RESOURCE_GROUPS_CONFIGURATION.toAbsolutePath().toFile(), CONFIGURATION_MANAGER_PROPERTY_NAME);
 
             setConfigurationManager(configurationManagerName, properties);
         }

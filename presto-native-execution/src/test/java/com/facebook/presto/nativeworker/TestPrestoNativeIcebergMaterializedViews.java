@@ -47,6 +47,7 @@ public class TestPrestoNativeIcebergMaterializedViews
 
         serverUri = restServer.getBaseUrl().toString();
         super.init();
+        getQueryRunner().execute("CREATE SCHEMA IF NOT EXISTS test_schema");
     }
 
     @AfterClass(alwaysRun = true)
@@ -72,6 +73,7 @@ public class TestPrestoNativeIcebergMaterializedViews
                 .setDataDirectory(warehouseLocation.toPath())
                 .setExtraConnectorProperty("iceberg.rest.uri", serverUri)
                 .setExtraProperty("experimental.legacy-materialized-views", "false")
+                .setExtraProperty("materialized-view-default-refresh-type", "INCREMENTAL")
                 .build();
     }
 
@@ -86,6 +88,7 @@ public class TestPrestoNativeIcebergMaterializedViews
                 .setDataDirectory(warehouseLocation.toPath())
                 .setExtraConnectorProperty("iceberg.rest.uri", serverUri)
                 .setExtraProperty("experimental.legacy-materialized-views", "false")
+                .setExtraProperty("materialized-view-default-refresh-type", "INCREMENTAL")
                 .build();
     }
 

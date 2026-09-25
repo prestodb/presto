@@ -13,12 +13,21 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.ArrayBlock;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ColumnarArray;
+import com.facebook.presto.common.block.ColumnarMap;
 import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.block.RowBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.iceberg.delete.DeleteFilter;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
@@ -35,6 +44,8 @@ import org.apache.iceberg.util.Pair;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -49,9 +60,13 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
+import static com.facebook.presto.common.block.ColumnarMap.toColumnarMap;
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUMN;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -97,6 +112,18 @@ public class IcebergUpdateablePageSource
     private final int[] outputColumnToDelegateMapping;
     private final int isDeletedColumnId;
     private final int deleteFilePathColumnId;
+    // The output index of the _row_id column, or -1 if not requested
+    private final int rowLineageRowIdOutputIndex;
+    // The delegate index of the ROW_POSITION column for computing _row_id fallback, or -1 if not needed
+    private final int rowPositionDelegateIndex;
+    // The first_row_id of the data file (from the manifest), or -1 if not a V3 table
+    private final long firstRowId;
+    // The output index of _last_updated_sequence_number, or -1 if not requested
+    private final int lastUpdatedSeqOutputIndex;
+    // The data sequence number of the file for _last_updated_sequence_number fallback
+    private final long dataSequenceNumber;
+    // Columns with types requiring data transform
+    private final List<Integer> transformColumns = new ArrayList<Integer>();
 
     public IcebergUpdateablePageSource(
             Schema tableSchema,
@@ -113,7 +140,9 @@ public class IcebergUpdateablePageSource
             Supplier<IcebergPageSink> updatedRowPageSinkSupplier,
             // the columns that this page source is supposed to update
             List<IcebergColumnHandle> updatedColumns,
-            Optional<IcebergColumnHandle> rowIdColumn)
+            Optional<IcebergColumnHandle> rowIdColumn,
+            long firstRowId,
+            long dataSequenceNumber)
     {
         requireNonNull(partitionKeys, "partitionKeys is null");
         this.tableSchema = requireNonNull(tableSchema, "tableSchema is null");
@@ -132,6 +161,8 @@ public class IcebergUpdateablePageSource
         this.updateRowIdChildColumnIndexes = rowIdColumn
                 .map(column -> new int[column.getColumnIdentity().getChildren().size()])
                 .orElse(new int[0]);
+        this.firstRowId = firstRowId;
+        this.dataSequenceNumber = dataSequenceNumber;
         Map<ColumnIdentity, Integer> columnToIndex = IntStream.range(0, delegateColumns.size())
                 .boxed()
                 .collect(toImmutableMap(index -> delegateColumns.get(index).getColumnIdentity(), identity()));
@@ -150,10 +181,24 @@ public class IcebergUpdateablePageSource
                 columnIdentityToUpdatedColumnIndex.put(updatedColumn.getColumnIdentity(), columnIndex);
             }
         }
-        for (int i = 0; i < outputColumnToDelegateMapping.length; i++) {
+
+        // Find the output index of _row_id (lineage), _last_updated_sequence_number, and the delegate index for ROW_POSITION
+        int rowLineageIdx = -1;
+        int lastUpdatedSeqIdx = -1;
+        int rowPosIdx = -1;
+        for (int i = 0; i < outputColumns.size(); i++) {
             IcebergColumnHandle outputColumn = outputColumns.get(i);
             if (outputColumn.isUpdateRowIdColumn() || outputColumn.isMergeTargetTableRowIdColumn()) {
                 continue;
+            }
+
+            if (outputColumn.isRowIdColumn()) {
+                // Map to delegate index for reading file values, but also track output index for fallback
+                rowLineageIdx = i;
+            }
+
+            if (outputColumn.isLastUpdatedSequenceNumberColumn()) {
+                lastUpdatedSeqIdx = i;
             }
 
             if (!columnToIndex.containsKey(outputColumn.getColumnIdentity())) {
@@ -163,8 +208,56 @@ public class IcebergUpdateablePageSource
                 outputColumnToDelegateMapping[i] = columnToIndex.get(outputColumn.getColumnIdentity());
             }
         }
+        this.rowLineageRowIdOutputIndex = rowLineageIdx;
+        this.lastUpdatedSeqOutputIndex = lastUpdatedSeqIdx;
+
+        // Find the delegate index for ROW_POSITION (needed for _row_id = firstRowId + _pos fallback)
+        if (rowLineageIdx >= 0 && firstRowId >= 0) {
+            for (int i = 0; i < delegateColumns.size(); i++) {
+                if (delegateColumns.get(i).isRowPositionColumn()) {
+                    rowPosIdx = i;
+                    break;
+                }
+            }
+        }
+        this.rowPositionDelegateIndex = rowPosIdx;
+
         this.isDeletedColumnId = getDelegateColumnId(IcebergColumnHandle::isDeletedColumn);
         this.deleteFilePathColumnId = getDelegateColumnId(IcebergColumnHandle::isDeleteFilePathColumn);
+
+        // Add all columns with types needing transformation
+        for (int i = 0; i < delegateColumns.size(); i++) {
+            if (needDataTransform(delegateColumns.get(i).getType())) {
+                transformColumns.add(i);
+            }
+        }
+    }
+
+    private Boolean needDataTransform(Type type)
+    {
+        if (type == GEOMETRY) {
+            return true;
+        }
+        else if (type.getClass() == ArrayType.class) {
+            ArrayType arrayType = (ArrayType) type;
+            return needDataTransform(arrayType.getElementType());
+        }
+        else if (type.getClass() == MapType.class) {
+            MapType mapType = (MapType) type;
+            return needDataTransform(mapType.getKeyType()) || needDataTransform(mapType.getValueType());
+        }
+        else if (type.getClass() == RowType.class) {
+            RowType rowType = (RowType) type;
+            for (RowType.Field field : rowType.getFields()) {
+                if (needDataTransform(field.getType())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        else {
+            return false;
+        }
     }
 
     @Override
@@ -210,6 +303,7 @@ public class IcebergUpdateablePageSource
                 return null;
             }
 
+            dataPage = transformIfNecessary(dataPage);
             Optional<RowPredicate> deleteFilterPredicate = deletePredicate.get();
             if (isDeletedColumnId != -1 || deleteFilePathColumnId != -1) {
                 if (isDeletedColumnId != -1) {
@@ -318,9 +412,156 @@ public class IcebergUpdateablePageSource
         }
     }
 
+    private Page transformIfNecessary(Page page)
+    {
+        if (transformColumns.size() <= 0) {
+            return page;
+        }
+        Block[] fullPage = new Block[delegateColumns.size()];
+        // Copy all columns
+        for (int channel = 0; channel < delegateColumns.size(); channel++) {
+            fullPage[channel] = page.getBlock(channel);
+        }
+        // Apply transform to columns
+        for (int currentColumn : transformColumns) {
+            Type columnType = delegateColumns.get(currentColumn).getType();
+            fullPage[currentColumn] = transformBlock(fullPage[currentColumn], columnType);
+        }
+        return new Page(page.getPositionCount(), fullPage);
+    }
+
+    private Block transformBlock(Block block, Type type)
+    {
+        if (type == GEOMETRY) {
+            return transformGeometryBlock(block, type);
+        }
+        else if (type.getClass() == ArrayType.class) {
+            return transformArrayBlock(block, (ArrayType) type);
+        }
+        else if (type.getClass() == MapType.class) {
+            return transformMapBlock(block, (MapType) type);
+        }
+        else if (type.getClass() == RowType.class) {
+            return transformRowBlock(block, (RowType) type);
+        }
+        else {
+            return block;
+        }
+    }
+
+    private Block transformGeometryBlock(Block block, Type type)
+    {
+        block = block.getLoadedBlock();
+        int positionCount = block.getPositionCount();
+        BlockBuilder builder = type.createBlockBuilder(null, positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            if (block.isNull(position)) {
+                builder.appendNull();
+            }
+            else {
+                try {
+                    OGCGeometry geometry = OGCGeometry.fromBinary(ByteBuffer.wrap(type.getSlice(block, position).getBytes()));
+                    geometry.setSpatialReference(null);
+                    type.writeSlice(builder, EsriGeometrySerde.serialize(geometry));
+                }
+                catch (Exception e) {
+                    throw new PrestoException(ICEBERG_BAD_DATA, format("Failed to parse WKB geometry at position %d", position), e);
+                }
+            }
+        }
+        return builder.build();
+    }
+
+    private Block transformArrayBlock(Block block, ArrayType type)
+    {
+        block = block.getLoadedBlock();
+        Type elementType = type.getElementType();
+        ColumnarArray columnarArray = toColumnarArray(block);
+
+        Block transformedElements;
+        if (needDataTransform(elementType)) {
+            transformedElements = transformBlock(columnarArray.getElementsBlock(), elementType);
+        }
+        else {
+            return block;
+        }
+
+        int positionCount = columnarArray.getPositionCount();
+        boolean[] valueIsNull = new boolean[positionCount];
+        int[] offsets = new int[positionCount + 1];
+        for (int position = 0; position < positionCount; position++) {
+            valueIsNull[position] = columnarArray.isNull(position);
+        }
+        for (int position = 0; position <= positionCount; position++) {
+            offsets[position] = columnarArray.getOffset(position);
+        }
+
+        return ArrayBlock.fromElementBlock(positionCount, Optional.of(valueIsNull), offsets, transformedElements);
+    }
+
+    private Block transformMapBlock(Block block, MapType type)
+    {
+        block = block.getLoadedBlock();
+        ColumnarMap columnarMap = toColumnarMap(block);
+
+        Block keysBlock;
+        if (needDataTransform(type.getKeyType())) {
+            keysBlock = transformBlock(columnarMap.getKeysBlock(), type.getKeyType());
+        }
+        else {
+            keysBlock = columnarMap.getKeysBlock();
+        }
+
+        Block valuesBlock;
+        if (needDataTransform(type.getValueType())) {
+            valuesBlock = transformBlock(columnarMap.getValuesBlock(), type.getValueType());
+        }
+        else {
+            valuesBlock = columnarMap.getValuesBlock();
+        }
+
+        int positionCount = columnarMap.getPositionCount();
+        boolean[] valueIsNull = new boolean[positionCount];
+        int[] offsets = new int[positionCount + 1];
+        for (int position = 0; position < positionCount; position++) {
+            valueIsNull[position] = columnarMap.isNull(position);
+        }
+        for (int position = 0; position <= positionCount; position++) {
+            offsets[position] = columnarMap.getOffset(position);
+        }
+
+        return type.createBlockFromKeyValue(positionCount, Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
+    }
+
+    private Block transformRowBlock(Block block, RowType type)
+    {
+        block = block.getLoadedBlock();
+        ColumnarRow columnarRow = toColumnarRow(block);
+        List<RowType.Field> fields = type.getFields();
+        Block[] fieldBlocks = new Block[fields.size()];
+        for (int i = 0; i < fields.size(); i++) {
+            if (needDataTransform(fields.get(i).getType())) {
+                fieldBlocks[i] = transformBlock(columnarRow.getField(i), fields.get(i).getType());
+            }
+            else {
+                fieldBlocks[i] = columnarRow.getField(i);
+            }
+        }
+
+        int positionCount = columnarRow.getPositionCount();
+        boolean[] valueIsNull = new boolean[positionCount];
+        for (int position = 0; position < positionCount; position++) {
+            valueIsNull[position] = columnarRow.isNull(position);
+        }
+
+        return RowBlock.fromFieldBlocks(positionCount, Optional.of(valueIsNull), fieldBlocks);
+    }
+
     /**
      * The $row_id column used for updates and merge is a composite column of at least one other column in the Page.
      * The indexes of the columns needed for the $row_id are in the updateRowIdChildColumnIndexes array.
+     * Additionally, _row_id (row lineage) is computed with fallback from file values or firstRowId + _pos.
+     * _last_updated_sequence_number is computed with fallback from file values or dataSequenceNumber.
      *
      * @param page The raw Page from the Parquet/ORC reader.
      * @return A Page where the $row_id channel has been populated.
@@ -333,7 +574,17 @@ public class IcebergUpdateablePageSource
         boolean isMergeTargetTable = columns.stream().anyMatch(IcebergColumnHandle::isMergeTargetTableRowIdColumn);
 
         if ((updateRowIdColumnIndex == -1 || updatedColumns.isEmpty()) && !isMergeTargetTable) {
-            loopFunc = (channel) -> fullPage[channel] = page.getBlock(outputColumnToDelegateMapping[channel]);
+            loopFunc = (channel) -> {
+                if (channel == rowLineageRowIdOutputIndex) {
+                    fullPage[channel] = computeRowIdBlock(page);
+                }
+                else if (channel == lastUpdatedSeqOutputIndex) {
+                    fullPage[channel] = computeLastUpdatedSeqBlock(page);
+                }
+                else {
+                    fullPage[channel] = page.getBlock(outputColumnToDelegateMapping[channel]);
+                }
+            };
         }
         else {
             rowIdFields = new Block[updateRowIdChildColumnIndexes.length];
@@ -343,6 +594,12 @@ public class IcebergUpdateablePageSource
             loopFunc = (channel) -> {
                 if (channel == updateRowIdColumnIndex) {
                     fullPage[channel] = RowBlock.fromFieldBlocks(page.getPositionCount(), Optional.empty(), rowIdFields);
+                }
+                else if (channel == rowLineageRowIdOutputIndex) {
+                    fullPage[channel] = computeRowIdBlock(page);
+                }
+                else if (channel == lastUpdatedSeqOutputIndex) {
+                    fullPage[channel] = computeLastUpdatedSeqBlock(page);
                 }
                 else {
                     fullPage[channel] = page.getBlock(outputColumnToDelegateMapping[channel]);
@@ -355,6 +612,122 @@ public class IcebergUpdateablePageSource
         }
 
         return new Page(page.getPositionCount(), fullPage);
+    }
+
+    /**
+     * Computes the _row_id block. If the data file contains physical _row_id values,
+     * those are used. Null values within the block are replaced with firstRowId + _pos
+     * (per the Iceberg spec, null means "set by the commit").
+     * For V1/V2 tables (firstRowId &lt; 0), returns null for all rows.
+     */
+    private Block computeRowIdBlock(Page page)
+    {
+        // V1/V2 table: return null for all rows
+        if (firstRowId < 0) {
+            return RunLengthEncodedBlock.create(BIGINT, null, page.getPositionCount());
+        }
+
+        // Get the file-read block for _row_id
+        Block fileRowIdBlock = page.getBlock(outputColumnToDelegateMapping[rowLineageRowIdOutputIndex]);
+
+        // If the file provided all non-null values, use them directly (COW-rewritten files)
+        if (!hasAnyNull(fileRowIdBlock)) {
+            return fileRowIdBlock;
+        }
+
+        // Fallback needed: compute _row_id = firstRowId + _pos for null rows
+        if (rowPositionDelegateIndex < 0) {
+            // No ROW_POSITION available: return file values as-is (nulls remain)
+            return fileRowIdBlock;
+        }
+
+        // If the file provided all nulls, compute _row_id for all rows
+        Block rowPositionBlock = page.getBlock(rowPositionDelegateIndex);
+        if (isAllNull(fileRowIdBlock)) {
+            BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
+            for (int i = 0; i < page.getPositionCount(); i++) {
+                BIGINT.writeLong(builder, firstRowId + BIGINT.getLong(rowPositionBlock, i));
+            }
+            return builder.build();
+        }
+
+        // Mixed case: COW file with some preserved values and some nulls.
+        // Replace nulls with firstRowId + _pos.
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
+        for (int i = 0; i < page.getPositionCount(); i++) {
+            if (fileRowIdBlock.isNull(i)) {
+                BIGINT.writeLong(builder, firstRowId + BIGINT.getLong(rowPositionBlock, i));
+            }
+            else {
+                BIGINT.writeLong(builder, BIGINT.getLong(fileRowIdBlock, i));
+            }
+        }
+        return builder.build();
+    }
+
+    /**
+     * Computes the _last_updated_sequence_number block. If the data file contains physical values
+     * those are used. Null values within the block are replaced with the file's dataSequenceNumber
+     * (per the Iceberg spec, null means "set by the commit").
+     * For V1/V2 tables (firstRowId &lt; 0), returns null for all rows.
+     */
+    private Block computeLastUpdatedSeqBlock(Page page)
+    {
+        // V1/V2 table: return null for all rows
+        if (firstRowId < 0) {
+            return RunLengthEncodedBlock.create(BIGINT, null, page.getPositionCount());
+        }
+
+        Block fileSeqBlock = page.getBlock(outputColumnToDelegateMapping[lastUpdatedSeqOutputIndex]);
+
+        // If the file provided all non-null values, use them directly
+        if (!hasAnyNull(fileSeqBlock)) {
+            return fileSeqBlock;
+        }
+
+        // If the file provided all nulls, use the file's data sequence number for all rows
+        if (isAllNull(fileSeqBlock)) {
+            return RunLengthEncodedBlock.create(BIGINT, dataSequenceNumber, page.getPositionCount());
+        }
+
+        // Mixed case: COW file with some preserved values and some nulls (updated rows).
+        // Replace nulls with the file's dataSequenceNumber per the Iceberg spec.
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
+        for (int i = 0; i < page.getPositionCount(); i++) {
+            if (fileSeqBlock.isNull(i)) {
+                BIGINT.writeLong(builder, dataSequenceNumber);
+            }
+            else {
+                BIGINT.writeLong(builder, BIGINT.getLong(fileSeqBlock, i));
+            }
+        }
+        return builder.build();
+    }
+
+    private static boolean hasAnyNull(Block block)
+    {
+        if (block instanceof RunLengthEncodedBlock) {
+            return block.isNull(0);
+        }
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            if (block.isNull(i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isAllNull(Block block)
+    {
+        if (block instanceof RunLengthEncodedBlock) {
+            return block.isNull(0);
+        }
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            if (!block.isNull(i)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private int getDelegateColumnId(Predicate<IcebergColumnHandle> columnPredicate)

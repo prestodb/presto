@@ -17,6 +17,7 @@ import com.facebook.presto.iceberg.IcebergMetadataFactory;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
@@ -68,10 +69,12 @@ public class FastForwardBranchProcedure
 
     public void fastForwardToBranch(ConnectorSession clientSession, String schemaName, String tableName, String fromBranch, String targetBranch)
     {
-        SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
-        IcebergTransactionMetadata metadata = metadataFactory.create();
-        Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
-        icebergTable.manageSnapshots().fastForwardBranch(fromBranch, targetBranch).commit();
-        metadata.commit();
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
+            IcebergTransactionMetadata metadata = metadataFactory.create();
+            Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
+            icebergTable.manageSnapshots().fastForwardBranch(fromBranch, targetBranch).commit();
+            metadata.commit();
+        }
     }
 }

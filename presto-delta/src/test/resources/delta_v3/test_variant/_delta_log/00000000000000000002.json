@@ -1,0 +1,3 @@
+{"commitInfo":{"timestamp":1774520500000,"operation":"WRITE","operationParameters":{"mode":"Append","partitionBy":"[]"},"isBlindAppend":true}}
+{"add":{"path":"part-00001-variant-mixed-null.c000.snappy.parquet","partitionValues":{},"size":959,"modificationTime":1774520500000,"dataChange":true,"stats":"{\"numRecords\":5,\"minValues\":{\"id\":6},\"maxValues\":{\"id\":10},\"nullCount\":{\"id\":0,\"data\":2},\"tightBounds\":true}"}}
+{"add":{"path":"part-00002-variant-all-null.c000.snappy.parquet","partitionValues":{},"size":620,"modificationTime":1774520500000,"dataChange":true,"stats":"{\"numRecords\":2,\"minValues\":{\"id\":11},\"maxValues\":{\"id\":12},\"nullCount\":{\"id\":0,\"data\":2},\"tightBounds\":true}"}}

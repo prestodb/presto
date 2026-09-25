@@ -71,6 +71,7 @@ import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public interface ConnectorMetadata
@@ -401,11 +402,49 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Add the specified column
+     * Add the specified column, appended to the end of the table's columns.
+     * <p>
+     * Implementing this method is enough to support {@code ADD COLUMN} without a position clause.
+     * To also support {@code FIRST} and {@code AFTER}, override
+     * {@link #addColumn(ConnectorSession, ConnectorTableHandle, ColumnMetadata, ColumnPosition)}.
      */
     default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding columns");
+    }
+
+    /**
+     * Add the specified column at the specified position.
+     * <p>
+     * The default implementation delegates to
+     * {@link #addColumn(ConnectorSession, ConnectorTableHandle, ColumnMetadata)} for
+     * {@link ColumnPosition.Last}, so connectors that do not support positioning keep working
+     * unchanged, and rejects every other position rather than appending in the wrong place.
+     * Connectors add support by overriding this method. An implementation that wraps another
+     * {@link ConnectorMetadata} must forward this method as well as the three-argument form, or the
+     * wrapped connector's positioning support is lost behind this default.
+     * <p>
+     * The engine validates a {@link ColumnPosition.After} target against
+     * {@link #getColumnHandles(ConnectorSession, ConnectorTableHandle)} and rejects a hidden column, so the
+     * target is a visible column of the table. An implementation should still reject a target it cannot
+     * resolve, rather than passing it on to an underlying API that cannot find it, since nothing stops a
+     * caller from using this interface directly.
+     */
+    default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
+    {
+        requireNonNull(position, "position is null");
+        if (position instanceof ColumnPosition.Last) {
+            addColumn(session, tableHandle, column);
+            return;
+        }
+        if (position instanceof ColumnPosition.First) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+        }
+        if (position instanceof ColumnPosition.After) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+        }
+        // Never silently append for a position this method does not understand, or the column would land in the wrong place
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding columns at position: " + position);
     }
 
     /**
@@ -414,6 +453,15 @@ public interface ConnectorMetadata
     default void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+    }
+
+    /**
+     * Set the default value for the specified column for future writes.
+     * The exact semantics are connector-defined.
+     */
+    default void setColumnDefault(ConnectorSession session, ConnectorTableHandle tableHandle, String columnName, Object defaultValue)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column defaults");
     }
 
     /**
@@ -452,6 +500,32 @@ public interface ConnectorMetadata
                 .collect(toList());
 
         return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
+    }
+
+    /**
+     * Set the specified column type
+     */
+    default void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
+    /**
+     * Move the specified column to the specified position within the table's column order.
+     * <p>
+     * The position is a {@link ColumnPosition.First} or a {@link ColumnPosition.After}, since a column is
+     * moved to the end by naming the column that is currently last. Unlike
+     * {@link #addColumn(ConnectorSession, ConnectorTableHandle, ColumnMetadata, ColumnPosition)}, there is no
+     * position a connector can honor by leaving the table alone, so there is nothing to delegate and no
+     * default beyond reporting that the connector cannot move columns.
+     * <p>
+     * The engine validates both the moved column and a {@link ColumnPosition.After} target against
+     * {@link #getColumnHandles(ConnectorSession, ConnectorTableHandle)}, rejects a hidden column for either,
+     * and rejects a column moved after itself, so the two names are distinct visible columns of the table.
+     */
+    default void setColumnPosition(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, ColumnPosition position)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support moving columns");
     }
 
     /**
@@ -503,6 +577,22 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Begin the atomic creation of a vector index with data.
+     */
+    default ConnectorOutputTableHandle beginCreateVectorIndex(ConnectorSession session, ConnectorTableMetadata indexMetadata, Optional<ConnectorNewTableLayout> layout, SchemaTableName sourceTableName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating vector indexes");
+    }
+
+    /**
+     * Finish a vector index creation with data after the data is written.
+     */
+    default Optional<ConnectorOutputMetadata> finishCreateVectorIndex(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating vector indexes");
+    }
+
+    /**
      * Start a SELECT/UPDATE/INSERT/DELETE query. This notification is triggered after the planning phase completes.
      */
     default void beginQuery(ConnectorSession session) {}
@@ -515,7 +605,24 @@ public interface ConnectorMetadata
 
     /**
      * Begin insert query
+     *
+     * @param session the session
+     * @param tableHandle the table handle
+     * @param insertColumnNames the list of column names that are explicitly specified in the INSERT statement.
+     *                          This allows connectors to distinguish between columns that are omitted (and should
+     *                          use default values) versus columns that are explicitly set to NULL.
+     *                          An empty list indicates no explicit column specification (e.g. INSERT INTO table VALUES ...),
+     *                          which implies inserting into all columns.
      */
+    default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> insertColumnNames)
+    {
+        return beginInsert(session, tableHandle);
+    }
+
+    /**
+     * @deprecated Use {@link #beginInsert(ConnectorSession, ConnectorTableHandle, List)} instead
+     */
+    @Deprecated
     default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
@@ -768,6 +875,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Set properties on the specified materialized view.
+     */
+    default void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Object> properties)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting materialized view properties");
+    }
+
+    /**
      * Get the materialized view status to inform the engine how much data has been materialized in the view
      *
      * @param baseQueryDomain The domain from which to consider missing partitions. For example, a query that
@@ -784,6 +899,16 @@ public interface ConnectorMetadata
     default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support refresh materialized views");
+    }
+
+    /**
+     * Begin refresh materialized view, carrying the refresh scope (the {@code REFRESH MATERIALIZED VIEW WHERE}
+     * predicate, {@code Optional.empty()} when there is no WHERE). Connectors that scope refresh work should
+     * override this; the default ignores the scope and delegates to the no-predicate overload.
+     */
+    default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<RowExpression> refreshScopePredicate)
+    {
+        return beginRefreshMaterializedView(session, tableHandle);
     }
 
     /**

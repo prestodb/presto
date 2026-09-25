@@ -23,7 +23,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,7 +42,7 @@ public class ConfidenceBasedClusterTtlProviderManager
         implements ClusterTtlProviderManager
 {
     private static final Logger log = Logger.get(ConfidenceBasedClusterTtlProviderManager.class);
-    private static final File CLUSTER_TTL_PROVIDER_CONFIG = new File("etc/cluster-ttl-provider.properties");
+    private static final Path CLUSTER_TTL_PROVIDER_CONFIG = Paths.get("etc/cluster-ttl-provider.properties");
     private static final String CLUSTER_TTL_PROVIDER_PROPERTY_NAME = "cluster-ttl-provider.factory";
     private final AtomicReference<ClusterTtlProvider> clusterTtlProvider = new AtomicReference<>();
     private final NodeTtlFetcherManager nodeTtlFetcherManager;
@@ -71,12 +73,12 @@ public class ConfidenceBasedClusterTtlProviderManager
     public void loadClusterTtlProvider()
             throws Exception
     {
-        if (CLUSTER_TTL_PROVIDER_CONFIG.exists()) {
-            Map<String, String> properties = new HashMap<>(loadProperties(CLUSTER_TTL_PROVIDER_CONFIG));
+        if (Files.exists(CLUSTER_TTL_PROVIDER_CONFIG)) {
+            Map<String, String> properties = new HashMap<>(loadProperties(CLUSTER_TTL_PROVIDER_CONFIG.toFile()));
             String factoryName = properties.remove(CLUSTER_TTL_PROVIDER_PROPERTY_NAME);
 
             checkArgument(!isNullOrEmpty(factoryName),
-                    "Cluster Ttl Provider configuration %s does not contain %s", CLUSTER_TTL_PROVIDER_CONFIG.getAbsoluteFile(), CLUSTER_TTL_PROVIDER_PROPERTY_NAME);
+                    "Cluster Ttl Provider configuration %s does not contain %s", CLUSTER_TTL_PROVIDER_CONFIG.toAbsolutePath(), CLUSTER_TTL_PROVIDER_PROPERTY_NAME);
             load(factoryName, properties);
         }
         else {

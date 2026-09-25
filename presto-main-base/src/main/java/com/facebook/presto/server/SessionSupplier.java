@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.spi.QueryId;
 
@@ -21,4 +22,7 @@ import static com.facebook.presto.Session.SessionBuilder;
 public interface SessionSupplier
 {
     SessionBuilder createSessionBuilder(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory);
+
+    // Build a Session for a query whose normal session construction failed during dispatch
+    Session createSessionForFailedQuery(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory);
 }

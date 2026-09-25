@@ -66,11 +66,32 @@ public class GlueMetastoreModule
     @ForGlueHiveMetastore
     public Executor createExecutor(GlueHiveMetastoreConfig hiveConfig)
     {
-        if (hiveConfig.getGetPartitionThreads() == 1) {
+        return createExecutor("hive-glue-partitions-%s", hiveConfig.getGetPartitionThreads());
+    }
+
+    @Provides
+    @Singleton
+    @ForGlueColumnStatisticsRead
+    public Executor createStatisticsReadExecutor(GlueHiveMetastoreConfig hiveConfig)
+    {
+        return createExecutor("hive-glue-statistics-read-%s", hiveConfig.getReadStatisticsThreads());
+    }
+
+    @Provides
+    @Singleton
+    @ForGlueColumnStatisticsWrite
+    public Executor createStatisticsWriteExecutor(GlueHiveMetastoreConfig hiveConfig)
+    {
+        return createExecutor("hive-glue-statistics-write-%s", hiveConfig.getWriteStatisticsThreads());
+    }
+
+    private Executor createExecutor(String nameTemplate, int threads)
+    {
+        if (threads == 1) {
             return directExecutor();
         }
         return new BoundedExecutor(
-            newCachedThreadPool(daemonThreadsNamed("hive-glue-%s")),
-            hiveConfig.getGetPartitionThreads());
+                newCachedThreadPool(daemonThreadsNamed(nameTemplate)),
+                threads);
     }
 }

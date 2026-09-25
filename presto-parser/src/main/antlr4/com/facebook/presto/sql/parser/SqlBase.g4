@@ -57,7 +57,8 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
+        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition
+        (FIRST | AFTER after=identifier)?                              #addColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ADD constraintSpecification                                    #addConstraint
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
@@ -66,6 +67,11 @@ statement
         ALTER (COLUMN)? column=identifier SET NOT NULL                 #alterColumnSetNotNull
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER (COLUMN)? column=identifier DROP NOT NULL                #alterColumnDropNotNull
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER (COLUMN)? column=identifier SET DEFAULT expression       #setColumnDefault
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER (COLUMN)? column=identifier
+        (FIRST | AFTER after=identifier)                               #setColumnPosition
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         SET PROPERTIES properties                                      #setTableProperties
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
@@ -81,6 +87,8 @@ statement
         DROP BRANCH (IF EXISTS)? name=string                           #dropBranch
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP TAG (IF EXISTS)? name=string                              #dropTag
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER COLUMN columnName=identifier SET DATA TYPE type          #setColumnType
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
         '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
@@ -95,6 +103,8 @@ statement
         viewSecurity?
         (WITH properties)? AS (query | '('query')')                    #createMaterializedView
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
+    | ALTER MATERIALIZED VIEW (IF EXISTS)? qualifiedName
+        SET PROPERTIES properties                                      #setMaterializedViewProperties
     | REFRESH MATERIALIZED VIEW qualifiedName
         (WHERE where=booleanExpression)?                               #refreshMaterializedView
     | CREATE (OR REPLACE)? TEMPORARY? FUNCTION functionName=qualifiedName
@@ -168,7 +178,11 @@ statement
         SET updateAssignment (',' updateAssignment)*
         (WHERE where=booleanExpression)?                               #update
     | MERGE INTO qualifiedName (AS? identifier)?
-        USING relation ON expression mergeCase+                        #mergeInto
+          USING relation ON expression mergeCase+                        #mergeInto
+    | CREATE VECTOR INDEX qualifiedName ON qualifiedName
+          '(' identifier (',' identifier)? ')'
+          (WITH properties)?
+          (UPDATING FOR booleanExpression)?                              #createVectorIndex
     ;
 
 query
@@ -186,7 +200,7 @@ tableElement
     ;
 
 columnDefinition
-    : identifier type (NOT NULL)? (COMMENT string)? (WITH properties)?
+    : identifier type (NOT NULL)? (COMMENT string)? (DEFAULT expression)? ((GENERATED ALWAYS)? AS expression (PERSISTENT | VIRTUAL)?)? (WITH properties)?
     ;
 
 likeClause
@@ -288,6 +302,7 @@ querySpecification
       (WHERE where=booleanExpression)?
       (GROUP BY groupBy)?
       (HAVING having=booleanExpression)?
+      (WINDOW windowDefinition (',' windowDefinition)*)?
     ;
 
 groupBy
@@ -304,6 +319,17 @@ groupingElement
 groupingSet
     : '(' (expression (',' expression)*)? ')'
     | expression
+    ;
+
+windowDefinition
+    : name=identifier AS '(' windowSpecification ')'
+    ;
+
+windowSpecification
+    : (existingWindowName=identifier)?
+      (PARTITION BY partition+=expression (',' partition+=expression)*)?
+      (ORDER BY sortItem (',' sortItem)*)?
+      windowFrame?
     ;
 
 namedQuery
@@ -414,7 +440,7 @@ primaryExpression
     | '?'                                                                                 #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
-    | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
+    | ROW '(' fieldConstructor (',' fieldConstructor)* ')'                                #rowConstructor
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)?
         (ORDER BY sortItem (',' sortItem)*)? ')' filter? (nullTreatment? over)?           #functionCall
@@ -469,6 +495,10 @@ comparisonQuantifier
 
 booleanValue
     : TRUE | FALSE
+    ;
+
+fieldConstructor
+    : expression (AS? identifier)?
     ;
 
 interval
@@ -550,20 +580,17 @@ filter
     ;
 
 mergeCase
-    : WHEN MATCHED THEN
+    : WHEN MATCHED (AND condition=expression)? THEN
         UPDATE SET targetColumns+=identifier EQ values+=expression
           (',' targetColumns+=identifier EQ values+=expression)*            #mergeUpdate
-    | WHEN NOT MATCHED THEN
+    | WHEN MATCHED (AND condition=expression)? THEN DELETE                  #mergeDelete
+    | WHEN NOT MATCHED (AND condition=expression)? THEN
         INSERT ('(' columns+=identifier (',' columns+=identifier)* ')')?
         VALUES '(' values+=expression (',' values+=expression)* ')'         #mergeInsert
     ;
 
 over
-    : OVER '('
-        (PARTITION BY partition+=expression (',' partition+=expression)*)?
-        (ORDER BY sortItem (',' sortItem)*)?
-        windowFrame?
-      ')'
+    : OVER (windowName=identifier | '(' windowSpecification ')')
     ;
 
 windowFrame
@@ -696,37 +723,39 @@ constraintEnforced
 
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
-    : ADD | ADMIN | ALL | ANALYZE | ANY | ARRAY | ASC | AT
+    : ADD | ADMIN | AFTER | ALL | ALWAYS | ANALYZE | ANY | ARRAY | ASC | AT
     | BEFORE | BERNOULLI | BRANCH
     | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | COPARTITION | CURRENT | CURRENT_ROLE
-    | DATA | DATE | DAY | DEFINER | DESC | DESCRIPTOR | DETERMINISTIC | DISABLED | DISTRIBUTED | DAYS
-    | EMPTY | ENABLED | ENFORCED | EXCLUDING | EXPLAIN | EXTERNAL
+    | DATA | DATE | DAY | DEFAULT | DEFINER | DESC | DESCRIPTOR | DETERMINISTIC | DISABLED | DISTRIBUTED | DAYS
+    | EMPTY | ENABLED | ENFORCED | EXCLUDING | EXECUTE | EXPLAIN | EXTERNAL
     | FETCH | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
-    | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
+    | GENERATED | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
-    | IF | IGNORE | INCLUDING | INPUT | INTERVAL | INVOKER | IO | ISOLATION
+    | IF | IGNORE | INCLUDING | INDEX | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
     | KEEP | KEY
     | LANGUAGE | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
     | MAP | MATCHED | MATERIALIZED | MERGE | MINUTE | MONTH
     | NAME | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OF | OFFSET | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
-    | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIMARY | PRIVILEGES | PROPERTIES | PRUNE
+    | PARTITION | PARTITIONS | PERSISTENT | POSITION | PRECEDING | PRIMARY | PRIVILEGES | PROPERTIES | PRUNE
     | RANGE | READ | REFRESH | RELY | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETAIN | RETENTION | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SNAPSHOT | SNAPSHOTS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM | SYSTEM_TIME | SYSTEM_VERSION
     | TABLES | TABLESAMPLE | TAG | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
-    | UNBOUNDED | UNCOMMITTED | UNIQUE | UPDATE | USE | USER
-    | VALIDATE | VERBOSE | VERSION | VIEW
-    | WORK | WRITE
+    | UNBOUNDED | UNCOMMITTED | UNIQUE | UPDATE | UPDATING | USE | USER
+    | VALIDATE | VECTOR | VERBOSE | VERSION | VIEW | VIRTUAL
+    | WINDOW | WORK | WRITE
     | YEAR
     | ZONE
     ;
 
 ADD: 'ADD';
 ADMIN: 'ADMIN';
+AFTER: 'AFTER';
 ALL: 'ALL';
 ALTER: 'ALTER';
+ALWAYS: 'ALWAYS';
 ANALYZE: 'ANALYZE';
 AND: 'AND';
 ANY: 'ANY';
@@ -767,6 +796,7 @@ DAYS: 'DAYS';
 DAY: 'DAY';
 DEALLOCATE: 'DEALLOCATE';
 DEFINER: 'DEFINER';
+DEFAULT: 'DEFAULT';
 DELETE: 'DELETE';
 DESC: 'DESC';
 DESCRIBE: 'DESCRIBE';
@@ -800,6 +830,7 @@ FROM: 'FROM';
 FULL: 'FULL';
 FUNCTION: 'FUNCTION';
 FUNCTIONS: 'FUNCTIONS';
+GENERATED: 'GENERATED';
 GRANT: 'GRANT';
 GRANTED: 'GRANTED';
 GRANTS: 'GRANTS';
@@ -813,6 +844,7 @@ IF: 'IF';
 IGNORE: 'IGNORE';
 IN: 'IN';
 INCLUDING: 'INCLUDING';
+INDEX: 'INDEX';
 INNER: 'INNER';
 INPUT: 'INPUT';
 INSERT: 'INSERT';
@@ -869,6 +901,7 @@ OUTPUT: 'OUTPUT';
 OVER: 'OVER';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
+PERSISTENT: 'PERSISTENT';
 POSITION: 'POSITION';
 PRECEDING: 'PRECEDING';
 PREPARE: 'PREPARE';
@@ -942,15 +975,19 @@ UNIQUE: 'UNIQUE';
 UNNEST: 'UNNEST';
 UPDATE: 'UPDATE';
 USE: 'USE';
+UPDATING: 'UPDATING';
 USER: 'USER';
 USING: 'USING';
 VALIDATE: 'VALIDATE';
 VALUES: 'VALUES';
+VECTOR: 'VECTOR';
 VERBOSE: 'VERBOSE';
 VERSION: 'VERSION';
 VIEW: 'VIEW';
+VIRTUAL: 'VIRTUAL';
 WHEN: 'WHEN';
 WHERE: 'WHERE';
+WINDOW: 'WINDOW';
 WITH: 'WITH';
 WORK: 'WORK';
 WRITE: 'WRITE';
