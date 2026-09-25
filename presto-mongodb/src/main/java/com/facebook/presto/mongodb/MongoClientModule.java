@@ -96,10 +96,13 @@ public class MongoClientModule
                 connectionString.append("/")
                         .append(credential.getSource()));
 
-        // Enable replica set discovery when replica set name is configured or multiple seeds are provided
-        if (config.getRequiredReplicaSetName() != null || config.getSeeds().size() > 1) {
-            connectionString.append("?directConnection=false");
-        }
+        // Always use replica-set discovery mode. MongoDB driver 5.x defaults to direct
+        // (SINGLE topology) for a single-host URI, unlike 3.x which defaulted to
+        // replica-set discovery. Without directConnection=false a single-seed catalog
+        // sends writes directly to the named host which may be a secondary, causing
+        // NotWritablePrimary (error 10107) on CREATE TABLE. directConnection=false is
+        // safe for standalone nodes too — the driver simply discovers a STANDALONE topology.
+        connectionString.append("?directConnection=false");
         return connectionString.toString();
     }
     private static ReadPreference configureReadPreference(MongoClientConfig config)
