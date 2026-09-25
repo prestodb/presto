@@ -18,6 +18,8 @@ import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.TimeType;
@@ -44,6 +46,7 @@ import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
+import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
@@ -183,6 +186,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static com.facebook.presto.type.DecimalParametricType.DECIMAL;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
@@ -1407,6 +1411,59 @@ public abstract class IcebergDistributedTestBase
     {
         MaterializedResult result = getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at", tableName));
         return result.getOnlyColumn().map(Long.class::cast).collect(Collectors.toList());
+    }
+
+    @Test
+    public void testStatisticsUseThePredicateOfTheLayout()
+    {
+        // Statistics are asked for with two predicates: the constraint of the call, and the one
+        // already pushed into the table layout. Both have to narrow the manifests that are read.
+        // With the layout's predicate dropped, the row count comes back as if it were not there.
+        assertUpdate("CREATE TABLE test_stats_layout_predicate(i int, part varchar) WITH (partitioning = ARRAY['part'])");
+        try {
+            assertUpdate("INSERT INTO test_stats_layout_predicate VALUES (1, 'a'), (2, 'a'), (3, 'b')", 3);
+
+            assertEquals(getTableStats("test_stats_layout_predicate").getRowCount().getValue(), 3.0);
+            assertEquals(getTableStatsWithLayoutPredicate("test_stats_layout_predicate", "part", "a").getRowCount().getValue(), 2.0);
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS test_stats_layout_predicate");
+        }
+    }
+
+    /**
+     * Statistics for a table whose layout already carries a predicate on {@code columnName}. The
+     * constraint of the statistics call itself stays "always true", so only the layout's predicate
+     * can narrow the result.
+     */
+    private TableStatistics getTableStatsWithLayoutPredicate(String name, String columnName, String value)
+    {
+        TransactionId transactionId = getQueryRunner().getTransactionManager().beginTransaction(false);
+        Session metadataSession = getSession().beginTransactionId(
+                transactionId,
+                getQueryRunner().getTransactionManager(),
+                new AllowAllAccessControl());
+        Metadata metadata = getDistributedQueryRunner().getMetadata();
+        MetadataResolver resolver = metadata.getMetadataResolver(metadataSession);
+        String qualifiedName = format("%s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), name);
+        TableHandle handle = resolver.getTableHandle(QualifiedObjectName.valueOf(qualifiedName)).get();
+        Map<String, ColumnHandle> columnHandles = resolver.getColumnHandles(handle);
+        ColumnHandle column = columnHandles.get(columnName);
+        Type columnType = metadata.getColumnMetadata(metadataSession, handle, column).getType();
+
+        TableLayoutResult layout = metadata.getLayout(
+                metadataSession,
+                handle,
+                new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.singleValue(columnType, utf8Slice(value))))),
+                Optional.empty());
+        TableStatistics statistics = metadata.getTableStatistics(
+                metadataSession,
+                layout.getLayout().getNewTableHandle(),
+                new ArrayList<>(columnHandles.values()),
+                Constraint.alwaysTrue());
+
+        getQueryRunner().getTransactionManager().asyncAbort(transactionId);
+        return statistics;
     }
 
     private TableStatistics getTableStats(String name)
