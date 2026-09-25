@@ -136,6 +136,7 @@ public abstract class BaseArrowFlightClientHandler
             return client.getInfo(flightDescriptor, callOptions);
         }
         catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new ArrowException(ARROW_FLIGHT_INFO_ERROR, "Error getting flight information: " + e.getMessage(), e);
         }
     }
@@ -165,6 +166,7 @@ public abstract class BaseArrowFlightClientHandler
             return client.getSchema(flightDescriptor, callOptions).getSchema();
         }
         catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new ArrowException(ARROW_FLIGHT_METADATA_ERROR, "Error getting schema for flight: " + e.getMessage(), e);
         }
     }

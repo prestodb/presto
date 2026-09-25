@@ -377,6 +377,9 @@ public class ParquetQuickStatsBuilder
             }
         }
         catch (InterruptedException | ExecutionException | TimeoutException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             log.error(e, "Failed to read/build stats from parquet footer");
             throw new RuntimeException(e);
         }

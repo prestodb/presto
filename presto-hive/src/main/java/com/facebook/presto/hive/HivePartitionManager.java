@@ -190,6 +190,9 @@ public class HivePartitionManager
                     return Arrays.asList(result.toArray(new HivePartition[0]));
                 }
                 catch (InterruptedException | ExecutionException e) {
+                    if (e instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
                     log.error(e, "Parallel parsing of partition values failed");
                 }
             }
