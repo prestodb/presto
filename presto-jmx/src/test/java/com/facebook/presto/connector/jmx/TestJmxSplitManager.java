@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
@@ -84,6 +85,12 @@ public class TestJmxSplitManager
                                 {
                                     return nodeManager;
                                 }
+
+                                @Override
+                                public ConnectorSystemConfig getConnectorSystemConfig()
+                                {
+                                    return () -> false;
+                                }
                             });
 
     private final JmxColumnHandle columnHandle = new JmxColumnHandle("node", createUnboundedVarcharType());
@@ -134,6 +141,51 @@ public class TestJmxSplitManager
             expectedNodes.add(addresses.get(0).getHostText());
         }
         assertEquals(actualNodes, expectedNodes);
+    }
+
+    @Test
+    public void testNativeExecutionRestrictsSplitsToCoordinator()
+            throws Exception
+    {
+        Node coordinator = new InternalNode("coord", URI.create("http://coord:8080"), NodeVersion.UNKNOWN, true);
+        Node worker1 = new InternalNode("w1", URI.create("http://w1:8080"), NodeVersion.UNKNOWN, false);
+        Node worker2 = new InternalNode("w2", URI.create("http://w2:8080"), NodeVersion.UNKNOWN, false);
+        NodeManager mixedNodes = new TestingNodeManager(coordinator, ImmutableSet.of(worker1, worker2));
+
+        JmxSplitManager nativeSplitManager = new JmxSplitManager(mixedNodes, () -> true);
+
+        ConnectorTableLayoutHandle layout = new JmxTableLayoutHandle(tableHandle, TupleDomain.all());
+        List<ConnectorSplit> allSplits = getAllSplits(nativeSplitManager.getSplits(
+                JmxTransactionHandle.INSTANCE, SESSION, layout,
+                new SplitSchedulingContext(UNGROUPED_SCHEDULING, false, WarningCollector.NOOP)));
+
+        assertEquals(allSplits.size(), 1);
+        List<HostAddress> addresses = ((JmxSplit) allSplits.get(0)).getAddresses();
+        assertEquals(addresses.size(), 1);
+        assertEquals(addresses.get(0).getHostText(), coordinator.getNodeIdentifier());
+    }
+
+    @Test
+    public void testNonNativeExecutionFansOutToAllNodes()
+            throws Exception
+    {
+        Node coordinator = new InternalNode("coord", URI.create("http://coord:8080"), NodeVersion.UNKNOWN, true);
+        Node worker1 = new InternalNode("w1", URI.create("http://w1:8080"), NodeVersion.UNKNOWN, false);
+        Node worker2 = new InternalNode("w2", URI.create("http://w2:8080"), NodeVersion.UNKNOWN, false);
+        NodeManager mixedNodes = new TestingNodeManager(coordinator, ImmutableSet.of(worker1, worker2));
+
+        JmxSplitManager nonNativeSplitManager = new JmxSplitManager(mixedNodes, () -> false);
+
+        ConnectorTableLayoutHandle layout = new JmxTableLayoutHandle(tableHandle, TupleDomain.all());
+        List<ConnectorSplit> allSplits = getAllSplits(nonNativeSplitManager.getSplits(
+                JmxTransactionHandle.INSTANCE, SESSION, layout,
+                new SplitSchedulingContext(UNGROUPED_SCHEDULING, false, WarningCollector.NOOP)));
+
+        assertEquals(allSplits.size(), 3);
+        Set<String> hosts = allSplits.stream()
+                .map(s -> ((JmxSplit) s).getAddresses().get(0).getHostText())
+                .collect(toSet());
+        assertEquals(hosts, ImmutableSet.of("coord", "w1", "w2"));
     }
 
     @Test
