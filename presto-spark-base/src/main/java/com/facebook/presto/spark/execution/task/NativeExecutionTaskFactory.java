@@ -24,8 +24,8 @@ import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
-import com.facebook.presto.spiller.LocalTempStorage;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.storage.LocalTempStorage;
 import okhttp3.OkHttpClient;
 
 import javax.annotation.PreDestroy;

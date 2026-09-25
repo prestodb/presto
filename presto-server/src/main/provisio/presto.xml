@@ -82,6 +82,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/temp-storage-s3">
+        <artifact id="${project.groupId}:presto-temp-storage-s3:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/jmx">
         <artifact id="${project.groupId}:presto-jmx:zip:${project.version}">
             <unpack />
@@ -319,6 +325,12 @@
 
     <artifactSet to="native-plugin/function-namespace-managers">
         <artifact id="${project.groupId}:presto-function-namespace-managers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/temp-storage-s3">
+        <artifact id="${project.groupId}:presto-temp-storage-s3:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
