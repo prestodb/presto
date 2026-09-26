@@ -18,7 +18,9 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeUnit;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -112,6 +114,7 @@ import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrd
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -146,6 +149,10 @@ public class PrestoSparkNativeTaskExecutorFactory
     // part of the split info. So for shuffleRead split we set it to a dummy
     // value that is ignored by the shuffle-reader
     private static final TaskId DUMMY_TASK_ID = TaskId.valueOf("remotesourcetaskid.0.0.0.0");
+
+    // Stats page layout: filepath, maxserializedsize, numrows, descriptor.
+    private static final int BROADCAST_FILE_PATH_CHANNEL = 0;
+    private static final int BROADCAST_DESCRIPTOR_CHANNEL = 3;
 
     private final SessionPropertyManager sessionPropertyManager;
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
@@ -500,11 +507,11 @@ public class PrestoSparkNativeTaskExecutorFactory
                                     .map(PrestoSparkSerializedPage.class::cast)
                                     .map(prestoSparkSerializedPage -> PrestoSparkUtils.toSerializedPage(prestoSparkSerializedPage))
                                     .map(serializedPage -> pagesSerde.deserialize(serializedPage))
-                                    // Extract filePath.
+                                    // Extract filePath and the file system handle for it.
                                     .flatMap(page -> IntStream.range(0, page.getPositionCount())
-                                            .mapToObj(position -> VarcharType.VARCHAR.getObjectValue(null, page.getBlock(0), position)))
-                                    .map(String.class::cast)
-                                    .map(filePath -> new BroadcastFileInfo(filePath))
+                                            .mapToObj(position -> new BroadcastFileInfo(
+                                                    (String) VarcharType.VARCHAR.getObjectValue(null, page.getBlock(BROADCAST_FILE_PATH_CHANNEL), position),
+                                                    readBroadcastDescriptor(page, position))))
                                     .map(broadcastFileInfo -> new ScheduledSplit(
                                             nextSplitId.getAndIncrement(),
                                             remoteSource.getId(),
@@ -526,6 +533,21 @@ public class PrestoSparkNativeTaskExecutorFactory
         taskSources.addAll(shuffleTaskSources.build());
         taskSources.addAll(broadcastTaskSources.build());
         return taskSources;
+    }
+
+    // An older native worker emits no descriptor channel, and one whose file system
+    // produces no handle emits an empty string. Both mean: open by path.
+    static String readBroadcastDescriptor(Page page, int position)
+    {
+        if (page.getChannelCount() <= BROADCAST_DESCRIPTOR_CHANNEL) {
+            return null;
+        }
+        Block block = page.getBlock(BROADCAST_DESCRIPTOR_CHANNEL);
+        if (block.isNull(position)) {
+            return null;
+        }
+        String descriptor = (String) VarcharType.VARCHAR.getObjectValue(null, block, position);
+        return isNullOrEmpty(descriptor) ? null : descriptor;
     }
 
     private Optional<TableWriterNode> findTableWriteNode(PlanNode node)
