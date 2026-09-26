@@ -66,6 +66,7 @@ import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUMN;
@@ -235,7 +236,9 @@ public class IcebergUpdateablePageSource
 
     private Boolean needDataTransform(Type type)
     {
-        if (type == GEOMETRY) {
+        // Iceberg stores both geometry and geography as well-known binary, while
+        // Presto expects its own serialization for GEOMETRY and SPHERICAL_GEOGRAPHY.
+        if (type == GEOMETRY || type == SPHERICAL_GEOGRAPHY) {
             return true;
         }
         else if (type.getClass() == ArrayType.class) {
@@ -432,7 +435,7 @@ public class IcebergUpdateablePageSource
 
     private Block transformBlock(Block block, Type type)
     {
-        if (type == GEOMETRY) {
+        if (type == GEOMETRY || type == SPHERICAL_GEOGRAPHY) {
             return transformGeometryBlock(block, type);
         }
         else if (type.getClass() == ArrayType.class) {
