@@ -237,6 +237,12 @@ class TaskManager {
   // coordinator for a considerable time.
   void cancelAbandonedTasks();
 
+  // Aborts every task still in the 'Running' state. A task blocked on an
+  // external event keeps a fresh coordinator heartbeat, so
+  // cancelAbandonedTasks() never reaches it; only the shutdown drain, which
+  // has given up waiting, uses this.
+  void abortRunningTasks();
+
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTaskImpl(
       const protocol::TaskId& taskId,
       const velox::core::PlanFragment& planFragment,

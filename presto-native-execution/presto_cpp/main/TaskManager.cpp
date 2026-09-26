@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/TaskManager.h"
 
+#include <algorithm>
 #include <utility>
 
 #include <boost/uuid/uuid.hpp>
@@ -1545,11 +1546,65 @@ int64_t TaskManager::getBytesProcessed() const {
   return totalCount;
 }
 
+void TaskManager::abortRunningTasks() {
+  // Copied, not held under the lock: requestAbort() closes off-thread drivers
+  // inline, which is unbounded work. Same reason as cancelAbandonedTasks().
+  const TaskMap taskMap = *taskMap_.rlock();
+  std::vector<velox::ContinueFuture> aborted;
+  for (const auto& [id, prestoTask] : taskMap) {
+    if (prestoTask->task == nullptr || !prestoTask->task->isRunning()) {
+      continue;
+    }
+    PRESTO_SHUTDOWN_LOG(WARNING)
+        << "Aborting task still running at the end of the drain: " << id;
+    // Guarded per task: requestAbort() closes the task's operators inline and
+    // Operator::close() is not noexcept, so one task must not cost the rest
+    // their abort. The caller is a noexcept signal handler.
+    try {
+      aborted.push_back(prestoTask->task->requestAbort());
+    } catch (...) {
+      PRESTO_SHUTDOWN_LOG(WARNING) << "Failed to abort task: " << id;
+    }
+  }
+  if (aborted.empty()) {
+    return;
+  }
+  // A driver already on a thread only terminates at its next yield point, so
+  // bound this rather than spend the rest of the kill budget here.
+  const auto numAborted = aborted.size();
+  const auto timeout = std::chrono::milliseconds(taskSyncTerminateTimeoutMs_);
+  // Catch broadly: this runs under a noexcept signal handler, and once the
+  // singleton vault is torn down within() throws FutureNoTimekeeper, which is
+  // a sibling of FutureTimeout rather than a subclass.
+  try {
+    folly::collectAll(std::move(aborted)).within(timeout).get();
+  } catch (const std::exception& e) {
+    PRESTO_SHUTDOWN_LOG(WARNING)
+        << "Gave up waiting for " << numAborted
+        << " aborted tasks to finish terminating: " << e.what();
+  } catch (...) {
+    PRESTO_SHUTDOWN_LOG(WARNING) << "Gave up waiting for " << numAborted
+                                 << " aborted tasks to finish terminating.";
+  }
+}
+
 void TaskManager::shutdown() {
+  // <= 0 keeps the unbounded wait this had before the bound existed.
+  const int32_t drainMaxSeconds =
+      SystemConfig::instance()->shutdownTaskDrainMaxSec();
+  const bool boundDrain = drainMaxSeconds > 0;
   size_t numTasks;
   auto taskNumbers = getTaskNumbers(numTasks);
   size_t seconds = 0;
   while (taskNumbers[static_cast<int>(velox::exec::TaskState::kRunning)] > 0) {
+    if (boundDrain && seconds >= static_cast<size_t>(drainMaxSeconds)) {
+      PRESTO_SHUTDOWN_LOG(WARNING)
+          << "Aborting 'Running' tasks after waiting " << seconds
+          << " seconds for them to complete. " << numTasks
+          << " tasks left: " << PrestoTask::taskStatesToString(taskNumbers);
+      abortRunningTasks();
+      break;
+    }
     PRESTO_SHUTDOWN_LOG(INFO)
         << "Waited (" << seconds
         << " seconds so far) for 'Running' tasks to complete. " << numTasks
