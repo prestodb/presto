@@ -160,6 +160,7 @@ public class NativeFunctionNamespaceManager
                         typeManager.getType(resolvedIntermediateType),
                         typeManager.getType(signature.getReturnType()),
                         aggregationMetadata.isOrderSensitive(),
+                        aggregationMetadata.isDistinctSensitive(),
                         parameters));
         return aggregationImplementationByHandle.get(nativeFunctionHandle);
     }

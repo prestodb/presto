@@ -126,7 +126,7 @@ public class TestPrestoNativeBuiltInFunctions
                 "default",
                 false,
                 new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
-                Optional.of(new AggregationFunctionMetadata(new TypeSignature("varbinary"), true)),
+                Optional.of(new AggregationFunctionMetadata(new TypeSignature("varbinary"), true, true)),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(ImmutableList.of()),

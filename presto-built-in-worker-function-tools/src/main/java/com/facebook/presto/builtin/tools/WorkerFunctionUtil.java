@@ -63,7 +63,7 @@ public class WorkerFunctionUtil
                 jsonBasedUdfFunctionMetaData.getAggregateMetadata()
                         .map(metadata -> new AggregationFunctionMetadata(
                                 convertApplicableTypeToVariable(metadata.getIntermediateType()),
-                                metadata.isOrderSensitive()));
+                                metadata.isOrderSensitive(), metadata.isDistinctSensitive()));
 
         return new SqlInvokedFunction(
                 qualifiedFunctionName,
