@@ -322,9 +322,23 @@ public class ParquetReader
                 blocks[i] = columnChunk.getBlock();
             }
         }
+        if (columnChunk == null) {
+            // No child field was found in the file (all-UNKNOWN struct, or all fields added after this
+            // file was written). Return an all-null struct block; no definition levels to derive from.
+            List<Type> fieldTypes = field.getType().getTypeParameters();
+            Block[] nullBlocks = new Block[fields.size()];
+            for (int i = 0; i < fields.size(); i++) {
+                nullBlocks[i] = RunLengthEncodedBlock.create(fieldTypes.get(i), null, batchSize);
+            }
+            // Optional.empty() = struct positions are all non-null; only the fields inside are null.
+            // Iceberg semantics: a struct with all-null fields is itself non-null.
+            Block rowBlock = RowBlock.fromFieldBlocks(batchSize, Optional.empty(), nullBlocks);
+            return new ColumnChunk(rowBlock, new int[0], new int[0]);
+        }
+        List<Type> fieldTypes = field.getType().getTypeParameters();
         for (int i = 0; i < fields.size(); i++) {
             if (blocks[i] == null) {
-                blocks[i] = RunLengthEncodedBlock.create(field.getType(), null, columnChunk.getBlock().getPositionCount());
+                blocks[i] = RunLengthEncodedBlock.create(fieldTypes.get(i), null, columnChunk.getBlock().getPositionCount());
             }
         }
         BooleanList structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());

@@ -22,5 +22,10 @@ public enum ConnectorCapabilities
     UNIQUE_CONSTRAINT,
     ENFORCE_CONSTRAINTS,
     ALTER_COLUMN,
-    SUPPORTS_JOIN_PUSHDOWN
+    SUPPORTS_JOIN_PUSHDOWN,
+    /**
+     * The connector supports columns of the unknown type. Such columns are never written to data
+     * files and always read back as NULL.
+     */
+    UNKNOWN_COLUMN_TYPE
 }
