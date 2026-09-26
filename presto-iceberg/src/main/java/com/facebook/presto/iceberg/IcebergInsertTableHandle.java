@@ -51,7 +51,7 @@ public class IcebergInsertTableHandle
             Optional<SchemaTableName> materializedViewName)
     {
         this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
-                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, List.of(), ImmutableMap.of());
+                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, ImmutableList.of(), ImmutableMap.of());
     }
 
     public IcebergInsertTableHandle(
@@ -87,7 +87,31 @@ public class IcebergInsertTableHandle
             boolean fullRefreshRequired)
     {
         this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
-                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, fullRefreshRequired, List.of(), ImmutableMap.of());
+                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, fullRefreshRequired, ImmutableList.of(), ImmutableMap.of());
+    }
+
+    // Factory for the V3 merge path (beginMerge): supplies the existing DV map for
+    // a merge-on-read MERGE (and UPDATE via the coordinator's UPDATE-through-MERGE
+    // rewrite). A named factory (rather than yet another 12-arg constructor
+    // overload distinguished only by the last parameter's type) keeps call sites
+    // unambiguous. Delegates with false fullRefreshRequired and default
+    // (input-derived) insertedColumns.
+    public static IcebergInsertTableHandle forMergeOnRead(
+            String schemaName,
+            IcebergTableName tableName,
+            PrestoIcebergSchema schema,
+            PrestoIcebergPartitionSpec partitionSpec,
+            List<IcebergColumnHandle> inputColumns,
+            String outputPath,
+            FileFormat fileFormat,
+            HiveCompressionCodec compressionCodec,
+            Map<String, String> storageProperties,
+            List<SortField> sortOrder,
+            Optional<SchemaTableName> materializedViewName,
+            Map<String, DeleteFile> existingDeletionVectors)
+    {
+        return new IcebergInsertTableHandle(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
+                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, ImmutableList.of(), existingDeletionVectors);
     }
 
     @JsonCreator
@@ -121,6 +145,7 @@ public class IcebergInsertTableHandle
                 materializedViewName,
                 fullRefreshRequired);
         this.insertedColumns = ImmutableList.copyOf(requireNonNull(insertedColumns, "insertedColumns is null"));
+        // Tolerate a missing key in payloads produced by older binaries.
         this.existingDeletionVectors = existingDeletionVectors == null
                 ? ImmutableMap.of()
                 : ImmutableMap.copyOf(existingDeletionVectors);

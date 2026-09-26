@@ -73,7 +73,7 @@ public class IcebergHandleResolver
     @Override
     public Class<? extends ConnectorDeleteTableHandle> getDeleteTableHandleClass()
     {
-        return IcebergTableHandle.class;
+        return IcebergDeleteTableHandle.class;
     }
 
     @Override
