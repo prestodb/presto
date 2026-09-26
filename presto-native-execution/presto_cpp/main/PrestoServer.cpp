@@ -1578,6 +1578,8 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
 #endif
 
+  // KLL uses the same DataSketches package as Theta (found unconditionally at
+  // build time) so no separate #ifdef guard is needed.
   functions::registerAllKllSketchFunctions(prestoBuiltinFunctionPrefix_);
 }
 

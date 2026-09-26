@@ -244,7 +244,7 @@ struct KllSketchWithKAggregate : KllSketchAggregateBase<T, true> {
         velox::HashStringAllocator* /*allocator*/,
         velox::exec::optional_arg_type<T> data,
         velox::exec::optional_arg_type<int64_t> kValue) {
-      // Silently skip rows where data or k is NULL, matching Java behaviour
+      // Silently skip rows where data or k is NULL, matching Java behaviour.
       if (!data.has_value() || !kValue.has_value()) {
         return true;
       }
@@ -252,6 +252,10 @@ struct KllSketchWithKAggregate : KllSketchAggregateBase<T, true> {
       int64_t kInt = kValue.value();
 
       if (!this->sketch) {
+        // k is bound by the first non-null (data, k) pair; subsequent rows
+        // with a different k value are silently accepted and their data is
+        // added to the sketch initialised with the first k. This matches the
+        // behaviour of Java's sketch_kll_with_k.
         VELOX_USER_CHECK(
             kInt >= kMinK && kInt <= kMaxK,
             "k value must satisfy {} <= k <= {}",
