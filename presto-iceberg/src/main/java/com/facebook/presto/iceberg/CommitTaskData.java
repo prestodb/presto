@@ -30,17 +30,50 @@ public class CommitTaskData
     private final FileFormat fileFormat;
     private final Optional<String> referencedDataFile;
     private final FileContent content;
+    // V3 deletion-vector-only fields. Empty for V2 position-delete commits;
+    // populated for V3 commits where the page sink (Velox or Java fallback)
+    // writes a Puffin blob alongside the data file.
+    private final Optional<Long> contentOffset;
+    private final Optional<Long> contentSizeInBytes;
+
+    public CommitTaskData(
+            String path,
+            long fileSizeInBytes,
+            MetricsWrapper metrics,
+            int partitionSpecId,
+            Optional<String> partitionDataJson,
+            FileFormat fileFormat,
+            String referencedDataFile,
+            FileContent content)
+    {
+        this(
+                path,
+                fileSizeInBytes,
+                metrics,
+                partitionSpecId,
+                partitionDataJson,
+                fileFormat,
+                referencedDataFile,
+                content,
+                Optional.empty(),
+                Optional.empty());
+    }
 
     @JsonCreator
     public CommitTaskData(
             @JsonProperty("path") String path,
             @JsonProperty("fileSizeInBytes") long fileSizeInBytes,
             @JsonProperty("metrics") MetricsWrapper metrics,
+            // The wire key is "partitionSpecJson" for historical reasons; the Velox sinks write
+            // that name (IcebergDataSink.cpp, IcebergDeletionVectorSink.cpp) and the getter is
+            // annotated to match, so Java- and native-produced fragments decode identically.
             @JsonProperty("partitionSpecJson") int partitionSpecId,
             @JsonProperty("partitionDataJson") Optional<String> partitionDataJson,
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("referencedDataFile") String referencedDataFile,
-            @JsonProperty("content") FileContent content)
+            @JsonProperty("content") FileContent content,
+            @JsonProperty("contentOffset") Optional<Long> contentOffset,
+            @JsonProperty("contentSizeInBytes") Optional<Long> contentSizeInBytes)
     {
         this.path = requireNonNull(path, "path is null");
         this.fileSizeInBytes = fileSizeInBytes;
@@ -50,6 +83,10 @@ public class CommitTaskData
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.referencedDataFile = Optional.ofNullable(referencedDataFile);
         this.content = requireNonNull(content, "content is null");
+        // Tolerate missing fields on JSON deserialization so V2 fragments produced
+        // by older binaries continue to round-trip during the deploy window.
+        this.contentOffset = contentOffset == null ? Optional.empty() : contentOffset;
+        this.contentSizeInBytes = contentSizeInBytes == null ? Optional.empty() : contentSizeInBytes;
     }
 
     @JsonProperty
@@ -70,7 +107,7 @@ public class CommitTaskData
         return metrics;
     }
 
-    @JsonProperty
+    @JsonProperty("partitionSpecJson")
     public int getPartitionSpecId()
     {
         return partitionSpecId;
@@ -98,5 +135,17 @@ public class CommitTaskData
     public FileContent getContent()
     {
         return content;
+    }
+
+    @JsonProperty
+    public Optional<Long> getContentOffset()
+    {
+        return contentOffset;
+    }
+
+    @JsonProperty
+    public Optional<Long> getContentSizeInBytes()
+    {
+        return contentSizeInBytes;
     }
 }
