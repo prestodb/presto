@@ -102,6 +102,8 @@
 #include "presto_cpp/main/functions/theta_sketch/ThetaSketchRegistration.h"
 #endif
 
+#include "presto_cpp/main/functions/kll_sketch/KllSketchRegistration.h"
+
 #ifdef __linux__
 // Required by BatchThreadFactory
 #include <pthread.h>
@@ -1575,6 +1577,10 @@ void PrestoServer::registerFunctions() {
   functions::aggregate::theta_sketch::registerAllThetaSketchFunctions(
       prestoBuiltinFunctionPrefix_);
 #endif
+
+  // KLL uses the same DataSketches package as Theta (found unconditionally at
+  // build time) so no separate #ifdef guard is needed.
+  functions::registerAllKllSketchFunctions(prestoBuiltinFunctionPrefix_);
 }
 
 void PrestoServer::registerRemoteFunctions() {
