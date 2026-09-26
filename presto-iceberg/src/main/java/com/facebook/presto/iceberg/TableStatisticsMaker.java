@@ -187,7 +187,8 @@ public class TableStatisticsMaker
         TupleDomain<IcebergColumnHandle> intersection = constraint.getSummary()
                 .transform(IcebergColumnHandle.class::cast);
         if (currentPredicate.isPresent()) {
-            intersection.intersect(currentPredicate.get());
+            // TupleDomain is immutable, so the narrowed domain is the return value
+            intersection = intersection.intersect(currentPredicate.get());
         }
 
         if (intersection.isNone()) {
