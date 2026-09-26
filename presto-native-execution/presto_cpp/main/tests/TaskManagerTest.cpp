@@ -16,7 +16,9 @@
 #include <folly/executors/ThreadedExecutor.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <future>
 #include <string_view>
+#include <thread>
 #include "folly/synchronization/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
@@ -1092,6 +1094,56 @@ TEST_P(TaskManagerTest, queuedTaskAbortDoesNotBlockSiblings) {
   if (execTask2) {
     ASSERT_EQ(execTask2->state(), TaskState::kFinished);
   }
+}
+
+// A task blocked on an external event -- here a split that never arrives, in
+// production a backend RPC -- stays 'Running' for as long as that event takes,
+// and the coordinator's status polls keep its heartbeat fresh, so
+// cancelAbandonedTasks() never reaches it. The drain has to end anyway.
+TEST_P(TaskManagerTest, shutdownAbortsTasksStuckInDrain) {
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kShutdownTaskDrainMaxSec), "1");
+  // There is no coordinator here to refresh the heartbeat, so leaving the
+  // abandoned-task threshold low would let cancelAbandonedTasks() end the
+  // drain and hide what this test is about.
+  taskManager_->setOldTaskCleanUpMs(600'000);
+
+  core::PlanNodeId scanNodeId;
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .capturePlanNodeId(scanNodeId)
+                          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+                          .planFragment();
+
+  // No splits and no 'no more splits', so the scan never finishes.
+  const protocol::TaskId taskId = "stuckDrain.0.0.1.0";
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource(scanNodeId, {}, false, splitSequenceId));
+  createOrUpdateTask(taskId, updateRequest, planFragment);
+
+  auto prestoTask = taskManager_->tasks().at(taskId);
+  ASSERT_EQ(prestoTask->task->state(), TaskState::kRunning);
+
+  std::promise<void> shutdownReturned;
+  auto shutdownFuture = shutdownReturned.get_future();
+  std::thread shutdownThread([&]() {
+    taskManager_->shutdown();
+    shutdownReturned.set_value();
+  });
+  // Release the task whichever way the assertions below go, so a regression
+  // fails this test instead of hanging the suite on the join.
+  const auto releaseTask = folly::makeGuard([&]() {
+    taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
+    shutdownThread.join();
+  });
+
+  ASSERT_EQ(
+      shutdownFuture.wait_for(std::chrono::seconds(30)),
+      std::future_status::ready)
+      << "shutdown() is still waiting for a task that will never finish.";
+  ASSERT_EQ(prestoTask->task->state(), TaskState::kAborted);
 }
 
 // Runs "select * from t where c0 % 5 = 1" query.

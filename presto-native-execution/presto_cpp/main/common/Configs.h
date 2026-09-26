@@ -349,6 +349,21 @@ class SystemConfig : public ConfigBase {
       "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
 
+  /// Maximum number of seconds the shutdown drain waits for 'Running' tasks to
+  /// complete on their own; tasks still running when it elapses are aborted.
+  /// A task blocked on an external event -- a backend RPC, a split that never
+  /// arrives -- stays 'Running' for as long as that event takes and the
+  /// coordinator keeps its heartbeat fresh, so without this bound the drain
+  /// holds the process open until the container's kill timeout.
+  ///
+  /// Defaults to 0, meaning unbounded -- every native fleet shares this
+  /// config, so the bound is opt-in per deployment rather than a fleet-wide
+  /// behavior change. Total shutdown is roughly this plus
+  /// 2 * shutdown-onset-sec plus executor joins, so a value only takes effect
+  /// if the deployment's kill grace exceeds that sum.
+  static constexpr std::string_view kShutdownTaskDrainMaxSec{
+      "shutdown-task-drain-max-sec"};
+
   /// Memory allocation limit enforced via internal memory allocator.
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
 
@@ -1153,6 +1168,8 @@ class SystemConfig : public ConfigBase {
   folly::Optional<std::string> spillerSpillPath() const;
 
   int32_t shutdownOnsetSec() const;
+
+  int32_t shutdownTaskDrainMaxSec() const;
 
   uint32_t systemMemoryGb() const;
 

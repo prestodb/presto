@@ -146,6 +146,21 @@ The configuration properties of Presto C++ workers are described here, in alphab
 
   Enables collection of worker level metrics.
 
+``shutdown-task-drain-max-sec``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+  Maximum number of seconds the shutdown drain waits for ``Running`` tasks to
+  complete on their own. Tasks still running when this elapses are aborted so
+  that the drain can finish, and fail with a non-retriable error. A task
+  blocked on an external event stays ``Running`` for as long as that event
+  takes, and the coordinator keeps its heartbeat fresh, so without this bound
+  the drain holds the process open until the deployment's kill timeout. The
+  default of ``0`` waits indefinitely, preserving that behavior; set a positive
+  value below the deployment's kill grace to bound it.
+
 ``task.max-drivers-per-task``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
