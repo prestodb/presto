@@ -34,8 +34,21 @@ public class TestLdapAuthenticator
     public void testRejectsUsernameWithLdapSpecialCharacters()
     {
         LdapAuthenticator authenticator = createAuthenticator();
-        // Metacharacters that would otherwise be interpolated into the bind DN and group search filter.
-        for (String user : new String[] {"*", "admin)(uid=*", "a\\29", "user,ou=admins", "a=b", "a(b)c"}) {
+        // One entry per character guarded by SPECIAL_CHARACTERS (",=+<>#;*()\"\\" and NUL), so the
+        // test tracks the guard: each would otherwise be interpolated into the bind DN or search filter.
+        for (String user : new String[] {
+                "admin)(uid=*",
+                "user,ou=admins",
+                "a=b",
+                "user+group",
+                "user<name",
+                "user>name",
+                "user#name",
+                "user;name",
+                "a(b)c",
+                "user\"name",
+                "a\\29",
+                "user\u0000name"}) {
             assertThatThrownBy(() -> authenticator.createAuthenticatedPrincipal(user, "password"))
                     .isInstanceOf(AccessDeniedException.class)
                     .hasMessageContaining("special LDAP character");
