@@ -30,7 +30,7 @@ public class MinIOContainer
 {
     private static final Logger log = Logger.get(MinIOContainer.class);
 
-    public static final String DEFAULT_IMAGE = "pgsty/silo:20260903";
+    public static final String DEFAULT_IMAGE = "pgsty/silo:RELEASE.2026-09-16T00-00-00Z";
     public static final String DEFAULT_HOST_NAME = "minio";
 
     public static final int MINIO_API_PORT = 4566;
