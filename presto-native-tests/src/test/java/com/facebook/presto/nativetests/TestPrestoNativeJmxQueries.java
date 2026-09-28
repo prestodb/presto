@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.server.testing.TestingPrestoServer.updateConnectorIdAnnouncement;
 import static java.lang.Boolean.parseBoolean;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 /**
  * On a native cluster (Java coordinator + Prestissimo C++ workers), the JMX connector's splits must be
@@ -71,5 +72,59 @@ public class TestPrestoNativeJmxQueries
         // worker as well and the query would fail (workers do not expose JMX MBeans).
         MaterializedResult result = computeActual("SELECT node FROM jmx.current.\"java.lang:type=Runtime\"");
         assertEquals(result.getRowCount(), 1);
+    }
+
+    @Test
+    public void testJmxQueryWithExpressions()
+    {
+        // Projection with an arithmetic expression on a JMX column; still one row from the coordinator.
+        MaterializedResult result = computeActual(
+                "SELECT node, uptime / 1000 AS uptime_seconds FROM jmx.current.\"java.lang:type=Runtime\"");
+        assertEquals(result.getRowCount(), 1);
+        assertEquals(result.getMaterializedRows().get(0).getFieldCount(), 2);
+        long uptimeSeconds = (long) result.getMaterializedRows().get(0).getField(1);
+        assertTrue(uptimeSeconds >= 0);
+    }
+
+    @Test
+    public void testJmxQueryWithAggregation()
+    {
+        // count(*) over the JMX table must be 1 because splits are restricted to the coordinator.
+        // Without the fix, fan-out to C++ workers would either fail or inflate the row count.
+        MaterializedResult countResult = computeActual(
+                "SELECT count(*) FROM jmx.current.\"java.lang:type=Runtime\"");
+        assertEquals(countResult.getRowCount(), 1);
+        assertEquals((long) countResult.getMaterializedRows().get(0).getField(0), 1L);
+
+        // min()/max() on a single-row group agree with each other.
+        MaterializedResult extremaResult = computeActual(
+                "SELECT max(uptime), min(uptime) FROM jmx.current.\"java.lang:type=Runtime\"");
+        assertEquals(extremaResult.getRowCount(), 1);
+        long maxUptime = (long) extremaResult.getMaterializedRows().get(0).getField(0);
+        long minUptime = (long) extremaResult.getMaterializedRows().get(0).getField(1);
+        assertEquals(maxUptime, minUptime);
+        assertTrue(maxUptime >= 0);
+
+        // GROUP BY node returns exactly one group for the coordinator.
+        MaterializedResult groupResult = computeActual(
+                "SELECT node, count(*) FROM jmx.current.\"java.lang:type=Runtime\" GROUP BY node");
+        assertEquals(groupResult.getRowCount(), 1);
+        assertEquals((long) groupResult.getMaterializedRows().get(0).getField(1), 1L);
+    }
+
+    @Test
+    public void testJmxJoinWithBaseTable()
+    {
+        // Inner join Runtime and Threading MBeans on the node column. Both are JMX tables that are
+        // restricted to the coordinator by the fix, so the join yields one row.
+        MaterializedResult result = computeActual(
+                "SELECT r.node, r.uptime, t.threadcount " +
+                        "FROM jmx.current.\"java.lang:type=Runtime\" r " +
+                        "JOIN jmx.current.\"java.lang:type=Threading\" t ON r.node = t.node");
+        assertEquals(result.getRowCount(), 1);
+        long uptime = (long) result.getMaterializedRows().get(0).getField(1);
+        long threadCount = (long) result.getMaterializedRows().get(0).getField(2);
+        assertTrue(uptime >= 0);
+        assertTrue(threadCount > 0);
     }
 }
