@@ -13,188 +13,134 @@
  */
 package com.facebook.presto.nativetests.iceberg;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.iceberg.CatalogType;
+import com.facebook.presto.iceberg.IcebergConfig;
+import com.facebook.presto.iceberg.IcebergQueryRunner;
+import com.facebook.presto.iceberg.TestIcebergRowLineageBase;
+import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
+import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tests.ResultWithQueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.MetricsConfig;
+import org.apache.iceberg.OverwriteFiles;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
+import org.apache.iceberg.data.parquet.GenericParquetWriter;
+import org.apache.iceberg.deletes.EqualityDeleteWriter;
+import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.DataWriter;
+import org.apache.iceberg.parquet.Parquet;
 import org.testng.annotations.Test;
 
+import java.io.Closeable;
+import java.io.File;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 /**
- * Iceberg V3 row lineage ({@code _row_id} / {@code _last_updated_sequence_number}) tests, run on
- * native workers and cross-checked against Java workers over the same files.
- * <p>
- * Every lineage query is checked against the Java workers and against expected values taken from
- * the Iceberg metadata or from the values written through the Iceberg API. See
- * {@link AbstractTestIcebergRowLineage} for how the two query runners share one warehouse.
+ * The query runner uses native workers and the expected query runner uses Java workers, over the
+ * same HADOOP catalog directory, so {@code assertQuery} compares the two engines on one set of
+ * files. The Java worker rejects Iceberg filter pushdown, so it is also the reference for native
+ * queries run with pushdown enabled.
  */
 public class TestIcebergV3RowLineage
-        extends AbstractTestIcebergRowLineage
+        extends TestIcebergRowLineageBase
 {
-    @Test
-    public void testV3TableRowLineageMatchesIcebergMetadata()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        String tableName = "test_row_lineage";
-        Catalog catalog = loadCatalog();
-        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
-        try {
-            Table table = createTestTable(catalog, tableId, "3");
-            Schema schema = table.schema();
+        return PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder()
+                .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
+                .setCatalogType(CatalogType.HADOOP)
+                .setAddStorageFormatToPath(true)
+                .build();
+    }
 
-            writeRecords(table, GenericRecord.create(schema).copy("id", 1, "value", "one"));
-            table.refresh();
-            writeRecords(table, GenericRecord.create(schema).copy("id", 2, "value", "two"));
+    @Override
+    protected ExpectedQueryRunner createExpectedQueryRunner()
+            throws Exception
+    {
+        return PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder()
+                .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
+                .setCatalogType(CatalogType.HADOOP)
+                .setAddStorageFormatToPath(true)
+                .build();
+    }
 
-            table.refresh();
-            List<long[]> expectedPairs = buildExpectedPairs(table, "Iceberg should set firstRowId for V3 tables");
+    @Override
+    protected File getCatalogDirectory()
+    {
+        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        Path catalogDirectory = IcebergQueryRunner.getIcebergDataDirectoryPath(
+                dataDirectory, CatalogType.HADOOP.name(),
+                new IcebergConfig().getFileFormat(), true);
+        return catalogDirectory.toFile();
+    }
 
-            assertPrestoRowLineageMatchesExpected(tableName, expectedPairs);
-
-            String distinctRowIdsSql = "SELECT count(DISTINCT \"_row_id\") FROM " + tableName;
-            assertQuery(distinctRowIdsSql);
-            long distinctRowIds = (Long) computeScalar(distinctRowIdsSql);
-            assertEquals(distinctRowIds, 2L, "Row IDs must be unique across all rows");
-
-            String distinctSeqNumsSql = "SELECT count(DISTINCT \"_last_updated_sequence_number\") FROM " + tableName;
-            assertQuery(distinctSeqNumsSql);
-            long distinctSeqNums = (Long) computeScalar(distinctSeqNumsSql);
-            assertEquals(distinctSeqNums, 2L, "Sequence numbers should differ between commits");
-
-            String seqForFirstSql = "SELECT \"_last_updated_sequence_number\" FROM " + tableName + " WHERE id = 1";
-            String seqForSecondSql = "SELECT \"_last_updated_sequence_number\" FROM " + tableName + " WHERE id = 2";
-            assertQuery(seqForFirstSql);
-            assertQuery(seqForSecondSql);
-            Long seqForFirst = (Long) computeScalar(seqForFirstSql);
-            Long seqForSecond = (Long) computeScalar(seqForSecondSql);
-            assertTrue(seqForFirst < seqForSecond,
-                    "_last_updated_sequence_number should be smaller for earlier commits");
-        }
-        finally {
-            dropTableQuietly(catalog, tableId);
-        }
+    @Override
+    protected void assertPrestoRowLineageMatchesExpected(String tableName, List<long[]> expectedPairs)
+    {
+        assertQuery("SELECT \"_row_id\", \"_last_updated_sequence_number\" FROM " + tableName);
+        super.assertPrestoRowLineageMatchesExpected(tableName, expectedPairs);
     }
 
     @Test
-    public void testV3TableRowLineageWithMultipleRowsPerCommit()
+    public void testV2ToV3UpgradeLineagePredicates()
             throws Exception
     {
-        String tableName = "test_row_lineage_multi";
-        Catalog catalog = loadCatalog();
-        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
-        try {
-            Table table = createTestTable(catalog, tableId, "3");
-            Schema schema = table.schema();
-
-            writeRecords(table,
-                    GenericRecord.create(schema).copy("id", 1, "value", "one"),
-                    GenericRecord.create(schema).copy("id", 2, "value", "two"),
-                    GenericRecord.create(schema).copy("id", 3, "value", "three"));
-
-            table.refresh();
-            List<long[]> expectedPairs = buildExpectedPairs(table, "firstRowId should be set for V3 tables");
-
-            assertPrestoRowLineageMatchesExpected(tableName, expectedPairs);
-
-            long sharedSeqNum = expectedPairs.get(0)[1];
-            for (long[] pair : expectedPairs) {
-                assertEquals(pair[1], sharedSeqNum,
-                        "All rows in a single commit should have the same sequence number");
-            }
-
-            String distinctRowIdsSql = "SELECT count(DISTINCT \"_row_id\") FROM " + tableName;
-            assertQuery(distinctRowIdsSql);
-            long distinctRowIds = (Long) computeScalar(distinctRowIdsSql);
-            assertEquals(distinctRowIds, 3L, "Row IDs must be unique across all rows");
-        }
-        finally {
-            dropTableQuietly(catalog, tableId);
-        }
-    }
-
-    @Test
-    public void testRowLineageBackfilledOnV2ToV3Upgrade()
-            throws Exception
-    {
-        String tableName = "test_row_lineage_v2_to_v3";
+        String tableName = "test_lineage_v2_to_v3_predicates";
         Catalog catalog = loadCatalog();
         TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
         try {
             Table table = createTestTable(catalog, tableId, "2");
-            Schema schema = table.schema();
+            appendOneRow(table, 1, "one");
+            appendOneRow(table, 2, "two");
 
-            writeRecords(table,
-                    GenericRecord.create(schema).copy("id", 1, "value", "one"),
-                    GenericRecord.create(schema).copy("id", 2, "value", "two"));
-            table.refresh();
-            writeRecords(table, GenericRecord.create(schema).copy("id", 3, "value", "three"));
+            for (String column : ImmutableList.of("_row_id", "_last_updated_sequence_number")) {
+                assertIdsForPredicate(tableName, column, "IS NOT NULL", ImmutableList.of());
+                assertIdsForPredicate(tableName, column, "IS NULL", ImmutableList.of(1, 2));
+            }
 
-            // V2 tables have no row lineage; both columns are null.
-            String allRowsSql = "SELECT \"_row_id\", * FROM " + tableName;
-            assertQuery(allRowsSql);
-            assertEquals(computeActual(allRowsSql).getRowCount(), 3);
-
-            String nonNullRowIdsSql = "SELECT count(*) FROM " + tableName + " WHERE \"_row_id\" IS NOT NULL";
-            assertQuery(nonNullRowIdsSql);
-            assertMatchesJavaWorkerWithPushdown(nonNullRowIdsSql);
-            assertEquals(computeScalar(nonNullRowIdsSql), 0L,
-                    "_row_id should be null for all rows in a V2 table");
-
-            String nonNullSeqNumsSql = "SELECT count(*) FROM " + tableName + " WHERE \"_last_updated_sequence_number\" IS NOT NULL";
-            assertQuery(nonNullSeqNumsSql);
-            assertMatchesJavaWorkerWithPushdown(nonNullSeqNumsSql);
-            assertEquals(computeScalar(nonNullSeqNumsSql), 0L,
-                    "_last_updated_sequence_number should be null for all rows in a V2 table");
-
-            table.refresh();
             table.updateProperties().set("format-version", "3").commit();
             table.refresh();
+            appendOneRow(table, 3, "three");
 
-            writeRecords(table,
-                    GenericRecord.create(schema).copy("id", 4, "value", "four"),
-                    GenericRecord.create(schema).copy("id", 5, "value", "five"));
-            table.refresh();
-
-            String nullRowIdsSql = "SELECT count(*) FROM " + tableName + " WHERE \"_row_id\" IS NULL";
-            assertQuery(nullRowIdsSql);
-            assertMatchesJavaWorkerWithPushdown(nullRowIdsSql);
-            assertEquals(computeScalar(nullRowIdsSql), 0L,
-                    "All rows should have non-null _row_id after V3 upgrade");
-
-            String nullSeqNumsSql = "SELECT count(*) FROM " + tableName + " WHERE \"_last_updated_sequence_number\" IS NULL";
-            assertQuery(nullSeqNumsSql);
-            assertMatchesJavaWorkerWithPushdown(nullSeqNumsSql);
-            assertEquals(computeScalar(nullSeqNumsSql), 0L,
-                    "All rows should have non-null _last_updated_sequence_number after V3 upgrade");
-
-            String distinctRowIdsSql = "SELECT count(DISTINCT \"_row_id\") FROM " + tableName;
-            assertQuery(distinctRowIdsSql);
-            long distinctRowIds = (Long) computeScalar(distinctRowIdsSql);
-            assertEquals(distinctRowIds, 5L, "Row IDs must be unique across all 5 rows after upgrade");
-
-            table.refresh();
-            List<long[]> allExpectedPairs = buildExpectedPairs(table,
-                    "All files should have firstRowId set after V3 upgrade");
-            assertPrestoRowLineageMatchesExpected(tableName, allExpectedPairs);
+            for (String column : ImmutableList.of("_row_id", "_last_updated_sequence_number")) {
+                assertIdsForPredicate(tableName, column, "IS NULL", ImmutableList.of());
+                assertIdsForPredicate(tableName, column, "IS NOT NULL", ImmutableList.of(1, 2, 3));
+            }
         }
         finally {
             dropTableQuietly(catalog, tableId);
@@ -204,8 +150,7 @@ public class TestIcebergV3RowLineage
     /**
      * A row whose {@code _row_id} / {@code _last_updated_sequence_number} are stored in the data
      * file, as an external row-preserving UPDATE/MERGE writes them, reports those stored values
-     * whether or not the query also filters on the column. The reader learns the columns' field
-     * ids from the projection as well as from the filter.
+     * whether or not the query also filters on the column.
      */
     @Test
     public void testRowLineageConsistentAcrossPredicateAndProjectionOnlyQueries()
@@ -217,20 +162,17 @@ public class TestIcebergV3RowLineage
         try {
             Table table = createTestTable(catalog, tableId, "3");
 
-            // Pure insert: relies on the firstRowId + position fallback.
             writeRecords(table, GenericRecord.create(table.schema()).copy("id", 1, "value", "one"));
             table.refresh();
 
             writeOverriddenLineageRow(table);
             table.refresh();
 
-            String unfilteredSql = "SELECT id, \"_row_id\", \"_last_updated_sequence_number\" FROM " + tableName +
-                    " ORDER BY id";
-            String filteredSql = "SELECT id, \"_row_id\", \"_last_updated_sequence_number\" FROM " + tableName +
-                    " WHERE \"_row_id\" IS NOT NULL ORDER BY id";
-            assertQueryOrdered(unfilteredSql);
-            assertQueryOrdered(filteredSql);
-            assertMatchesJavaWorkerWithPushdown(filteredSql);
+            String unfilteredSql = "SELECT id, \"_row_id\", \"_last_updated_sequence_number\" FROM " + tableName;
+            String filteredSql = unfilteredSql + " WHERE \"_row_id\" IS NOT NULL";
+            assertQuery(unfilteredSql);
+            assertQuery(filteredSql);
+            assertQuery(pushdownFilterSession(), filteredSql, getSession(), filteredSql);
 
             MaterializedResult unfiltered = computeActual(unfilteredSql);
             MaterializedResult filtered = computeActual(filteredSql);
@@ -278,9 +220,8 @@ public class TestIcebergV3RowLineage
             writeOverriddenLineageRow(table);
             table.refresh();
 
-            String unfilteredSql = "SELECT id, \"_row_id\", \"_last_updated_sequence_number\" FROM " + tableName +
-                    " ORDER BY id";
-            assertMatchesJavaWorkerWithPushdown(unfilteredSql);
+            String unfilteredSql = "SELECT id, \"_row_id\", \"_last_updated_sequence_number\" FROM " + tableName;
+            assertQuery(pushdownFilterSession(), unfilteredSql, getSession(), unfilteredSql);
 
             MaterializedResult unfiltered = computeActual(pushdownFilterSession(), unfilteredSql);
 
@@ -495,8 +436,7 @@ public class TestIcebergV3RowLineage
                     "expected disjoint OR to prune middle file but unrestricted=" + splitsAll
                             + " disjoint=" + splitsDisjoint);
 
-            String disjointSql = "SELECT id FROM " + tableName + disjointPredicate + " ORDER BY id";
-            assertIdsForQuery(disjointSql, ImmutableList.of(1, 3));
+            assertIdsForQuery("SELECT id FROM " + tableName + disjointPredicate, ImmutableList.of(1, 3));
         }
         finally {
             dropTableQuietly(catalog, tableId);
@@ -531,7 +471,7 @@ public class TestIcebergV3RowLineage
             assertIdsForPredicate(tableName, "_row_id", "IN (" + rowId1 + ", " + rowId3 + ")", ImmutableList.of(1, 3));
             assertIdsForPredicate(tableName, "_row_id", "> " + rowId3, ImmutableList.of());
             assertIdsForQuery("SELECT id FROM " + tableName +
-                            " WHERE \"_row_id\" = " + rowId1 + " OR \"_row_id\" = " + rowId3 + " ORDER BY id",
+                            " WHERE \"_row_id\" = " + rowId1 + " OR \"_row_id\" = " + rowId3,
                     ImmutableList.of(1, 3));
         }
         finally {
@@ -675,12 +615,12 @@ public class TestIcebergV3RowLineage
             }
 
             assertIdsForQuery("SELECT id FROM " + tableName +
-                            " WHERE \"_last_updated_sequence_number\" >= " + seq2 + " AND value <> 'three' ORDER BY id",
+                            " WHERE \"_last_updated_sequence_number\" >= " + seq2 + " AND value <> 'three'",
                     ImmutableList.of(2));
             assertIdsForQuery("SELECT id FROM " + tableName +
-                            " WHERE \"_row_id\" = " + rowId1 + " OR id = 3 ORDER BY id",
+                            " WHERE \"_row_id\" = " + rowId1 + " OR id = 3",
                     ImmutableList.of(1, 3));
-            assertIdsForQuery("SELECT id FROM " + tableName + " WHERE \"_row_id\" % 2 = 0 ORDER BY id",
+            assertIdsForQuery("SELECT id FROM " + tableName + " WHERE \"_row_id\" % 2 = 0",
                     evenRowIds.build());
         }
         finally {
@@ -763,7 +703,7 @@ public class TestIcebergV3RowLineage
             assertTrue(seq3 > mixed.inheritedSeq);
 
             String selective = "SELECT id FROM " + tableName + " WHERE \"_last_updated_sequence_number\" = " + seq3;
-            assertIdsForQuery(selective + " ORDER BY id", ImmutableList.of(3));
+            assertIdsForQuery(selective, ImmutableList.of(3));
             int splitsAll = completedSplitsFor("SELECT id FROM " + tableName);
             int splitsSelective = completedSplitsFor(selective);
             assertTrue(splitsAll > splitsSelective,
@@ -772,6 +712,72 @@ public class TestIcebergV3RowLineage
         finally {
             dropTableQuietly(catalog, tableId);
         }
+    }
+
+    private Session pushdownFilterSession()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
+    }
+
+    private void assertIdsForPredicate(String tableName, String predicate, List<Integer> expectedIds)
+    {
+        assertIdsForPredicate(tableName, "_last_updated_sequence_number", predicate, expectedIds);
+    }
+
+    /**
+     * Only {@code id} is selected, so {@code column} is read for the filter alone.
+     */
+    private void assertIdsForPredicate(String tableName, String column, String predicate, List<Integer> expectedIds)
+    {
+        assertIdsForQuery("SELECT id FROM " + tableName + " WHERE \"" + column + "\" " + predicate, expectedIds);
+    }
+
+    /**
+     * Compares {@code sql} on the native workers against the Java workers with filter pushdown off
+     * and on, then checks the native ids against {@code expectedIds}, which catches errors shared by
+     * both engines, such as coordinator split pruning.
+     */
+    private void assertIdsForQuery(String sql, List<Integer> expectedIds)
+    {
+        assertQuery(sql);
+        assertQuery(pushdownFilterSession(), sql, getSession(), sql);
+        assertEquals(sortedIdsOf(computeActual(sql)), expectedIds, "rows for \"" + sql + "\"");
+        assertEquals(sortedIdsOf(computeActual(pushdownFilterSession(), sql)), expectedIds,
+                "rows with filter pushdown for \"" + sql + "\"");
+    }
+
+    private List<long[]> readIdAndSequenceNumber(String tableName)
+    {
+        return readIdAndLongColumn(tableName, "_last_updated_sequence_number");
+    }
+
+    private List<long[]> readIdAndRowId(String tableName)
+    {
+        return readIdAndLongColumn(tableName, "_row_id");
+    }
+
+    private List<long[]> readIdAndLongColumn(String tableName, String column)
+    {
+        String sql = "SELECT id, \"" + column + "\" FROM " + tableName;
+        assertQuery(sql);
+        List<long[]> rows = new ArrayList<>();
+        for (MaterializedRow row : computeActual(sql).getMaterializedRows()) {
+            rows.add(new long[] {(Integer) row.getField(0), (Long) row.getField(1)});
+        }
+        return rows;
+    }
+
+    private int completedSplitsFor(String sql)
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(getSession(), sql);
+        QueryStats stats = runner.getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(result.getQueryId())
+                .getQueryStats();
+        return stats.getCompletedSplits();
     }
 
     /**
@@ -828,10 +834,60 @@ public class TestIcebergV3RowLineage
         }
     }
 
+    private static List<Integer> sortedIdsOf(MaterializedResult result)
+    {
+        List<Integer> ids = new ArrayList<>();
+        for (MaterializedRow row : result.getMaterializedRows()) {
+            ids.add((Integer) row.getField(0));
+        }
+        ids.sort(Integer::compare);
+        return ids;
+    }
+
+    private static Map<Integer, long[]> rowIdAndSeqById(MaterializedResult result)
+    {
+        Map<Integer, long[]> byId = new HashMap<>();
+        for (MaterializedRow row : result.getMaterializedRows()) {
+            int id = (Integer) row.getField(0);
+            Long rowId = (Long) row.getField(1);
+            Long seqNum = (Long) row.getField(2);
+            assertNotNull(rowId, "_row_id should not be null for id=" + id);
+            assertNotNull(seqNum, "_last_updated_sequence_number should not be null for id=" + id);
+            byId.put(id, new long[] {rowId, seqNum});
+        }
+        return byId;
+    }
+
+    private static long valueForId(List<long[]> rows, int id)
+    {
+        for (long[] row : rows) {
+            if (row[0] == id) {
+                return row[1];
+            }
+        }
+        throw new AssertionError("id not found: " + id);
+    }
+
+    private static void dropTableQuietly(Catalog catalog, TableIdentifier tableId)
+    {
+        try {
+            catalog.dropTable(tableId, true);
+        }
+        catch (Exception ignored) {
+        }
+    }
+
+    private static void appendOneRow(Table table, int id, String value)
+            throws Exception
+    {
+        writeRecordsWithSchema(table, table.schema(), GenericRecord.create(table.schema()).copy("id", id, "value", value));
+        table.refresh();
+    }
+
     /**
-     * Simulates a row-preserving external UPDATE/MERGE (e.g. a real Spark MERGE INTO): the new data
-     * file explicitly carries {@code _row_id} / {@code _last_updated_sequence_number} values that
-     * must override the positional and file-level fallbacks.
+     * Simulates a row-preserving external UPDATE/MERGE: the new data file explicitly carries
+     * {@code _row_id} / {@code _last_updated_sequence_number} values that override the positional
+     * and file-level fallbacks.
      */
     private static void writeOverriddenLineageRow(Table table)
             throws Exception
@@ -843,5 +899,90 @@ public class TestIcebergV3RowLineage
         updatedRow.setField(MetadataColumns.ROW_ID.name(), 42L);
         updatedRow.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), 99L);
         writeRecordsWithSchema(table, lineageSchema, updatedRow);
+    }
+
+    private static void writeRecordsWithSchema(Table table, Schema writeSchema, Record... records)
+            throws Exception
+    {
+        table.newAppend().appendFile(writeFile(table, writeSchema, records)).commit();
+    }
+
+    /**
+     * Replaces every data file in the table with one file holding {@code rows}, as a copy-on-write
+     * UPDATE does. Rows that leave {@code _row_id} / {@code _last_updated_sequence_number} null
+     * inherit them from the new file, so the file mixes stored and inherited lineage.
+     */
+    private static void writeMixedLineageFile(Table table, Schema lineageSchema, Record... rows)
+            throws Exception
+    {
+        OverwriteFiles overwrite = table.newOverwrite();
+        for (DataFile file : dataFiles(table)) {
+            overwrite.deleteFile(file);
+        }
+        overwrite.addFile(writeFile(table, lineageSchema, rows)).commit();
+        table.refresh();
+    }
+
+    /**
+     * V3 requires deletion vectors for position deletes, which the Java worker does not read, so
+     * equality deletes are the delete form both engines can read.
+     */
+    private static void writeEqualityDeleteOnId(Table table, int id)
+            throws Exception
+    {
+        Schema deleteSchema = table.schema().select("id");
+        org.apache.hadoop.fs.Path path = new org.apache.hadoop.fs.Path(table.location(), "data/delete-" + UUID.randomUUID() + ".parquet");
+        EqualityDeleteWriter<Record> writer = Parquet.writeDeletes(HadoopOutputFile.fromPath(path, new Configuration()))
+                .createWriterFunc(GenericParquetWriter::create)
+                .overwrite()
+                .rowSchema(deleteSchema)
+                .withSpec(table.spec())
+                .equalityFieldIds(deleteSchema.findField("id").fieldId())
+                .buildEqualityWriter();
+        try (Closeable ignored = writer) {
+            writer.write(GenericRecord.create(deleteSchema).copy("id", id));
+        }
+        table.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
+        table.refresh();
+    }
+
+    private static List<DataFile> dataFiles(Table table)
+            throws Exception
+    {
+        List<DataFile> files = new ArrayList<>();
+        try (CloseableIterable<FileScanTask> tasks = table.newScan().includeColumnStats().planFiles()) {
+            for (FileScanTask task : tasks) {
+                files.add(task.file());
+            }
+        }
+        return files;
+    }
+
+    private static DataFile writeFile(Table table, Schema writeSchema, Record... records)
+            throws Exception
+    {
+        return writeFile(table, writeSchema, MetricsConfig.forTable(table), records);
+    }
+
+    private static DataFile writeFile(Table table, Schema writeSchema, MetricsConfig metricsConfig, Record... records)
+            throws Exception
+    {
+        org.apache.hadoop.fs.Path filePath = new org.apache.hadoop.fs.Path(table.location(), "data/data-" + UUID.randomUUID() + ".parquet");
+        DataWriter<Record> writer = Parquet.writeData(HadoopOutputFile.fromPath(filePath, new Configuration()))
+                .schema(writeSchema)
+                .withSpec(table.spec())
+                .createWriterFunc(GenericParquetWriter::create)
+                .metricsConfig(metricsConfig)
+                .overwrite()
+                .build();
+        try {
+            for (Record record : records) {
+                writer.write(record);
+            }
+        }
+        finally {
+            writer.close();
+        }
+        return writer.toDataFile();
     }
 }
