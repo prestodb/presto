@@ -81,6 +81,7 @@ import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
 import com.facebook.presto.spark.planner.optimizers.AdaptivePlanOptimizers;
 import com.facebook.presto.spark.util.PrestoSparkTransactionUtils;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
@@ -133,6 +134,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.Session.SessionBuilder;
+import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -146,6 +148,8 @@ import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.getActionResultWithTimeout;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.NONE;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.QueryInfoUtils.toStatementStats;
@@ -634,6 +638,18 @@ public class PrestoSparkQueryExecutionFactory
         }
 
         WarningCollector warningCollector = sessionBuilder.getWarningCollector();
+
+        // Presto on Spark cannot run a materialized CTE: the fragmenter forces the CTE producer onto
+        // COORDINATOR_DISTRIBUTION, which the executors accept only at the plan root. Read the effective
+        // value off the builder - defaults and execution-strategy overrides never reach sessionContext.
+        String effectiveCteMaterializationStrategy = sessionBuilder.getSystemProperties().get(CTE_MATERIALIZATION_STRATEGY);
+        if (effectiveCteMaterializationStrategy != null && !NONE.name().equalsIgnoreCase(effectiveCteMaterializationStrategy)) {
+            warningCollector.add(new PrestoWarning(
+                    PERFORMANCE_WARNING,
+                    format("%s=%s is not supported on Presto on Spark and was ignored", CTE_MATERIALIZATION_STRATEGY, effectiveCteMaterializationStrategy)));
+        }
+        sessionBuilder.setSystemProperty(CTE_MATERIALIZATION_STRATEGY, NONE.name());
+
         Session session = sessionBuilder.build();
 
         PlanAndMore planAndMore = null;
