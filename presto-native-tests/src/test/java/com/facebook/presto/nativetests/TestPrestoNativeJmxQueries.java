@@ -89,10 +89,11 @@ public class TestPrestoNativeJmxQueries
     @Test
     public void testJmxQueryWithAggregation()
     {
-        // count(*) over the JMX table must be 1 because splits are restricted to the coordinator.
-        // Without the fix, fan-out to C++ workers would either fail or inflate the row count.
+        // Aggregation over the JMX table must return one row because splits are restricted to the
+        // coordinator. Reference `node` explicitly (rather than count(*)) so the plan optimizer keeps
+        // at least one column on the scan; JmxRecordSetProvider requires that.
         MaterializedResult countResult = computeActual(
-                "SELECT count(*) FROM jmx.current.\"java.lang:type=Runtime\"");
+                "SELECT count(node) FROM jmx.current.\"java.lang:type=Runtime\"");
         assertEquals(countResult.getRowCount(), 1);
         assertEquals((long) countResult.getMaterializedRows().get(0).getField(0), 1L);
 
@@ -107,7 +108,7 @@ public class TestPrestoNativeJmxQueries
 
         // GROUP BY node returns exactly one group for the coordinator.
         MaterializedResult groupResult = computeActual(
-                "SELECT node, count(*) FROM jmx.current.\"java.lang:type=Runtime\" GROUP BY node");
+                "SELECT node, count(node) FROM jmx.current.\"java.lang:type=Runtime\" GROUP BY node");
         assertEquals(groupResult.getRowCount(), 1);
         assertEquals((long) groupResult.getMaterializedRows().get(0).getField(1), 1L);
     }
