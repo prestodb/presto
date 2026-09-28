@@ -102,6 +102,13 @@ VeloxToPrestoExceptionTranslator::VeloxToPrestoExceptionTranslator() {
        .name = "EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT",
        .type = protocol::ErrorType::INSUFFICIENT_RESOURCES});
 
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      presto::error_code::kServerShuttingDown,
+      {.code = 0x00010009,
+       .name = "SERVER_SHUTTING_DOWN",
+       .type = protocol::ErrorType::INTERNAL_ERROR});
+
   // Register user errors
   registerError(
       velox::error_source::kErrorSourceUser,

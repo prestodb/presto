@@ -16,7 +16,9 @@
 #include <folly/executors/ThreadedExecutor.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <future>
 #include <string_view>
+#include <thread>
 #include "folly/synchronization/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
@@ -1092,6 +1094,349 @@ TEST_P(TaskManagerTest, queuedTaskAbortDoesNotBlockSiblings) {
   if (execTask2) {
     ASSERT_EQ(execTask2->state(), TaskState::kFinished);
   }
+}
+
+TEST_P(TaskManagerTest, shutdownAbortsTasksStuckInDrain) {
+  auto* const systemConfig = SystemConfig::instance();
+  const auto previousDrainMaxSec = systemConfig->setValue(
+      std::string(SystemConfig::kShutdownTaskDrainMaxSec), "1");
+  const auto restoreDrainMaxSec = folly::makeGuard([&]() {
+    systemConfig->setValue(
+        std::string(SystemConfig::kShutdownTaskDrainMaxSec),
+        previousDrainMaxSec.value());
+  });
+  taskManager_->setOldTaskCleanUpMs(600'000);
+
+  core::PlanNodeId scanNodeId;
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .capturePlanNodeId(scanNodeId)
+                          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+                          .planFragment();
+
+  const protocol::TaskId taskId = "stuckDrain.0.0.1.0";
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource(scanNodeId, {}, false, splitSequenceId));
+  createOrUpdateTask(taskId, updateRequest, planFragment);
+
+  auto prestoTask = taskManager_->tasks().at(taskId);
+  ASSERT_EQ(prestoTask->task->state(), TaskState::kRunning);
+
+  std::promise<void> shutdownReturned;
+  auto shutdownFuture = shutdownReturned.get_future();
+  std::thread shutdownThread([&]() {
+    taskManager_->shutdown();
+    shutdownReturned.set_value();
+  });
+  const auto releaseTask = folly::makeGuard([&]() {
+    taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
+    shutdownThread.join();
+  });
+
+  ASSERT_EQ(
+      shutdownFuture.wait_for(std::chrono::seconds(30)),
+      std::future_status::ready)
+      << "shutdown() is still waiting for a task that will never finish.";
+  ASSERT_EQ(prestoTask->task->state(), TaskState::kFailed);
+}
+
+namespace {
+// Parks a Driver on thread until the test releases it.
+struct DrainBlockState {
+  folly::EventCount enteredWait;
+  std::atomic<bool> entered{false};
+  folly::EventCount releaseWait;
+  std::atomic<bool> released{false};
+};
+} // namespace
+
+// The existing drain test's Driver is off thread, so its abort future is ready
+// at once; only a parked Driver reaches the termination timeout.
+DEBUG_ONLY_TEST_P(TaskManagerTest, shutdownDrainGivesUpOnBlockedDriver) {
+  auto* const systemConfig = SystemConfig::instance();
+  const auto previousDrainMaxSec = systemConfig->setValue(
+      std::string(SystemConfig::kShutdownTaskDrainMaxSec), "1");
+  const auto restoreDrainMaxSec = folly::makeGuard([&]() {
+    systemConfig->setValue(
+        std::string(SystemConfig::kShutdownTaskDrainMaxSec),
+        previousDrainMaxSec.value());
+  });
+  taskManager_->setOldTaskCleanUpMs(600'000);
+  taskManager_->setTaskSyncTerminateTimeoutMs(10);
+
+  auto block = std::make_shared<DrainBlockState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const velox::exec::Values*)>(
+          [block](const velox::exec::Values* /*values*/) {
+            block->entered = true;
+            block->enteredWait.notifyAll();
+            block->releaseWait.await([&]() { return block->released.load(); });
+          }));
+
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .values(makeVectors(1, 1'000))
+          .partitionedOutputArbitrary({"c0", "c1"}, GetParam())
+          .planFragment();
+  const protocol::TaskId taskId = "stuckDrainOnThread.0.0.1.0";
+  createOrUpdateTask(taskId, {}, planFragment);
+
+  auto prestoTask = taskManager_->tasks().at(taskId);
+  block->enteredWait.await([&]() { return block->entered.load(); });
+
+  std::promise<void> shutdownReturned;
+  auto shutdownFuture = shutdownReturned.get_future();
+  std::thread shutdownThread([&]() {
+    taskManager_->shutdown();
+    shutdownReturned.set_value();
+  });
+  const auto releaseTask = folly::makeGuard([&]() {
+    block->released = true;
+    block->releaseWait.notifyAll();
+    taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
+    shutdownThread.join();
+  });
+
+  ASSERT_EQ(
+      shutdownFuture.wait_for(std::chrono::seconds(30)),
+      std::future_status::ready)
+      << "shutdown() is still waiting for a Driver parked on thread that the "
+         "test has not released.";
+  ASSERT_EQ(prestoTask->task->state(), TaskState::kFailed);
+}
+
+DEBUG_ONLY_TEST_P(
+    TaskManagerTest,
+    taskCreatedDuringDrainDoesNotOutliveShutdown) {
+  auto* const systemConfig = SystemConfig::instance();
+  const auto previousDrainMaxSec = systemConfig->setValue(
+      std::string(SystemConfig::kShutdownTaskDrainMaxSec), "1");
+  const auto restoreDrainMaxSec = folly::makeGuard([&]() {
+    systemConfig->setValue(
+        std::string(SystemConfig::kShutdownTaskDrainMaxSec),
+        previousDrainMaxSec.value());
+  });
+  taskManager_->setOldTaskCleanUpMs(600'000);
+  // Pins shutdown() inside the post-abort wait until the test releases it.
+  taskManager_->setTaskSyncTerminateTimeoutMs(60'000);
+
+  auto block = std::make_shared<DrainBlockState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const velox::exec::Values*)>(
+          [block](const velox::exec::Values* /*values*/) {
+            block->entered = true;
+            block->enteredWait.notifyAll();
+            block->releaseWait.await([&]() { return block->released.load(); });
+          }));
+
+  const auto blockedFragment =
+      exec::test::PlanBuilder()
+          .values(makeVectors(1, 1'000))
+          .partitionedOutputArbitrary({"c0", "c1"}, GetParam())
+          .planFragment();
+  const protocol::TaskId blockedTaskId = "lateAdmission.0.0.1.0";
+  createOrUpdateTask(blockedTaskId, {}, blockedFragment);
+  auto blockedTask = taskManager_->tasks().at(blockedTaskId);
+  block->enteredWait.await([&]() { return block->entered.load(); });
+
+  std::promise<void> shutdownReturned;
+  auto shutdownFuture = shutdownReturned.get_future();
+  std::thread shutdownThread([&]() {
+    taskManager_->shutdown();
+    shutdownReturned.set_value();
+  });
+  const protocol::TaskId lateTaskId = "lateAdmission.1.0.1.0";
+  const auto releaseTasks = folly::makeGuard([&]() {
+    block->released = true;
+    block->releaseWait.notifyAll();
+    taskManager_->deleteTask(lateTaskId, true, true, /*shouldDropTask=*/false);
+    taskManager_->deleteTask(
+        blockedTaskId, true, true, /*shouldDropTask=*/false);
+    shutdownThread.join();
+  });
+
+  // The terminal state is published before the parked Driver goes off thread,
+  // so this returns once abortRunningTasks() has taken its snapshot.
+  ASSERT_TRUE(waitForTaskStateChange(
+      blockedTask->task.get(), TaskState::kFailed, 30'000'000));
+  ASSERT_NE(
+      shutdownFuture.wait_for(std::chrono::seconds(0)),
+      std::future_status::ready)
+      << "shutdown() returned before the late task was created.";
+
+  core::PlanNodeId scanNodeId;
+  const auto lateFragment =
+      exec::test::PlanBuilder()
+          .tableScan(rowType_)
+          .capturePlanNodeId(scanNodeId)
+          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+          .planFragment();
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest lateRequest;
+  lateRequest.sources.push_back(
+      makeSource(scanNodeId, {}, false, splitSequenceId));
+  const auto lateTaskInfo =
+      createOrUpdateTask(lateTaskId, lateRequest, lateFragment);
+  ASSERT_NE(lateTaskInfo, nullptr);
+  EXPECT_EQ(lateTaskInfo->taskStatus.state, protocol::TaskState::ABORTED);
+
+  block->released = true;
+  block->releaseWait.notifyAll();
+  ASSERT_EQ(
+      shutdownFuture.wait_for(std::chrono::seconds(30)),
+      std::future_status::ready);
+
+  auto lateTask = taskManager_->tasks().at(lateTaskId);
+  EXPECT_FALSE(lateTask->task != nullptr && lateTask->task->isRunning())
+      << "A task admitted during the drain was left running by shutdown().";
+}
+
+DEBUG_ONLY_TEST_P(
+    TaskManagerTest,
+    shutdownDrainKeepsTaskFinishingInGracePeriod) {
+  constexpr int32_t kDrainMaxSec = 10;
+  auto* const systemConfig = SystemConfig::instance();
+  const auto previousDrainMaxSec = systemConfig->setValue(
+      std::string(SystemConfig::kShutdownTaskDrainMaxSec),
+      std::to_string(kDrainMaxSec));
+  const auto restoreDrainMaxSec = folly::makeGuard([&]() {
+    systemConfig->setValue(
+        std::string(SystemConfig::kShutdownTaskDrainMaxSec),
+        previousDrainMaxSec.value());
+  });
+  taskManager_->setOldTaskCleanUpMs(600'000);
+
+  auto block = std::make_shared<DrainBlockState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const velox::exec::Values*)>(
+          [block](const velox::exec::Values* /*values*/) {
+            block->entered = true;
+            block->enteredWait.notifyAll();
+            block->releaseWait.await([&]() { return block->released.load(); });
+          }));
+
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .values(makeVectors(1, 1'000))
+          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+          .planFragment();
+  const protocol::TaskId taskId = "gracePeriodFinish.0.0.1.0";
+  createOrUpdateTask(taskId, {}, planFragment);
+
+  auto prestoTask = taskManager_->tasks().at(taskId);
+  block->enteredWait.await([&]() { return block->entered.load(); });
+
+  std::promise<void> shutdownReturned;
+  auto shutdownFuture = shutdownReturned.get_future();
+  std::thread shutdownThread([&]() {
+    taskManager_->shutdown();
+    shutdownReturned.set_value();
+  });
+  const auto releaseTask = folly::makeGuard([&]() {
+    block->released = true;
+    block->releaseWait.notifyAll();
+    taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
+    shutdownThread.join();
+  });
+
+  ASSERT_NE(
+      shutdownFuture.wait_for(std::chrono::seconds(2)),
+      std::future_status::ready)
+      << "The drain gave up on a task still inside its " << kDrainMaxSec
+      << " second grace period.";
+
+  block->released = true;
+  block->releaseWait.notifyAll();
+  const auto resultsOrFailure = fetchAllResults(taskId, rowType_, {taskId});
+  ASSERT_EQ(resultsOrFailure.status, nullptr);
+  ASSERT_TRUE(waitForTaskStateChange(
+      prestoTask->task.get(), TaskState::kFinished, 30'000'000));
+
+  ASSERT_EQ(
+      shutdownFuture.wait_for(std::chrono::seconds(30)),
+      std::future_status::ready);
+  ASSERT_EQ(prestoTask->task->state(), TaskState::kFinished);
+}
+
+// Pins the gate: with the drain unbounded the fence must stay inert, so a task
+// created mid-drain behaves as it did before the bound existed.
+DEBUG_ONLY_TEST_P(TaskManagerTest, defaultDrainDoesNotFenceTaskAdmission) {
+  auto* const systemConfig = SystemConfig::instance();
+  const auto previousDrainMaxSec = systemConfig->setValue(
+      std::string(SystemConfig::kShutdownTaskDrainMaxSec), "0");
+  const auto restoreDrainMaxSec = folly::makeGuard([&]() {
+    systemConfig->setValue(
+        std::string(SystemConfig::kShutdownTaskDrainMaxSec),
+        previousDrainMaxSec.value());
+  });
+  taskManager_->setOldTaskCleanUpMs(600'000);
+
+  auto block = std::make_shared<DrainBlockState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const velox::exec::Values*)>(
+          [block](const velox::exec::Values* /*values*/) {
+            block->entered = true;
+            block->enteredWait.notifyAll();
+            block->releaseWait.await([&]() { return block->released.load(); });
+          }));
+
+  const auto blockedFragment =
+      exec::test::PlanBuilder()
+          .values(makeVectors(1, 1'000))
+          .partitionedOutputArbitrary({"c0", "c1"}, GetParam())
+          .planFragment();
+  const protocol::TaskId blockedTaskId = "unboundedDrain.0.0.1.0";
+  createOrUpdateTask(blockedTaskId, {}, blockedFragment);
+  block->enteredWait.await([&]() { return block->entered.load(); });
+
+  std::promise<void> shutdownReturned;
+  auto shutdownFuture = shutdownReturned.get_future();
+  std::thread shutdownThread([&]() {
+    taskManager_->shutdown();
+    shutdownReturned.set_value();
+  });
+  const protocol::TaskId lateTaskId = "unboundedDrain.1.0.1.0";
+  const auto releaseTasks = folly::makeGuard([&]() {
+    block->released = true;
+    block->releaseWait.notifyAll();
+    taskManager_->deleteTask(lateTaskId, true, true, /*shouldDropTask=*/false);
+    taskManager_->deleteTask(
+        blockedTaskId, true, true, /*shouldDropTask=*/false);
+    shutdownThread.join();
+  });
+
+  // The drain sleeps a second per iteration, so this lands us inside the loop.
+  ASSERT_NE(
+      shutdownFuture.wait_for(std::chrono::seconds(2)),
+      std::future_status::ready)
+      << "An unbounded drain returned while a task was still running.";
+
+  core::PlanNodeId scanNodeId;
+  const auto lateFragment =
+      exec::test::PlanBuilder()
+          .tableScan(rowType_)
+          .capturePlanNodeId(scanNodeId)
+          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+          .planFragment();
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest lateRequest;
+  lateRequest.sources.push_back(
+      makeSource(scanNodeId, {}, false, splitSequenceId));
+  const auto lateTaskInfo =
+      createOrUpdateTask(lateTaskId, lateRequest, lateFragment);
+  ASSERT_NE(lateTaskInfo, nullptr);
+  EXPECT_EQ(lateTaskInfo->taskStatus.state, protocol::TaskState::RUNNING)
+      << "The fence engaged with the drain unbounded.";
+
+  auto lateTask = taskManager_->tasks().at(lateTaskId);
+  ASSERT_NE(lateTask->task, nullptr);
+  EXPECT_TRUE(lateTask->task->isRunning());
 }
 
 // Runs "select * from t where c0 % 5 = 1" query.

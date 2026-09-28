@@ -349,6 +349,9 @@ class SystemConfig : public ConfigBase {
       "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
 
+  static constexpr std::string_view kShutdownTaskDrainMaxSec{
+      "shutdown-task-drain-max-sec"};
+
   /// Memory allocation limit enforced via internal memory allocator.
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
 
@@ -1153,6 +1156,8 @@ class SystemConfig : public ConfigBase {
   folly::Optional<std::string> spillerSpillPath() const;
 
   int32_t shutdownOnsetSec() const;
+
+  int32_t shutdownTaskDrainMaxSec() const;
 
   uint32_t systemMemoryGb() const;
 
