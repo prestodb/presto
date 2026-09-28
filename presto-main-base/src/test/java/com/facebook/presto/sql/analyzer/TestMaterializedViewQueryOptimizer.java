@@ -4048,16 +4048,19 @@ public class TestMaterializedViewQueryOptimizer
                                     ImmutableList.of(new SchemaTableName(SESSION_SCHEMA, baseTableName))),
                             false);
 
-                    Query optimizedBaseToViewQuery = (Query) new MaterializedViewQueryOptimizer(
-                            metadata,
-                            session,
-                            SQL_PARSER,
-                            accessControl,
-                            domainTranslator)
-                            .process(baseQuery);
-                    assertEquals(optimizedBaseToViewQuery, expectedViewQuery);
-
-                    metadata.dropMaterializedView(session, QualifiedObjectName.valueOf(TPCH_CATALOG, SESSION_SCHEMA, baseTableName));
+                    try {
+                        Query optimizedBaseToViewQuery = (Query) new MaterializedViewQueryOptimizer(
+                                metadata,
+                                session,
+                                SQL_PARSER,
+                                accessControl,
+                                domainTranslator)
+                                .process(baseQuery);
+                        assertEquals(optimizedBaseToViewQuery, expectedViewQuery);
+                    }
+                    finally {
+                        metadata.dropMaterializedView(session, QualifiedObjectName.valueOf(TPCH_CATALOG, SESSION_SCHEMA, originalViewName));
+                    }
                 });
     }
 
@@ -4089,17 +4092,20 @@ public class TestMaterializedViewQueryOptimizer
                         }
                     }
 
-                    Query optimizedBaseToViewQuery = (Query) new MaterializedViewQueryOptimizer(
-                            metadata,
-                            session,
-                            SQL_PARSER,
-                            accessControl,
-                            domainTranslator)
-                            .process(baseQuery);
-                    assertEquals(optimizedBaseToViewQuery, expectedViewQuery);
-
-                    for (QualifiedObjectName materializedView : createdMaterializedViews) {
-                        metadata.dropMaterializedView(session, materializedView);
+                    try {
+                        Query optimizedBaseToViewQuery = (Query) new MaterializedViewQueryOptimizer(
+                                metadata,
+                                session,
+                                SQL_PARSER,
+                                accessControl,
+                                domainTranslator)
+                                .process(baseQuery);
+                        assertEquals(optimizedBaseToViewQuery, expectedViewQuery);
+                    }
+                    finally {
+                        for (QualifiedObjectName materializedView : createdMaterializedViews) {
+                            metadata.dropMaterializedView(session, materializedView);
+                        }
                     }
                 });
     }
