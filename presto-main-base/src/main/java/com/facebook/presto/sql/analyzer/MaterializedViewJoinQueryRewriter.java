@@ -140,13 +140,13 @@ public class MaterializedViewJoinQueryRewriter
         }
         if (relation instanceof Table) {
             Table table = (Table) relation;
-            leaves.add(new JoinLeafInfo(table, new Identifier(table.getName().toString())));
+            leaves.add(new JoinLeafInfo(table, new Identifier(table.getName().toString()), false));
             return;
         }
         if (relation instanceof AliasedRelation) {
             AliasedRelation aliased = (AliasedRelation) relation;
             if (aliased.getRelation() instanceof Table) {
-                leaves.add(new JoinLeafInfo((Table) aliased.getRelation(), aliased.getAlias()));
+                leaves.add(new JoinLeafInfo((Table) aliased.getRelation(), aliased.getAlias(), true));
             }
             // AliasedRelation wrapping a subquery: opaque, do not descend.
         }
@@ -157,11 +157,13 @@ public class MaterializedViewJoinQueryRewriter
     {
         final Table table;
         final Identifier prefix;
+        final boolean aliased;
 
-        JoinLeafInfo(Table table, Identifier prefix)
+        JoinLeafInfo(Table table, Identifier prefix, boolean aliased)
         {
             this.table = requireNonNull(table, "table is null");
             this.prefix = requireNonNull(prefix, "prefix is null");
+            this.aliased = aliased;
         }
     }
 
@@ -170,6 +172,7 @@ public class MaterializedViewJoinQueryRewriter
         private final QualifiedObjectName materializedViewName;
         private final Identifier swappedPrefix;
         private final Table swappedTable;
+        private final boolean swappedLeafAliased;
         private Table materializedViewTable;
         private Identifier mvPrefix;
         private MaterializedViewInfo mvInfo;
@@ -180,6 +183,7 @@ public class MaterializedViewJoinQueryRewriter
             this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
             this.swappedPrefix = swappedLeaf.prefix;
             this.swappedTable = swappedLeaf.table;
+            this.swappedLeafAliased = swappedLeaf.aliased;
         }
 
         public QuerySpecification rewrite(QuerySpecification querySpecification, Relation joinRelation)
@@ -280,7 +284,7 @@ public class MaterializedViewJoinQueryRewriter
 
         private boolean isAliasedLeaf()
         {
-            return !swappedPrefix.equals(new Identifier(swappedTable.getName().toString()));
+            return swappedLeafAliased;
         }
 
         // --- Validation ---
