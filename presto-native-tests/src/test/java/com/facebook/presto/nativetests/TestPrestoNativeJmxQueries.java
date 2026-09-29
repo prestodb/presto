@@ -86,12 +86,35 @@ public class TestPrestoNativeJmxQueries
         assertTrue(uptimeSeconds >= 0);
     }
 
-    // Aggregation directly on a JMX table (e.g. SELECT count(node) FROM jmx.current."…") is not covered
-    // here: on native clusters the plan fragmenter puts the JMX scan into a system-partitioned stage,
-    // and SystemPartitioningHandle rejects source splits with UnsupportedOperationException. That is a
-    // pre-existing plan-scheduling limitation unrelated to this fix (before this PR JMX queries failed
-    // even earlier on native clusters, so it was never observable). Aggregation coverage on native JMX
-    // should be added once that limitation is resolved.
+    @Test
+    public void testJmxAggregationWithDistinct()
+    {
+        // DISTINCT is an aggregation: the planner emits a hash-partitioned shuffle between the source
+        // scan and the final aggregate, so the JMX table scan stays in a SOURCE_DISTRIBUTION fragment
+        // and does not collide with SystemPartitioningHandle's "source splits not supported" path.
+        // With the JmxSplitManager filter the JMX scan yields a single row (the coordinator), so DISTINCT
+        // returns exactly one row.
+        MaterializedResult result = computeActual(
+                "SELECT DISTINCT node FROM jmx.current.\"java.lang:type=Runtime\"");
+        assertEquals(result.getRowCount(), 1);
+    }
+
+    @Test
+    public void testJmxAggregationWithGroupBy()
+    {
+        // GROUP BY on `node` also forces a hash shuffle between the source scan and the aggregation
+        // stage, so scalar aggregation functions (count/max/min) work end-to-end on JMX in native mode.
+        // The coordinator-only split filter still produces one group.
+        MaterializedResult result = computeActual(
+                "SELECT node, count(uptime), max(uptime), min(uptime) " +
+                        "FROM jmx.current.\"java.lang:type=Runtime\" GROUP BY node");
+        assertEquals(result.getRowCount(), 1);
+        assertEquals((long) result.getMaterializedRows().get(0).getField(1), 1L);
+        long maxUptime = (long) result.getMaterializedRows().get(0).getField(2);
+        long minUptime = (long) result.getMaterializedRows().get(0).getField(3);
+        assertEquals(maxUptime, minUptime);
+        assertTrue(maxUptime >= 0);
+    }
 
     @Test
     public void testJmxJoinWithBaseTable()
