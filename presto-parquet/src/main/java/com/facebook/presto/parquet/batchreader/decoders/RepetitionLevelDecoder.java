@@ -14,7 +14,7 @@
 
 package com.facebook.presto.parquet.batchreader.decoders;
 
-import com.facebook.presto.parquet.batchreader.decoders.rle.BaseRLEBitPackedDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.GenericRLEDictionaryValuesDecoder;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.openjdk.jol.info.ClassLayout;
@@ -25,9 +25,9 @@ import java.io.InputStream;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class RepetitionLevelDecoder
-        extends BaseRLEBitPackedDecoder
+        extends GenericRLEDictionaryValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BaseRLEBitPackedDecoder.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GenericRLEDictionaryValuesDecoder.class).instanceSize();
 
     private int remaining;
     private int currentOffsetPackedBuffer;
@@ -53,29 +53,29 @@ public class RepetitionLevelDecoder
                 break;
             }
 
-            switch (mode) {
+            switch (getCurrentMode()) {
                 case RLE: {
-                    int rleValue = currentValue;
+                    int rleValue = getDecodedInt();
                     if (rleValue == 0) {
-                        int chunkSize = Math.min(remainingToCopy, currentCount);
+                        int chunkSize = Math.min(remainingToCopy, getCurrentCount());
                         for (int i = 0; i < chunkSize; i++) {
                             repetitionLevels.add(0);
                         }
-                        currentCount -= chunkSize;
+                        decrementCurrentCount(chunkSize);
                         remaining -= chunkSize;
                         remainingToCopy -= chunkSize;
                     }
                     else {
-                        remaining -= currentCount;
-                        for (int i = 0; i < currentCount; i++) {
+                        remaining -= getCurrentCount();
+                        for (int i = 0; i < getCurrentCount(); i++) {
                             repetitionLevels.add(rleValue);
                         }
-                        currentCount = 0;
+                        decrementCurrentCount(getCurrentCount());
                     }
                     break;
                 }
                 case PACKED: {
-                    final int[] localBuffer = currentBuffer;
+                    final int[] localBuffer = getDecodedInts();
                     do {
                         int rlValue = localBuffer[currentOffsetPackedBuffer];
                         currentOffsetPackedBuffer = currentOffsetPackedBuffer + 1;
@@ -86,11 +86,11 @@ public class RepetitionLevelDecoder
                         remaining--;
                     }
                     while (currentOffsetPackedBuffer < endOffsetPackedBuffer && remainingToCopy > 0);
-                    currentCount = endOffsetPackedBuffer - currentOffsetPackedBuffer;
+                    decrementCurrentCount(endOffsetPackedBuffer - currentOffsetPackedBuffer);
                     break;
                 }
                 default:
-                    throw new ParquetDecodingException("not a valid mode " + mode);
+                    throw new ParquetDecodingException("not a valid mode " + getCurrentMode());
             }
         }
         return batchSize - remainingToCopy;
@@ -99,19 +99,19 @@ public class RepetitionLevelDecoder
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(currentBuffer);
+        return INSTANCE_SIZE + sizeOf(getDecodedInts());
     }
 
     private boolean ensureBlockAvailable()
             throws IOException
     {
-        if (currentCount == 0) {
+        if (getCurrentCount() == 0) {
             if (!decode()) {
                 return false;
             }
-            currentCount = Math.min(remaining, currentCount);
+            decrementCurrentCount(Math.min(remaining, getCurrentCount()));
             currentOffsetPackedBuffer = 0;
-            endOffsetPackedBuffer = currentCount;
+            endOffsetPackedBuffer = getCurrentCount();
         }
         return true;
     }

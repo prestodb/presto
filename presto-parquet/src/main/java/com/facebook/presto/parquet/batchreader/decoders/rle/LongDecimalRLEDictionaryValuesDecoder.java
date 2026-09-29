@@ -27,7 +27,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.util.Objects.requireNonNull;
 
 public class LongDecimalRLEDictionaryValuesDecoder
-        extends BaseRLEBitPackedDecoder
+        extends GenericRLEDictionaryValuesDecoder
         implements LongDecimalValuesDecoder
 {
     private final BinaryRLEDictionaryValuesDecoder delegate;
