@@ -143,6 +143,7 @@ public class ReduceAggregationFunction
                 stateType,
                 true,
                 false,
+                true,
                 metadata,
                 accumulatorClass,
                 groupedAccumulatorClass,
