@@ -648,6 +648,11 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
     defaultValue = *icebergColumn->defaultValue;
   }
 
+  std::optional<std::string> writeDefaultValue;
+  if (icebergColumn->writeDefaultValue) {
+    writeDefaultValue = *icebergColumn->writeDefaultValue;
+  }
+
   return std::make_unique<velox::connector::hive::iceberg::IcebergColumnHandle>(
       icebergColumn->columnIdentity.name,
       toHiveColumnType(icebergColumn->columnType),
@@ -655,7 +660,9 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
       toParquetField(icebergColumn->columnIdentity),
       toRequiredSubfields(icebergColumn->requiredSubfields),
       defaultValue,
-      toIcebergFieldMetadata(icebergColumn->columnIdentity));
+      toIcebergFieldMetadata(icebergColumn->columnIdentity),
+      /*postProcessor=*/std::function<void(velox::VectorPtr&)>{},
+      /*writeDefaultValue=*/writeDefaultValue);
 }
 
 std::unique_ptr<velox::connector::ConnectorTableHandle>
@@ -815,7 +822,20 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       toVeloxIcebergPartitionSpec(
           icebergInsertTableHandle->partitionSpec, typeParser),
       std::optional(
-          toFileCompressionKind(icebergInsertTableHandle->compressionCodec)));
+          toFileCompressionKind(icebergInsertTableHandle->compressionCodec)),
+      /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
+      /*writeKind=*/
+      velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+          kData,
+      /*existingDeletionVectors=*/
+      std::unordered_map<
+          std::string,
+          velox::connector::hive::iceberg::IcebergInsertTableHandle::
+              ExistingDeletionVector>{},
+      /*fileNameGenerator=*/
+      std::make_shared<
+          const velox::connector::hive::iceberg::IcebergFileNameGenerator>(),
+      /*insertedColumns=*/icebergInsertTableHandle->insertedColumns);
 }
 
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
