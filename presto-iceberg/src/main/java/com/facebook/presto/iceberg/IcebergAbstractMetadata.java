@@ -510,6 +510,7 @@ public abstract class IcebergAbstractMetadata
                         .setPartitionColumnPredicate(partitionColumnPredicate.simplify())
                         .setPartitions(Optional.ofNullable(partitions.isEmpty() ? null : partitions))
                         .setTable(handle)
+                        .setFilterForFileSelectionOnly(handle.isFilterForFileSelectionOnly())
                         .build());
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }

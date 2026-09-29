@@ -176,7 +176,9 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
         toFilter(domain.second, exprConverter, typeParser);
   }
 
-  auto remainingFilter = exprConverter.toVeloxExpr(remainingPredicate);
+  auto remainingFilter = remainingPredicate
+      ? exprConverter.toVeloxExpr(remainingPredicate)
+      : nullptr;
   if (auto constant =
           std::dynamic_pointer_cast<const velox::core::ConstantTypedExpr>(
               remainingFilter)) {
@@ -711,9 +713,39 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
             icebergTableHandle->schemaName,
             icebergTableHandle->icebergTableName.tableName);
 
+  // rewrite_data_files sets filterForFileSelectionOnly=true to indicate that
+  // predicates in the layout were already consumed by the coordinator's split
+  // manager for file pruning. Do not forward them to Velox as row-level
+  // filters, or rows outside the predicate would be silently dropped and lost
+  // after the old file is retired.
+  //
+  // Rolling-upgrade note: old workers that do not recognise this field receive
+  // it as an absent JSON key, leaving filterForFileSelectionOnly as a null
+  // shared_ptr here. The null check below short-circuits to false, so old
+  // workers apply predicates as row-level filters — the same (broken) pre-fix
+  // behaviour for rewrite_data_files. Before this fix, rewrite_data_files with
+  // pushdown_filter_enabled always threw NOT_SUPPORTED, so no production data
+  // was ever processed via this path; a mixed deployment can only reach this
+  // code after the coordinator is upgraded. Operators should avoid running
+  // rewrite_data_files during a rolling upgrade of native workers.
+  protocol::TupleDomain<protocol::Subfield> effectiveDomain;
+  std::shared_ptr<protocol::RowExpression> effectiveRemaining;
+  bool filterForFileSelectionOnly = icebergLayout->filterForFileSelectionOnly &&
+      *icebergLayout->filterForFileSelectionOnly;
+  if (!filterForFileSelectionOnly) {
+    effectiveDomain = icebergLayout->domainPredicate;
+    effectiveRemaining = icebergLayout->remainingPredicate;
+  } else {
+    effectiveDomain.domains =
+        std::make_shared<protocol::Map<protocol::Subfield, protocol::Domain>>();
+    // effectiveRemaining stays default-constructed (null shared_ptr).
+    // toIcebergTableHandle accepts null remainingPredicate — see null guard
+    // above.
+  }
+
   return toIcebergTableHandle(
-      icebergLayout->domainPredicate,
-      icebergLayout->remainingPredicate,
+      effectiveDomain,
+      effectiveRemaining,
       tableName,
       icebergLayout->dataColumns,
       tableHandle,

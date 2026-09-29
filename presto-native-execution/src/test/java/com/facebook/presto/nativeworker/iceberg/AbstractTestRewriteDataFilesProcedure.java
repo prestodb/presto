@@ -257,6 +257,7 @@ public abstract class AbstractTestRewriteDataFilesProcedure
         String schemaName = getSession().getSchema().get();
         Session sessionWithFilterPushdown = pushdownFilterEnabled();
         try {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
             assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['c2'])");
 
             // create 1 files for each partition (c2 = 'foo' or 'bar')
@@ -266,25 +267,51 @@ public abstract class AbstractTestRewriteDataFilesProcedure
             //The number of data files is 2, and the number of delete files is 0
             validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
 
-            // Does not support rewriting files when native-only filter push down is enabled
-            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, schemaName),
-                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
-            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')", tableName, schemaName),
-                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
-            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName),
-                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
-
-            // select 1 files to rewrite
-            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 5);
-            //The number of data files is 2, and the number of delete files is 0
+            // With pushdown filter enabled, rewrite_data_files should succeed and preserve all rows.
+            // The filter is used only for file selection on the coordinator; Velox must not apply it
+            // as a row-level filter or rows outside the predicate would be silently lost.
+            assertUpdate(sessionWithFilterPushdown, format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 10);
             validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
-
             assertQuery("select * from " + tableName,
                     "values(1, 'foo'), (1, 'bar'), " +
                             "(2, 'foo'), (2, 'bar'), " +
                             "(3, 'foo'), (3, 'bar'), " +
                             "(4, 'foo'), (4, 'bar'), " +
                             "(5, 'foo'), (5, 'bar')");
+
+            // Partition column filter with pushdown enabled: only the matching partition file is rewritten,
+            // all rows in that partition must be preserved.
+            assertUpdate(sessionWithFilterPushdown, format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 5);
+            validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
+            assertQuery("select * from " + tableName,
+                    "values(1, 'foo'), (1, 'bar'), " +
+                            "(2, 'foo'), (2, 'bar'), " +
+                            "(3, 'foo'), (3, 'bar'), " +
+                            "(4, 'foo'), (4, 'bar'), " +
+                            "(5, 'foo'), (5, 'bar')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesNoFilterWithPushdownEnabled()
+    {
+        String tableName = "example_no_filter_pushdown_table";
+        String schemaName = getSession().getSchema().get();
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        try {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar)");
+
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'bar')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(3, 'foo'), (4, 'bar')", 2);
+
+            // No filter clause with pushdown enabled: rewrite should succeed and preserve all rows.
+            assertUpdate(sessionWithFilterPushdown, format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 4);
+
+            assertQuery("select * from " + tableName, "values(1, 'foo'), (2, 'bar'), (3, 'foo'), (4, 'bar')");
         }
         finally {
             dropTable(tableName);

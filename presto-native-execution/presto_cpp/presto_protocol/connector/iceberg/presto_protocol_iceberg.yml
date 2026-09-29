@@ -65,6 +65,7 @@ AbstractClasses:
 UpdateFields:
   IcebergTableLayoutHandle:
     std::shared_ptr<RowExpression>: remainingPredicate
+    std::shared_ptr<bool>: filterForFileSelectionOnly
   IcebergTypeAttributes:
     bool: required
   IcebergInsertTableHandle:

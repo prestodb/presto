@@ -15,4 +15,17 @@ package com.facebook.presto.spi;
 
 public interface ConnectorTableHandle
 {
+    /**
+     * Returns a copy of this handle marked so that filters derived from it
+     * during planning are used only for coordinator-side file/split selection
+     * and must NOT be applied as row-level filters by workers. The default
+     * no-op is safe for connectors that do not support this distinction.
+     *
+     * @return a handle with the file-selection-only flag set, or {@code this}
+     *         if the flag is already set or the connector does not support it
+     */
+    default ConnectorTableHandle withFilterForFileSelectionOnly()
+    {
+        return this;
+    }
 }

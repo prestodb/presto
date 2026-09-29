@@ -272,32 +272,29 @@ public class TestRewriteDataFilesProcedure
     @Test
     public void testRewriteDataFilesWithFilterPushdownEnabled()
     {
+        // The Java Iceberg connector does not support pushdown_filter_enabled. Workers throw
+        // NOT_SUPPORTED when they actually read a data file with pushdown enabled.
+        // The coordinator-level guard was removed so that native (Prestissimo) workers can
+        // proceed; those tests live in AbstractTestRewriteDataFilesProcedure.
         String tableName = "example_partition_filter_pushdown_table";
-        String schemaName = getSession().getSchema().get();
         Session sessionWithFilterPushdown = pushdownFilterEnabled();
         try {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
             assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['c2'])");
 
-            // create 1 files for each partition (c2 = 'foo' or 'bar')
             assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'foo'), (3, 'foo'), (4, 'foo'), (5, 'foo')", 5);
             assertUpdate("INSERT INTO " + tableName + " values(1, 'bar'), (2, 'bar'), (3, 'bar'), (4, 'bar'), (5, 'bar')", 5);
 
-            // Does not support rewriting files when native-only filter push down is enabled
-            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, schemaName),
-                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
-            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')", tableName, schemaName),
-                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
-            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName),
-                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
+            // Java workers throw NOT_SUPPORTED when pushdown is enabled and files are actually read.
+            assertQueryFails(sessionWithFilterPushdown,
+                    format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3', options => map(array['rewrite-all'], array['true']))", tableName, TEST_SCHEMA),
+                    "Filter Pushdown not supported for Iceberg Java Connector");
 
-            // select 1 files to rewrite
-            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 5);
-
+            // Without pushdown, partition-filtered rewrite must preserve all rows in the partition.
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''', options => map(array['rewrite-all'], array['true']))", tableName, TEST_SCHEMA), 5);
             Table table = loadTable(tableName);
-            //The number of data files is 2，and the number of delete files is 0
             assertHasDataFiles(table.currentSnapshot(), 2);
             assertHasDeleteFiles(table.currentSnapshot(), 0);
-
             assertQuery("select * from " + tableName,
                     "values(1, 'foo'), (1, 'bar'), " +
                             "(2, 'foo'), (2, 'bar'), " +

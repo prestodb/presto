@@ -1418,6 +1418,13 @@ void to_json(json& j, const IcebergTableLayoutHandle& p) {
       "IcebergTableLayoutHandle",
       "IcebergTableHandle",
       "table");
+  to_json_key(
+      j,
+      "filterForFileSelectionOnly",
+      p.filterForFileSelectionOnly,
+      "IcebergTableLayoutHandle",
+      "std::shared_ptr<bool>",
+      "filterForFileSelectionOnly");
 }
 
 void from_json(const json& j, IcebergTableLayoutHandle& p) {
@@ -1485,6 +1492,13 @@ void from_json(const json& j, IcebergTableLayoutHandle& p) {
       "IcebergTableLayoutHandle",
       "IcebergTableHandle",
       "table");
+  from_json_key(
+      j,
+      "filterForFileSelectionOnly",
+      p.filterForFileSelectionOnly,
+      "IcebergTableLayoutHandle",
+      "std::shared_ptr<bool>",
+      "filterForFileSelectionOnly");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {

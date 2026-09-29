@@ -42,6 +42,7 @@ public class IcebergTableLayoutHandle
     private final Map<String, IcebergColumnHandle> predicateColumns;
     private final Optional<Set<IcebergColumnHandle>> requestedColumns;
     private final IcebergTableHandle table;
+    private final boolean filterForFileSelectionOnly;
 
     @JsonCreator
     public IcebergTableLayoutHandle(
@@ -53,7 +54,8 @@ public class IcebergTableLayoutHandle
             @JsonProperty("requestedColumns") Optional<Set<IcebergColumnHandle>> requestedColumns,
             @JsonProperty("pushdownFilterEnabled") boolean pushdownFilterEnabled,
             @JsonProperty("partitionColumnPredicate") TupleDomain<ColumnHandle> partitionColumnPredicate,
-            @JsonProperty("table") IcebergTableHandle table)
+            @JsonProperty("table") IcebergTableHandle table,
+            @JsonProperty("filterForFileSelectionOnly") boolean filterForFileSelectionOnly)
     {
         this(
                 partitionColumns.stream().map(BaseHiveColumnHandle.class::cast).collect(toList()),
@@ -65,7 +67,8 @@ public class IcebergTableLayoutHandle
                 pushdownFilterEnabled,
                 partitionColumnPredicate,
                 Optional.empty(),
-                table);
+                table,
+                filterForFileSelectionOnly);
     }
 
     public IcebergTableLayoutHandle(
@@ -78,7 +81,8 @@ public class IcebergTableLayoutHandle
             boolean pushdownFilterEnabled,
             TupleDomain<ColumnHandle> partitionColumnPredicate,
             Optional<PartitionSet> partitions,
-            IcebergTableHandle table)
+            IcebergTableHandle table,
+            boolean filterForFileSelectionOnly)
     {
         super(
                 partitionColumns,
@@ -92,6 +96,7 @@ public class IcebergTableLayoutHandle
         this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.table = requireNonNull(table, "table is null");
+        this.filterForFileSelectionOnly = filterForFileSelectionOnly;
     }
 
     @JsonProperty
@@ -116,6 +121,12 @@ public class IcebergTableLayoutHandle
     public IcebergTableHandle getTable()
     {
         return table;
+    }
+
+    @JsonProperty
+    public boolean isFilterForFileSelectionOnly()
+    {
+        return filterForFileSelectionOnly;
     }
 
     public TupleDomain<IcebergColumnHandle> getValidPredicate()
@@ -146,13 +157,14 @@ public class IcebergTableLayoutHandle
                 Objects.equals(requestedColumns, that.requestedColumns) &&
                 Objects.equals(isPushdownFilterEnabled(), that.isPushdownFilterEnabled()) &&
                 Objects.equals(getPartitionColumnPredicate(), that.getPartitionColumnPredicate()) &&
-                Objects.equals(table, that.table);
+                Objects.equals(table, that.table) &&
+                filterForFileSelectionOnly == that.filterForFileSelectionOnly;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getDomainPredicate(), getRemainingPredicate(), predicateColumns, requestedColumns, isPushdownFilterEnabled(), getPartitionColumnPredicate(), table);
+        return Objects.hash(getDomainPredicate(), getRemainingPredicate(), predicateColumns, requestedColumns, isPushdownFilterEnabled(), getPartitionColumnPredicate(), table, filterForFileSelectionOnly);
     }
 
     @Override
@@ -173,6 +185,7 @@ public class IcebergTableLayoutHandle
         private TupleDomain<ColumnHandle> partitionColumnPredicate;
         private Optional<PartitionSet> partitions;
         private IcebergTableHandle table;
+        private boolean filterForFileSelectionOnly;
 
         public Builder setPartitionColumns(List<BaseHiveColumnHandle> partitionColumns)
         {
@@ -234,6 +247,12 @@ public class IcebergTableLayoutHandle
             return this;
         }
 
+        public Builder setFilterForFileSelectionOnly(boolean filterForFileSelectionOnly)
+        {
+            this.filterForFileSelectionOnly = filterForFileSelectionOnly;
+            return this;
+        }
+
         public IcebergTableLayoutHandle build()
         {
             return new IcebergTableLayoutHandle(
@@ -246,7 +265,8 @@ public class IcebergTableLayoutHandle
                     pushdownFilterEnabled,
                     partitionColumnPredicate,
                     partitions,
-                    table);
+                    table,
+                    filterForFileSelectionOnly);
         }
     }
 }

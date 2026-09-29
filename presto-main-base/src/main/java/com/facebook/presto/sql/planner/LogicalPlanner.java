@@ -25,6 +25,7 @@ import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.PrestoException;
@@ -290,6 +291,15 @@ public class LogicalPlanner
                 .map(TableDataRewriteAnalysisContext::getTargetQuery)
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "The query for target table does not exist"));
         RelationPlan plan = createRelationPlan(analysis, querySpecification, new SqlPlannerContext(0));
+        // Mark every TableScanNode so that native workers skip row-level filtering.
+        // The predicates embedded in the layout by IcebergFilterPushdown are used by the
+        // coordinator's split manager for Iceberg file selection only; applying them as
+        // row-level filters would silently drop rows and cause data loss after the old
+        // file is retired.
+        plan = new RelationPlan(
+                markTableScansForFileSelectionOnly(plan.getRoot()),
+                plan.getScope(),
+                plan.getFieldMappings());
 
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, targetTable).getMetadata();
         List<String> columnNames = tableMetadata.getColumns().stream()
@@ -389,6 +399,52 @@ public class LogicalPlanner
                 Optional.empty(),
                 Optional.empty());
         return new RelationPlan(commitNode, analysis.getScope(statement), commitNode.getOutputVariables());
+    }
+
+    private static PlanNode markTableScansForFileSelectionOnly(PlanNode node)
+    {
+        if (node instanceof TableScanNode) {
+            TableScanNode scan = (TableScanNode) node;
+            TableHandle handle = scan.getTable();
+            ConnectorTableHandle newConnectorHandle = handle.getConnectorHandle().withFilterForFileSelectionOnly();
+            if (newConnectorHandle == handle.getConnectorHandle()) {
+                return scan;
+            }
+            // Layouts are always absent at this point (injected only by connector optimisers
+            // that run after LogicalPlanner.plan() returns). Pass empty explicitly so that if
+            // a stale pre-populated layout ever leaks through, it cannot carry
+            // filterForFileSelectionOnly=false to workers.
+            TableHandle newHandle = new TableHandle(
+                    handle.getConnectorId(),
+                    newConnectorHandle,
+                    handle.getTransaction(),
+                    Optional.empty());
+            return new TableScanNode(
+                    scan.getSourceLocation(),
+                    scan.getId(),
+                    newHandle,
+                    scan.getOutputVariables(),
+                    scan.getAssignments(),
+                    scan.getTableConstraints(),
+                    scan.getCurrentConstraint(),
+                    scan.getEnforcedConstraint(),
+                    scan.getCteMaterializationInfo());
+        }
+        List<PlanNode> sources = node.getSources();
+        List<PlanNode> newChildren = sources.stream()
+                .map(LogicalPlanner::markTableScansForFileSelectionOnly)
+                .collect(toImmutableList());
+        boolean anyChanged = false;
+        for (int i = 0; i < newChildren.size(); i++) {
+            if (newChildren.get(i) != sources.get(i)) {
+                anyChanged = true;
+                break;
+            }
+        }
+        if (!anyChanged) {
+            return node;
+        }
+        return node.replaceChildren(newChildren);
     }
 
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)

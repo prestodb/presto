@@ -165,6 +165,13 @@ public class IcebergFilterPushdown
                     partitionColumns,
                     runtimeStats);
 
+            boolean filterForFileSelectionOnly =
+                    ((IcebergTableHandle) tableHandle).isFilterForFileSelectionOnly() ||
+                    currentLayoutHandle
+                            .map(h -> (IcebergTableLayoutHandle) h)
+                            .map(IcebergTableLayoutHandle::isFilterForFileSelectionOnly)
+                            .orElse(false);
+
             return new ConnectorPushdownFilterResult(
                     metadata.getTableLayout(
                             session,
@@ -179,6 +186,7 @@ public class IcebergFilterPushdown
                                     .setPartitionColumnPredicate(partitionColumnPredicate)
                                     .setPartitions(Optional.ofNullable(partitions.isEmpty() ? null : partitions))
                                     .setTable((IcebergTableHandle) tableHandle)
+                                    .setFilterForFileSelectionOnly(filterForFileSelectionOnly)
                                     .build()),
                     remainingExpressions.getDynamicFilterExpression());
         }

@@ -72,6 +72,12 @@ public class IcebergPlanOptimizerProvider
             logicalPlanOptimizerBuilder.add(new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, tableProperties));
         }
 
+        // IcebergEqualityDeleteAsJoin must run AFTER IcebergFilterPushdown in the logical phase.
+        // IcebergFilterPushdown attaches a layout with filterForFileSelectionOnly=true (for rewrite_data_files).
+        // IcebergEqualityDeleteAsJoin then replaces the connector handle (resetting the flag to false)
+        // but preserves the layout. The physical IcebergFilterPushdown recovers the flag from the
+        // preserved layout. Reversing this order would cause the physical pass to see flag=false on
+        // both the handle and the (absent) layout, emitting a layout without the guard — data loss.
         logicalPlanOptimizerBuilder.add(new IcebergEqualityDeleteAsJoin(functionResolution, transactionManager, typeManager));
 
         this.planOptimizers = planOptimizerBuilder.build();

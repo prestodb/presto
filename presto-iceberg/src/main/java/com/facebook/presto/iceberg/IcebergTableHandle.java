@@ -15,8 +15,10 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.BaseHiveTableHandle;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
@@ -42,6 +44,9 @@ public class IcebergTableHandle
     private final List<SortField> sortOrder;
     private final List<IcebergColumnHandle> updatedColumns;
     private final Optional<SchemaTableName> materializedViewName;
+    // Coordinator-only; not serialized, not in equals/hashCode.
+    // Workers must not apply derived predicates as row-level filters.
+    private final boolean filterForFileSelectionOnly;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -57,6 +62,27 @@ public class IcebergTableHandle
             @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns,
             @JsonProperty("materializedViewName") Optional<SchemaTableName> materializedViewName)
     {
+        this(schemaName, icebergTableName, snapshotSpecified, outputPath, storageProperties,
+                tableSchemaJson, partitionFieldIds, equalityFieldIds, sortOrder, updatedColumns,
+                materializedViewName, false);
+    }
+
+    // Must mirror every serialized field from the public constructor above, in the
+    // same order, with filterForFileSelectionOnly appended. Keep both in sync.
+    private IcebergTableHandle(
+            String schemaName,
+            IcebergTableName icebergTableName,
+            boolean snapshotSpecified,
+            Optional<String> outputPath,
+            Optional<Map<String, String>> storageProperties,
+            Optional<String> tableSchemaJson,
+            Optional<Set<Integer>> partitionFieldIds,
+            Optional<Set<Integer>> equalityFieldIds,
+            List<SortField> sortOrder,
+            List<IcebergColumnHandle> updatedColumns,
+            Optional<SchemaTableName> materializedViewName,
+            boolean filterForFileSelectionOnly)
+    {
         super(schemaName, icebergTableName.getTableName());
 
         this.icebergTableName = requireNonNull(icebergTableName, "tableName is null");
@@ -69,6 +95,7 @@ public class IcebergTableHandle
         this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
         this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
         this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
+        this.filterForFileSelectionOnly = filterForFileSelectionOnly;
     }
 
     @JsonProperty
@@ -131,6 +158,37 @@ public class IcebergTableHandle
         return materializedViewName;
     }
 
+    // @JsonIgnore is intentional: filterForFileSelectionOnly is coordinator-only and must NOT be
+    // serialized into the IcebergTableHandle JSON. Workers consult IcebergTableLayoutHandle
+    // (which IS serialized via @JsonProperty) — reading this flag from the table handle on a
+    // worker would always return false (the @JsonCreator default), producing incorrect behavior.
+    @JsonIgnore
+    public boolean isFilterForFileSelectionOnly()
+    {
+        return filterForFileSelectionOnly;
+    }
+
+    @Override
+    public ConnectorTableHandle withFilterForFileSelectionOnly()
+    {
+        if (filterForFileSelectionOnly) {
+            return this;
+        }
+        return new IcebergTableHandle(
+                getSchemaName(),
+                icebergTableName,
+                snapshotSpecified,
+                outputPath,
+                storageProperties,
+                tableSchemaJson,
+                partitionFieldIds,
+                equalityFieldIds,
+                sortOrder,
+                updatedColumns,
+                materializedViewName,
+                true);
+    }
+
     public IcebergTableHandle withUpdatedColumns(List<IcebergColumnHandle> updatedColumns)
     {
         return new IcebergTableHandle(
@@ -144,7 +202,8 @@ public class IcebergTableHandle
                 equalityFieldIds,
                 sortOrder,
                 updatedColumns,
-                materializedViewName);
+                materializedViewName,
+                filterForFileSelectionOnly);
     }
 
     @Override
