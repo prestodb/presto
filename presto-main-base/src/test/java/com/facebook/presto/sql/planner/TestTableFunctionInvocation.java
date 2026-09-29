@@ -261,12 +261,11 @@ public class TestTableFunctionInvocation
                 output(
                         node(TableFunctionProcessorNode.class,
                                 project(
-                                        project(
-                                                rowNumber(
-                                                        builder -> builder.partitionBy(ImmutableList.of()),
-                                                        project(
-                                                                ImmutableMap.of("c", expression("INTEGER'2'")),
-                                                                values(1))
-                                                ).withAlias("input_2_row_number", new RowNumberSymbolMatcher()))))));
+                                        rowNumber(
+                                                builder -> builder.partitionBy(ImmutableList.of()),
+                                                project(
+                                                        ImmutableMap.of("c", expression("INTEGER'2'")),
+                                                        values(1))
+                                        ).withAlias("input_2_row_number", new RowNumberSymbolMatcher())))));
     }
 }
