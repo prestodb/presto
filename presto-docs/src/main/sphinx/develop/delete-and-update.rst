@@ -168,6 +168,25 @@ A connector implementing ``UPDATE`` must specify three ``ConnectorMetadata`` met
   handle contains a flag identifying the table handle as a table handle for a ``UPDATE`` operation.  For some connectors
   that support partitioning, the table handle will reflect that partitioning.
 
+  Additionally, a four-argument overload of ``beginUpdate()`` is available for connectors that need access to the
+  ``UPDATE`` ``WHERE`` predicate:
+
+  ::
+
+    ConnectorTableHandle beginUpdate(
+         ConnectorSession session,
+         ConnectorTableHandle tableHandle,
+         List<ColumnHandle> updatedColumns,
+         Optional<RowExpression> updateScope)
+
+  The ``updateScope`` parameter represents the ``UPDATE`` ``WHERE`` predicate captured at analysis time.
+  It is ``Optional.empty()`` when the ``UPDATE`` statement does not have a ``WHERE`` clause. Connectors that
+  need to restrict the scope of conflict detection may use ``updateScope`` for this purpose.
+
+  Connectors may implement either ``beginUpdate()`` overload depending on their requirements. Connectors that do not
+  need the ``updateScope`` can continue to implement the three-argument method. If a connector implements both
+  overloads, the four-argument implementation takes precedence.
+
 * ``finishUpdate``::
 
       void finishUpdate(
