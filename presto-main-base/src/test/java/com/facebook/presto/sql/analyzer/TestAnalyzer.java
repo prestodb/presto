@@ -2700,6 +2700,15 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testRefreshMaterializedViewRejectsInvalidPredicateNestedInOr()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a + 1 = 5 OR a = 2");
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a = a OR a = 2");
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a IN (a) OR a = 2");
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv1 WHERE a = 1 OR (a = 2 AND a + 1 = 5)");
+    }
+
+    @Test
     public void testCreateMaterializedViewRejectsNonDeterministicFunction()
     {
         assertFails(NOT_SUPPORTED, "CREATE MATERIALIZED VIEW s1.mv_nd AS SELECT a, rand() r FROM t1");
