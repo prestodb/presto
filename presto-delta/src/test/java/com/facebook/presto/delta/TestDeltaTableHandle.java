@@ -73,7 +73,8 @@ public class TestDeltaTableHandle
                 "table",
                 "s3:/bucket/table/location",
                 Optional.of(1L),
-                columns);
+                columns,
+                DeltaTable.COLUMN_MAPPING_MODE_NONE);
 
         DeltaColumnHandle c1ColumnHandle = new DeltaColumnHandle(
                 columns.get(0).getId(),
@@ -105,7 +106,8 @@ public class TestDeltaTableHandle
                 "table",
                 "s3:/bucket/table/location",
                 Optional.of(1L),
-                columns);
+                columns,
+                DeltaTable.COLUMN_MAPPING_MODE_NONE);
 
         DeltaColumnHandle c1ColumnHandle = new DeltaColumnHandle(
                 columns.get(0).getId(),

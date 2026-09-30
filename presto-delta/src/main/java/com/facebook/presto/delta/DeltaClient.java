@@ -95,7 +95,29 @@ public class DeltaClient
                 schemaTableName.getTableName(),
                 tableLocation,
                 Optional.of(snapshot.getVersion()), // lock the snapshot version
-                getSchema(config, schemaTableName, deltaEngine.get(), snapshot)));
+                getSchema(config, schemaTableName, deltaEngine.get(), snapshot),
+                getColumnMappingMode(snapshot)));
+    }
+
+    /**
+     * Reads the {@code delta.columnMapping.mode} table property from the
+     * snapshot's metadata. Falls back to {@link DeltaTable#COLUMN_MAPPING_MODE_NONE}
+     * when the property is absent (older tables, or column-mapping never
+     * enabled). The Delta protocol uses lower-case strings, so we normalize
+     * to lower case for stable equality on the wire.
+     */
+    private static String getColumnMappingMode(Snapshot snapshot)
+    {
+        if (!(snapshot instanceof SnapshotImpl)) {
+            return DeltaTable.COLUMN_MAPPING_MODE_NONE;
+        }
+        Map<String, String> configuration =
+                ((SnapshotImpl) snapshot).getMetadata().getConfiguration();
+        String mode = configuration.get("delta.columnMapping.mode");
+        if (mode == null || mode.isEmpty()) {
+            return DeltaTable.COLUMN_MAPPING_MODE_NONE;
+        }
+        return mode.toLowerCase(US);
     }
 
     private Snapshot getSnapshot(

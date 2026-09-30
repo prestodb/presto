@@ -43,6 +43,13 @@ void to_json(json& j, const DeltaSplit& p) {
       "DeltaSplit",
       "Map<String, String>",
       "partitionValues");
+  to_json_key(
+      j,
+      "columnMappingMode",
+      p.columnMappingMode,
+      "DeltaSplit",
+      "String",
+      "columnMappingMode");
 }
 
 void from_json(const json& j, DeltaSplit& p) {
@@ -71,5 +78,12 @@ void from_json(const json& j, DeltaSplit& p) {
       "DeltaSplit",
       "Map<String, String>",
       "partitionValues");
+  from_json_key(
+      j,
+      "columnMappingMode",
+      p.columnMappingMode,
+      "DeltaSplit",
+      "String",
+      "columnMappingMode");
 }
 } // namespace facebook::presto::protocol::delta
