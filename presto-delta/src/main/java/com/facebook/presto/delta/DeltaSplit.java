@@ -42,6 +42,7 @@ public class DeltaSplit
     private final long length;
     private final long fileSize;
     private final Map<String, String> partitionValues;
+    private final String columnMappingMode;
     private final NodeSelectionStrategy nodeSelectionStrategy;
 
     @JsonCreator
@@ -55,6 +56,7 @@ public class DeltaSplit
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("partitionValues") Map<String, String> partitionValues,
+            @JsonProperty("columnMappingMode") String columnMappingMode,
             @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy)
     {
         checkArgument(start >= 0, "start must be non-negative");
@@ -70,6 +72,11 @@ public class DeltaSplit
         this.length = length;
         this.fileSize = fileSize;
         this.partitionValues = ImmutableMap.copyOf(requireNonNull(partitionValues, "partitionValues id is null"));
+        // Empty and null default to "none" so older serialized splits and
+        // callers that haven't been updated still round-trip cleanly.
+        this.columnMappingMode = columnMappingMode == null || columnMappingMode.isEmpty()
+                ? DeltaTable.COLUMN_MAPPING_MODE_NONE
+                : columnMappingMode;
         this.nodeSelectionStrategy = nodeSelectionStrategy;
     }
 
@@ -125,6 +132,19 @@ public class DeltaSplit
     public Map<String, String> getPartitionValues()
     {
         return partitionValues;
+    }
+
+    /**
+     * Source table's {@code delta.columnMapping.mode} value
+     * ({@code "none"}, {@code "name"}, or {@code "id"}). Forwarded to
+     * the native worker via the Delta split protocol so it can enforce
+     * mode-specific read requirements. Defaults to {@code "none"} when
+     * the source table has no column-mapping property.
+     */
+    @JsonProperty
+    public String getColumnMappingMode()
+    {
+        return columnMappingMode;
     }
 
     @Override
