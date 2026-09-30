@@ -86,6 +86,7 @@ struct DeltaSplit : public ConnectorSplit {
   int64_t length = {};
   int64_t fileSize = {};
   Map<String, String> partitionValues = {};
+  String columnMappingMode = {};
 
   DeltaSplit() noexcept;
 };
@@ -99,6 +100,7 @@ struct DeltaTable {
   String tableLocation = {};
   std::shared_ptr<Long> snapshotId = {};
   List<DeltaColumn> columns = {};
+  String columnMappingMode = {};
 };
 void to_json(json& j, const DeltaTable& p);
 void from_json(const json& j, DeltaTable& p);

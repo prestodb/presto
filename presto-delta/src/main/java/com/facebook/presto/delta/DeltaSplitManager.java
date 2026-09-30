@@ -104,6 +104,7 @@ public class DeltaSplitManager
                         addFileStatus.getSize() /* split length - default is read the entire file in one split */,
                         addFileStatus.getSize(),
                         removeNullPartitionValues(InternalScanFileUtils.getPartitionValues(row)),
+                        deltaTable.getColumnMappingMode(),
                         getNodeSelectionStrategy(session)));
                 currentSplitCount++;
             }

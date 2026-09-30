@@ -165,6 +165,18 @@ DeltaPrestoToVeloxConnector::toVeloxSplit(
   // Delta Lake uses Parquet by default
   auto fileFormat = velox::dwio::common::FileFormat::PARQUET;
 
+  // Translate the source table's column-mapping mode from the wire string
+  // to the Velox enum. Empty on older splits or splits from a coordinator
+  // that has not yet been updated to send the field, in which case we
+  // default to kNone (the pre-column-mapping behavior).
+  auto columnMappingMode =
+      velox::connector::hive::delta::DeltaColumnMappingMode::kNone;
+  if (!deltaSplit->columnMappingMode.empty()) {
+    columnMappingMode =
+        velox::connector::hive::delta::deltaColumnMappingModeFromString(
+            deltaSplit->columnMappingMode);
+  }
+
   return std::make_unique<velox::connector::hive::delta::HiveDeltaSplit>(
       catalogId,
       fullFilePath,
@@ -176,7 +188,10 @@ DeltaPrestoToVeloxConnector::toVeloxSplit(
       customSplitInfo,
       nullptr,
       splitContext->cacheable,
-      infoColumns);
+      infoColumns,
+      std::nullopt,
+      /*hasDeletionVector=*/false,
+      columnMappingMode);
 }
 
 std::unique_ptr<velox::connector::ColumnHandle>
