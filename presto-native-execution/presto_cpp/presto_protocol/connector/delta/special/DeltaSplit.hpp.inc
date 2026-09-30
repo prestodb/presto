@@ -23,6 +23,7 @@ struct DeltaSplit : public ConnectorSplit {
   int64_t length = {};
   int64_t fileSize = {};
   Map<String, String> partitionValues = {};
+  String columnMappingMode = {};
 
   DeltaSplit() noexcept;
 };
