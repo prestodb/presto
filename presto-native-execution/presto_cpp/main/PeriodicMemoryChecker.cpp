@@ -13,6 +13,9 @@
  */
 
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
+
+#include <cstdint>
+#include <utility>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -26,6 +29,10 @@ PeriodicMemoryChecker::PeriodicMemoryChecker(const Config& config)
     : config_(config) {
   if (config_.systemMemPushbackEnabled) {
     VELOX_CHECK_GT(config_.systemMemLimitBytes, 0);
+    VELOX_CHECK_GT(
+        config_.systemMemLimitBytes,
+        config_.systemMemShrinkBytes,
+        "systemMemShrinkBytes must be less than systemMemLimitBytes");
   }
   if (config_.mallocMemHeapDumpEnabled) {
     VELOX_CHECK(
@@ -66,38 +73,70 @@ void PeriodicMemoryChecker::start() {
         << " seconds";
   }
 
-  VELOX_CHECK_NULL(scheduler_, "start() called more than once");
-  scheduler_ = std::make_shared<folly::FunctionScheduler>();
-  scheduler_->setThreadName("MemoryCheckerThread");
-  scheduler_->addFunction(
-      [&]() {
-        loadSystemMemoryUsage();
-        periodicCb();
-        if (config_.mallocMemHeapDumpEnabled) {
-          maybeDumpHeap();
-        }
-        if (config_.systemMemPushbackEnabled &&
-            systemUsedMemoryBytes() > config_.systemMemLimitBytes) {
-          pushbackMemory();
+  VELOX_CHECK_NULL(memoryCheckScheduler_, "start() called more than once");
+  memoryCheckScheduler_ = std::make_unique<folly::FunctionScheduler>();
+  memoryCheckScheduler_->setThreadName("MemoryCheckerThread");
+  memoryCheckScheduler_->addFunction(
+      [self = this]() {
+        // Exceptions are caught and logged by FunctionScheduler itself; a
+        // throwing tick must not take down the sampling thread.
+        self->refreshSystemMemoryUsage();
+        self->periodicCb();
+        // TODO: Move heap dump off the sampling thread and make it async so a
+        // slow dump cannot delay usage refresh.
+        if (self->config_.mallocMemHeapDumpEnabled) {
+          self->maybeDumpHeap();
         }
       },
       std::chrono::milliseconds(config_.memoryCheckerIntervalMs),
       "periodic-sys-mem-check",
       std::chrono::seconds(0));
-  scheduler_->start();
+
+  if (config_.systemMemPushbackEnabled) {
+    memoryPushbackScheduler_ = std::make_unique<folly::FunctionScheduler>();
+    memoryPushbackScheduler_->setThreadName("MemoryPushback");
+    memoryPushbackScheduler_->addFunction(
+        [self = this]() {
+          // Exceptions are caught and logged by FunctionScheduler itself; a
+          // throwing tick must not take down the pushback thread.
+          if (std::cmp_greater(
+                  self->systemUsedMemoryBytes(),
+                  self->config_.systemMemLimitBytes)) {
+            self->pushbackMemory();
+          }
+        },
+        std::chrono::milliseconds(config_.memoryCheckerIntervalMs),
+        "periodic-memory-pushback",
+        std::chrono::seconds(0));
+  }
+
+  memoryCheckScheduler_->start();
+  if (memoryPushbackScheduler_ != nullptr) {
+    memoryPushbackScheduler_->start();
+  }
 }
 
 void PeriodicMemoryChecker::stop() {
-  VELOX_CHECK_NOT_NULL(scheduler_);
-  scheduler_->shutdown();
-  scheduler_.reset();
+  VELOX_CHECK_NOT_NULL(memoryCheckScheduler_);
+  if (memoryPushbackScheduler_ != nullptr) {
+    memoryPushbackScheduler_->shutdown();
+    memoryPushbackScheduler_.reset();
+  }
+  memoryCheckScheduler_->shutdown();
+  memoryCheckScheduler_.reset();
 }
 
-int64_t PeriodicMemoryChecker::systemUsedMemoryBytes(bool fetchFresh) {
+int64_t PeriodicMemoryChecker::systemUsedMemoryBytes(const bool fetchFresh) {
   if (fetchFresh) {
-    loadSystemMemoryUsage();
+    return refreshSystemMemoryUsage();
   }
-  return cachedSystemUsedMemoryBytes_;
+  return cachedSystemUsedMemoryBytes_.load(std::memory_order_relaxed);
+}
+
+int64_t PeriodicMemoryChecker::refreshSystemMemoryUsage() {
+  std::lock_guard<std::mutex> lock{memoryUsageRefreshMutex_};
+  refreshSystemMemoryUsageLocked();
+  return cachedSystemUsedMemoryBytes_.load(std::memory_order_relaxed);
 }
 
 std::string PeriodicMemoryChecker::createHeapDumpFilePath() const {
@@ -165,17 +204,21 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
 }
 
 void PeriodicMemoryChecker::pushbackMemory() {
-  RECORD_METRIC_VALUE(kCounterMemoryPushbackCount);
-  const uint64_t currentMemBytes = systemUsedMemoryBytes();
   VELOX_CHECK(config_.systemMemPushbackEnabled);
+  const int64_t currentMemBytes = systemUsedMemoryBytes(/*fetchFresh=*/true);
+  if (!std::cmp_greater(currentMemBytes, config_.systemMemLimitBytes)) {
+    return;
+  }
+  const uint64_t targetMemBytes =
+      config_.systemMemLimitBytes - config_.systemMemShrinkBytes;
+  VELOX_CHECK_GT(static_cast<uint64_t>(currentMemBytes), targetMemBytes);
+  const uint64_t bytesToShrink =
+      static_cast<uint64_t>(currentMemBytes) - targetMemBytes;
+  VELOX_CHECK_GT(bytesToShrink, 0);
+  RECORD_METRIC_VALUE(kCounterMemoryPushbackCount);
   LOG(WARNING) << "System used memory " << velox::succinctBytes(currentMemBytes)
                << " exceeded limit: "
                << velox::succinctBytes(config_.systemMemLimitBytes);
-  const uint64_t targetMemBytes =
-      config_.systemMemLimitBytes - config_.systemMemShrinkBytes;
-  VELOX_CHECK_GT(currentMemBytes, targetMemBytes);
-  const uint64_t bytesToShrink = currentMemBytes - targetMemBytes;
-  VELOX_CHECK_GT(bytesToShrink, 0);
 
   uint64_t latencyUs{0};
   uint64_t freedBytes{0};
