@@ -21,10 +21,13 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
 import static com.facebook.presto.server.testing.TestingPrestoServer.updateConnectorIdAnnouncement;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -48,7 +51,24 @@ public class TestPrestoNativeJmxQueries
         storageFormat = System.getProperty("storageFormat", "PARQUET");
         sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
 
-        QueryRunner queryRunner = NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled);
+        // Build the native query runner the same way NativeTestsUtils.createNativeQueryRunner does, but
+        // force `exclude-invalid-worker-session-properties=false` on the coordinator. When the sidecar
+        // is enabled that flag defaults to true, which skips loading JavaWorkerSessionPropertyProvider
+        // (ServerMainModule:892-905). The coordinator still runs JMX table scans locally via
+        // LocalExecutionPlanner, and any GROUP BY/DISTINCT aggregation reads
+        // `aggregation_operator_unspill_memory_limit` (LocalExecutionPlanner:1489) — an unregistered
+        // property in that path throws "Unknown session property". Overriding the flag keeps the Java
+        // provider registered on the coordinator; workers are unaffected.
+        QueryRunner queryRunner = nativeHiveQueryRunnerBuilder()
+                .setStorageFormat(storageFormat)
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .setCoordinatorSidecarEnabled(sidecarEnabled)
+                .setExtraProperties(ImmutableMap.of("exclude-invalid-worker-session-properties", "false"))
+                .build();
+        if (sidecarEnabled) {
+            setupNativeSidecarPlugin(queryRunner);
+        }
 
         // Install the Java JMX plugin on the coordinator only; C++ workers do not host it.
         DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) queryRunner;
