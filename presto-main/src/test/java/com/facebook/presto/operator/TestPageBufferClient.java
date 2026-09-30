@@ -24,10 +24,14 @@ import com.facebook.airlift.units.DataSize.Unit;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.operator.PageBufferClient.ClientCallback;
+import com.facebook.presto.operator.PageBufferClient.PagesResponse;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -335,6 +339,50 @@ public class TestPageBufferClient
     }
 
     @Test
+    public void testDeleteCancelledDuringClose()
+            throws Exception
+    {
+        DataSize expectedMaxSize = new DataSize(10, Unit.MEGABYTE);
+
+        // CyclicBarrier(2): the test thread and the single callback thread rendezvous once
+        // per expected callback invocation. We call await() twice below — once for the GET's
+        // requestComplete() and once for the DELETE's clientFinished().
+        CyclicBarrier requestComplete = new CyclicBarrier(2);
+        TestingClientCallback callback = new TestingClientCallback(requestComplete);
+
+        URI location = URI.create("http://localhost:8080");
+        PageBufferClient client = new PageBufferClient(
+                new CancelledDeleteRpcShuffleClient(),
+                new Duration(1, TimeUnit.MINUTES),
+                true,
+                location,
+                callback,
+                scheduler,
+                pageBufferClientCallbackExecutor);
+
+        // Schedule a GET request. CancelledDeleteRpcShuffleClient returns an
+        // already-completed empty (non-complete) PagesResponse, so onSuccess fires
+        // synchronously and calls requestComplete(client) → awaitDone().
+        client.scheduleRequest(expectedMaxSize);
+        // Wait for the GET callback (requestComplete).
+        requestComplete.await(10, TimeUnit.SECONDS);
+
+        // Close the client. close() calls sendDelete(), and CancelledDeleteRpcShuffleClient
+        // returns a pre-cancelled future for abortResults(). The CancellationException in
+        // onFailure is treated as benign: clientFinished is called, no failure is propagated,
+        // and the client reaches "closed" state. Without the fix, onFailure would log an
+        // ERROR and call handleFailure, incrementing failedBuffers.
+        client.close();
+        // Wait for the DELETE callback (clientFinished).
+        requestComplete.await(10, TimeUnit.SECONDS);
+
+        // The client should be closed with no failures.
+        assertEquals(callback.getFailedBuffers(), 0);
+        assertEquals(callback.getFinishedBuffers(), 1);
+        assertStatus(client, location, "closed", 0, 1, 2, 0, "not scheduled");
+    }
+
+    @Test
     public void testExceptionFromResponseHandler()
             throws Exception
     {
@@ -560,6 +608,44 @@ public class TestPageBufferClient
             finally {
                 afterRequest.await(10, TimeUnit.SECONDS);
             }
+        }
+    }
+
+    private static class CancelledDeleteRpcShuffleClient
+            implements RpcShuffleClient
+    {
+        private static final PagesResponse EMPTY_RESPONSE = PagesResponse.createEmptyPagesResponse(
+                "task-instance-id",
+                0,
+                0,
+                false);
+
+        @Override
+        public ListenableFuture<PagesResponse> getResults(long token, DataSize maxResponseSize)
+        {
+            // Return an already-completed future with an empty (non-complete) response.
+            return Futures.immediateFuture(EMPTY_RESPONSE);
+        }
+
+        @Override
+        public void acknowledgeResultsAsync(long nextToken)
+        {
+        }
+
+        @Override
+        public ListenableFuture<?> abortResults()
+        {
+            // Return a pre-cancelled future to simulate the race where
+            // close() cancels the delete request before the callback fires.
+            SettableFuture<Object> future = SettableFuture.create();
+            future.cancel(false);
+            return future;
+        }
+
+        @Override
+        public Throwable rewriteException(Throwable throwable)
+        {
+            return throwable;
         }
     }
 }
