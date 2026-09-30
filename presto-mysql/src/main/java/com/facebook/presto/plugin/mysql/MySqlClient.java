@@ -37,8 +37,10 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import com.mysql.cj.jdbc.JdbcStatement;
 import com.mysql.jdbc.Driver;
 import jakarta.inject.Inject;
@@ -54,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.StandardTypes.GEOMETRY;
@@ -67,8 +70,8 @@ import static com.facebook.presto.plugin.jdbc.QueryBuilder.quote;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.geometryReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -86,6 +89,15 @@ public class MySqlClient
      * @see <a href="https://dev.mysql.com/doc/connector-j/en/connector-j-reference-error-sqlstates.html">MySQL documentation</a>
      */
     private static final String SQL_STATE_ER_TABLE_EXISTS_ERROR = "42S01";
+    /**
+     * Error codes MySQL raises when it cannot resolve a view query written for Presto: a syntax
+     * error, as a catalog qualified name or a double quoted identifier gives, and a table named
+     * without a schema on a connection that has no default database.
+     *
+     * @see <a href="https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html">MySQL documentation</a>
+     */
+    private static final int ER_PARSE_ERROR = 1064;
+    private static final int ER_NO_DB_ERROR = 1046;
     private final JsonCodec<ViewDefinition> viewCodec;
 
     @Inject
@@ -317,8 +329,48 @@ public class MySqlClient
         JdbcIdentity identity = new JdbcIdentity(session.getUser(), session.getIdentity().getExtraCredentials());
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
 
-        try (Connection connection = connectionFactory.openConnection(identity);
-                PreparedStatement statement = connection.prepareStatement(viewsQuery(prefix))) {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            List<RemoteView> remoteViews = listRemoteViews(connection, prefix);
+            if (remoteViews.isEmpty()) {
+                return ImmutableMap.of();
+            }
+            ListMultimap<SchemaTableName, ViewDefinition.ViewColumn> columns = getViewColumns(session, connection, prefix, remoteViews);
+
+            for (RemoteView remoteView : remoteViews) {
+                List<ViewDefinition.ViewColumn> viewColumns = columns.get(remoteView.name);
+                if (viewColumns.isEmpty()) {
+                    // No column of the view has a type Presto can read. Leaving it out, rather than
+                    // failing the whole listing, lets the lookup fall through to the table flow,
+                    // which reports the view as having no supported columns.
+                    continue;
+                }
+                SchemaTableName viewName = viewName(session, prefix, remoteView.name);
+                ViewDefinition viewDefinition = new ViewDefinition(
+                        remoteView.sql,
+                        Optional.of(connectorId),
+                        Optional.of(viewName.getSchemaName()),
+                        viewColumns,
+                        // an INVOKER view has no owner, as CreateViewTask records it, so the analyzer runs
+                        // the view as the querying user rather than as the definer
+                        remoteView.runAsInvoker ? Optional.empty() : Optional.of(remoteView.owner),
+                        remoteView.runAsInvoker);
+
+                views.put(viewName, new ConnectorViewDefinition(
+                        viewName,
+                        Optional.of(remoteView.owner),
+                        viewCodec.toJson(viewDefinition)));
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+        return views.build();
+    }
+
+    private static List<RemoteView> listRemoteViews(Connection connection, SchemaTablePrefix prefix)
+            throws SQLException
+    {
+        try (PreparedStatement statement = connection.prepareStatement(viewsQuery(prefix))) {
             int parameterIndex = 1;
             if (prefix.getSchemaName() != null) {
                 statement.setString(parameterIndex++, prefix.getSchemaName());
@@ -327,23 +379,60 @@ public class MySqlClient
                 statement.setString(parameterIndex, prefix.getTableName());
             }
 
+            ImmutableList.Builder<RemoteView> remoteViews = ImmutableList.builder();
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
-                    SchemaTableName viewName = viewName(session, prefix, resultSet);
-                    String owner = definerUser(resultSet.getString("DEFINER"));
-                    ViewDefinition viewDefinition = getViewDefinition(resultSet, session, connectorId, viewName, owner);
+                    remoteViews.add(new RemoteView(
+                            new SchemaTableName(resultSet.getString("TABLE_SCHEMA"), resultSet.getString("TABLE_NAME")),
+                            // StatementAnalyzer can't parse sql with back ticks, so we replace them here
+                            resultSet.getString("VIEW_DEFINITION").replace('`', '"'),
+                            definerUser(resultSet.getString("DEFINER")),
+                            "INVOKER".equals(resultSet.getString("SECURITY_TYPE"))));
+                }
+            }
+            return remoteViews.build();
+        }
+    }
 
-                    views.put(viewName, new ConnectorViewDefinition(
-                            viewName,
-                            Optional.of(owner),
-                            viewCodec.toJson(viewDefinition)));
+    /**
+     * Reads the columns of the listed views with one DatabaseMetaData.getColumns call per schema
+     * holding any of them, instead of one call per view, so listing a schema costs one metadata
+     * round trip however many views it holds. A call returns the columns of the tables in its
+     * schema as well, which are dropped here. A prefix without a schema is not read in a single
+     * call across every database, which would return every column on the server. MySQL reports
+     * its databases as JDBC catalogs, so the schema goes in the catalog argument, as it does in
+     * {@link #getTables}. The result is keyed by the names MySQL reports, which are the same in
+     * INFORMATION_SCHEMA.VIEWS and INFORMATION_SCHEMA.COLUMNS, and keeps the ordinal order
+     * getColumns returns for each view.
+     */
+    private ListMultimap<SchemaTableName, ViewDefinition.ViewColumn> getViewColumns(
+            ConnectorSession session,
+            Connection connection,
+            SchemaTablePrefix prefix,
+            List<RemoteView> remoteViews)
+            throws SQLException
+    {
+        Set<SchemaTableName> viewNames = remoteViews.stream()
+                .map(remoteView -> remoteView.name)
+                .collect(toImmutableSet());
+        Set<String> schemaNames = prefix.getSchemaName() != null
+                ? ImmutableSet.of(prefix.getSchemaName())
+                : viewNames.stream().map(SchemaTableName::getSchemaName).collect(toImmutableSet());
+
+        ImmutableListMultimap.Builder<SchemaTableName, ViewDefinition.ViewColumn> columns = ImmutableListMultimap.builder();
+        DatabaseMetaData metadata = connection.getMetaData();
+        for (String schemaName : schemaNames) {
+            try (ResultSet resultSet = getColumns(metadata, schemaName, null, prefix.getTableName())) {
+                while (resultSet.next()) {
+                    SchemaTableName name = new SchemaTableName(resultSet.getString("TABLE_CAT"), resultSet.getString("TABLE_NAME"));
+                    if (viewNames.contains(name)) {
+                        toColumnHandle(session, resultSet).ifPresent(column ->
+                                columns.put(name, new ViewDefinition.ViewColumn(column.getColumnName(), column.getColumnType())));
+                    }
                 }
             }
         }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
-        return views.build();
+        return columns.build();
     }
 
     /**
@@ -371,8 +460,7 @@ public class MySqlClient
         return sql + " WHERE " + join(" AND ", conditions);
     }
 
-    private SchemaTableName viewName(ConnectorSession session, SchemaTablePrefix prefix, ResultSet resultSet)
-            throws SQLException
+    private SchemaTableName viewName(ConnectorSession session, SchemaTablePrefix prefix, SchemaTableName remoteName)
     {
         // A prefix naming one table is keyed by the requested name rather than the name MySQL
         // reports. MySQL compares schema and table names here under the collation of
@@ -381,10 +469,10 @@ public class MySqlClient
         if (prefix.getTableName() != null) {
             return new SchemaTableName(prefix.getSchemaName(), prefix.getTableName());
         }
-        String schemaName = prefix.getSchemaName() != null ? prefix.getSchemaName() : resultSet.getString("TABLE_SCHEMA");
+        String schemaName = prefix.getSchemaName() != null ? prefix.getSchemaName() : remoteName.getSchemaName();
         return new SchemaTableName(
                 normalizeIdentifier(session, schemaName),
-                normalizeIdentifier(session, resultSet.getString("TABLE_NAME")));
+                normalizeIdentifier(session, remoteName.getTableName()));
     }
 
     /**
@@ -397,37 +485,6 @@ public class MySqlClient
     {
         int separator = definer.lastIndexOf('@');
         return separator < 0 ? definer : definer.substring(0, separator);
-    }
-
-    private ViewDefinition getViewDefinition(ResultSet resultSet, ConnectorSession session, String connectorId, SchemaTableName schemaTableName, String owner)
-            throws SQLException
-    {
-        boolean runAsInvoker = "INVOKER".equals(resultSet.getString("SECURITY_TYPE"));
-        // StatementAnalyzer can't parse sql with back ticks, so we replace them here
-        String viewSql = resultSet.getString("VIEW_DEFINITION").replace('`', '"');
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-
-        List<JdbcColumnHandle> jdbcColumns = super.getColumns(session, new JdbcTableHandle(
-                connectorId,
-                schemaTableName,
-                null,
-                schemaName,
-                tableName));
-
-        List<ViewDefinition.ViewColumn> columns = jdbcColumns.stream()
-                .map(jdbcColumn -> new ViewDefinition.ViewColumn(jdbcColumn.getColumnName(), jdbcColumn.getColumnType()))
-                .collect(toImmutableList());
-
-        return new ViewDefinition(
-                viewSql,
-                Optional.of(connectorId),
-                Optional.of(schemaName),
-                columns,
-                // an INVOKER view has no owner, as CreateViewTask records it, so the analyzer runs
-                // the view as the querying user rather than as the definer
-                runAsInvoker ? Optional.empty() : Optional.of(owner),
-                runAsInvoker);
     }
 
     @Override
@@ -490,6 +547,15 @@ public class MySqlClient
             if (SQL_STATE_ER_TABLE_EXISTS_ERROR.equals(e.getSQLState())) {
                 throw new PrestoException(ALREADY_EXISTS, e);
             }
+            // The view query is Presto SQL and goes to MySQL unchanged. Rewriting it would take the
+            // Presto parser, so a query MySQL cannot resolve is rejected with what it has to look like.
+            if (e.getErrorCode() == ER_PARSE_ERROR || e.getErrorCode() == ER_NO_DB_ERROR) {
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "The query of a view in a MySQL catalog is sent to MySQL unchanged and must be valid MySQL SQL, " +
+                                "for example with each table named as schema.table, without the catalog name, " +
+                                "and no identifiers quoted with double quotes. MySQL reported: %s",
+                        e.getMessage()), e);
+            }
             throw new PrestoException(JDBC_ERROR, e);
         }
     }
@@ -541,5 +607,24 @@ public class MySqlClient
     private String quotedRemoteName(String remoteSchema, String remoteName)
     {
         return quoted(null, remoteSchema, remoteName);
+    }
+
+    /**
+     * A row of INFORMATION_SCHEMA.VIEWS, named as MySQL reports it.
+     */
+    private static final class RemoteView
+    {
+        private final SchemaTableName name;
+        private final String sql;
+        private final String owner;
+        private final boolean runAsInvoker;
+
+        private RemoteView(SchemaTableName name, String sql, String owner, boolean runAsInvoker)
+        {
+            this.name = requireNonNull(name, "name is null");
+            this.sql = requireNonNull(sql, "sql is null");
+            this.owner = requireNonNull(owner, "owner is null");
+            this.runAsInvoker = runAsInvoker;
+        }
     }
 }

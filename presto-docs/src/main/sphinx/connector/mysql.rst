@@ -141,6 +141,18 @@ queryable, at the cost of Presto no longer treating them as views:
 
 ``CREATE VIEW`` and ``CREATE OR REPLACE VIEW`` work in both modes.
 
+The query of a view created through the connector is sent to MySQL as
+written, so it must be valid MySQL SQL as well as Presto SQL, and cannot use
+functions or syntax that only Presto has. Name each table as ``schema.table``, without the catalog name, and do not quote identifiers
+with double quotes, which MySQL reads as string literals. For example,
+``CREATE VIEW mysql.web.recent_orders AS SELECT * FROM web.orders`` works, but
+the same view selecting from ``mysql.web.orders`` or from ``orders`` fails
+with an error similar to the following:
+
+.. code-block:: none
+
+    The query of a view in a MySQL catalog is sent to MySQL unchanged and must be valid MySQL SQL, ... MySQL reported: ...
+
 A view created through Presto records the Presto user as its MySQL
 ``DEFINER``, with the host ``%``, and the view security mode as its
 ``SQL SECURITY``, so the owner and security mode are read back unchanged.
