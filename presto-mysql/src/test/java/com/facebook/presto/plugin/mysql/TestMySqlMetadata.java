@@ -357,6 +357,57 @@ public class TestMySqlMetadata
     }
 
     @Test
+    public void testGetViewsWithSameNameInAnotherSchema()
+            throws SQLException
+    {
+        String viewName = "test_get_views_same_name";
+        dropViewIfExists(viewName);
+        executeOnMySql("DROP VIEW IF EXISTS test_database." + viewName);
+        executeOnMySql("CREATE VIEW tpch." + viewName + " AS SELECT orderkey FROM tpch.orders");
+        executeOnMySql("CREATE VIEW test_database." + viewName + " AS SELECT custkey, orderstatus FROM tpch.orders");
+
+        try {
+            // the columns of the views are read in one metadata call covering the whole prefix, so a
+            // view of the same name in another database must neither add columns nor replace them
+            assertQuery(
+                    "SELECT table_schema, column_name FROM information_schema.columns WHERE table_name = '" + viewName + "'",
+                    "VALUES ('tpch', 'orderkey'), ('test_database', 'custkey'), ('test_database', 'orderstatus')");
+            assertQuery(
+                    "SELECT table_schema, column_name FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '" + viewName + "'",
+                    "VALUES ('tpch', 'orderkey')");
+            assertQuery(
+                    "SELECT table_schema FROM information_schema.views WHERE table_name = '" + viewName + "'",
+                    "VALUES ('tpch'), ('test_database')");
+
+            assertQuery("SELECT * FROM tpch." + viewName, "SELECT orderkey FROM orders");
+            assertQuery("SELECT * FROM test_database." + viewName, "SELECT custkey, orderstatus FROM orders");
+        }
+        finally {
+            dropViewIfExists(viewName);
+            executeOnMySql("DROP VIEW IF EXISTS test_database." + viewName);
+        }
+    }
+
+    @Test
+    public void testCreateViewWithQueryMySqlCannotRun()
+            throws SQLException
+    {
+        String viewName = "test_create_view_not_mysql";
+        dropViewIfExists(viewName);
+
+        // the view query goes to MySQL unchanged, so only a schema qualified name without quotes works
+        for (String query : new String[] {
+                "SELECT orderkey FROM " + MYSQL_CATALOG + ".tpch.orders",
+                "SELECT orderkey FROM tpch.\"orders\"",
+                "SELECT orderkey FROM orders"}) {
+            assertQueryFails(
+                    "CREATE VIEW tpch." + viewName + " AS " + query,
+                    "(?s)The query of a view in a MySQL catalog is sent to MySQL unchanged and must be valid MySQL SQL, .*MySQL reported: .*");
+            assertFalse(viewExistsInMySQL(viewName), "No view should be created for: " + query);
+        }
+    }
+
+    @Test
     public void testViewWithComplexQuery()
             throws SQLException
     {

@@ -20,9 +20,12 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -36,6 +39,17 @@ public class MySqlMetadata
         super(jdbcMetadataCache, client, allowDropTable, tableLocationProvider);
         requireNonNull(mySqlConfig, "mySqlConfig is null");
         this.datasourceManagedViewsEnabled = mySqlConfig.isDatasourceManagedViewsEnabled();
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        // Listed views would be reported by SHOW VIEWS and typed as views in information_schema
+        // even though getViews reports none of them, so passthrough mode lists none either.
+        if (datasourceManagedViewsEnabled) {
+            return ImmutableList.of();
+        }
+        return super.listViews(session, schemaName);
     }
 
     @Override
