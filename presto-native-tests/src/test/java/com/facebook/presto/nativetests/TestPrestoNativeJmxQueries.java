@@ -122,12 +122,15 @@ public class TestPrestoNativeJmxQueries
     @Test
     public void testJmxAggregationWithGroupBy()
     {
-        // GROUP BY on `node` also forces a hash shuffle between the source scan and the aggregation
-        // stage, so scalar aggregation functions (count/max/min) work end-to-end on JMX in native mode.
-        // The coordinator-only split filter still produces one group.
+        // GROUP BY on a non-partitioning column (`vmname` — the JVM name attribute). Grouping on
+        // `node` would let the planner infer that the input is already partitioned by that key and
+        // fuse the aggregation into the JMX source fragment, which then trips SystemPartitioningHandle
+        // when a source split is scheduled into a system-partitioned stage. `vmname` cannot be
+        // pre-inferred as a partitioning key, so the planner emits a proper hash shuffle between the
+        // scan and the aggregate. With one coordinator row, count/max/min produce one group.
         MaterializedResult result = computeActual(
-                "SELECT node, count(uptime), max(uptime), min(uptime) " +
-                        "FROM jmx.current.\"java.lang:type=Runtime\" GROUP BY node");
+                "SELECT vmname, count(uptime), max(uptime), min(uptime) " +
+                        "FROM jmx.current.\"java.lang:type=Runtime\" GROUP BY vmname");
         assertEquals(result.getRowCount(), 1);
         assertEquals((long) result.getMaterializedRows().get(0).getField(1), 1L);
         long maxUptime = (long) result.getMaterializedRows().get(0).getField(2);
