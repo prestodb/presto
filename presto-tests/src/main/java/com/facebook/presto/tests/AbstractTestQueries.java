@@ -83,6 +83,7 @@ import static com.facebook.presto.SystemSessionProperties.PRE_PROCESS_METADATA_C
 import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PUSH_AGGREGATION_THROUGH_DISJOINT_UNION;
+import static com.facebook.presto.SystemSessionProperties.PUSH_AGGREGATION_THROUGH_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_FILTER_THROUGH_SELECTING_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.PUSH_PROJECTION_THROUGH_CROSS_JOIN;
@@ -1800,6 +1801,15 @@ public abstract class AbstractTestQueries
         }
     }
 
+    @DataProvider(name = "push_aggregation_through_join")
+    public static Object[][] pushAggregationThroughJoin()
+    {
+        return new Object[][] {
+                {true},
+                {false}
+        };
+    }
+
     @Test
     public void testPushAggregationThroughDisjointUnion()
     {
@@ -1839,6 +1849,21 @@ public abstract class AbstractTestQueries
         for (String query : queries) {
             assertQueryWithSameQueryRunner(enabled, query, disabled);
         }
+    }
+
+    @Test(dataProvider = "push_aggregation_through_join")
+    public void testPushAggregationThroughOuterJoins(boolean enabled)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, Boolean.toString(enabled))
+                .build();
+
+        // Scalar aggregation always produces one row, even if the input is empty
+        // In this case, a 0 count should be reported because the left side of the join evaluates to an empty-set (`random() < -1` evaluates to false)
+        assertQuery(session, "SELECT count(r.y) FROM (SELECT distinct nationkey x from nation WHERE random() < -1) l LEFT JOIN (VALUES(3,1)) r(x,y) ON true", "VALUES 0");
+        // The left side of the join evaluates to an empty-set, but the aggregation groups by `nationkey` (`l.x`)
+        // The output therefore is an empty-set
+        assertQuery(session, "SELECT l.x, count(r.y) FROM (SELECT distinct nationkey x from nation WHERE random() < -1) l LEFT JOIN (VALUES(3,1)) r(x,y) ON l.x = r.x GROUP BY 1", "SELECT 1 WHERE 1 = 0");
     }
 
     @Test

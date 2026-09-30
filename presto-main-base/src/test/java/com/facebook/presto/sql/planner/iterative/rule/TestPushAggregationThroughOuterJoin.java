@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.AggregationNode.GroupingSetDescriptor;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.Ordering;
@@ -331,6 +332,101 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty()))
                         .addAggregation(p.variable("SUM", DOUBLE), p.rowExpression("sum(COL1)"))
                         .singleGroupingSet(p.variable("COL1"))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForScalarAggregationOverLeftJoin()
+    {
+        // A scalar (global) aggregation whose outer side has no output columns: the grouping keys and the
+        // outer columns are both empty, so a plain set comparison considers the aggregation to group on all
+        // outer columns. Pushing down here is not valid - a scalar aggregation always produces exactly one
+        // row, but the rewritten plan produces no rows at all when the outer side is empty.
+        tester().assertThat(new PushAggregationThroughOuterJoin(getFunctionManager()))
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinType.LEFT,
+                                // a single row with no columns, so the outer side is distinct
+                                p.values(1),
+                                p.values(p.variable("COL2")),
+                                ImmutableList.of(),
+                                ImmutableList.of(p.variable("COL2")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL2)"))
+                        .globalGrouping()))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForScalarAggregationOverRightJoin()
+    {
+        tester().assertThat(new PushAggregationThroughOuterJoin(getFunctionManager()))
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinType.RIGHT,
+                                p.values(p.variable("COL2")),
+                                // a single row with no columns, so the outer side is distinct
+                                p.values(1),
+                                ImmutableList.of(),
+                                ImmutableList.of(p.variable("COL2")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL2)"))
+                        .globalGrouping()))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForMultipleGroupingSets()
+    {
+        // GROUP BY GROUPING SETS ((COL1), (COL3)). The union of the grouping keys covers all the outer
+        // columns, but each individual grouping set does not, and the rewrite can only express a single
+        // grouping set on the join criteria.
+        tester().assertThat(new PushAggregationThroughOuterJoin(getFunctionManager()))
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinType.LEFT,
+                                p.values(
+                                        ImmutableList.of(p.variable("COL1"), p.variable("COL3")),
+                                        ImmutableList.of(constantExpressions(BIGINT, 10L, 20L))),
+                                p.values(p.variable("COL2")),
+                                ImmutableList.of(new EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
+                                ImmutableList.of(p.variable("COL1"), p.variable("COL3"), p.variable("COL2")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL2)"))
+                        .groupingSets(new GroupingSetDescriptor(
+                                ImmutableList.of(p.variable("COL1"), p.variable("COL3")),
+                                2,
+                                ImmutableSet.of()))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForGroupingSetsContainingScalarAggregation()
+    {
+        // GROUP BY ROLLUP (COL1), i.e. GROUPING SETS ((COL1), ()). The grouping keys match the outer columns,
+        // but one of the grouping sets is a scalar aggregation which the rewrite would silently drop.
+        tester().assertThat(new PushAggregationThroughOuterJoin(getFunctionManager()))
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinType.LEFT,
+                                p.values(ImmutableList.of(p.variable("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10L))),
+                                p.values(p.variable("COL2")),
+                                ImmutableList.of(new EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
+                                ImmutableList.of(p.variable("COL1"), p.variable("COL2")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL2)"))
+                        .groupingSets(new GroupingSetDescriptor(
+                                ImmutableList.of(p.variable("COL1")),
+                                2,
+                                ImmutableSet.of(1)))))
                 .doesNotFire();
     }
 }
