@@ -475,10 +475,11 @@ public class TestMySqlIntegrationSmokeTest
 
         // Absent from information_schema.views only proves half of it: both views must still be
         // reachable, listed as tables by name. MySqlClient.getTables asks MySQL for TABLE and VIEW.
+        // The table type comes from listViews, so it also shows that listViews reports none of them.
         assertQuery(
-                "SELECT table_name FROM " + MYSQL_PASSTHROUGH_CATALOG + ".information_schema.tables " +
+                "SELECT table_name, table_type FROM " + MYSQL_PASSTHROUGH_CATALOG + ".information_schema.tables " +
                         "WHERE table_schema = 'tpch' AND table_name IN ('v_now', 'v_standard')",
-                "VALUES ('v_now'), ('v_standard')");
+                "VALUES ('v_now', 'BASE TABLE'), ('v_standard', 'BASE TABLE')");
     }
 
     // MANAGED MODE (enable-datasource-managed-views=false)
