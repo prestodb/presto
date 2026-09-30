@@ -139,7 +139,9 @@ public class PushAggregationThroughOuterJoin
 
         if (join.getFilter().isPresent()
                 || !(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT)
-                || !groupsOnAllColumns(aggregation, getOuterTable(join).getOutputVariables())
+                || aggregation.getGroupingSetCount() != 1 // Must have exactly one grouping set
+                || aggregation.getGroupingKeys().isEmpty() // Must be a non-scalar aggregation
+                || !groupsOnAllColumns(aggregation.getGroupingKeys(), getOuterTable(join).getOutputVariables())
                 || !isDistinctInternal(getOuterTable(join), context.getLookup())) {
             return Result.empty();
         }
@@ -231,9 +233,9 @@ public class PushAggregationThroughOuterJoin
         return outerNode;
     }
 
-    private static boolean groupsOnAllColumns(AggregationNode node, List<VariableReferenceExpression> columns)
+    private static boolean groupsOnAllColumns(List<VariableReferenceExpression> groupingKeys, List<VariableReferenceExpression> columns)
     {
-        return new HashSet<>(node.getGroupingKeys()).equals(new HashSet<>(columns));
+        return new HashSet<>(groupingKeys).equals(new HashSet<>(columns));
     }
 
     // When the aggregation is done after the join, there will be a null value that gets aggregated over
