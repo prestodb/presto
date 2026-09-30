@@ -25,6 +25,7 @@
 #endif
 
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/delta/DeltaSplitReader.h"
 #include "velox/connectors/hive/iceberg/IcebergConnector.h"
 #include "velox/connectors/tpcds/TpcdsConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
@@ -114,6 +115,11 @@ void registerConnectors() {
       std::make_unique<HivePrestoToVeloxConnector>(kHiveHadoop2ConnectorName));
   registerPrestoToVeloxConnector(
       std::make_unique<DeltaPrestoToVeloxConnector>(kDeltaConnectorName));
+  // The base Hive connector no longer knows about Delta; the Delta split
+  // reader installs itself into HiveSplitReader's factory registry via this
+  // explicit call so a downstream binary that pulls Presto in gets Delta
+  // dispatch even though nothing statically references the Delta TU.
+  velox::connector::hive::delta::registerHiveDeltaSplitReader();
   registerPrestoToVeloxConnector(
       std::make_unique<IcebergPrestoToVeloxConnector>(kIcebergConnectorName));
   registerPrestoToVeloxConnector(
