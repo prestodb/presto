@@ -18,6 +18,8 @@
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicServiceInventoryManager.h"
 
+#include <optional>
+
 namespace facebook::presto {
 
 class Announcer : public PeriodicServiceInventoryManager {
@@ -26,6 +28,7 @@ class Announcer : public PeriodicServiceInventoryManager {
       const std::string& address,
       bool useHttps,
       int port,
+      const std::optional<int>& httpPort,
       const std::shared_ptr<CoordinatorDiscoverer>& coordinatorDiscoverer,
       const std::string& nodeVersion,
       const std::string& environment,
