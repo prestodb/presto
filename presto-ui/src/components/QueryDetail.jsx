@@ -383,7 +383,7 @@ function TaskList({ tasks }) {
         },
     ];
 
-    return <DataTable columns={columns} data={tasks} theme="dark" customStyles={customStyles} striped="true" />;
+    return <DataTable columns={columns} data={tasks} theme="dark" customStyles={customStyles} striped={true} />;
 }
 
 const BAR_CHART_WIDTH = 800;
