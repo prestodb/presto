@@ -46,6 +46,7 @@ import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.Float2Vector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -60,6 +61,8 @@ import org.apache.arrow.vector.TimeStampMilliTZVector;
 import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.UInt4Vector;
+import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
@@ -245,6 +248,12 @@ public class ArrowBlockBuilder
         else if (vector instanceof BigIntVector) {
             assignBlockFromBigIntVector((BigIntVector) vector, type, builder, startIndex, endIndex);
         }
+        else if (vector instanceof UInt4Vector) {
+            assignBlockFromUInt4Vector((UInt4Vector) vector, type, builder, startIndex, endIndex);
+        }
+        else if (vector instanceof UInt8Vector) {
+            assignBlockFromUInt8Vector((UInt8Vector) vector, type, builder, startIndex, endIndex);
+        }
         else if (vector instanceof DecimalVector) {
             assignBlockFromDecimalVector((DecimalVector) vector, type, builder, startIndex, endIndex);
         }
@@ -259,6 +268,9 @@ public class ArrowBlockBuilder
         }
         else if (vector instanceof Float4Vector) {
             assignBlockFromFloat4Vector((Float4Vector) vector, type, builder, startIndex, endIndex);
+        }
+        else if (vector instanceof Float2Vector) {
+            assignBlockFromFloat2Vector((Float2Vector) vector, type, builder, startIndex, endIndex);
         }
         else if (vector instanceof Float8Vector) {
             assignBlockFromFloat8Vector((Float8Vector) vector, type, builder, startIndex, endIndex);
@@ -467,6 +479,45 @@ public class ArrowBlockBuilder
             else {
                 int intBits = Float.floatToIntBits(vector.get(i));
                 type.writeLong(builder, intBits);
+            }
+        }
+    }
+
+    public void assignBlockFromFloat2Vector(Float2Vector vector, Type type, BlockBuilder builder, int startIndex, int endIndex)
+    {
+        // Presto has no float16 type, so widen half-precision values to float32 (REAL)
+        for (int i = startIndex; i < endIndex; i++) {
+            if (vector.isNull(i)) {
+                builder.appendNull();
+            }
+            else {
+                int intBits = Float.floatToIntBits(vector.getValueAsFloat(i));
+                type.writeLong(builder, intBits);
+            }
+        }
+    }
+
+    public void assignBlockFromUInt4Vector(UInt4Vector vector, Type type, BlockBuilder builder, int startIndex, int endIndex)
+    {
+        // Unsigned int32 promoted to BIGINT; reinterpret the 32 bits as an unsigned value
+        for (int i = startIndex; i < endIndex; i++) {
+            if (vector.isNull(i)) {
+                builder.appendNull();
+            }
+            else {
+                type.writeLong(builder, Integer.toUnsignedLong(vector.get(i)));
+            }
+        }
+    }
+
+    public void assignBlockFromUInt8Vector(UInt8Vector vector, Type type, BlockBuilder builder, int startIndex, int endIndex)
+    {
+        for (int i = startIndex; i < endIndex; i++) {
+            if (vector.isNull(i)) {
+                builder.appendNull();
+            }
+            else {
+                type.writeLong(builder, vector.get(i));
             }
         }
     }
