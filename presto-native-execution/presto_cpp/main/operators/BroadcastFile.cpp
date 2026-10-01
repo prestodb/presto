@@ -100,8 +100,13 @@ void readFooter(
       filePath);
 }
 
-// Empty when the file system cannot describe 'filePath'.
-std::string serializeFileDescriptor(const std::string& filePath) {
+// Empty when disabled, or when the file system cannot describe 'filePath'.
+std::string serializeFileDescriptor(
+    const std::string& filePath,
+    bool descriptorEnabled) {
+  if (!descriptorEnabled) {
+    return {};
+  }
   try {
     const std::optional<std::string> handle =
         velox::filesystems::getFileSystem(filePath, nullptr)
@@ -192,7 +197,8 @@ BroadcastFileWriter::BroadcastFileWriter(
     uint64_t maxBroadcastBytes,
     uint64_t writeBufferSize,
     std::unique_ptr<VectorSerde::Options> serdeOptions,
-    velox::memory::MemoryPool* pool)
+    velox::memory::MemoryPool* pool,
+    bool descriptorEnabled)
     : serializer::SerializedPageFileWriter(
           pathPrefix,
           std::numeric_limits<uint64_t>::max(),
@@ -201,7 +207,8 @@ BroadcastFileWriter::BroadcastFileWriter(
           std::move(serdeOptions),
           getNamedVectorSerde("Presto"),
           pool),
-      maxBroadcastBytes_(maxBroadcastBytes) {}
+      maxBroadcastBytes_(maxBroadcastBytes),
+      descriptorEnabled_(descriptorEnabled) {}
 
 void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
   const auto numRows = rowVector->size();
@@ -281,7 +288,8 @@ void BroadcastFileWriter::noMoreData() {
   VELOX_CHECK_NOT_NULL(descriptorVector);
 
   const auto& filePath = fileInfos.back().path;
-  const std::string encodedDescriptor = serializeFileDescriptor(filePath);
+  const std::string encodedDescriptor =
+      serializeFileDescriptor(filePath, descriptorEnabled_);
   fileNameVector->set(0, StringView(filePath));
   maxSerializedSizeVector->set(0, fileInfos.back().size);
   numRowsVector->set(0, numRows_);
