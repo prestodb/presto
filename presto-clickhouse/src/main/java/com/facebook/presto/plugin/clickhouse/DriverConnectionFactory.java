@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import ru.yandex.clickhouse.ClickHouseDriver;
+import com.clickhouse.jdbc.ClickHouseDriver;
+import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -38,8 +39,8 @@ public class DriverConnectionFactory
         this(
                 driver,
                 config.getConnectionUrl(),
-                Optional.ofNullable(config.getUserCredential()),
-                Optional.ofNullable(config.getPasswordCredential()),
+                Optional.ofNullable(config.getUserCredentialName()),
+                Optional.ofNullable(config.getPasswordCredentialName()),
                 basicConnectionProperties(config));
     }
 
@@ -52,11 +53,9 @@ public class DriverConnectionFactory
         if (config.getConnectionPassword() != null) {
             connectionProperties.setProperty("password", config.getConnectionPassword());
         }
-        connectionProperties.setProperty("useInformationSchema", "true");
-        connectionProperties.setProperty("nullCatalogMeansCurrent", "false");
-        connectionProperties.setProperty("useUnicode", "true");
-        connectionProperties.setProperty("characterEncoding", "utf8");
-        connectionProperties.setProperty("tinyInt1isBit", "false");
+        // Note: The new com.clickhouse JDBC driver does not support the following properties
+        // that were used in the old ru.yandex.clickhouse driver:
+        // - useInformationSchema, nullCatalogMeansCurrent, useUnicode, characterEncoding, tinyInt1isBit
         return connectionProperties;
     }
 
@@ -71,7 +70,7 @@ public class DriverConnectionFactory
     }
 
     @Override
-    public Connection openConnection(ClickHouseIdentity identity)
+    public Connection openConnection(JdbcIdentity identity)
             throws SQLException
     {
         Properties updatedConnectionProperties;

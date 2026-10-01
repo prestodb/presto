@@ -17,10 +17,10 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.plugin.clickhouse.ClickHouseColumnHandle;
-import com.facebook.presto.plugin.clickhouse.ClickHouseTableHandle;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseAggregationColumnNode.AggregationFunctionColumnNode;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseAggregationColumnNode.GroupByColumnNode;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGeneratorContext.Selection;
+import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -246,7 +246,7 @@ public class ClickHouseQueryGenerator
         @Override
         public ClickHouseQueryGeneratorContext visitTableScan(TableScanNode node, ClickHouseQueryGeneratorContext contextIn)
         {
-            ClickHouseTableHandle tableHandle = (ClickHouseTableHandle) node.getTable().getConnectorHandle();
+            JdbcTableHandle tableHandle = (JdbcTableHandle) node.getTable().getConnectorHandle();
             Map<VariableReferenceExpression, Selection> selections = new LinkedHashMap<>();
             node.getOutputVariables().forEach(outputColumn -> {
                 ClickHouseColumnHandle clickHouseColumn = (ClickHouseColumnHandle) (node.getAssignments().get(outputColumn));
