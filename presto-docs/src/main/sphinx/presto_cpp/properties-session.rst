@@ -750,6 +750,18 @@ spilling during memory reclaim in aggregation. When enabled, the aggregation
 operator will try to compact aggregate function state (for example, free dead strings)
 before resorting to spilling.
 
+``native_broadcast_file_descriptor_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. If true, the storage broadcast writer serializes a file
+descriptor alongside each broadcast file so readers can open it without a
+per-reader metadata lookup. Set this to false to fall back to opening by path.
+This only has an effect on file systems that supply a descriptor; on the others
+the writer emits none and readers open by path regardless.
+
 ``optimizer.optimize_top_n_rank``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

@@ -51,7 +51,8 @@ class BroadcastFileWriter : velox::serializer::SerializedPageFileWriter {
       uint64_t maxBroadcastBytes,
       uint64_t writeBufferSize,
       std::unique_ptr<velox::VectorSerde::Options> serdeOptions,
-      velox::memory::MemoryPool* pool);
+      velox::memory::MemoryPool* pool,
+      bool descriptorEnabled = true);
 
   virtual ~BroadcastFileWriter() = default;
 
@@ -85,6 +86,8 @@ class BroadcastFileWriter : velox::serializer::SerializedPageFileWriter {
   void writeFooter();
 
   const uint64_t maxBroadcastBytes_;
+  // Gated by the native_broadcast_file_descriptor_enabled session property.
+  const bool descriptorEnabled_;
 
   uint64_t writtenBytes_{0};
   int64_t numRows_{0};
