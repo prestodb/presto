@@ -22,12 +22,13 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.UpdateNode;
 
 import static com.facebook.presto.SystemSessionProperties.isBroadcastSemiJoinForDeleteEnabled;
 import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static java.util.Objects.requireNonNull;
 
-public class ReplicateSemiJoinInDelete
+public class ReplicateSemiJoinInDeleteOrUpdate
         implements PlanOptimizer
 {
     @Override
@@ -46,6 +47,7 @@ public class ReplicateSemiJoinInDelete
             extends SimplePlanRewriter<Void>
     {
         private boolean isDeleteQuery;
+        private boolean isUpdateQuery;
         private boolean planChanged;
 
         public boolean isPlanChanged()
@@ -72,7 +74,7 @@ public class ReplicateSemiJoinInDelete
                     node.getDistributionType(),
                     node.getDynamicFilters());
 
-            if (isDeleteQuery) {
+            if (isDeleteQuery || isUpdateQuery) {
                 planChanged = true;
                 return rewrittenNode.withDistributionType(REPLICATED);
             }
@@ -94,6 +96,22 @@ public class ReplicateSemiJoinInDelete
                     node.getRowId(),
                     node.getOutputVariables(),
                     node.getInputDistribution());
+        }
+
+        @Override
+        public PlanNode visitUpdate(UpdateNode node, RewriteContext<Void> context)
+        {
+            // For update queries, the TableScan node that corresponds to the table being updated must be collocated with the Update node,
+            // so you can't do a distributed semi-join
+            isUpdateQuery = true;
+            PlanNode rewrittenSource = context.rewrite(node.getSource());
+            return new UpdateNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    rewrittenSource,
+                    node.getRowId(),
+                    node.getColumnValueAndRowIdSymbols(),
+                    node.getOutputVariables());
         }
     }
 }
