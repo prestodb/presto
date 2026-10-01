@@ -1,3 +1,8 @@
+include "thrift/annotation/thrift.thrift"
+
+@thrift.AllowLegacyMissingUris
+package;
+
 enum PrestoThriftBound {
   BELOW = 1,
   EXACTLY = 2,
@@ -285,8 +290,9 @@ service PrestoThriftService {
   /**
    * Returns available schema names.
    */
-  list<string> prestoListSchemaNames()
-    throws (1: PrestoThriftServiceException ex1);
+  list<string> prestoListSchemaNames() throws (
+    1: PrestoThriftServiceException ex1,
+  );
 
   /**
    * Returns tables for the given schema name.
@@ -296,8 +302,8 @@ service PrestoThriftService {
    * a list of tables for all schemas. Returns an empty list if a schema does not exist
    */
   list<PrestoThriftSchemaTableName> prestoListTables(
-      1: PrestoThriftNullableSchemaName schemaNameOrNull)
-    throws (1: PrestoThriftServiceException ex1);
+    1: PrestoThriftNullableSchemaName schemaNameOrNull,
+  ) throws (1: PrestoThriftServiceException ex1);
 
   /**
    * Returns metadata for a given table.
@@ -306,8 +312,8 @@ service PrestoThriftService {
    * @return metadata for a given table, or a {@literal null} value inside if it does not exist
    */
   PrestoThriftNullableTableMetadata prestoGetTableMetadata(
-      1: PrestoThriftSchemaTableName schemaTableName)
-    throws (1: PrestoThriftServiceException ex1);
+    1: PrestoThriftSchemaTableName schemaTableName,
+  ) throws (1: PrestoThriftServiceException ex1);
 
   /**
    * Returns a batch of splits.
@@ -320,12 +326,12 @@ service PrestoThriftService {
    * @return a batch of splits
    */
   PrestoThriftSplitBatch prestoGetSplits(
-      1: PrestoThriftSchemaTableName schemaTableName,
-      2: PrestoThriftNullableColumnSet desiredColumns,
-      3: PrestoThriftTupleDomain outputConstraint,
-      4: i32 maxSplitCount,
-      5: PrestoThriftNullableToken nextToken)
-    throws (1: PrestoThriftServiceException ex1);
+    1: PrestoThriftSchemaTableName schemaTableName,
+    2: PrestoThriftNullableColumnSet desiredColumns,
+    3: PrestoThriftTupleDomain outputConstraint,
+    4: i32 maxSplitCount,
+    5: PrestoThriftNullableToken nextToken,
+  ) throws (1: PrestoThriftServiceException ex1);
 
   /**
    * Returns a batch of index splits for the given batch of keys.
@@ -341,14 +347,14 @@ service PrestoThriftService {
    * @return a batch of splits
    */
   PrestoThriftSplitBatch prestoGetIndexSplits(
-      1: PrestoThriftSchemaTableName schemaTableName,
-      2: list<string> indexColumnNames,
-      3: list<string> outputColumnNames,
-      4: PrestoThriftPageResult keys,
-      5: PrestoThriftTupleDomain outputConstraint,
-      6: i32 maxSplitCount,
-      7: PrestoThriftNullableToken nextToken)
-    throws (1: PrestoThriftServiceException ex1);
+    1: PrestoThriftSchemaTableName schemaTableName,
+    2: list<string> indexColumnNames,
+    3: list<string> outputColumnNames,
+    4: PrestoThriftPageResult keys,
+    5: PrestoThriftTupleDomain outputConstraint,
+    6: i32 maxSplitCount,
+    7: PrestoThriftNullableToken nextToken,
+  ) throws (1: PrestoThriftServiceException ex1);
 
   /**
    * Returns a batch of rows for the given split.
@@ -360,9 +366,9 @@ service PrestoThriftService {
    * @return a batch of table data
    */
   PrestoThriftPageResult prestoGetRows(
-      1: PrestoThriftId splitId,
-      2: list<string> columns,
-      3: i64 maxBytes,
-      4: PrestoThriftNullableToken nextToken)
-    throws (1: PrestoThriftServiceException ex1);
+    1: PrestoThriftId splitId,
+    2: list<string> columns,
+    3: i64 maxBytes,
+    4: PrestoThriftNullableToken nextToken,
+  ) throws (1: PrestoThriftServiceException ex1);
 }
