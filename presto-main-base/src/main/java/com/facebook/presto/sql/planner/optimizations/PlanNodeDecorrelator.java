@@ -114,6 +114,10 @@ public class PlanNodeDecorrelator
         @Override
         public Optional<DecorrelationResult> visitFilter(FilterNode node, Void context)
         {
+            if (node.isDoNotMerge()) {
+                return Optional.empty();
+            }
+
             Optional<DecorrelationResult> childDecorrelationResultOptional = Optional.of(new DecorrelationResult(
                     node.getSource(),
                     ImmutableSet.of(),

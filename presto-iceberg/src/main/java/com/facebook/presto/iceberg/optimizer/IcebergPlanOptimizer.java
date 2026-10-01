@@ -246,10 +246,10 @@ public class IcebergPlanOptimizer
                 return newTableScan;
             }
             else if (predicateNotChangedBySimplification) {
-                return new FilterNode(filter.getSourceLocation(), idAllocator.getNextId(), newTableScan, remainingFilterExpression);
+                return new FilterNode(filter.getSourceLocation(), idAllocator.getNextId(), newTableScan, remainingFilterExpression, filter.isDoNotMerge());
             }
             else {
-                return new FilterNode(filter.getSourceLocation(), idAllocator.getNextId(), newTableScan, filterPredicate);
+                return new FilterNode(filter.getSourceLocation(), idAllocator.getNextId(), newTableScan, filterPredicate, filter.isDoNotMerge());
             }
         }
     }
