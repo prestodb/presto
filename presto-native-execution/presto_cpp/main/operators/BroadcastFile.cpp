@@ -76,7 +76,7 @@ void readFooter(
   thriftRead(serializedFooter, thriftFooter);
 
   // Extract page sizes from thrift footer
-  pageSizes = thriftFooter->pageSizes_ref().value();
+  pageSizes = thriftFooter->pageSizes().value();
 
   // Validate the footer contents
   VELOX_CHECK_GT(
@@ -166,7 +166,7 @@ void BroadcastFileWriter::writeFooter() {
   VELOX_CHECK(!pageSizes_.empty());
 
   facebook::presto::thrift::BroadcastFileFooter thriftFooter;
-  thriftFooter.pageSizes_ref() = pageSizes_;
+  thriftFooter.pageSizes() = pageSizes_;
   auto serializedFooterBuf = thriftWriteIOBuf(thriftFooter);
 
   int64_t footerSize =
