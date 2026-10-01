@@ -180,7 +180,7 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
   // value. It may be better than what we currently use. For
   // consistency we will match cgroup V1 and change if
   // necessary.
-  void loadSystemMemoryUsage() override {
+  void refreshSystemMemoryUsageLocked() override {
     size_t memAvailable = 0;
     size_t memTotal = 0;
     size_t inactiveAnon = 0;
@@ -206,7 +206,7 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
 
       // Unit is in bytes.
       const auto memBytes = inactiveAnon + activeAnon;
-      cachedSystemUsedMemoryBytes_ = memBytes;
+      cachedSystemUsedMemoryBytes_.store(memBytes, std::memory_order_relaxed);
       return;
     }
 
@@ -230,7 +230,7 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
     // Unit is in bytes.
     const auto memBytes =
         (memAvailable && memTotal) ? memTotal - memAvailable : 0;
-    cachedSystemUsedMemoryBytes_ = memBytes;
+    cachedSystemUsedMemoryBytes_.store(memBytes, std::memory_order_relaxed);
   }
 
   int64_t mallocBytes() const override {
