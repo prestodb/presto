@@ -43,6 +43,8 @@ public class RedisProviderConfig
     private long totalSetTimeoutMs;
     private String credentialsPath;
     private String redisPropertiesPath;
+    private String redisUsername;
+    private String redisPassword;
 
     @Config("hbo.redis-provider.cluster-mode-enabled")
     public RedisProviderConfig setClusterModeEnabled(boolean value)
@@ -163,5 +165,31 @@ public class RedisProviderConfig
     public String getCredentialsPath()
     {
         return credentialsPath;
+    }
+
+    @Config("hbo.redis-provider.redis-username")
+    @ConfigSecuritySensitive
+    public RedisProviderConfig setRedisUsername(String value)
+    {
+        this.redisUsername = value;
+        return this;
+    }
+
+    public String getRedisUsername()
+    {
+        return redisUsername;
+    }
+
+    @Config("hbo.redis-provider.redis-password")
+    @ConfigSecuritySensitive
+    public RedisProviderConfig setRedisPassword(String value)
+    {
+        this.redisPassword = value;
+        return this;
+    }
+
+    public String getRedisPassword()
+    {
+        return redisPassword;
     }
 }
