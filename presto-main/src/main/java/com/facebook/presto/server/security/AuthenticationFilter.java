@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.server.WebUiResource.LOGOUT_PATH;
 import static com.facebook.presto.server.WebUiResource.UI_ENDPOINT;
 import static com.facebook.presto.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static com.facebook.presto.server.security.oauth2.OAuth2TokenExchangeResource.TOKEN_ENDPOINT;
@@ -256,7 +257,7 @@ public class AuthenticationFilter
     private boolean isWebUiRequest(HttpServletRequest request)
     {
         String pathInfo = request.getPathInfo();
-        return pathInfo == null || pathInfo.equals(UI_ENDPOINT) || pathInfo.startsWith("/ui");
+        return pathInfo == null || pathInfo.equals(UI_ENDPOINT) || pathInfo.startsWith("/ui") || pathInfo.equals(LOGOUT_PATH);
     }
 
     public static class ModifiedHttpServletRequest

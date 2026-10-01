@@ -24,6 +24,7 @@ import com.nimbusds.jose.util.Resource;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.http.HTTPRequest;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriBuilder;
 
 import javax.inject.Inject;
@@ -35,7 +36,9 @@ import java.net.URL;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
+import static com.google.common.net.HttpHeaders.ACCEPT;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.DELETE;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.GET;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.POST;
@@ -91,6 +94,11 @@ public class NimbusAirliftHttpClient
 
         ImmutableMultimap.Builder<String, String> headers = ImmutableMultimap.builder();
         httpRequest.getHeaderMap().forEach(headers::putAll);
+        if (!httpRequest.getHeaderMap().containsKey(ACCEPT)) {
+            headers.put(ACCEPT, MediaType.APPLICATION_JSON);
+        }
+        // Some OAuth providers (for example, GitHub) require a User-Agent header to be present.
+        headers.put(USER_AGENT, "Presto");
         request.addHeaders(headers.build());
 
         if (method.equals(POST) || method.equals(PUT)) {
