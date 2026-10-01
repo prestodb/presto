@@ -18,6 +18,7 @@
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/presto_native_types.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/file/File.h"
 #include "velox/common/time/Timer.h"
 #include "velox/vector/FlatVector.h"
@@ -223,100 +224,122 @@ BroadcastFileReader::BroadcastFileReader(
       fileSystem_(std::move(fileSystem)) {}
 
 bool BroadcastFileReader::hasNext() {
-  ensureFooterRead();
-  return numPagesRead_ < pageSizes_.size();
+  auto state = state_.wlock();
+  if (!ensureFooterReadLocked(*state)) {
+    return false;
+  }
+  return numPagesRead_.load() < state->pageSizes.size();
 }
 
 velox::BufferPtr BroadcastFileReader::next() {
-  ensureFooterRead();
-
-  if (!hasNext()) {
+  auto state = state_.wlock();
+  if (!ensureFooterReadLocked(*state)) {
     return nullptr;
   }
 
-  int64_t pageSize = pageSizes_[numPagesRead_];
+  const auto pageIndex = numPagesRead_.load();
+  if (pageIndex >= state->pageSizes.size()) {
+    return nullptr;
+  }
+
+  int64_t pageSize = state->pageSizes[pageIndex];
   VELOX_CHECK_GT(
       pageSize,
       0,
       "Invalid page size {} for page {} in broadcast file {}",
       pageSize,
-      numPagesRead_,
+      pageIndex,
       broadcastFileInfo_->filePath_);
 
   auto pageBuffer = AlignedBuffer::allocate<char>(pageSize, pool_, 0);
 
+  uint64_t readWallTimeUs{0};
   {
-    velox::MicrosecondTimer timer(&fileReadWallTimeUs_);
-    inputStream_->readBytes(
+    velox::MicrosecondTimer timer(&readWallTimeUs);
+    state->inputStream->readBytes(
         reinterpret_cast<uint8_t*>(pageBuffer->asMutable<char>()), pageSize);
   }
+  fileReadWallTimeUs_ += readWallTimeUs;
 
   numBytes_ += pageSize;
-  numPagesRead_++;
+  ++numPagesRead_;
 
   return pageBuffer;
 }
 
 void BroadcastFileReader::close() {
-  inputStream_.reset();
-  closed_ = true;
+  auto state = state_.wlock();
+  state->closed = true;
+  state->inputStream.reset();
 }
 
-void BroadcastFileReader::ensureFooterRead() {
-  VELOX_CHECK(
-      !closed_, "BroadcastFileReader is closed; cannot read after close()");
-  if (inputStream_ != nullptr) {
-    return;
+bool BroadcastFileReader::ensureFooterReadLocked(State& state) {
+  if (state.closed) {
+    return false;
+  }
+  if (state.inputStream != nullptr) {
+    return true;
   }
 
   std::unique_ptr<velox::ReadFile> readFile;
+  uint64_t openTimeUs{0};
   {
-    velox::MicrosecondTimer timer(&openFileAndReadFooterTimeUs_);
+    velox::MicrosecondTimer timer(&openTimeUs);
     readFile = fileSystem_->openFileForRead(broadcastFileInfo_->filePath_);
-    readFooter(readFile.get(), broadcastFileInfo_->filePath_, pageSizes_);
+    readFooter(readFile.get(), broadcastFileInfo_->filePath_, state.pageSizes);
   }
+  openFileAndReadFooterTimeUs_ += openTimeUs;
 
   // Create the input stream for sequential reads
-  inputStream_ = std::make_unique<velox::common::FileInputStream>(
+  state.inputStream = std::make_unique<velox::common::FileInputStream>(
       std::move(readFile),
       SystemConfig::instance()->broadcastExchangeSourceReadBufferBytes(),
       pool_);
+  return true;
 }
 
 std::vector<int64_t> BroadcastFileReader::remainingPageSizes() {
-  ensureFooterRead();
+  auto state = state_.wlock();
+  if (!ensureFooterReadLocked(*state)) {
+    return {};
+  }
 
-  if (pageSizes_.empty() || numPagesRead_ >= pageSizes_.size()) {
+  const auto pageIndex = numPagesRead_.load();
+  if (pageIndex >= state->pageSizes.size()) {
     return {}; // No remaining pages
   }
 
-  // Return the portion of pageSizes_ that hasn't been read yet
+  // Return the portion of pageSizes that hasn't been read yet
   return std::vector<int64_t>(
-      pageSizes_.begin() + numPagesRead_, pageSizes_.end());
+      state->pageSizes.begin() + pageIndex, state->pageSizes.end());
 }
 
 folly::F14FastMap<std::string, int64_t> BroadcastFileReader::stats() const {
   return {
-      {"broadcastExchangeSource.numBytes", numBytes_},
-      {"broadcastExchangeSource.numPages", numPagesRead_},
+      {"broadcastExchangeSource.numBytes", numBytes_.load()},
+      {"broadcastExchangeSource.numPages", numPagesRead_.load()},
       {"broadcastExchangeSource.openFileAndReadFooterTimeUs",
-       openFileAndReadFooterTimeUs_},
-      {"broadcastExchangeSource.fileReadWallTimeUs", fileReadWallTimeUs_}};
+       static_cast<int64_t>(openFileAndReadFooterTimeUs_.load())},
+      {"broadcastExchangeSource.fileReadWallTimeUs",
+       static_cast<int64_t>(fileReadWallTimeUs_.load())}};
 }
 
 folly::F14FastMap<std::string, velox::RuntimeMetric>
 BroadcastFileReader::metrics() const {
   return {
       {"broadcastExchangeSource.numBytes",
-       velox::RuntimeMetric(numBytes_, velox::RuntimeCounter::Unit::kBytes)},
-      {"broadcastExchangeSource.numPages", velox::RuntimeMetric(numPagesRead_)},
+       velox::RuntimeMetric(
+           numBytes_.load(), velox::RuntimeCounter::Unit::kBytes)},
+      {"broadcastExchangeSource.numPages",
+       velox::RuntimeMetric(numPagesRead_.load())},
       {"broadcastExchangeSource.openFileAndReadFooterTimeNanos",
        velox::RuntimeMetric(
-           openFileAndReadFooterTimeUs_ * 1'000,
+           openFileAndReadFooterTimeUs_.load() * 1'000,
            velox::RuntimeCounter::Unit::kNanos)},
       {"broadcastExchangeSource.fileReadWallTimeNanos",
        velox::RuntimeMetric(
-           fileReadWallTimeUs_ * 1'000, velox::RuntimeCounter::Unit::kNanos)}};
+           fileReadWallTimeUs_.load() * 1'000,
+           velox::RuntimeCounter::Unit::kNanos)}};
 }
 
 } // namespace facebook::presto::operators

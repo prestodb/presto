@@ -49,9 +49,13 @@ BroadcastExchangeSource::request(
     int64_t totalBytes = 0;
     std::vector<std::unique_ptr<velox::exec::SerializedPageBase>> pages;
 
-    while (totalBytes < maxBytes && reader_->hasNext()) {
+    while (totalBytes < maxBytes) {
+      // next() is total: nullptr covers both exhaustion and a concurrent
+      // close(), so a separate hasNext() would only take the lock again.
       auto buffer = reader_->next();
-      VELOX_CHECK_NOT_NULL(buffer);
+      if (buffer == nullptr) {
+        break;
+      }
 
       auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
       auto page = std::make_unique<velox::exec::PrestoSerializedPage>(
