@@ -200,7 +200,7 @@ public abstract class BaseOAuth2AuthenticationFilterTest
                                         .put("exp", now + 60L)
                                         .put("iat", now)
                                         .put("iss", "https://hydra:4444/")
-                                        .put("jti", UUID.randomUUID())
+                                        .put("jti", UUID.randomUUID().toString())
                                         .put("nbf", now)
                                         .put("scp", ImmutableList.of("openid"))
                                         .put("sub", "foo@bar.com")
