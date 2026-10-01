@@ -54,6 +54,7 @@ public class RPCNode
     private final List<VariableReferenceExpression> outputVariables;
     private final StreamingMode streamingMode;
     private final int dispatchBatchSize;
+    private final String riftTier;
 
     @JsonCreator
     public RPCNode(
@@ -65,11 +66,13 @@ public class RPCNode
             @JsonProperty("argumentColumns") List<String> argumentColumns,
             @JsonProperty("outputVariable") VariableReferenceExpression outputVariable,
             @JsonProperty("streamingMode") StreamingMode streamingMode,
-            @JsonProperty("dispatchBatchSize") Integer dispatchBatchSize)
+            @JsonProperty("dispatchBatchSize") Integer dispatchBatchSize,
+            @JsonProperty("riftTier") String riftTier)
     {
         this(sourceLocation, id, Optional.empty(), source, functionName,
                 arguments, argumentColumns, outputVariable, streamingMode,
-                dispatchBatchSize != null ? dispatchBatchSize : 0);
+                dispatchBatchSize != null ? dispatchBatchSize : 0,
+                riftTier != null ? riftTier : "");
     }
 
     public RPCNode(
@@ -82,7 +85,8 @@ public class RPCNode
             List<String> argumentColumns,
             VariableReferenceExpression outputVariable,
             StreamingMode streamingMode,
-            int dispatchBatchSize)
+            int dispatchBatchSize,
+            String riftTier)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
         this.source = requireNonNull(source, "source is null");
@@ -100,6 +104,7 @@ public class RPCNode
                 this.streamingMode != StreamingMode.AUTOMATIC,
                 "RPCNode streamingMode must be PER_ROW or BATCH, not AUTOMATIC (coordinator-only value); resolve it before constructing the node");
         this.dispatchBatchSize = dispatchBatchSize;
+        this.riftTier = riftTier != null ? riftTier : "";
 
         ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.builder();
         outputs.addAll(source.getOutputVariables());
@@ -149,6 +154,12 @@ public class RPCNode
         return dispatchBatchSize;
     }
 
+    @JsonProperty
+    public String getRiftTier()
+    {
+        return riftTier;
+    }
+
     @Override
     @JsonProperty
     public List<VariableReferenceExpression> getOutputVariables()
@@ -181,7 +192,8 @@ public class RPCNode
                 argumentColumns,
                 outputVariable,
                 streamingMode,
-                dispatchBatchSize);
+                dispatchBatchSize,
+                riftTier);
     }
 
     @Override
@@ -197,6 +209,7 @@ public class RPCNode
                 argumentColumns,
                 outputVariable,
                 streamingMode,
-                dispatchBatchSize);
+                dispatchBatchSize,
+                riftTier);
     }
 }
