@@ -21,6 +21,7 @@
 #include "velox/buffer/Buffer.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/compression/Compression.h"
+#include "velox/common/encode/Base64.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/exec/Exchange.h"
@@ -377,6 +378,270 @@ TEST_P(BroadcastTest, malformedBroadcastInfoJson) {
       "BroadcastInfo deserialization failed");
 }
 
+TEST_P(BroadcastTest, broadcastFileInfoCarriesDescriptor) {
+  // The reader must recover the exact bytes, including any embedded NUL.
+  const std::string rawDescriptor =
+      std::string("\x01\x00\x02", 3) + "descriptor-bytes";
+
+  const auto fileInfo = BroadcastFileInfo::deserialize(
+      fmt::format(
+          R"({{"filePath": "/tmp/file.bin", "descriptor": "{}"}})",
+          encoding::Base64::encodeUrl(rawDescriptor)));
+
+  EXPECT_EQ(fileInfo->filePath_, "/tmp/file.bin");
+  EXPECT_EQ(fileInfo->descriptor_, rawDescriptor);
+}
+
+TEST_P(BroadcastTest, broadcastFileInfoSurvivesQueryParsing) {
+  // folly matches a query value with `[^=&]*`, so padded base64 would drop
+  // `broadcastInfo` entirely for two thirds of all descriptor lengths.
+  for (size_t descriptorSize = 1; descriptorSize <= 6; ++descriptorSize) {
+    SCOPED_TRACE(fmt::format("descriptorSize={}", descriptorSize));
+    const std::string rawDescriptor(descriptorSize, '\xff');
+    const auto serializedFileInfo = fmt::format(
+        R"({{"filePath": "/tmp/file.bin", "descriptor": "{}"}})",
+        encoding::Base64::encodeUrl(rawDescriptor));
+
+    // Not const: getQueryParams() populates lazily.
+    folly::Uri uri(
+        fmt::format("batch://task?broadcastInfo={}", serializedFileInfo));
+    std::string broadcastInfo;
+    for (const auto& [name, value] : uri.getQueryParams()) {
+      if (name == "broadcastInfo") {
+        broadcastInfo = value;
+      }
+    }
+
+    ASSERT_FALSE(broadcastInfo.empty());
+    EXPECT_EQ(
+        BroadcastFileInfo::deserialize(broadcastInfo)->descriptor_,
+        rawDescriptor);
+  }
+}
+
+TEST_P(BroadcastTest, redactBroadcastInfoHidesTheDescriptor) {
+  // The descriptor carries Warm Storage bearer tokens, so no log or exception
+  // may quote it, while the rest of the payload stays readable.
+  // Re-serialized from the parsed payload, so spacing is normalised and key
+  // order is preserved.
+  const auto redacted = redactBroadcastInfo(
+      R"({"filePath": "/tmp/file.bin", "descriptor": "c2VjcmV0LXRva2Vu"})");
+
+  EXPECT_EQ(
+      redacted, R"({"filePath":"/tmp/file.bin","descriptor":"<redacted>"})");
+
+  // Payloads with nothing to hide are returned unchanged.
+  for (const auto& untouched :
+       {R"({"filePath": "/tmp/file.bin"})",
+        R"({"filePath": "/tmp/file.bin", "descriptor": null})",
+        R"({"filePath": "/tmp/file.bin", "descriptor": 42})"}) {
+    SCOPED_TRACE(untouched);
+    EXPECT_EQ(redactBroadcastInfo(untouched), untouched);
+  }
+
+  // A pretty-printed payload must be redacted just the same rather than passed
+  // through intact.
+  EXPECT_EQ(
+      redactBroadcastInfo(
+          "{\n  \"filePath\": \"/tmp/file.bin\",\n  \"descriptor\"\n  :\n  \"c2VjcmV0\"\n}"),
+      R"({"filePath":"/tmp/file.bin","descriptor":"<redacted>"})");
+
+  // A descriptor whose value cannot be located fails safe: the whole payload
+  // is withheld rather than emitted on the chance it still holds a token.
+  for (const auto& truncated :
+       {R"({"filePath": "/tmp/file.bin", "descriptor")",
+        R"({"filePath": "/tmp/file.bin", "descriptor": "unterminated)"}) {
+    SCOPED_TRACE(truncated);
+    EXPECT_EQ(redactBroadcastInfo(truncated), "<redacted>");
+  }
+
+  // The exception-text caller does not pass JSON at all. Text quoting a
+  // descriptor is withheld whole; text without one stays readable.
+  EXPECT_EQ(
+      redactBroadcastInfo(
+          R"(parse error at 1: {"filePath":"/f","descriptor":"c2VjcmV0"})"),
+      "<redacted>");
+  EXPECT_EQ(
+      redactBroadcastInfo("parse error at line 1: unexpected end of input"),
+      "parse error at line 1: unexpected end of input");
+}
+
+TEST_P(BroadcastTest, broadcastFileInfoWithMalformedDescriptor) {
+  // An unusable descriptor must degrade to a path open, not fail the read --
+  // whether it is undecodable or not even a string.
+  for (const auto& serializedFileInfo :
+       {R"({"filePath": "/tmp/file.bin", "descriptor": "!!!not-base64!!!"})",
+        R"({"filePath": "/tmp/file.bin", "descriptor": 42})",
+        R"({"filePath": "/tmp/file.bin", "descriptor": {"a": 1}})"}) {
+    SCOPED_TRACE(serializedFileInfo);
+    const auto fileInfo = BroadcastFileInfo::deserialize(serializedFileInfo);
+    EXPECT_EQ(fileInfo->filePath_, "/tmp/file.bin");
+    EXPECT_TRUE(fileInfo->descriptor_.empty());
+  }
+}
+
+TEST_P(BroadcastTest, broadcastFileInfoWithoutDescriptor) {
+  // Older writers omit the field; a file system with no handle emits an empty
+  // one. Both leave the reader to open by path.
+  for (const auto& serializedFileInfo :
+       {R"({"filePath": "/tmp/file.bin"})",
+        R"({"filePath": "/tmp/file.bin", "descriptor": ""})",
+        R"({"filePath": "/tmp/file.bin", "descriptor": null})"}) {
+    SCOPED_TRACE(serializedFileInfo);
+    const auto fileInfo = BroadcastFileInfo::deserialize(serializedFileInfo);
+    EXPECT_EQ(fileInfo->filePath_, "/tmp/file.bin");
+    EXPECT_TRUE(fileInfo->descriptor_.empty());
+  }
+}
+
+namespace {
+// Rejects any open that carries a handle, standing in for a file system that
+// refuses a stale descriptor, and delegates everything else.
+class DescriptorRejectingFileSystem : public velox::filesystems::FileSystem {
+ public:
+  explicit DescriptorRejectingFileSystem(
+      std::shared_ptr<velox::filesystems::FileSystem> delegate)
+      : velox::filesystems::FileSystem(nullptr),
+        delegate_(std::move(delegate)) {}
+
+  std::string name() const override {
+    return "DescriptorRejecting";
+  }
+
+  std::unique_ptr<velox::ReadFile> openFileForRead(
+      std::string_view path,
+      const velox::filesystems::FileOptions& options = {}) override {
+    VELOX_CHECK_NULL(options.extraFileInfo, "handle rejected by the test");
+    return delegate_->openFileForRead(path, options);
+  }
+
+  std::unique_ptr<velox::WriteFile> openFileForWrite(
+      std::string_view path,
+      const velox::filesystems::FileOptions& options = {}) override {
+    return delegate_->openFileForWrite(path, options);
+  }
+
+  void remove(std::string_view path) override {
+    delegate_->remove(path);
+  }
+
+  void rename(
+      std::string_view oldPath,
+      std::string_view newPath,
+      bool overwrite = false) override {
+    delegate_->rename(oldPath, newPath, overwrite);
+  }
+
+  bool exists(std::string_view path) override {
+    return delegate_->exists(path);
+  }
+
+  std::vector<std::string> list(std::string_view path) override {
+    return delegate_->list(path);
+  }
+
+  void mkdir(
+      std::string_view path,
+      const velox::filesystems::DirectoryOptions& options = {}) override {
+    delegate_->mkdir(path, options);
+  }
+
+  void rmdir(std::string_view path) override {
+    delegate_->rmdir(path);
+  }
+
+ private:
+  const std::shared_ptr<velox::filesystems::FileSystem> delegate_;
+};
+} // namespace
+
+TEST_P(BroadcastTest, broadcastReaderFallsBackWhenTheHandleIsRejected) {
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto fileSystem =
+      velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+  fileSystem->mkdir(tempDirectoryPath->getPath());
+
+  auto writer = std::make_unique<BroadcastFileWriter>(
+      fmt::format("{}/broadcast_stale_handle", tempDirectoryPath->getPath()),
+      std::numeric_limits<uint64_t>::max(),
+      1 << 20,
+      getVectorSerdeOptions(GetParam().compressionKind),
+      pool());
+  const auto data =
+      makeRowVector({makeFlatVector<int32_t>(8, [](auto row) { return row; })});
+  writer->write(data);
+  writer->noMoreData();
+  const auto filePath = writer->fileStats()
+                            ->childAt(0)
+                            ->as<SimpleVector<StringView>>()
+                            ->valueAt(0)
+                            .str();
+
+  auto fileInfo = std::make_unique<BroadcastFileInfo>();
+  fileInfo->filePath_ = filePath;
+  fileInfo->descriptor_ = "a-stale-handle";
+  auto reader = std::make_shared<BroadcastFileReader>(
+      fileInfo,
+      std::make_shared<DescriptorRejectingFileSystem>(fileSystem),
+      pool());
+
+  // The rejected handle must degrade to a path open rather than fail the read.
+  const auto pageSizes = reader->remainingPageSizes();
+  EXPECT_FALSE(pageSizes.empty());
+
+  const auto metrics = reader->metrics();
+  EXPECT_EQ(metrics.at("broadcastExchangeSource.descriptorOpenCount").sum, 0);
+  EXPECT_EQ(metrics.at("broadcastExchangeSource.pathOpenCount").sum, 1);
+
+  // The footer read that failed mid-way must not leave stale page sizes behind.
+  uint32_t pagesRead = 0;
+  while (reader->hasNext()) {
+    ASSERT_NE(reader->next(), nullptr);
+    ++pagesRead;
+  }
+  EXPECT_EQ(pagesRead, pageSizes.size());
+}
+
+TEST_P(BroadcastTest, broadcastReaderCountsItsOpenPath) {
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto fileSystem =
+      velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+  fileSystem->mkdir(tempDirectoryPath->getPath());
+
+  auto writer = std::make_unique<BroadcastFileWriter>(
+      fmt::format("{}/broadcast_open_counts", tempDirectoryPath->getPath()),
+      std::numeric_limits<uint64_t>::max(),
+      1 << 20,
+      getVectorSerdeOptions(GetParam().compressionKind),
+      pool());
+  writer->write(makeRowVector(
+      {makeFlatVector<int32_t>(4, [](auto row) { return row; })}));
+  writer->noMoreData();
+  const auto filePath = writer->fileStats()
+                            ->childAt(0)
+                            ->as<SimpleVector<StringView>>()
+                            ->valueAt(0)
+                            .str();
+
+  const auto openCounts = [&](const std::string& descriptor) {
+    auto fileInfo = std::make_unique<BroadcastFileInfo>();
+    fileInfo->filePath_ = filePath;
+    fileInfo->descriptor_ = descriptor;
+    auto reader =
+        std::make_shared<BroadcastFileReader>(fileInfo, fileSystem, pool());
+    reader->remainingPageSizes();
+    const auto metrics = reader->metrics();
+    return std::make_pair(
+        metrics.at("broadcastExchangeSource.descriptorOpenCount").sum,
+        metrics.at("broadcastExchangeSource.pathOpenCount").sum);
+  };
+
+  // No handle from the writer, so the reader has to resolve the file by path.
+  EXPECT_EQ(openCounts(""), std::make_pair(int64_t{0}, int64_t{1}));
+  // A handle present, so the reader takes the descriptor branch instead.
+  EXPECT_EQ(openCounts("handle"), std::make_pair(int64_t{1}, int64_t{0}));
+}
+
 TEST_P(BroadcastTest, broadcastFileWriter) {
   auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
   auto fileSystem =
@@ -410,7 +675,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
     auto fileStats = writer->fileStats();
     ASSERT_NE(fileStats, nullptr);
     ASSERT_EQ(fileStats->size(), 1);
-    ASSERT_EQ(fileStats->childrenSize(), 3);
+    ASSERT_EQ(fileStats->childrenSize(), 4);
 
     auto createdFilePath =
         fileStats->childAt(0)->as<SimpleVector<StringView>>()->valueAt(0).str();
@@ -426,6 +691,12 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
         fileStats->childAt(2)->as<SimpleVector<int64_t>>()->valueAt(0);
     ASSERT_EQ(numRows, testData1->size() + testData2->size());
     ASSERT_EQ(numRows, 6);
+
+    // The local file system cannot produce a reusable handle, so the reader is
+    // left to open the broadcast file by path.
+    auto descriptor =
+        fileStats->childAt(3)->as<SimpleVector<StringView>>()->valueAt(0);
+    ASSERT_TRUE(descriptor.empty());
   }
 
   // Test fileStats() before noMoreData() returns nullptr
