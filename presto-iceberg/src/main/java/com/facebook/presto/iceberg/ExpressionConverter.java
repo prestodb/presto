@@ -74,6 +74,11 @@ import static org.apache.iceberg.expressions.Expressions.or;
 
 public final class ExpressionConverter
 {
+    // ManifestEvaluator and InclusiveMetricsEvaluator define IN_PREDICATE_LIMIT = 200.
+    // For IN sets larger than the limit they skip bounds checking and return ROWS_MIGHT_MATCH
+    // unconditionally, defeating manifest and file pruning.  Keep each chunk within the limit.
+    private static final int ICEBERG_IN_PREDICATE_LIMIT = 200;
+
     private ExpressionConverter() {}
 
     public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain)
@@ -124,6 +129,12 @@ public final class ExpressionConverter
         }
 
         ValueSet domainValues = domain.getValues();
+        // isNull is seeded as the initial accumulator so that each range predicate is OR'd
+        // directly on top, producing or(isNull, rangePred).  The old code accumulated
+        // lower/upper bounds one at a time into the expression while isNull was already present,
+        // producing and(or(isNull, lowerBound), upperBound) for half-open ranges.  That shape
+        // caused InclusiveMetricsEvaluator to prune all-null files for half-open ranges even
+        // when IS NULL was in the predicate, silently dropping rows.
         Expression expression = null;
         if (domain.isNullAllowed()) {
             expression = isNull(columnName);
@@ -157,9 +168,17 @@ public final class ExpressionConverter
             }
             List<Object> equalityValues = equalityValuesBuilder.build();
             if (!equalityValues.isEmpty()) {
-                expression = equalityValues.size() == 1
-                        ? or(expression, equal(columnName, equalityValues.get(0)))
-                        : or(expression, in(columnName, equalityValues));
+                // Chunk into IN predicates of at most ICEBERG_IN_PREDICATE_LIMIT each so
+                // ManifestEvaluator / InclusiveMetricsEvaluator still prune by bounds.
+                // Combine chunks with buildOrTree so depth stays O(log(N/200)).
+                ImmutableList.Builder<Expression> chunkExprs = ImmutableList.builder();
+                for (int i = 0; i < equalityValues.size(); i += ICEBERG_IN_PREDICATE_LIMIT) {
+                    List<Object> chunk = equalityValues.subList(i, Math.min(i + ICEBERG_IN_PREDICATE_LIMIT, equalityValues.size()));
+                    chunkExprs.add(chunk.size() == 1
+                            ? equal(columnName, chunk.get(0))
+                            : in(columnName, chunk));
+                }
+                expression = or(expression, buildOrTree(chunkExprs.build()));
             }
 
             // Pass 2: collect each non-equality range predicate into a list, then combine

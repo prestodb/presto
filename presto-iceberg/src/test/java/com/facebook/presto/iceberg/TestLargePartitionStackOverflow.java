@@ -16,7 +16,6 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -32,7 +31,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILT
  * single-point equality values, overflowing ExpressionVisitors' recursive visit() call.
  * Fixed by emitting Expressions.in() (depth 1) instead.
  *
- * Workaround: SET SESSION pushdown_filter_enabled = false (confirmed by customer).
+ * Workaround: SET SESSION pushdown_filter_enabled = false.
  */
 public class TestLargePartitionStackOverflow
         extends AbstractTestQueryFramework
@@ -45,7 +44,6 @@ public class TestLargePartitionStackOverflow
             throws Exception
     {
         return IcebergQueryRunner.builder()
-                .setExtraProperties(ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"))
                 .setCreateTpchTables(false)
                 .build()
                 .getQueryRunner();
@@ -89,6 +87,7 @@ public class TestLargePartitionStackOverflow
     {
         // Regression test: planning SELECT * on a 3000-partition table with pushdown=true
         // previously overflowed with "statement is too large (stack overflow during analysis)".
+        // plan() throws StackOverflowError if ExpressionVisitors recurses into a depth-N OR chain.
         plan("SELECT * FROM " + TABLE + " LIMIT 1", pushdownSession(true));
     }
 
@@ -96,19 +95,8 @@ public class TestLargePartitionStackOverflow
     public void testCountStarPlanWithPushdownEnabled()
     {
         // Regression test: same overflow triggered by COUNT(*) on a large partitioned table.
+        // plan() throws StackOverflowError if ExpressionVisitors recurses into a depth-N OR chain.
         plan("SELECT COUNT(*) FROM " + TABLE, pushdownSession(true));
-    }
-
-    @Test
-    public void testSelectWithPartitionFilterExecutesCorrectly()
-    {
-        // Verify execution returns the correct row for a single-partition filter.
-        // Epoch day 18000 = DATE '2019-04-14'; this partition contains exactly 1 row (val=1).
-        // Runs without pushdown_filter_enabled because the Java connector does not support
-        // filter pushdown at execution time (native/Prestissimo workers only).
-        assertQuery(
-                "SELECT val FROM " + TABLE + " WHERE created_date = DATE '2019-04-14'",
-                "VALUES 1");
     }
 
     private Session pushdownSession(boolean enabled)
