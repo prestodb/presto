@@ -12,7 +12,11 @@
  * limitations under the License.
  */
 #include <boost/algorithm/string/join.hpp>
+#include <folly/ScopeGuard.h>
 #include <folly/Uri.h>
+#include <folly/synchronization/Baton.h>
+#include <thread>
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastFile.h"
@@ -647,6 +651,259 @@ TEST_P(BroadcastTest, endToEndWithDifferentWriterPageSizes) {
 
     velox::exec::test::assertEqualResults(totalData, pageResults);
   }
+}
+
+namespace {
+// Holds a reader inside 'pread' so that a test can call close() while a read is
+// still in progress.
+class ReadGate {
+ public:
+  // Arms the gate for the next read only.
+  // Long enough that a healthy run never reaches it, short enough that a
+  // regression fails the test instead of hanging until the CI timeout.
+  static constexpr std::chrono::seconds kProgressTimeout{30};
+  // How long close() is given to prove it is blocked.
+  static constexpr std::chrono::milliseconds kCloseBlockedFor{200};
+
+  void arm() {
+    armed_ = true;
+  }
+
+  // Runs on the reader thread from inside pread.
+  void awaitCloseAttempt() {
+    if (!armed_.exchange(false)) {
+      return;
+    }
+    fired_ = true;
+    readStarted_.post();
+    sawCloseIssued_ = closeIssued_.try_wait_for(kProgressTimeout);
+    // close() cannot return while this read is in flight, so this must time
+    // out. A post instead means close() returned early -- the regression.
+    closeReturnedDuringRead_ = closeReturned_.try_wait_for(kCloseBlockedFor);
+  }
+
+  bool awaitReadStarted() {
+    return readStarted_.try_wait_for(kProgressTimeout);
+  }
+
+  void issueClose() {
+    closeIssued_.post();
+  }
+
+  void postCloseReturned() {
+    closeReturned_.post();
+  }
+
+  bool fired() const {
+    return fired_.load();
+  }
+
+  bool sawCloseIssued() const {
+    return sawCloseIssued_.load();
+  }
+
+  bool closeReturnedDuringRead() const {
+    return closeReturnedDuringRead_.load();
+  }
+
+ private:
+  std::atomic_bool armed_{false};
+  std::atomic_bool fired_{false};
+  std::atomic_bool sawCloseIssued_{false};
+  std::atomic_bool closeReturnedDuringRead_{false};
+  folly::Baton<> readStarted_;
+  folly::Baton<> closeIssued_;
+  folly::Baton<> closeReturned_;
+};
+
+// Runs 'gate' before delegating each read.
+class GatedReadFile : public ReadFile {
+ public:
+  GatedReadFile(std::unique_ptr<ReadFile> delegate, ReadGate* gate)
+      : delegate_(std::move(delegate)), gate_(gate) {}
+
+  std::string_view pread(
+      uint64_t offset,
+      uint64_t length,
+      void* buffer,
+      const FileIoContext& context = {}) const override {
+    gate_->awaitCloseAttempt();
+    return delegate_->pread(offset, length, buffer, context);
+  }
+
+  bool shouldCoalesce() const override {
+    return delegate_->shouldCoalesce();
+  }
+
+  uint64_t size() const override {
+    return delegate_->size();
+  }
+
+  uint64_t memoryUsage() const override {
+    return delegate_->memoryUsage();
+  }
+
+  std::string getName() const override {
+    return delegate_->getName();
+  }
+
+  uint64_t getNaturalReadSize() const override {
+    return delegate_->getNaturalReadSize();
+  }
+
+ private:
+  const std::unique_ptr<ReadFile> delegate_;
+  ReadGate* const gate_;
+};
+
+// Hands out gated read files over a delegate file system.
+class GatedFileSystem : public filesystems::FileSystem {
+ public:
+  GatedFileSystem(std::shared_ptr<FileSystem> delegate, ReadGate* gate)
+      : FileSystem(nullptr), delegate_(std::move(delegate)), gate_(gate) {}
+
+  std::string name() const override {
+    return "gated";
+  }
+
+  std::unique_ptr<ReadFile> openFileForRead(
+      std::string_view path,
+      const filesystems::FileOptions& options = {}) override {
+    return std::make_unique<GatedReadFile>(
+        delegate_->openFileForRead(path, options), gate_);
+  }
+
+  std::unique_ptr<WriteFile> openFileForWrite(
+      std::string_view path,
+      const filesystems::FileOptions& options = {}) override {
+    return delegate_->openFileForWrite(path, options);
+  }
+
+  void remove(std::string_view path) override {
+    delegate_->remove(path);
+  }
+
+  void rename(
+      std::string_view oldPath,
+      std::string_view newPath,
+      bool overwrite = false) override {
+    delegate_->rename(oldPath, newPath, overwrite);
+  }
+
+  bool exists(std::string_view path) override {
+    return delegate_->exists(path);
+  }
+
+  std::vector<std::string> list(std::string_view path) override {
+    return delegate_->list(path);
+  }
+
+  void mkdir(
+      std::string_view path,
+      const filesystems::DirectoryOptions& options = {}) override {
+    delegate_->mkdir(path, options);
+  }
+
+  void rmdir(std::string_view path) override {
+    delegate_->rmdir(path);
+  }
+
+ private:
+  const std::shared_ptr<FileSystem> delegate_;
+  ReadGate* const gate_;
+};
+} // namespace
+
+TEST_P(BroadcastTest, closeDuringRead) {
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto localFileSystem =
+      velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+  localFileSystem->mkdir(tempDirectoryPath->getPath());
+
+  // The payload has to stay larger than the reader's 1MB input stream buffer
+  // after compression, otherwise the whole file is read up front and no read
+  // remains for close() to race. Hashed values do not compress.
+  const auto data = makeRowVector({
+      makeFlatVector<int64_t>(
+          200'000,
+          [](auto row) {
+            return static_cast<int64_t>(
+                row * 6364136223846793005ULL + 1442695040888963407ULL);
+          }),
+  });
+  auto writer = std::make_unique<BroadcastFileWriter>(
+      fmt::format(
+          "{}/broadcast_close_during_read", tempDirectoryPath->getPath()),
+      std::numeric_limits<uint64_t>::max(),
+      64 << 10,
+      getVectorSerdeOptions(GetParam().compressionKind),
+      pool());
+  writer->write(data);
+  writer->noMoreData();
+  const auto filePath = writer->fileStats()
+                            ->childAt(0)
+                            ->as<SimpleVector<StringView>>()
+                            ->valueAt(0)
+                            .str();
+  // The gate only sees a page read if the file outgrows the reader's input
+  // buffer; otherwise the whole file is read up front. Read the bound from the
+  // same config the reader uses, so raising the default cannot silently turn
+  // this into a test that covers nothing.
+  ASSERT_GT(
+      localFileSystem->openFileForRead(filePath)->size(),
+      SystemConfig::instance()->broadcastExchangeSourceReadBufferBytes());
+
+  ReadGate gate;
+  auto broadcastFileInfo = std::make_unique<BroadcastFileInfo>();
+  broadcastFileInfo->filePath_ = filePath;
+  auto reader = std::make_shared<BroadcastFileReader>(
+      broadcastFileInfo,
+      std::make_shared<GatedFileSystem>(localFileSystem, &gate),
+      pool());
+
+  // Read the footer up front so the gate catches a page read rather than the
+  // footer read.
+  ASSERT_TRUE(reader->hasNext());
+  gate.arm();
+
+  // An exception escaping a std::thread callable calls std::terminate, which
+  // would abort the whole binary instead of failing this case -- and throwing
+  // is exactly what the regression does. Capture and rethrow on this thread.
+  std::exception_ptr readError;
+  std::thread reads([&]() {
+    try {
+      while (reader->next() != nullptr) {
+      }
+    } catch (...) {
+      readError = std::current_exception();
+    }
+  });
+
+  // Join on every path, including a failed assertion below. Releasing the gate
+  // first stops the reader thread waiting on a close that will never come.
+  SCOPE_EXIT {
+    gate.postCloseReturned();
+    if (reads.joinable()) {
+      reads.join();
+    }
+  };
+
+  ASSERT_TRUE(gate.awaitReadStarted()) << "the gate never caught a page read";
+  gate.issueClose();
+  reader->close();
+  gate.postCloseReturned();
+  reads.join();
+
+  if (readError != nullptr) {
+    std::rethrow_exception(readError);
+  }
+  ASSERT_TRUE(gate.fired()) << "the gated read never ran";
+  ASSERT_TRUE(gate.sawCloseIssued()) << "the gate timed out waiting for close";
+  ASSERT_FALSE(gate.closeReturnedDuringRead())
+      << "close() returned while a read was still in flight";
+
+  ASSERT_EQ(reader->next(), nullptr);
+  ASSERT_TRUE(reader->remainingPageSizes().empty());
 }
 
 TEST_P(BroadcastTest, exceedBroadcastFileWriterLimit) {
