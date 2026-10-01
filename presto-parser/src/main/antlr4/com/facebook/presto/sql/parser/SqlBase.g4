@@ -183,6 +183,8 @@ statement
           '(' identifier (',' identifier)? ')'
           (WITH properties)?
           (UPDATING FOR booleanExpression)?                              #createVectorIndex
+    | REFRESH VECTOR INDEX qualifiedName
+        (WHERE where=booleanExpression)?                               #refreshVectorIndex
     ;
 
 query
