@@ -74,7 +74,7 @@ public class TestScheduler
     {
         return new Object[][]
                 {
-                        {"test"}, {"user"}, {"1234"},
+                        {"test"}, {"user"}, {"1234"}, {"OpenAI"},
                 };
     }
 

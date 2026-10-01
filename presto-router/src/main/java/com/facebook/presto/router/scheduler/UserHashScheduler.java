@@ -32,7 +32,7 @@ public class UserHashScheduler
     public Optional<URI> getDestination(RouterRequestInfo routerRequestInfo)
     {
         try {
-            return Optional.of(candidates.get(routerRequestInfo.getUser().hashCode() % candidates.size()));
+            return Optional.of(candidates.get(Math.floorMod(routerRequestInfo.getUser().hashCode(), candidates.size())));
         }
         catch (ArithmeticException e) {
             log.warn(e, "Error getting destination for user " + routerRequestInfo.getUser());
