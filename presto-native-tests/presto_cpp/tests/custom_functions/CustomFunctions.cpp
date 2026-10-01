@@ -95,6 +95,12 @@ extern "C" {
           int64_t>("dynamic_custom_add");
 
       facebook::presto::registerPrestoFunction<
+                custom::functionRegistry::CustomAdd,
+                int64_t,
+                int64_t,
+                int64_t>("custom_add");
+
+      facebook::presto::registerPrestoFunction<
           custom::functionRegistry::SumArray,
           int64_t,
           facebook::velox::Array<int64_t>>("sum_array");
