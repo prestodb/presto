@@ -15,6 +15,7 @@ package com.facebook.presto.delta;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Subfield;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -23,6 +24,7 @@ import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.delta.DeltaTypeUtils.toPhysicalSubfieldPath;
 import static org.testng.Assert.assertEquals;
 
 /**
@@ -46,6 +48,25 @@ public class TestDeltaColumnHandle
         testRoundTrip(expectedRegularColumn);
     }
 
+    @Test
+    public void testPhysicalSubfieldPath()
+    {
+        DeltaColumnHandle column = new DeltaColumnHandle(
+                1L,
+                "col-root",
+                "root",
+                parseTypeSignature("row(child row(value bigint))"),
+                parseTypeSignature("row(\"col-child\" row(\"col-value\" bigint))"),
+                REGULAR,
+                Optional.empty(),
+                ImmutableList.of());
+        Subfield subfield = new Subfield(
+                "root",
+                ImmutableList.of(new Subfield.NestedField("child"), new Subfield.NestedField("value")));
+
+        assertEquals(toPhysicalSubfieldPath(column, subfield), ImmutableList.of("col-root", "col-child", "col-value"));
+    }
+
     private void testRoundTrip(DeltaColumnHandle expected)
     {
         String json = codec.toJson(expected);
@@ -56,6 +77,8 @@ public class TestDeltaColumnHandle
         assertEquals(actual.getLogicalName(), expected.getLogicalName());
         assertEquals(actual.getColumnType(), expected.getColumnType());
         assertEquals(actual.getDataType(), expected.getDataType());
+        assertEquals(actual.getPhysicalType(), expected.getPhysicalType());
         assertEquals(actual.getSubfield(), expected.getSubfield());
+        assertEquals(actual.getSourceSubfieldPath(), expected.getSourceSubfieldPath());
     }
 }

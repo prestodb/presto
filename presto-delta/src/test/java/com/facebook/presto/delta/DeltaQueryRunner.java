@@ -65,6 +65,7 @@ public class DeltaQueryRunner
         private Builder() {}
 
         private Map<String, String> extraProperties = new HashMap<>();
+        private Map<String, String> sessionProperties = new HashMap<>();
         // If externalWorkerLauncher is not provided, Java workers are used by default.
         private Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
         private TimeZoneKey timeZoneKey = UTC_KEY;
@@ -80,6 +81,12 @@ public class DeltaQueryRunner
         public Builder setExtraProperties(Map<String, String> extraProperties)
         {
             this.extraProperties = ImmutableMap.copyOf(extraProperties);
+            return this;
+        }
+
+        public Builder setSessionProperties(Map<String, String> sessionProperties)
+        {
+            this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
             return this;
         }
 
@@ -105,11 +112,17 @@ public class DeltaQueryRunner
                 throws Exception
         {
             setupLogging();
-            Session session = testSessionBuilder()
+            Session.SessionBuilder sessionBuilder = testSessionBuilder()
                     .setCatalog(DELTA_CATALOG)
                     .setSchema(DELTA_SCHEMA.toLowerCase(US))
-                    .setTimeZoneKey(timeZoneKey)
-                    .build();
+                    .setTimeZoneKey(timeZoneKey);
+
+            // Apply session properties
+            for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {
+                sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
+            }
+
+            Session session = sessionBuilder.build();
 
             DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                     .setExtraProperties(extraProperties)

@@ -36,11 +36,13 @@ public class DeltaSplit
     private final String connectorId;
     private final String schema;
     private final String table;
+    private final String tableLocation;
     private final String filePath;
     private final long start;
     private final long length;
     private final long fileSize;
     private final Map<String, String> partitionValues;
+    private final String columnMappingMode;
     private final NodeSelectionStrategy nodeSelectionStrategy;
 
     @JsonCreator
@@ -48,11 +50,13 @@ public class DeltaSplit
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schema,
             @JsonProperty("tableName") String table,
+            @JsonProperty("tableLocation") String tableLocation,
             @JsonProperty("filePath") String filePath,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("partitionValues") Map<String, String> partitionValues,
+            @JsonProperty("columnMappingMode") String columnMappingMode,
             @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy)
     {
         checkArgument(start >= 0, "start must be non-negative");
@@ -62,11 +66,17 @@ public class DeltaSplit
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.schema = requireNonNull(schema, "schema name is null");
         this.table = requireNonNull(table, "table name is null");
+        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
         this.filePath = requireNonNull(filePath, "filePath name is null");
         this.start = start;
         this.length = length;
         this.fileSize = fileSize;
         this.partitionValues = ImmutableMap.copyOf(requireNonNull(partitionValues, "partitionValues id is null"));
+        // Empty and null default to "none" so older serialized splits and
+        // callers that haven't been updated still round-trip cleanly.
+        this.columnMappingMode = columnMappingMode == null || columnMappingMode.isEmpty()
+                ? DeltaTable.COLUMN_MAPPING_MODE_NONE
+                : columnMappingMode;
         this.nodeSelectionStrategy = nodeSelectionStrategy;
     }
 
@@ -86,6 +96,12 @@ public class DeltaSplit
     public String getTable()
     {
         return table;
+    }
+
+    @JsonProperty
+    public String getTableLocation()
+    {
+        return tableLocation;
     }
 
     @JsonProperty
@@ -116,6 +132,19 @@ public class DeltaSplit
     public Map<String, String> getPartitionValues()
     {
         return partitionValues;
+    }
+
+    /**
+     * Source table's {@code delta.columnMapping.mode} value
+     * ({@code "none"}, {@code "name"}, or {@code "id"}). Forwarded to
+     * the native worker via the Delta split protocol so it can enforce
+     * mode-specific read requirements. Defaults to {@code "none"} when
+     * the source table has no column-mapping property.
+     */
+    @JsonProperty
+    public String getColumnMappingMode()
+    {
+        return columnMappingMode;
     }
 
     @Override

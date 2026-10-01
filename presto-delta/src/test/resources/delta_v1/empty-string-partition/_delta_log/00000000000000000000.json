@@ -1,0 +1,3 @@
+{"protocol":{"minReaderVersion":1,"minWriterVersion":2}}
+{"metaData":{"id":"7ebf0c21-3cd9-4a64-aedd-6ae889a3903e","format":{"provider":"parquet","options":{}},"schemaString":"{\"type\":\"struct\",\"fields\":[{\"name\":\"value\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}},{\"name\":\"part\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]}","partitionColumns":["part"],"configuration":{},"createdTime":1631515104797}}
+{"add":{"path":"data/part-00000-empty-string.c000.snappy.parquet","partitionValues":{"part":""},"size":465,"modificationTime":1631515106000,"dataChange":true,"stats":"{\"numRecords\":1,\"minValues\":{\"value\":\"0\"},\"maxValues\":{\"value\":\"0\"},\"nullCount\":{\"value\":0}}"}}
