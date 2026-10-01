@@ -167,7 +167,9 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     obj["pageSize"] = pageSize_;
     obj["closed"] = std::to_string(closed_);
     obj["abortResultsIssued"] = std::to_string(abortResultsIssued_);
-    obj["atEnd"] = atEnd_;
+    // static_cast, not .load(): this file exports to OSS presto separately
+    // from velox, so it has to compile against both bool and atomic<bool>.
+    obj["atEnd"] = static_cast<bool>(atEnd_);
     return obj;
   }
 
