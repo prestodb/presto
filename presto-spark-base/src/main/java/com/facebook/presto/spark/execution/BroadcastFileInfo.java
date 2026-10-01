@@ -20,7 +20,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 /**
  * This class is a 1:1 strict API mapping to BroadcastFileInfo in
- * presto-native-execution/presto_cpp/main/operators/BroadcastFactory.h.
+ * presto-native-execution/presto_cpp/main/operators/BroadcastFile.h.
  * Please refrain changes to this API class. If any changes have to be made to
  * this class, one should make sure to make corresponding changes in the above
  * C++ struct and its corresponding serde functionalities.
@@ -28,12 +28,17 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class BroadcastFileInfo
 {
     private final String filePath;
+    // Carries bearer tokens: never log it or add it to toString().
+    private final String descriptor;
     // TODO: Add additional stats including checksum, num rows, size.
 
     @JsonCreator
-    public BroadcastFileInfo(@JsonProperty("filePath") String filePath)
+    public BroadcastFileInfo(
+            @JsonProperty("filePath") String filePath,
+            @JsonProperty("descriptor") String descriptor)
     {
         this.filePath = filePath;
+        this.descriptor = descriptor;
     }
 
     @JsonProperty("filePath")
@@ -42,9 +47,20 @@ public class BroadcastFileInfo
         return filePath;
     }
 
+    /**
+     * Base64url handle from the native writer; opening from it skips the per-reader
+     * metadata lookup. Null means the reader opens by path.
+     */
+    @JsonProperty("descriptor")
+    public String getDescriptor()
+    {
+        return descriptor;
+    }
+
     @Override
     public String toString()
     {
+        // Deliberately emits no fields so the descriptor cannot leak through it.
         return toStringHelper(this).toString();
     }
 }

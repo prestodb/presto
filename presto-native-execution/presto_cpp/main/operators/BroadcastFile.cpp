@@ -12,6 +12,19 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/BroadcastFile.h"
+#include <fmt/format.h>
+#include <velox/common/encode/Base64.h>
+#include <velox/common/file/FileSystems.h>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include <limits>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
@@ -86,6 +99,50 @@ void readFooter(
       pageSizes.size(),
       filePath);
 }
+
+// Empty when the file system cannot describe 'filePath'.
+std::string serializeFileDescriptor(const std::string& filePath) {
+  try {
+    const std::optional<std::string> handle =
+        velox::filesystems::getFileSystem(filePath, nullptr)
+            ->serializeExtraFileInfo(filePath, {});
+    if (!handle.has_value()) {
+      return {};
+    }
+    // Unpadded: this rides an unescaped `?broadcastInfo=<json>` query value,
+    // and folly's parser drops a parameter whose value contains a second '='.
+    return velox::encoding::Base64::encodeUrl(handle.value());
+  } catch (const std::exception& e) {
+    // Readers open by path, so this costs the optimization, not the write.
+    LOG_EVERY_N(WARNING, 1'000)
+        << "Failed to serialize a descriptor for broadcast file " << filePath
+        << ": " << e.what();
+    return {};
+  }
+}
+
+// Sets 'info.descriptor_' from 'root' when the writer supplied a usable one.
+// Left empty for an older writer, a null/empty value, or a bad encoding.
+void tryAddDescriptor(const nlohmann::json& root, BroadcastFileInfo& info) {
+  const auto descriptor = root.find("descriptor");
+  if (descriptor == root.end() || descriptor->is_null()) {
+    return;
+  }
+  try {
+    // get<std::string>() belongs inside the guard too: a descriptor of the
+    // wrong JSON type throws type_error just as a bad encoding does.
+    const std::string encodedDescriptor = descriptor->get<std::string>();
+    if (!encodedDescriptor.empty()) {
+      info.descriptor_ = velox::encoding::Base64::decodeUrl(encodedDescriptor);
+    }
+  } catch (const std::exception&) {
+    // The exception text is dropped: it echoes the descriptor, which carries
+    // bearer tokens.
+    LOG_EVERY_N(WARNING, 1'000)
+        << "Failed to decode the descriptor for broadcast file "
+        << info.filePath_;
+  }
+}
 } // namespace
 
 #define PRESTO_BROADCAST_LIMIT_EXCEEDED(errorMessage)                        \
@@ -98,12 +155,35 @@ void readFooter(
       "{}",                                                                  \
       errorMessage);
 
+std::string redactBroadcastInfo(const std::string_view broadcastInfo) {
+  // Callers also pass exception text that merely quotes a payload, so this is
+  // not always JSON and an unparseable input carrying the key must fail safe.
+  auto parsed = nlohmann::ordered_json::parse(
+      broadcastInfo.begin(),
+      broadcastInfo.end(),
+      /*cb=*/nullptr,
+      /*allow_exceptions=*/false);
+  if (parsed.is_discarded() || !parsed.is_object()) {
+    return broadcastInfo.find("descriptor") == std::string_view::npos
+        ? std::string{broadcastInfo}
+        : "<redacted>";
+  }
+  const auto descriptor = parsed.find("descriptor");
+  // A descriptor that is absent or not a string carries no token to hide.
+  if (descriptor == parsed.end() || !descriptor->is_string()) {
+    return std::string{broadcastInfo};
+  }
+  *descriptor = "<redacted>";
+  return parsed.dump();
+}
+
 // static
 std::unique_ptr<BroadcastFileInfo> BroadcastFileInfo::deserialize(
     const std::string& info) {
   const auto root = nlohmann::json::parse(info);
   auto broadcastFileInfo = std::make_unique<BroadcastFileInfo>();
   root.at("filePath").get_to(broadcastFileInfo->filePath_);
+  tryAddDescriptor(root, *broadcastFileInfo);
   return broadcastFileInfo;
 }
 
@@ -187,27 +267,40 @@ void BroadcastFileWriter::noMoreData() {
   VELOX_CHECK_EQ(fileInfos.size(), 1);
 
   // Return stats for the single file with multiple pages
-  auto fileNameVector =
+  std::shared_ptr<FlatVector<StringView>> fileNameVector =
       BaseVector::create<FlatVector<StringView>>(VARCHAR(), 1, pool_);
-  auto maxSerializedSizeVector =
+  std::shared_ptr<FlatVector<int64_t>> maxSerializedSizeVector =
       BaseVector::create<FlatVector<int64_t>>(BIGINT(), 1, pool_);
-  auto numRowsVector =
+  std::shared_ptr<FlatVector<int64_t>> numRowsVector =
       BaseVector::create<FlatVector<int64_t>>(BIGINT(), 1, pool_);
+  std::shared_ptr<FlatVector<StringView>> descriptorVector =
+      BaseVector::create<FlatVector<StringView>>(VARCHAR(), 1, pool_);
+  VELOX_CHECK_NOT_NULL(fileNameVector);
+  VELOX_CHECK_NOT_NULL(maxSerializedSizeVector);
+  VELOX_CHECK_NOT_NULL(numRowsVector);
+  VELOX_CHECK_NOT_NULL(descriptorVector);
 
-  fileNameVector->set(0, StringView(fileInfos.back().path));
+  const auto& filePath = fileInfos.back().path;
+  const std::string encodedDescriptor = serializeFileDescriptor(filePath);
+  fileNameVector->set(0, StringView(filePath));
   maxSerializedSizeVector->set(0, fileInfos.back().size);
   numRowsVector->set(0, numRows_);
+  descriptorVector->set(0, StringView(encodedDescriptor));
 
   fileStats_ = std::make_shared<RowVector>(
       pool_,
-      ROW({"filepath", "maxserializedsize", "numrows"},
-          {VARCHAR(), BIGINT(), BIGINT()}),
+      ROW(
+          {{"filepath", VARCHAR()},
+           {"maxserializedsize", BIGINT()},
+           {"numrows", BIGINT()},
+           {"descriptor", VARCHAR()}}),
       nullptr,
       1,
       std::vector<VectorPtr>(
           {std::move(fileNameVector),
            std::move(maxSerializedSizeVector),
-           std::move(numRowsVector)}));
+           std::move(numRowsVector),
+           std::move(descriptorVector)}));
 }
 
 RowVectorPtr BroadcastFileWriter::fileStats() {
@@ -220,7 +313,11 @@ BroadcastFileReader::BroadcastFileReader(
     velox::memory::MemoryPool* pool)
     : pool_(pool),
       broadcastFileInfo_(std::move(broadcastFileInfo)),
-      fileSystem_(std::move(fileSystem)) {}
+      fileSystem_(std::move(fileSystem)) {
+  // Both are const members, so checking once here covers every later use.
+  VELOX_CHECK_NOT_NULL(broadcastFileInfo_);
+  VELOX_CHECK_NOT_NULL(fileSystem_);
+}
 
 bool BroadcastFileReader::hasNext() {
   ensureFooterRead();
@@ -272,8 +369,32 @@ void BroadcastFileReader::ensureFooterRead() {
   std::unique_ptr<velox::ReadFile> readFile;
   {
     velox::MicrosecondTimer timer(&openFileAndReadFooterTimeUs_);
-    readFile = fileSystem_->openFileForRead(broadcastFileInfo_->filePath_);
-    readFooter(readFile.get(), broadcastFileInfo_->filePath_, pageSizes_);
+    if (!broadcastFileInfo_->descriptor_.empty()) {
+      velox::filesystems::FileOptions options;
+      options.extraFileInfo =
+          std::make_shared<std::string>(broadcastFileInfo_->descriptor_);
+      try {
+        // Read the footer here too: a handle that opens but yields stale bytes
+        // must fall back rather than fail the read.
+        readFile = fileSystem_->openFileForRead(
+            broadcastFileInfo_->filePath_, options);
+        readFooter(readFile.get(), broadcastFileInfo_->filePath_, pageSizes_);
+        ++descriptorOpenCount_;
+      } catch (const std::exception&) {
+        // The exception text is dropped: it may echo the descriptor, which
+        // carries bearer tokens.
+        readFile.reset();
+        pageSizes_.clear();
+        LOG_EVERY_N(WARNING, 1'000)
+            << "Failed to read broadcast file from its handle, falling back to "
+            << "a path open: " << broadcastFileInfo_->filePath_;
+      }
+    }
+    if (readFile == nullptr) {
+      readFile = fileSystem_->openFileForRead(broadcastFileInfo_->filePath_);
+      readFooter(readFile.get(), broadcastFileInfo_->filePath_, pageSizes_);
+      ++pathOpenCount_;
+    }
   }
 
   // Create the input stream for sequential reads
@@ -301,7 +422,9 @@ folly::F14FastMap<std::string, int64_t> BroadcastFileReader::stats() const {
       {"broadcastExchangeSource.numPages", numPagesRead_},
       {"broadcastExchangeSource.openFileAndReadFooterTimeUs",
        openFileAndReadFooterTimeUs_},
-      {"broadcastExchangeSource.fileReadWallTimeUs", fileReadWallTimeUs_}};
+      {"broadcastExchangeSource.fileReadWallTimeUs", fileReadWallTimeUs_},
+      {"broadcastExchangeSource.descriptorOpenCount", descriptorOpenCount_},
+      {"broadcastExchangeSource.pathOpenCount", pathOpenCount_}};
 }
 
 folly::F14FastMap<std::string, velox::RuntimeMetric>
@@ -316,7 +439,11 @@ BroadcastFileReader::metrics() const {
            velox::RuntimeCounter::Unit::kNanos)},
       {"broadcastExchangeSource.fileReadWallTimeNanos",
        velox::RuntimeMetric(
-           fileReadWallTimeUs_ * 1'000, velox::RuntimeCounter::Unit::kNanos)}};
+           fileReadWallTimeUs_ * 1'000, velox::RuntimeCounter::Unit::kNanos)},
+      {"broadcastExchangeSource.descriptorOpenCount",
+       velox::RuntimeMetric(descriptorOpenCount_)},
+      {"broadcastExchangeSource.pathOpenCount",
+       velox::RuntimeMetric(pathOpenCount_)}};
 }
 
 } // namespace facebook::presto::operators
