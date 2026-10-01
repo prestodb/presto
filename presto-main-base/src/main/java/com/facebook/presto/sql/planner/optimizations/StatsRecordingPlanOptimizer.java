@@ -43,6 +43,12 @@ public final class StatsRecordingPlanOptimizer
         return delegate;
     }
 
+    @Override
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
+    {
+        return delegate.isEnabled(session, forceEnableOptimizer);
+    }
+
     public final PlanOptimizerResult optimize(
             PlanNode plan,
             Session session,

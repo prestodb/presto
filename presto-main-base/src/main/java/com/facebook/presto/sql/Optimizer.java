@@ -194,14 +194,12 @@ public class Optimizer
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator)
     {
-        boolean isApplicable = false;
         try {
             // wrap in try/catch block in case optimization throws an error
-            PlanOptimizerResult optimizerResult = optimizer.optimize(plan, session, types, variableAllocator, idAllocator, WarningCollector.NOOP, true);
-            isApplicable = optimizerResult.isOptimizerTriggered();
+            return optimizer.optimize(plan, session, types, variableAllocator, idAllocator, WarningCollector.NOOP, true).isOptimizerTriggered();
         }
-        finally {
-            return isApplicable;
+        catch (RuntimeException ignored) {
+            return false;
         }
     }
 }
