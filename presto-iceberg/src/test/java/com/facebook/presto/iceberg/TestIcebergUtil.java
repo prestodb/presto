@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.block.MethodHandleUtil;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
@@ -44,6 +48,7 @@ import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergUtil.DOUBLE_NEGATIVE_INFINITE;
@@ -464,5 +469,148 @@ public class TestIcebergUtil
 
         assertThat(hiveColumns.get(2).getName()).isEqualTo("name");
         assertThat(hiveColumns.get(2).getType()).isEqualTo(HiveType.HIVE_STRING);
+    }
+
+    /**
+     * Verifies that unknown fields are restored even when the file also differs from the table for
+     * other schema-evolution reasons (e.g. a non-unknown field added after the file was written).
+     */
+    @Test
+    public void testReadTypeUnknownWithOtherSchemaEvolution()
+    {
+        // table: ROW(a INTEGER, u UNKNOWN, b BIGINT); file: ROW(a INTEGER) — b was added after file written
+        RowType tableType = RowType.from(ImmutableList.of(
+                RowType.field("a", INTEGER),
+                RowType.field("u", UNKNOWN),
+                RowType.field("b", BIGINT)));
+        RowType fileType = RowType.from(ImmutableList.of(
+                RowType.field("a", INTEGER)));
+
+        // The merged read type must include both the unknown field and the newer non-unknown field
+        RowType expected = tableType;
+        assertThat(UnknownFieldTypes.readType(tableType, fileType)).isEqualTo(expected);
+    }
+
+    @Test
+    public void testReadTypeUnknownOnlyDifference()
+    {
+        // table: ROW(a INTEGER, u UNKNOWN, b BIGINT); file: ROW(a INTEGER, b BIGINT)
+        RowType tableType = RowType.from(ImmutableList.of(
+                RowType.field("a", INTEGER),
+                RowType.field("u", UNKNOWN),
+                RowType.field("b", BIGINT)));
+        RowType fileType = RowType.from(ImmutableList.of(
+                RowType.field("a", INTEGER),
+                RowType.field("b", BIGINT)));
+
+        assertThat(UnknownFieldTypes.readType(tableType, fileType)).isEqualTo(tableType);
+    }
+
+    @Test
+    public void testReadTypeArrayWithUnknownElement()
+    {
+        // ARRAY(ROW(x INTEGER, u UNKNOWN)) vs file ARRAY(ROW(x INTEGER))
+        RowType tableRow = RowType.from(ImmutableList.of(
+                RowType.field("x", INTEGER),
+                RowType.field("u", UNKNOWN)));
+        RowType fileRow = RowType.from(ImmutableList.of(
+                RowType.field("x", INTEGER)));
+
+        ArrayType tableType = new ArrayType(tableRow);
+        ArrayType fileType = new ArrayType(fileRow);
+
+        assertThat(UnknownFieldTypes.readType(tableType, fileType)).isEqualTo(tableType);
+    }
+
+    @Test
+    public void testReadTypeMapWithUnknownInKey()
+    {
+        // MAP(ROW(k INTEGER, u UNKNOWN), VARCHAR) vs file MAP(ROW(k INTEGER), VARCHAR)
+        RowType tableKey = RowType.from(ImmutableList.of(
+                RowType.field("k", INTEGER),
+                RowType.field("u", UNKNOWN)));
+        RowType fileKey = RowType.from(ImmutableList.of(
+                RowType.field("k", INTEGER)));
+        MapType tableType = new MapType(tableKey, VARCHAR,
+                MethodHandleUtil.methodHandle(TestIcebergUtil.class, "throwUnsupportedOperation"),
+                MethodHandleUtil.methodHandle(TestIcebergUtil.class, "throwUnsupportedOperation"));
+        MapType fileType = new MapType(fileKey, VARCHAR,
+                MethodHandleUtil.methodHandle(TestIcebergUtil.class, "throwUnsupportedOperation"),
+                MethodHandleUtil.methodHandle(TestIcebergUtil.class, "throwUnsupportedOperation"));
+
+        MapType result = (MapType) UnknownFieldTypes.readType(tableType, fileType);
+        assertThat(result.getKeyType()).isEqualTo(tableKey);
+        assertThat(result.getValueType()).isEqualTo(VARCHAR);
+    }
+
+    public static void throwUnsupportedOperation()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Test
+    public void testReadTypeNoUnknown()
+    {
+        // No unknown fields — file type should be returned unchanged
+        RowType tableType = RowType.from(ImmutableList.of(
+                RowType.field("a", INTEGER),
+                RowType.field("b", BIGINT)));
+        RowType fileType = RowType.from(ImmutableList.of(
+                RowType.field("a", INTEGER),
+                RowType.field("b", BIGINT)));
+
+        assertThat(UnknownFieldTypes.readType(tableType, fileType)).isSameAs(fileType);
+    }
+
+    /**
+     * When a ROW column has both hyphenated field names and an unknown field, the Parquet file stores
+     * the hyphenated names Avro-encoded (e.g. "field-one" → "field_x2done") and omits the unknown
+     * field entirely. The merged read type must match the encoded name back to the original field and
+     * still restore the unknown field.
+     */
+    @Test
+    public void testReadTypeHyphenatedFieldNameWithUnknown()
+    {
+        // table: ROW("field-one" INTEGER, "null-col" UNKNOWN)
+        // file: ROW(field_x2done INTEGER)  — Avro-encoded, unknown field absent
+        RowType tableType = RowType.from(ImmutableList.of(
+                RowType.field("field-one", INTEGER),
+                RowType.field("null-col", UNKNOWN)));
+        RowType fileType = RowType.from(ImmutableList.of(
+                RowType.field("field_x2done", INTEGER)));
+
+        // "field-one" must be matched to "field_x2done" (same field, Avro-encoded). The result
+        // uses the encoded name so that constructField can locate it in the Parquet GroupColumnIO.
+        // "null-col" is unknown and restored from the table type under its original name.
+        RowType expected = RowType.from(ImmutableList.of(
+                RowType.field("field_x2done", INTEGER),
+                RowType.field("null-col", UNKNOWN)));
+        assertThat(UnknownFieldTypes.readType(tableType, fileType)).isEqualTo(expected);
+    }
+
+    /**
+     * Hive has no equivalent of the Iceberg V3 unknown type, so it is recorded as Hive's all-null
+     * type, which is also what Spark records for its NullType.
+     */
+    @Test
+    public void testToHiveColumnsWithUnknownType()
+    {
+        List<Types.NestedField> icebergColumns = ImmutableList.of(
+                Types.NestedField.required(1, "id", Types.LongType.get()),
+                Types.NestedField.optional(2, "unknown_column", Types.UnknownType.get()),
+                Types.NestedField.optional(3, "nested", Types.StructType.of(
+                        Types.NestedField.optional(4, "unknown_field", Types.UnknownType.get()))));
+
+        List<Column> hiveColumns = IcebergUtil.toHiveColumns(icebergColumns);
+        assertThat(hiveColumns).hasSize(3);
+
+        assertThat(hiveColumns.get(0).getName()).isEqualTo("id");
+        assertThat(hiveColumns.get(0).getType()).isEqualTo(HiveType.HIVE_LONG);
+
+        assertThat(hiveColumns.get(1).getName()).isEqualTo("unknown_column");
+        assertThat(hiveColumns.get(1).getType()).isEqualTo(HiveType.valueOf("void"));
+
+        assertThat(hiveColumns.get(2).getName()).isEqualTo("nested");
+        assertThat(hiveColumns.get(2).getType()).isEqualTo(HiveType.valueOf("struct<unknown_field:void>"));
     }
 }

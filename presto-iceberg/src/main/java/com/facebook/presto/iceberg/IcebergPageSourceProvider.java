@@ -162,6 +162,8 @@ import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTa
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.UnknownFieldTypes.hasUnknownType;
+import static com.facebook.presto.iceberg.UnknownFieldTypes.readType;
 import static com.facebook.presto.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
 import static com.facebook.presto.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -324,19 +326,34 @@ public class IcebergPageSourceProvider
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
+                Optional<ColumnIndexStore> columnIndexStore = Optional.empty();
+                boolean includeBlock = false;
+
                 if (firstIndex.isPresent()) {
                     long firstDataPage = block.getColumns().get(firstIndex.get()).getFirstDataPageOffset();
-                    Optional<ColumnIndexStore> columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, false);
-                    if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
-                            predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, false, Optional.of(session.getWarningCollector()))) {
-                        blocks.add(block);
-                        blockIndexStores.add(columnIndexStore.orElse(null));
-                        blockStarts.add(nextStart);
-                        if (!startRowPosition.isPresent()) {
-                            startRowPosition = Optional.of(nextStart);
-                        }
-                        endRowPosition = Optional.of(nextStart + block.getRowCount());
+                    columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, false);
+                    includeBlock = (firstDataPage >= start) && (firstDataPage < (start + length)) &&
+                            predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, false, Optional.of(session.getWarningCollector()));
+                }
+                else if (block.getColumns().isEmpty()) {
+                    // Zero-column row group from an all-UNKNOWN Iceberg V3 table: no data page
+                    // offset to use for split-range filtering. All-UNKNOWN files have no stored
+                    // column data so they are tiny and are always assigned a single split starting
+                    // at byte 0. Guard on start == 0 so that if a file were ever split, each task
+                    // does not include the same row groups independently.
+                    includeBlock = (start == 0);
+                }
+
+                if (includeBlock) {
+                    blocks.add(block);
+                    blockIndexStores.add(columnIndexStore.orElse(null));
+                    blockStarts.add(nextStart);
+                    if (!startRowPosition.isPresent()) {
+                        startRowPosition = Optional.of(nextStart);
                     }
+                    endRowPosition = Optional.of(nextStart + block.getRowCount());
+                }
+                if (firstIndex.isPresent() || block.getColumns().isEmpty()) {
                     nextStart += block.getRowCount();
                 }
             }
@@ -400,7 +417,8 @@ public class IcebergPageSourceProvider
                         if (!parquetField.get().isPrimitive()) {
                             MessageType parquetMessageType = new MessageType("", parquetField.get());
                             Schema icebergSchema = ParquetSchemaUtil.convert(parquetMessageType);
-                            type = toPrestoType(icebergSchema.columns().get(0).type(), typeManager);
+                            Type parquetDerivedType = toPrestoType(icebergSchema.columns().get(0).type(), typeManager);
+                            type = hasUnknownType(type) ? readType(type, parquetDerivedType, typeManager) : parquetDerivedType;
                         }
                         internalFields.add(constructField(type, lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
                     }
