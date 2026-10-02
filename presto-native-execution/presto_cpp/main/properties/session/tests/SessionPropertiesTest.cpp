@@ -115,7 +115,7 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       {SessionProperties::kLegacyTimestamp,
        core::QueryConfig::kAdjustTimestampToTimezone},
       {SessionProperties::kLegacyTimestampWithTimezone,
-       core::QueryConfig::kLegacyTimestampWithTimezone},
+       core::QueryConfig::kUseSessionTimezoneForTimestampWithTimezone},
       {SessionProperties::kDriverCpuTimeSliceLimitMs,
        core::QueryConfig::kDriverCpuTimeSliceLimitMs},
       {SessionProperties::kMaxLocalExchangePartitionCount,

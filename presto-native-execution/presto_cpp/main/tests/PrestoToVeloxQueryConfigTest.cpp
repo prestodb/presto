@@ -653,13 +653,18 @@ TEST_F(PrestoToVeloxQueryConfigTest, specialHardCodedPrestoConfigurations) {
 
 TEST_F(PrestoToVeloxQueryConfigTest, legacyTimestampWithTimezone) {
   auto session = createBasicSession();
-  EXPECT_TRUE(
-      QueryConfig(toVeloxConfigs(session)).legacyTimestampWithTimezone());
+  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session))
+                   .useSessionTimezoneForTimestampWithTimezone());
 
   session.systemProperties[SessionProperties::kLegacyTimestampWithTimezone] =
       "false";
-  EXPECT_FALSE(
-      QueryConfig(toVeloxConfigs(session)).legacyTimestampWithTimezone());
+  EXPECT_TRUE(QueryConfig(toVeloxConfigs(session))
+                  .useSessionTimezoneForTimestampWithTimezone());
+
+  session.systemProperties[SessionProperties::kLegacyTimestampWithTimezone] =
+      "true";
+  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session))
+                   .useSessionTimezoneForTimestampWithTimezone());
 }
 
 TEST_F(PrestoToVeloxQueryConfigTest, sessionAndExtraCredentialsOverload) {
