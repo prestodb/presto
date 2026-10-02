@@ -45,6 +45,13 @@ FROM ${BASE_IMAGE}
 ENV BUILD_BASE_DIR=_build
 ENV BUILD_DIR=""
 
+RUN if command -v apt-get > /dev/null 2>&1; then \
+        apt-get update \
+        && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            tzdata \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 COPY --chmod=0775 --from=prestissimo-image /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server /usr/bin/
 COPY --chmod=0775 --from=prestissimo-image /runtime-libraries/* /usr/lib64/prestissimo-libs/
 COPY --chmod=0755 ./etc /opt/presto-server/etc
