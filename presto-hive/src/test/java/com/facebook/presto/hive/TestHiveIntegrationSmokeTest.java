@@ -1377,6 +1377,9 @@ public class TestHiveIntegrationSmokeTest
     public void testCreateEmptyNonBucketedPartition(boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_insert_empty_partitioned_unbucketed_table";
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
+                .build();
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
                 "  dummy_col bigint," +
@@ -1389,11 +1392,75 @@ public class TestHiveIntegrationSmokeTest
 
         // create an empty partition
         assertUpdate(
-                Session.builder(getSession())
-                        .setCatalogSessionProperty(catalog, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
-                        .build(),
+                session,
                 format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"));
-        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 1");
+        assertUpdate(
+                session,
+                format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY[NULL])", TPCH_SCHEMA, tableName));
+        assertQuery(format("SELECT part FROM \"%s$partitions\"", tableName), "VALUES 'empty', NULL");
+        assertQuery("SELECT count(*) FROM " + tableName + " WHERE part IS NULL", "SELECT 0");
+        assertQueryFails(
+                format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY[NULL])", TPCH_SCHEMA, tableName),
+                "Partition already exists.*");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testInsertIntoEmptyNullPartition()
+    {
+        testInsertIntoEmptyNullPartition(false);
+        testInsertIntoEmptyNullPartition(true);
+    }
+
+    private void testInsertIntoEmptyNullPartition(boolean optimizedPartitionUpdateSerializationEnabled)
+    {
+        String tableName = "test_insert_into_empty_null_partition";
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
+                .build();
+        assertUpdate(session, "" +
+                "CREATE TABLE " + tableName + " (" +
+                "  dummy_col bigint," +
+                "  part varchar)" +
+                "WITH (" +
+                "  format = 'ORC', " +
+                "  partitioned_by = ARRAY[ 'part' ] " +
+                ")");
+        try {
+            assertUpdate(
+                    session,
+                    format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY[NULL])", TPCH_SCHEMA, tableName));
+            assertQuery(session, format("SELECT part FROM \"%s$partitions\"", tableName), "VALUES CAST(NULL AS VARCHAR)");
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " WHERE part IS NULL", "SELECT 0");
+
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, NULL)", 1);
+            assertQuery(session, format("SELECT part FROM \"%s$partitions\"", tableName), "VALUES CAST(NULL AS VARCHAR)");
+            assertQuery(session, "SELECT dummy_col FROM " + tableName + " WHERE part IS NULL", "SELECT 1");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testCreateEmptyPartitionWithMixedNullValues()
+    {
+        String tableName = "test_insert_empty_partitioned_table_with_null";
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  dummy_col bigint," +
+                "  part1 varchar," +
+                "  part2 varchar)" +
+                "WITH (" +
+                "  format = 'ORC', " +
+                "  partitioned_by = ARRAY[ 'part1', 'part2' ] " +
+                ")");
+
+        assertUpdate(format(
+                "CALL system.create_empty_partition('%s', '%s', ARRAY['part1', 'part2'], ARRAY[NULL, 'value'])",
+                TPCH_SCHEMA,
+                tableName));
+        assertQuery(format("SELECT part1, part2 FROM \"%s$partitions\"", tableName), "VALUES (NULL, 'value')");
         assertUpdate("DROP TABLE " + tableName);
     }
 
