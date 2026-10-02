@@ -50,6 +50,11 @@ public class TestMaterializedViewQueryOptimizer
     private static final String VIEW_2 = "view_2";
     private static final String VIEW_3 = "view_3";
     private static final String SESSION_SCHEMA = "s1";
+    // Fully-qualified 3-part names used in expected SQL strings.
+    // The optimizer now emits catalog.schema.storage_table so that
+    // StatementAnalyzer can resolve the table regardless of session defaults.
+    private static final String VIEW_1_QUALIFIED = TPCH_CATALOG + "." + SESSION_SCHEMA + "." + VIEW_1;
+    private static final String VIEW_2_QUALIFIED = TPCH_CATALOG + "." + SESSION_SCHEMA + "." + VIEW_2;
 
     private RowExpressionDomainTranslator domainTranslator;
 
@@ -80,7 +85,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, b FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, b FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, b FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -90,13 +95,13 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT DISTINCT a, b FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT DISTINCT a, b FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT DISTINCT a, b FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT DISTINCT a, b FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT DISTINCT a, b FROM %s", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT DISTINCT a, b FROM %s", VIEW_1);
+        expectedRewrittenSql = format("SELECT DISTINCT a, b FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
@@ -107,23 +112,58 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
+    public void testWithWindowClause()
+    {
+        // A WINDOW clause is left alone rather than partially rewritten, so the base query is kept.
+        // A window function is declined separately, see testWithWindowFunction.
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+
+        String baseQuerySql = format("SELECT a FROM %s WINDOW w AS (PARTITION BY b)", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        baseQuerySql = format("SELECT a FROM %s WINDOW w AS (ORDER BY b)", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // The frame bound is the part that a partial rewrite would have missed.
+        baseQuerySql = format("SELECT a FROM %s WINDOW w AS (ORDER BY a ROWS b PRECEDING)", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testWithWindowFunction()
+    {
+        // Only the arguments of a call are rewritten, so rewriting a window function would leave the
+        // window referring to base table columns. Aliased columns make that visible.
+        String originalViewSql = format("SELECT a AS mv_a, b AS mv_b FROM %s", BASE_TABLE_1);
+
+        String baseQuerySql = format("SELECT SUM(a) OVER (ORDER BY b) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        baseQuerySql = format("SELECT SUM(a) OVER (PARTITION BY b) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        baseQuerySql = format("SELECT COUNT(a) OVER (ORDER BY a ROWS b PRECEDING) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
     public void testWithAlias()
     {
         String originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT mv_a as a, b, mv_c as c FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT mv_a as a, b, mv_c as c FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a as mv_a, b, c as mv_c, d FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT a as result_a, b as result_b, c, d FROM %s", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT mv_a as result_a, b as result_b, mv_c as c, d FROM %s", VIEW_1);
+        expectedRewrittenSql = format("SELECT mv_a as result_a, b as result_b, mv_c as c, d FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a as b, b as a FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b FROM %s", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT b as a, a as b FROM %s", VIEW_1);
+        expectedRewrittenSql = format("SELECT b as a, a as b FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -142,7 +182,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT SUM(a * b), MAX(a + b), c FROM %s GROUP BY c", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(mv_a * b), MAX(mv_a + b), mv_c as c FROM %s GROUP BY mv_c", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(mv_a * b), MAX(mv_a + b), mv_c as c FROM %s GROUP BY mv_c", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -152,13 +192,13 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT SUM(a * b + c) as mv_sum, MAX(a * b + c) as mv_max, d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
         String baseQuerySql = format("SELECT SUM(a * b + c), MAX(a * b + c), d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(mv_sum), MAX(mv_max), d, e FROM %s GROUP BY d, e", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(mv_sum), MAX(mv_max), d, e FROM %s GROUP BY d, e", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT SUM(a * b + c) as mv_sum, MAX(a * b + c) as mv_max, d as mv_d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
         baseQuerySql = format("SELECT SUM(a * b + c) as sum_of_abc, MAX(a * b + c) as max_of_abc, d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT SUM(mv_sum) as sum_of_abc, MAX(mv_max) as max_of_abc, mv_d as d, e FROM %s GROUP BY mv_d, e", VIEW_1);
+        expectedRewrittenSql = format("SELECT SUM(mv_sum) as sum_of_abc, MAX(mv_max) as max_of_abc, mv_d as d, e FROM %s GROUP BY mv_d, e", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -168,7 +208,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT COUNT(a) as a_count, COUNT(b, c) as bc_count FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT COUNT(a), COUNT(b, c) FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(a_count), SUM(bc_count) FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(a_count), SUM(bc_count) FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -208,12 +248,12 @@ public class TestMaterializedViewQueryOptimizer
         // COUNT(*) rewritten to SUM(cnt) when MV pre-computes it
         String originalViewSql = format("SELECT b, COUNT(*) as cnt FROM %s GROUP BY b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT b, COUNT(*) FROM %s GROUP BY b", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT b, SUM(cnt) FROM %s GROUP BY b", VIEW_1);
+        String expectedRewrittenSql = format("SELECT b, SUM(cnt) FROM %s GROUP BY b", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         // COUNT(*) rollup without GROUP BY in query
         baseQuerySql = format("SELECT COUNT(*) FROM %s", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT SUM(cnt) FROM %s", VIEW_1);
+        expectedRewrittenSql = format("SELECT SUM(cnt) FROM %s", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         // REJECT: COUNT(*) when MV does not pre-compute it
@@ -227,13 +267,13 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a + b, a * b - c FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a + b, a * b - c FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a + b, a * b - c FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a as mv_a, b, c as mv_c, d FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT a + b, c / d, a * c - b * d FROM %s", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT mv_a + b, mv_c / d, mv_a * mv_c - b * d FROM %s", VIEW_1);
+        expectedRewrittenSql = format("SELECT mv_a + b, mv_c / d, mv_a * mv_c - b * d FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -243,13 +283,13 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, c, d FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = 123", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = 123", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = 123", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a as mv_a, b, c, d as mv_d FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = 456", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT mv_a as a, b FROM %s WHERE mv_a < 10 AND c > 10 or mv_d = 456", VIEW_1);
+        expectedRewrittenSql = format("SELECT mv_a as a, b FROM %s WHERE mv_a < 10 AND c > 10 or mv_d = 456", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -259,7 +299,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT SUM(a), c FROM %s GROUP BY c HAVING c > 'X'", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(a), c FROM %s GROUP BY c HAVING c > 'X'", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(a), c FROM %s GROUP BY c HAVING c > 'X'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -269,7 +309,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT SUM(a), c FROM %s WHERE b < 10 GROUP BY c HAVING c > 'X'", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(mv_a), mv_c as c FROM %s WHERE b < 10 GROUP BY mv_c HAVING mv_c > 'X'", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(mv_a), mv_c as c FROM %s WHERE b < 10 GROUP BY mv_c HAVING mv_c > 'X'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -279,7 +319,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT SUM(a) FROM %s GROUP BY c HAVING SUM(a) > 10", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(mv_a) FROM %s GROUP BY c HAVING SUM(mv_a) > 10", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(mv_a) FROM %s GROUP BY c HAVING SUM(mv_a) > 10", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -307,25 +347,25 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, b, c FROM %s ORDER BY c ASC, b DESC, a", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, b, c FROM %s ORDER BY c ASC, b DESC, a", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, b, c FROM %s ORDER BY c ASC, b DESC, a", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s ORDER BY c ASC, b DESC, a", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT mv_a as a, b, mv_c as c FROM %s ORDER BY mv_c ASC, b DESC, mv_a", VIEW_1);
+        expectedRewrittenSql = format("SELECT mv_a as a, b, mv_c as c FROM %s ORDER BY mv_c ASC, b DESC, mv_a", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s ORDER BY c ASC, b DESC, a", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT mv_a as a, b, mv_c as c FROM %s ORDER BY mv_c ASC, b DESC, mv_a", VIEW_1);
+        expectedRewrittenSql = format("SELECT mv_a as a, b, mv_c as c FROM %s ORDER BY mv_c ASC, b DESC, mv_a", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT MAX(a) as mv_max_a, b FROM %s GROUP BY b", BASE_TABLE_1);
         baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY b ORDER BY MAX(a) DESC, b ASC", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY b ORDER BY MAX(mv_max_a) DESC, b ASC", VIEW_1);
+        expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY b ORDER BY MAX(mv_max_a) DESC, b ASC", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -335,7 +375,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT SUM(a * b), MAX(a + b), c FROM %s GROUP BY 3", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(mv_a * b), MAX(mv_a + b), mv_c as c FROM %s GROUP BY 3", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(mv_a * b), MAX(mv_a + b), mv_c as c FROM %s GROUP BY 3", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -345,7 +385,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, b, c FROM %s ORDER BY 3 ASC, 2 DESC, 1", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT mv_a as a, b, mv_c as c FROM %s ORDER BY 3 ASC, 2 DESC, 1", VIEW_1);
+        String expectedRewrittenSql = format("SELECT mv_a as a, b, mv_c as c FROM %s ORDER BY 3 ASC, 2 DESC, 1", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -355,7 +395,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT MAX(a) as mv_max_a, b FROM %s GROUP BY b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY 2 ORDER BY 1 DESC, 2 ASC", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY 2 ORDER BY 1 DESC, 2 ASC", VIEW_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY 2 ORDER BY 1 DESC, 2 ASC", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -365,7 +405,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT MAX(a) as mv_max_a, b FROM %s GROUP BY cube(b)", BASE_TABLE_1);
         String baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY cube(2) ORDER BY 1 DESC, 2 ASC", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY cube(2) ORDER BY 1 DESC, 2 ASC", VIEW_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY cube(2) ORDER BY 1 DESC, 2 ASC", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -375,7 +415,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT MAX(a) as mv_max_a, b FROM %s GROUP BY rollup(b)", BASE_TABLE_1);
         String baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY rollup(2) ORDER BY 1 DESC, 2 ASC", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY rollup(2) ORDER BY 1 DESC, 2 ASC", VIEW_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY rollup(2) ORDER BY 1 DESC, 2 ASC", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -385,7 +425,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT MAX(a) as mv_max_a, b FROM %s GROUP BY grouping sets((b))", BASE_TABLE_1);
         String baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY grouping sets((2)) ORDER BY 1 DESC, 2 ASC", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY grouping sets((2)) ORDER BY 1 DESC, 2 ASC", VIEW_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY grouping sets((2)) ORDER BY 1 DESC, 2 ASC", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -395,7 +435,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT MAX(a) as mv_max_a, b as mv_b FROM %s GROUP BY b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY CUBE(b) ORDER BY 1 DESC", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b FROM %s GROUP BY CUBE(mv_b) ORDER BY 1 DESC", VIEW_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b FROM %s GROUP BY CUBE(mv_b) ORDER BY 1 DESC", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -405,7 +445,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT MAX(a) as mv_max_a, b as mv_b, c as mv_c FROM %s GROUP BY b, c", BASE_TABLE_1);
         String baseQuerySql = format("SELECT MAX(a), b, c FROM %s GROUP BY CUBE(b, c)", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b, mv_c as c FROM %s GROUP BY CUBE(mv_b, mv_c)", VIEW_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b, mv_c as c FROM %s GROUP BY CUBE(mv_b, mv_c)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -415,7 +455,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT MAX(a) as mv_max_a, b as mv_b FROM %s GROUP BY b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY ROLLUP(b) ORDER BY 1 DESC", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b FROM %s GROUP BY ROLLUP(mv_b) ORDER BY 1 DESC", VIEW_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b FROM %s GROUP BY ROLLUP(mv_b) ORDER BY 1 DESC", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -425,7 +465,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT MAX(a) as mv_max_a, b as mv_b, c as mv_c FROM %s GROUP BY b, c", BASE_TABLE_1);
         String baseQuerySql = format("SELECT MAX(a), b, c FROM %s GROUP BY ROLLUP(b, c)", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b, mv_c as c FROM %s GROUP BY ROLLUP(mv_b, mv_c)", VIEW_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b, mv_c as c FROM %s GROUP BY ROLLUP(mv_b, mv_c)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -435,7 +475,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT MAX(a) as mv_max_a, b as mv_b FROM %s GROUP BY b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY GROUPING SETS((b)) ORDER BY 1 DESC", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b FROM %s GROUP BY GROUPING SETS((mv_b)) ORDER BY 1 DESC", VIEW_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b FROM %s GROUP BY GROUPING SETS((mv_b)) ORDER BY 1 DESC", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -445,7 +485,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT MAX(a) as mv_max_a, b as mv_b, c as mv_c FROM %s GROUP BY b, c", BASE_TABLE_1);
         String baseQuerySql = format("SELECT MAX(a), b, c FROM %s GROUP BY GROUPING SETS((b, c), (b))", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b, mv_c as c FROM %s GROUP BY GROUPING SETS((mv_b, mv_c), (mv_b))", VIEW_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b, mv_c as c FROM %s GROUP BY GROUPING SETS((mv_b, mv_c), (mv_b))", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -485,7 +525,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT SUM(a * b), c FROM %s GROUP BY c ORDER BY c ASC", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(mv_a * b), mv_c as c FROM %s GROUP BY mv_c ORDER BY mv_c ASC", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(mv_a * b), mv_c as c FROM %s GROUP BY mv_c ORDER BY mv_c ASC", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -495,7 +535,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT MAX(a) as mv_max_a, b as mv_b FROM %s GROUP BY b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY CUBE(b) ORDER BY b ASC", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b FROM %s GROUP BY CUBE(mv_b) ORDER BY mv_b ASC", VIEW_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), mv_b as b FROM %s GROUP BY CUBE(mv_b) ORDER BY mv_b ASC", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -505,7 +545,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT ABS(a), SUM(c) FROM %s GROUP BY a, b", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT ABS(a), SUM(sum_c) FROM %s GROUP BY a, b", VIEW_1);
+        String expectedRewrittenSql = format("SELECT ABS(a), SUM(sum_c) FROM %s GROUP BY a, b", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -514,7 +554,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, b FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT JSON_EXTRACT_SCALAR(a, '$.key'), b FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT JSON_EXTRACT_SCALAR(mv_a, '$.key'), b FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT JSON_EXTRACT_SCALAR(mv_a, '$.key'), b FROM %s", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -523,7 +563,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
         String baseQuerySql = format("SELECT IF(a > 0, a, 0), SUM(b) FROM %s GROUP BY a", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT IF(a > 0, a, 0), SUM(sum_b) FROM %s GROUP BY a", VIEW_1);
+        String expectedRewrittenSql = format("SELECT IF(a > 0, a, 0), SUM(sum_b) FROM %s GROUP BY a", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -532,7 +572,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT COALESCE(a, b), SUM(c) FROM %s GROUP BY a, b", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT COALESCE(a, b), SUM(sum_c) FROM %s GROUP BY a, b", VIEW_1);
+        String expectedRewrittenSql = format("SELECT COALESCE(a, b), SUM(sum_c) FROM %s GROUP BY a, b", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -541,7 +581,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
         String baseQuerySql = format("SELECT CASE WHEN a > 0 THEN a ELSE 0 END, SUM(b) FROM %s GROUP BY a", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT CASE WHEN a > 0 THEN a ELSE 0 END, SUM(sum_b) FROM %s GROUP BY a", VIEW_1);
+        String expectedRewrittenSql = format("SELECT CASE WHEN a > 0 THEN a ELSE 0 END, SUM(sum_b) FROM %s GROUP BY a", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -550,7 +590,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
         String baseQuerySql = format("SELECT CAST(a AS VARCHAR), SUM(b) FROM %s GROUP BY a", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT CAST(a AS VARCHAR), SUM(sum_b) FROM %s GROUP BY a", VIEW_1);
+        String expectedRewrittenSql = format("SELECT CAST(a AS VARCHAR), SUM(sum_b) FROM %s GROUP BY a", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -559,7 +599,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT ABS(a + b), SUM(c) FROM %s GROUP BY a, b", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT ABS(mv_a + b), SUM(sum_c) FROM %s GROUP BY mv_a, b", VIEW_1);
+        String expectedRewrittenSql = format("SELECT ABS(mv_a + b), SUM(sum_c) FROM %s GROUP BY mv_a, b", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -584,7 +624,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, SUM(c) AS sum_c FROM %s GROUP BY a", BASE_TABLE_1);
         String baseQuerySql = format("SELECT ABS(SUM(c)), a FROM %s GROUP BY a", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT ABS(SUM(sum_c)), a FROM %s GROUP BY a", VIEW_1);
+        String expectedRewrittenSql = format("SELECT ABS(SUM(sum_c)), a FROM %s GROUP BY a", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -593,7 +633,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT NOT (a > 0), b FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT NOT (a > 0), b FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT NOT (a > 0), b FROM %s", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -602,7 +642,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a IS NULL, b FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a IS NULL, b FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a IS NULL, b FROM %s", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -611,7 +651,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a IS NOT NULL, b FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a IS NOT NULL, b FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a IS NOT NULL, b FROM %s", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -620,7 +660,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT NULLIF(a, 0), b FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT NULLIF(a, 0), b FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT NULLIF(a, 0), b FROM %s", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -629,7 +669,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a IN (1, 2, 3), b FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a IN (1, 2, 3), b FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a IN (1, 2, 3), b FROM %s", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -638,7 +678,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT CASE WHEN ABS(a) > 0 THEN CONCAT(CAST(a AS VARCHAR), CAST(b AS VARCHAR)) ELSE 'none' END, SUM(c) FROM %s GROUP BY a, b", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT CASE WHEN ABS(mv_a) > 0 THEN CONCAT(CAST(mv_a AS VARCHAR), CAST(b AS VARCHAR)) ELSE 'none' END, SUM(sum_c) FROM %s GROUP BY mv_a, b", VIEW_1);
+        String expectedRewrittenSql = format("SELECT CASE WHEN ABS(mv_a) > 0 THEN CONCAT(CAST(mv_a AS VARCHAR), CAST(b AS VARCHAR)) ELSE 'none' END, SUM(sum_c) FROM %s GROUP BY mv_a, b", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -647,7 +687,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, b FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT ABS(a), LOWER(CAST(b AS VARCHAR)), COALESCE(a, b) FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT ABS(mv_a), LOWER(CAST(b AS VARCHAR)), COALESCE(mv_a, b) FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT ABS(mv_a), LOWER(CAST(b AS VARCHAR)), COALESCE(mv_a, b) FROM %s", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -692,7 +732,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT ABS(%s.a), SUM(%s.c) FROM %s GROUP BY %s.a, %s.b", BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT ABS(a), SUM(sum_c) FROM %s GROUP BY a, b", VIEW_1);
+        String expectedRewrittenSql = format("SELECT ABS(a), SUM(sum_c) FROM %s GROUP BY a, b", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -701,7 +741,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT COALESCE(t.a, t.b), SUM(c) FROM %s t GROUP BY t.a, t.b", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT COALESCE(a, b), SUM(sum_c) FROM %s GROUP BY a, b", VIEW_1);
+        String expectedRewrittenSql = format("SELECT COALESCE(a, b), SUM(sum_c) FROM %s GROUP BY a, b", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -711,7 +751,7 @@ public class TestMaterializedViewQueryOptimizer
         String originalViewSql = format("SELECT a as mv_a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT CASE WHEN ABS(%s.a) > 0 THEN CONCAT(CAST(%s.a AS VARCHAR), CAST(%s.b AS VARCHAR)) ELSE 'none' END, SUM(%s.c) FROM %s GROUP BY %s.a, %s.b",
                 BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT CASE WHEN ABS(mv_a) > 0 THEN CONCAT(CAST(mv_a AS VARCHAR), CAST(b AS VARCHAR)) ELSE 'none' END, SUM(sum_c) FROM %s GROUP BY mv_a, b", VIEW_1);
+        String expectedRewrittenSql = format("SELECT CASE WHEN ABS(mv_a) > 0 THEN CONCAT(CAST(mv_a AS VARCHAR), CAST(b AS VARCHAR)) ELSE 'none' END, SUM(sum_c) FROM %s GROUP BY mv_a, b", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -720,7 +760,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
         String baseQuerySql = format("SELECT IF(t.a > 0, COALESCE(t.a, t.b), 0), SUM(t.c) FROM %s t GROUP BY t.a, t.b", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT IF(mv_a > 0, COALESCE(mv_a, b), 0), SUM(sum_c) FROM %s GROUP BY mv_a, b", VIEW_1);
+        String expectedRewrittenSql = format("SELECT IF(mv_a > 0, COALESCE(mv_a, b), 0), SUM(sum_c) FROM %s GROUP BY mv_a, b", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -774,7 +814,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, c, d FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, c FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = 7 AND d IN (1, 2, 3) AND NOT (a IS NULL)", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, c FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = 7 AND d IN (1, 2, 3) AND NOT (a IS NULL)", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, c FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = 7 AND d IN (1, 2, 3) AND NOT (a IS NULL)", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         baseQuerySql = format("SELECT a, c FROM %s WHERE x = 4", BASE_TABLE_1);
@@ -795,23 +835,23 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT SUM(a) AS a, SUM(b*c) AS bc, d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
         String baseQuerySql = format("SELECT SUM(a) FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(a) FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(a) FROM %s", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         baseQuerySql = format("SELECT SUM(b*c) FROM %s WHERE d > 10", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT SUM(bc) FROM %s WHERE d > 10", VIEW_1);
+        expectedRewrittenSql = format("SELECT SUM(bc) FROM %s WHERE d > 10", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         baseQuerySql = format("SELECT SUM(a), d FROM %s GROUP BY d", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT SUM(a), d FROM %s GROUP BY d", VIEW_1);
+        expectedRewrittenSql = format("SELECT SUM(a), d FROM %s GROUP BY d", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         baseQuerySql = format("SELECT SUM(a), SUM(b*c), d FROM %s GROUP BY d", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT SUM(a), SUM(bc), d FROM %s GROUP BY d", VIEW_1);
+        expectedRewrittenSql = format("SELECT SUM(a), SUM(bc), d FROM %s GROUP BY d", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         baseQuerySql = format("SELECT SUM(a), SUM(b*c), d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT SUM(a), SUM(bc), d, e FROM %s GROUP BY d, e", VIEW_1);
+        expectedRewrittenSql = format("SELECT SUM(a), SUM(bc), d, e FROM %s GROUP BY d, e", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         baseQuerySql = format("SELECT SUM(d) FROM %s GROUP BY e", BASE_TABLE_1);
@@ -915,7 +955,7 @@ public class TestMaterializedViewQueryOptimizer
 
         // Valid: aggregate without GROUP BY is still a valid rollup
         baseQuerySql = format("SELECT SUM(c) FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(total) FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(total) FROM %s", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         // Valid: COUNT rollup without GROUP BY
@@ -925,7 +965,7 @@ public class TestMaterializedViewQueryOptimizer
 
         // Valid: scalar expression with GROUP BY in base query is fine
         baseQuerySql = format("SELECT a + b, SUM(c) FROM %s GROUP BY a, b", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a + b, SUM(total) FROM %s GROUP BY a, b", VIEW_1);
+        expectedRewrittenSql = format("SELECT a + b, SUM(total) FROM %s GROUP BY a, b", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -937,17 +977,17 @@ public class TestMaterializedViewQueryOptimizer
 
         // Exact same GROUP BY as MV
         String baseQuerySql = format("SELECT a, c, SUM(b) FROM %s GROUP BY a, c", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT mv_a as a, mv_c as c, SUM(total) FROM %s GROUP BY mv_a, mv_c", VIEW_1);
+        String expectedRewrittenSql = format("SELECT mv_a as a, mv_c as c, SUM(total) FROM %s GROUP BY mv_a, mv_c", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         // Rollup: query groups by subset of MV GROUP BY
         baseQuerySql = format("SELECT a, SUM(b) FROM %s GROUP BY a", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT mv_a as a, SUM(total) FROM %s GROUP BY mv_a", VIEW_1);
+        expectedRewrittenSql = format("SELECT mv_a as a, SUM(total) FROM %s GROUP BY mv_a", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         // Aggregate-only rollup (no GROUP BY in query)
         baseQuerySql = format("SELECT SUM(b) FROM %s", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT SUM(total) FROM %s", VIEW_1);
+        expectedRewrittenSql = format("SELECT SUM(total) FROM %s", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         // REJECT: bare GROUP BY columns without GROUP BY — MV collapses rows
@@ -989,11 +1029,11 @@ public class TestMaterializedViewQueryOptimizer
         String originalViewSql = format("SELECT SUM(a) AS a, SUM(b*c) AS bc, d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
 
         String baseQuerySql = format("SELECT SUM(a), d, e FROM %s GROUP BY CUBE(d, e)", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(a), d, e FROM %s GROUP BY CUBE(d, e)", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(a), d, e FROM %s GROUP BY CUBE(d, e)", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         baseQuerySql = format("SELECT SUM(a), d FROM %s GROUP BY CUBE(d)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT SUM(a), d FROM %s GROUP BY CUBE(d)", VIEW_1);
+        expectedRewrittenSql = format("SELECT SUM(a), d FROM %s GROUP BY CUBE(d)", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -1003,11 +1043,11 @@ public class TestMaterializedViewQueryOptimizer
         String originalViewSql = format("SELECT SUM(a) AS a, SUM(b*c) AS bc, d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
 
         String baseQuerySql = format("SELECT SUM(a), d, e FROM %s GROUP BY ROLLUP(d, e)", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(a), d, e FROM %s GROUP BY ROLLUP(d, e)", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(a), d, e FROM %s GROUP BY ROLLUP(d, e)", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         baseQuerySql = format("SELECT SUM(a), d FROM %s GROUP BY ROLLUP(d)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT SUM(a), d FROM %s GROUP BY ROLLUP(d)", VIEW_1);
+        expectedRewrittenSql = format("SELECT SUM(a), d FROM %s GROUP BY ROLLUP(d)", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -1017,11 +1057,11 @@ public class TestMaterializedViewQueryOptimizer
         String originalViewSql = format("SELECT SUM(a) AS a, SUM(b*c) AS bc, d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
 
         String baseQuerySql = format("SELECT SUM(a), d, e FROM %s GROUP BY GROUPING SETS((d, e), (d))", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(a), d, e FROM %s GROUP BY GROUPING SETS((d, e), (d))", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(a), d, e FROM %s GROUP BY GROUPING SETS((d, e), (d))", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         baseQuerySql = format("SELECT SUM(a), d FROM %s GROUP BY GROUPING SETS((d))", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT SUM(a), d FROM %s GROUP BY GROUPING SETS((d))", VIEW_1);
+        expectedRewrittenSql = format("SELECT SUM(a), d FROM %s GROUP BY GROUPING SETS((d))", VIEW_1_QUALIFIED);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -1083,7 +1123,7 @@ public class TestMaterializedViewQueryOptimizer
         String baseQuerySqlWithAliasPartially2 = format("SELECT a, base1.c FROM %s base1 ORDER BY base1.c, a", BASE_TABLE_1);
         String baseQuerySqlFully = format("SELECT base1.a, base1.c FROM %s base1 ORDER BY base1.c, base1.a", BASE_TABLE_1);
         String baseQuerySqlWithTablePrefix = format("SELECT %s.a, %s.c FROM %s ORDER BY %s.c, %s.a", BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, c FROM %s ORDER BY c, a", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, c FROM %s ORDER BY c, a", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
         assertOptimizedQuery(baseQuerySqlWithAliasPartially1, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -1114,31 +1154,39 @@ public class TestMaterializedViewQueryOptimizer
 
         String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, b FROM %s", schemaQualifiedTable);
-        String expectedRewrittenSql = format("SELECT a, b FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, b FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s", schemaQualifiedTable);
         baseQuerySql = format("SELECT a, b FROM %s", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b FROM %s", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s", schemaQualifiedTable);
         baseQuerySql = format("SELECT a, b FROM %s", schemaQualifiedTable);
-        expectedRewrittenSql = format("SELECT a, b FROM %s", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b FROM %s WHERE c > 10", schemaQualifiedTable);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE c > 10", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE c > 10", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT SUM(a) as sum_a, b FROM %s GROUP BY b", BASE_TABLE_1);
         baseQuerySql = format("SELECT SUM(a), b FROM %s GROUP BY b", schemaQualifiedTable);
-        expectedRewrittenSql = format("SELECT SUM(sum_a), b FROM %s GROUP BY b", VIEW_1);
+        expectedRewrittenSql = format("SELECT SUM(sum_a), b FROM %s GROUP BY b", VIEW_1_QUALIFIED);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Fully-qualified 3-part catalog.schema.table in base query
+        originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String catalogQualifiedTable = TPCH_CATALOG + "." + SESSION_SCHEMA + "." + BASE_TABLE_1;
+        baseQuerySql = format("SELECT a, b FROM %s", catalogQualifiedTable);
+        expectedRewrittenSql = format("SELECT a, b FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -1156,7 +1204,7 @@ public class TestMaterializedViewQueryOptimizer
         String baseQuerySqlWithAliasPartially2 = format("SELECT SUM(a) AS sum_of_a, base1.b FROM %s base1 GROUP BY base1.b", BASE_TABLE_1);
         String baseQuerySqlFully = format("SELECT SUM(base1.a) AS sum_of_a, base1.b FROM %s base1 GROUP BY base1.b", BASE_TABLE_1);
         String baseQuerySqlWithTablePrefix = format("SELECT SUM(%s.a) AS sum_of_a, %s.b FROM %s GROUP BY %s.b", BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(sum_a) AS sum_of_a, b FROM %s GROUP BY b", VIEW_1);
+        String expectedRewrittenSql = format("SELECT SUM(sum_a) AS sum_of_a, b FROM %s GROUP BY b", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
         assertOptimizedQuery(baseQuerySqlWithAliasPartially1, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -1214,7 +1262,7 @@ public class TestMaterializedViewQueryOptimizer
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.c = %s.c",
                 VIEW_1,
                 BASE_TABLE_2,
-                VIEW_1,
+                VIEW_1_QUALIFIED,
                 BASE_TABLE_2,
                 VIEW_1,
                 BASE_TABLE_2);
@@ -1227,37 +1275,37 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, c FROM %s WHERE a = 5", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 5", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a >= 5", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 5", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a >= 5", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a > 5", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a > 5", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a > 5", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a > 3", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 5", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a <> 4", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 5", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a > 3", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a > 5", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a > 5", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a > 5", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
@@ -1293,49 +1341,49 @@ public class TestMaterializedViewQueryOptimizer
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b = 5.0", BASE_TABLE_7);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b = 5.0", BASE_TABLE_7);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 5.0", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 5.0", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_7, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b = 'apples'", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b = 'apples'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'apples'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'apples'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_6, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b <> 'banana'", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b = 'apples'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'apples'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'apples'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_6, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b <> 'banana'", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b <> 'banana'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b <> 'banana'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b <> 'banana'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_6, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b <> 'banana'", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b > 'banana'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b > 'banana'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b > 'banana'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_6, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b > 'apples'", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b > 'banana'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b > 'banana'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b > 'banana'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_6, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b > '122'", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b > '123'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b > '123'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b > '123'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_6, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b <> 'apples'", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b > 'banana'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b > 'banana'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b > 'banana'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_6, VIEW_1);
 
@@ -1350,61 +1398,61 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, c FROM %s WHERE a > 0", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 5 AND a > 0", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5 AND a > 0", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5 AND a > 0", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a = 5", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 5 AND b = 7", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5 AND b = 7", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5 AND b = 7", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a = 5 AND c = 9", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 5 AND b = 7 AND c = 9", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5 AND b = 7 AND c = 9", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5 AND b = 7 AND c = 9", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a > 3 AND a < 9", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a > 5 AND a < 7", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a > 5 AND a < 7", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a > 5 AND a < 7", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a < 5 AND b > 9", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a < 3 AND b > 11", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 3 AND b > 11", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 3 AND b > 11", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a < 5 AND b > 7 AND c <> 9", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a < 3 AND b > 9 AND c = 11", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 3 AND b > 9 AND c = 11", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 3 AND b > 9 AND c = 11", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a <> 5", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a < 5 AND a > 5", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 5 AND a > 5", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 5 AND a > 5", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE a < 9 AND b > 3.0", BASE_TABLE_7);
         baseQuerySql = format("SELECT a, b FROM %s WHERE a < 7 AND b = 3.1", BASE_TABLE_7);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE a < 7 AND b = 3.1", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE a < 7 AND b = 3.1", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_7, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b <> 'banana'", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b <> 'apples' AND b <> 'banana'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b <> 'apples' AND b <> 'banana'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b <> 'apples' AND b <> 'banana'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_6, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE a > 6 AND b <> 'banana'", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE a = 8 AND b = 'apples'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE a = 8 AND b = 'apples'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE a = 8 AND b = 'apples'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_6, VIEW_1);
 
@@ -1419,67 +1467,67 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, c FROM %s WHERE a = 5 OR a = 7", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 5", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a <> 7", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 5 OR a = 6", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5 OR a = 6", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5 OR a = 6", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a >= 5", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 5 OR a = 6", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5 OR a = 6", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5 OR a = 6", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a <> 5", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a < 5 OR a > 5", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 5 OR a > 5", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 5 OR a > 5", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a > 3 OR a < 9", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a > 5 OR a < 7", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a > 5 OR a < 7", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a > 5 OR a < 7", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a < 3 OR a > 9", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a < 1 OR a > 11", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 1 OR a > 11", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 1 OR a > 11", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a = 3 OR a > 5", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a > 9 OR a = 3", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a > 9 OR a = 3", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a > 9 OR a = 3", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a < 3 OR b > 9", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a < 1 OR b > 11", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 1 OR b > 11", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 1 OR b > 11", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a > 3 AND a < 9 OR a > 10", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a > 5 AND a < 7 OR a > 11", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a > 5 AND a < 7 OR a > 11", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a > 5 AND a < 7 OR a > 11", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b <> 2.91", BASE_TABLE_7);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b <= 2.9 AND b >= 3.0", BASE_TABLE_7);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b <= 2.9 AND b >= 3.0", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b <= 2.9 AND b >= 3.0", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_7, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b <> 'orange'", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b = 'apples' OR b = 'banana'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s  WHERE b = 'apples' OR b = 'banana'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s  WHERE b = 'apples' OR b = 'banana'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_6, VIEW_1);
 
@@ -1514,103 +1562,103 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, b, c FROM %s WHERE a IN (5)", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5)", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a IN (5)", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a IN (5)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5)", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a IN (5)", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 5", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 5", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a = 5", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a IN (5)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5)", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a IN (4,5)", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a IN (5)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5)", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a IN (3,4,5)", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a IN (3,5)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (3,5)", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (3,5)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a >= 5", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a IN (5,6)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5,6)", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5,6)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a <> 5", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a IN (4,6)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (4,6)", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (4,6)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a IN (4,5) AND a IN (5,6,7)", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a IN (5)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5)", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a IN (4,5) OR a IN (6,7)", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a IN (5,6)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5,6)", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (5,6)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a IN (4,5)", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a IN (3,5) AND a IN (5,6)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (3,5) AND a IN (5,6)", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a IN (3,5) AND a IN (5,6)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a NOT IN (5)", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a NOT IN (5)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a NOT IN (5)", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a NOT IN (5)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a NOT IN (5)", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a NOT IN (4,5)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a NOT IN (4,5)", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a NOT IN (4,5)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a > 5 OR a < 5", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a NOT IN (5)", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a NOT IN (5)", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a NOT IN (5)", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b, c FROM %s WHERE a NOT IN (5,6) AND b IN (6,8)", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s WHERE a < 5 AND b = 8", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 5 AND b = 8", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a < 5 AND b = 8", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b IN ('USA','CAN')", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b = 'CAN' OR b = 'USA'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'CAN' OR b = 'USA'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'CAN' OR b = 'USA'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_6, VIEW_1);
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b NOT IN ('USA','CAN')", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b = 'ABC'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'ABC'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'ABC'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_6, VIEW_1);
 
@@ -1652,7 +1700,7 @@ public class TestMaterializedViewQueryOptimizer
         String originalViewSql = subquery;
 
         String baseQuerySql = format("SELECT a, b FROM (%s)", subquery);
-        String expectedRewrittenSql = format("SELECT a, b FROM (SELECT a, b FROM (%s))", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, b FROM (SELECT a, b FROM (%s))", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -1681,7 +1729,7 @@ public class TestMaterializedViewQueryOptimizer
                         "(SELECT a, b FROM (%s)) " +
                         "UNION ALL " +
                         "(SELECT c FROM (%s))",
-                VIEW_1, VIEW_2);
+                VIEW_1_QUALIFIED, VIEW_2_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1, VIEW_2, viewSql2)));
     }
@@ -1709,7 +1757,7 @@ public class TestMaterializedViewQueryOptimizer
 
         String baseQuerySql = format("SELECT a, b, c FROM (%s) UNION ALL (%s)", subquery1, subquery2);
         String expectedRewrittenSql = format("SELECT a, b, c FROM (SELECT a, b FROM (%s)) UNION ALL (%s)",
-                VIEW_1, subquery2);
+                VIEW_1_QUALIFIED, subquery2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1, VIEW_2, viewSql2)));
     }
@@ -1724,7 +1772,7 @@ public class TestMaterializedViewQueryOptimizer
 
         String baseQuerySql = format("SELECT a, b, c FROM (%s) UNION ALL (%s)", subquery1, subquery2);
         String expectedRewrittenSql = format("SELECT a, b, c FROM (SELECT a, b FROM (%s)) UNION ALL (%s)",
-                VIEW_1, subquery2);
+                VIEW_1_QUALIFIED, subquery2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1, VIEW_2, viewSql2)));
     }
@@ -1741,7 +1789,7 @@ public class TestMaterializedViewQueryOptimizer
                         "(SELECT a, b FROM (%s)) " +
                         "UNION ALL " +
                         "(SELECT c FROM (%s))",
-                VIEW_1, VIEW_1);
+                VIEW_1_QUALIFIED, VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -1757,7 +1805,7 @@ public class TestMaterializedViewQueryOptimizer
         String baseQuerySql = format("SELECT a, b, c FROM (%s) UNION ALL (%s)", subquery1, subquery2);
         String expectedRewrittenSql = format("SELECT a, b, c FROM " +
                         "(SELECT a, b FROM (%s)) UNION ALL (%s)",
-                VIEW_1, subquery2);
+                VIEW_1_QUALIFIED, subquery2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1, VIEW_2, viewSql2)));
     }
@@ -1785,7 +1833,7 @@ public class TestMaterializedViewQueryOptimizer
 
         String baseQuerySql = format("SELECT s1.a, s1.b, s2.c, s2.d, s2.e FROM (%s) s1 INNER JOIN (%s) s2 ON s1.a = s2.c", subquery1, subquery2);
         String expectedRewrittenSql = format("SELECT s1.a, s1.b, s2.c, s2.d, s2.e FROM (SELECT a, b FROM (%s)) s1 INNER JOIN (%s) s2 ON s1.a = s2.c",
-                VIEW_1, subquery2);
+                VIEW_1_QUALIFIED, subquery2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1, VIEW_2, viewSql2)));
     }
@@ -1807,7 +1855,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format("SELECT a, b, c, d, e FROM (SELECT a, b FROM (%s)) s1 INNER JOIN " +
                         "(SELECT c, d, e FROM (SELECT c FROM (%s)) s2 INNER JOIN (%s) s3 on s2.c = s3.d) nested_join " + //select from view 2 and 3
                         "ON s1.a = nested_join.c",
-                VIEW_1, VIEW_2, subquery3);
+                VIEW_1_QUALIFIED, VIEW_2_QUALIFIED, subquery3);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(
                 BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1),
@@ -1831,7 +1879,7 @@ public class TestMaterializedViewQueryOptimizer
                         "INNER JOIN " +
                         "(SELECT SUM(count_a2) AS count_a2, c FROM %s GROUP BY c) s2 " +
                         "ON s1.b = s2.c",
-                VIEW_1, VIEW_2);
+                VIEW_1_QUALIFIED, VIEW_2_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(
                 BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1),
@@ -1850,7 +1898,7 @@ public class TestMaterializedViewQueryOptimizer
                         "INNER JOIN " +
                         "(SELECT MIN(min_c) AS min_c FROM %s) s2 \n" +
                         "ON s1.min_b = s2.min_c",
-                VIEW_1, VIEW_2);
+                VIEW_1_QUALIFIED, VIEW_2_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(
                 BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1),
@@ -1862,7 +1910,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT SUM(a) AS mv_sum, COUNT(a) AS mv_count FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT AVG(a) AS base_avg FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT (SUM(mv_sum) / SUM(mv_count)) AS base_avg FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT (SUM(mv_sum) / SUM(mv_count)) AS base_avg FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
@@ -1882,7 +1930,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT SUM(a) AS mv_sum, COUNT(a) AS mv_count FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT AVG(a) AS base_avg FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT (SUM(mv_sum) / SUM(mv_count)) AS base_avg FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT (SUM(mv_sum) / SUM(mv_count)) AS base_avg FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -1892,7 +1940,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT SUM(a) AS mv_sum, COUNT(a) AS mv_count, b, c FROM %s GROUP BY b, c", BASE_TABLE_1);
         String baseQuerySql = format("SELECT AVG(a), b FROM %s GROUP BY b", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT (SUM(mv_sum) / SUM(mv_count)), b FROM %s GROUP BY b", VIEW_1);
+        String expectedRewrittenSql = format("SELECT (SUM(mv_sum) / SUM(mv_count)), b FROM %s GROUP BY b", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
@@ -1908,7 +1956,7 @@ public class TestMaterializedViewQueryOptimizer
                 "(SELECT base_avg as filtered_avg, b FROM (SELECT (SUM(mv_sum) / SUM(mv_count)) AS base_avg, b FROM %s GROUP BY b ORDER BY b) WHERE base_avg < 5.25) s1 " +
                 "INNER JOIN " +
                 "(SELECT SUM(mv_count) AS a_count, b FROM %s GROUP BY b) s2 " +
-                "ON s1.b = s2.b", VIEW_1, VIEW_1);
+                "ON s1.b = s2.b", VIEW_1_QUALIFIED, VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -1918,7 +1966,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT cast(APPROX_SET(a) as varbinary) AS mv_approx_set FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT APPROX_DISTINCT(a) AS base_approx_distinct FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT (CARDINALITY(MERGE(CAST(mv_approx_set AS hyperloglog)))) AS base_approx_distinct FROM %s", VIEW_1);
+        String expectedRewrittenSql = format("SELECT (CARDINALITY(MERGE(CAST(mv_approx_set AS hyperloglog)))) AS base_approx_distinct FROM %s", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -1928,7 +1976,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT cast(APPROX_SET(a) as varbinary) AS mv_approx_set, b, c FROM %s GROUP BY b, c", BASE_TABLE_1);
         String baseQuerySql = format("SELECT APPROX_DISTINCT(a) AS base_approx_distinct, b FROM %s GROUP BY b", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT (CARDINALITY(MERGE(CAST(mv_approx_set AS hyperloglog)))) AS base_approx_distinct, b FROM %s GROUP BY b", VIEW_1);
+        String expectedRewrittenSql = format("SELECT (CARDINALITY(MERGE(CAST(mv_approx_set AS hyperloglog)))) AS base_approx_distinct, b FROM %s GROUP BY b", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -1965,7 +2013,7 @@ public class TestMaterializedViewQueryOptimizer
                         "INNER JOIN " +
                         "(%s) s2 " +
                         "ON s1.min_b = s2.mean_c",
-                VIEW_1, subquery2);
+                VIEW_1_QUALIFIED, subquery2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(
                 BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1),
@@ -1988,7 +2036,7 @@ public class TestMaterializedViewQueryOptimizer
                         "INNER JOIN " +
                         "(SELECT c, sum(sum_a) AS sum_a FROM %s GROUP BY c) s2 " +
                         "ON s1.c = s2.c",
-                VIEW_1, VIEW_2);
+                VIEW_1_QUALIFIED, VIEW_2_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(
                 BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1),
@@ -2036,7 +2084,7 @@ public class TestMaterializedViewQueryOptimizer
                         "(SELECT c, b FROM " +
                         "(SELECT c, b FROM (%s) WHERE b > 5) WHERE b > 5) s2 " +
                         "ON s1.b = s2.b",
-                VIEW_1, VIEW_2);
+                VIEW_1_QUALIFIED, VIEW_2_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(
                 BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1),
@@ -2070,7 +2118,7 @@ public class TestMaterializedViewQueryOptimizer
 
         String expectedRewrittenSql = format("SELECT a, b, sum(c) AS sum_c FROM " +
                         "(SELECT a, b, sum(sum_c) AS sum_c FROM %s WHERE b > 5 GROUP BY a, b)",
-                VIEW_1);
+                VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -2098,7 +2146,7 @@ public class TestMaterializedViewQueryOptimizer
                         "INNER JOIN " +
                         "(SELECT a, b, sum(sum_d) AS sum_d FROM (%s) WHERE b >= 5 AND a <> 3 GROUP BY a, b) s2 " +
                         "ON s1.b = s2.b",
-                VIEW_1, VIEW_2);
+                VIEW_1_QUALIFIED, VIEW_2_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(
                 BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1),
@@ -2122,7 +2170,7 @@ public class TestMaterializedViewQueryOptimizer
                         "INNER JOIN " +
                         "(%s) s2 " +
                         "ON s1.min_b = s2.mean_c",
-                VIEW_1, subquery2);
+                VIEW_1_QUALIFIED, subquery2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(
                 BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1),
@@ -2144,7 +2192,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format("WITH s3 AS(" +
                 "(SELECT d, sum(sum_b) AS sum_b FROM (%s) GROUP BY d) " +
                 "UNION ALL (%s)) " +
-                "SELECT d, sum_b, mean_c, a FROM s3", VIEW_1, subquery2);
+                "SELECT d, sum_b, mean_c, a FROM s3", VIEW_1_QUALIFIED, subquery2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(
                 BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1),
@@ -2158,7 +2206,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b, c FROM %s WHERE a = 1 AND b = 2 OR b = 3 AND c = 4", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 1 AND b = 2 AND c = 3", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 1 AND b = 2 AND c = 3", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, b, c FROM %s WHERE a = 1 AND b = 2 AND c = 3", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(BASE_TABLE_1, ImmutableMap.of(VIEW_1, originalViewSql)));
 
@@ -2177,7 +2225,7 @@ public class TestMaterializedViewQueryOptimizer
                 "SELECT a, b, c FROM %s WHERE " +
                         "a = 1 AND b = 2 AND c = 3 " +
                         "OR a = 5 AND b = 7 AND c = 6",
-                VIEW_1);
+                VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(BASE_TABLE_1, ImmutableMap.of(VIEW_1, originalViewSql)));
     }
@@ -2188,13 +2236,13 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a, b FROM %s WHERE b <> 'banana'", BASE_TABLE_6);
         String baseQuerySql = format("SELECT a, b FROM %s WHERE b = 'apple'", BASE_TABLE_6);
-        String expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'apple'", VIEW_1);
+        String expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'apple'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(BASE_TABLE_1, ImmutableMap.of(VIEW_1, originalViewSql)));
 
         originalViewSql = format("SELECT a, b FROM %s WHERE b NOT IN ('USA','CAN')", BASE_TABLE_6);
         baseQuerySql = format("SELECT a, b FROM %s WHERE b = 'UK'", BASE_TABLE_6);
-        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'UK'", VIEW_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'UK'", VIEW_1_QUALIFIED);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(BASE_TABLE_1, ImmutableMap.of(VIEW_1, originalViewSql)));
     }
@@ -2211,9 +2259,35 @@ public class TestMaterializedViewQueryOptimizer
                 BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2);
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a",
-                VIEW_1, BASE_TABLE_2, VIEW_1, BASE_TABLE_2, VIEW_1, BASE_TABLE_2);
+                VIEW_1, BASE_TABLE_2, VIEW_1_QUALIFIED, BASE_TABLE_2, VIEW_1, BASE_TABLE_2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithWindowFunction()
+    {
+        // The join path shares the expression rewriter, so a window function is declined there too.
+        // Aliased columns make an incorrect rewrite visible: the window would keep referring to b.
+        String originalViewSql = format("SELECT a AS mv_a, b AS mv_b, c AS mv_c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT SUM(%s.a) OVER (ORDER BY %s.b) FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithWindowClause()
+    {
+        // The join rewrite carries a WINDOW clause over unchanged, so its expressions would still
+        // reference the relation being replaced. The base query is kept instead.
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a FROM %s JOIN %s ON %s.a = %s.a WINDOW w AS (PARTITION BY %s.b)",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
     @Test
@@ -2230,7 +2304,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.sum_b), %s.b AS t2_b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.b",
                 VIEW_1, VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
@@ -2251,7 +2325,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.sum_b), %s.b AS t2_b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.b",
                 VIEW_1, VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
@@ -2272,7 +2346,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.count_b), %s.a AS t2_a FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
@@ -2293,7 +2367,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, MIN(%s.min_b), MAX(%s.max_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
@@ -2314,7 +2388,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.b > 10",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 BASE_TABLE_2);
 
@@ -2335,7 +2409,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.c > 5 AND %s.b > 10",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
@@ -2356,7 +2430,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a ORDER BY %s.a",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1);
 
@@ -2373,7 +2447,7 @@ public class TestMaterializedViewQueryOptimizer
                 BASE_TABLE_1, BASE_TABLE_2);
         String expectedRewrittenSql = format(
                 "SELECT x.a, y.b FROM %s x JOIN %s y ON x.a = y.a",
-                VIEW_1, BASE_TABLE_2);
+                VIEW_1_QUALIFIED, BASE_TABLE_2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -2391,7 +2465,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.col_a AS a, %s.col_b AS b FROM %s JOIN %s ON %s.col_a = %s.a",
                 VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -2411,7 +2485,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a JOIN %s ON %s.a = %s.a",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2, VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2, VIEW_1, BASE_TABLE_2,
                 BASE_TABLE_3, VIEW_1, BASE_TABLE_3);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -2431,7 +2505,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.sum_b), SUM(%s.sum_c) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
@@ -2452,7 +2526,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.cond_sum) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -2467,7 +2541,7 @@ public class TestMaterializedViewQueryOptimizer
         expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.cond_sum), SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -2487,7 +2561,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.case_sum) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -2521,7 +2595,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.prod_sum) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -2541,7 +2615,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.cond_sum), SUM(%s.cnt) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -2561,7 +2635,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.c, SUM(%s.sum_b), %s.b AS t2_b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.c, %s.b",
                 VIEW_1, VIEW_1, VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, VIEW_1, BASE_TABLE_2);
 
@@ -2582,7 +2656,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.deep_sum) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -2611,7 +2685,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.case_sum) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -2631,7 +2705,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -2653,7 +2727,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.cnt) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -2668,7 +2742,7 @@ public class TestMaterializedViewQueryOptimizer
         expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.cnt), SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -2688,7 +2762,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a WHERE %s.b > 10",
                 VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -3036,7 +3110,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a",
                 BASE_TABLE_1, VIEW_1,
-                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1_QUALIFIED,
                 BASE_TABLE_1, VIEW_1);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_2, VIEW_1);
@@ -3055,7 +3129,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.a FROM %s JOIN %s ON %s.a = %s.a",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -3076,7 +3150,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a",
                 VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
@@ -3088,7 +3162,7 @@ public class TestMaterializedViewQueryOptimizer
         expectedRewrittenSql = format(
                 "SELECT SUM(%s.cnt) FROM %s JOIN %s ON %s.a = %s.a",
                 VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
@@ -3115,7 +3189,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a FROM %s JOIN %s ON %s.a = %s.a AND %s.b > 5",
                 VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1);
 
@@ -3137,7 +3211,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.cnt) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
@@ -3158,7 +3232,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, COUNT(*) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
@@ -3205,7 +3279,7 @@ public class TestMaterializedViewQueryOptimizer
                 BASE_TABLE_1, BASE_TABLE_1);
         String expectedRewrittenSql = format(
                 "SELECT o1.a, SUM(o1.sum_b), o2.a FROM %s o1 JOIN %s o2 ON o1.a = o2.a GROUP BY o1.a, o2.a",
-                VIEW_1, BASE_TABLE_1);
+                VIEW_1_QUALIFIED, BASE_TABLE_1);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -3221,7 +3295,7 @@ public class TestMaterializedViewQueryOptimizer
                 BASE_TABLE_1, BASE_TABLE_1);
         String expectedRewrittenSql = format(
                 "SELECT o1.a, SUM(o1.b), SUM(o2.b) FROM %s o1 JOIN %s o2 ON o1.a = o2.a GROUP BY o1.a",
-                VIEW_1, BASE_TABLE_1);
+                VIEW_1_QUALIFIED, BASE_TABLE_1);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -3240,7 +3314,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, x.b FROM %s JOIN %s x ON %s.a = x.a",
                 VIEW_1,
-                VIEW_1, BASE_TABLE_1,
+                VIEW_1_QUALIFIED, BASE_TABLE_1,
                 VIEW_1);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -3258,7 +3332,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT x.a, %s.b FROM %s x JOIN %s ON x.a = %s.a",
                 BASE_TABLE_1,
-                VIEW_1, BASE_TABLE_1,
+                VIEW_1_QUALIFIED, BASE_TABLE_1,
                 BASE_TABLE_1);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -3280,7 +3354,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a FROM %s JOIN %s ON %s.a = %s.a",
                 VIEW_1,
-                VIEW_1, VIEW_1,
+                VIEW_1_QUALIFIED, VIEW_1_QUALIFIED,
                 VIEW_1, VIEW_1);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -3295,7 +3369,7 @@ public class TestMaterializedViewQueryOptimizer
                 BASE_TABLE_1, BASE_TABLE_1);
         String expectedRewrittenSql = format(
                 "SELECT x.a, y.b FROM %s x JOIN %s y ON x.a = y.a",
-                VIEW_1, BASE_TABLE_1);
+                VIEW_1_QUALIFIED, BASE_TABLE_1);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -3312,7 +3386,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT x.a, y.b, %s.a FROM %s x JOIN %s y ON x.a = y.a JOIN %s ON y.a = %s.a",
                 BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_1,
+                VIEW_1_QUALIFIED, BASE_TABLE_1,
                 BASE_TABLE_2, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -3364,7 +3438,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1);
 
@@ -3384,7 +3458,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s LEFT JOIN %s ON %s.a = %s.a",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -3420,7 +3494,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s LEFT JOIN %s ON %s.a = %s.a",
                 BASE_TABLE_1, VIEW_1,
-                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1_QUALIFIED,
                 BASE_TABLE_1, VIEW_1);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_2, VIEW_1);
@@ -3468,7 +3542,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s CROSS JOIN %s",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2);
+                VIEW_1_QUALIFIED, BASE_TABLE_2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -3501,7 +3575,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a + %s.a FROM %s JOIN %s ON %s.a = %s.a",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -3521,7 +3595,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.b",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
@@ -3558,7 +3632,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.b IS NULL",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1);
 
@@ -3578,7 +3652,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.a IN (1, 2, 3)",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1);
 
@@ -3598,7 +3672,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.a BETWEEN 1 AND 10",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1);
 
@@ -3617,7 +3691,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT COALESCE(%s.a, 0), %s.b FROM %s JOIN %s ON %s.a = %s.a",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -3636,7 +3710,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE NOT (%s.b > 5)",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1);
 
@@ -3655,7 +3729,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT CASE WHEN %s.a > 0 THEN %s.a ELSE 0 END, %s.b FROM %s JOIN %s ON %s.a = %s.a",
                 VIEW_1, VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -3676,7 +3750,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT SUM(%s.a), %s.b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.b",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 BASE_TABLE_2);
 
@@ -3697,7 +3771,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT COUNT(%s.a), %s.b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.b",
                 VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 BASE_TABLE_2);
 
@@ -3717,7 +3791,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT MIN(%s.a), MAX(%s.b) FROM %s JOIN %s ON %s.a = %s.a",
                 VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -3742,7 +3816,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, SUM(%s.cnt) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -3774,10 +3848,10 @@ public class TestMaterializedViewQueryOptimizer
                 BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2);
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.a FROM (%s JOIN %s ON %s.a = %s.a) JOIN %s ON %s.a = %s.a",
-                VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
-                VIEW_1, BASE_TABLE_2,
-                BASE_TABLE_2, VIEW_1, BASE_TABLE_2);
+                                VIEW_1, BASE_TABLE_2,
+                                VIEW_1_QUALIFIED, BASE_TABLE_2,
+                                VIEW_1, BASE_TABLE_2,
+                                BASE_TABLE_2, VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
@@ -3797,7 +3871,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT sub.a, %s.a FROM (SELECT a, b FROM %s) sub JOIN %s ON sub.a = %s.a",
                 VIEW_1,
-                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1_QUALIFIED,
                 VIEW_1);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_2, VIEW_1);
     }
@@ -3831,7 +3905,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b, %s.a FROM %s JOIN %s ON %s.a = %s.a JOIN %s ON %s.a = %s.a",
                 BASE_TABLE_1, VIEW_1, BASE_TABLE_1,
-                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1_QUALIFIED,
                 BASE_TABLE_1, VIEW_1,
                 BASE_TABLE_1, VIEW_1, BASE_TABLE_1);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_2, VIEW_1);
@@ -3851,7 +3925,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a",
                 VIEW_1, BASE_TABLE_2, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -3871,7 +3945,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.a, SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
                 VIEW_1, BASE_TABLE_2, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -3893,7 +3967,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, sub.a FROM %s JOIN (SELECT a FROM %s UNION ALL SELECT a FROM %s) sub ON %s.a = sub.a",
                 VIEW_1,
-                VIEW_1,
+                VIEW_1_QUALIFIED,
                 BASE_TABLE_2, BASE_TABLE_2,
                 VIEW_1);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
@@ -3914,7 +3988,7 @@ public class TestMaterializedViewQueryOptimizer
         String expectedRewrittenSql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.a IN (1, 2, 3)",
                 VIEW_1, VIEW_1,
-                VIEW_1, BASE_TABLE_2,
+                VIEW_1_QUALIFIED, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);

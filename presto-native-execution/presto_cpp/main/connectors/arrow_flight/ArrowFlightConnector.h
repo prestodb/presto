@@ -19,6 +19,8 @@
 
 namespace arrow {
 class RecordBatch;
+class Schema;
+class Status;
 namespace flight {
 class FlightClientOptions;
 class FlightStreamReader;
@@ -107,15 +109,20 @@ class ArrowFlightDataSource : public velox::connector::DataSource {
   void cancel() override;
 
  protected:
+  virtual void handleArrowError(const arrow::Status& status) {}
+
   velox::RowTypePtr outputType_;
 
  private:
+  /// Set column indices to use for `projectOutputColumns`.
+  void setOutputColumnIndices(const std::shared_ptr<arrow::Schema>& schema);
   /// Convert an Arrow record batch to Velox RowVector.
   /// Process only those columns that are present in outputType_.
   velox::RowVectorPtr projectOutputColumns(
       const std::shared_ptr<arrow::RecordBatch>& input);
 
   std::vector<std::string> columnMapping_;
+  std::vector<int> columnIndices_;
   std::unique_ptr<arrow::flight::FlightClient> currentClient_;
   std::unique_ptr<arrow::flight::FlightStreamReader> currentReader_;
   uint64_t completedRows_ = 0;

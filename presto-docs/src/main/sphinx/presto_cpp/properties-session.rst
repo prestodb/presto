@@ -34,6 +34,16 @@ resource contention.
 
 Native Execution only. Use legacy TIME and TIMESTAMP semantics.
 
+``legacy_timestamp_with_timezone``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+When ``true``, ``TIMESTAMP WITH TIME ZONE`` values render in each value's embedded
+time zone. When ``false``, they render the UTC instant in the session time zone, so
+values that compare equal render identically.
+
 ``native_aggregation_spill_memory_threshold``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -245,7 +255,7 @@ Native Execution only. Enable simplified path in expression evaluation.
 * **Type:** ``integer``
 * **Default value:** ``100000``
 
-Native Execution only. The `reduce <https://prestodb.io/docs/current/functions/array.html#reduce-array-T-initialState-S-inputFunction-S-T-S-outputFunction-S-R-R>`_
+Native Execution only. The :func:`reduce <reduce(array[T], initialState S, inputFunction(S,T,S), outputFunction(S,R)) -> R>`
 function will throw an error if it encounters an array of size greater than this value.
 
 ``native_expression_max_compiled_regexes``
@@ -739,6 +749,18 @@ Native Execution only. If true, enables lightweight memory compaction before
 spilling during memory reclaim in aggregation. When enabled, the aggregation
 operator will try to compact aggregate function state (for example, free dead strings)
 before resorting to spilling.
+
+``native_broadcast_file_descriptor_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. If true, the storage broadcast writer serializes a file
+descriptor alongside each broadcast file so readers can open it without a
+per-reader metadata lookup. Set this to false to fall back to opening by path.
+This only has an effect on file systems that supply a descriptor; on the others
+the writer emits none and readers open by path regardless.
 
 ``optimizer.optimize_top_n_rank``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

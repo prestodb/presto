@@ -15,6 +15,7 @@
 #include <folly/io/IOBuf.h>
 #include <folly/io/async/SSLContext.h>
 #include <glog/logging.h>
+#include "presto_cpp/external/json/nlohmann/json.hpp"
 
 namespace facebook::presto::util {
 
@@ -48,6 +49,10 @@ long getProcessCpuTimeNs();
 /// In addition, the Velox based implementation provides additonal
 /// context such as the queryId.
 void installSignalHandler();
+
+/// Serialize 'j' to a JSON string. Falls back to the invalid-UTF-8 replace
+/// handler and logs a warning if the default dump throws.
+std::string dumpJson(const nlohmann::json& j);
 
 std::string extractMessageBody(
     const std::vector<std::unique_ptr<folly::IOBuf>>& body);

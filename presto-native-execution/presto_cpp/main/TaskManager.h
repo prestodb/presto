@@ -54,6 +54,12 @@ class TaskManager {
   /// its completion.
   void setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs);
 
+  /// Enables waiting for task Drivers to stop after abort.
+  void setTaskSyncTerminateEnabled(bool taskSyncTerminateEnabled);
+
+  /// Sets the maximum time to wait for task Drivers to stop after abort.
+  void setTaskSyncTerminateTimeoutMs(uint64_t taskSyncTerminateTimeoutMs);
+
   TaskMap tasks() const;
 
   void abortResults(const protocol::TaskId& taskId, long bufferId);
@@ -95,8 +101,22 @@ class TaskManager {
       const std::unordered_map<int64_t, std::shared_ptr<ResultRequest>>&
           resultRequests);
 
-  std::unique_ptr<protocol::TaskInfo>
-  deleteTask(const protocol::TaskId& taskId, bool abort, bool summarize);
+  /// Aborts the task and returns its final info.
+  ///
+  /// If 'task.sync-terminate-enabled' is true, waits up to
+  /// 'task.sync-terminate-timeout-ms' for the task's running threads to stop
+  /// before returning. Independently, 'shouldDropTask' drops the task from
+  /// 'taskMap_' instead of leaving it for the periodic cleanOldTasks() sweep
+  /// to reclaim. Only callers that will never read from the task again may set
+  /// 'shouldDropTask'.
+  /// It has no effect on a DELETE that arrives before its CREATE: the ABORTED
+  /// marker recorded for that case pins nothing and must survive so the later
+  /// CREATE still no-ops.
+  std::unique_ptr<protocol::TaskInfo> deleteTask(
+      const protocol::TaskId& taskId,
+      bool abort,
+      bool summarize,
+      bool shouldDropTask);
 
   /// Remove old Finished, Cancelled, Failed and Aborted tasks.
   /// Old is being defined by the lifetime of the task.
@@ -237,6 +257,8 @@ class TaskManager {
   std::string nodeId_;
   folly::Synchronized<std::string> baseSpillDir_;
   int32_t oldTaskCleanUpMs_;
+  bool taskSyncTerminateEnabled_;
+  uint64_t taskSyncTerminateTimeoutMs_;
   std::shared_ptr<velox::exec::DefaultOutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   folly::Synchronized<TaskQueue> taskQueue_;

@@ -25,9 +25,11 @@ import java.util.concurrent.TimeUnit;
 public class JdbcMetadataConfig
 {
     private boolean allowDropTable;
+    private boolean metadataTransactionCacheEnabled = true;
     private Duration metadataCacheTtl = new Duration(0, TimeUnit.SECONDS);
     private Duration metadataCacheRefreshInterval = new Duration(0, TimeUnit.SECONDS);
     private long metadataCacheMaximumSize = 10000;
+    private long metadataTransactionCacheMaximumSize = 1000;
 
     public boolean isAllowDropTable()
     {
@@ -39,6 +41,19 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setAllowDropTable(boolean allowDropTable)
     {
         this.allowDropTable = allowDropTable;
+        return this;
+    }
+
+    public boolean isMetadataTransactionCacheEnabled()
+    {
+        return metadataTransactionCacheEnabled;
+    }
+
+    @Config("metadata-transaction-cache-enabled")
+    @ConfigDescription("Enable metadata caching within a connector transaction")
+    public JdbcMetadataConfig setMetadataTransactionCacheEnabled(boolean metadataTransactionCacheEnabled)
+    {
+        this.metadataTransactionCacheEnabled = metadataTransactionCacheEnabled;
         return this;
     }
 
@@ -80,6 +95,20 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setMetadataCacheMaximumSize(long metadataCacheMaximumSize)
     {
         this.metadataCacheMaximumSize = metadataCacheMaximumSize;
+        return this;
+    }
+
+    public long getMetadataTransactionCacheMaximumSize()
+    {
+        return metadataTransactionCacheMaximumSize;
+    }
+
+    @Min(1)
+    @Config("metadata-transaction-cache-maximum-size")
+    @ConfigDescription("Maximum number of metadata entries cached within a connector transaction")
+    public JdbcMetadataConfig setMetadataTransactionCacheMaximumSize(long metadataTransactionCacheMaximumSize)
+    {
+        this.metadataTransactionCacheMaximumSize = metadataTransactionCacheMaximumSize;
         return this;
     }
 }

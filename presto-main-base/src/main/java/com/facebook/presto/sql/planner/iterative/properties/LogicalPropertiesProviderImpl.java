@@ -276,14 +276,15 @@ public class LogicalPropertiesProviderImpl
         }
 
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) limitNode.getSource()).getLogicalProperties().get();
-        return propagateAndLimitProperties(sourceProperties, limitNode.getCount());
+        // TODO : Improve the limit for a PARTIAL Limit node if we can derive it from the implementation (e.g number-of-drivers * N)
+        return limitNode.isPartial() ? propagateProperties(sourceProperties) : propagateAndLimitProperties(sourceProperties, limitNode.getCount());
     }
 
     /**
-     * Provides the logical properties for a LimitNode. The properties reflect the application of a limit N to the source properties.
+     * Provides the logical properties for a TopNNode. The properties reflect the application of a limit N to the source properties.
      *
      * @param topNNode
-     * @return The logical properties for a LimitNode.
+     * @return The logical properties for a TopNNode.
      */
     @Override
     public LogicalProperties getTopNProperties(TopNNode topNNode)
@@ -293,7 +294,7 @@ public class LogicalPropertiesProviderImpl
         }
 
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) topNNode.getSource()).getLogicalProperties().get();
-        return propagateAndLimitProperties(sourceProperties, topNNode.getCount());
+        return topNNode.getStep() == TopNNode.Step.PARTIAL ? propagateProperties(sourceProperties) : propagateAndLimitProperties(sourceProperties, topNNode.getCount());
     }
 
     /**

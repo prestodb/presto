@@ -193,8 +193,8 @@ For example, if the base URL is ``http://localhost:8080`` and you have a
 function ``my_schema.my_function``, the endpoint would be:
 ``http://localhost:8080/v1/functions/my_schema/my_function/...``
 
-``remote-function-server.serde``
-""""""""""""""""""""""""""""""""
+``remote-function-server.serde`` (rest)
+"""""""""""""""""""""""""""""""""""""""
 
 * **Type:** ``string``
 * **Default value:** ``"presto_page"``

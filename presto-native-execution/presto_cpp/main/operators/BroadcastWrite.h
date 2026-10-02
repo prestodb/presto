@@ -13,8 +13,10 @@
  */
 #pragma once
 
+#include <folly/Indestructible.h>
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Operator.h"
+#include "velox/type/Type.h"
 
 namespace facebook::presto::operators {
 
@@ -44,8 +46,15 @@ class BroadcastWriteNode : public velox::core::PlanNode {
       void* context);
 
   const velox::RowTypePtr& outputType() const override {
-    static const auto outputType = velox::ROW({velox::VARCHAR()});
-    return outputType;
+    // Matches the stats page BroadcastFileWriter::noMoreData() emits.
+    // Indestructible: a function-local static would destroy it at exit.
+    static const folly::Indestructible<velox::RowTypePtr> kOutputType{
+        velox::ROW(
+            {{"filepath", velox::VARCHAR()},
+             {"maxserializedsize", velox::BIGINT()},
+             {"numrows", velox::BIGINT()},
+             {"descriptor", velox::VARCHAR()}})};
+    return *kOutputType;
   }
 
   const std::vector<velox::core::PlanNodePtr>& sources() const override {

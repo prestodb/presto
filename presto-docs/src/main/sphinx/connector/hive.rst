@@ -241,9 +241,24 @@ Property Name                                            Description            
  ``hive.orc.use-column-names``                           Enable accessing ORC columns by name in the ORC file         ``false``
                                                          metadata, instead of their ordinal position. Also toggleable 
                                                          through the ``hive.orc_use_column_names`` session property.
+
+``hive.parquet.use-column-names``                        Enable accessing Parquet columns by name in the Parquet      ``false``
+                                                         file metadata, instead of their ordinal position. Also
+                                                         toggleable through the ``parquet_use_column_names``
+                                                         session property. Required when reading partitioned Hudi 1.x
+                                                         tables through the Hive connector, see the warning below.
 ======================================================== ============================================================ ============
 
 .. _constructor: https://github.com/apache/hadoop/blob/02a9190af5f8264e25966a80c8f9ea9bb6677899/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/conf/Configuration.java#L844-L875
+
+.. warning::
+
+    Reading partitioned Hudi 1.x tables through the Hive connector requires
+    ``hive.parquet.use-column-names=true`` to be set in the catalog properties file (or
+    ``parquet_use_column_names=true`` as a session property). Hudi 1.x writes Parquet files in
+    its internal Hudi schema column order, which may differ from the Hive metastore column order.
+    Without name-based column resolution, columns are matched positionally and queries on
+    partitioned tables may return incorrect data.
 
 Hive Session Properties
 -----------------------

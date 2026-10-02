@@ -172,6 +172,7 @@ public class JdbcMetadata
         }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         jdbcClient.dropTable(session, JdbcIdentity.from(session), handle);
+        jdbcMetadataCache.invalidateTable(session, handle);
     }
 
     @Override
@@ -240,6 +241,7 @@ public class JdbcMetadata
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         jdbcClient.addColumn(session, JdbcIdentity.from(session), tableHandle, columnMetadata);
+        jdbcMetadataCache.invalidateTable(session, tableHandle);
     }
 
     @Override
@@ -248,6 +250,7 @@ public class JdbcMetadata
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         jdbcClient.dropColumn(session, JdbcIdentity.from(session), tableHandle, columnHandle);
+        jdbcMetadataCache.invalidateTable(session, tableHandle);
     }
 
     @Override
@@ -256,6 +259,7 @@ public class JdbcMetadata
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         jdbcClient.renameColumn(session, JdbcIdentity.from(session), tableHandle, columnHandle, target);
+        jdbcMetadataCache.invalidateTable(session, tableHandle);
     }
 
     @Override
@@ -263,6 +267,8 @@ public class JdbcMetadata
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         jdbcClient.renameTable(session, JdbcIdentity.from(session), tableHandle, newTableName);
+        jdbcMetadataCache.invalidateTable(session, tableHandle);
+        jdbcMetadataCache.invalidateTableHandle(session, newTableName);
     }
 
     @Override

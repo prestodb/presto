@@ -23,7 +23,7 @@ Hive Metastore catalog
 ^^^^^^^^^^^^^^^^^^^^^^
 
 The Iceberg connector supports the same configuration for
-`HMS <https://prestodb.io/docs/current/connector/hive.html#metastore-configuration-properties>`_
+:ref:`HMS <connector/hive:Metastore Configuration Properties>`
 as a Hive connector.
 
 .. code-block:: none
@@ -35,14 +35,14 @@ as a Hive connector.
 File-Based Metastore
 ^^^^^^^^^^^^^^^^^^^^
 
-For testing or development purposes, this connector can be configured to use a local 
-filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
+For testing or development purposes, this connector can be configured to use a local
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.
 
 Glue catalog
 ^^^^^^^^^^^^
 
 The Iceberg connector supports the same configuration for
-`Glue <https://prestodb.io/docs/current/connector/hive.html#aws-glue-catalog-configuration-properties>`_
+:ref:`Glue <connector/hive:AWS Glue Catalog Configuration Properties>`
 as a Hive connector.
 
 .. code-block:: none
@@ -335,7 +335,7 @@ Property Name                                           Description             
                                                         Otherwise, it will be ignored.
 ======================================================= ============================================================= ============
 
-Configure the `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
+Configure the :ref:`Amazon S3 <connector/hive:Amazon S3 Configuration>`
 properties to specify a S3 location as the warehouse data directory for the Hadoop catalog. This way,
 the data and delete files of Iceberg tables are stored in S3. An example configuration includes:
 
@@ -362,7 +362,7 @@ Configuration Properties
 .. note::
 
     The Iceberg connector supports configuration options for
-    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
+    :ref:`Amazon S3 <connector/hive:Amazon S3 Configuration>`
     as a Hive connector.
 
 The following configuration properties are available for all catalog types:
@@ -648,7 +648,10 @@ Session properties set behavior changes for queries executed within the given se
 
        ``materialized_view_storage_table_name_prefix``
      - Prefix for automatically generated materialized view storage table names.
-       Default: ``__mv_storage__``
+       Default: ``__mv_storage__``. When ``materialized_view_default_storage_schema``
+       routes storage tables into a shared schema, the generated name uses a
+       length-prefix encoding to include the source schema and avoid collisions:
+       ``<prefix><schemaLen>_<schema>__<viewName>``.
      - Yes
      - Yes
    * - .. _iceberg-sess-materialized-view-missing-base-table-behavior:
@@ -834,7 +837,7 @@ Iceberg Connector supports Metastore Caching with some exceptions. Iceberg Conne
 Metastore Caching is only supported when ``iceberg.catalog.type`` is ``HIVE``.
 
 The Iceberg connector supports the same configuration properties for
-`Hive Metastore Caching <https://prestodb.io/docs/current/connector/hive.html#metastore-configuration-properties>`_
+:ref:`Hive Metastore Caching <connector/hive:Metastore Configuration Properties>`
 as a Hive connector.
 
 The following configuration properties are the minimum set of configurations required to be added in the Iceberg catalog file ``catalog/iceberg.properties``:
@@ -1792,49 +1795,103 @@ frequently used together in query predicates.
 SQL Support
 -----------
 
-======================================== ============= ============ ============================================================================
-SQL Operation                            Presto Java   Presto C++   Comments
-======================================== ============= ============ ============================================================================
-``CREATE SCHEMA``                        Yes           Yes
+.. list-table::
+   :header-rows: 1
+   :widths: 30 10 10 50
 
-``CREATE TABLE``                         Yes           Yes
-
-``CREATE VIEW``                          Yes           Yes
-
-``INSERT INTO``                          Yes           No
-
-``CREATE TABLE AS SELECT``               Yes           No
-
-``SELECT``                               Yes           Yes          Read is supported in Presto C++ including those with positional delete files.
-
-``ALTER TABLE``                              Yes           Yes
-
-``ALTER TABLE ADD COLUMN DEFAULT``           Yes           Yes
-
-``ALTER TABLE ALTER COLUMN SET DEFAULT``     Yes           Yes
-
-``ALTER VIEW``                               Yes           Yes
-
-``TRUNCATE``                             Yes           Yes
-
-``DELETE``                               Yes           No
-
-``DROP TABLE``                           Yes           Yes
-
-``DROP VIEW``                            Yes           Yes
-
-``DROP SCHEMA``                          Yes           Yes
-
-``SHOW CREATE TABLE``                    Yes           Yes
-
-``SHOW COLUMNS``                         Yes           Yes
-
-``DESCRIBE``                             Yes           Yes
-
-``UPDATE``                               Yes           No
-
-``MERGE``                                Yes           No
-======================================== ============= ============ ============================================================================
+   * - SQL Operation
+     - Presto Java
+     - Presto C++
+     - Comments
+   * - ``CREATE SCHEMA``
+     - Yes
+     - Yes
+     -
+   * - ``CREATE TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``CREATE VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``INSERT INTO``
+     - Yes
+     - No
+     -
+   * - ``CREATE TABLE AS SELECT``
+     - Yes
+     - No
+     -
+   * - ``SELECT``
+     - Yes
+     - Yes
+     - Read is supported in Presto C++ including those with positional delete
+       files.
+   * - ``ALTER TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ADD COLUMN DEFAULT``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ADD COLUMN FIRST|AFTER``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN FIRST|AFTER``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN SET DEFAULT``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``TRUNCATE``
+     - Yes
+     - Yes
+     -
+   * - ``DELETE``
+     - Yes
+     - No
+     -
+   * - ``DROP TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``DROP VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``DROP SCHEMA``
+     - Yes
+     - Yes
+     -
+   * - ``SHOW CREATE TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``SHOW COLUMNS``
+     - Yes
+     - Yes
+     -
+   * - ``DESCRIBE``
+     - Yes
+     - Yes
+     -
+   * - ``UPDATE``
+     - Yes
+     - No
+     -
+   * - ``MERGE``
+     - Yes
+     - No
+     -
 
 The Iceberg connector supports querying and manipulating Iceberg tables and schemas
 (databases). Here are some examples of the SQL operations supported by Presto:
@@ -2027,6 +2084,14 @@ ALTER TABLE
 Alter table operations are supported in the Iceberg connector::
 
      ALTER TABLE iceberg.web.page_views ADD COLUMN zipcode VARCHAR;
+
+     ALTER TABLE iceberg.web.page_views ADD COLUMN region VARCHAR FIRST;
+
+     ALTER TABLE iceberg.web.page_views ADD COLUMN city VARCHAR AFTER country;
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN zipcode FIRST;
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN zipcode AFTER city;
 
      ALTER TABLE iceberg.web.page_views RENAME COLUMN zipcode TO location;
 
@@ -2753,7 +2818,7 @@ In this example, SYSTEM_TIME can be used as an alias for TIMESTAMP.
 
 .. note::
 
-    Timestamp without timezone will be parsed and rendered in the session time zone. See `TIMESTAMP <https://prestodb.io/docs/current/language/types.html#timestamp>`_.
+    Timestamp without timezone will be parsed and rendered in the session time zone. See :ref:`language/types:\`\`TIMESTAMP\`\``.
 
 The option following FOR TIMESTAMP AS OF can accept any expression that returns a timestamp or timestamp with time zone value.
 For example, `TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles'` and `TIMESTAMP '2023-10-17 13:29:46.822'` are both valid timestamps. The first specifies the timestamp within the timezone `America/Los_Angeles`. The second will use the timestamp based on the user's session timezone.
@@ -2995,6 +3060,8 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``ROW``
   * - ``GEOMETRY``
     - ``GEOMETRY``
+  * - ``VARIANT``
+    - ``JSON``
 
 
 No other types are supported.
@@ -3133,7 +3200,17 @@ The Iceberg connector supports materialized views. See :doc:`/admin/materialized
 Storage
 ^^^^^^^
 
-Materialized views use a dedicated Iceberg storage table to persist the pre-computed results. By default, the storage table is created with the prefix ``__mv_storage__`` followed by the materialized view name in the same schema as the view.
+Materialized views use a dedicated Iceberg storage table to persist the pre-computed results. By
+default, the storage table is placed in the same schema as the view and its name is generated
+automatically from the configured prefix (``__mv_storage__`` by default) and the materialized view
+name.
+
+When ``iceberg.materialized-view-default-storage-schema`` is set to route storage tables into a
+shared schema, the generated name also embeds the source schema to prevent collisions between
+materialized views with the same name in different schemas. The format used is::
+
+    <prefix><schemaLength>_<sourceSchema>__<viewName>
+
 
 Catalog Configuration
 ^^^^^^^^^^^^^^^^^^^^^
@@ -3160,7 +3237,10 @@ view creation time and can be overridden per-view by using the ``storage_schema`
        ``iceberg.materialized-view-default-storage-schema``
      - Schema in which storage tables are created when the per-view ``storage_schema``
        property is not set. Point at a locked-down schema to keep storage tables out of
-       users' reach without affecting materialized view reads.
+       users' reach without affecting materialized view reads. When this property is set,
+       the auto-generated storage table name includes the source schema using a
+       length-prefix encoding (``<prefix><schemaLen>_<schema>__<viewName>``) to avoid
+       collisions between same-named views in different schemas.
      - (the view's own schema)
    * - .. _mv-cfg-max-changed-partitions:
 
@@ -3202,7 +3282,12 @@ by using :doc:`/sql/alter-materialized-view`; properties not specified in the
      - Schema name for the storage table. Defaults to the materialized view's schema.
      - No
    * - ``storage_table``
-     - Custom name for the storage table. Defaults to the prefix plus the materialized view name.
+     - Custom name for the storage table. When not set, the name is auto-generated from
+       the configured prefix and the materialized view name. If
+       ``iceberg.materialized-view-default-storage-schema`` (or the session property
+       ``materialized_view_default_storage_schema``) routes storage into a different schema,
+       the source schema is also embedded using length-prefix encoding:
+       ``<prefix><schemaLen>_<schema>__<viewName>``.
      - No
    * - ``stale_read_behavior``
      - Behavior when reading from a materialized view that is stale beyond the staleness window.

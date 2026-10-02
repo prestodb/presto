@@ -70,6 +70,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
@@ -77,6 +78,8 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.connector.EmptyConnectorCommitHandle;
 import com.facebook.presto.spi.connector.RowChangeParadigm;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpecList;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.BaseProcedure;
@@ -216,16 +219,20 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializ
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewMaxChangedPartitions;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewStoragePrefix;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMN_EXPRESSION_SPEC;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
+import static com.facebook.presto.iceberg.IcebergUtil.DERIVED_COLUMN_SPEC_JSON_CODEC;
 import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_ROW_LINEAGE;
 import static com.facebook.presto.iceberg.IcebergUtil.buildColumnMetadata;
+import static com.facebook.presto.iceberg.IcebergUtil.checkInvalidDerivedColumnSpec;
+import static com.facebook.presto.iceberg.IcebergUtil.checkNotSupported;
 import static com.facebook.presto.iceberg.IcebergUtil.convertToIcebergLiteral;
 import static com.facebook.presto.iceberg.IcebergUtil.createDomainFromIcebergPartitionValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
@@ -285,8 +292,10 @@ import static com.facebook.presto.spi.connector.RowChangeParadigm.DELETE_ROW_AND
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -979,9 +988,39 @@ public abstract class IcebergAbstractMetadata
         return !isPushdownFilterEnabled(session);
     }
 
+    private ColumnMetadata getColumnMetadata(ConnectorSession session, Table table, String columnName)
+    {
+        Map<String, List<String>> partitionFields = getPartitionFields(table.spec(), ALL);
+        DerivedColumnSpecList derivedColumnSpecList = IcebergUtil.getDerivedColumnSpec(table);
+        List<DerivedColumnSpec> derivedColumnSpec = derivedColumnSpecList.getDerivedColumnSpecs().stream()
+                .filter(spec -> spec.getDerivedColumnName().equals(columnName)).collect(toImmutableList());
+        checkInvalidDerivedColumnSpec(derivedColumnSpec.size() <= 1, "duplicate derived column spec entry found for column %s in table %s",
+                columnName, table.name());
+        NestedField column = table.schema().findField(columnName);
+        verifyNotNull(column, "Column name: %s not found in table : %s", columnName, table.name());
+        return ColumnMetadata.builder()
+                .setName(normalizeIdentifier(session, column.name()))
+                .setType(toPrestoType(column.type(), typeManager))
+                .setNullable(column.isOptional())
+                .setComment(column.doc())
+                .setHidden(false)
+                .setExtraInfo(partitionFields.containsKey(column.name()) ?
+                        columnExtraInfo(partitionFields.get(column.name())) :
+                        null)
+                .setDerivedColumnSpec(derivedColumnSpec.stream().findAny())
+                .build();
+    }
+
     protected List<ColumnMetadata> getColumnMetadata(ConnectorSession session, Table table)
     {
         Map<String, List<String>> partitionFields = getPartitionFields(table.spec(), ALL);
+        DerivedColumnSpecList derivedColumnSpecList = IcebergUtil.getDerivedColumnSpec(table);
+        List<String> derivedColumnNames = derivedColumnSpecList.getDerivedColumnSpecs().stream().map(DerivedColumnSpec::getDerivedColumnName).collect(toImmutableList());
+        checkInvalidDerivedColumnSpec(derivedColumnNames.stream().collect(toImmutableSet()).size() == derivedColumnNames.size(),
+                "duplicate derived column spec entry found for columns in table %s", table.name());
+        Map<String, DerivedColumnSpec> derivedColumnSpecMap =
+                derivedColumnSpecList.getDerivedColumnSpecs().stream()
+                        .collect(toImmutableMap(DerivedColumnSpec::getDerivedColumnName, derivedColumnSpec -> derivedColumnSpec));
         return table.schema().columns().stream()
                 .map(column -> ColumnMetadata.builder()
                         .setName(normalizeIdentifier(session, column.name()))
@@ -992,7 +1031,7 @@ public abstract class IcebergAbstractMetadata
                         .setExtraInfo(partitionFields.containsKey(column.name()) ?
                                 columnExtraInfo(partitionFields.get(column.name())) :
                                 null)
-                        .setNullable(column.isOptional())
+                        .setDerivedColumnSpec(Optional.ofNullable(derivedColumnSpecMap.get(normalizeIdentifier(session, column.name()))))
                         .build())
                 .collect(toImmutableList());
     }
@@ -1044,7 +1083,10 @@ public abstract class IcebergAbstractMetadata
         properties.put(TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED, IcebergUtil.isMetadataDeleteAfterCommit(icebergTable));
         properties.put(TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS, IcebergUtil.getMetricsMaxInferredColumn(icebergTable));
         properties.put(TableProperties.SPLIT_SIZE, IcebergUtil.getSplitSize(icebergTable));
-
+        DerivedColumnSpecList derivedColumnSpecList = IcebergUtil.getDerivedColumnSpec(icebergTable);
+        if (!derivedColumnSpecList.getDerivedColumnSpecs().isEmpty()) {
+            properties.put(DERIVED_COLUMN_EXPRESSION_SPEC, derivedColumnSpecList);
+        }
         SortOrder sortOrder = icebergTable.sortOrder();
         // TODO: Support sort column transforms (https://github.com/prestodb/presto/issues/24250)
         if (sortOrder != null && sortOrder.isSorted()) {
@@ -1250,8 +1292,22 @@ public abstract class IcebergAbstractMetadata
         }
     }
 
+    /**
+     * All the logic lives in the position-aware overload below, which this delegates to with
+     * {@link ColumnPosition.Last}. The engine only ever calls that overload, so a subclass that needs to
+     * customize {@code addColumn} must override it; overriding only this three-argument form would leave the
+     * subclass bypassed for every {@code ADD COLUMN} statement, positioned or not. Note that the
+     * {@code ConnectorMetadata} default for the position-aware overload delegates back to this
+     * three-argument form for {@code Last}, so a subclass must not reintroduce that direction of delegation.
+     */
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    public final void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    {
+        addColumn(session, tableHandle, column, new ColumnPosition.Last());
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         if (!column.isNullable() && !column.getDefaultValue().isPresent()) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support add column with non null");
@@ -1264,16 +1320,21 @@ public abstract class IcebergAbstractMetadata
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         UpdateSchema updateSchema = icebergTable.updateSchema();
+        checkNotSupported(column.getDefaultValue().isEmpty() || column.getDerivedColumnSpec().isEmpty(),
+                "A column can either have a 'default expression' or 'derived column definition' and not both.");
         if (column.getDefaultValue().isPresent()) {
             validateMinimumFormatVersion(icebergTable, 3, format("ADD COLUMN with DEFAULT values is only supported with Iceberg format version 3 or higher. " +
-                    "Table '%s' is currently at format version %d. ", handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion(), handle.getSchemaTableName()));
+                    "Table '%s' is currently at format version %d. ", handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion()));
             Object defaultValue = column.getDefaultValue().get();
             Literal<?> defaultLiteral = convertToIcebergLiteral(defaultValue, columnType);
-            updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null), defaultLiteral).commit();
+            updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null), defaultLiteral);
         }
         else {
-            updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null)).commit();
+            updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null));
         }
+        // The move is staged on the same UpdateSchema as the add, so the column is added and positioned in a single commit
+        applyColumnPosition(updateSchema, icebergTable.schema(), column.getName(), position);
+        updateSchema.commit();
         if (column.getProperties().containsKey(PARTITIONING_PROPERTY)) {
             List<String> partitioningTransform = (List<String>) column.getProperties().get(PARTITIONING_PROPERTY);
             UpdatePartitionSpec updatePartitionSpec = icebergTable.updateSpec();
@@ -1283,6 +1344,108 @@ public abstract class IcebergAbstractMetadata
             }
             updatePartitionSpec.commit();
         }
+        if (column.getDerivedColumnSpec().isPresent()) {
+            derivedColumnOperations(getIcebergTable(session, handle.getSchemaTableName()), Optional.empty(), column, DerivedColumnOperationType.ADD);
+        }
+    }
+
+    /**
+     * Stages the {@code FIRST | AFTER <column>} move for a newly added column on the given
+     * {@link UpdateSchema}. {@link ColumnPosition.Last}, which is what an omitted clause resolves to,
+     * is a no-op, because Iceberg appends by default.
+     * {@code schema} is the table schema before the add, which is where an {@code AFTER} target must exist.
+     */
+    private static void applyColumnPosition(UpdateSchema updateSchema, Schema schema, String columnName, ColumnPosition position)
+    {
+        if (position instanceof ColumnPosition.Last) {
+            return;
+        }
+        if (position instanceof ColumnPosition.First) {
+            updateSchema.moveFirst(columnName);
+            return;
+        }
+        if (position instanceof ColumnPosition.After) {
+            String afterColumnName = ((ColumnPosition.After) position).getColumnName();
+            // The engine lowercases the target name, while an Iceberg field keeps whatever case the table was
+            // created with, so the lookup has to be case-insensitive to match the name SHOW COLUMNS reports.
+            // Only the top-level columns are scanned, rather than using Schema.caseInsensitiveFindField: that
+            // builds a lower-case index over the whole schema, which resolves dotted paths to nested fields
+            // whose leaf name would be wrong here, and throws outright if any two fields anywhere in the table
+            // differ only by case.
+            //
+            // A name that does not resolve is rejected here rather than passed to moveAfter, which would raise
+            // an IllegalArgumentException for a name it cannot find. The engine already rejects a target that
+            // is not a real column, so this is the guard for a caller that goes through the SPI directly.
+            //
+            // A dotted name (e.g. "struct_col.nested") is a valid nested-field path in Iceberg but not a valid
+            // AFTER target: the AFTER clause positions a column among its siblings at the same nesting level,
+            // so only a top-level column name is accepted here.
+            if (afterColumnName.contains(".")) {
+                throw new PrestoException(COLUMN_NOT_FOUND, format(
+                        "Column '%s' does not exist as a top-level column. The AFTER clause requires a top-level column name, not a nested field path.",
+                        afterColumnName));
+            }
+            updateSchema.moveAfter(columnName, findTopLevelColumn(schema, afterColumnName).name());
+            return;
+        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column position: " + position);
+    }
+
+    /**
+     * Resolves a column name the engine resolved against {@link #getColumnHandles} to the top-level schema
+     * field it names.
+     *
+     * <p>The engine lowercases the name, while an Iceberg field keeps whatever case the table was created
+     * with, so the lookup has to be case-insensitive to match the name SHOW COLUMNS reports. An exact match
+     * wins over a case-insensitive one, so that a table whose top-level columns differ only by case resolves
+     * deterministically rather than by whatever order the fields happen to be in. Only the top-level columns
+     * are scanned, rather than using {@link Schema#caseInsensitiveFindField}: that builds a lower-case index
+     * over the whole schema, which resolves dotted paths to nested fields whose leaf name would be wrong here,
+     * and throws outright if any two fields anywhere in the table differ only by case.
+     *
+     * <p>{@link #getColumnHandles} also exposes the synthesized columns ($path, $row_id and the like) that are
+     * not fields of the schema at all; rejecting an unresolvable name here keeps the failure a user error,
+     * rather than the {@link IllegalArgumentException} that {@link UpdateSchema} would raise for a name it
+     * cannot find.
+     */
+    private static NestedField findTopLevelColumn(Schema schema, String columnName)
+    {
+        Optional<NestedField> exactMatch = schema.columns().stream()
+                .filter(field -> field.name().equals(columnName))
+                .findFirst();
+        if (exactMatch.isPresent()) {
+            return exactMatch.get();
+        }
+        return schema.columns().stream()
+                .filter(field -> field.name().equalsIgnoreCase(columnName))
+                .findFirst()
+                .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND, format("Column '%s' does not exist", columnName)));
+    }
+
+    @Override
+    public void setColumnPosition(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, ColumnPosition position)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns moved");
+        validateNoBranchSpecified(handle, "SET COLUMN POSITION");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        Schema schema = icebergTable.schema();
+        NestedField movedColumn = findTopLevelColumn(schema, ((IcebergColumnHandle) columnHandle).getName());
+        // The move is resolved before an UpdateSchema is created, because one that is created and then not
+        // committed leaves the connector's Iceberg transaction with an operation that never completed, which
+        // fails the statement with an error about the transaction rather than about the column
+        if (position instanceof ColumnPosition.First) {
+            icebergTable.updateSchema().moveFirst(movedColumn.name()).commit();
+            return;
+        }
+        if (position instanceof ColumnPosition.After) {
+            String afterColumnName = findTopLevelColumn(schema, ((ColumnPosition.After) position).getColumnName()).name();
+            icebergTable.updateSchema().moveAfter(movedColumn.name(), afterColumnName).commit();
+            return;
+        }
+        // ALTER COLUMN has no position a connector can honor for free, unlike the omitted ADD COLUMN clause
+        // that ColumnPosition.Last stands for, so anything else is a caller that ignored the SPI contract
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column position: " + position);
     }
 
     @Override
@@ -1292,6 +1455,8 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have column defaults set");
         validateNoBranchSpecified(handle, "SET COLUMN DEFAULT");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        ColumnMetadata columnMetadata = getColumnMetadata(session, icebergTable, columnName);
+        checkNotSupported(columnMetadata.getDerivedColumnSpec().isEmpty(), "SET COLUMN DEFAULT is not supported on derived columns.");
         validateMinimumFormatVersion(icebergTable, 3, format("SET COLUMN DEFAULT is only supported with Iceberg format version 3 or higher. " +
                 "Table '%s' is currently at format version %d.", handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion()));
         // Find the column in the schema
@@ -1315,7 +1480,6 @@ public abstract class IcebergAbstractMetadata
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns dropped");
         validateNoBranchSpecified(icebergTableHandle, "DROP COLUMN");
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
-
         // Currently drop partition column used in any partition specs of a table would introduce some problems in Iceberg.
         // So we explicitly disallow dropping partition columns until Iceberg fix this problem.
         // See https://github.com/apache/iceberg/issues/4563
@@ -1325,7 +1489,8 @@ public abstract class IcebergAbstractMetadata
         if (shouldNotDropPartitionColumn) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping columns which exist in any of the table's partition specs");
         }
-
+        ColumnMetadata columnMetadata = getColumnMetadata(session, icebergTable, ((IcebergColumnHandle) column).getName());
+        derivedColumnOperations(icebergTable, Optional.empty(), columnMetadata, DerivedColumnOperationType.DROP);
         icebergTable.updateSchema().deleteColumn(handle.getName()).commit();
     }
 
@@ -1337,6 +1502,7 @@ public abstract class IcebergAbstractMetadata
         validateNoBranchSpecified(icebergTableHandle, "RENAME COLUMN");
         IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+        ColumnMetadata columnMetadataSource = getColumnMetadata(session, icebergTable, ((IcebergColumnHandle) source).getName());
         icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
         icebergTable.spec().fields().stream()
                 .filter(field -> field.sourceId() == columnHandle.getId())
@@ -1344,6 +1510,8 @@ public abstract class IcebergAbstractMetadata
                     String transform = field.transform().toString();
                     icebergTable.updateSpec().renameField(field.name(), getPartitionColumnName(target, transform)).commit();
                 });
+        ColumnMetadata columnMetadataTarget = columnMetadataSource.toBuilder().setName(target).build();
+        derivedColumnOperations(getIcebergTable(session, icebergTableHandle.getSchemaTableName()), Optional.of(columnMetadataSource), columnMetadataTarget, DerivedColumnOperationType.RENAME);
     }
 
     @Override
@@ -1686,7 +1854,6 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         validateNoBranchSpecified(handle, "SET TABLE PROPERTIES");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-
         UpdateProperties updateProperties = icebergTable.updateProperties();
         for (Map.Entry<String, Object> entry : properties.entrySet()) {
             if (!tableProperties.getUpdatableProperties()
@@ -1700,7 +1867,14 @@ public abstract class IcebergAbstractMetadata
                 session.getWarningCollector().add(warning);
                 propertyName = newPropertyKey;
             }
-            updateProperties.set(propertyName, String.valueOf(entry.getValue()));
+
+            if (propertyName.equals(DERIVED_COLUMN_EXPRESSION_SPEC)) {
+                updateProperties.set(propertyName, DERIVED_COLUMN_SPEC_JSON_CODEC.toJson((DerivedColumnSpecList) entry.getValue()));
+            }
+            else {
+                // TODO: utilize and improve propertyMetadata encoder for correct encoding impl.
+                updateProperties.set(propertyName, String.valueOf(entry.getValue()));
+            }
         }
 
         updateProperties.commit();
@@ -2627,7 +2801,7 @@ public abstract class IcebergAbstractMetadata
         Optional<IcebergViewMetadata> viewMetadata = getViewMetadata(session, materializedViewName);
         if (!viewMetadata.isPresent()) {
             throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
-                        format("Materialized view metadata not found for %s", materializedViewName));
+                    format("Materialized view metadata not found for %s", materializedViewName));
         }
         Map<String, String> viewProperties = viewMetadata.get().getProperties();
         boolean useTimestampBasedStaleness = isTimestampBasedStalenessEnabled(viewProperties);
@@ -2673,13 +2847,17 @@ public abstract class IcebergAbstractMetadata
 
     private SchemaTableName getStorageTableName(ConnectorSession session, SchemaTableName viewName, Map<String, Object> properties)
     {
-        String tableName = getStorageTable(properties).orElseGet(() -> {
-            // Generate default storage table name using prefix
-            return getMaterializedViewStoragePrefix(session) + viewName.getTableName();
-        });
-        String schema = getStorageSchema(properties)
+        String resolvedSchema = getStorageSchema(properties)
                 .orElseGet(() -> getMaterializedViewDefaultStorageSchema(session).orElse(viewName.getSchemaName()));
-        return new SchemaTableName(schema, tableName);
+        String tableName = getStorageTable(properties).orElseGet(() -> {
+            String prefix = getMaterializedViewStoragePrefix(session);
+            if (!resolvedSchema.equals(viewName.getSchemaName())) {
+                String schema = viewName.getSchemaName();
+                return prefix + schema.length() + "_" + schema + "__" + viewName.getTableName();
+            }
+            return prefix + viewName.getTableName();
+        });
+        return new SchemaTableName(resolvedSchema, tableName);
     }
 
     private String serializeColumnMappings(List<ColumnMapping> columnMappings)
@@ -2789,6 +2967,7 @@ public abstract class IcebergAbstractMetadata
         IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
 
         Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        ColumnMetadata columnMetadataSource = getColumnMetadata(session, icebergTable, column.getName());
         try {
             icebergTable.updateSchema()
                     .updateColumn(column.getName(), toIcebergType(type).asPrimitiveType())
@@ -2797,6 +2976,8 @@ public abstract class IcebergAbstractMetadata
         catch (RuntimeException e) {
             throw new PrestoException(ICEBERG_INCOMPATIBLE_COLUMN_TYPE, "Failed to set column type: " + firstNonNull(e.getMessage(), e), e);
         }
+        ColumnMetadata columnMetadataTarget = columnMetadataSource.toBuilder().setType(type).build();
+        derivedColumnOperations(icebergTable, Optional.of(columnMetadataSource), columnMetadataTarget, DerivedColumnOperationType.UPDATE);
     }
 
     protected void openCreateTableTransaction(SchemaTableName tableName, Transaction transaction)
@@ -2804,9 +2985,85 @@ public abstract class IcebergAbstractMetadata
         transactionContext.registerTransaction(tableName, transaction);
     }
 
+    private enum DerivedColumnOperationType
+    {
+        ADD, DROP, RENAME, UPDATE
+    }
+
+    private void derivedColumnOperations(Table icebergTable, Optional<ColumnMetadata> source, ColumnMetadata target, DerivedColumnOperationType op)
+    {
+        int targetFieldId = icebergTable.schema().findField(target.getName()).fieldId();
+        DerivedColumnSpecList existingDerivedColumnsSpecs = IcebergUtil.getDerivedColumnSpec(icebergTable);
+        Optional<DerivedColumnSpecList> updatedDerivedColumnsSpecs = Optional.empty();
+        switch (requireNonNull(op)) {
+            case ADD: {
+                if (target.getDerivedColumnSpec().isPresent()) {
+                    DerivedColumnSpec derivedColumnSpec =
+                            DerivedColumnSpec.buildFrom(target.getDerivedColumnSpec().get()).setDerivedColumnFieldId(targetFieldId).build();
+                    List<DerivedColumnSpec> expressionSpecs =
+                            ImmutableList.<DerivedColumnSpec>builder().addAll(existingDerivedColumnsSpecs.getDerivedColumnSpecs()).add(derivedColumnSpec).build();
+                    updatedDerivedColumnsSpecs = Optional.of(new DerivedColumnSpecList(expressionSpecs));
+                }
+            }
+            break;
+
+            case DROP:
+                if (!existingDerivedColumnsSpecs.getDerivedColumnSpecs().isEmpty() && target.getDerivedColumnSpec().isPresent()) {
+                    List<DerivedColumnSpec> filteredSpecs = existingDerivedColumnsSpecs.getDerivedColumnSpecs().stream()
+                            .filter(spec -> !spec.getDerivedColumnName().equals(target.getName())).collect(toImmutableList());
+                    updatedDerivedColumnsSpecs = Optional.of(new DerivedColumnSpecList(filteredSpecs));
+                }
+                break;
+            case RENAME:
+                if (!existingDerivedColumnsSpecs.getDerivedColumnSpecs().isEmpty() && source.isPresent() && source.get().getDerivedColumnSpec().isPresent()) {
+                    List<DerivedColumnSpec> filteredSpecs = existingDerivedColumnsSpecs.getDerivedColumnSpecs().stream()
+                            .filter(spec -> !spec.getDerivedColumnName().equals(source.get().getName())).collect(toImmutableList());
+                    DerivedColumnSpec sourceDerivedColumnSpec = source.get().getDerivedColumnSpec().get();
+                    checkInvalidDerivedColumnSpec(sourceDerivedColumnSpec.getDerivedColumnFieldId() == targetFieldId,
+                            "Derived column %s is not in sync with it's configuration - fieldIds changed. Expected :%s , actual :%s",
+                            target.getName(), sourceDerivedColumnSpec.getDerivedColumnFieldId(), targetFieldId);
+                    checkInvalidDerivedColumnSpec(sourceDerivedColumnSpec.getDerivedColumnReturnType().equals(target.getType().getTypeSignature().toString()),
+                            "Derived column %s is not in sync with it's configuration - return type changed. Expected :%s , actual :%s",
+                            target.getName(), sourceDerivedColumnSpec.getDerivedColumnReturnType(), target.getType().getTypeSignature().toString());
+                    DerivedColumnSpec renamedColumnSpec = DerivedColumnSpec.buildFrom(sourceDerivedColumnSpec).setDerivedColumnName(target.getName()).build();
+                    updatedDerivedColumnsSpecs = Optional.of(new DerivedColumnSpecList(ImmutableList.<DerivedColumnSpec>builder().addAll(filteredSpecs).add(renamedColumnSpec).build()));
+                }
+                break;
+            case UPDATE:
+                checkState(source.isPresent());
+                if (!existingDerivedColumnsSpecs.getDerivedColumnSpecs().isEmpty() && source.get().getDerivedColumnSpec().isPresent()) {
+                    List<DerivedColumnSpec> filteredSpecs = existingDerivedColumnsSpecs.getDerivedColumnSpecs().stream()
+                            .filter(spec -> !spec.getDerivedColumnName().equals(source.get().getName())).collect(toImmutableList());
+                    checkState(target.getDerivedColumnSpec().isPresent(), "target column must have derived column spec, the update should not remove it.");
+                    DerivedColumnSpec targetDerivedColumnSpec = target.getDerivedColumnSpec().get();
+                    checkInvalidDerivedColumnSpec(targetDerivedColumnSpec.getDerivedColumnFieldId() == icebergTable.schema().findField(source.get().getName()).fieldId(),
+                            "Derived column %s is not in sync with it's configuration - fieldIds changed. Expected :%s , actual :%s",
+                            target.getName(), targetDerivedColumnSpec.getDerivedColumnFieldId(), icebergTable.schema().findField(source.get().getName()).fieldId());
+                    checkInvalidDerivedColumnSpec(source.get().getDerivedColumnSpec().get().getDerivedColumnReturnType().equals(source.get().getType().getTypeSignature().toString()),
+                            "Derived column %s is not in sync with it's configuration - return type changed. Expected :%s , actual :%s",
+                            target.getName(), source.get().getDerivedColumnSpec().get().getDerivedColumnReturnType(), source.get().getType().getTypeSignature().toString());
+                    DerivedColumnSpec modifiedSpec = DerivedColumnSpec.buildFrom(targetDerivedColumnSpec).setDerivedColumnReturnType(target.getType().getTypeSignature().toString()).build();
+                    updatedDerivedColumnsSpecs = Optional.of(new DerivedColumnSpecList(ImmutableList.<DerivedColumnSpec>builder().addAll(filteredSpecs).add(modifiedSpec).build()));
+                }
+                break;
+            default:
+                throw new IllegalStateException(format("Illegal operation found: %s", op));
+        }
+        updatedDerivedColumnsSpecs.ifPresent(specList -> {
+            checkInvalidDerivedColumnSpec(specList.validateFieldIds(), "derived column spec should have valid fieldIds for table: %s",
+                    icebergTable.name());
+            if (specList.getDerivedColumnSpecs().isEmpty()) {
+                icebergTable.updateProperties().remove(DERIVED_COLUMN_EXPRESSION_SPEC).commit();
+            }
+            else {
+                icebergTable.updateProperties().set(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COLUMN_SPEC_JSON_CODEC.toJson(specList)).commit();
+            }
+        });
+    }
+
     /**
      * Check and ensure that the specified statement can only run in a transaction with autocommit context set to true.
-     * */
+     */
     protected void shouldRunInAutoCommitTransaction(String statement)
     {
         if (!transactionContext.isAutoCommitContext()) {

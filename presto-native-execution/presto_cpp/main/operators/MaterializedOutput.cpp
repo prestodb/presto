@@ -496,6 +496,9 @@ void MaterializedOutput::noMoreInput() {
 }
 
 BlockingReason MaterializedOutput::isBlocked(ContinueFuture* future) {
+  if (finished_) {
+    return BlockingReason::kNotBlocked;
+  }
   // Drain at the high watermark or park until below the low watermark.
   return buffer_->isBlocked(future);
 }

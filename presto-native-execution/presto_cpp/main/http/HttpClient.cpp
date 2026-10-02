@@ -268,9 +268,6 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
 
   void onEgressResumed() noexcept override {}
 
-  void onPushedTransaction(
-      proxygen::HTTPTransaction* /* pushedTxn */) noexcept override {}
-
   void connectError(const folly::AsyncSocketException& ex) {
     promise_.setException(ex);
     self_.reset();

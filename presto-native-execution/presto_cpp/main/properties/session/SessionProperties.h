@@ -252,6 +252,11 @@ class SessionProperties : public SessionPropertiesProvider {
   /// Enable timezone-less timestamp conversions.
   static constexpr const char* kLegacyTimestamp = "legacy_timestamp";
 
+  /// Render TIMESTAMP WITH TIME ZONE values in each value's embedded time zone
+  /// instead of the session time zone.
+  static constexpr const char* kLegacyTimestampWithTimezone =
+      "legacy_timestamp_with_timezone";
+
   /// Specifies the cpu time slice limit in ms that a driver thread
   /// can continuously run without yielding.
   static constexpr const char* kDriverCpuTimeSliceLimitMs =
@@ -447,6 +452,11 @@ class SessionProperties : public SessionPropertiesProvider {
   /// before resorting to spilling. Disabled by default.
   static constexpr const char* kAggregationMemoryCompactionReclaimEnabled =
       "native_aggregation_memory_compaction_reclaim_enabled";
+
+  /// If true, the broadcast writer serializes a file descriptor per file so
+  /// readers open without a metadata lookup. False falls back to path opens.
+  static constexpr const char* kBroadcastFileDescriptorEnabled =
+      "native_broadcast_file_descriptor_enabled";
 
   static SessionProperties* instance();
 

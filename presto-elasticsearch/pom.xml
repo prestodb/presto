@@ -13,7 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.elasticsearch.version>9.1.0</dep.elasticsearch.version>
+        <dep.elasticsearch.version>9.5.3</dep.elasticsearch.version>
         <dep.log4j.version>2.25.5</dep.log4j.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <dep.lucene.version>9.12.0</dep.lucene.version>
@@ -126,21 +126,46 @@
             </exclusions>
         </dependency>
 
+        <!--
+            The low-level Rest5Client moved out of elasticsearch-java into its own artifact in 9.2.
+            It carries the fix for httpclient5 5.6, which decodes gzip responses on the async
+            transport and deliberately leaves the original Content-Encoding header in place:
+            Rest5Client now keys off the entity rather than the response headers instead of
+            decoding a second time. See elastic/elasticsearch-java#1134 and #1215.
+        -->
+        <dependency>
+            <groupId>co.elastic.clients</groupId>
+            <artifactId>elasticsearch-rest5-client</artifactId>
+            <version>${dep.elasticsearch.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.httpcomponents.client5</groupId>
+                    <artifactId>httpclient5</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore</artifactId>
         </dependency>
 
+        <!-- httpclient5 5.6.x needs httpcore5 5.4.1 or later; earlier pairings regress latency. -->
         <dependency>
             <groupId>org.apache.httpcomponents.core5</groupId>
             <artifactId>httpcore5</artifactId>
-            <version>5.2.4</version>
+            <version>5.4.3</version>
         </dependency>
 
+        <!-- Stay on 5.6.3 or later for CVE-2026-64607. -->
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
-            <version>5.2.1</version>
+            <version>5.6.4</version>
         </dependency>
 
         <dependency>

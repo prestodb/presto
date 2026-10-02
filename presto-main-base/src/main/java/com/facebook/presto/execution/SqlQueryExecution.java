@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.InvalidFunctionArgumentException;
+import com.facebook.presto.common.QueryTracer;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.CostCalculator;
@@ -267,8 +268,17 @@ public class SqlQueryExecution
             }
 
             // Optionally build and validate plan immediately, before execution begins
-            planFuture = isEagerPlanValidationEnabled(getSession()) ?
-                    CompletableFuture.supplyAsync(this::runCreateLogicalPlanAsync, eagerPlanValidationExecutor) : null;
+            if (isEagerPlanValidationEnabled(getSession())) {
+                QueryTracer queryTracer = getSession().getRuntimeStats().getQueryTracer();
+                planFuture = CompletableFuture.supplyAsync(
+                        queryTracer == null ?
+                                this::runCreateLogicalPlanAsync :
+                                queryTracer.wrapSupplierWithTraceContext(this::runCreateLogicalPlanAsync),
+                        eagerPlanValidationExecutor);
+            }
+            else {
+                planFuture = null;
+            }
         }
     }
 

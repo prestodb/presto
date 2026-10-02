@@ -36,6 +36,7 @@ import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.storage.TempStorageModule;
@@ -70,6 +71,7 @@ public class PrestoSparkInjectorFactory
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
     private final Optional<Map<String, Map<String, String>>> functionNamespaceProperties;
     private final Optional<Map<String, Map<String, String>>> tempStorageProperties;
+    private final Optional<Map<String, Map<String, String>>> expressionManagerProperties;
     private final SqlParserOptions sqlParserOptions;
     private final List<Module> additionalModules;
     private final boolean isForTesting;
@@ -83,6 +85,7 @@ public class PrestoSparkInjectorFactory
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
             Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
             Optional<Map<String, Map<String, String>>> tempStorageProperties,
+            Optional<Map<String, Map<String, String>>> expressionManagerProperties,
             SqlParserOptions sqlParserOptions,
             List<Module> additionalModules)
     {
@@ -95,6 +98,7 @@ public class PrestoSparkInjectorFactory
                 sessionPropertyConfigurationProperties,
                 functionNamespaceProperties,
                 tempStorageProperties,
+                expressionManagerProperties,
                 sqlParserOptions,
                 additionalModules,
                 false);
@@ -109,6 +113,7 @@ public class PrestoSparkInjectorFactory
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
             Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
             Optional<Map<String, Map<String, String>>> tempStorageProperties,
+            Optional<Map<String, Map<String, String>>> expressionManagerProperties,
             SqlParserOptions sqlParserOptions,
             List<Module> additionalModules,
             boolean isForTesting)
@@ -124,6 +129,9 @@ public class PrestoSparkInjectorFactory
                 .map(map -> map.entrySet().stream()
                         .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue()))));
         this.tempStorageProperties = requireNonNull(tempStorageProperties, "tempStorageProperties is null")
+                .map(map -> map.entrySet().stream()
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue()))));
+        this.expressionManagerProperties = requireNonNull(expressionManagerProperties, "expressionManagerProperties is null")
                 .map(map -> map.entrySet().stream()
                         .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue()))));
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
@@ -236,6 +244,13 @@ public class PrestoSparkInjectorFactory
             if (sparkProcessType.equals(DRIVER) && featuresConfig.isBuiltInSidecarFunctionsEnabled()) {
                 List<? extends SqlFunction> functions = injector.getInstance(WorkerFunctionRegistryTool.class).getWorkerFunctions();
                 injector.getInstance(FunctionAndTypeManager.class).registerWorkerFunctions(functions);
+            }
+
+            // Driver only: expression optimizers are consulted during planning, which happens
+            // exclusively on the driver, so executors never resolve an optimizer by name.
+            if (sparkProcessType.equals(DRIVER) && expressionManagerProperties.isPresent()) {
+                injector.getInstance(ExpressionOptimizerManager.class)
+                        .loadExpressionOptimizers(expressionManagerProperties.get(), defaultAuthClientConfigs(nodeInfo.getNodeId()));
             }
             bootstrapTimer.endDriverModulesLoading();
         }

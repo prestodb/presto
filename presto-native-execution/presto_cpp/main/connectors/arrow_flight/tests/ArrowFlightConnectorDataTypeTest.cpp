@@ -519,4 +519,63 @@ TEST_F(ArrowFlightConnectorDataTypeTest, allTypes) {
           {dateVec, timestampSecVec, stringVec, realVec, intVec, boolVec}));
 }
 
+TEST_F(ArrowFlightConnectorDataTypeTest, duplicateColumnName) {
+  std::vector<int64_t> idData = {0, 1, 2, 3};
+  std::vector<int32_t> duplicate1Data = {
+      -2147483648, 0, 2147483647, std::numeric_limits<int32_t>::max()};
+  std::vector<int32_t> duplicate2Data = {111, 222, 333, 444};
+
+  updateTable(
+      "sample-data",
+      makeArrowTable(
+          {"id", "duplicate_col", "duplicate_col"},
+          {makeNumericArray<arrow::Int64Type>(idData),
+           makeNumericArray<arrow::Int32Type>(duplicate1Data),
+           makeNumericArray<arrow::Int32Type>(duplicate2Data)}));
+
+  auto idVec = makeFlatVector<int64_t>(idData);
+  auto duplicate1Vec = makeFlatVector<int32_t>(duplicate1Data);
+  auto duplicate2Vec = makeFlatVector<int32_t>(duplicate2Data);
+
+  core::PlanNodePtr plan;
+  plan = ArrowFlightPlanBuilder()
+             .flightTableScan(
+                 velox::ROW(
+                     {"id", "duplicate_col", "duplicate_col"},
+                     {velox::BIGINT(), velox::INTEGER(), velox::INTEGER()}))
+             .planNode();
+
+  AssertQueryBuilder(plan)
+      .splits(makeSplits({"sample-data"}))
+      .assertResults(makeRowVector({idVec, duplicate1Vec, duplicate2Vec}));
+}
+
+TEST_F(ArrowFlightConnectorDataTypeTest, prunedColumns) {
+  std::vector<int64_t> idData = {0, 1, 2, 3};
+  std::vector<int32_t> intData = {1, 2, 3, 4};
+  std::vector<int32_t> prunedData = {5, 6, 7, 8};
+
+  updateTable(
+      "sample-data",
+      makeArrowTable(
+          {"id", "data_col", "pruned_col"},
+          {makeNumericArray<arrow::Int64Type>(idData),
+           makeNumericArray<arrow::Int32Type>(intData),
+           makeNumericArray<arrow::Int32Type>(prunedData)}));
+
+  auto idVec = makeFlatVector<int64_t>(idData);
+  auto dataVec = makeFlatVector<int32_t>(intData);
+
+  core::PlanNodePtr plan;
+  plan = ArrowFlightPlanBuilder()
+             .flightTableScan(
+                 velox::ROW(
+                     {"id", "data_col"}, {velox::BIGINT(), velox::INTEGER()}))
+             .planNode();
+
+  AssertQueryBuilder(plan)
+      .splits(makeSplits({"sample-data"}))
+      .assertResults(makeRowVector({idVec, dataVec}));
+}
+
 } // namespace facebook::presto::test

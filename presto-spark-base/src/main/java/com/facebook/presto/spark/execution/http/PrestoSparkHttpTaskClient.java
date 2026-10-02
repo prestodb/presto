@@ -95,6 +95,7 @@ import static java.util.Objects.requireNonNull;
 public class PrestoSparkHttpTaskClient
 {
     private static final String TASK_URI = "/v1/task/";
+    private static final String DROP_TASK_ON_DELETE_URL_PARAM = "dropTaskOnDelete";
     private static final Logger log = Logger.get(PrestoSparkHttpTaskClient.class);
     private final OkHttpClient httpClient;
     private final URI location;
@@ -190,10 +191,24 @@ public class PrestoSparkHttpTaskClient
         return result;
     }
 
+    /**
+     * Whether the worker should release a deleted task immediately rather than leaving it for the periodic
+     * cleanOldTasks() sweep. Only correct where nothing reads the task after the DELETE, so it is off here and
+     * opted into by the subclass whose deployment guarantees that.
+     */
+    protected boolean isDropTaskOnDeleteEnabled()
+    {
+        return false;
+    }
+
     public void deleteTask(TaskId taskId)
     {
+        HttpUrl.Builder url = HttpUrl.get(getTaskUri(taskId)).newBuilder();
+        if (isDropTaskOnDeleteEnabled()) {
+            url.addQueryParameter(DROP_TASK_ON_DELETE_URL_PARAM, "true");
+        }
         Request request = new Request.Builder()
-                .url(getTaskUri(taskId).toString())
+                .url(url.build())
                 .delete()
                 .build();
 

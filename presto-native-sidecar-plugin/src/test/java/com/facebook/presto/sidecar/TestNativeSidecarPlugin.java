@@ -17,6 +17,7 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpRequestFilter;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
@@ -79,6 +80,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrde
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -91,6 +93,7 @@ public class TestNativeSidecarPlugin
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
     private static final long SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB = 128;
     private static final int INLINED_SQL_FUNCTIONS_COUNT = 5;
+    private static final Duration SIDECAR_RETRY_MAX_FAILURE_INTERVAL = new Duration(2, MINUTES);
 
     @Override
     protected void createTables()
@@ -132,45 +135,50 @@ public class TestNativeSidecarPlugin
         queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
         queryRunner.loadSessionPropertyProvider(
                 NativeSystemSessionPropertyProviderFactory.NAME,
-                ImmutableMap.of("sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
+                sidecarConfig());
         queryRunner.loadFunctionNamespaceManager(
                 NativeFunctionNamespaceManagerFactory.NAME,
                 "native",
-                ImmutableMap.of(
-                        "supported-function-languages", "CPP",
-                        "function-implementation-type", "CPP",
-                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
+                ImmutableMap.<String, String>builder()
+                        .putAll(sidecarConfig())
+                        .put("supported-function-languages", "CPP")
+                        .put("function-implementation-type", "CPP")
+                        .build());
         queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
-        queryRunner.loadPlanCheckerProviderManager("native",
-                ImmutableMap.of(
-                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
+        queryRunner.loadPlanCheckerProviderManager("native", sidecarConfig());
         queryRunner.loadExpressionOptimizer(
                 NativeExpressionOptimizerFactory.NAME,
                 "native",
-                ImmutableMap.of(
-                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
+                sidecarConfig());
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
+    }
+
+    private static Map<String, String> sidecarConfig()
+    {
+        return ImmutableMap.of(
+                "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB",
+                "sidecar.retry.max-failure-interval", SIDECAR_RETRY_MAX_FAILURE_INTERVAL.toString());
     }
 
     @Test
     public void testHttpClientProperties()
     {
         WorkerSessionPropertyProvider sessionPropertyProvider = getQueryRunner().getMetadata().getSessionPropertyManager().getWorkerSessionPropertyProviders().get(NativeSystemSessionPropertyProviderFactory.NAME);
-        checkArgument(sessionPropertyProvider instanceof NativeSystemSessionPropertyProvider, "Expected  NativeSystemSessionPropertyProvider but got  %s", sessionPropertyProvider);
+        checkArgument(sessionPropertyProvider instanceof NativeSystemSessionPropertyProvider, "Expected NativeSystemSessionPropertyProvider but got %s", sessionPropertyProvider);
         HttpClient httpClient = ((NativeSystemSessionPropertyProvider) sessionPropertyProvider).getHttpClient();
         assertEquals(httpClient.getMaxContentLength(), new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
         testInternalAuthenticationFilter(httpClient);
 
         FunctionNamespaceManager<? extends SqlFunction> functionNamespaceManager = getQueryRunner().getMetadata().getFunctionAndTypeManager().getFunctionNamespaceManagers().get(NativeFunctionNamespaceManagerFactory.NAME);
-        checkArgument(functionNamespaceManager instanceof NativeFunctionNamespaceManager, "Expected  NativeFunctionNamespaceManager but got  %s", functionNamespaceManager);
+        checkArgument(functionNamespaceManager instanceof NativeFunctionNamespaceManager, "Expected NativeFunctionNamespaceManager but got %s", functionNamespaceManager);
         FunctionDefinitionProvider functionDefinitionProvider = ((NativeFunctionNamespaceManager) functionNamespaceManager).getFunctionDefinitionProvider();
-        checkArgument(functionDefinitionProvider instanceof NativeFunctionDefinitionProvider, "Expected  NativeFunctionDefinitionProvider but got %s", functionDefinitionProvider);
+        checkArgument(functionDefinitionProvider instanceof NativeFunctionDefinitionProvider, "Expected NativeFunctionDefinitionProvider but got %s", functionDefinitionProvider);
         httpClient = ((NativeFunctionDefinitionProvider) functionDefinitionProvider).getHttpClient();
         assertEquals(httpClient.getMaxContentLength(), new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
         testInternalAuthenticationFilter(httpClient);
 
         ExpressionOptimizer expressionOptimizer = getQueryRunner().getExpressionManager().getExpressionOptimizer(NativeExpressionOptimizerFactory.NAME);
-        checkArgument(expressionOptimizer instanceof NativeExpressionOptimizer, "Expected  NativeExpressionOptimizer but got  %s", expressionOptimizer);
+        checkArgument(expressionOptimizer instanceof NativeExpressionOptimizer, "Expected NativeExpressionOptimizer but got %s", expressionOptimizer);
         NativeSidecarExpressionInterpreter interpreter = ((NativeExpressionOptimizer) expressionOptimizer).getRowExpressionInterpreterService();
         httpClient = interpreter.getHttpClient();
         assertEquals(httpClient.getMaxContentLength(), new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
@@ -179,11 +187,35 @@ public class TestNativeSidecarPlugin
         List<PlanCheckerProvider> planCheckerProviders = getQueryRunner().getPlanCheckerProviderManager().getPlanCheckerProviders();
         assertEquals(planCheckerProviders.size(), 1);
         PlanCheckerProvider provider = planCheckerProviders.get(0);
-        checkArgument(provider instanceof NativePlanCheckerProvider, "Expected  NativePlanCheckerProvider but got  %s", provider);
+        checkArgument(provider instanceof NativePlanCheckerProvider, "Expected NativePlanCheckerProvider but got %s", provider);
         NativePlanChecker planChecker = (NativePlanChecker) provider.getFragmentPlanCheckers().get(0);
         httpClient = planChecker.getHttpClient();
         assertEquals(httpClient.getMaxContentLength(), new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
         testInternalAuthenticationFilter(httpClient);
+    }
+
+    @Test
+    public void testSidecarRetryConfig()
+    {
+        WorkerSessionPropertyProvider sessionPropertyProvider = getQueryRunner().getMetadata().getSessionPropertyManager().getWorkerSessionPropertyProviders().get(NativeSystemSessionPropertyProviderFactory.NAME);
+        checkArgument(sessionPropertyProvider instanceof NativeSystemSessionPropertyProvider, "Expected NativeSystemSessionPropertyProvider but got %s", sessionPropertyProvider);
+        assertRetryConfig(((NativeSystemSessionPropertyProvider) sessionPropertyProvider).getRetryConfig());
+
+        FunctionNamespaceManager<? extends SqlFunction> functionNamespaceManager = getQueryRunner().getMetadata().getFunctionAndTypeManager().getFunctionNamespaceManagers().get(NativeFunctionNamespaceManagerFactory.NAME);
+        checkArgument(functionNamespaceManager instanceof NativeFunctionNamespaceManager, "Expected NativeFunctionNamespaceManager but got %s", functionNamespaceManager);
+        FunctionDefinitionProvider functionDefinitionProvider = ((NativeFunctionNamespaceManager) functionNamespaceManager).getFunctionDefinitionProvider();
+        checkArgument(functionDefinitionProvider instanceof NativeFunctionDefinitionProvider, "Expected NativeFunctionDefinitionProvider but got %s", functionDefinitionProvider);
+        assertRetryConfig(((NativeFunctionDefinitionProvider) functionDefinitionProvider).getRetryConfig());
+
+        ExpressionOptimizer expressionOptimizer = getQueryRunner().getExpressionManager().getExpressionOptimizer(NativeExpressionOptimizerFactory.NAME);
+        checkArgument(expressionOptimizer instanceof NativeExpressionOptimizer, "Expected NativeExpressionOptimizer but got %s", expressionOptimizer);
+        assertRetryConfig(((NativeExpressionOptimizer) expressionOptimizer).getRowExpressionInterpreterService().getRetryConfig());
+
+        List<PlanCheckerProvider> planCheckerProviders = getQueryRunner().getPlanCheckerProviderManager().getPlanCheckerProviders();
+        assertEquals(planCheckerProviders.size(), 1);
+        PlanCheckerProvider provider = planCheckerProviders.get(0);
+        checkArgument(provider instanceof NativePlanCheckerProvider, "Expected NativePlanCheckerProvider but got %s", provider);
+        assertRetryConfig(((NativePlanChecker) provider.getFragmentPlanCheckers().get(0)).getRetryConfig());
     }
 
     @Test
@@ -868,8 +900,8 @@ public class TestNativeSidecarPlugin
                         "MAP(), " +
                         "MAP(ARRAY[12, 72], ARRAY[4, 12])");
 
-        // Verify UNKNOWN type expressions produce a structured error instead of crashing the sidecar.
-        assertQueryFails(session, "SELECT array_except(ARRAY[], ARRAY[])", ".*Errors encountered while optimizing expressions\\..*", true);
+        // Verify UNKNOWN type expressions succeeds instead of crashing the sidecar.
+        assertQuerySucceeds(session, "SELECT array_except(ARRAY[], ARRAY[])");
     }
 
     @Test
@@ -936,6 +968,11 @@ public class TestNativeSidecarPlugin
         // Verify that the test shared secret is propagated all the way through
         assertTrue(authenticationManager.getSharedSecret().isPresent());
         assertEquals(authenticationManager.getSharedSecret().get(), "internal-shared-secret");
+    }
+
+    private static void assertRetryConfig(SidecarRetryConfig retryConfig)
+    {
+        assertEquals(retryConfig.getMaxFailureInterval(), SIDECAR_RETRY_MAX_FAILURE_INTERVAL);
     }
 
     private Instant getNowInstant(Session session)

@@ -274,10 +274,20 @@ public class PlanBuilder
 
     public LimitNode limit(long limit, PlanNode source)
     {
-        return new LimitNode(source.getSourceLocation(), idAllocator.getNextId(), source, limit, FINAL);
+        return limit(limit, FINAL, source);
+    }
+
+    public LimitNode limit(long limit, LimitNode.Step step, PlanNode source)
+    {
+        return new LimitNode(source.getSourceLocation(), idAllocator.getNextId(), source, limit, step);
     }
 
     public TopNNode topN(long count, List<VariableReferenceExpression> orderBy, PlanNode source)
+    {
+        return topN(count, orderBy, TopNNode.Step.SINGLE, source);
+    }
+
+    public TopNNode topN(long count, List<VariableReferenceExpression> orderBy, TopNNode.Step step, PlanNode source)
     {
         return new TopNNode(
                 orderBy.get(0).getSourceLocation(),
@@ -285,7 +295,7 @@ public class PlanBuilder
                 source,
                 count,
                 new OrderingScheme(orderBy.stream().map(variable -> new Ordering(variable, ASC_NULLS_FIRST)).collect(toImmutableList())),
-                TopNNode.Step.SINGLE);
+                step);
     }
 
     public DistinctLimitNode distinctLimit(long count, List<VariableReferenceExpression> distinctSymbols, PlanNode source)

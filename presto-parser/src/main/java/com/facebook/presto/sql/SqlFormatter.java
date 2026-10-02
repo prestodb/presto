@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnType;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -25,6 +26,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.ColumnPosition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateBranch;
@@ -104,6 +106,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetColumnDefault;
+import com.facebook.presto.sql.tree.SetColumnPosition;
 import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
@@ -139,6 +142,7 @@ import com.facebook.presto.sql.tree.Update;
 import com.facebook.presto.sql.tree.UpdateAssignment;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.WindowDefinition;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
@@ -156,6 +160,7 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
+import static com.facebook.presto.sql.ExpressionFormatter.formatWindowSpecification;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.MoreCollectors.onlyElement;
@@ -450,6 +455,25 @@ public final class SqlFormatter
                         .append('\n');
             }
 
+            if (!node.getWindows().isEmpty()) {
+                append(indent, "WINDOW");
+                int size = node.getWindows().size();
+                if (size == 1) {
+                    builder.append(" ")
+                            .append(formatWindowDefinition(node.getWindows().get(0)))
+                            .append('\n');
+                }
+                else {
+                    builder.append('\n');
+                    for (int i = 0; i < size - 1; i++) {
+                        append(indent + 1, formatWindowDefinition(node.getWindows().get(i)))
+                                .append(",\n");
+                    }
+                    append(indent + 1, formatWindowDefinition(node.getWindows().get(size - 1)))
+                            .append('\n');
+                }
+            }
+
             if (node.getOrderBy().isPresent()) {
                 process(node.getOrderBy().get(), indent);
             }
@@ -471,6 +495,11 @@ public final class SqlFormatter
             append(indent, "OFFSET " + node.getRowCount() + " ROWS")
                     .append('\n');
             return null;
+        }
+
+        private String formatWindowDefinition(WindowDefinition definition)
+        {
+            return formatExpression(definition.getName(), parameters) + " AS " + formatWindowSpecification(definition.getWindow(), parameters);
         }
 
         @Override
@@ -1433,6 +1462,22 @@ public final class SqlFormatter
                     sb.append(" COMMENT ").append(formatStringLiteral(comment)));
             column.getDefaultExpression().ifPresent(defaultExpr ->
                     sb.append(" DEFAULT ").append(formatExpression(defaultExpr, parameters)));
+            column.getDerivedColumnSpec().ifPresent(derivedColExprSpec -> {
+                if (derivedColExprSpec.getDerivedColumnType().equals(DerivedColumnType.GENERATED_ALWAYS_PERSISTENT)) {
+                    sb.append(" GENERATED ALWAYS AS ");
+                }
+                else {
+                    sb.append(" AS ");
+                }
+                sb.append(derivedColExprSpec.getDerivedColumnExpression());
+                if (derivedColExprSpec.getDerivedColumnType().equals(DerivedColumnType.PERSISTENT) ||
+                        derivedColExprSpec.getDerivedColumnType().equals(DerivedColumnType.GENERATED_ALWAYS_PERSISTENT)) {
+                    sb.append(" PERSISTENT");
+                }
+                else if (derivedColExprSpec.getDerivedColumnType().equals(DerivedColumnType.VIRTUAL)) {
+                    sb.append(" VIRTUAL");
+                }
+            });
             sb.append(formatPropertiesSingleLine(column.getProperties()));
             return sb.toString();
         }
@@ -1549,8 +1594,27 @@ public final class SqlFormatter
                 builder.append("IF NOT EXISTS ");
             }
             builder.append(formatColumnDefinition(node.getColumn()));
+            node.getPosition().ifPresent(this::appendColumnPosition);
 
             return null;
+        }
+
+        /**
+         * Appends the {@code FIRST | AFTER <column>} clause, which {@code ADD COLUMN} and
+         * {@code ALTER COLUMN} share, including the leading space that separates it from what precedes it.
+         */
+        private void appendColumnPosition(ColumnPosition position)
+        {
+            if (position instanceof ColumnPosition.First) {
+                builder.append(" FIRST");
+            }
+            else if (position instanceof ColumnPosition.After) {
+                builder.append(" AFTER ")
+                        .append(formatName(((ColumnPosition.After) position).getColumn()));
+            }
+            else {
+                throw new UnsupportedOperationException("Unsupported column position: " + position);
+            }
         }
 
         @Override
@@ -2076,6 +2140,20 @@ public final class SqlFormatter
             builder.append(formatName(node.getColumn()));
             builder.append(" SET DEFAULT ");
             process(node.getDefaultExpression(), indent);
+            return null;
+        }
+
+        @Override
+        protected Void visitSetColumnPosition(SetColumnPosition node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTable()));
+            builder.append(" ALTER COLUMN ");
+            builder.append(formatName(node.getColumn()));
+            appendColumnPosition(node.getPosition());
             return null;
         }
 

@@ -38,7 +38,7 @@ function install_presto_deps_from_brew {
 
 function install_proxygen {
   wget_and_untar https://github.com/facebook/proxygen/archive/refs/tags/${FB_OS_VERSION}.tar.gz proxygen
-  cmake_install_dir proxygen -DBUILD_TESTS=OFF
+  cmake_install_dir proxygen -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
 }
 
 function install_gperf {

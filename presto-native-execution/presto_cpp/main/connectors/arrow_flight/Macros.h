@@ -48,3 +48,21 @@
     VELOX_CHECK(__r.ok(), __r.status().message()); \
     return std::move(__r).ValueUnsafe();           \
   } while (false)
+
+#define AFC_ASSIGN_OR_HANDLE_IMPL(result_name, lhs, rexpr, FUNC) \
+  auto&& result_name = (rexpr);                                  \
+  if (!(result_name).ok()) {                                     \
+    FUNC((result_name).status());                                \
+    VELOX_FAIL((result_name).status().message());                \
+  }                                                              \
+  lhs = std::move(result_name).ValueUnsafe();
+
+/// If expr returns an OK result, unwrap and assign the value to `lhs`.
+/// else call `FUNC` with arrow::Status as input to handle the error
+/// and call VELOX_FAIL with the arrow::Status message.
+#define AFC_ASSIGN_OR_HANDLE(lhs, rexpr, FUNC)                  \
+  AFC_ASSIGN_OR_HANDLE_IMPL(                                    \
+      ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+      lhs,                                                      \
+      rexpr,                                                    \
+      FUNC);

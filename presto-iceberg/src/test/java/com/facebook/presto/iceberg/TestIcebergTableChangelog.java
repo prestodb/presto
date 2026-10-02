@@ -232,6 +232,12 @@ public class TestIcebergTableChangelog
     }
 
     @Test
+    public void testDisallowedSetColumnPosition()
+    {
+        assertQueryFails(String.format("ALTER TABLE \"ctas_orders@%d$changelog\" ALTER COLUMN ordinal FIRST", snapshots[0]), "only the data table can have columns moved");
+    }
+
+    @Test
     public void testDisallowedDropTable()
     {
         assertQueryFails(String.format("DROP TABLE \"ctas_orders@%d$changelog\"", snapshots[0]), "only the data table can be dropped");

@@ -18,6 +18,7 @@
 
 #include <boost/range/algorithm/find_if.hpp>
 
+#include <chrono>
 #include <cstring>
 #include <thread>
 
@@ -31,6 +32,7 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/InMemoryExchangeClient.h"
@@ -1069,6 +1071,124 @@ TEST_F(MaterializedExchangeTest, backpressureParksAndWakesProducer) {
   EXPECT_EQ(buffer->bufferedBytes(), 0);
 
   buffer->noMoreData();
+  cleanupDirectory(shuffleDir->getPath());
+}
+
+TEST_F(MaterializedExchangeTest, DISABLED_finishedDriverSkipsBackpressure) {
+  constexpr int32_t numPartitions = 2;
+  constexpr int32_t numDrivers = 2;
+  constexpr int64_t kMaxBytes = 1L << 20;
+  constexpr int64_t kInjectedBytesPerPartition = 480L << 10;
+
+  facebook::presto::test::setupMutableSystemConfig();
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationOutputBufferMaxBytes),
+      std::to_string(kMaxBytes));
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      std::to_string(kMaxBytes));
+
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "finishedDriverTest", 64L << 20, memory::MemoryReclaimer::create());
+  auto shuffleDir = exec::test::TempDirectoryPath::create();
+  auto writeInfo = localShuffleWriteInfo(shuffleDir->getPath(), numPartitions);
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions,
+      writeInfo,
+      ShuffleInterfaceFactory::factory(shuffleName_),
+      "finished-driver.0.0.0.0",
+      rootPool.get());
+
+  auto data = makeRowVector({makeFlatVector<int64_t>({1})});
+  auto dataType = asRowType(data->type());
+  std::vector<core::TypedExprPtr> keys{
+      std::make_shared<core::FieldAccessTypedExpr>(
+          dataType->childAt(0), dataType->nameOf(0))};
+  auto partitionFunctionSpec =
+      std::make_shared<exec::HashPartitionFunctionSpec>(
+          dataType, std::vector<column_index_t>{0});
+  auto valuesNode = exec::test::PlanBuilder().values({data}, true).planNode();
+  auto exchangeWriteNode = std::make_shared<MaterializedOutputNode>(
+      "exchangeWrite",
+      keys,
+      numPartitions,
+      dataType,
+      partitionFunctionSpec,
+      false,
+      ShuffleWriterMetadata{},
+      valuesNode);
+
+  folly::Baton<> secondDriverAtNoMoreInput;
+  folly::Baton<> releaseSecondDriver;
+  folly::Baton<> finishedDriverAtIsBlocked;
+  folly::Baton<> releaseFinishedDriver;
+  std::atomic<int32_t> noMoreInputCalls{0};
+  std::atomic<bool> capturedFinishedDriver{false};
+  exec::Operator* finishedDriver{nullptr};
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::noMoreInput",
+      std::function<void(exec::Operator*)>([&](exec::Operator* op) {
+        if (op->operatorType() != "MaterializedOutput") {
+          return;
+        }
+        if (noMoreInputCalls.fetch_add(1) == 1) {
+          secondDriverAtNoMoreInput.post();
+          releaseSecondDriver.wait();
+        }
+      }));
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::isBlocked",
+      std::function<void(exec::Operator*)>([&](exec::Operator* op) {
+        if (op->operatorType() != "MaterializedOutput" || !op->isFinished() ||
+            capturedFinishedDriver.exchange(true)) {
+          return;
+        }
+        finishedDriver = op;
+        finishedDriverAtIsBlocked.post();
+        releaseFinishedDriver.wait();
+      }));
+
+  auto taskId = makeTaskId("finished-driver", 0);
+  MaterializedOutputBuffer::registerBuffer(taskId, buffer);
+  auto task = makeTask(taskId, exchangeWriteNode, 0);
+  task->start(numDrivers);
+
+  const bool secondDriverReady =
+      secondDriverAtNoMoreInput.try_wait_for(std::chrono::seconds(10));
+  const bool finishedDriverReady =
+      finishedDriverAtIsBlocked.try_wait_for(std::chrono::seconds(10));
+
+  if (secondDriverReady && finishedDriverReady) {
+    for (int32_t partition = 0; partition < numPartitions; ++partition) {
+      auto iobuf = buffer->allocateTrackedIOBuf(kInjectedBytesPerPartition);
+      std::memset(iobuf->writableData(), 'x', kInjectedBytesPerPartition);
+      iobuf->append(kInjectedBytesPerPartition);
+      buffer->enqueue(partition, std::move(iobuf));
+    }
+
+    const auto bufferedBytes = buffer->bufferedBytes();
+    EXPECT_GE(bufferedBytes, kMaxBytes * 9 / 10);
+    velox::ContinueFuture future = velox::ContinueFuture::makeEmpty();
+    EXPECT_EQ(
+        finishedDriver->isBlocked(&future),
+        velox::exec::BlockingReason::kNotBlocked);
+    EXPECT_EQ(buffer->bufferedBytes(), bufferedBytes);
+  }
+
+  releaseFinishedDriver.post();
+  for (int32_t i = 0; i < 1'000 && task->numFinishedDrivers() == 0; ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  EXPECT_EQ(task->numFinishedDrivers(), 1);
+  releaseSecondDriver.post();
+
+  EXPECT_TRUE(secondDriverReady);
+  EXPECT_TRUE(finishedDriverReady);
+  EXPECT_TRUE(exec::test::waitForTaskCompletion(task.get(), 10'000'000));
+  MaterializedOutputBuffer::removeBuffer(taskId);
   cleanupDirectory(shuffleDir->getPath());
 }
 

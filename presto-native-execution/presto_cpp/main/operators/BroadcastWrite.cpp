@@ -16,6 +16,7 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include "presto_cpp/main/operators/BroadcastFile.h"
+#include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/OperatorUtils.h"
 
@@ -65,7 +66,9 @@ class BroadcastWriteOperator : public Operator {
             "Presto",
             std::nullopt,
             ctx->queryConfig().minShuffleCompressionPageSizeBytes()),
-        operatorCtx_->pool());
+        operatorCtx_->pool(),
+        ctx->queryConfig().get<bool>(
+            SessionProperties::kBroadcastFileDescriptorEnabled, true));
   }
 
   bool needsInput() const override {

@@ -14,3 +14,4 @@ Clients
     clients/python
     clients/go
     clients/js
+    clients/adbc

@@ -23,8 +23,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import org.apache.iceberg.types.Type.TypeID;
 import org.apache.iceberg.types.Types;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -275,11 +281,11 @@ public class IcebergColumnHandle
     {
         Optional<String> defaultValue = Optional.empty();
         if (column.initialDefault() != null) {
-            defaultValue = Optional.of(String.valueOf(column.initialDefault()));
+            defaultValue = Optional.of(icebergDefaultToString(column.type().typeId(), column.initialDefault()));
         }
         Optional<String> writeDefaultValue = Optional.empty();
         if (column.writeDefault() != null) {
-            writeDefaultValue = Optional.of(String.valueOf(column.writeDefault()));
+            writeDefaultValue = Optional.of(icebergDefaultToString(column.type().typeId(), column.writeDefault()));
         }
         return new IcebergColumnHandle(
                 createColumnIdentity(column),
@@ -316,5 +322,42 @@ public class IcebergColumnHandle
                 requiredSubfields,
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    /**
+     * Converts an Iceberg initial-default value to a string that both the Java
+     * deserialization path ({@link IcebergUtil#deserializeIcebergValue}) and the
+     * native C++ worker ({@code PartitionValue::fromString}) can parse.
+     *
+     * DATE defaults are stored internally as integer days-since-epoch; we emit
+     * them as ISO-8601 strings (e.g. {@code "2023-01-01"}) so the C++ path can
+     * parse them without the {@code kDaysSinceEpoch} flag.
+     *
+     * TIMESTAMP defaults are stored as microseconds-since-epoch; we emit them as
+     * ISO-8601 datetime strings with microsecond precision
+     * (e.g. {@code "2023-01-01 11:00:00.000000"}).
+     */
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
+
+    private static String icebergDefaultToString(TypeID typeId, Object value)
+    {
+        switch (typeId) {
+            case DATE: {
+                // Iceberg stores DATE defaults as Integer days since epoch.
+                int daysSinceEpoch = (Integer) value;
+                return LocalDate.ofEpochDay(daysSinceEpoch).toString();
+            }
+            case TIMESTAMP: {
+                // Iceberg stores TIMESTAMP defaults as Long microseconds since epoch.
+                long microsSinceEpoch = (Long) value;
+                long seconds = Math.floorDiv(microsSinceEpoch, 1_000_000L);
+                int nanos = (int) Math.floorMod(microsSinceEpoch, 1_000_000L) * 1_000;
+                LocalDateTime dt = LocalDateTime.ofInstant(Instant.ofEpochSecond(seconds, nanos), ZoneOffset.UTC);
+                return dt.format(TIMESTAMP_FORMATTER);
+            }
+            default:
+                return String.valueOf(value);
+        }
     }
 }
