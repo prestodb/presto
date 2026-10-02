@@ -33,6 +33,9 @@ using namespace folly::string_literals;
 /// An error raised when Presto broadcast join exceeds the broadcast size limit.
 inline constexpr auto kExceededLocalBroadcastJoinMemoryLimit =
     "EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT"_fs;
+
+/// An error raised when a task is aborted because the worker is shutting down.
+inline constexpr auto kServerShuttingDown = "SERVER_SHUTTING_DOWN"_fs;
 } // namespace error_code
 
 class ExecutionFailureException : public velox::VeloxException {
