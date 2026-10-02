@@ -35,6 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class NativeWorkerSessionPropertyProvider
         implements WorkerSessionPropertyProvider
 {
+    public static final String NATIVE_CUDF_EXCHANGE_ENABLED = "native_cudf_exchange_enabled";
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
     public static final String NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE = "native_expression_max_array_size_in_reduce";
     public static final String NATIVE_EXPRESSION_MAX_COMPILED_REGEXES = "native_expression_max_compiled_regexes";
@@ -116,6 +117,13 @@ public class NativeWorkerSessionPropertyProvider
     {
         boolean nativeExecution = requireNonNull(featuresConfig, "featuresConfig is null").isNativeExecutionEnabled();
         sessionProperties = ImmutableList.of(
+                booleanProperty(
+                        NATIVE_CUDF_EXCHANGE_ENABLED,
+                        "Native Execution only. Whether this query's worker-to-worker exchanges may use the cuDF UCX transport. The effective " +
+                                "default is the worker's: on where the transport is registered, off elsewhere. Leaving it unset is therefore " +
+                                "different from setting it true, which fails the query on a worker without the transport.",
+                        false,
+                        !nativeExecution),
                 booleanProperty(
                         NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED,
                         "Native Execution only. Enable simplified path in expression evaluation",
