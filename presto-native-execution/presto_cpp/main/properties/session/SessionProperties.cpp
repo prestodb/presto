@@ -465,14 +465,17 @@ SessionProperties::SessionProperties() {
       // in the coordinator.
       "false");
 
+  // `legacy_timestamp_with_timezone` is the inverse of the Velox config; the
+  // value is inverted when converting session properties to Velox configs.
   addSessionProperty(
       kLegacyTimestampWithTimezone,
       "Native Execution only. Render TIMESTAMP WITH TIME ZONE values in each "
       "value's embedded time zone instead of the session time zone.",
       BOOLEAN(),
       false,
-      QueryConfig::kLegacyTimestampWithTimezone,
-      util::boolToLowerCaseString(c.legacyTimestampWithTimezone()));
+      QueryConfig::kUseSessionTimezoneForTimestampWithTimezone,
+      util::boolToLowerCaseString(
+          !c.useSessionTimezoneForTimestampWithTimezone()));
 
   // TODO: remove this once cpu driver slicing config is turned on by default in
   // Velox.
