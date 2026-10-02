@@ -651,6 +651,32 @@ TEST_F(PrestoToVeloxQueryConfigTest, specialHardCodedPrestoConfigurations) {
   EXPECT_EQ(2000, veloxConfig9.driverCpuTimeSliceLimitMs());
 }
 
+TEST_F(PrestoToVeloxQueryConfigTest, rpcRateLimiterHardLimitCompatibility) {
+  constexpr const char* kHardLimitConfig = "rpc.ratelimiter.hard_limit";
+  auto session = createBasicSession();
+  session.systemProperties.clear();
+
+  auto legacyConfigs = toVeloxConfigs(session);
+  EXPECT_EQ(QueryConfig(legacyConfigs).rpcRateLimiterMaxLimit(), 200);
+  EXPECT_EQ(legacyConfigs.count(kHardLimitConfig), 0);
+
+  session.systemProperties[SessionProperties::kRpcRateLimiterMaxLimit] = "64";
+  auto legacyOverride = toVeloxConfigs(session);
+  EXPECT_EQ(legacyOverride.at(QueryConfig::kRpcRateLimiterMaxLimit), "64");
+  EXPECT_EQ(legacyOverride.count(kHardLimitConfig), 0);
+
+  session.systemProperties[SessionProperties::kRpcRateLimiterHardLimit] = "0";
+  auto versionedConfigs = toVeloxConfigs(session);
+  EXPECT_EQ(versionedConfigs.at(QueryConfig::kRpcRateLimiterMaxLimit), "64");
+  EXPECT_EQ(versionedConfigs.at(kHardLimitConfig), "0");
+
+  session.systemProperties["native_rpc_future_property"] = "future-value";
+  auto futureCompatibleConfig = QueryConfig(toVeloxConfigs(session));
+  EXPECT_EQ(
+      futureCompatibleConfig.rawConfigsCopy().at("native_rpc_future_property"),
+      "future-value");
+}
+
 TEST_F(PrestoToVeloxQueryConfigTest, legacyTimestampWithTimezone) {
   auto session = createBasicSession();
   EXPECT_TRUE(

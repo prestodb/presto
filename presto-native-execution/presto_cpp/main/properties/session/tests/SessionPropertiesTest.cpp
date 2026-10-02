@@ -47,6 +47,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
        core::QueryConfig::kRpcRateLimiterDecreaseFactor},
       {SessionProperties::kRpcRateLimiterMaxLimit,
        core::QueryConfig::kRpcRateLimiterMaxLimit},
+      {SessionProperties::kRpcRateLimiterHardLimit,
+       "rpc.ratelimiter.hard_limit"},
       {SessionProperties::kRpcCongestionMaxWindow,
        core::QueryConfig::kRpcCongestionMaxWindow},
       {SessionProperties::kSpillCompressionCodec,

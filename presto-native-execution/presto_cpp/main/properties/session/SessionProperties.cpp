@@ -110,8 +110,8 @@ SessionProperties::SessionProperties() {
 
   addSessionProperty(
       kRpcRateLimiterMinLimit,
-      "Native Execution only. Floor for the adaptive RPC rate limiter's "
-      "per-tier max-pending cap.",
+      "Native Execution only. Integral override for the adaptive RPC "
+      "congestion-window floor. Zero delegates to the backend policy.",
       BIGINT(),
       false,
       QueryConfig::kRpcRateLimiterMinLimit,
@@ -120,7 +120,9 @@ SessionProperties::SessionProperties() {
   addSessionProperty(
       kRpcRateLimiterDecreaseFactor,
       "Native Execution only. Multiplicative-decrease factor for the adaptive "
-      "RPC rate limiter's per-tier max-pending cap on each overload drain.",
+      "RPC rate limiter's per-tier window. Canonical typed overload completions "
+      "from the same admitted epoch are coalesced; function-specific aggregate "
+      "overload verdicts apply at driver consumption.",
       DOUBLE(),
       false,
       QueryConfig::kRpcRateLimiterDecreaseFactor,
@@ -128,13 +130,24 @@ SessionProperties::SessionProperties() {
 
   addSessionProperty(
       kRpcRateLimiterMaxLimit,
-      "Native Execution only. Ceiling for the per-tier RPC rate-limiter "
-      "max-pending cap (0 = built-in default). Raise for high-latency backends "
-      "so admission-controlled dispatch can run at high concurrency.",
+      "Native Execution only. Legacy per-tier RPC rate-limiter ceiling. "
+      "Default 200; zero defers to the function or built-in legacy limit. "
+      "Superseded by native_rpc_ratelimiter_hard_limit when non-negative.",
       BIGINT(),
       false,
       QueryConfig::kRpcRateLimiterMaxLimit,
       folly::to<std::string>(c.rpcRateLimiterMaxLimit()));
+
+  addSessionProperty(
+      kRpcRateLimiterHardLimit,
+      "Native Execution only. Versioned per-tier RPC hard ceiling. Minus one "
+      "preserves legacy max-limit semantics for mixed-version rollout. Zero "
+      "adds no session ceiling; a positive value combines with the function "
+      "ceiling.",
+      BIGINT(),
+      false,
+      "rpc.ratelimiter.hard_limit",
+      "-1");
 
   addSessionProperty(
       kRpcCongestionMaxWindow,
