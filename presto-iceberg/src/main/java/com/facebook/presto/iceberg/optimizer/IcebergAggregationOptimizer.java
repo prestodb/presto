@@ -67,6 +67,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
@@ -76,6 +77,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getNativeValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getNonMetadataColumnConstraints;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergAggregationOptimizer
@@ -226,7 +228,22 @@ public class IcebergAggregationOptimizer
             if (!metricsModeSupportsAggregatePushDown(table, aggregateEvaluator.aggregates())) {
                 return node;
             }
-            TableScan scan = table.newScan().includeColumnStats();
+            // COUNT(*) is satisfied by each file's record count alone. MIN/MAX and COUNT(column)
+            // need bounds or null counts, but only for their own column, so avoid asking for every
+            // column's bounds -- that deserialization dominates the manifest read on a wide table.
+            //
+            // includeColumnStats() resolves the names it is given against the schema case-sensitively
+            // and fails on a name that is not in it, while the aggregates above were bound
+            // case-insensitively. Ask by the canonical name of each aggregate's bound field rather
+            // than by the name the query spelled, which need not be a name the schema has.
+            Set<String> statisticsColumns = aggregateEvaluator.aggregates().stream()
+                    .filter(aggregate -> aggregate.op() != Expression.Operation.COUNT_STAR)
+                    .map(aggregate -> schema.findColumnName(aggregate.ref().fieldId()))
+                    .collect(toImmutableSet());
+            TableScan scan = table.newScan();
+            if (!statisticsColumns.isEmpty()) {
+                scan = scan.includeColumnStats(statisticsColumns);
+            }
             Snapshot snapshot = snapshotId.map(table::snapshot).orElseGet(table::currentSnapshot);
             if (snapshot == null) {
                 LOGGER.info("Skipping aggregate pushdown: table snapshot is null");

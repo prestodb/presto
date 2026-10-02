@@ -53,6 +53,7 @@ import org.apache.iceberg.GenericBlobMetadata;
 import org.apache.iceberg.GenericStatisticsFile;
 import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
@@ -294,12 +295,28 @@ public class TableStatisticsMaker
     {
         // Iceberg's expression binder rejects predicates on metadata columns; strip them here.
         TupleDomain<IcebergColumnHandle> nonMetadataIntersection = IcebergUtil.getNonMetadataColumnConstraints(intersection);
+        List<String> selectedColumnNames = selectedColumns.stream().map(IcebergColumnHandle::getName).collect(toImmutableList());
         TableScan tableScan = icebergTable.newScan()
                 .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                 .filter(toIcebergExpression(nonMetadataIntersection))
-                .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
-                .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
-                .includeColumnStats();
+                .select(selectedColumnNames)
+                .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
+        // Deserializing per-file lower/upper bounds and null counts is the expensive part of reading
+        // a manifest, and it grows with the table's column count. Ask for them only for the columns
+        // whose statistics are actually returned below, and not at all when none are.
+        //
+        // select() only records the names it is given, but includeColumnStats() resolves each one
+        // against the schema the scan reads and fails on a name that is not in it. The selected
+        // columns routinely hold names no schema has -- the metadata columns ($path, $deleted, the
+        // row id), and the synthetic changelog columns -- and none of those have per-file metrics
+        // anyway, so keep only the names the scan can resolve.
+        Schema scanSchema = tableScan.schema();
+        List<String> statisticsColumns = selectedColumnNames.stream()
+                .filter(columnName -> scanSchema.findField(columnName) != null)
+                .collect(toImmutableList());
+        if (!statisticsColumns.isEmpty()) {
+            tableScan = tableScan.includeColumnStats(statisticsColumns);
+        }
 
         CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(tableScan.planFiles(), ContentScanTask::file);
         return getSummaryFromFiles(files, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);

@@ -61,14 +61,19 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableScan;
 import org.apache.iceberg.UpdateStatistics;
+import org.apache.iceberg.io.CloseableIterable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -99,6 +104,7 @@ import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -190,6 +196,112 @@ public class TestIcebergHiveStatistics
         assertStatValuePresent(StatsSchema.DATA_SIZE, stats, ALL_ORDERS_COLUMNS);
         assertStatValuePresent(StatsSchema.LOW_VALUE, stats, NUMERIC_ORDERS_COLUMNS);
         assertStatValuePresent(StatsSchema.HIGH_VALUE, stats, ALL_ORDERS_COLUMNS);
+    }
+
+    /**
+     * The manifest summary is folded with per-file bounds requested only for the columns the caller
+     * asked for. Asking for a subset must therefore still produce, for each column in that subset,
+     * exactly what the all-columns request produces for the same column. A regression here is
+     * silent: the optimizer simply loses a range or a null fraction and costs the scan wrongly.
+     */
+    @Test
+    public void testStatsForColumnSubsetMatchStatsForAllColumns()
+    {
+        assertQuerySucceeds("CREATE TABLE statsColumnSubset as SELECT * FROM orders LIMIT 1000");
+        Metadata meta = getQueryRunner().getMetadata();
+        TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
+        Session session = getSession().beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
+        Map<String, ColumnHandle> columns = getColumnHandles("statscolumnsubset", session);
+
+        TableStatistics allStats = meta.getTableStatistics(
+                session,
+                getAnalyzeTableHandle("statsColumnSubset", session),
+                ImmutableList.copyOf(columns.values()),
+                Constraint.alwaysTrue());
+
+        // One numeric and one varchar column, so both the numeric bounds and the string bounds have
+        // to survive the narrowed request.
+        List<ColumnHandle> subset = ImmutableList.of(columns.get("totalprice"), columns.get("orderstatus"));
+        TableStatistics subsetStats = meta.getTableStatistics(
+                session,
+                getAnalyzeTableHandle("statsColumnSubset", session),
+                subset,
+                Constraint.alwaysTrue());
+
+        assertEquals(subsetStats.getRowCount(), allStats.getRowCount());
+        assertEquals(subsetStats.getColumnStatistics().size(), subset.size());
+
+        // Guard the fixture itself: if the all-columns request stopped carrying bounds, the
+        // per-column comparison below would pass by comparing absence to absence.
+        ColumnStatistics numericFromAll = allStats.getColumnStatistics().get(columns.get("totalprice"));
+        assertTrue(numericFromAll.getRange().isPresent(), "fixture is not discriminating: no numeric range in the all-columns request");
+        ColumnStatistics varcharFromAll = allStats.getColumnStatistics().get(columns.get("orderstatus"));
+        assertTrue(varcharFromAll.getStringRange().isPresent(), "fixture is not discriminating: no string range in the all-columns request");
+
+        for (ColumnHandle column : subset) {
+            ColumnStatistics fromSubset = subsetStats.getColumnStatistics().get(column);
+            ColumnStatistics fromAll = allStats.getColumnStatistics().get(column);
+            assertNotNull(fromSubset, format("no statistics for %s when only a subset was requested", column));
+            assertEquals(fromSubset.getRange(), fromAll.getRange(), format("range differs for %s", column));
+            assertEquals(fromSubset.getStringRange(), fromAll.getStringRange(), format("string range differs for %s", column));
+            assertEquals(fromSubset.getNullsFraction(), fromAll.getNullsFraction(), format("nulls fraction differs for %s", column));
+        }
+    }
+
+    /**
+     * MetadataQueryOptimizer, and any query that projects nothing, asks for statistics with no
+     * columns at all. That request skips the per-file column bounds entirely, so the row count is
+     * the only thing it can produce -- and it still has to.
+     */
+    @Test
+    public void testRowCountWithNoColumnsRequested()
+    {
+        assertQuerySucceeds("CREATE TABLE statsNoColumnsRequested as SELECT * FROM orders LIMIT 1000");
+        Metadata meta = getQueryRunner().getMetadata();
+        TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
+        Session session = getSession().beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
+
+        TableStatistics stats = meta.getTableStatistics(
+                session,
+                getAnalyzeTableHandle("statsNoColumnsRequested", session),
+                ImmutableList.of(),
+                Constraint.alwaysTrue());
+
+        assertEquals(stats.getRowCount(), Estimate.of(1000));
+        assertTrue(stats.getColumnStatistics().isEmpty(), "column statistics returned for a request that asked for no columns");
+    }
+
+    /**
+     * Statistics are requested for whatever columns a plan references, and the connector's column
+     * handles include metadata columns -- $path, $deleted, the row id -- whose names no Iceberg
+     * schema contains. Per-file bounds can only be asked for by schema name, so those columns have
+     * to be dropped from that request rather than passed through, and dropping them must not cost
+     * the real columns their statistics.
+     */
+    @Test
+    public void testStatsForRequestIncludingMetadataColumns()
+    {
+        assertQuerySucceeds("CREATE TABLE statsMetadataColumns as SELECT * FROM orders LIMIT 1000");
+        Metadata meta = getQueryRunner().getMetadata();
+        TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
+        Session session = getSession().beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
+
+        // Deliberately not the filtering getColumnHandles() the other tests use: the metadata
+        // columns are what this exercises, so the fixture asserts one of them is really there.
+        Map<String, ColumnHandle> columns = meta.getColumnHandles(session, getTableHandle(getQueryRunner(), "statsMetadataColumns", session));
+        assertTrue(columns.containsKey(IcebergMetadataColumn.FILE_PATH.getColumnName()),
+                "fixture is not discriminating: the column handles carry no metadata column");
+
+        TableStatistics stats = meta.getTableStatistics(
+                session,
+                getAnalyzeTableHandle("statsMetadataColumns", session),
+                ImmutableList.copyOf(columns.values()),
+                Constraint.alwaysTrue());
+
+        assertEquals(stats.getRowCount(), Estimate.of(1000));
+        ColumnStatistics totalPrice = stats.getColumnStatistics().get(columns.get("totalprice"));
+        assertNotNull(totalPrice, "no statistics for totalprice when metadata columns were in the request");
+        assertTrue(totalPrice.getRange().isPresent(), "no range for totalprice when metadata columns were in the request");
     }
 
     @Test
@@ -758,6 +870,49 @@ public class TestIcebergHiveStatistics
     {
         for (Map.Entry<ColumnHandle, ColumnStatistics> entry : stats.getColumnStatistics().entrySet()) {
             assertTrue(entry.getValue().getDistinctValuesCount().isUnknown(), entry.getKey() + " NDVs are not unknown");
+        }
+    }
+
+    /**
+     * The narrowing this change makes only helps if Iceberg returns per-file bounds for the columns
+     * a scan asked for and no others. That premise is invisible from the statistics themselves: a
+     * scan that asks for every column's bounds produces the same numbers, only slower, so no
+     * comparison of results can tell the two apart. This pins the premise instead, both ways, so
+     * that an Iceberg change which stopped honouring the requested set, or started returning bounds
+     * for a scan that asked for none, is caught here rather than quietly making the narrowing
+     * pointless.
+     */
+    @Test
+    public void testIcebergReturnsBoundsOnlyForColumnsTheScanAskedFor()
+            throws IOException
+    {
+        assertQuerySucceeds("CREATE TABLE statsBoundsForRequestedColumns AS SELECT * FROM orders LIMIT 1000");
+        try {
+            Table table = loadTable("statsBoundsForRequestedColumns");
+            int totalPriceId = table.schema().findField("totalprice").fieldId();
+
+            assertEquals(boundsColumnIds(table.newScan().includeColumnStats(ImmutableList.of("totalprice"))),
+                    ImmutableSet.of(totalPriceId),
+                    "a scan that asked for one column's bounds got bounds for other columns");
+            assertTrue(boundsColumnIds(table.newScan().includeColumnStats()).size() > 1,
+                    "fixture is not discriminating: the all-columns request carried at most one column's bounds");
+            assertEquals(boundsColumnIds(table.newScan()), ImmutableSet.of(),
+                    "a scan that asked for no column bounds carried some anyway");
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS statsBoundsForRequestedColumns");
+        }
+    }
+
+    /**
+     * The field IDs a scan's first data file carries lower bounds for.
+     */
+    private static Set<Integer> boundsColumnIds(TableScan scan)
+            throws IOException
+    {
+        try (CloseableIterable<FileScanTask> tasks = scan.planFiles()) {
+            DataFile file = tasks.iterator().next().file();
+            return file.lowerBounds() == null ? ImmutableSet.of() : ImmutableSet.copyOf(file.lowerBounds().keySet());
         }
     }
 }
