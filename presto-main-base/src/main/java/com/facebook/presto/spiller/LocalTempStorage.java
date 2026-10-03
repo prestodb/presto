@@ -122,6 +122,12 @@ public class LocalTempStorage
     }
 
     @Override
+    public boolean exists(TempDataOperationContext context, TempStorageHandle handle)
+    {
+        return Files.exists(((LocalTempStorageHandle) handle).getFilePath());
+    }
+
+    @Override
     public TempStorageHandle getRootDirectoryHandle()
     {
         return new LocalTempStorageHandle(getNextSpillPath());
