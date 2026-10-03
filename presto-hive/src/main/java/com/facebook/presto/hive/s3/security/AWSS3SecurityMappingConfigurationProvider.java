@@ -18,14 +18,14 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.aws.security.AWSSecurityMapping;
 import com.facebook.presto.hive.aws.security.AWSSecurityMappings;
 import com.facebook.presto.hive.aws.security.AWSSecurityMappingsSupplier;
-import com.google.common.collect.ImmutableSet;
 import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;
-import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.hive.aws.security.AWSSecurityMapping.S3_SCHEMES;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.PRESTO_CACHE_KEY_QUALIFIER;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_IAM_ROLE;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SECRET_KEY;
@@ -35,8 +35,6 @@ import static java.util.Objects.requireNonNull;
 public class AWSS3SecurityMappingConfigurationProvider
         implements DynamicConfigurationProvider
 {
-    private static final Set<String> SCHEMES = ImmutableSet.of("s3", "s3a", "s3n");
-
     private final Supplier<AWSSecurityMappings> mappings;
 
     @Inject
@@ -54,11 +52,12 @@ public class AWSS3SecurityMappingConfigurationProvider
     @Override
     public void updateConfiguration(Configuration configuration, HdfsContext context, URI uri)
     {
-        if (!SCHEMES.contains(uri.getScheme())) {
+        if (!S3_SCHEMES.contains(uri.getScheme())) {
             return;
         }
 
-        AWSSecurityMapping awsS3SecurityMapping = mappings.get().getAWSS3SecurityMapping(context.getIdentity().getUser());
+        String user = context.getIdentity().getUser();
+        AWSSecurityMapping awsS3SecurityMapping = mappings.get().getAWSS3SecurityMapping(user, uri);
 
         checkArgument(
                 awsS3SecurityMapping.getIamRole().isPresent() || awsS3SecurityMapping.getCredentials().isPresent(),
@@ -72,5 +71,11 @@ public class AWSS3SecurityMappingConfigurationProvider
         awsS3SecurityMapping.getIamRole().ifPresent(role -> {
             configuration.set(S3_IAM_ROLE, role);
         });
+
+        // A prefix can be narrower than the bucket, which is all the filesystem cache key covers by
+        // way of the authority. Without a discriminator, two prefixes in one bucket share a cache
+        // slot and the staleness check rebuilds the filesystem on every alternation between them.
+        awsS3SecurityMapping.getS3CacheKeyQualifier().ifPresent(qualifier ->
+                configuration.set(PRESTO_CACHE_KEY_QUALIFIER, qualifier));
     }
 }
