@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.presto.delta.deletionvector.DeletionVectorEntry;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeProvider;
@@ -24,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
@@ -37,11 +39,13 @@ public class DeltaSplit
     private final String schema;
     private final String table;
     private final String filePath;
+    private final String location;
     private final long start;
     private final long length;
     private final long fileSize;
     private final Map<String, String> partitionValues;
     private final NodeSelectionStrategy nodeSelectionStrategy;
+    private final Optional<DeletionVectorEntry> deletionVector;
 
     @JsonCreator
     public DeltaSplit(
@@ -49,11 +53,13 @@ public class DeltaSplit
             @JsonProperty("schemaName") String schema,
             @JsonProperty("tableName") String table,
             @JsonProperty("filePath") String filePath,
+            @JsonProperty("location") String location,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("partitionValues") Map<String, String> partitionValues,
-            @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy)
+            @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy,
+            @JsonProperty("deletionVector") Optional<DeletionVectorEntry> deletionVector)
     {
         checkArgument(start >= 0, "start must be non-negative");
         checkArgument(length >= 0, "length must be non-negative");
@@ -63,11 +69,13 @@ public class DeltaSplit
         this.schema = requireNonNull(schema, "schema name is null");
         this.table = requireNonNull(table, "table name is null");
         this.filePath = requireNonNull(filePath, "filePath name is null");
+        this.location = requireNonNull(location, "location is null");
         this.start = start;
         this.length = length;
         this.fileSize = fileSize;
         this.partitionValues = ImmutableMap.copyOf(requireNonNull(partitionValues, "partitionValues id is null"));
         this.nodeSelectionStrategy = nodeSelectionStrategy;
+        this.deletionVector = requireNonNull(deletionVector, "deletionVector is null");
     }
 
     @JsonProperty
@@ -95,6 +103,12 @@ public class DeltaSplit
     }
 
     @JsonProperty
+    public String getLocation()
+    {
+        return location;
+    }
+
+    @JsonProperty
     public long getStart()
     {
         return start;
@@ -116,6 +130,12 @@ public class DeltaSplit
     public Map<String, String> getPartitionValues()
     {
         return partitionValues;
+    }
+
+    @JsonProperty
+    public Optional<DeletionVectorEntry> getDeletionVector()
+    {
+        return deletionVector;
     }
 
     @Override
