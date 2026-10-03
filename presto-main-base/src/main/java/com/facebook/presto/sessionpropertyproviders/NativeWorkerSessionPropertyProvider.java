@@ -107,6 +107,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_RPC_RATELIMITER_MIN_LIMIT = "native_rpc_ratelimiter_min_limit";
     public static final String NATIVE_RPC_RATELIMITER_DECREASE_FACTOR = "native_rpc_ratelimiter_decrease_factor";
     public static final String NATIVE_RPC_RATELIMITER_MAX_LIMIT = "native_rpc_ratelimiter_max_limit";
+    public static final String NATIVE_RPC_RATELIMITER_HARD_LIMIT = "native_rpc_ratelimiter_hard_limit";
     public static final String NATIVE_RPC_CONGESTION_MAX_WINDOW = "native_rpc_congestion_max_window";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -547,25 +548,33 @@ public class NativeWorkerSessionPropertyProvider
                         !nativeExecution),
                 longProperty(
                         NATIVE_RPC_RATELIMITER_MIN_LIMIT,
-                        "Native Execution only. Floor for the adaptive RPC rate limiter's per-tier " +
-                                "max-pending cap. Default 50 (a floor of 1 can stall under sustained throttling). " +
-                                "Only used when the adaptive limiter is enabled.",
+                        "Native Execution only. Integral override for the adaptive RPC congestion-window floor. " +
+                                "Positive values preserve the legacy in-flight floor; zero delegates to the " +
+                                "backend limiter policy. Only used when the adaptive limiter is enabled.",
                         50L,
                         !nativeExecution),
                 doubleProperty(
                         NATIVE_RPC_RATELIMITER_DECREASE_FACTOR,
                         "Native Execution only. Multiplicative-decrease factor applied to the adaptive " +
-                                "RPC rate limiter's per-tier max-pending cap on each overload drain. " +
+                                "RPC rate limiter's per-tier window. Canonical typed overload completions " +
+                                "from the same admitted epoch are coalesced; function-specific aggregate " +
+                                "overload verdicts apply at driver consumption. " +
                                 "Only used when the adaptive limiter is enabled.",
                         0.5,
                         !nativeExecution),
                 longProperty(
                         NATIVE_RPC_RATELIMITER_MAX_LIMIT,
-                        "Native Execution only. Ceiling for the per-tier RPC rate-limiter max-pending " +
-                                "cap. Default 200 (validated for LLM-inference backends); 0 falls back to " +
-                                "the built-in 20. Admission-controlled dispatch makes this cap bind; the " +
-                                "adaptive limiter shrinks from here under overload.",
+                        "Native Execution only. Legacy per-tier RPC rate-limiter ceiling. " +
+                                "Default 200; zero defers to the function or built-in legacy limit. " +
+                                "Superseded by native_rpc_ratelimiter_hard_limit when that property is non-negative.",
                         200L,
+                        !nativeExecution),
+                longProperty(
+                        NATIVE_RPC_RATELIMITER_HARD_LIMIT,
+                        "Native Execution only. Versioned per-tier RPC hard ceiling. " +
+                                "Minus one preserves legacy max-limit semantics for mixed-version rollout. " +
+                                "Zero adds no session ceiling; a positive value combines with the function ceiling.",
+                        -1L,
                         !nativeExecution),
                 longProperty(
                         NATIVE_RPC_CONGESTION_MAX_WINDOW,
