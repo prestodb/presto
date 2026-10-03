@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg.procedure;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.iceberg.CommitTaskData;
 import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
@@ -89,6 +90,7 @@ import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProce
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractSortFieldStrings;
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractZOrderColumns;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -192,12 +194,22 @@ public class RewriteDataFilesProcedure
 
     private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergRewriteDataFilesProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments, OptionalInt sortOrderIndex)
     {
-        if (layoutHandle.isPushdownFilterEnabled()) {
-            throw new PrestoException(NOT_SUPPORTED,
-                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
-        }
-
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            if (layoutHandle.isPushdownFilterEnabled()) {
+                Set<String> partitionColumnNames = layoutHandle.getPartitionColumns().stream()
+                        .map(BaseHiveColumnHandle::getName)
+                        .collect(toImmutableSet());
+                boolean hasNonPartitionPredicate = layoutHandle.getValidPredicate()
+                        .getDomains()
+                        .map(domains -> domains.keySet().stream()
+                                .anyMatch(col -> !partitionColumnNames.contains(col.getName())))
+                        .orElse(false);
+                if (hasNonPartitionPredicate) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
+                }
+            }
+
             Table icebergTable = procedureContext.getTable();
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
