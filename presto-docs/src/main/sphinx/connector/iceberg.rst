@@ -488,7 +488,10 @@ Property Name                                              Description          
                                                            in case of concurrent upsert requests, before failing.
 
 ``format-version``                                         Optionally specifies the format version of the Iceberg            ``2``                 Yes                 No, write is not supported
-                                                           specification to use for new tables, either ``1`` or ``2``.
+                                                           specification to use for new tables, either ``1``, ``2``, or
+                                                           ``3``. Row-level ``DELETE``/``UPDATE``/``MERGE`` on a
+                                                           ``3`` table is committed as a Puffin deletion vector, which
+                                                           only a Presto C++ (Prestissimo) worker can write.
 
 ``location``                                               Optionally specifies the file system location URI for                                   Yes                 Yes
                                                            the table.
@@ -2460,7 +2463,9 @@ UPDATE and MERGE
 
 The Iceberg connector supports :doc:`../sql/update` and :doc:`../sql/merge` operations on Iceberg
 tables. Only some tables support them. These tables must be at minimum format
-version 2, and the ``write.update.mode`` must be set to `merge-on-read`.
+version 2. On format version 2 the ``write.update.mode`` must be set to `merge-on-read`;
+format version 3 tables use deletion vectors natively and do not require that property, but
+their row-level writes require a Presto C++ (Prestissimo) worker.
 
 .. code-block:: sql
 
@@ -2477,7 +2482,13 @@ updates.
 
 .. code-block:: text
 
-    Query 20250204_010445_00022_ymwi5 failed: Iceberg table updates require at least format version 2 and update mode must be merge-on-read
+    Query 20250204_010445_00022_ymwi5 failed: Iceberg table updates require update mode to be merge-on-read
+
+On a format version 3 table, running the mutation on a Java worker returns:
+
+.. code-block:: text
+
+    Query 20250204_010445_00022_ymwi5 failed: Iceberg V3 deletion-vector writes (DELETE, UPDATE, MERGE) require the native (Prestissimo) worker. The Java worker cannot produce Puffin deletion vectors; run these mutations on a native cluster.
 
 Iceberg tables do not support running multiple :doc:`../sql/merge` statements on the same table in parallel. If two or more ``MERGE`` operations are executed concurrently on the same Iceberg table:
 
@@ -2996,7 +3007,7 @@ The following operations are **not supported** with branch-specific table names 
 * The branch must exist before performing mutations (create it with ``ALTER TABLE ... CREATE BRANCH``)
 * Changes are isolated to the specified branch and do not affect the main table or other branches
 * All standard SQL features work with branch mutations such as WHERE clauses, column lists, INSERT from SELECT, and others
-* For MERGE operations, the table must have format version 2 or higher and update mode set to ``merge-on-read``
+* For MERGE operations, the table must have format version 2 with update mode set to ``merge-on-read``, or format version 3 (which uses deletion vectors natively and requires a Presto C++ worker for the write)
 
 **Presto C++ Support**
 
