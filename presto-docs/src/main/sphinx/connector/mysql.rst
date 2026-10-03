@@ -72,6 +72,11 @@ Property Name                                      Description                  
 ``case-sensitive-name-matching``                   Enable case sensitive identifier support for schema and table        ``false``
                                                    names for the connector. When disabled, names are matched
                                                    case-insensitively using lowercase normalization.
+
+``enable-datasource-managed-views``                Let MySQL resolve view definitions instead of Presto. When           ``false``
+                                                   enabled, the connector does not report views to Presto, so
+                                                   Presto never analyzes the stored view SQL. See
+                                                   :ref:`Views <mysql-views>`.
 ================================================== ==================================================================== ===========
 
 Querying MySQL
@@ -99,6 +104,53 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``mysql`` in the above examples.
+
+.. _mysql-views:
+
+Views
+-----
+
+A MySQL view can be read in either of two modes, selected by the
+``enable-datasource-managed-views`` catalog property.
+
+With the default ``enable-datasource-managed-views=false``, Presto reads the
+stored view SQL from MySQL and analyzes it itself. The view is exposed as a
+Presto view, so it is listed in ``information_schema.views``. Because Presto
+analyzes the definition, a view whose SQL uses MySQL-only syntax or functions
+that Presto does not have fails at analysis time. For example, a view defined
+with the MySQL-specific ``IFNULL()`` function fails with an error similar to
+the following:
+
+.. code-block:: none
+
+    Failed analyzing stored view 'mysql.web.recent_orders': Function ifnull not registered
+
+With ``enable-datasource-managed-views=true``, the connector reports no views
+and Presto reads each view through the normal table flow, leaving MySQL to
+resolve the view definition. Views whose SQL Presto cannot analyze become
+queryable, at the cost of Presto no longer treating them as views:
+
+* They are listed in ``information_schema.tables`` rather than
+  ``information_schema.views``.
+* ``SHOW CREATE VIEW`` fails with ``Relation '...' is a table, not a view``.
+* ``ALTER VIEW ... RENAME TO`` and ``DROP VIEW`` fail with
+  ``View '...' does not exist``, because Presto resolves the view through the
+  connector before issuing the statement. ``DROP VIEW IF EXISTS`` silently
+  does nothing. Use :ref:`the execute procedure <mysql-execute-procedure>` to
+  rename or drop such a view in MySQL directly.
+
+``CREATE VIEW`` and ``CREATE OR REPLACE VIEW`` work in both modes.
+
+The property is set per catalog, so two catalogs over the same MySQL server
+can use different modes:
+
+.. code-block:: none
+
+    connector.name=mysql
+    connection-url=jdbc:mysql://example.net:3306
+    connection-user=root
+    connection-password=secret
+    enable-datasource-managed-views=true
 
 Type mapping
 ------------
@@ -226,6 +278,8 @@ Procedures
 
 Use the :doc:`/sql/call` statement to perform data manipulation or administrative tasks. Procedures are available in the ``system`` schema of the catalog.
 
+.. _mysql-execute-procedure:
+
 Execute Procedure
 ^^^^^^^^^^^^^^^^^
 
@@ -312,6 +366,43 @@ Create a new table ``page_views_new`` from an existing table ``page_views``:
 
  ``Query 20240321_103408_00015_kbd43 failed: line 1:67: mismatched input '('. Expecting: 'DATA', 'NO'``
 
+CREATE VIEW
+^^^^^^^^^^^
+
+Create a new view in the ``web`` schema:
+
+.. code-block:: sql
+
+    CREATE VIEW mysql.web.recent_orders AS
+    SELECT * FROM mysql.web.orders WHERE ds > current_date - interval '7' day;
+
+Replace an existing view:
+
+.. code-block:: sql
+
+    CREATE OR REPLACE VIEW mysql.web.recent_orders AS
+    SELECT * FROM mysql.web.orders WHERE ds > current_date - interval '30' day;
+
+ALTER VIEW
+^^^^^^^^^^
+
+Rename an existing view:
+
+.. code-block:: sql
+
+    ALTER VIEW mysql.web.recent_orders RENAME TO mysql.web.last_30_days_orders;
+
+DROP VIEW
+^^^^^^^^^
+
+.. code-block:: sql
+
+    DROP VIEW mysql.web.recent_orders;
+
+.. note:: ``ALTER VIEW`` and ``DROP VIEW`` require the connector to report the
+ view to Presto, so they do not work when
+ ``enable-datasource-managed-views=true``. See :ref:`Views <mysql-views>`.
+
 INSERT INTO
 ^^^^^^^^^^^
 
@@ -345,11 +436,9 @@ The following SQL statements are not supported:
 * :doc:`/sql/alter-table`
 * :doc:`/sql/analyze`
 * :doc:`/sql/create-schema`
-* :doc:`/sql/create-view`
 * :doc:`/sql/delete`
 * :doc:`/sql/drop-schema`
 * :doc:`/sql/drop-table`
-* :doc:`/sql/drop-view`
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 * :doc:`/sql/show-grants`
