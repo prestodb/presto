@@ -1292,6 +1292,13 @@ public class PrestoS3FileSystem
         }
 
         @Override
+        public void write(byte[] buffer, int offset, int length)
+                throws IOException
+        {
+            out.write(buffer, offset, length);
+        }
+
+        @Override
         public void close()
                 throws IOException
         {

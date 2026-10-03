@@ -55,7 +55,9 @@ import javax.crypto.spec.SecretKeySpec;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
+import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.nio.file.Files;
@@ -413,6 +415,37 @@ public class TestPrestoS3FileSystem
     }
 
     @Test
+    public void testCreateWritesArrayInOneCall()
+            throws Exception
+    {
+        try (PrestoS3FileSystem fileSystem = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            fileSystem.initialize(new URI("s3n://test-bucket/"), new Configuration());
+            fileSystem.setS3Client(s3);
+            try (FSDataOutputStream stream = fileSystem.create(new Path("s3n://test-bucket/test"))) {
+                OutputStream positionCache = getFieldValue(stream, FilterOutputStream.class, "out", OutputStream.class);
+                OutputStream prestoStream = getFieldValue(positionCache, FilterOutputStream.class, "out", OutputStream.class);
+                assertTrue(prestoStream.getClass().getName().endsWith("PrestoS3OutputStream"));
+                OutputStream original = getFieldValue(prestoStream, FilterOutputStream.class, "out", OutputStream.class);
+                CountingOutputStream counting = new CountingOutputStream();
+                setField(prestoStream, "out", counting);
+                try {
+                    byte[] data = new byte[] {0, 1, 2, 3, 4, 5, 6, 7};
+                    stream.write(data, 2, 4);
+
+                    assertEquals(counting.bulkWrites, 1);
+                    assertEquals(counting.byteWrites, 0);
+                    assertEquals(counting.lastOffset, 2);
+                    assertEquals(counting.lastLength, 4);
+                }
+                finally {
+                    setField(prestoStream, "out", original);
+                }
+            }
+        }
+    }
+
+    @Test
     public void testReadRequestRangeNotSatisfiable()
             throws Exception
     {
@@ -607,6 +640,41 @@ public class TestPrestoS3FileSystem
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static void setField(Object instance, String name, Object value)
+    {
+        try {
+            Field field = FilterOutputStream.class.getDeclaredField(name);
+            field.setAccessible(true);
+            field.set(instance, value);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static class CountingOutputStream
+            extends OutputStream
+    {
+        private int bulkWrites;
+        private int byteWrites;
+        private int lastOffset = -1;
+        private int lastLength = -1;
+
+        @Override
+        public void write(int b)
+        {
+            byteWrites++;
+        }
+
+        @Override
+        public void write(byte[] buffer, int offset, int length)
+        {
+            bulkWrites++;
+            lastOffset = offset;
+            lastLength = length;
         }
     }
 
