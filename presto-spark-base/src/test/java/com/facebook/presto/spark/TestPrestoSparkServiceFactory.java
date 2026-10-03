@@ -34,6 +34,7 @@ public class TestPrestoSparkServiceFactory
 {
     private static final int LONG_NAME_LENGTH = 60_000;
     private static final int NESTING_DEPTH = 1_500;
+    private static final int DEFAULT_MAX_STRING_LENGTH = 20_000_000;
 
     private StreamReadConstraints originalReadConstraints;
     private StreamWriteConstraints originalWriteConstraints;
@@ -63,6 +64,19 @@ public class TestPrestoSparkServiceFactory
 
         JsonCodec<Map<String, String>> codec = new JsonCodecFactory().mapJsonCodec(String.class, String.class);
         assertEquals(codec.fromJson(codec.toJsonBytes(value)), value);
+    }
+
+    @Test
+    public void testOverrideRelaxesJsonStringValueLimit()
+    {
+        // A plan fragment's jsonRepresentation is a single JSON string value, so the read limit
+        // that governs it is maxStringLength rather than maxNameLength. Jackson's stock default is
+        // 20_000_000, which a large enough plan exceeds.
+        assertEquals(StreamReadConstraints.defaults().getMaxStringLength(), DEFAULT_MAX_STRING_LENGTH);
+
+        PrestoSparkServiceFactory.overrideJacksonStreamConstraints();
+
+        assertEquals(StreamReadConstraints.defaults().getMaxStringLength(), Integer.MAX_VALUE);
     }
 
     @Test
