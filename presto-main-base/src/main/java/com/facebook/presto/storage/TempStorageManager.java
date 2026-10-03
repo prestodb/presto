@@ -23,7 +23,6 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageContext;
 import com.facebook.presto.spi.storage.TempStorageFactory;
-import com.facebook.presto.spiller.LocalTempStorage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,7 +37,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.spiller.LocalTempStorage.TEMP_STORAGE_PATH;
+import static com.facebook.presto.storage.LocalTempStorage.TEMP_STORAGE_PATH;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.Files.getNameWithoutExtension;
@@ -95,7 +94,7 @@ public class TempStorageManager
     {
         ImmutableMap.Builder<String, Map<String, String>> storageProperties = ImmutableMap.builder();
         // Always load local temp storage
-        addTempStorageFactory(new LocalTempStorage.Factory());
+        addTempStorageFactory(new LocalTempStorageFactory());
         storageProperties.put(
                 LocalTempStorage.NAME,
                 // TODO: Local temp storage should be configurable
