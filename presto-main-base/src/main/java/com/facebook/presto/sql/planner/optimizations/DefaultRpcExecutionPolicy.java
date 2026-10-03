@@ -16,10 +16,10 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.sql.planner.plan.RPCNode;
 
 /**
- * Default {@link RpcExecutionPolicy}: carries no batching heuristic, so it ignores the input
- * stats. Explicit PER_ROW/BATCH pass through unchanged; AUTOMATIC degrades to PER_ROW (a safe
- * fallback). A deployment that wants stats-driven AUTOMATIC resolution binds an override of
- * {@link RpcExecutionPolicy} via a Guice module.
+ * Default {@link RpcExecutionPolicy}: carries no cardinality heuristic. Explicit PER_ROW/BATCH
+ * resolve to themselves; THROUGHPUT/COST resolve to BATCH; LATENCY and AUTOMATIC resolve to
+ * PER_ROW (no stats heuristic here). A deployment that wants stats-driven AUTOMATIC resolution
+ * binds an override of {@link RpcExecutionPolicy} via a Guice module.
  */
 public class DefaultRpcExecutionPolicy
         implements RpcExecutionPolicy
@@ -27,10 +27,23 @@ public class DefaultRpcExecutionPolicy
     @Override
     public RpcExecutionProperties translateIntent(RpcExecutionIntent intent)
     {
-        RPCNode.StreamingMode requested = intent.getRequestedMode();
-        RPCNode.StreamingMode resolved = requested == RPCNode.StreamingMode.AUTOMATIC
-                ? RPCNode.StreamingMode.PER_ROW
-                : requested;
+        RPCNode.StreamingMode resolved;
+        switch (intent.getRequestedMode()) {
+            case BATCH:
+            case THROUGHPUT:
+            case COST:
+                resolved = RPCNode.StreamingMode.BATCH;
+                break;
+            case PER_ROW:
+            case LATENCY:
+            case AUTOMATIC:
+                resolved = RPCNode.StreamingMode.PER_ROW;
+                break;
+            default:
+                // A new objective must state its own mapping. Falling through to
+                // PER_ROW here would silently discard the objective's meaning.
+                throw new IllegalArgumentException("Unhandled RpcExecutionMode: " + intent.getRequestedMode());
+        }
         return RpcExecutionProperties.of(resolved);
     }
 }

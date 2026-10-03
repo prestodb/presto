@@ -22,6 +22,7 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Assignments;
@@ -48,6 +49,7 @@ import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -59,7 +61,9 @@ import java.util.function.Supplier;
 import static com.facebook.presto.SystemSessionProperties.getRpcDispatchBatchSize;
 import static com.facebook.presto.SystemSessionProperties.getRpcStreamingMode;
 import static com.facebook.presto.SystemSessionProperties.isRpcFunctionOptimizerEnabled;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RpcFunctionOptimizer
@@ -671,12 +675,13 @@ public class RpcFunctionOptimizer
         // Resolves the plan-time execution properties for one RPC call. The requested mode (from
         // options JSON or the session property), the requested dispatch size, and the estimated
         // input stats are handed to the injected RpcExecutionPolicy as an RpcExecutionIntent; the
-        // policy returns the resolved RpcExecutionProperties. AUTOMATIC is resolved here so the
-        // RPCNode never carries it. The default policy carries no batching heuristic
-        // (AUTOMATIC -> PER_ROW, no overrides); a deployment may bind a stats-driven policy.
+        // policy returns the resolved RpcExecutionProperties. Every objective (LATENCY/THROUGHPUT/
+        // COST/AUTOMATIC) is resolved to a concrete PER_ROW/BATCH mode here, so the RPCNode only
+        // ever carries a mechanism. The default policy applies no cardinality heuristic (objectives
+        // map to fixed mechanisms, AUTOMATIC -> PER_ROW); a deployment may bind a stats-driven policy.
         private RpcExecutionProperties resolveExecutionProperties(CallExpression rpcCall, PlanNode source)
         {
-            RPCNode.StreamingMode requested = parseStreamingMode(rpcCall);
+            RpcExecutionMode requested = parseStreamingMode(rpcCall);
             PlanNodeStatsEstimate sourceStats = statsProvider == null
                     ? PlanNodeStatsEstimate.unknown()
                     : statsProvider.getStats(source);
@@ -698,17 +703,27 @@ public class RpcFunctionOptimizer
             return properties;
         }
 
-        private RPCNode.StreamingMode parseStreamingMode(CallExpression rpcCall)
+        private RpcExecutionMode parseStreamingMode(CallExpression rpcCall)
         {
-            // Per-function override from constant options JSON takes precedence.
-            Optional<RPCNode.StreamingMode> fromJson = parseOptionsJson(rpcCall)
+            // Per-function override from constant options JSON takes precedence over
+            // the session property; an unrecognized value is a user error (fail fast
+            // with a clear message rather than silently falling back).
+            Optional<String> fromJson = parseOptionsJson(rpcCall)
                     .map(json -> json.path("streaming_mode").asText(""))
-                    .filter(mode -> mode.equalsIgnoreCase("batch"))
-                    .map(mode -> RPCNode.StreamingMode.BATCH);
+                    .filter(mode -> !mode.isEmpty());
             if (fromJson.isPresent()) {
-                return fromJson.get();
+                for (RpcExecutionMode mode : RpcExecutionMode.values()) {
+                    if (mode.name().equalsIgnoreCase(fromJson.get())) {
+                        return mode;
+                    }
+                }
+                throw new PrestoException(
+                        INVALID_FUNCTION_ARGUMENT,
+                        format(
+                                "Invalid rpc streaming_mode '%s' in RPC options JSON; valid values: %s",
+                                fromJson.get(),
+                                Arrays.toString(RpcExecutionMode.values())));
             }
-            // Fall back to session property.
             return getRpcStreamingMode(session);
         }
 
