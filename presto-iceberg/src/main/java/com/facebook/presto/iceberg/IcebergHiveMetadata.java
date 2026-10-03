@@ -414,7 +414,8 @@ public class IcebergHiveMetadata
         }
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
         FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
-        TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, targetPath, populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session));
+        TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, targetPath,
+                populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session, schema));
         openCreateTableTransaction(schemaTableName, createTableTransaction(tableName, operations, metadata));
 
         return new IcebergOutputTableHandle(

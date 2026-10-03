@@ -36,25 +36,36 @@ void to_json(json& j, const MergeHandle& p) {
 }
 
 void from_json(const json& j, MergeHandle& p) {
-  // The concrete com.facebook.presto.spi.MergeHandle (held by MergeTarget) is a
-  // non-polymorphic data class serialized without an "@type" key, whereas the
-  // polymorphic ExecutionWriterTarget.MergeHandle carries one. Protocol codegen
-  // conflates both into this single struct, so tolerate a missing "@type": the
-  // constructor already defaults _type to "MergeHandle". Without this, an
-  // UPDATE/MERGE fails on the worker with json type_error.302 (the missing-key
-  // read surfaces as "type must be string, but is number").
+  // Protocol codegen keys its class table by simple name, so the two Java
+  // classes both called "MergeHandle" collapse into this one struct, and it is
+  // reached with two different JSON shapes:
+  //
+  //   com.facebook.presto.spi.MergeHandle  (MergeTarget.mergeHandle)
+  //     {"tableHandle": ..., "connectorMergeTableHandle": ...}   -- no "@type"
+  //
+  //   ExecutionWriterTarget.MergeHandle    (TableWriteInfo.writerTarget)
+  //     {"@type": "MergeHandle", "handle": {<the spi.MergeHandle above>}}
+  //
+  // Tolerate the missing "@type" on the first: the constructor already defaults
+  // _type, and without this an UPDATE/MERGE fails with json type_error.302.
   if (j.contains("@type")) {
     p._type = j["@type"];
   }
+  // Unwrap the second. ExecutionWriterTarget.MergeHandle holds exactly one
+  // field, so folding it into this struct loses nothing: consumers
+  // (PrestoToVeloxQueryPlan, IcebergPrestoToVeloxConnector) only ever read
+  // tableHandle / connectorMergeTableHandle. Without this, the wrapped form
+  // fails with json out_of_range.403 "key 'tableHandle' not found".
+  const json& fields = j.contains("handle") ? j.at("handle") : j;
   from_json_key(
-      j,
+      fields,
       "tableHandle",
       p.tableHandle,
       "MergeHandle",
       "TableHandle",
       "tableHandle");
   from_json_key(
-      j,
+      fields,
       "connectorMergeTableHandle",
       p.connectorMergeTableHandle,
       "MergeHandle",

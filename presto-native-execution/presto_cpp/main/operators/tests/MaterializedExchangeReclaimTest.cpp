@@ -174,6 +174,48 @@ TEST_F(ReclaimerTest, reclaimSkippedAfterClose) {
   buffer.pool()->free(allocation, 10 * kMB);
 }
 
+TEST_F(ReclaimerTest, terminalStateReleasesPinnedReservation) {
+  NoOpShuffleFactory factory;
+  MaterializedOutputBuffer buffer(
+      /*numPartitions=*/1,
+      /*shuffleWriterInfo=*/"",
+      &factory,
+      "release.0.0.0.0",
+      rootPool_.get());
+
+  void* allocation = buffer.pool()->allocate(16 * kMB);
+  buffer.ensureDrainMemoryHeadroom();
+  buffer.pool()->free(allocation, 16 * kMB);
+  ASSERT_GT(buffer.pool()->reservedBytes(), 0);
+
+  buffer.noMoreData();
+
+  EXPECT_EQ(buffer.state(), MaterializedOutputBuffer::State::kClosed);
+  EXPECT_EQ(buffer.pool()->usedBytes(), 0);
+  EXPECT_EQ(buffer.pool()->reservedBytes(), 0);
+}
+
+TEST_F(ReclaimerTest, abortReleasesPinnedReservation) {
+  NoOpShuffleFactory factory;
+  MaterializedOutputBuffer buffer(
+      /*numPartitions=*/1,
+      /*shuffleWriterInfo=*/"",
+      &factory,
+      "aborted.0.0.0.0",
+      rootPool_.get());
+
+  void* allocation = buffer.pool()->allocate(16 * kMB);
+  buffer.ensureDrainMemoryHeadroom();
+  buffer.pool()->free(allocation, 16 * kMB);
+  ASSERT_GT(buffer.pool()->reservedBytes(), 0);
+
+  buffer.abort();
+
+  EXPECT_EQ(buffer.state(), MaterializedOutputBuffer::State::kAborted);
+  EXPECT_EQ(buffer.pool()->usedBytes(), 0);
+  EXPECT_EQ(buffer.pool()->reservedBytes(), 0);
+}
+
 TEST_F(ReclaimerTest, reclaimBlockedWhenAborted) {
   NoOpShuffleFactory factory;
   MaterializedOutputBuffer buffer(

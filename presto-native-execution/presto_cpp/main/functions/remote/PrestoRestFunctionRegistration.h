@@ -93,23 +93,17 @@ class PrestoRestFunctionRegistration {
   // The base URL for the remote function server REST API.
   const std::string kRemoteFunctionServerRestURL_;
 
-  VELOX_FRIEND_TEST(
-      PrestoRestFunctionRegistrationTest,
-      getRemoteFunctionServerUrlWithExecutionEndpoint);
-  VELOX_FRIEND_TEST(
-      PrestoRestFunctionRegistrationTest,
-      getRemoteFunctionServerUrlWithEmptyExecutionEndpoint);
-  VELOX_FRIEND_TEST(
-      PrestoRestFunctionRegistrationTest,
-      getRemoteFunctionServerUrlWithoutExecutionEndpoint);
-  VELOX_FRIEND_TEST(
-      PrestoRestFunctionRegistrationTest,
-      getRemoteFunctionServerUrlConsistency);
-  VELOX_FRIEND_TEST(
-      PrestoRestFunctionRegistrationTest,
-      getRemoteFunctionServerUrlWithDifferentProtocols);
-  VELOX_FRIEND_TEST(
-      PrestoRestFunctionRegistrationTest,
-      getRemoteFunctionServerUrlWithComplexUrls);
+  friend class
+      PrestoRestFunctionRegistrationTest_getRemoteFunctionServerUrlWithExecutionEndpoint_Test;
+  friend class
+      PrestoRestFunctionRegistrationTest_getRemoteFunctionServerUrlWithEmptyExecutionEndpoint_Test;
+  friend class
+      PrestoRestFunctionRegistrationTest_getRemoteFunctionServerUrlWithoutExecutionEndpoint_Test;
+  friend class
+      PrestoRestFunctionRegistrationTest_getRemoteFunctionServerUrlConsistency_Test;
+  friend class
+      PrestoRestFunctionRegistrationTest_getRemoteFunctionServerUrlWithDifferentProtocols_Test;
+  friend class
+      PrestoRestFunctionRegistrationTest_getRemoteFunctionServerUrlWithComplexUrls_Test;
 };
 } // namespace facebook::presto::functions::remote::rest

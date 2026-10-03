@@ -28,7 +28,7 @@ ShuffleRead::ShuffleRead(
     int32_t operatorId,
     DriverCtx* ctx,
     const std::shared_ptr<const ShuffleReadNode>& shuffleReadNode,
-    std::shared_ptr<ExchangeClient> exchangeClient)
+    std::shared_ptr<InMemoryExchangeClient> exchangeClient)
     : Exchange(
           operatorId,
           ctx,
@@ -172,7 +172,7 @@ std::unique_ptr<Operator> ShuffleReadTranslator::toOperator(
     DriverCtx* ctx,
     int32_t id,
     const core::PlanNodePtr& node,
-    std::shared_ptr<ExchangeClient> exchangeClient) {
+    std::shared_ptr<InMemoryExchangeClient> exchangeClient) {
   if (auto shuffleReadNode =
           std::dynamic_pointer_cast<const ShuffleReadNode>(node)) {
     return std::make_unique<ShuffleRead>(

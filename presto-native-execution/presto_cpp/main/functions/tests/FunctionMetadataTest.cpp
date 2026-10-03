@@ -16,6 +16,7 @@
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/functions/FunctionMetadata.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
+#include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -29,14 +30,53 @@ static const std::string kPrestoDefaultPrefix = "presto.default.";
 
 class FunctionMetadataTest : public ::testing::Test {
  protected:
+  // Publishing a function never creates an instance, so the factory is never
+  // called.
+  static exec::rpc::AsyncRPCFunctionRegistry::Factory rpcFunctionFactory() {
+    return []() -> std::shared_ptr<exec::rpc::AsyncRPCFunction> {
+      VELOX_UNREACHABLE();
+    };
+  }
+
   static void SetUpTestSuite() {
     aggregate::prestosql::registerAllAggregateFunctions(kPrestoDefaultPrefix);
     window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
     functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+
+    // An RPC function lives outside the scalar registry, so its declaration
+    // reaches the coordinator only through AsyncRPCFunctionRegistry. The two
+    // registrations below carry opposite determinism and null behaviour, so
+    // the published values have to track each registration rather than come
+    // from one place.
+    exec::rpc::AsyncRPCFunctionRegistry::registerFunction(
+        "test_rpc_function",
+        rpcFunctionFactory(),
+        {exec::FunctionSignatureBuilder()
+             .returnType("varchar")
+             .argumentType("varchar")
+             .argumentType("bigint")
+             .build()},
+        exec::VectorFunctionMetadataBuilder()
+            .deterministic(false)
+            .defaultNullBehavior(false)
+            .build());
+
+    exec::rpc::AsyncRPCFunctionRegistry::registerFunction(
+        "test_rpc_function_with_defaults",
+        rpcFunctionFactory(),
+        {exec::FunctionSignatureBuilder()
+             .returnType("bigint")
+             .argumentType("double")
+             .build()});
+  }
+
+  static void TearDownTestSuite() {
+    exec::rpc::AsyncRPCFunctionRegistry::testingClear();
   }
 
   void SetUp() override {
-    functionMetadata_ = getFunctionsMetadata();
+    functionMetadata_ =
+        getFunctionsMetadata(kPrestoDefaultPrefix, /*catalog=*/std::nullopt);
   }
 
   void sortMetadataList(json::array_t& list) {
@@ -83,7 +123,7 @@ class FunctionMetadataTest : public ::testing::Test {
 };
 
 TEST_F(FunctionMetadataTest, approxMostFrequent) {
-  testFunction("approx_most_frequent", "ApproxMostFrequent.json", 7);
+  testFunction("approx_most_frequent", "ApproxMostFrequent.json", 8);
 }
 
 TEST_F(FunctionMetadataTest, arrayFrequency) {
@@ -134,10 +174,15 @@ TEST_F(FunctionMetadataTest, variance) {
   testFunction("variance", "Variance.json", 5);
 }
 
+TEST_F(FunctionMetadataTest, rpcFunction) {
+  testFunction("test_rpc_function", "TestRpcFunctions.json", 1);
+  testFunction("test_rpc_function_with_defaults", "TestRpcFunctions.json", 1);
+}
+
 TEST_F(FunctionMetadataTest, catalog) {
   // Test with the "presto" catalog that is registered in SetUpTestSuite
   std::string catalog = "presto";
-  auto metadata = getFunctionsMetadata(catalog);
+  auto metadata = getFunctionsMetadata(kPrestoDefaultPrefix, catalog);
 
   // The result should be a JSON object with function names as keys
   ASSERT_TRUE(metadata.is_object());
@@ -168,7 +213,7 @@ TEST_F(FunctionMetadataTest, catalog) {
 }
 
 TEST_F(FunctionMetadataTest, nonExistentCatalog) {
-  auto metadata = getFunctionsMetadata("nonexistent");
+  auto metadata = getFunctionsMetadata(kPrestoDefaultPrefix, "nonexistent");
 
   // When no functions match, it returns a null JSON value or empty object
   // The default json() constructor creates a null value

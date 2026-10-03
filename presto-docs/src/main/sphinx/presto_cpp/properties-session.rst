@@ -34,6 +34,16 @@ resource contention.
 
 Native Execution only. Use legacy TIME and TIMESTAMP semantics.
 
+``legacy_timestamp_with_timezone``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+When ``true``, ``TIMESTAMP WITH TIME ZONE`` values render in each value's embedded
+time zone. When ``false``, they render the UTC instant in the session time zone, so
+values that compare equal render identically.
+
 ``native_aggregation_spill_memory_threshold``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -245,7 +255,7 @@ Native Execution only. Enable simplified path in expression evaluation.
 * **Type:** ``integer``
 * **Default value:** ``100000``
 
-Native Execution only. The `reduce <https://prestodb.io/docs/current/functions/array.html#reduce-array-T-initialState-S-inputFunction-S-T-S-outputFunction-S-R-R>`_
+Native Execution only. The :func:`reduce <reduce(array[T], initialState S, inputFunction(S,T,S), outputFunction(S,R)) -> R>`
 function will throw an error if it encounters an array of size greater than this value.
 
 ``native_expression_max_compiled_regexes``
@@ -580,11 +590,12 @@ dynamic adjustment is disabled and the batch size is fixed at ``preferred_output
 * **Type:** ``boolean``
 * **Default value:** ``true``
 
-Native Execution only. Enable the adaptive per-tier RPC rate limiter (AIMD on the backend
-rate-limit/timeout overload signal). When enabled, the rate limiter automatically adjusts the
-per-tier max-pending cap based on backend overload signals, using additive increase and
-multiplicative decrease. On by default (protective for shared, rate-limited inference backends);
-set to false to keep a static cap defined by ``native_rpc_ratelimiter_max_limit``.
+Native Execution only. Enable the adaptive per-tier RPC rate limiter. When enabled, the limiter
+uses multiplicative decrease on backend rate-limit/timeout overload signals, doubles a fractional
+window during healthy recovery until it reaches one, and then uses additive increase. Set to
+``true`` by default (protective for shared, rate-limited inference backends); set to ``false`` to
+keep a static cap at the resolved hard ceiling: the smaller positive function/session bound, or
+200 when neither is set.
 
 ``native_rpc_ratelimiter_min_limit``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -592,10 +603,10 @@ set to false to keep a static cap defined by ``native_rpc_ratelimiter_max_limit`
 * **Type:** ``bigint``
 * **Default value:** ``50``
 
-Native Execution only. Floor for the adaptive RPC rate limiter's per-tier max-pending cap.
-The adaptive limiter will not shrink the per-tier cap below this value, even under sustained
-overload. Default is 50. A floor of 1 can stall under sustained throttling. Only used when
-``native_rpc_ratelimiter_adaptive_enabled`` is true.
+Native Execution only. Integral override for the adaptive RPC congestion-window floor. Positive
+values preserve the legacy in-flight floor. Zero delegates to the function's backend policy,
+which may choose a fractional floor and pace discrete admissions using a smoothed successful
+completion duration. Only used when ``native_rpc_ratelimiter_adaptive_enabled`` is true.
 
 ``native_rpc_ratelimiter_decrease_factor``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -604,9 +615,9 @@ overload. Default is 50. A floor of 1 can stall under sustained throttling. Only
 * **Default value:** ``0.5``
 
 Native Execution only. Multiplicative-decrease factor applied to the adaptive RPC rate limiter's
-per-tier max-pending cap on each overload-classified drain. For example, with the default 0.5,
-the cap is halved on each overload. Only used when ``native_rpc_ratelimiter_adaptive_enabled``
-is true.
+per-tier window. Canonical typed overload completions from the same admitted epoch are coalesced;
+function-specific aggregate overload verdicts apply at driver consumption. For example, the
+default 0.5 halves the window. Only used when ``native_rpc_ratelimiter_adaptive_enabled`` is true.
 
 ``native_rpc_ratelimiter_max_limit``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -614,12 +625,27 @@ is true.
 * **Type:** ``bigint``
 * **Default value:** ``200``
 
-Native Execution only. Ceiling for the per-tier RPC rate-limiter max-pending cap. The adaptive
-limiter grows the per-tier cap up to this value under normal conditions and shrinks from here
-under overload. Default is 200, validated for LLM-inference backends. Set to 0 to fall back to
-the built-in default of 20. Admission-controlled dispatch makes this cap bind; the adaptive
-limiter shrinks from here under overload. Only used when ``native_rpc_ratelimiter_adaptive_enabled``
-is true. Set the adaptive limiter to false to keep a static cap at this value.
+Native Execution only. Legacy session ceiling for the per-tier RPC rate limiter. Zero defers to
+the function ceiling or the built-in legacy limit; a positive value overrides the function
+ceiling. This property remains unchanged for coordinator/worker compatibility and is superseded by
+``native_rpc_ratelimiter_hard_limit`` when that property is non-negative.
+
+``native_rpc_ratelimiter_hard_limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``-1``
+
+Native Execution only. Versioned session hard ceiling for the per-tier RPC rate limiter. Minus one
+preserves ``native_rpc_ratelimiter_max_limit`` semantics during a mixed-version rollout. Zero adds
+no session ceiling; a positive value is combined with a positive function ceiling using the
+smaller value. With no positive ceiling, adaptive mode starts at 200 with a 1,000,000 safety
+ceiling and fixed mode uses 200. Deploy workers that understand this property before setting it to
+zero or a positive value.
+
+The first query to use an admission key fixes these settings for that worker process. Changing a
+session property does not reconfigure an existing key; canaries and rollbacks require isolated or
+restarted workers whose first request carries the intended settings.
 
 ``native_rpc_congestion_max_window``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -739,6 +765,18 @@ Native Execution only. If true, enables lightweight memory compaction before
 spilling during memory reclaim in aggregation. When enabled, the aggregation
 operator will try to compact aggregate function state (for example, free dead strings)
 before resorting to spilling.
+
+``native_broadcast_file_descriptor_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. If true, the storage broadcast writer serializes a file
+descriptor alongside each broadcast file so readers can open it without a
+per-reader metadata lookup. Set this to false to fall back to opening by path.
+This only has an effect on file systems that supply a descriptor; on the others
+the writer emits none and readers open by path regardless.
 
 ``optimizer.optimize_top_n_rank``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

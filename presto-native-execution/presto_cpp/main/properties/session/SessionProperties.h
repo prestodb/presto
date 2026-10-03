@@ -63,8 +63,7 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kRpcRateLimiterAdaptiveEnabled =
       "native_rpc_ratelimiter_adaptive_enabled";
 
-  /// Minimum value the adaptive RPC rate limiter's per-tier max-pending cap may
-  /// shrink to under sustained overload.
+  /// Integral adaptive-floor override. Zero delegates to backend policy.
   static constexpr const char* kRpcRateLimiterMinLimit =
       "native_rpc_ratelimiter_min_limit";
 
@@ -73,9 +72,13 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kRpcRateLimiterDecreaseFactor =
       "native_rpc_ratelimiter_decrease_factor";
 
-  /// Ceiling for the per-tier RPC rate-limiter max-pending cap.
+  /// Legacy ceiling for the per-tier RPC rate limiter.
   static constexpr const char* kRpcRateLimiterMaxLimit =
       "native_rpc_ratelimiter_max_limit";
+
+  /// Versioned hard ceiling. Minus one preserves legacy semantics.
+  static constexpr const char* kRpcRateLimiterHardLimit =
+      "native_rpc_ratelimiter_hard_limit";
 
   /// Ceiling for the per-driver RPC congestion window (0 = per-mode default).
   static constexpr const char* kRpcCongestionMaxWindow =
@@ -219,6 +222,11 @@ class SessionProperties : public SessionPropertiesProvider {
 
   /// Enable timezone-less timestamp conversions.
   static constexpr const char* kLegacyTimestamp = "legacy_timestamp";
+
+  /// Render TIMESTAMP WITH TIME ZONE values in each value's embedded time zone
+  /// instead of the session time zone.
+  static constexpr const char* kLegacyTimestampWithTimezone =
+      "legacy_timestamp_with_timezone";
 
   /// Specifies the cpu time slice limit in ms that a driver thread
   /// can continuously run without yielding.
@@ -415,6 +423,11 @@ class SessionProperties : public SessionPropertiesProvider {
   /// before resorting to spilling. Disabled by default.
   static constexpr const char* kAggregationMemoryCompactionReclaimEnabled =
       "native_aggregation_memory_compaction_reclaim_enabled";
+
+  /// If true, the broadcast writer serializes a file descriptor per file so
+  /// readers open without a metadata lookup. False falls back to path opens.
+  static constexpr const char* kBroadcastFileDescriptorEnabled =
+      "native_broadcast_file_descriptor_enabled";
 
   static SessionProperties* instance();
 

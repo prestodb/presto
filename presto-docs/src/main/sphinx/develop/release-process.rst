@@ -258,7 +258,7 @@ Release Communication
 * `Presto Slack <https://communityinviter.com/apps/prestodb/prestodb>`_ #releases channel
 * `GitHub Releases <https://github.com/prestodb/presto/releases>`_
 * `Mailing List <https://lists.prestodb.io/g/presto-dev>`_
-* `Release notes in docs <https://prestodb.io/docs/current/release/release.html>`_
+* `Release notes in docs <https://prestodb.io/docs/current/release.html>`_
 
 Best Practices for Developers
 =============================

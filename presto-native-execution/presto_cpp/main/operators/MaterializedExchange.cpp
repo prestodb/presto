@@ -51,7 +51,7 @@ MaterializedExchange::MaterializedExchange(
     DriverCtx* ctx,
     const std::shared_ptr<const MaterializedExchangeNode>&
         materializedExchangeNode,
-    std::shared_ptr<ExchangeClient> exchangeClient)
+    std::shared_ptr<InMemoryExchangeClient> exchangeClient)
     : Exchange(
           operatorId,
           ctx,
@@ -199,7 +199,7 @@ std::unique_ptr<Operator> MaterializedExchangeTranslator::toOperator(
     DriverCtx* ctx,
     int32_t id,
     const core::PlanNodePtr& node,
-    std::shared_ptr<ExchangeClient> exchangeClient) {
+    std::shared_ptr<InMemoryExchangeClient> exchangeClient) {
   if (auto materializedExchangeNode =
           std::dynamic_pointer_cast<const MaterializedExchangeNode>(node)) {
     return std::make_unique<MaterializedExchange>(

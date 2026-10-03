@@ -65,8 +65,8 @@ import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
-import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
 import static com.facebook.presto.sql.planner.PlannerUtils.coalesce;
+import static com.facebook.presto.sql.planner.PlannerUtils.copyDeterministicScanNodes;
 import static com.facebook.presto.sql.planner.PlannerUtils.equalityPredicate;
 import static com.facebook.presto.sql.planner.PlannerUtils.isScanFilterProject;
 import static com.facebook.presto.sql.planner.PlannerUtils.restrictOutput;
@@ -387,7 +387,7 @@ public class PayloadJoinOptimizer
             return constructDistinctKeysPlan(planNode, context, joinKeys);
         }
 
-        private AggregationNode constructDistinctKeysPlan(PlanNode planNode, RewriteContext<JoinContext> context, Set<VariableReferenceExpression> joinKeys)
+        private PlanNode constructDistinctKeysPlan(PlanNode planNode, RewriteContext<JoinContext> context, Set<VariableReferenceExpression> joinKeys)
         {
             List<VariableReferenceExpression> groupingKeys = joinKeys.stream().collect(toImmutableList());
             AggregationNode agg = new AggregationNode(
@@ -409,8 +409,14 @@ public class PayloadJoinOptimizer
             }
 
             context.get().setJoinKeyMap(new HashMap<>(varMap));
-            PlanNode planNodeCopy = clonePlanNode(planNode, session, metadata, planNodeIdAllocator, planNode.getOutputVariables(), varMap);
-            context.get().setPayloadNode(planNodeCopy);
+
+            // The copy is refused when the payload cannot be duplicated safely, e.g. it is not
+            // deterministic. The payload node is then left unset, so no payload rejoin is attempted.
+            Optional<PlanNode> planNodeCopy = copyDeterministicScanNodes(planNode, metadata, planNodeIdAllocator, planNode.getOutputVariables(), varMap);
+            if (!planNodeCopy.isPresent()) {
+                return planNode;
+            }
+            context.get().setPayloadNode(planNodeCopy.get());
 
             return agg;
         }

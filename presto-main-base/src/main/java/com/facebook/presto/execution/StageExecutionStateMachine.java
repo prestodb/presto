@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.Distribution;
+import com.facebook.presto.common.QueryTracer;
 import com.facebook.presto.common.RuntimeMetricName;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -25,6 +26,7 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.annotation.Nullable;
 
 import java.util.HashSet;
 import java.util.List;
@@ -63,6 +65,8 @@ import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULING;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULING_SPLITS;
 import static com.facebook.presto.execution.StageExecutionState.TERMINAL_STAGE_STATES;
+import static com.google.common.base.CaseFormat.UPPER_CAMEL;
+import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -95,6 +99,8 @@ public class StageExecutionStateMachine
     private final AtomicLong currentTotalMemory = new AtomicLong();
 
     private final RuntimeStats runtimeStats = new RuntimeStats();
+    @Nullable
+    private final StageTraceState stageTraceState;
 
     public StageExecutionStateMachine(
             StageExecutionId stageExecutionId,
@@ -102,9 +108,22 @@ public class StageExecutionStateMachine
             SplitSchedulerStats schedulerStats,
             boolean containsTableScans)
     {
+        this(stageExecutionId, executor, schedulerStats, containsTableScans, null);
+    }
+
+    public StageExecutionStateMachine(
+            StageExecutionId stageExecutionId,
+            ExecutorService executor,
+            SplitSchedulerStats schedulerStats,
+            boolean containsTableScans,
+            @Nullable QueryTracer queryTracer)
+    {
         this.stageExecutionId = requireNonNull(stageExecutionId, "stageId is null");
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.containsTableScans = containsTableScans;
+        this.stageTraceState = queryTracer != null ?
+                new StageTraceState(queryTracer, stageExecutionId, System.nanoTime()) :
+                null;
 
         state = new StateMachine<>("stage execution " + stageExecutionId, executor, PLANNED, TERMINAL_STAGE_STATES);
         state.addStateChangeListener(state -> log.debug("Stage Execution %s is %s", stageExecutionId, state));
@@ -134,43 +153,77 @@ public class StageExecutionStateMachine
 
     public synchronized boolean transitionToScheduling()
     {
-        return state.compareAndSet(PLANNED, SCHEDULING);
+        boolean scheduling = state.compareAndSet(PLANNED, SCHEDULING);
+        if (scheduling && stageTraceState != null) {
+            stageTraceState.transitionTo(SCHEDULING, System.nanoTime());
+        }
+        return scheduling;
     }
 
     public synchronized boolean transitionToFinishedTaskScheduling()
     {
-        return state.compareAndSet(SCHEDULING, FINISHED_TASK_SCHEDULING);
+        boolean finishedTaskScheduling = state.compareAndSet(SCHEDULING, FINISHED_TASK_SCHEDULING);
+        if (finishedTaskScheduling && stageTraceState != null) {
+            stageTraceState.transitionTo(FINISHED_TASK_SCHEDULING, System.nanoTime());
+        }
+        return finishedTaskScheduling;
     }
 
     public synchronized boolean transitionToSchedulingSplits()
     {
-        return state.setIf(SCHEDULING_SPLITS, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING);
+        boolean scheduling = state.setIf(
+                SCHEDULING_SPLITS,
+                currentState -> currentState == PLANNED ||
+                        currentState == SCHEDULING ||
+                        currentState == FINISHED_TASK_SCHEDULING);
+        if (scheduling && stageTraceState != null) {
+            stageTraceState.transitionTo(SCHEDULING_SPLITS, System.nanoTime());
+        }
+        return scheduling;
     }
 
     public synchronized boolean transitionToScheduled()
     {
         schedulingComplete.compareAndSet(0, currentTimeMillis());
-        return state.setIf(SCHEDULED, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING || currentState == SCHEDULING_SPLITS);
+        boolean scheduled = state.setIf(
+                SCHEDULED,
+                currentState -> currentState == PLANNED ||
+                        currentState == SCHEDULING ||
+                        currentState == FINISHED_TASK_SCHEDULING ||
+                        currentState == SCHEDULING_SPLITS);
+        if (scheduled && stageTraceState != null) {
+            stageTraceState.transitionTo(SCHEDULED, System.nanoTime());
+        }
+        return scheduled;
     }
 
     public boolean transitionToRunning()
     {
-        return state.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
+        if (stageTraceState == null) {
+            return state.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
+        }
+        synchronized (this) {
+            boolean running = state.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
+            if (running) {
+                stageTraceState.transitionTo(RUNNING, System.nanoTime());
+            }
+            return running;
+        }
     }
 
     public boolean transitionToFinished()
     {
-        return state.setIf(FINISHED, currentState -> !currentState.isDone());
+        return transitionToDoneState(FINISHED);
     }
 
     public boolean transitionToCanceled()
     {
-        return state.setIf(CANCELED, currentState -> !currentState.isDone());
+        return transitionToDoneState(CANCELED);
     }
 
     public boolean transitionToAborted()
     {
-        return state.setIf(ABORTED, currentState -> !currentState.isDone());
+        return transitionToDoneState(ABORTED);
     }
 
     public boolean transitionToFailed(Throwable throwable)
@@ -178,7 +231,7 @@ public class StageExecutionStateMachine
         requireNonNull(throwable, "throwable is null");
 
         failureCause.compareAndSet(null, Failures.toFailure(throwable));
-        boolean failed = state.setIf(FAILED, currentState -> !currentState.isDone());
+        boolean failed = transitionToDoneState(FAILED);
         if (failed) {
             log.error(throwable, "Stage execution %s failed", stageExecutionId);
         }
@@ -186,6 +239,22 @@ public class StageExecutionStateMachine
             log.debug(throwable, "Failure after stage execution %s finished", stageExecutionId);
         }
         return failed;
+    }
+
+    private boolean transitionToDoneState(StageExecutionState doneState)
+    {
+        if (stageTraceState == null) {
+            return state.setIf(doneState, currentState -> !currentState.isDone());
+        }
+        synchronized (this) {
+            if (state.get().isDone()) {
+                return false;
+            }
+            // Record the terminal boundary before publishing the state because a listener can finish the query trace.
+            long transitionTimeNanos = System.nanoTime();
+            stageTraceState.transitionTo(doneState, transitionTimeNanos);
+            return state.setIf(doneState, currentState -> !currentState.isDone());
+        }
     }
 
     /**
@@ -402,34 +471,35 @@ public class StageExecutionStateMachine
 
     public void recordGetSplitTime(long startNanos)
     {
-        long elapsedNanos = System.nanoTime() - startNanos;
+        long endNanos = System.nanoTime();
+        long elapsedNanos = max(endNanos - startNanos, 0);
         getSplitDistribution.add(elapsedNanos);
         scheduledStats.getGetSplitTime().add(elapsedNanos, NANOSECONDS);
-        runtimeStats.addMetricValue(GET_SPLITS_TIME_NANOS, NANO, elapsedNanos);
+        recordDurationMetric(GET_SPLITS_TIME_NANOS, startNanos, endNanos);
     }
 
-    public void recordSchedulerRunningTime(long cpuTimeNanos, long wallTimeNanos)
+    public void recordSchedulerRunningTime(long cpuTimeNanos, long startWallTimeNanos, long endWallTimeNanos)
     {
         runtimeStats.addMetricValue(SCHEDULER_CPU_TIME_NANOS, NANO, max(cpuTimeNanos, 0));
-        runtimeStats.addMetricValue(SCHEDULER_WALL_TIME_NANOS, NANO, max(wallTimeNanos, 0));
+        recordDurationMetric(SCHEDULER_WALL_TIME_NANOS, startWallTimeNanos, endWallTimeNanos);
     }
 
-    public void recordSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long nanos)
+    public void recordSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long startTimeNanos, long endTimeNanos)
     {
         requireNonNull(reason, "reason is null");
-        runtimeStats.addMetricValue(SCHEDULER_BLOCKED_TIME_NANOS + "-" + reason, NANO, max(nanos, 0));
+        recordDurationMetric(SCHEDULER_BLOCKED_TIME_NANOS + "-" + reason, startTimeNanos, endTimeNanos);
     }
 
-    public void recordLeafStageSchedulerRunningTime(long cpuTimeNanos, long wallTimeNanos)
+    public void recordLeafStageSchedulerRunningTime(long cpuTimeNanos, long startWallTimeNanos, long endWallTimeNanos)
     {
         runtimeStats.addMetricValue(SCAN_STAGE_SCHEDULER_CPU_TIME_NANOS, NANO, max(cpuTimeNanos, 0));
-        runtimeStats.addMetricValue(SCAN_STAGE_SCHEDULER_WALL_TIME_NANOS, NANO, max(wallTimeNanos, 0));
+        recordDurationMetric(SCAN_STAGE_SCHEDULER_WALL_TIME_NANOS, startWallTimeNanos, endWallTimeNanos);
     }
 
-    public void recordLeafStageSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long nanos)
+    public void recordLeafStageSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long startTimeNanos, long endTimeNanos)
     {
         requireNonNull(reason, "reason is null");
-        runtimeStats.addMetricValue(SCAN_STAGE_SCHEDULER_BLOCKED_TIME_NANOS + "-" + reason, NANO, max(nanos, 0));
+        recordDurationMetric(SCAN_STAGE_SCHEDULER_BLOCKED_TIME_NANOS + "-" + reason, startTimeNanos, endTimeNanos);
     }
 
     @Override
@@ -439,9 +509,21 @@ public class StageExecutionStateMachine
     }
 
     @Override
+    public void recordTaskUpdateDeliveredTime(long startTimeNanos, long endTimeNanos)
+    {
+        recordDurationMetric(TASK_UPDATE_DELIVERED_WALL_TIME_NANOS, startTimeNanos, endTimeNanos);
+    }
+
+    @Override
     public void recordStartWaitForEventLoop(long nanos)
     {
         runtimeStats.addMetricValue(TASK_START_WAIT_FOR_EVENT_LOOP, NANO, max(nanos, 0));
+    }
+
+    @Override
+    public void recordStartWaitForEventLoop(long startTimeNanos, long endTimeNanos)
+    {
+        recordDurationMetric(TASK_START_WAIT_FOR_EVENT_LOOP, startTimeNanos, endTimeNanos);
     }
 
     public void recordDeliveredUpdates(int updates)
@@ -449,9 +531,102 @@ public class StageExecutionStateMachine
         runtimeStats.addMetricValue(RuntimeMetricName.TASK_UPDATE_DELIVERED_UPDATES, NONE, max(updates, 0));
     }
 
+    @Override
     public void recordRoundTripTime(long nanos)
     {
         runtimeStats.addMetricValue(RuntimeMetricName.TASK_UPDATE_ROUND_TRIP_TIME, NANO, max(nanos, 0));
+    }
+
+    @Override
+    public void recordRoundTripTime(long roundTripNanos, long startTimeNanos, long endTimeNanos, boolean failed)
+    {
+        recordRoundTripTime(roundTripNanos);
+        if (stageTraceState != null) {
+            stageTraceState.recordEvent(RuntimeMetricName.TASK_UPDATE_ROUND_TRIP_TIME, startTimeNanos, endTimeNanos, failed);
+        }
+    }
+
+    private void recordDurationMetric(String name, long startTimeNanos, long endTimeNanos)
+    {
+        recordDurationMetric(name, startTimeNanos, endTimeNanos, false);
+    }
+
+    private void recordDurationMetric(String name, long startTimeNanos, long endTimeNanos, boolean failed)
+    {
+        long durationNanos = max(endTimeNanos - startTimeNanos, 0);
+        runtimeStats.addMetricValue(name, NANO, durationNanos);
+        if (stageTraceState != null) {
+            stageTraceState.recordEvent(name, startTimeNanos, endTimeNanos, failed);
+        }
+    }
+
+    /**
+     * Lifecycle mutations are serialized by the owning StageExecutionStateMachine.
+     */
+    private static final class StageTraceState
+    {
+        private final QueryTracer queryTracer;
+        private final String stageId;
+
+        private StageExecutionState currentState = PLANNED;
+        private long currentStateStartTimeNanos;
+        private long currentStateStartThreadId;
+        private String currentStateStartThreadName;
+
+        private StageTraceState(QueryTracer queryTracer, StageExecutionId stageExecutionId, long startTimeNanos)
+        {
+            Thread startThread = Thread.currentThread();
+            this.queryTracer = queryTracer;
+            this.stageId = "S" + stageExecutionId.getStageId().getId();
+            this.currentStateStartTimeNanos = startTimeNanos;
+            this.currentStateStartThreadId = startThread.getId();
+            this.currentStateStartThreadName = startThread.getName();
+        }
+
+        private void recordEvent(
+                String name,
+                long startTimeNanos,
+                long endTimeNanos,
+                boolean failed)
+        {
+            queryTracer.recordTraceEvent(getTraceName(name), startTimeNanos, endTimeNanos, failed);
+        }
+
+        private void transitionTo(StageExecutionState newState, long transitionTimeNanos)
+        {
+            Thread transitionThread = Thread.currentThread();
+            boolean failed = newState.isFailure();
+            recordCurrentState(transitionTimeNanos, failed);
+            currentState = newState;
+            currentStateStartTimeNanos = transitionTimeNanos;
+            currentStateStartThreadId = transitionThread.getId();
+            currentStateStartThreadName = transitionThread.getName();
+            if (newState.isDone()) {
+                // Terminal states are retained as zero-duration lifecycle markers.
+                recordCurrentState(transitionTimeNanos, failed);
+            }
+        }
+
+        private void recordCurrentState(long endTimeNanos, boolean failed)
+        {
+            queryTracer.recordTraceEvent(
+                    getTraceName(getStageName(currentState)),
+                    currentStateStartTimeNanos,
+                    endTimeNanos,
+                    currentStateStartThreadId,
+                    currentStateStartThreadName,
+                    failed);
+        }
+
+        private String getTraceName(String name)
+        {
+            return stageId + "-" + name;
+        }
+
+        private static String getStageName(StageExecutionState state)
+        {
+            return "stage" + UPPER_UNDERSCORE.to(UPPER_CAMEL, state.name());
+        }
     }
 
     @Override

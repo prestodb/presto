@@ -37,6 +37,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -59,6 +60,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.server.PluginManagerUtil.SPI_PACKAGES;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 public class FlightShimPluginManager
@@ -132,10 +134,10 @@ public class FlightShimPluginManager
 
     public ConnectorCodecs getConnectorCodecs(String connectorId)
     {
-        Catalog catalog = catalogManager.getCatalog(connectorId).orElseThrow(() -> new IllegalArgumentException("Requested catalog not loaded: " + connectorId));
+        Catalog catalog = catalogManager.getCatalog(connectorId).orElseThrow(() -> new PrestoException(NOT_FOUND, "Federation catalog does not exist: " + connectorId));
         ConnectorCodecs connectorCodecs = connectorCodecMap.get(catalog.getCatalogContext().getConnectorName());
         if (connectorCodecs == null) {
-            throw new IllegalArgumentException("Requested connector not loaded: " + catalog.getCatalogContext().getConnectorName());
+            throw new PrestoException(NOT_FOUND, "Federation connector not loaded: " + catalog.getCatalogContext().getConnectorName());
         }
         return connectorCodecs;
     }

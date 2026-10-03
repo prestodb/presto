@@ -78,6 +78,20 @@ void installSignalHandler() {
 #endif // __APPLE__
 }
 
+std::string dumpJson(const nlohmann::json& j) {
+  try {
+    return j.dump();
+  } catch (const std::exception&) {
+    auto body =
+        j.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace);
+    LOG(WARNING) << "Failed to serialize json to string. "
+                    "Will retry with 'replace' option. "
+                    "Json Dump:\n"
+                 << body;
+    return body;
+  }
+}
+
 std::string extractMessageBody(
     const std::vector<std::unique_ptr<folly::IOBuf>>& body) {
   std::string ret;

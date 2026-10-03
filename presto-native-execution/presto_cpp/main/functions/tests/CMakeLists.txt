@@ -25,6 +25,7 @@ target_link_libraries(
   presto_protocol
   presto_type_test_utils
   velox
+  velox_async_rpc_function_registry
   GTest::gtest
   GTest::gtest_main
 )

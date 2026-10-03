@@ -71,6 +71,7 @@ import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public interface ConnectorMetadata
@@ -401,11 +402,49 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Add the specified column
+     * Add the specified column, appended to the end of the table's columns.
+     * <p>
+     * Implementing this method is enough to support {@code ADD COLUMN} without a position clause.
+     * To also support {@code FIRST} and {@code AFTER}, override
+     * {@link #addColumn(ConnectorSession, ConnectorTableHandle, ColumnMetadata, ColumnPosition)}.
      */
     default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding columns");
+    }
+
+    /**
+     * Add the specified column at the specified position.
+     * <p>
+     * The default implementation delegates to
+     * {@link #addColumn(ConnectorSession, ConnectorTableHandle, ColumnMetadata)} for
+     * {@link ColumnPosition.Last}, so connectors that do not support positioning keep working
+     * unchanged, and rejects every other position rather than appending in the wrong place.
+     * Connectors add support by overriding this method. An implementation that wraps another
+     * {@link ConnectorMetadata} must forward this method as well as the three-argument form, or the
+     * wrapped connector's positioning support is lost behind this default.
+     * <p>
+     * The engine validates a {@link ColumnPosition.After} target against
+     * {@link #getColumnHandles(ConnectorSession, ConnectorTableHandle)} and rejects a hidden column, so the
+     * target is a visible column of the table. An implementation should still reject a target it cannot
+     * resolve, rather than passing it on to an underlying API that cannot find it, since nothing stops a
+     * caller from using this interface directly.
+     */
+    default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
+    {
+        requireNonNull(position, "position is null");
+        if (position instanceof ColumnPosition.Last) {
+            addColumn(session, tableHandle, column);
+            return;
+        }
+        if (position instanceof ColumnPosition.First) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+        }
+        if (position instanceof ColumnPosition.After) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+        }
+        // Never silently append for a position this method does not understand, or the column would land in the wrong place
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding columns at position: " + position);
     }
 
     /**
@@ -469,6 +508,24 @@ public interface ConnectorMetadata
     default void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
+    /**
+     * Move the specified column to the specified position within the table's column order.
+     * <p>
+     * The position is a {@link ColumnPosition.First} or a {@link ColumnPosition.After}, since a column is
+     * moved to the end by naming the column that is currently last. Unlike
+     * {@link #addColumn(ConnectorSession, ConnectorTableHandle, ColumnMetadata, ColumnPosition)}, there is no
+     * position a connector can honor by leaving the table alone, so there is nothing to delegate and no
+     * default beyond reporting that the connector cannot move columns.
+     * <p>
+     * The engine validates both the moved column and a {@link ColumnPosition.After} target against
+     * {@link #getColumnHandles(ConnectorSession, ConnectorTableHandle)}, rejects a hidden column for either,
+     * and rejects a column moved after itself, so the two names are distinct visible columns of the table.
+     */
+    default void setColumnPosition(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, ColumnPosition position)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support moving columns");
     }
 
     /**

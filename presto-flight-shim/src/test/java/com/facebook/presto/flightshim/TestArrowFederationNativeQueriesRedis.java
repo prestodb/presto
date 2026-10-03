@@ -43,6 +43,7 @@ import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils
 import static com.facebook.presto.redis.RedisQueryRunner.createTpchTableDescriptions;
 import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
 import static com.facebook.presto.redis.util.RedisTestUtils.createEmptyTableDescriptions;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 
@@ -123,6 +124,7 @@ public class TestArrowFederationNativeQueriesRedis
                 (DistributedQueryRunner) createNativeQueryRunner(ImmutableList.of(CONNECTOR_ID), server.getPort());
         installRedisPlugin(embeddedRedis, queryRunner,
                 createTpchTableDescriptions(queryRunner.getCoordinator().getMetadata(), TpchTable.getTables(), "string"));
+        setupNativeSidecarPlugin(queryRunner);
         return queryRunner;
     }
 
@@ -204,6 +206,20 @@ public class TestArrowFederationNativeQueriesRedis
     @Test(enabled = false)
     public void testSubfieldAccessControl()
     {
+    }
+
+    // Redis connector in Java is read-only, no write operations go past the coordinator stage
+    @Test
+    public void testUnsupportedWriteOperations()
+    {
+        assertQueryFails("INSERT INTO nation VALUES (100, 'TESTLAND', 0, 'test')", ".*This connector does not support inserts.*");
+        assertQueryFails("CREATE TABLE ctas_test AS SELECT * FROM nation LIMIT 1", ".*This connector does not support creating tables.*");
+        assertQueryFails("DELETE FROM nation WHERE nationkey = 100", ".*This connector does not support deletes.*");
+        // MERGE is rejected at the coordinator via ConnectorMetadata.beginMerge() before any plan
+        // fragment reaches the native worker.
+        assertQueryFails(
+                "MERGE INTO nation USING (SELECT 1) t ON false WHEN NOT MATCHED THEN INSERT VALUES (100, 'TESTLAND', 0, 'test')",
+                ".*This connector does not support modifying table rows.*");
     }
 
     static void createTpchTables(EmbeddedRedis embeddedRedis, QueryRunner queryRunner)

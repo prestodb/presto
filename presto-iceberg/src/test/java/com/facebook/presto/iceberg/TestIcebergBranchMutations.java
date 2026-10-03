@@ -397,4 +397,19 @@ public class TestIcebergBranchMutations
             dropTable(tableName);
         }
     }
+
+    @Test
+    public void testSetColumnPositionWithBranch()
+    {
+        String tableName = "test_set_column_position_branch_fail";
+        createTable(tableName);
+        try {
+            assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'test_branch'");
+            assertQueryFails(session, "ALTER TABLE \"" + tableName + ".branch_test_branch\" ALTER COLUMN value FIRST", ".*SET COLUMN POSITION is not supported on branch-specific tables.*");
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'test_branch'");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
 }

@@ -281,6 +281,8 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
           NUM_PROP(kOldTaskCleanUpMs, 60'000),
+          BOOL_PROP(kTaskSyncTerminateEnabled, false),
+          NUM_PROP(kTaskSyncTerminateTimeoutMs, 3'000),
           BOOL_PROP(kEnableOldTaskCleanUp, true),
           BOOL_PROP(kInternalCommunicationJwtEnabled, false),
           STR_PROP(kInternalCommunicationSharedSecret, ""),
@@ -1156,6 +1158,14 @@ bool SystemConfig::includeNodeInSpillPath() const {
 
 int32_t SystemConfig::oldTaskCleanUpMs() const {
   return optionalProperty<int32_t>(kOldTaskCleanUpMs).value();
+}
+
+bool SystemConfig::taskSyncTerminateEnabled() const {
+  return optionalProperty<bool>(kTaskSyncTerminateEnabled).value();
+}
+
+uint64_t SystemConfig::taskSyncTerminateTimeoutMs() const {
+  return optionalProperty<uint64_t>(kTaskSyncTerminateTimeoutMs).value();
 }
 
 bool SystemConfig::enableOldTaskCleanUp() const {

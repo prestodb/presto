@@ -188,7 +188,7 @@ Query Plan
 
 A query plan is a sequence of steps used to access and manipulate data 
 according to the SQL query. It is represented as a tree of nodes, with 
-each node loosely representing an `operator <https://prestodb.io/docs/current/overview/concepts.html#operator>`_. 
+each node loosely representing an :ref:`operator <overview/concepts:Operator>`.
 Since SQL is declarative, multiple query plans can be generated to execute 
 a given query. Because query plans can have different performance behavior, 
 Presto uses a query optimizer to choose an efficient plan.
@@ -198,17 +198,17 @@ phase of optimization transforms plans by only considering algorithmic
 complexity. The logically optimized query plan is then converted into 
 a physical query plan, which is optimized for distributed execution and 
 includes details such as the number and 
-`types <https://prestodb.io/docs/current/overview/concepts.html#server-types>`_ 
-of Presto servers which should process a query plan node, and how data is 
-`exchanged <https://prestodb.io/docs/current/overview/concepts.html#exchange>`_ 
+:ref:`types <overview/concepts:Server Types>`
+of Presto servers which should process a query plan node, and how data is
+:ref:`exchanged <overview/concepts:Exchange>`
 between them.
 
 Plan Fragment
 ^^^^^^^^^^^^^
 
-A plan fragment is a section of the physical query plan executed by 
-`tasks <https://prestodb.io/docs/current/overview/concepts.html#task>`_ on different 
-`Presto servers <https://prestodb.io/docs/current/overview/concepts.html#server-types>`_.
+A plan fragment is a section of the physical query plan executed by
+:ref:`tasks <overview/concepts:Task>` on different
+:ref:`Presto servers <overview/concepts:Server Types>`.
 
 Stage
 ^^^^^

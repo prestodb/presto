@@ -487,6 +487,45 @@ public class TestDynamicFilter
                                                         exchange(project(tableScan("nation", ImmutableMap.of("NATION_NK", "nationkey"))))))))));
     }
 
+    @Test
+    public void testScalarSubqueryWithAggregation()
+    {
+        // Regression test for https://github.com/prestodb/presto/issues/28364
+        // Verify that a scalar subquery with aggregation functions works correctly
+        // with dynamic filtering enabled. Previously, PruneUnreferencedOutputs
+        // would drop dynamic filter variables from the right side of the join,
+        // causing an IllegalArgumentException during plan optimization.
+        assertPlan(
+                "SELECT * FROM orders WHERE orderkey <= (SELECT count(*) FROM lineitem)",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                anyTree(tableScan("orders")),
+                                node(EnforceSingleRowNode.class,
+                                        anyTree(tableScan("lineitem"))))));
+
+        assertPlan(
+                "SELECT * FROM orders WHERE orderkey <= (SELECT min(orderkey) FROM lineitem)",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                anyTree(tableScan("orders")),
+                                node(EnforceSingleRowNode.class,
+                                        anyTree(tableScan("lineitem"))))));
+
+        assertPlan(
+                "SELECT * FROM orders WHERE orderkey <= (SELECT max(orderkey) FROM lineitem)",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                anyTree(tableScan("orders")),
+                                node(EnforceSingleRowNode.class,
+                                        anyTree(tableScan("lineitem"))))));
+    }
+
     private Session noJoinReordering()
     {
         return Session.builder(this.getQueryRunner().getDefaultSession())

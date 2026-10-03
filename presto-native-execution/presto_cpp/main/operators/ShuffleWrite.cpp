@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/ShuffleWrite.h"
-#include "velox/exec/ExchangeClient.h"
+#include "velox/exec/InMemoryExchangeClient.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;

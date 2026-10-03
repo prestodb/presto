@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.ColumnPosition;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -58,6 +59,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetColumnPosition;
 import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -69,8 +71,9 @@ import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
-import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowDefinition;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -104,11 +107,24 @@ public class DefaultTreeRewriter<C>
     protected Node visitAddColumn(AddColumn node, C context)
     {
         Node column = process(node.getColumn(), context);
-        if (node.getColumn() == column) {
+        Optional<ColumnPosition> position = processColumnPosition(node.getPosition(), context);
+        if (node.getColumn() == column && sameElement(node.getPosition(), position)) {
             return node;
         }
 
-        return new AddColumn(node.getName(), (ColumnDefinition) column, node.isTableExists(), node.isColumnNotExists());
+        return new AddColumn(node.getName(), (ColumnDefinition) column, position, node.isTableExists(), node.isColumnNotExists());
+    }
+
+    @Override
+    protected Node visitSetColumnPosition(SetColumnPosition node, C context)
+    {
+        Node column = process(node.getColumn(), context);
+        ColumnPosition position = processColumnPosition(node.getPosition(), context);
+        if (node.getColumn() == column && node.getPosition() == position) {
+            return node;
+        }
+
+        return new SetColumnPosition(node.getTable(), (Identifier) column, position, node.isTableExists());
     }
 
     @Override
@@ -444,9 +460,10 @@ public class DefaultTreeRewriter<C>
         Optional<GroupBy> groupBy = process(node.getGroupBy(), context);
         Optional<Expression> having = process(node.getHaving(), context);
         Optional<OrderBy> orderBy = process(node.getOrderBy(), context);
+        List<WindowDefinition> windows = process(node.getWindows(), context);
         if (node.getSelect() ==
                 select && sameElement(node.getFrom(), from) && sameElement(node.getWhere(), where) && sameElement(node.getGroupBy(), groupBy) && sameElement(node.getHaving(),
-                having) && sameElement(node.getOrderBy(), orderBy)) {
+                having) && sameElements(node.getWindows(), windows) && sameElement(node.getOrderBy(), orderBy)) {
             return node;
         }
 
@@ -456,6 +473,7 @@ public class DefaultTreeRewriter<C>
                 where,
                 groupBy,
                 having,
+                windows,
                 orderBy,
                 node.getOffset(),
                 node.getLimit());
@@ -625,7 +643,18 @@ public class DefaultTreeRewriter<C>
     }
 
     @Override
-    protected Node visitWindow(Window node, C context)
+    protected Node visitWindowDefinition(WindowDefinition node, C context)
+    {
+        Node window = process(node.getWindow(), context);
+        if (node.getWindow() == window) {
+            return node;
+        }
+
+        return new WindowDefinition(node.getName(), (WindowSpecification) window);
+    }
+
+    @Override
+    protected Node visitWindowSpecification(WindowSpecification node, C context)
     {
         List<Expression> partitionBy = process(node.getPartitionBy(), context);
         Optional<OrderBy> orderBy = process(node.getOrderBy(), context);
@@ -634,7 +663,7 @@ public class DefaultTreeRewriter<C>
             return node;
         }
 
-        return new Window(partitionBy, orderBy, frame);
+        return new WindowSpecification(node.getExistingWindowName(), partitionBy, orderBy, frame);
     }
 
     @Override
@@ -689,6 +718,31 @@ public class DefaultTreeRewriter<C>
         }
         Optional<T> result = element.map(e -> (T) process(e, context));
         return sameElement(element, result) ? element : result;
+    }
+
+    /**
+     * Rewrites the identifier of an {@code AFTER <column>} position, so a subclass that rewrites column
+     * references reaches the position target as well. {@code FIRST} carries no identifier.
+     * {@link ColumnPosition} is not a {@link Node}, so the {@code process} overloads above do not apply to it.
+     * Returns the argument itself when nothing changed, so the caller can detect that by identity.
+     */
+    private Optional<ColumnPosition> processColumnPosition(Optional<ColumnPosition> position, C context)
+    {
+        if (!position.isPresent()) {
+            return position;
+        }
+        ColumnPosition rewritten = processColumnPosition(position.get(), context);
+        return rewritten == position.get() ? position : Optional.of(rewritten);
+    }
+
+    private ColumnPosition processColumnPosition(ColumnPosition position, C context)
+    {
+        if (!(position instanceof ColumnPosition.After)) {
+            return position;
+        }
+        Identifier afterColumn = ((ColumnPosition.After) position).getColumn();
+        Node rewritten = process(afterColumn, context);
+        return afterColumn == rewritten ? position : new ColumnPosition.After((Identifier) rewritten);
     }
 
     private static <T> boolean sameElement(Optional<T> a, Optional<T> b)

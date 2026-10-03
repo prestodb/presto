@@ -281,6 +281,7 @@ public class FeaturesConfig
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean isOptimizeMultipleApproxDistinctOnSameTypeEnabled;
+    private boolean isRewriteApproxDistinctIfToMaskEnabled;
     private boolean nativeExecutionEnabled;
     private boolean disableTimeStampWithTimeZoneForNative;
     private boolean disableIPAddressForNative;
@@ -2850,6 +2851,19 @@ public class FeaturesConfig
     public boolean isOptimizeMultipleApproxDistinctOnSameTypeEnabled()
     {
         return isOptimizeMultipleApproxDistinctOnSameTypeEnabled;
+    }
+
+    public boolean isRewriteApproxDistinctIfToMaskEnabled()
+    {
+        return isRewriteApproxDistinctIfToMaskEnabled;
+    }
+
+    @Config("optimizer.rewrite-approx-distinct-if-to-mask")
+    @ConfigDescription("Move an IF condition inside approx_distinct onto the aggregation as a mask, narrowing the projection below the aggregation and the state it builds")
+    public FeaturesConfig setRewriteApproxDistinctIfToMaskEnabled(boolean isRewriteApproxDistinctIfToMaskEnabled)
+    {
+        this.isRewriteApproxDistinctIfToMaskEnabled = isRewriteApproxDistinctIfToMaskEnabled;
+        return this;
     }
 
     @Config("optimizer.optimize-multiple-approx-distinct-on-same-type")

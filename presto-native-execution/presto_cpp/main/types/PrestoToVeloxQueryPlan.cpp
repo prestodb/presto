@@ -17,6 +17,8 @@
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include <folly/container/F14Map.h>
+#include <folly/container/F14Set.h>
 #include <folly/io/IOBuf.h>
 #include <velox/type/TypeUtil.h>
 #include <velox/type/Filter.h>
@@ -1566,6 +1568,71 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
+namespace {
+
+// Returns the names of the target table columns carrying a NOT NULL
+// constraint, in the form core::InsertTableHandle::notNullColumns() and the
+// TableWriter operator match against.
+//
+// 'sourceVariables' and 'targetTableColumnNames' are parallel: the value of
+// 'sourceVariables[i]' is written to target table column
+// 'targetTableColumnNames[i]'. 'notNullSourceVariables' names the constrained
+// columns by source variable and holds no duplicates, whereas the same source
+// variable can occupy several positions of 'sourceVariables' - the planner
+// collapses identical projections, so 'INSERT INTO t (c1, c2) SELECT x, x'
+// writes one variable to two columns. Every position a constrained variable
+// occupies contributes its target table column name to the result.
+//
+// Raises a system error if a constrained source variable is absent from
+// 'sourceVariables', since enforcement for that column would otherwise be
+// dropped silently.
+folly::F14FastSet<std::string> toNotNullColumnNames(
+    const protocol::List<protocol::VariableReferenceExpression>&
+        notNullSourceVariables,
+    const protocol::List<protocol::VariableReferenceExpression>&
+        sourceVariables,
+    const protocol::List<protocol::String>& targetTableColumnNames) {
+  VELOX_CHECK_EQ(
+      sourceVariables.size(),
+      targetTableColumnNames.size(),
+      "TableWriter source variables and target table column names must have the same size");
+
+  folly::F14FastSet<std::string> notNullTargetTableColumnNames;
+  if (notNullSourceVariables.empty()) {
+    return notNullTargetTableColumnNames;
+  }
+
+  // A source variable can feed more than one target table column, so keep every
+  // target table column name it is written to. The views are into the plan
+  // node, which outlives this call.
+  folly::F14FastMap<std::string_view, std::vector<std::string_view>>
+      targetTableColumnNamesBySourceVariable;
+  targetTableColumnNamesBySourceVariable.reserve(sourceVariables.size());
+  for (size_t i = 0; i < sourceVariables.size(); ++i) {
+    targetTableColumnNamesBySourceVariable[sourceVariables[i].name].push_back(
+        targetTableColumnNames[i]);
+  }
+
+  notNullTargetTableColumnNames.reserve(notNullSourceVariables.size());
+  for (const auto& variable : notNullSourceVariables) {
+    const auto it = targetTableColumnNamesBySourceVariable.find(variable.name);
+    // The planner derives notNullColumnVariables from the same list as the
+    // TableWriter source variables, so a miss is an inconsistent plan from the
+    // coordinator rather than bad user input. Fail loudly instead of dropping
+    // the constraint silently.
+    VELOX_CHECK(
+        it != targetTableColumnNamesBySourceVariable.end(),
+        "NOT NULL column variable is not among the TableWriter source variables: {}",
+        variable.name);
+    for (const auto& targetTableColumnName : it->second) {
+      notNullTargetTableColumnNames.emplace(targetTableColumnName);
+    }
+  }
+  return notNullTargetTableColumnNames;
+}
+
+} // namespace
+
 std::shared_ptr<const core::TableWriteNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::TableWriterNode>& node,
@@ -1601,7 +1668,10 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle);
+      connectorId,
+      connectorInsertHandle,
+      toNotNullColumnNames(
+          node->notNullColumnVariables, node->columns, node->columnNames));
 
   const auto outputType = toRowType(
       generateOutputVariables(
@@ -1662,7 +1732,10 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle);
+      connectorId,
+      connectorInsertHandle,
+      toNotNullColumnNames(
+          node->notNullColumnVariables, node->columns, node->columnNames));
 
   const auto outputType = toRowType(
       generateOutputVariables(
@@ -1711,7 +1784,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, connectorInsertHandle);
+      connectorId, connectorInsertHandle, folly::F14FastSet<std::string>{});
 
   // [ICEBERG-FIX bug 1B]: Build outputType from node->outputVariables
   // — the Java QueryPlanner.plan(Delete) now declares 3 vars
@@ -1958,7 +2031,9 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         connectorId);
   }
   auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      connectorId, std::shared_ptr(std::move(veloxHandle)));
+      connectorId,
+      std::shared_ptr(std::move(veloxHandle)),
+      folly::F14FastSet<std::string>{});
 
   // 2. Translate source plan. The source is the IcebergMergeProcessorNode
   //    (Layer 3c) when the upstream pipeline went through the
@@ -2119,7 +2194,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const protocol::TaskId& taskId) {
   std::vector<core::FieldAccessTypedExprPtr> unnestFields;
   unnestFields.reserve(node->unnestVariables.size());
-  std::vector<std::string> unnestNames;
+  std::vector<std::optional<std::string>> unnestNames;
   for (const auto& [unnestField, outputVariables] : node->unnestVariables) {
     unnestFields.emplace_back(exprConverter_.toVeloxExpr(unnestField));
     for (const auto& output : outputVariables) {
@@ -2130,8 +2205,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   return std::make_shared<core::UnnestNode>(
       node->id,
       toVeloxExprs(node->replicateVariables),
-      unnestFields,
-      unnestNames,
+      std::move(unnestFields),
+      std::move(unnestNames),
       node->ordinalityVariable ? std::optional{node->ordinalityVariable->name}
                                : std::nullopt,
       std::nullopt,

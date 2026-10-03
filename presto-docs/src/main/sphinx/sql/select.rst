@@ -13,6 +13,7 @@ Synopsis
     [ WHERE condition ]
     [ GROUP BY [ ALL | DISTINCT ] grouping_element [, ...] ]
     [ HAVING condition]
+    [ WINDOW window_definition [, ...] ]
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
     [ OFFSET count [ { ROW | ROWS } ] ]
@@ -448,6 +449,88 @@ with an account balance greater than the specified value::
       1251 | MACHINERY  |         2 |  5719140
       1247 | FURNITURE  |         8 |  5701952
     (7 rows)
+
+.. _window_clause:
+
+Named WINDOW Clause
+-------------------
+
+Presto supports the SQL:2003 ``WINDOW`` clause. It appears after ``HAVING`` and
+before the query's ``ORDER BY``, and allows multiple window functions to reuse a
+window specification::
+
+    WINDOW name AS (
+      [existing_window_name]
+      [PARTITION BY expression, ...]
+      [ORDER BY sort_item, ...]
+      [frame]
+    ) [, ...]
+
+A function can use the name directly with ``OVER name``, or refine it with
+``OVER (name ...)``::
+
+    WITH t(a, b) AS (
+      VALUES (1, 10), (1, 20), (2, 5)
+    )
+    SELECT
+      a,
+      b,
+      sum(b) OVER by_a AS partition_sum,
+      sum(b) OVER (ordered ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS rolling_sum
+    FROM t
+    WINDOW by_a AS (PARTITION BY a),
+           ordered AS (by_a ORDER BY b)
+    ORDER BY a, b
+
+The result is:
+
+.. code-block:: none
+
+     a | b  | partition_sum | rolling_sum
+    ---+----+---------------+-------------
+     1 | 10 |            30 |          10
+     1 | 20 |            30 |          30
+     2 |  5 |             5 |           5
+
+Named windows follow these rules:
+
+* Names are scoped to one query specification and compared case-insensitively.
+* A definition can reference only a definition that appears earlier in the
+  same ``WINDOW`` clause.
+* A derived specification cannot add ``PARTITION BY``.
+* A derived specification cannot add ``ORDER BY`` when the referenced window
+  already has one.
+* A derived specification cannot reference a window that has a frame.
+* A direct ``OVER name`` reference uses the complete named specification,
+  including its frame.
+* Expressions declared in the ``WINDOW`` clause resolve against query inputs.
+  Parts added inline in the query's ``ORDER BY`` can resolve ``SELECT`` aliases.
+
+Unreferenced Definitions
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Every definition is analyzed, including one that no ``OVER`` clause references.
+Window functions run after grouping and aggregation, so their specifications
+can use grouping keys and aggregates. An aggregate in a definition therefore
+belongs to the surrounding query block.
+
+For example, this query aggregates two input rows and then applies ``rank()`` to
+the single result row::
+
+    SELECT 1, rank() OVER w
+    FROM (VALUES 10, 20) AS t(x)
+    WINDOW w AS (ORDER BY sum(x))
+
+It returns ``(1, 1)``. Removing the window function leaves the aggregate in the
+query specification::
+
+    SELECT 1
+    FROM (VALUES 10, 20) AS t(x)
+    WINDOW w AS (ORDER BY sum(x))
+
+This query still returns one row. Selecting ``x`` instead fails grouping
+validation because ``x`` is neither grouped nor aggregated. The unreferenced
+definition itself produces no window operator.
 
 UNION | INTERSECT | EXCEPT Clause
 ---------------------------------

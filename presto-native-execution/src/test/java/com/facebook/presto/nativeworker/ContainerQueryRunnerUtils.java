@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
@@ -48,7 +49,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 public class ContainerQueryRunnerUtils
@@ -82,19 +85,37 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/" + nodeId + "/etc/catalog/tpch.properties", properties);
     }
 
-    public static void createNativeWorkerConfigPropertiesWithFunctionServer(int coordinatorPort, int functionServerPort, String nodeId)
+    public static void createNativeWorkerConfigProperties(
+            int coordinatorPort,
+            int workerPort,
+            int functionServerPort,
+            String nodeId,
+            boolean isSidecarEnabled,
+            boolean isSidecarNode)
             throws IOException
     {
         Properties properties = new Properties();
         properties.setProperty("presto.version", "testversion");
-        properties.setProperty("http-server.http.port", "7777");
+        properties.setProperty("http-server.http.port", Integer.toString(workerPort));
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
         properties.setProperty("system-memory-gb", "2");
+
+        if (isSidecarEnabled) {
+            properties.setProperty("presto.default-namespace", "native.default");
+            properties.setProperty("native-sidecar", String.valueOf(isSidecarNode));
+        }
+
         properties.setProperty("remote-function-server.rest.url", "http://presto-remote-function-server:" + functionServerPort);
         createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
     public static void createCoordinatorConfigProperties(int port)
+            throws IOException
+    {
+        createCoordinatorConfigProperties(port, true, false);
+    }
+
+    public static void createCoordinatorConfigProperties(int port, boolean isNativeCluster, boolean isSidecarEnabled)
             throws IOException
     {
         Properties properties = new Properties();
@@ -105,15 +126,63 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("discovery-server.enabled", "true");
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + port);
         properties.setProperty("list-built-in-functions-only", "false");
-        properties.setProperty("native-execution-enabled", "true");
+        if (isSidecarEnabled) {
+            Map<String, String> sidecarProperties = NativeQueryRunnerUtils.getNativeSidecarProperties();
+            for (Map.Entry<String, String> entry : sidecarProperties.entrySet()) {
+                properties.setProperty(entry.getKey(), entry.getValue());
+            }
+            properties.setProperty("expression-optimizer-name", "native");
+        }
 
-        // Get native worker system properties and add them to the coordinator properties
-        Map<String, String> nativeWorkerProperties = NativeQueryRunnerUtils.getNativeWorkerSystemProperties();
-        for (Map.Entry<String, String> entry : nativeWorkerProperties.entrySet()) {
-            properties.setProperty(entry.getKey(), entry.getValue());
+        if (isNativeCluster) {
+            // Get native worker system properties and add them to the coordinator properties
+            Map<String, String> nativeWorkerProperties = NativeQueryRunnerUtils.getNativeWorkerSystemProperties();
+            for (Map.Entry<String, String> entry : nativeWorkerProperties.entrySet()) {
+                if (!properties.containsKey(entry.getKey())) {
+                    properties.setProperty(entry.getKey(), entry.getValue());
+                }
+            }
         }
 
         createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
+    }
+
+    public static void createJavaWorkerConfigProperties(int port, int coordinatorPort, String nodeId)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("coordinator", "false");
+        properties.setProperty("presto.version", "testversion");
+        properties.setProperty("node-scheduler.include-coordinator", "false");
+        properties.setProperty("http-server.http.port", Integer.toString(port));
+        properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
+        createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
+    }
+
+    public static void createCoordinatorSidecarProperties()
+            throws IOException
+    {
+        Properties functionNamespaceProps = new Properties();
+        functionNamespaceProps.setProperty("function-namespace-manager.name", "native");
+        functionNamespaceProps.setProperty("function-implementation-type", "CPP");
+        functionNamespaceProps.setProperty("supported-function-languages", "CPP");
+        createPropertiesFile("testcontainers/coordinator/etc/function-namespace/native.properties", functionNamespaceProps);
+
+        Properties sessionProviderProps = new Properties();
+        sessionProviderProps.setProperty("session-property-provider.name", "native-worker");
+        createPropertiesFile("testcontainers/coordinator/etc/session-property-providers/native-worker.properties", sessionProviderProps);
+
+        Properties typeManagerProps = new Properties();
+        typeManagerProps.setProperty("type-manager.name", "native");
+        createPropertiesFile("testcontainers/coordinator/etc/type-managers/native.properties", typeManagerProps);
+
+        Properties planCheckerProps = new Properties();
+        planCheckerProps.setProperty("plan-checker-provider.name", "native");
+        createPropertiesFile("testcontainers/coordinator/etc/plan-checker-providers/native.properties", planCheckerProps);
+
+        Properties expressionManagerProps = new Properties();
+        expressionManagerProps.setProperty("expression-manager-factory.name", "native");
+        createPropertiesFile("testcontainers/coordinator/etc/expression-manager/native.properties", expressionManagerProps);
     }
 
     public static void createRestRemoteProperties(int functionServerPort)
@@ -192,13 +261,7 @@ public class ContainerQueryRunnerUtils
     public static void createCoordinatorEntryPointScript()
             throws IOException
     {
-        String scriptContent = "#!/bin/sh\n" +
-                "set -e\n" +
-                "trap 'kill -TERM $app 2>/dev/null' TERM\n" +
-                "$PRESTO_HOME/bin/launcher run &\n" +
-                "app=$!\n" +
-                "wait $app";
-        createScriptFile("testcontainers/coordinator/entrypoint.sh", scriptContent);
+        createJavaEntryPointScript("coordinator");
     }
 
     public static void createFunctionServerEntryPointScript()
@@ -221,6 +284,18 @@ public class ContainerQueryRunnerUtils
         String scriptContent = "#!/bin/sh\n\n" +
                 "GLOG_logtostderr=1 presto_server \\\n" +
                 "    --etc-dir=/opt/presto-server/etc\n";
+        createScriptFile("testcontainers/" + nodeId + "/entrypoint.sh", scriptContent);
+    }
+
+    public static void createJavaEntryPointScript(String nodeId)
+            throws IOException
+    {
+        String scriptContent = "#!/bin/sh\n" +
+                "set -e\n" +
+                "trap 'kill -TERM $app 2>/dev/null' TERM\n" +
+                "$PRESTO_HOME/bin/launcher run &\n" +
+                "app=$!\n" +
+                "wait $app";
         createScriptFile("testcontainers/" + nodeId + "/entrypoint.sh", scriptContent);
     }
 
@@ -392,6 +467,9 @@ public class ContainerQueryRunnerUtils
             case java.sql.Types.VARBINARY:
             case java.sql.Types.LONGVARBINARY:
                 return VarbinaryType.VARBINARY;
+            case java.sql.Types.NULL:
+                // This happens in select fail() or similar cases
+                return VarcharType.createUnboundedVarcharType();
             case java.sql.Types.OTHER:
                 // Attempt to map based on type name
                 return mapSqlTypeNameToType(typeName);
@@ -400,9 +478,74 @@ public class ContainerQueryRunnerUtils
         }
     }
 
+    /**
+     * Splits a comma-separated list of ROW field tokens at the top level only,
+     * ignoring commas that appear inside parentheses (e.g. DECIMAL(10,2), ARRAY(...)).
+     */
+    private static List<String> splitTopLevelCommas(String input)
+    {
+        List<String> result = new ArrayList<>();
+        int depth = 0;
+        int start = 0;
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (c == '(') {
+                depth++;
+            }
+            else if (c == ')') {
+                depth--;
+            }
+            else if (c == ',' && depth == 0) {
+                result.add(input.substring(start, i));
+                start = i + 1;
+            }
+        }
+        result.add(input.substring(start));
+        return result;
+    }
+
     private static Type mapSqlTypeNameToType(String typeName)
     {
-        switch (typeName.toUpperCase()) {
+        String upperTypeName = typeName.toUpperCase(Locale.ENGLISH).trim();
+
+        // Handle flat ROW types like ROW(VARCHAR, INTEGER) or ROW(a VARCHAR, b INTEGER).
+        // Fields are split using a depth-aware scan so that parameterized types such as
+        // DECIMAL(10,2) or ARRAY(VARCHAR) are not incorrectly split on the inner commas.
+        if (upperTypeName.startsWith("ROW(") && upperTypeName.endsWith(")")) {
+            String fieldsPart = upperTypeName.substring(4, upperTypeName.length() - 1).trim();
+
+            List<String> fieldTokens = splitTopLevelCommas(fieldsPart);
+
+            List<RowType.Field> rowFields = new ArrayList<>();
+            for (int i = 0; i < fieldTokens.size(); i++) {
+                String token = fieldTokens.get(i).trim();
+
+                // Handle both: "a VARCHAR" and "VARCHAR"
+                String[] parts = token.split("\\s+", 2);
+                String fieldName;
+                String fieldType;
+
+                if (parts.length == 2) {
+                    fieldName = parts[0];
+                    fieldType = parts[1];
+                }
+                else {
+                    fieldName = "field" + i;
+                    fieldType = parts[0];
+                }
+
+                Type innerType = mapSqlTypeNameToType(fieldType);
+                rowFields.add(new RowType.Field(Optional.of(fieldName), innerType));
+            }
+
+            return RowType.from(rowFields);
+        }
+
+        // remove parameters like VARCHAR(7), DECIMAL(10,2)
+        int paramStart = upperTypeName.indexOf('(');
+        String baseType = paramStart > 0 ? upperTypeName.substring(0, paramStart) : upperTypeName;
+
+        switch (baseType) {
             case "INT":
             case "INTEGER":
             case "INT4":

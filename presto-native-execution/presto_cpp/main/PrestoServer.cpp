@@ -123,6 +123,10 @@ constexpr char const* kMacOSSharedLibExt = ".dylib";
 constexpr char const* kOptimized = "OPTIMIZED";
 constexpr char const* kEvaluated = "EVALUATED";
 constexpr char const* kProtocolConnectorId = "protocol-connector.id";
+constexpr char const* kOptimizerLevelHeader =
+    "X-Presto-Expression-Optimizer-Level";
+constexpr char const* kTimezoneHeader = "X-Presto-Time-Zone";
+constexpr char const* kSessionStartTimeHeader = "X-Presto-Session-Start-Time";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -218,14 +222,12 @@ void unregisterVeloxCudf() {
 }
 
 json::array_t getOptimizedExpressions(
-    const proxygen::HTTPHeaders& httpHeaders,
-    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    const std::string& optimizerLevelString,
+    const std::string& timezone,
+    const std::string& sessionStartTime,
+    std::string body,
     folly::Executor* executor,
     velox::memory::MemoryPool* pool) {
-  static constexpr char const* kOptimizerLevelHeader =
-      "X-Presto-Expression-Optimizer-Level";
-  const auto& optimizerLevelString =
-      httpHeaders.getSingleOrEmpty(kOptimizerLevelHeader);
   VELOX_USER_CHECK(
       (optimizerLevelString == kOptimized) ||
           (optimizerLevelString == kEvaluated),
@@ -235,16 +237,8 @@ json::array_t getOptimizedExpressions(
       ? expression::OptimizerLevel::kOptimized
       : expression::OptimizerLevel::kEvaluated;
 
-  static constexpr char const* kTimezoneHeader = "X-Presto-Time-Zone";
-  const auto& timezone = httpHeaders.getSingleOrEmpty(kTimezoneHeader);
-
-  static constexpr char const* kSessionStartTimeHeader =
-      "X-Presto-Session-Start-Time";
-  const auto& sessionStartTime =
-      httpHeaders.getSingleOrEmpty(kSessionStartTimeHeader);
-
   protocol::ExpressionOptimizationRequest request =
-      json::parse(util::extractMessageBody(body));
+      json::parse(std::move(body));
 
   const std::map<std::string, std::string> sessionProperties =
       request.sessionProperties;
@@ -838,8 +832,9 @@ void PrestoServer::stopAnnouncer() {
 void PrestoServer::joinExecutors() {
   // Join exchange HTTP CPU executor first. Exchange CPU threads run
   // PrestoExchangeSource::handleDataResponse which dispatches callbacks to
-  // driverExecutor_ (MonitoredExecutor) via ExchangeClient. We must drain
-  // these threads before destroying driverExecutor_ to avoid use-after-free.
+  // driverExecutor_ (MonitoredExecutor) via InMemoryExchangeClient. We must
+  // drain these threads before destroying driverExecutor_ to avoid
+  // use-after-free.
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Exchange Http CPU executor '"
       << exchangeHttpCpuExecutor_->getName()
@@ -1580,17 +1575,6 @@ void PrestoServer::registerFunctions() {
   functions::aggregate::theta_sketch::registerAllThetaSketchFunctions(
       prestoBuiltinFunctionPrefix_);
 #endif
-
-  // Register RPC function stubs so the sidecar's /v1/functions endpoint
-  // exposes them to the coordinator for function discovery.
-  LOG(INFO) << "[RPC] Registering RPC function stubs "
-            << "with namespace prefix '" << prestoBuiltinFunctionPrefix_ << "'";
-  velox::exec::rpc::AsyncRPCFunctionRegistry::registerStubs(
-      prestoBuiltinFunctionPrefix_);
-  LOG(INFO) << "[RPC] Registered stubs for "
-            << velox::exec::rpc::AsyncRPCFunctionRegistry::registeredFunctions()
-                   .size()
-            << " RPC function(s).";
 }
 
 void PrestoServer::registerRemoteFunctions() {
@@ -1937,52 +1921,149 @@ void PrestoServer::registerSidecarEndpoints() {
       });
   httpServer_->registerGet(
       "/v1/functions",
-      [](proxygen::HTTPMessage* /*message*/,
-         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-         proxygen::ResponseHandler* downstream) {
-        http::sendOkResponse(downstream, getFunctionsMetadata());
+      [prefix = prestoBuiltinFunctionPrefix_](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        http::sendOkResponse(
+            downstream, getFunctionsMetadata(prefix, /*catalog=*/std::nullopt));
       });
   httpServer_->registerGet(
       R"(/v1/functions/([^/]+))",
-      [](proxygen::HTTPMessage* /*message*/,
-         const std::vector<std::string>& pathMatch) {
+      [prefix = prestoBuiltinFunctionPrefix_](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::string>& pathMatch) {
         return new http::CallbackRequestHandler(
-            [catalog = pathMatch[1]](
+            [catalog = pathMatch[1], prefix](
                 proxygen::HTTPMessage* /*message*/,
                 std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
                 proxygen::ResponseHandler* downstream) {
-              http::sendOkResponse(downstream, getFunctionsMetadata(catalog));
+              http::sendOkResponse(
+                  downstream, getFunctionsMetadata(prefix, catalog));
             });
       });
   httpServer_->registerPost(
       "/v1/expressions",
       [this](
           proxygen::HTTPMessage* message,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
-          proxygen::ResponseHandler* downstream) {
+          const std::vector<std::string>& /*pathMatch*/) {
+        // Extract header values eagerly: the async closure must not retain a
+        // pointer into the handler object, which may be destroyed before the
+        // CPU-executor task runs.
         const auto& httpHeaders = message->getHeaders();
-        const auto result = getOptimizedExpressions(
-            httpHeaders, body, driverExecutor_.get(), nativeWorkerPool_.get());
-        http::sendOkResponse(downstream, result);
+        auto optimizerLevel =
+            httpHeaders.getSingleOrEmpty(kOptimizerLevelHeader);
+        auto timezone = httpHeaders.getSingleOrEmpty(kTimezoneHeader);
+        auto sessionStartTime =
+            httpHeaders.getSingleOrEmpty(kSessionStartTimeHeader);
+        return new http::CallbackRequestHandler(
+            [this,
+             optimizerLevel = std::move(optimizerLevel),
+             timezone = std::move(timezone),
+             sessionStartTime = std::move(sessionStartTime)](
+                proxygen::HTTPMessage* /*message*/,
+                std::vector<std::unique_ptr<folly::IOBuf>>& body,
+                proxygen::ResponseHandler* downstream,
+                std::shared_ptr<http::CallbackRequestHandlerState>
+                    handlerState) {
+              // Extract body on the I/O thread before dispatching to the CPU
+              // executor, consistent with createOrUpdateTaskImpl.
+              auto bodyStr = util::extractMessageBody(body);
+              folly::via(
+                  httpSrvCpuExecutor_.get(),
+                  [this,
+                   optimizerLevel = std::move(optimizerLevel),
+                   timezone = std::move(timezone),
+                   sessionStartTime = std::move(sessionStartTime),
+                   bodyStr = std::move(bodyStr)]() {
+                    return getOptimizedExpressions(
+                        optimizerLevel,
+                        timezone,
+                        sessionStartTime,
+                        std::move(bodyStr),
+                        driverExecutor_.get(),
+                        nativeWorkerPool_.get());
+                  })
+                  .thenValue([](auto&& result) {
+                    // Serialize on the CPU executor so the I/O thread only
+                    // transmits pre-built bytes.
+                    return util::dumpJson(json(result));
+                  })
+                  .via(
+                      folly::getKeepAliveToken(
+                          folly::EventBaseManager::get()->getEventBase()))
+                  .thenValue([downstream, handlerState](std::string body) {
+                    if (!handlerState->requestExpired()) {
+                      http::sendOkResponse(downstream, body);
+                    }
+                  })
+                  .thenError(
+                      folly::tag_t<std::exception>{},
+                      [downstream, handlerState](auto&& e) {
+                        LOG(ERROR)
+                            << "getOptimizedExpressions error: " << e.what();
+                        if (!handlerState->requestExpired()) {
+                          http::sendErrorResponse(downstream, e.what());
+                        }
+                      });
+            });
       });
 
   httpServer_->registerPost(
       "/v1/velox/plan",
-      [server = this](
-          proxygen::HTTPMessage* message,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
-          proxygen::ResponseHandler* downstream) {
-        std::string planFragmentJson = util::extractMessageBody(body);
-        protocol::PlanConversionResponse response = prestoToVeloxPlanConversion(
-            planFragmentJson,
-            server->nativeWorkerPool_.get(),
-            server->getVeloxPlanValidator());
-        if (response.failures.empty()) {
-          http::sendOkResponse(downstream, json(response));
-        } else {
-          http::sendResponse(
-              downstream, json(response), http::kHttpUnprocessableContent);
-        }
+      [this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::string>& /*pathMatch*/) {
+        return new http::CallbackRequestHandler(
+            [this](
+                proxygen::HTTPMessage* /*message*/,
+                std::vector<std::unique_ptr<folly::IOBuf>>& body,
+                proxygen::ResponseHandler* downstream,
+                std::shared_ptr<http::CallbackRequestHandlerState>
+                    handlerState) {
+              auto planFragmentJson = util::extractMessageBody(body);
+              folly::via(
+                  httpSrvCpuExecutor_.get(),
+                  [this, planFragmentJson = std::move(planFragmentJson)]() {
+                    return prestoToVeloxPlanConversion(
+                        planFragmentJson,
+                        nativeWorkerPool_.get(),
+                        getVeloxPlanValidator());
+                  })
+                  .thenValue([](auto&& response) {
+                    // Serialize on the CPU executor so the I/O thread only
+                    // transmits pre-built bytes.
+                    const uint16_t status = response.failures.empty()
+                        ? http::kHttpOk
+                        : http::kHttpUnprocessableContent;
+                    return std::make_pair(
+                        status, util::dumpJson(json(response)));
+                  })
+                  .via(
+                      folly::getKeepAliveToken(
+                          folly::EventBaseManager::get()->getEventBase()))
+                  .thenValue([downstream, handlerState](
+                                 std::pair<uint16_t, std::string> p) {
+                    if (!handlerState->requestExpired()) {
+                      proxygen::ResponseBuilder(downstream)
+                          .status(p.first, "")
+                          .header(
+                              proxygen::HTTP_HEADER_CONTENT_TYPE,
+                              http::kMimeTypeApplicationJson)
+                          .body(p.second)
+                          .sendWithEOM();
+                    }
+                  })
+                  .thenError(
+                      folly::tag_t<std::exception>{},
+                      [downstream, handlerState](auto&& e) {
+                        LOG(ERROR) << "prestoToVeloxPlanConversion error: "
+                                   << e.what();
+                        if (!handlerState->requestExpired()) {
+                          http::sendErrorResponse(downstream, e.what());
+                        }
+                      });
+            });
       });
 }
 
