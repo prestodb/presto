@@ -163,7 +163,7 @@ public class OptimizerAssert
     private Plan applyRules()
     {
         // Seed the allocator with the variables already in the plan, otherwise newly allocated variables can collide with existing ones
-        PlanNode actual = optimizer.optimize(plan, session, types, new VariableAllocator(types.allVariables()), idAllocator, WarningCollector.NOOP).getPlanNode();
+        PlanNode actual = optimizer.optimize(plan, session, types, new VariableAllocator(types.allVariables()), idAllocator, WarningCollector.NOOP, false).getPlanNode();
 
         if (!ImmutableSet.copyOf(plan.getOutputVariables()).equals(ImmutableSet.copyOf(actual.getOutputVariables()))) {
             fail(String.format(

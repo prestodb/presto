@@ -129,7 +129,6 @@ public class PayloadJoinOptimizer
         implements PlanOptimizer
 {
     private final Metadata metadata;
-    private boolean isEnabledForTesting;
 
     public PayloadJoinOptimizer(Metadata metadata)
     {
@@ -139,10 +138,11 @@ public class PayloadJoinOptimizer
     }
 
     @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-        if (isEnabled(session)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             PlanNode flattenedPlan = flattenJoinChains(plan, idAllocator);
             Rewriter rewriter = new PayloadJoinOptimizer.Rewriter(session, this.metadata, types, functionAndTypeManager, idAllocator, variableAllocator);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, flattenedPlan, new JoinContext());
@@ -158,15 +158,9 @@ public class PayloadJoinOptimizer
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        isEnabledForTesting = isSet;
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || isOptimizePayloadJoins(session);
+        return forceEnableOptimizer || isOptimizePayloadJoins(session);
     }
 
     private static class Rewriter

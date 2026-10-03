@@ -43,19 +43,26 @@ public final class StatsRecordingPlanOptimizer
         return delegate;
     }
 
+    @Override
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
+    {
+        return delegate.isEnabled(session, forceEnableOptimizer);
+    }
+
     public final PlanOptimizerResult optimize(
             PlanNode plan,
             Session session,
             TypeProvider types,
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean forceEnableOptimizer)
     {
         PlanOptimizerResult result;
         long duration;
         try {
             long start = System.nanoTime();
-            result = delegate.optimize(plan, session, types, variableAllocator, idAllocator, warningCollector);
+            result = delegate.optimize(plan, session, types, variableAllocator, idAllocator, warningCollector, forceEnableOptimizer);
             duration = System.nanoTime() - start;
         }
         catch (RuntimeException e) {

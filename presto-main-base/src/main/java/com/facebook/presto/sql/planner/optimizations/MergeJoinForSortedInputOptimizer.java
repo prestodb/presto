@@ -47,7 +47,6 @@ public class MergeJoinForSortedInputOptimizer
     private final Metadata metadata;
     private final boolean nativeExecution;
     private final boolean prestoOnSpark;
-    private boolean isEnabledForTesting;
 
     public MergeJoinForSortedInputOptimizer(Metadata metadata, boolean nativeExecution, boolean prestoOnSpark)
     {
@@ -57,26 +56,21 @@ public class MergeJoinForSortedInputOptimizer
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        isEnabledForTesting = isSet;
+        return forceEnableOptimizer || nativeExecution && (isGroupedExecutionEnabled(session) || prestoOnSpark) && preferMergeJoinForSortedInputs(session) && !isSingleNodeExecutionEnabled(session);
     }
 
     @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || nativeExecution && (isGroupedExecutionEnabled(session) || prestoOnSpark) && preferMergeJoinForSortedInputs(session) && !isSingleNodeExecutionEnabled(session);
-    }
-
-    @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider type, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider type, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        if (isEnabled(session)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new MergeJoinForSortedInputOptimizer.Rewriter(idAllocator, metadata, session, prestoOnSpark);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());

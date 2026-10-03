@@ -286,7 +286,7 @@ public class TestRemoveUnsupportedDynamicFilters
         return getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()).optimize(root, session, TypeProvider.empty(), new VariableAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP).getPlanNode();
+            PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()).optimize(root, session, TypeProvider.empty(), new VariableAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP, false).getPlanNode();
             new DynamicFiltersChecker().validate(rewrittenPlan, session, metadata, WarningCollector.NOOP);
             return rewrittenPlan;
         });
@@ -301,7 +301,7 @@ public class TestRemoveUnsupportedDynamicFilters
                 .build();
         return getQueryRunner().inTransaction(sessionWithProp, transactionSession -> {
             transactionSession.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(transactionSession, catalog));
-            PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()).optimize(root, transactionSession, TypeProvider.empty(), new VariableAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP).getPlanNode();
+            PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()).optimize(root, transactionSession, TypeProvider.empty(), new VariableAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP, false).getPlanNode();
             new DynamicFiltersChecker().validate(rewrittenPlan, transactionSession, metadata, WarningCollector.NOOP);
             return rewrittenPlan;
         });
