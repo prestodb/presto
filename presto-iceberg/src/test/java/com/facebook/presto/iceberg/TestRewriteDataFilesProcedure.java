@@ -288,10 +288,11 @@ public class TestRewriteDataFilesProcedure
             assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, schemaName),
                     "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
 
-            // Partition column filter and no filter with pushdown enabled: the coordinator guard
-            // passes (partition-only predicates are safe). With only 1 file per partition the
-            // min_input_files threshold is not met, so 0 files are selected and no page source is
-            // opened — the Java connector's lack of pushdown support is never triggered.
+            // Partition column filter with pushdown enabled: coordinator guard passes (safe).
+            // No filter argument with pushdown enabled: also passes.
+            // In both cases only 1 file per partition exists, so the min_input_files threshold
+            // is not met, 0 files are selected, and no page source is opened — the Java
+            // connector's lack of pushdown support is never triggered.
             assertUpdate(sessionWithFilterPushdown, format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')", tableName, schemaName), 0);
             assertUpdate(sessionWithFilterPushdown, format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName), 0);
 
