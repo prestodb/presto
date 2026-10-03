@@ -325,6 +325,7 @@ public class AddExchanges
         public PlanWithProperties visitAggregation(AggregationNode node, PreferredProperties parentPreferredProperties)
         {
             Set<VariableReferenceExpression> partitioningRequirement = ImmutableSet.copyOf(node.getGroupingKeys());
+            Optional<PartitioningProperties> adoptedPartitioning = Optional.empty();
 
             boolean preferSingleNode = hasSingleNodeExecutionPreference(node, metadata.getFunctionAndTypeManager());
             boolean hasMixedGroupingSets = node.hasEmptyGroupingSet() && node.hasNonEmptyGroupingSet();
@@ -339,7 +340,8 @@ public class AddExchanges
 
                 if (aggregationPartitioningMergingStrategy.isAdoptingMergedPreference()) {
                     checkState(preferredProperties.getGlobalProperties().isPresent() && preferredProperties.getGlobalProperties().get().getPartitioningProperties().isPresent());
-                    partitioningRequirement = ImmutableSet.copyOf(preferredProperties.getGlobalProperties().get().getPartitioningProperties().get().getPartitioningColumns());
+                    adoptedPartitioning = preferredProperties.getGlobalProperties().get().getPartitioningProperties();
+                    partitioningRequirement = ImmutableSet.copyOf(adoptedPartitioning.get().getPartitioningColumns());
                 }
             }
 
@@ -358,13 +360,21 @@ public class AddExchanges
             else if (hasMixedGroupingSets
                     || !isStreamPartitionedOn(child.getProperties(), partitioningRequirement) && !isNodePartitionedOn(child.getProperties(), partitioningRequirement)
                     && !isNodePartitionedOnAdditionalProperty(child.getProperties(), partitioningRequirement) && !isStreamPartitionedOnAdditionalProperty(child.getProperties(), partitioningRequirement)) {
+                Optional<Partitioning> exactPartitioning = adoptedPartitioning.flatMap(PartitioningProperties::getPartitioning);
+                PartitioningScheme partitioningScheme = new PartitioningScheme(
+                        exactPartitioning.isPresent() ? exactPartitioning.get() : createPartitioning(partitioningRequirement),
+                        child.getNode().getOutputVariables(),
+                        exactPartitioning.isPresent() ? Optional.empty() : node.getHashVariable());
+                if (adoptedPartitioning.map(PartitioningProperties::isTableWritePartitioning).orElse(false) &&
+                        isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(session)) {
+                    partitioningScheme = withBucketToPartition(partitioningScheme);
+                }
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 selectExchangeScopeForPartitionedRemoteExchange(child.getNode(), false),
                                 child.getNode(),
-                                createPartitioning(partitioningRequirement),
-                                node.getHashVariable()),
+                                partitioningScheme),
                         child.getProperties());
             }
             return rebaseAndDeriveProperties(node, child);
@@ -895,7 +905,14 @@ public class AddExchanges
                 boolean isSingleWriterPerPartitionRequired)
         {
             checkArgument(node instanceof TableWriterNode || node instanceof CallDistributedProcedureNode || node instanceof MergeWriterNode);
-            PlanWithProperties source = accept(node.getSources().get(0), preferredProperties);
+            PreferredProperties sourcePreferredProperties = preferredProperties;
+            if (isSingleWriterPerPartitionRequired &&
+                    nodeTablePartitioningScheme.isPresent() &&
+                    getAggregationPartitioningMergingStrategy(session).isAdoptingMergedPreference()) {
+                sourcePreferredProperties = PreferredProperties.partitionedForTableWrite(nodeTablePartitioningScheme.get().getPartitioning())
+                        .mergeWithParent(preferredProperties, true);
+            }
+            PlanWithProperties source = accept(node.getSources().get(0), sourcePreferredProperties);
 
             Optional<PartitioningScheme> shufflePartitioningScheme = nodeTablePartitioningScheme;
             if (!isSingleWriterPerPartitionRequired) {
@@ -920,13 +937,7 @@ public class AddExchanges
                             canPushdownPartialMerge(newSource.getNode(), partialMergePushdownStrategy))) {
                 PartitioningScheme exchangePartitioningScheme = shufflePartitioningScheme.get();
                 if (nodeTablePartitioningScheme.isPresent() && isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(session)) {
-                    int writerThreadsPerNode = getTaskPartitionedWriterCount(session);
-                    int bucketCount = getBucketCount(nodeTablePartitioningScheme.get().getPartitioning().getHandle());
-                    int[] bucketToPartition = new int[bucketCount];
-                    for (int i = 0; i < bucketCount; i++) {
-                        bucketToPartition[i] = i / writerThreadsPerNode;
-                    }
-                    exchangePartitioningScheme = exchangePartitioningScheme.withBucketToPartition(Optional.of(bucketToPartition));
+                    exchangePartitioningScheme = withBucketToPartition(exchangePartitioningScheme);
                 }
 
                 newSource = withDerivedProperties(
@@ -938,6 +949,17 @@ public class AddExchanges
                         newSource.getProperties());
             }
             return rebaseAndDeriveProperties(node, newSource);
+        }
+
+        private PartitioningScheme withBucketToPartition(PartitioningScheme partitioningScheme)
+        {
+            int writerThreadsPerNode = getTaskPartitionedWriterCount(session);
+            int bucketCount = getBucketCount(partitioningScheme.getPartitioning().getHandle());
+            int[] bucketToPartition = new int[bucketCount];
+            for (int i = 0; i < bucketCount; i++) {
+                bucketToPartition[i] = i / writerThreadsPerNode;
+            }
+            return partitioningScheme.withBucketToPartition(Optional.of(bucketToPartition));
         }
 
         private int getBucketCount(PartitioningHandle partitioning)
