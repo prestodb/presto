@@ -73,6 +73,8 @@ import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getQuickStatsBackgroundBuildTimeout;
 import static com.facebook.presto.hive.HiveSessionProperties.getQuickStatsInlineBuildTimeout;
 import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsNdvEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsProvableEmptyEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
@@ -166,6 +168,36 @@ public class QuickStatsProvider
         return inProgressBuilds.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, v -> v.getValue().getBuildStart()));
     }
 
+    /**
+     * Drops every cached partition statistic so the next request rebuilds it.
+     * <p>
+     * {@code buildQuickStats} caches its result unconditionally, including the UNKNOWN
+     * ({@link PartitionStatistics#empty()}) outcome, and the cache expiry defaults to 24 hours
+     * ({@code hive.quick-stats.cache-expiry}). Without this operation a coordinator that ran before a
+     * statistics-affecting change keeps serving the pre-change value for up to a day, which turns a
+     * rollout into a wait and makes a cold-cache benchmark unreproducible. Worst case for calling it
+     * is a transient re-listing cost; there is no correctness surface.
+     * <p>
+     * <b>Does not cancel in-progress builds.</b> {@code buildQuickStats} holds no reference to a cache
+     * generation and {@code inProgressBuilds} is untouched here, so a build that started before this
+     * call can complete after it and write its (pre-change) result into the freshly cleared cache. On a
+     * busy coordinator, invalidating is therefore not sufficient on its own to guarantee a cold cache
+     * for a specific partition: issue it while the coordinator is quiescent, and verify per table that
+     * the first query afterwards carries a {@code QuickStatsProvider/BuildTimeMS/<table>/<partitionId>}
+     * runtime-stat key, which is written on the build path only.
+     */
+    @Managed
+    public void invalidateQuickStatsCache()
+    {
+        partitionToStatsCache.invalidateAll();
+        // In-progress builds must be dropped too. Their results were computed before the invalidation,
+        // and because an in-progress entry is reaped asynchronously it can outlive the build that
+        // produced it -- so a request arriving just after invalidation would take the
+        // waitForInProgressBuild path and be served exactly the value the invalidation was meant to
+        // discard.
+        inProgressBuilds.clear();
+    }
+
     public Map<String, PartitionStatistics> getQuickStats(ConnectorSession session, SchemaTableName table,
             MetastoreContext metastoreContext, List<String> partitionIds)
     {
@@ -226,8 +258,17 @@ public class QuickStatsProvider
         }
         requestCount.incrementAndGet(); // New request was made to resolve quick stats for a partition
 
-        // Check if we already have stats cached in partitionIdToQuickStatsCache. If so return from cache
-        String partitionKey = String.join("/", table.toSchemaTablePrefix().toString(), partitionId);
+        // Check if we already have stats cached in partitionIdToQuickStatsCache. If so return from cache.
+        // Both quick-stats feature flags are read on the build path -- the NDV flag when converting to
+        // PartitionStatistics below, the provable-empty flag inside the builder -- so their values are
+        // baked into the cached entry. They must therefore be part of the key: otherwise the first
+        // session to trigger a build fixes the behaviour for every other session until the entry
+        // expires, and a session that turns a flag off is still served the other session's result.
+        String partitionKey = String.join("/",
+                table.toSchemaTablePrefix().toString(),
+                partitionId,
+                "ndv=" + isQuickStatsNdvEnabled(session),
+                "provableEmpty=" + isQuickStatsProvableEmptyEnabled(session));
 
         PartitionStatistics cachedValue = partitionToStatsCache.getIfPresent(partitionKey);
         if (cachedValue != null) {
@@ -303,9 +344,15 @@ public class QuickStatsProvider
 
     private PartitionStatistics waitForInProgressBuild(long waitTimeMs, String partitionKey)
     {
+        // The entry can disappear between the containsKey check that got us here and this lookup: the
+        // reaper runs asynchronously and invalidateQuickStatsCache clears the map outright.
+        InProgressBuildInfo buildInfo = inProgressBuilds.get(partitionKey);
+        if (buildInfo == null) {
+            return empty();
+        }
         try {
             // Fetch and wait for the future from the already in-progress build triggered by another query
-            return inProgressBuilds.get(partitionKey).getQuickStatsBuildFuture().get(waitTimeMs, MILLISECONDS);
+            return buildInfo.getQuickStatsBuildFuture().get(waitTimeMs, MILLISECONDS);
         }
         catch (InterruptedException | ExecutionException | TimeoutException e) {
             // The failure or timeout of the future will be logged by the query that initiated the quick stats build
@@ -393,8 +440,18 @@ public class QuickStatsProvider
         PartitionQuickStats partitionQuickStats = PartitionQuickStats.EMPTY;
         Stopwatch buildStopwatch = Stopwatch.createStarted();
         // Build quick stats one by one from statsBuilderStrategies. Do this until we get a non-empty PartitionQuickStats
+        boolean listingIsPristine = true;
         for (QuickStatsBuilder strategy : statsBuilderStrategies) {
             partitionQuickStats = strategy.buildQuickStats(session, metastore, table, metastoreContext, partitionId, fileList);
+
+            // All strategies share one Iterator over the directory listing, so only the first strategy
+            // sees it unconsumed. A later strategy would observe an exhausted iterator, which is
+            // indistinguishable from "no files" and would let it claim a provable zero for a partition
+            // that actually has data. Emptiness may therefore only be proven from a pristine listing.
+            if (!listingIsPristine && partitionQuickStats == PartitionQuickStats.PROVABLY_EMPTY) {
+                partitionQuickStats = PartitionQuickStats.EMPTY;
+            }
+            listingIsPristine = false;
 
             if (partitionQuickStats != PartitionQuickStats.EMPTY) {
                 // Strategy successfully resolved stats, don't explore other strategies
@@ -407,7 +464,7 @@ public class QuickStatsProvider
         session.getRuntimeStats().addMetricValue("QuickStatsProvider/BuildTimeMS/" + partitionKey, RuntimeUnit.NONE, buildMillis);
         buildDuration.add(buildMillis, MILLISECONDS);
 
-        PartitionStatistics partitionStatistics = PartitionQuickStats.convertToPartitionStatistics(partitionQuickStats);
+        PartitionStatistics partitionStatistics = PartitionQuickStats.convertToPartitionStatistics(partitionQuickStats, isQuickStatsNdvEnabled(session));
 
         // Update the cache with the computed partition stats
         partitionToStatsCache.put(partitionKey, partitionStatistics);

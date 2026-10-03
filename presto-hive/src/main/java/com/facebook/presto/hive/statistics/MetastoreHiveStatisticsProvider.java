@@ -77,6 +77,7 @@ import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getPartitionStatisticsSampleSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isIgnoreCorruptedStatistics;
 import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsProvableEmptyEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
@@ -140,7 +141,10 @@ public class MetastoreHiveStatisticsProvider
             PartitionStatistics tableStatistics = metastore.getTableStatistics(metastoreContext, table.getSchemaName(), table.getTableName());
             if (isQuickStatsEnabled(session) &&
                     (tableStatistics.equals(empty()) || tableStatistics.getColumnStatistics().isEmpty())) {
-                tableStatistics = quickStatsProvider.getQuickStats(session, table, metastoreContext, UNPARTITIONED_ID.getPartitionName());
+                PartitionStatistics quickStats = quickStatsProvider.getQuickStats(session, table, metastoreContext, UNPARTITIONED_ID.getPartitionName());
+                if (isInformative(session, quickStats)) {
+                    tableStatistics = quickStats;
+                }
             }
             return ImmutableMap.of(UNPARTITIONED_ID.getPartitionName(), tableStatistics);
         }
@@ -159,12 +163,42 @@ public class MetastoreHiveStatisticsProvider
             Map<String, PartitionStatistics> partitionQuickStats = quickStatsProvider.getQuickStats(session, table, metastoreContext, partitionsWithNoStats);
 
             HashMap<String, PartitionStatistics> mergedMap = new HashMap<>(partitionStatistics);
-            mergedMap.putAll(partitionQuickStats);
+            partitionQuickStats.forEach((partitionId, quickStats) -> {
+                if (isInformative(session, quickStats)) {
+                    mergedMap.put(partitionId, quickStats);
+                }
+            });
             return ImmutableMap.copyOf(mergedMap);
         }
         else {
             return partitionStatistics;
         }
+    }
+
+    /**
+     * Whether a quick stats result carries information, i.e. is worth writing over what the metastore
+     * already reported.
+     * <p>
+     * A quick stats build that resolves to UNKNOWN returns {@link PartitionStatistics#empty()}, and
+     * merging that over the metastore's answer replaces a <b>known</b> row count with NaN at
+     * {@link #calculateAverageRowsPerPartition} -- for any row count, not only zero. UNKNOWN is
+     * routine and does not mean anything is wrong: a non-Parquet serde, a format the emptiness proof
+     * refuses, a concurrent in-progress build, an inline build timeout, or a footer read that threw
+     * all produce it ({@code QuickStatsProvider}). The metastore's own basic statistics are a better
+     * answer than NaN in every one of those cases.
+     * <p>
+     * Deliberately <b>not</b> conditioned on the row count being zero: this guard is about not
+     * discarding information, never about trusting a metastore-reported zero. A metastore zero is
+     * still handed to quick stats, so a file-count proof can and does correct it.
+     * <p>
+     * Gated on the provable-empty kill-switch, so with
+     * {@code hive.quick-stats.provable-empty-enabled=false} the merge is byte-identical to the
+     * pre-change behavior (unconditional overwrite).
+     */
+    @VisibleForTesting
+    static boolean isInformative(ConnectorSession session, PartitionStatistics quickStats)
+    {
+        return !isQuickStatsProvableEmptyEnabled(session) || !quickStats.equals(empty());
     }
 
     @Override
