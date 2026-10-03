@@ -4122,6 +4122,16 @@ public class TestSqlParser
     }
 
     @Test
+    public void testFormatNestedTableVersion()
+    {
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("WITH t AS (SELECT id FROM table1 FOR VERSION AS OF 12345) SELECT * FROM t"));
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("SELECT * FROM (SELECT * FROM table1 FOR VERSION BEFORE 12345)"));
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("SELECT * FROM (SELECT * FROM table1 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles') t"));
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("SELECT * FROM table1 WHERE id IN (SELECT id FROM table2 FOR VERSION AS OF 'branch-name')"));
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("INSERT INTO table2 SELECT * FROM (SELECT * FROM table1 FOR VERSION AS OF 12345)"));
+    }
+
+    @Test
     public void testSelectWithBeforeVersion()
     {
         assertStatement("SELECT * FROM table1 FOR VERSION BEFORE 8772871542276440693",
