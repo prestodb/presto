@@ -633,7 +633,8 @@ public abstract class TestIcebergDistributedQueries
         session = assertEndTransaction(txnSession2, "commit");
 
         // Fail to commit transaction1 which includes the action for renaming column "b"
-        assertQueryFails(txnSession1, "commit", "Table metadata refresh is required");
+        assertQueryFails(txnSession1, "commit", "Failed to commit changes to the Iceberg table " +
+                "tpch.test_schema_conflict_between_transactions because it was concurrently modified");
 
         assertQuery(session, "select * from " + tableName, "values(1), (5)");
         assertQuery(getSession(), "select * from " + tableName, "values(1), (5)");
