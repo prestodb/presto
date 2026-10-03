@@ -3994,6 +3994,40 @@ public class TestMaterializedViewQueryOptimizer
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
+    @Test
+    public void testJoinMultipleMaterializedViewsUnqualifiedColumnCoverage()
+    {
+        // Base table t1 has columns (a, b, c, d).
+        // view_1 covers (a, b). view_2 covers (a).
+        // Query references unqualified columns 'a' and 'b' in JOIN.
+        // view_2 only has 'a' and does not cover 'b', so it should not be chosen when 'b' is required.
+        // The optimizer should successfully match view_1 which covers both 'a' and 'b'.
+        String viewSql1 = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String viewSql2 = format("SELECT a FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT t1.b, a FROM %s t1, %s t2 WHERE t1.a = t2.a",
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT t1.b, a FROM %s t1, %s t2 WHERE t1.a = t2.a",
+                VIEW_1_QUALIFIED, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(
+                BASE_TABLE_1, ImmutableMap.of(VIEW_2, viewSql2, VIEW_1, viewSql1)));
+    }
+
+    @Test
+    public void testJoinUnqualifiedColumnNotCoveredByMvRejectsRewrite()
+    {
+        // view_1 covers (a). Query selects unqualified 'b' from t1.
+        // view_1 should be rejected because 'b' belongs to t1 and is not covered by view_1.
+        String originalViewSql = format("SELECT a FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT t1.a, b FROM %s t1, %s t2 WHERE t1.a = t2.a",
+                BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
     private void assertOptimizedQuery(String baseQuerySql, String expectedViewSql, String originalViewSql, String baseTableName, String originalViewName)
     {
         transaction(transactionManager, accessControl)
@@ -4014,16 +4048,19 @@ public class TestMaterializedViewQueryOptimizer
                                     ImmutableList.of(new SchemaTableName(SESSION_SCHEMA, baseTableName))),
                             false);
 
-                    Query optimizedBaseToViewQuery = (Query) new MaterializedViewQueryOptimizer(
-                            metadata,
-                            session,
-                            SQL_PARSER,
-                            accessControl,
-                            domainTranslator)
-                            .process(baseQuery);
-                    assertEquals(optimizedBaseToViewQuery, expectedViewQuery);
-
-                    metadata.dropMaterializedView(session, QualifiedObjectName.valueOf(TPCH_CATALOG, SESSION_SCHEMA, baseTableName));
+                    try {
+                        Query optimizedBaseToViewQuery = (Query) new MaterializedViewQueryOptimizer(
+                                metadata,
+                                session,
+                                SQL_PARSER,
+                                accessControl,
+                                domainTranslator)
+                                .process(baseQuery);
+                        assertEquals(optimizedBaseToViewQuery, expectedViewQuery);
+                    }
+                    finally {
+                        metadata.dropMaterializedView(session, QualifiedObjectName.valueOf(TPCH_CATALOG, SESSION_SCHEMA, originalViewName));
+                    }
                 });
     }
 
@@ -4055,17 +4092,20 @@ public class TestMaterializedViewQueryOptimizer
                         }
                     }
 
-                    Query optimizedBaseToViewQuery = (Query) new MaterializedViewQueryOptimizer(
-                            metadata,
-                            session,
-                            SQL_PARSER,
-                            accessControl,
-                            domainTranslator)
-                            .process(baseQuery);
-                    assertEquals(optimizedBaseToViewQuery, expectedViewQuery);
-
-                    for (QualifiedObjectName materializedView : createdMaterializedViews) {
-                        metadata.dropMaterializedView(session, materializedView);
+                    try {
+                        Query optimizedBaseToViewQuery = (Query) new MaterializedViewQueryOptimizer(
+                                metadata,
+                                session,
+                                SQL_PARSER,
+                                accessControl,
+                                domainTranslator)
+                                .process(baseQuery);
+                        assertEquals(optimizedBaseToViewQuery, expectedViewQuery);
+                    }
+                    finally {
+                        for (QualifiedObjectName materializedView : createdMaterializedViews) {
+                            metadata.dropMaterializedView(session, materializedView);
+                        }
                     }
                 });
     }
