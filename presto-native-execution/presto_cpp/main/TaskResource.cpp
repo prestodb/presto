@@ -15,6 +15,7 @@
 #include <glog/logging.h>
 #include <presto_cpp/main/common/Exception.h>
 #include <typeinfo>
+#include "presto_cpp/main/PlanDump.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
@@ -31,6 +32,15 @@ namespace {
 // it will never read from the task again, so the task can be released now
 // rather than left for the periodic cleanOldTasks() sweep.
 constexpr const char* kDropTaskOnDeleteUrlParam{"dropTaskOnDelete"};
+
+// Returns the 'plan-dump-dir' directory, or nullopt if plan dumping is off.
+std::optional<std::string> planDumpDir() {
+  auto dir = SystemConfig::instance()->planDumpDir();
+  if (!dir.has_value() || dir->empty()) {
+    return std::nullopt;
+  }
+  return dir.value();
+}
 
 void sendTaskNotFound(
     proxygen::ResponseHandler* downstream,
@@ -371,6 +381,11 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
             pool_);
         auto planFragment = converter.toVeloxQueryPlan(
             prestoPlan, updateRequest.tableWriteInfo, taskId);
+        // Dump before checking the plan so that rejected plans are captured.
+        if (const auto dumpDir = planDumpDir()) {
+          dumpVeloxPlan(*dumpDir, taskId, planFragment.planNode);
+          dumpSplits(*dumpDir, taskId, updateRequest.sources);
+        }
         if (SystemConfig::instance()->planConsistencyCheckEnabled()) {
           velox::core::PlanConsistencyChecker::check(planFragment.planNode);
         }
@@ -407,6 +422,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
         }
         velox::core::PlanFragment planFragment;
         std::shared_ptr<velox::core::QueryCtx> queryCtx;
+        const auto dumpDir = planDumpDir();
         if (updateRequest.fragment) {
           protocol::PlanFragment prestoPlan = json::parse(
               receiveThrift
@@ -421,10 +437,20 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
 
           planFragment = converter.toVeloxQueryPlan(
               prestoPlan, updateRequest.tableWriteInfo, taskId);
+          // Dump before checking the plan so that rejected plans are captured.
+          if (dumpDir) {
+            dumpVeloxPlan(*dumpDir, taskId, planFragment.planNode);
+          }
           if (SystemConfig::instance()->planConsistencyCheckEnabled()) {
             velox::core::PlanConsistencyChecker::check(planFragment.planNode);
           }
           planValidator_->validatePlanFragment(planFragment);
+        }
+
+        // Dump splits on every task update (not only the first one with a
+        // fragment) because Presto sends splits in subsequent requests.
+        if (dumpDir) {
+          dumpSplits(*dumpDir, taskId, updateRequest.sources);
         }
 
         return taskManager_.createOrUpdateTask(

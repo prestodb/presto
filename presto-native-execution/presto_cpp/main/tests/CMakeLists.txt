@@ -16,6 +16,7 @@ add_executable(
   CoordinatorDiscovererTest.cpp
   HttpServerWrapper.cpp
   PeriodicMemoryCheckerTest.cpp
+  PlanDumpTest.cpp
   PrestoExchangeSourceTest.cpp
   PrestoTaskTest.cpp
   PrestoToVeloxQueryConfigTest.cpp

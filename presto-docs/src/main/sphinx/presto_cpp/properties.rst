@@ -709,6 +709,20 @@ This is to prevent spiky fluctuation of the overloaded status.
 If true, the worker starts queuing new tasks when overloaded, and
 starts them gradually when it stops being overloaded.
 
+``plan-dump-dir``
+^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** (not set; plan dumping disabled)
+
+When set to a directory path, the worker writes each task's Velox plan (as JSON)
+to ``<task-id>.json`` and accumulates task-source splits in
+``<task-id>.splits.json``. Filenames are derived from a sanitized task ID,
+where characters other than letters, digits, ``_``, ``-``, and ``.`` become ``_``.
+Splits that the coordinator re-sends are recorded only once.
+Useful for extracting plans from TPC-DS/TPC-H queries run via Presto to build
+Velox test plans like TpcdsQueryBuilder-style plans.
+
 Environment Variables As Values For Worker Properties
 -----------------------------------------------------
 
