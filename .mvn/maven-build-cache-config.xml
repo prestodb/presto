@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cache xmlns="http://maven.apache.org/BUILD-CACHE/1.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/BUILD-CACHE/1.0.0 http://maven.apache.org/xsd/build-cache-1.0.0.xsd">
+	<configuration>
+		<enabled>true</enabled>
+		<hashAlgorithm>XX</hashAlgorithm>
+		<attachedOutputs>
+			<dirNames>
+				<dirName>classes</dirName>
+				<dirName>test-classes</dirName>
+				<dirName>generated-sources</dirName>
+				<dirName>generated-test-sources</dirName>
+				<dirName>maven-archiver</dirName>
+				<dirName>maven-status</dirName>
+				<dirName>site</dirName>
+				<dirName glob="checkstyle-cachefile"></dirName>
+				<dirName glob="checkstyle-checker.xml"></dirName>
+				<dirName glob="checkstyle-result.xml"></dirName>
+			</dirNames>
+		</attachedOutputs>
+	</configuration>
+	<executionControl>
+		<runAlways>
+			<plugins>
+				<!-- Forces Takari plugins to execute normally instead of failing on state restoration -->
+				<plugin groupId="io.takari.maven.plugins" artifactId="takari-lifecycle-plugin"/>
+			</plugins>
+		</runAlways>
+	</executionControl>
+</cache>
