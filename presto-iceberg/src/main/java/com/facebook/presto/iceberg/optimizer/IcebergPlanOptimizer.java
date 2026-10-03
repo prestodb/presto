@@ -65,6 +65,7 @@ import static com.facebook.presto.common.Utils.nativeValueToBlock;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.iceberg.ExpressionConverter.isNullSensitiveOnRequiredField;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.toSubfield;
 import static com.facebook.presto.iceberg.IcebergPageSink.adjustTimestampForPartitionTransform;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
@@ -282,6 +283,9 @@ public class IcebergPlanOptimizer
         // See: https://github.com/apache/iceberg/issues/15128
         // todo: This restrict could be removed once the Iceberg issue is resolved.
         if (columnHandle.getType() == VARBINARY) {
+            return false;
+        }
+        if (isNullSensitiveOnRequiredField(table.schema().findField(columnHandle.getId()), domain)) {
             return false;
         }
         return table.specs().values().stream()

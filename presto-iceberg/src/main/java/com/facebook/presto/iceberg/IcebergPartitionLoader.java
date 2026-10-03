@@ -104,7 +104,7 @@ public class IcebergPartitionLoader
                     .metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats))
                     .filter(toIcebergExpression(getNonMetadataColumnConstraints(constraint
                             .getSummary()
-                            .simplify())))
+                            .simplify()), icebergTable.schema()))
                     .useSnapshot(snapshotId.get());
         }
         this.runtimeStats = runtimeStats;

@@ -146,7 +146,7 @@ public class IcebergAggregationOptimizer
                 return context.defaultRewrite(node);
             }
 
-            Expression filter = toIcebergExpression(predicate);
+            Expression filter = toIcebergExpression(predicate, table.schema());
             // Fold min/max/count aggregations to a constant value
             return reduce(node, tableScan.getAssignments(), table.schema(), table, tableHandle.getIcebergTableName().getSnapshotId(), filter);
         }

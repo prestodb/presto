@@ -37,7 +37,9 @@ import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.types.Types;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -74,7 +76,7 @@ public final class ExpressionConverter
 {
     private ExpressionConverter() {}
 
-    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain)
+    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain, Schema schema)
     {
         if (tupleDomain.isAll()) {
             return alwaysTrue();
@@ -93,9 +95,23 @@ public final class ExpressionConverter
                 Subfield pushedDownSubfield = getPushedDownSubfield(columnHandle);
                 columnName = pushdownColumnNameForSubfield(pushedDownSubfield);
             }
+            if (isNullSensitiveOnRequiredField(schema.findField(columnName), domain)) {
+                continue;
+            }
             expression = and(expression, toIcebergExpression(columnName, columnHandle.getType(), domain));
         }
         return expression;
+    }
+
+    /**
+     * Iceberg evaluates IS NULL on a required field as false and IS NOT NULL as true without reading
+     * any data. SET NOT NULL does not rewrite data files, so files written before a column became
+     * required can still hold NULLs for it: a domain that admits NULL, or that excludes only NULL, on a
+     * required field can be neither pushed into Iceberg nor enforced by it.
+     */
+    public static boolean isNullSensitiveOnRequiredField(Types.NestedField field, Domain domain)
+    {
+        return field != null && field.isRequired() && (domain.isNullAllowed() || domain.getValues().isAll());
     }
 
     public static String pushdownColumnNameForSubfield(Subfield subfield)

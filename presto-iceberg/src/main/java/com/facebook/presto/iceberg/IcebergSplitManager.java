@@ -120,7 +120,7 @@ public class IcebergSplitManager
 
             TableScan baseScan = icebergTable.newScan()
                     .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
-                    .filter(toIcebergExpression(predicate))
+                    .filter(toIcebergExpression(predicate, icebergTable.schema()))
                     .useSnapshot(table.getIcebergTableName().getSnapshotId().get())
                     .planWith(executor);
             // Iceberg's planFiles() strips column stats unless includeColumnStats() is requested.
