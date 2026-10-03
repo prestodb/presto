@@ -20,6 +20,7 @@ public class JdbcMetadataCacheStats
 {
     private LoadingCache<?, ?> tableHandleCache;
     private LoadingCache<?, ?> columnHandlesCache;
+    private volatile LoadingCache<?, ?> tableStatisticsCache;
 
     public void setTableHandleCache(LoadingCache<?, ?> tableHandleCache)
     {
@@ -29,6 +30,11 @@ public class JdbcMetadataCacheStats
     public void setColumnHandlesCache(LoadingCache<?, ?> columnHandlesCache)
     {
         this.columnHandlesCache = columnHandlesCache;
+    }
+
+    public void setTableStatisticsCache(LoadingCache<?, ?> tableStatisticsCache)
+    {
+        this.tableStatisticsCache = tableStatisticsCache;
     }
 
     @Managed
@@ -77,5 +83,47 @@ public class JdbcMetadataCacheStats
     public long getColumnHandlesCacheSize()
     {
         return columnHandlesCache.size();
+    }
+
+    @Managed
+    public long getTableStatisticsCacheHit()
+    {
+        return tableStatisticsCache == null ? 0 : tableStatisticsCache.stats().hitCount();
+    }
+
+    @Managed
+    public long getTableStatisticsCacheMiss()
+    {
+        return tableStatisticsCache == null ? 0 : tableStatisticsCache.stats().missCount();
+    }
+
+    @Managed
+    public long getTableStatisticsCacheEviction()
+    {
+        return tableStatisticsCache == null ? 0 : tableStatisticsCache.stats().evictionCount();
+    }
+
+    @Managed
+    public long getTableStatisticsCacheSize()
+    {
+        return tableStatisticsCache == null ? 0 : tableStatisticsCache.size();
+    }
+
+    @Managed
+    public long getTableStatisticsCacheLoadSuccessCount()
+    {
+        return tableStatisticsCache == null ? 0 : tableStatisticsCache.stats().loadSuccessCount();
+    }
+
+    @Managed
+    public long getTableStatisticsCacheLoadExceptionCount()
+    {
+        return tableStatisticsCache == null ? 0 : tableStatisticsCache.stats().loadExceptionCount();
+    }
+
+    @Managed
+    public double getTableStatisticsCacheAverageLoadPenalty()
+    {
+        return tableStatisticsCache == null ? 0 : tableStatisticsCache.stats().averageLoadPenalty();
     }
 }
