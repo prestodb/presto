@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -289,5 +290,35 @@ public class JdbcMetadata
     public Optional<Object> getInfo(ConnectorTableLayoutHandle tableHandle)
     {
         return Optional.of(new JdbcInputInfo(url));
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return jdbcClient.listViews(session, schemaName);
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return jdbcClient.getViews(session, prefix);
+    }
+
+    @Override
+    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
+    {
+        jdbcClient.createView(session, viewMetadata, viewData, replace);
+    }
+
+    @Override
+    public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        jdbcClient.renameView(session, viewName, newViewName);
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        jdbcClient.dropView(session, viewName);
     }
 }
