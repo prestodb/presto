@@ -1453,7 +1453,7 @@ public final class SqlFormatter
         private String formatColumnDefinition(ColumnDefinition column)
         {
             StringBuilder sb = new StringBuilder()
-                    .append(formatExpression(column.getName(), parameters))
+                    .append(formatName(column.getName()))
                     .append(" ").append(column.getType());
             if (!column.isNullable()) {
                 sb.append(" NOT NULL");

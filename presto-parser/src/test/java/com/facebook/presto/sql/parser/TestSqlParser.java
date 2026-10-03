@@ -1346,15 +1346,15 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "IPADDRESS", true, emptyList(), Optional.empty())),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "IPADDRESS", true, emptyList(), Optional.empty())),
                         false,
                         ImmutableList.of(),
                         Optional.empty()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
                 new CreateTable(QualifiedName.of("bar"),
-                        ImmutableList.of(new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty())),
+                        ImmutableList.of(new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "TIMESTAMP", true, emptyList(), Optional.empty())),
                         true,
                         ImmutableList.of(),
                         Optional.empty()));
@@ -1362,7 +1362,7 @@ public class TestSqlParser
         // with properties
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP WITH (nullable = true, compression = 'LZ4'))",
                 new CreateTable(QualifiedName.of("bar"),
-                        ImmutableList.of(new ColumnDefinition(identifier("c"), "TIMESTAMP", true, ImmutableList.of(
+                        ImmutableList.of(new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "TIMESTAMP", true, ImmutableList.of(
                                 new Property(new Identifier("nullable"), BooleanLiteral.TRUE_LITERAL),
                                 new Property(new Identifier("compression"), new StringLiteral("LZ4"))
                         ), Optional.empty())),
@@ -1382,7 +1382,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "TIMESTAMP", true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty())),
                         true,
@@ -1391,10 +1391,10 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table, d DATE)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "TIMESTAMP", true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty()),
-                                new ColumnDefinition(identifier("d"), "DATE", true, emptyList(), Optional.empty())),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("d"))), "DATE", true, emptyList(), Optional.empty())),
                         true,
                         ImmutableList.of(),
                         Optional.empty()));
@@ -1409,7 +1409,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "TIMESTAMP", true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
@@ -1418,7 +1418,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES) COMMENT 'test'",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "TIMESTAMP", true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
@@ -1438,10 +1438,10 @@ public class TestSqlParser
                 new CreateTable(
                         QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", false, emptyList(), Optional.of("column a")),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "IPADDRESS", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("d"), "DATE", false, emptyList(), Optional.empty())),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", false, emptyList(), Optional.of("column a")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "IPADDRESS", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("d"))), "DATE", false, emptyList(), Optional.empty())),
                         false,
                         ImmutableList.of(),
                         Optional.empty()));
@@ -2106,53 +2106,53 @@ public class TestSqlParser
     public void testAddColumn()
     {
         assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), false, false));
+                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "bigint", true, emptyList(), Optional.empty()), false, false));
         assertStatement("ALTER TABLE foo.t ADD COLUMN d double NOT NULL", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), false, false));
+                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("d"))), "double", false, emptyList(), Optional.empty()), false, false));
 
         assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN d double NOT NULL",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), true, false));
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("d"))), "double", false, emptyList(), Optional.empty()), true, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), false, true));
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("d"))), "double", false, emptyList(), Optional.empty()), false, true));
 
         assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), true, true));
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("d"))), "double", false, emptyList(), Optional.empty()), true, true));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN country varchar DEFAULT 'IN'",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("IN"))), false, false));
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("country"))), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("IN"))), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN status varchar NOT NULL DEFAULT 'ACTIVE'",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("status"), "varchar", false, emptyList(), Optional.empty(), Optional.of(new StringLiteral("ACTIVE"))), false, false));
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("status"))), "varchar", false, emptyList(), Optional.empty(), Optional.of(new StringLiteral("ACTIVE"))), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN priority integer DEFAULT 5",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("priority"), "integer", true, emptyList(), Optional.empty(), Optional.of(new LongLiteral("5"))), false, false));
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("priority"))), "integer", true, emptyList(), Optional.empty(), Optional.of(new LongLiteral("5"))), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN score double DEFAULT 0.0E0",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("score"), "double", true, emptyList(), Optional.empty(), Optional.of(new DoubleLiteral("0.0E0"))), false, false));
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("score"))), "double", true, emptyList(), Optional.empty(), Optional.of(new DoubleLiteral("0.0E0"))), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN is_active boolean DEFAULT true",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("is_active"), "boolean", true, emptyList(), Optional.empty(), Optional.of(BooleanLiteral.TRUE_LITERAL)), false, false));
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("is_active"))), "boolean", true, emptyList(), Optional.empty(), Optional.of(BooleanLiteral.TRUE_LITERAL)), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN is_deleted boolean DEFAULT false",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("is_deleted"), "boolean", true, emptyList(), Optional.empty(), Optional.of(BooleanLiteral.FALSE_LITERAL)), false, false));
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("is_deleted"))), "boolean", true, emptyList(), Optional.empty(), Optional.of(BooleanLiteral.FALSE_LITERAL)), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS country varchar DEFAULT 'US'",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("US"))), false, true));
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("country"))), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("US"))), false, true));
 
         assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN country varchar DEFAULT 'UK'",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("UK"))), true, false));
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("country"))), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("UK"))), true, false));
     }
 
     @Test
@@ -2160,34 +2160,34 @@ public class TestSqlParser
     {
         // No clause at all leaves the position absent, so connectors keep the pre-existing append behavior
         assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), Optional.empty(), false, false));
+                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "bigint", true, emptyList(), Optional.empty()), Optional.empty(), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint FIRST", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.First()), false, false));
+                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "bigint", true, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.First()), false, false));
 
         assertInvalidStatement("ALTER TABLE foo.t ADD COLUMN c bigint LAST", ".*mismatched input 'LAST'.*");
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint AFTER b", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.After(identifier("b"))), false, false));
+                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "bigint", true, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.After(identifier("b"))), false, false));
 
         // The clause composes with every other modifier of ADD COLUMN
         assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN IF NOT EXISTS c bigint NOT NULL AFTER b",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("c"), "bigint", false, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.After(identifier("b"))), true, true));
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "bigint", false, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.After(identifier("b"))), true, true));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN country varchar DEFAULT 'IN' FIRST",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("IN"))),
+                        new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("country"))), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("IN"))),
                         Optional.of(new ColumnPosition.First()), false, false));
 
         // AFTER remains usable as an identifier, both as the new column name and as the target
         assertStatement("ALTER TABLE foo.t ADD COLUMN after bigint AFTER after", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("after"), "bigint", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("after"))), "bigint", true, emptyList(), Optional.empty()),
                 Optional.of(new ColumnPosition.After(identifier("after"))), false, false));
 
         // A delimited target keeps its case
         assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint AFTER \"MixedCase\"", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "bigint", true, emptyList(), Optional.empty()),
                 Optional.of(new ColumnPosition.After(new Identifier("MixedCase", true))), false, false));
     }
 
@@ -2260,6 +2260,89 @@ public class TestSqlParser
 
         // The position is required, since moving a column is the only thing the statement does
         assertInvalidStatement("ALTER TABLE foo.t ALTER COLUMN c", "mismatched input '<EOF>'.*");
+    }
+
+    @Test
+    public void testAddNestedField()
+    {
+        // Single-level struct: ADD COLUMN parent.new_field type — parsed as AddColumn with a 2-part name
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("col", "new_field"), "VARCHAR", true, emptyList(), Optional.empty()),
+                        Optional.empty(),
+                        false,
+                        false));
+
+        // IF EXISTS on table
+        assertStatement(
+                "ALTER TABLE IF EXISTS foo.t ADD COLUMN col.new_field BIGINT",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("col", "new_field"), "BIGINT", true, emptyList(), Optional.empty()),
+                        Optional.empty(),
+                        true,
+                        false));
+
+        // IF NOT EXISTS on field
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS col.new_field INTEGER",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("col", "new_field"), "INTEGER", true, emptyList(), Optional.empty()),
+                        Optional.empty(),
+                        false,
+                        true));
+
+        // NOT NULL and COMMENT now parse successfully (grammar accepts them); task-level rejection is
+        // tested in IcebergDistributedSmokeTestBase via assertQueryFails with NOT_SUPPORTED.
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR NOT NULL",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("col", "new_field"), "VARCHAR", false, emptyList(), Optional.empty()),
+                        Optional.empty(),
+                        false,
+                        false));
+
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR COMMENT 'a comment'",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("col", "new_field"), "VARCHAR", true, emptyList(), Optional.of("a comment")),
+                        Optional.empty(),
+                        false,
+                        false));
+
+        // Multi-level nesting: parent path has two parts
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN outer_col.inner_col.new_field DOUBLE",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("outer_col", "inner_col", "new_field"), "DOUBLE", true, emptyList(), Optional.empty()),
+                        Optional.empty(),
+                        false,
+                        false));
+
+        // Quoted field name: isDelimited must be preserved through the round-trip
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.\"new field\" VARCHAR",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(
+                                QualifiedName.of(ImmutableList.of(identifier("col"), quotedIdentifier("new field"))),
+                                "VARCHAR", true, emptyList(), Optional.empty()),
+                        Optional.empty(),
+                        false,
+                        false));
     }
 
     @Test
@@ -3653,9 +3736,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, true, true, true)),
                         false,
                         ImmutableList.of(),
@@ -3664,9 +3747,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, PRIMARY KEY (c,b))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("c", "b"), PRIMARY_KEY, true, true, true)),
                         false,
                         ImmutableList.of(),
@@ -3675,9 +3758,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true)),
                         false,
                         ImmutableList.of(),
@@ -3686,9 +3769,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c,b))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("c", "b"), UNIQUE, true, true, true)),
                         false,
                         ImmutableList.of(),
@@ -3698,9 +3781,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) ENABLED RELY ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true)),
                         false,
                         ImmutableList.of(),
@@ -3709,9 +3792,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) ENABLED NOT RELY ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, false, true)),
                         false,
                         ImmutableList.of(),
@@ -3720,9 +3803,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) RELY ENFORCED DISABLED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, false, true, true)),
                         false,
                         ImmutableList.of(),
@@ -3731,9 +3814,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) DISABLED NOT RELY ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, false, false, true)),
                         false,
                         ImmutableList.of(),
@@ -3742,9 +3825,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) ENABLED RELY NOT ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, false)),
                         false,
                         ImmutableList.of(),
@@ -3753,9 +3836,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b) ENABLED NOT RELY ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, true, false, true)),
                         false,
                         ImmutableList.of(),
@@ -3764,9 +3847,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b) DISABLED RELY NOT ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, false, true, false)),
                         false,
                         ImmutableList.of(),
@@ -3775,9 +3858,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b) DISABLED NOT RELY NOT ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, false, false, false)),
                         false,
                         ImmutableList.of(),
@@ -3786,9 +3869,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c,b), PRIMARY KEY (a))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("c", "b"), UNIQUE, true, true, true),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true)),
                         false,
@@ -3798,9 +3881,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b), CONSTRAINT pk PRIMARY KEY (a))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true),
                                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("a"), PRIMARY_KEY, true, true, true)),
                         false,
@@ -3810,9 +3893,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b), PRIMARY KEY (a))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true)),
                         false,
@@ -3822,9 +3905,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), PRIMARY KEY (a), CONSTRAINT uq UNIQUE (b))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("c"), UNIQUE, true, true, true),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b"), UNIQUE, true, true, true)),
@@ -3836,9 +3919,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c), PRIMARY KEY (a), CONSTRAINT uq UNIQUE (b))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c"), UNIQUE, true, true, true),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b"), UNIQUE, true, true, true)),
@@ -3849,9 +3932,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c), PRIMARY KEY (a), CONSTRAINT uq UNIQUE (b), CONSTRAINT pk PRIMARY KEY (b), CONSTRAINT pk PRIMARY KEY (c))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c"), UNIQUE, true, true, true),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b"), UNIQUE, true, true, true),
@@ -3865,10 +3948,10 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, PRIMARY KEY)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("PRIMARY"), "KEY", true, emptyList(), Optional.empty())),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("PRIMARY"))), "KEY", true, emptyList(), Optional.empty())),
                         false,
                         ImmutableList.of(),
                         Optional.empty()));

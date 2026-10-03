@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
@@ -51,6 +52,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -1064,6 +1066,150 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate(session, "INSERT INTO test_schema_evolution_drop_middle VALUES (3, 4, 5)", 1);
         assertQuery(session, "SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2, NULL), (3, 4, 5)");
         dropTable(session, "test_schema_evolution_drop_middle");
+    }
+
+    @Test
+    public void testAddNestedField()
+    {
+        testWithAllFileFormats(this::testAddNestedField);
+    }
+
+    private void testAddNestedField(Session session, FileFormat fileFormat)
+    {
+        String format = "\"write.format.default\" = '" + fileFormat + "'";
+
+        // --- Single-level struct: add a new field ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_field (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_add_field VALUES (1, ROW('alice', 30))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age FROM test_nested_add_field", "VALUES (1, 'alice', 30)");
+
+        // Add a new field to the struct
+        assertUpdate(session, "ALTER TABLE test_nested_add_field ADD COLUMN info.email VARCHAR");
+
+        // Old rows have NULL for the new field (subfield access — SYNTHESIZED path)
+        assertQuery(session, "SELECT id, info.name, info.age, info.email FROM test_nested_add_field",
+                "VALUES (1, 'alice', 30, NULL)");
+
+        // Whole-struct read of an old file after schema evolution must not crash or hang
+        // (regression for type-override bug introduced in #27470: the physical Parquet type was
+        // overwriting the logical evolved type, causing a field-count mismatch in ParquetPageSource).
+        // H2 cannot parse VALUES ROW(…) so we use computeActual for ROW-typed columns.
+        MaterializedResult infoOldOnly = computeActual(session,
+                "SELECT info FROM test_nested_add_field WHERE id = 1");
+        assertEquals(infoOldOnly.getRowCount(), 1);
+        assertEquals(infoOldOnly.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30, null));
+
+        // SELECT * on an old file after schema evolution must also not crash
+        MaterializedResult starOldOnly = computeActual(session,
+                "SELECT * FROM test_nested_add_field WHERE id = 1");
+        assertEquals(starOldOnly.getRowCount(), 1);
+        assertEquals(starOldOnly.getMaterializedRows().get(0).getField(0), 1L);
+        assertEquals(starOldOnly.getMaterializedRows().get(0).getField(1), Arrays.asList("alice", 30, null));
+
+        // New rows can populate the new field
+        assertUpdate(session, "INSERT INTO test_nested_add_field VALUES (2, ROW('bob', 25, 'bob@example.com'))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age, info.email FROM test_nested_add_field ORDER BY id",
+                "VALUES (1, 'alice', 30, NULL), (2, 'bob', 25, 'bob@example.com')");
+
+        // Whole-struct read spanning both old and new file after schema evolution
+        MaterializedResult infoBothFiles = computeActual(session,
+                "SELECT info FROM test_nested_add_field ORDER BY id");
+        assertEquals(infoBothFiles.getRowCount(), 2);
+        assertEquals(infoBothFiles.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30, null));
+        assertEquals(infoBothFiles.getMaterializedRows().get(1).getField(0), Arrays.asList("bob", 25, "bob@example.com"));
+
+        // SELECT * spanning both files
+        MaterializedResult starBothFiles = computeActual(session,
+                "SELECT * FROM test_nested_add_field ORDER BY id");
+        assertEquals(starBothFiles.getRowCount(), 2);
+        assertEquals(starBothFiles.getMaterializedRows().get(0).getField(1), Arrays.asList("alice", 30, null));
+        assertEquals(starBothFiles.getMaterializedRows().get(1).getField(1), Arrays.asList("bob", 25, "bob@example.com"));
+
+        dropTable(session, "test_nested_add_field");
+
+        // --- IF NOT EXISTS: silently skip if field already exists ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_field_ifne (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "ALTER TABLE test_nested_add_field_ifne ADD COLUMN info.score INTEGER");
+        // Second time with IF NOT EXISTS must not throw
+        assertUpdate(session, "ALTER TABLE test_nested_add_field_ifne ADD COLUMN IF NOT EXISTS info.score INTEGER");
+        dropTable(session, "test_nested_add_field_ifne");
+
+        // --- Multi-level nesting ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_deep (" +
+                "id BIGINT, " +
+                "outer_col ROW(inner_col ROW(value VARCHAR))" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_add_deep VALUES (1, ROW(ROW('hello')))", 1);
+        assertUpdate(session, "ALTER TABLE test_nested_add_deep ADD COLUMN outer_col.inner_col.extra BIGINT");
+        assertQuery(session, "SELECT outer_col.inner_col.value, outer_col.inner_col.extra FROM test_nested_add_deep",
+                "VALUES ('hello', NULL)");
+        // Whole-struct read of a deeply nested column after schema evolution (also tests the reader fix)
+        MaterializedResult deepResult = computeActual(session,
+                "SELECT * FROM test_nested_add_deep");
+        assertEquals(deepResult.getRowCount(), 1);
+        assertEquals(deepResult.getMaterializedRows().get(0).getField(0), 1L);
+        // outer_col is ROW(inner_col ROW(value VARCHAR, extra BIGINT))
+        // RowType.getObjectValue returns an unmodifiable List<Object>.
+        @SuppressWarnings("unchecked")
+        List<Object> outerCol = (List<Object>) deepResult.getMaterializedRows().get(0).getField(1);
+        assertEquals(outerCol.size(), 1); // one child: inner_col
+        @SuppressWarnings("unchecked")
+        List<Object> innerCol = (List<Object>) outerCol.get(0);
+        assertEquals(innerCol.get(0), "hello");  // value field
+        assertEquals(innerCol.get(1), null);      // extra field — null from old file
+        dropTable(session, "test_nested_add_deep");
+
+        // --- Error: parent struct does not exist ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_bad (" +
+                "id BIGINT" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_bad ADD COLUMN nonexistent.new_field VARCHAR",
+                ".*Cannot find parent field.*|.*Failed to add field.*");
+        dropTable(session, "test_nested_add_bad");
+
+        // --- Error: child field already exists without IF NOT EXISTS ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_already_exists (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_already_exists ADD COLUMN info.name VARCHAR",
+                ".*Field 'name' already exists.*");
+        dropTable(session, "test_nested_add_already_exists");
+
+        // --- Error: clauses accepted by grammar but without SPI support for nested fields ---
+        // NOT NULL, COMMENT, FIRST/AFTER, DEFAULT, GENERATED/AS, and WITH properties must all be
+        // rejected at task level rather than silently ignored.
+        assertUpdate(session, "CREATE TABLE test_nested_add_unsupported (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT NOT NULL",
+                ".*NOT NULL constraint is not supported for nested ADD COLUMN.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT COMMENT 'user age'",
+                ".*COMMENT is not supported for nested ADD COLUMN.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT FIRST",
+                ".*FIRST/AFTER is not supported for nested ADD COLUMN.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT DEFAULT 10",
+                ".*DEFAULT is not supported for nested ADD COLUMN.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT AS (1 + 1) PERSISTENT",
+                ".*GENERATED/AS expression is not supported for nested ADD COLUMN.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT WITH (nullable = true)",
+                ".*WITH properties are not supported for nested ADD COLUMN.*");
+        dropTable(session, "test_nested_add_unsupported");
     }
 
     @Test
@@ -3003,7 +3149,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
     protected ColumnDefinition columnDefinition(String name, String type)
     {
-        return new ColumnDefinition(new Identifier(name, true), type, true, ImmutableList.of(), Optional.empty());
+        return new ColumnDefinition(QualifiedName.of(ImmutableList.of(new Identifier(name, true))), type, true, ImmutableList.of(), Optional.empty());
     }
 
     private void validateShowCreateTableInner(String catalog, String schema, String table,
