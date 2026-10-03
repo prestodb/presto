@@ -206,6 +206,11 @@ public final class Signature
         return new TypeVariableConstraint(name, false, false, null, true);
     }
 
+    public static TypeVariableConstraint hashableTypeParameter(String name)
+    {
+        return new TypeVariableConstraint(name, false, false, null, false, true);
+    }
+
     public static LongVariableConstraint longVariableExpression(String variable, String expression)
     {
         return new LongVariableConstraint(variable, expression);

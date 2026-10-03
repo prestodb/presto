@@ -56,6 +56,7 @@ import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.StandardTypes.PARAMETRIC_TYPES;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
@@ -74,6 +75,7 @@ public class FunctionsParserHelper
 {
     private static final Set<OperatorType> COMPARABLE_TYPE_OPERATORS = ImmutableSet.of(EQUAL, NOT_EQUAL, HASH_CODE);
     private static final Set<OperatorType> ORDERABLE_TYPE_OPERATORS = ImmutableSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, BETWEEN);
+    private static final Set<OperatorType> HASHABLE_TYPE_OPERATORS = ImmutableSet.of(XX_HASH_64);
 
     private FunctionsParserHelper()
     {}
@@ -92,6 +94,7 @@ public class FunctionsParserHelper
     {
         Set<String> orderableRequired = new HashSet<>();
         Set<String> comparableRequired = new HashSet<>();
+        Set<String> hashableRequired = new HashSet<>();
         for (ImplementationDependency dependency : dependencies) {
             if (dependency instanceof OperatorImplementationDependency) {
                 OperatorType operator = ((OperatorImplementationDependency) dependency).getOperator();
@@ -109,6 +112,9 @@ public class FunctionsParserHelper
                 if (ORDERABLE_TYPE_OPERATORS.contains(operator)) {
                     orderableRequired.add(argumentType);
                 }
+                if (HASHABLE_TYPE_OPERATORS.contains(operator)) {
+                    hashableRequired.add(argumentType);
+                }
             }
         }
         ImmutableList.Builder<TypeVariableConstraint> typeVariableConstraints = ImmutableList.builder();
@@ -116,14 +122,15 @@ public class FunctionsParserHelper
             String name = typeParameter.value();
             String variadicBound = typeParameter.boundedBy().isEmpty() ? null : typeParameter.boundedBy();
             checkArgument(variadicBound == null || PARAMETRIC_TYPES.contains(variadicBound), "boundedBy must be a parametric type, got %s", variadicBound);
+            boolean hashable = hashableRequired.contains(name);
             if (orderableRequired.contains(name)) {
-                typeVariableConstraints.add(new TypeVariableConstraint(name, false, true, variadicBound, false));
+                typeVariableConstraints.add(new TypeVariableConstraint(name, false, true, variadicBound, false, hashable));
             }
             else if (comparableRequired.contains(name)) {
-                typeVariableConstraints.add(new TypeVariableConstraint(name, true, false, variadicBound, false));
+                typeVariableConstraints.add(new TypeVariableConstraint(name, true, false, variadicBound, false, hashable));
             }
             else {
-                typeVariableConstraints.add(new TypeVariableConstraint(name, false, false, variadicBound, false));
+                typeVariableConstraints.add(new TypeVariableConstraint(name, false, false, variadicBound, false, hashable));
             }
         }
         return typeVariableConstraints.build();
