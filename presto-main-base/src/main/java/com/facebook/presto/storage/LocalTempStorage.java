@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spiller;
+package com.facebook.presto.storage;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.io.DataOutput;
@@ -25,6 +25,7 @@ import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageContext;
 import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spi.storage.TempStorageHandle;
+import com.facebook.presto.spiller.TempStorageSpillerUtil;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -33,7 +34,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.DirectoryStream;
 import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,16 +41,18 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
+import static com.facebook.presto.spi.StandardErrorCode.OUT_OF_TEMP_STORAGE_SPACE;
+import static com.facebook.presto.spiller.TempStorageSpillerConstants.SPILL_FILE_PREFIX;
+import static com.facebook.presto.spiller.TempStorageSpillerConstants.SPILL_FILE_SUFFIX;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;
-import static java.nio.file.Files.delete;
 import static java.nio.file.Files.getFileStore;
-import static java.nio.file.Files.newDirectoryStream;
 import static java.nio.file.StandardOpenOption.APPEND;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.util.Objects.requireNonNull;
 
 public class LocalTempStorage
@@ -61,49 +63,60 @@ public class LocalTempStorage
 
     private static final Logger log = Logger.get(LocalTempStorage.class);
 
-    private static final String SPILL_FILE_PREFIX = "spill";
-    private static final String SPILL_FILE_SUFFIX = ".bin";
-    private static final String SPILL_FILE_GLOB = "spill*.bin";
-
-    private final List<Path> spillPaths;
+    private final List<Path> tempStoragePaths;
     private final double maxUsedSpaceThreshold;
 
     @GuardedBy("this")
     private int roundRobinIndex;
 
-    public LocalTempStorage(List<Path> spillPaths, double maxUsedSpaceThreshold)
+    public LocalTempStorage(List<Path> tempStoragePaths, double maxUsedSpaceThreshold)
     {
-        this.spillPaths = ImmutableList.copyOf(requireNonNull(spillPaths, "spillPaths is null"));
+        this.tempStoragePaths = ImmutableList.copyOf(requireNonNull(tempStoragePaths, "tempStoragePaths is null"));
         this.maxUsedSpaceThreshold = maxUsedSpaceThreshold;
         initialize();
     }
 
     private void initialize()
     {
-        // From FileSingleStreamSpillerFactory constructor
-        spillPaths.forEach(path -> {
+        tempStoragePaths.forEach(path -> {
             try {
                 createDirectories(path);
             }
             catch (IOException e) {
                 throw new IllegalArgumentException(
-                        format("could not create spill path %s; adjust experimental.spiller-spill-path config property or filesystem permissions", path), e);
+                        format("could not create temp storage path %s; adjust temp-storage.path config property or filesystem permissions", path), e);
             }
             if (!path.toFile().canWrite()) {
                 throw new IllegalArgumentException(
-                        format("spill path %s is not writable; adjust experimental.spiller-spill-path config property or filesystem permissions", path));
+                        format("temp storage path %s is not writable; adjust temp-storage.path config property or filesystem permissions", path));
             }
         });
 
-        // From FileSingleStreamSpillerFactory#cleanupOldSpillFiles
-        spillPaths.forEach(LocalTempStorage::cleanupOldSpillFiles);
+        // Clean up stale spill files in temp storage
+        tempStoragePaths.forEach(TempStorageSpillerUtil::cleanupOldSpillFiles);
     }
 
     @Override
     public TempDataSink create(TempDataOperationContext context)
             throws IOException
     {
-        Path path = Files.createTempFile(getNextSpillPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
+        Path path = Files.createTempFile(getNextTempStoragePath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
+        return new LocalTempDataSink(path);
+    }
+
+    @Override
+    public TempDataSink create(TempDataOperationContext context, TempStorageHandle handle, boolean createFile)
+            throws IOException
+    {
+        Path path = ((LocalTempStorageHandle) handle).getFilePath();
+        if (createFile) {
+            Path parent = path.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+
+                Files.newOutputStream(path, CREATE, TRUNCATE_EXISTING).close();
+            }
+        }
         return new LocalTempDataSink(path);
     }
 
@@ -122,9 +135,15 @@ public class LocalTempStorage
     }
 
     @Override
+    public boolean exists(TempDataOperationContext context, TempStorageHandle handle)
+    {
+        return Files.exists(((LocalTempStorageHandle) handle).getFilePath());
+    }
+
+    @Override
     public TempStorageHandle getRootDirectoryHandle()
     {
-        return new LocalTempStorageHandle(getNextSpillPath());
+        return new LocalTempStorageHandle(getNextTempStoragePath());
     }
 
     @Override
@@ -162,39 +181,21 @@ public class LocalTempStorage
         return ImmutableList.of();
     }
 
-    private static void cleanupOldSpillFiles(Path path)
+    public synchronized Path getNextTempStoragePath()
     {
-        try (DirectoryStream<Path> stream = newDirectoryStream(path, SPILL_FILE_GLOB)) {
-            stream.forEach(spillFile -> {
-                try {
-                    log.info("Deleting old spill file: " + spillFile);
-                    delete(spillFile);
-                }
-                catch (Exception e) {
-                    log.warn("Could not cleanup old spill file: " + spillFile);
-                }
-            });
-        }
-        catch (IOException e) {
-            log.warn(e, "Error cleaning spill files");
-        }
-    }
-
-    private synchronized Path getNextSpillPath()
-    {
-        int spillPathsCount = spillPaths.size();
-        for (int i = 0; i < spillPathsCount; ++i) {
-            int pathIndex = (roundRobinIndex + i) % spillPathsCount;
-            Path path = spillPaths.get(pathIndex);
+        int tempStoragePathsCount = tempStoragePaths.size();
+        for (int i = 0; i < tempStoragePathsCount; ++i) {
+            int pathIndex = (roundRobinIndex + i) % tempStoragePathsCount;
+            Path path = tempStoragePaths.get(pathIndex);
             if (hasEnoughDiskSpace(path)) {
-                roundRobinIndex = (roundRobinIndex + i + 1) % spillPathsCount;
+                roundRobinIndex = (roundRobinIndex + i + 1) % tempStoragePathsCount;
                 return path;
             }
         }
-        if (spillPaths.isEmpty()) {
-            throw new PrestoException(OUT_OF_SPILL_SPACE, "No spill paths configured");
+        if (tempStoragePaths.isEmpty()) {
+            throw new PrestoException(OUT_OF_TEMP_STORAGE_SPACE, "No temp storage paths configured");
         }
-        throw new PrestoException(OUT_OF_SPILL_SPACE, "No free space available for spill");
+        throw new PrestoException(OUT_OF_TEMP_STORAGE_SPACE, "No free space available for temp storage");
     }
 
     private boolean hasEnoughDiskSpace(Path path)
@@ -204,7 +205,7 @@ public class LocalTempStorage
             return fileStore.getUsableSpace() > fileStore.getTotalSpace() * (1.0 - maxUsedSpaceThreshold);
         }
         catch (IOException e) {
-            throw new PrestoException(OUT_OF_SPILL_SPACE, "Cannot determine free space for spill", e);
+            throw new PrestoException(OUT_OF_TEMP_STORAGE_SPACE, "Cannot determine free space for temp storage", e);
         }
     }
 
