@@ -1672,6 +1672,31 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testViewWithStoredTimestampWithTimeZoneAndAnalyzedTimestampIsStale()
+    {
+        // Coercing TIMESTAMP up to TIMESTAMP WITH TIME ZONE attaches the session zone and moves the instant.
+        assertFails(VIEW_IS_STALE, "SELECT * FROM v_timestamp_zone_forward");
+    }
+
+    @Test
+    public void testViewWithStoredTimestampAndAnalyzedTimestampWithTimeZoneIsStale()
+    {
+        assertFails(VIEW_IS_STALE, "SELECT * FROM v_timestamp_zone_reverse");
+    }
+
+    @Test
+    public void testViewWithNestedTimestampZoneMismatchIsStale()
+    {
+        assertFails(VIEW_IS_STALE, "SELECT * FROM v_timestamp_zone_nested");
+    }
+
+    @Test
+    public void testViewWithMatchingTimestampWithTimeZoneIsNotStale()
+    {
+        analyze("SELECT * FROM v_timestamp_zone_match");
+    }
+
+    @Test
     public void testStoredViewAnalysisScoping()
     {
         // the view must not be analyzed using the query context
