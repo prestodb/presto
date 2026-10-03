@@ -56,6 +56,7 @@ import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
@@ -125,15 +126,25 @@ public class PropertyDerivations
 
     public static ActualProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session)
     {
+        return derivePropertiesRecursively(node, metadata, session, null);
+    }
+
+    public static ActualProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, ExpressionOptimizerProvider expressionOptimizerProvider)
+    {
         List<ActualProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, metadata, session))
+                .map(source -> derivePropertiesRecursively(source, metadata, session, expressionOptimizerProvider))
                 .collect(toImmutableList());
-        return deriveProperties(node, inputProperties, metadata, session);
+        return deriveProperties(node, inputProperties, metadata, session, expressionOptimizerProvider);
     }
 
     public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session)
     {
-        ActualProperties output = node.accept(new Visitor(metadata, session), inputProperties);
+        return deriveProperties(node, inputProperties, metadata, session, null);
+    }
+
+    public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, ExpressionOptimizerProvider expressionOptimizerProvider)
+    {
+        ActualProperties output = node.accept(new Visitor(metadata, session, expressionOptimizerProvider), inputProperties);
 
         output.getNodePartitioning().ifPresent(partitioning ->
                 verify(node.getOutputVariables().containsAll(partitioning.getVariableReferences()), "Node-level partitioning properties contain columns not present in node's output"));
@@ -150,7 +161,7 @@ public class PropertyDerivations
 
     public static ActualProperties streamBackdoorDeriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session)
     {
-        return node.accept(new Visitor(metadata, session), inputProperties);
+        return node.accept(new Visitor(metadata, session, null), inputProperties);
     }
 
     public static Optional<ActualProperties> uniqueToGroupProperties(ActualProperties properties)
@@ -174,11 +185,17 @@ public class PropertyDerivations
     {
         private final Metadata metadata;
         private final Session session;
+        // When present (i.e. the caller is on the physical-planning path with a configured optimizer),
+        // constant-folding for property derivation goes through the session's pluggable optimizer so the
+        // native/sidecar optimizer evaluates expressions instead of the hardcoded Java interpreter. Null
+        // on paths that don't have an optimizer wired (sanity checks), which keep the Java interpreter.
+        private final ExpressionOptimizerProvider expressionOptimizerProvider;
 
-        public Visitor(Metadata metadata, Session session)
+        public Visitor(Metadata metadata, Session session, ExpressionOptimizerProvider expressionOptimizerProvider)
         {
             this.metadata = metadata;
             this.session = session;
+            this.expressionOptimizerProvider = expressionOptimizerProvider;
         }
 
         @Override
@@ -803,7 +820,7 @@ public class PropertyDerivations
             ActualProperties properties = inputProperties.stream().collect(onlyElement());
 
             Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>(properties.getConstants());
-            TupleDomain<VariableReferenceExpression> tupleDomain = new RowExpressionDomainTranslator(metadata).fromPredicate(session.toConnectorSession(), node.getPredicate(), BASIC_COLUMN_EXTRACTOR).getTupleDomain();
+            TupleDomain<VariableReferenceExpression> tupleDomain = new RowExpressionDomainTranslator(metadata, expressionOptimizerProvider).fromPredicate(session.toConnectorSession(), node.getPredicate(), BASIC_COLUMN_EXTRACTOR).getTupleDomain();
             constants.putAll(extractFixedValuesToConstantExpressions(tupleDomain)
                     .orElse(ImmutableMap.of()));
 
@@ -847,7 +864,23 @@ public class PropertyDerivations
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
                 // ("ROW comparison not supported for fields with null elements", etc)
-                Object value = new RowExpressionInterpreter(expression, metadata.getFunctionAndTypeManager(), session.toConnectorSession(), OPTIMIZED).optimize();
+                //
+                // Use the session's pluggable optimizer when available so the native/sidecar optimizer
+                // evaluates the expression (matching how the plan's expressions were optimized). Falling
+                // back to the hardcoded Java interpreter would evaluate a native-produced expression with
+                // different semantics and mis-derive constants. When no optimizer is wired (e.g.
+                // sanity-check callers), keep the Java interpreter.
+                Object value;
+                if (expressionOptimizerProvider != null) {
+                    RowExpression optimized = expressionOptimizerProvider.getExpressionOptimizer(session.toConnectorSession())
+                            .optimize(expression, OPTIMIZED, session.toConnectorSession());
+                    // Downstream logic expects a raw constant value for a fully-folded expression and a
+                    // RowExpression otherwise; unwrap a ConstantExpression to match the interpreter's contract.
+                    value = optimized instanceof ConstantExpression ? ((ConstantExpression) optimized).getValue() : optimized;
+                }
+                else {
+                    value = new RowExpressionInterpreter(expression, metadata.getFunctionAndTypeManager(), session.toConnectorSession(), OPTIMIZED).optimize();
+                }
 
                 if (value instanceof VariableReferenceExpression) {
                     ConstantExpression existingConstantValue = constants.get(value);

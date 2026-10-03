@@ -151,7 +151,7 @@ public class TestRenameTableOnFragileFileSystem
 
     private static final ExpressionOptimizerProvider EXPRESSION_OPTIMIZER_PROVIDER = new InMemoryExpressionOptimizerProvider(METADATA);
     private static final FilterStatsCalculatorService FILTER_STATS_CALCULATOR_SERVICE = new ConnectorFilterStatsCalculatorService(
-            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, EXPRESSION_OPTIMIZER_PROVIDER), new StatsNormalizer()));
+            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, EXPRESSION_OPTIMIZER_PROVIDER), new StatsNormalizer(), EXPRESSION_OPTIMIZER_PROVIDER));
     private static final JsonCodec<DatabaseMetadata> DATABASE_CODEC = jsonCodec(DatabaseMetadata.class);
     private static final JsonCodec<TableMetadata> TABLE_CODEC = jsonCodec(TableMetadata.class);
 
