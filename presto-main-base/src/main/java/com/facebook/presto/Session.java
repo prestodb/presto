@@ -518,6 +518,37 @@ public final class Session
                 queryType);
     }
 
+    public Session useSpecifiedCatalogAsSession(String catalog)
+    {
+        return new Session(
+                queryId,
+                transactionId,
+                clientTransactionSupport,
+                identity,
+                source,
+                Optional.ofNullable(catalog),
+                schema,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                resourceEstimates,
+                startTime,
+                systemProperties,
+                connectorProperties,
+                unprocessedCatalogProperties,
+                sessionPropertyManager,
+                preparedStatements,
+                sessionFunctions,
+                tracer,
+                warningCollector,
+                runtimeStats,
+                queryType);
+    }
+
     public ConnectorSession toConnectorSession()
     {
         return new FullConnectorSession(this, identity.toConnectorIdentity());
