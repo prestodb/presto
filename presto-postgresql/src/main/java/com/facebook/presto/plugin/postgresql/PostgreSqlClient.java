@@ -99,7 +99,7 @@ public class PostgreSqlClient
     {
         connection.setAutoCommit(false);
         PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(1000);
+        statement.setFetchSize(fetchSize);
         return statement;
     }
 

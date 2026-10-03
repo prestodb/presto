@@ -91,6 +91,7 @@ public class HanaClient
         if (statement.isWrapperFor(Statement.class)) {
             statement.unwrap(Statement.class);
         }
+        statement.setFetchSize(fetchSize);
         return statement;
     }
 
