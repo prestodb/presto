@@ -266,17 +266,19 @@ public abstract class AbstractTestRewriteDataFilesProcedure
             //The number of data files is 2, and the number of delete files is 0
             validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
 
-            // Does not support rewriting files when native-only filter push down is enabled
+            // Non-partition column filter with pushdown enabled: blocked at coordinator to prevent
+            // Velox from applying the predicate as a row filter (which would cause data loss).
             assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, schemaName),
-                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
-            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')", tableName, schemaName),
-                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
-            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName),
-                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
+                    "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
 
-            // select 1 files to rewrite
-            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 5);
-            //The number of data files is 2, and the number of delete files is 0
+            // Partition column filter with pushdown enabled: safe to proceed. Files are pruned by
+            // partition boundary and all rows in selected files are preserved.
+            assertUpdate(sessionWithFilterPushdown, format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')", tableName, schemaName), 0);
+            assertUpdate(sessionWithFilterPushdown, format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName), 0);
+
+            // Partition column filter with pushdown enabled and rewrite-all: rewrites the bar
+            // partition and all 5 rows are preserved (no data loss).
+            assertUpdate(sessionWithFilterPushdown, format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 5);
             validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
 
             assertQuery("select * from " + tableName,
