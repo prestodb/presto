@@ -37,6 +37,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.geospatial.SphericalGeographyType;
 import com.facebook.presto.geospatial.type.GeometryType;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -48,6 +49,7 @@ import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.types.EdgeAlgorithm;
 import org.apache.iceberg.types.Types;
 
 import java.util.ArrayList;
@@ -77,6 +79,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_GEOMETRY;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
+import static com.facebook.presto.hive.HiveType.HIVE_SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
@@ -97,6 +100,7 @@ public final class TypeConverter
     public static final String ORC_ICEBERG_ID_KEY = "iceberg.id";
     public static final String ORC_ICEBERG_REQUIRED_KEY = "iceberg.required";
     private static final Pattern UNQUOTED_IDENTIFIER = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
+    private static final String EPSG_4326_CRS = "EPSG:4326";
 
     private TypeConverter() {}
 
@@ -125,6 +129,8 @@ public final class TypeConverter
                 return TimeType.TIME;
             case GEOMETRY:
                 return GeometryType.GEOMETRY;
+            case GEOGRAPHY:
+                return toPrestoSphericalGeography((Types.GeographyType) type);
             case TIMESTAMP:
                 Types.TimestampType timestampType = (Types.TimestampType) type.asPrimitiveType();
                 if (timestampType.shouldAdjustToUTC()) {
@@ -153,6 +159,45 @@ public final class TypeConverter
             default:
                 throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Presto type", type, type.typeId()));
         }
+    }
+
+    /**
+     * Presto's SPHERICAL_GEOGRAPHY models WGS84 longitude-latitude coordinates joined by
+     * great-circle edges, so only Iceberg geography columns with those semantics can be
+     * read or written. Iceberg normalizes the default CRS (OGC:CRS84) and an unspecified
+     * edge interpolation algorithm (spherical) to null, so a value in either accessor that
+     * is neither null nor a WGS84 alias means the column carries semantics Presto would
+     * silently misinterpret.
+     */
+    private static Type toPrestoSphericalGeography(Types.GeographyType type)
+    {
+        if (!isWgs84(type.crs())) {
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Iceberg geography type with CRS '%s' is not supported. Only WGS84 ('%s' or '%s') is supported",
+                    type.crs(),
+                    Types.GeographyType.DEFAULT_CRS,
+                    EPSG_4326_CRS));
+        }
+        if (type.algorithm() != null && type.algorithm() != EdgeAlgorithm.SPHERICAL) {
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Iceberg geography type with edge interpolation algorithm '%s' is not supported. Only '%s' is supported",
+                    type.algorithm(),
+                    EdgeAlgorithm.SPHERICAL));
+        }
+        return SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+    }
+
+    /**
+     * Iceberg geography coordinates are always longitude-latitude on the WGS84 datum, so
+     * {@code EPSG:4326} names the same coordinates as the default {@code OGC:CRS84} despite
+     * its axis order being formally latitude-longitude. Iceberg normalizes the default CRS
+     * to null, so null is WGS84 too.
+     */
+    private static boolean isWgs84(String crs)
+    {
+        return crs == null
+                || crs.equalsIgnoreCase(Types.GeographyType.DEFAULT_CRS)
+                || crs.equalsIgnoreCase(EPSG_4326_CRS);
     }
 
     private static boolean needsDelimiting(String name)
@@ -230,6 +275,12 @@ public final class TypeConverter
         }
         if (type instanceof UuidType) {
             return Types.UUIDType.get();
+        }
+        if (type instanceof SphericalGeographyType) {
+            // Presto's SPHERICAL_GEOGRAPHY is always WGS84 with spherical edges, which are
+            // Iceberg's defaults. crs84() leaves both unset so the schema serializes as the
+            // canonical "geography" rather than spelling out the default CRS and algorithm.
+            return Types.GeographyType.crs84();
         }
         throw new PrestoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }
@@ -337,6 +388,9 @@ public final class TypeConverter
         }
         if (GeometryType.GEOMETRY.equals(type)) {
             return HIVE_GEOMETRY.getTypeInfo();
+        }
+        if (SphericalGeographyType.SPHERICAL_GEOGRAPHY.equals(type)) {
+            return HIVE_SPHERICAL_GEOGRAPHY.getTypeInfo();
         }
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
