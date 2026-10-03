@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.spi.ConnectorCodec;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -38,15 +37,15 @@ public class TableLayoutHandleJacksonModule
                 handleResolver::getId,
                 handleResolver::getTableLayoutHandleClass,
                 featuresConfig.isUseConnectorProvidedSerializationCodecs(),
-                connectorId -> connectorManagerProvider.get()
-                        .getConnectorCodecProvider(connectorId)
+                connectorName -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorName)
                         .flatMap(ConnectorCodecProvider::getConnectorTableLayoutHandleCodec));
     }
 
     public TableLayoutHandleJacksonModule(
             HandleResolver handleResolver,
             FeaturesConfig featuresConfig,
-            Function<ConnectorId, Optional<ConnectorCodec<ConnectorTableLayoutHandle>>> codecExtractor)
+            Function<String, Optional<ConnectorCodec<ConnectorTableLayoutHandle>>> codecExtractor)
     {
         super(ConnectorTableLayoutHandle.class,
                 handleResolver::getId,

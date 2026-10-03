@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.spi.ConnectorCodec;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.connector.ConnectorCodecProvider;
@@ -566,12 +565,12 @@ public class TestAbstractTypedJacksonModule
             this.codecProvider = codecProvider;
         }
 
-        public Optional<ConnectorCodecProvider> getConnectorCodecProvider(ConnectorId connectorId)
+        public Optional<ConnectorCodecProvider> getConnectorCodecProvider(String connectorName)
         {
             // Only return codec provider for specific connectors if it's a SelectiveCodecProvider
             if (codecProvider instanceof SelectiveCodecProvider) {
                 SelectiveCodecProvider selective = (SelectiveCodecProvider) codecProvider;
-                if (connectorId.getCatalogName().equals(selective.connectorIdWithCodec)) {
+                if (connectorName.equals(selective.connectorIdWithCodec)) {
                     return Optional.of(codecProvider);
                 }
                 return Optional.empty();
@@ -594,8 +593,8 @@ public class TestAbstractTypedJacksonModule
                     TestHandle::getConnectorId,
                     id -> TestHandle.class,
                     featuresConfig.isUseConnectorProvidedSerializationCodecs(),
-                    connectorId -> testConnectorManager
-                            .getConnectorCodecProvider(connectorId)
+                    connectorName -> testConnectorManager
+                            .getConnectorCodecProvider(connectorName)
                             .flatMap(provider -> {
                                 Optional<ConnectorCodec<com.facebook.presto.spi.ConnectorTableHandle>> codec =
                                         provider.getConnectorTableHandleCodec();
