@@ -36,6 +36,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -410,6 +411,24 @@ public final class PageBufferClient
             public void onFailure(Throwable t)
             {
                 checkNotHoldsLock(this);
+
+                // The delete request is fire-and-forget (see RpcShuffleClient.abortResults).
+                // If it is cancelled during close/teardown, the remote buffer abort is
+                // best-effort and a CancellationException here is expected, so don't log it
+                // as an error or propagate it to the callback.
+                if (t instanceof CancellationException) {
+                    backoff.success();
+                    synchronized (PageBufferClient.this) {
+                        closed = true;
+                        if (future == resultFuture) {
+                            future = null;
+                        }
+                        lastUpdate = currentTimeMillis();
+                    }
+                    requestsCompleted.incrementAndGet();
+                    clientCallback.clientFinished(PageBufferClient.this);
+                    return;
+                }
 
                 log.error(t, "Request to delete %s failed", location);
                 if (!(t instanceof PrestoException) && backoff.failure()) {
