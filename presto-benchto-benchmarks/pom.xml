@@ -52,6 +52,14 @@
                     <groupId>org.hibernate</groupId>
                     <artifactId>hibernate-validator</artifactId>
                 </exclusion>
+
+                <!-- Exclude legacy javax.el from benchto-driver. Its ExpressionFactoryImpl can be -->
+                <!-- loaded instead of Jakarta EL's implementation, causing Hibernate Validator's -->
+                <!-- expression factory initialization to fail with HV000116. -->
+                <exclusion>
+                    <groupId>org.glassfish.web</groupId>
+                    <artifactId>javax.el</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 

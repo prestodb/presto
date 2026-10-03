@@ -15,8 +15,8 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.spiller.LocalTempStorage;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.storage.LocalTempStorage;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.testing.TestingTempStorageManager;
 import com.facebook.presto.util.FinalizerService;
