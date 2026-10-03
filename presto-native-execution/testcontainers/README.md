@@ -58,6 +58,12 @@ To run the functional tests using existing docker images, specify `-Dcoordinator
 ```
 -DcoordinatorImage="public.ecr.aws/oss-presto/presto:0.287-20240619190653-db8458d" -DworkerImage="public.ecr.aws/oss-presto/presto-native:0.287-20240619190653-db8458d"
 ```
+The native worker is started by invoking its binary directly, so the worker image does not need to
+supply an entrypoint. The binary is looked up as `presto_server` on the image's `PATH`; if the image
+installs it elsewhere, name the location explicitly:
+```
+-DnativeWorkerBinary="/opt/presto/bin/presto_server"
+```
 ##### Note
 * Existing java and native docker files are reused for functional testing. The coordinator and worker configurations are generated in the utility class.
 * The functional test framework has been tested with the tpch.tiny schema, using standard column naming. Please note that this configuration is a current limitation, as it has only been tested with this schema and does not require any data loading.
