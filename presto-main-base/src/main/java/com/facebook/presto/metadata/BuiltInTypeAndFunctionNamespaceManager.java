@@ -532,6 +532,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
+    private final ConcurrentMap<QualifiedObjectName, UserDefinedType> userDefinedTypes = new ConcurrentHashMap<>();
 
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
@@ -1195,13 +1196,22 @@ public class BuiltInTypeAndFunctionNamespaceManager
     @Override
     public void addUserDefinedType(UserDefinedType userDefinedType)
     {
-        throw new UnsupportedOperationException("User defined type is not supported");
+        requireNonNull(userDefinedType, "userDefinedType is null");
+        checkArgument(
+                userDefinedType.getUserDefinedTypeName().getCatalogSchemaName().equals(JAVA_BUILTIN_NAMESPACE),
+                "User defined type must be in the %s namespace: %s",
+                JAVA_BUILTIN_NAMESPACE,
+                userDefinedType.getUserDefinedTypeName());
+        checkArgument(
+                userDefinedTypes.putIfAbsent(userDefinedType.getUserDefinedTypeName(), userDefinedType) == null,
+                "User defined type already registered: %s",
+                userDefinedType.getUserDefinedTypeName());
     }
 
     @Override
     public Optional<UserDefinedType> getUserDefinedType(QualifiedObjectName typeName)
     {
-        throw new UnsupportedOperationException("User defined type is not supported");
+        return Optional.ofNullable(userDefinedTypes.get(typeName));
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
