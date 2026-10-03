@@ -336,7 +336,8 @@ public final class JoniRegexpFunctions
             return matcher.searchInterruptible(at, range, noGroups ? DONT_CAPTURE_GROUP : DEFAULT);
         }
         catch (InterruptedException interruptedException) {
-            throw new PrestoException(GENERIC_USER_ERROR, "Regexp matching interrupted");
+            Thread.currentThread().interrupt();
+            throw new PrestoException(GENERIC_USER_ERROR, "Regexp matching interrupted", interruptedException);
         }
     }
 

@@ -444,6 +444,9 @@ public class PrestoSparkNativeTaskExecutorFactory
             nativeExecutionProcess.start();
         }
         catch (ExecutionException | InterruptedException | IOException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             throw new RuntimeException(e);
         }
     }

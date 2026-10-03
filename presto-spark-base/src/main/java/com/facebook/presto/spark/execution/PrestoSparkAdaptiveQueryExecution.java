@@ -324,6 +324,7 @@ public class PrestoSparkAdaptiveQueryExecution
                 fragmentEvent = fragmentEventQueue.poll(computeNextTimeout(queryCompletionDeadline), MILLISECONDS);
             }
             catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
             // In case poll() timed out without getting an event in the queue.
@@ -395,6 +396,7 @@ public class PrestoSparkAdaptiveQueryExecution
             fragmentEventQueue.put(fragmentCompletionEvent);
         }
         catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
     }
