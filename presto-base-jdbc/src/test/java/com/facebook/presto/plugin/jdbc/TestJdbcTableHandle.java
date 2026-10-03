@@ -17,15 +17,23 @@ import com.facebook.airlift.testing.EquivalenceTester;
 import com.facebook.presto.spi.SchemaTableName;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.plugin.jdbc.MetadataUtil.TABLE_CODEC;
+import static com.facebook.presto.plugin.jdbc.MetadataUtil.TABLE_JSON_CODEC;
+import static com.facebook.presto.plugin.jdbc.MetadataUtil.TABLE_THRIFT_CODEC;
 import static com.facebook.presto.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
+import static com.facebook.presto.plugin.jdbc.MetadataUtil.assertThriftRoundTrip;
 
 public class TestJdbcTableHandle
 {
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(TABLE_CODEC, new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"));
+        assertJsonRoundTrip(TABLE_JSON_CODEC, new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"));
+    }
+
+    @Test
+    public void testThriftRoundTrip()
+    {
+        assertThriftRoundTrip(TABLE_THRIFT_CODEC, new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"));
     }
 
     @Test

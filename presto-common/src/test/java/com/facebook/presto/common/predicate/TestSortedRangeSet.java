@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -54,6 +55,24 @@ public class TestSortedRangeSet
                         .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
                         .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
                         .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+    }
+
+    @Test
+    public void testThriftConstructorPreservesInput()
+    {
+        List<Range> ranges = ImmutableList.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 1L));
+        SortedRangeSet result = new SortedRangeSet(ranges, BIGINT);
+        assertEquals(result.getOrderedRanges(), ImmutableList.of(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)));
+        assertEquals(ranges, ImmutableList.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 1L)));
+    }
+
+    @Test
+    public void testThriftConstructorNormalizesBooleanRanges()
+    {
+        assertTrue(new SortedRangeSet(ImmutableList.of(Range.equal(BOOLEAN, true), Range.equal(BOOLEAN, false)), BOOLEAN).isAll());
+        assertFalse(new SortedRangeSet(ImmutableList.of(Range.equal(BOOLEAN, true)), BOOLEAN).isAll());
+        assertFalse(new SortedRangeSet(ImmutableList.of(Range.equal(BOOLEAN, false)), BOOLEAN).isAll());
+        assertTrue(new SortedRangeSet(ImmutableList.of(), BOOLEAN).isNone());
     }
 
     @Test

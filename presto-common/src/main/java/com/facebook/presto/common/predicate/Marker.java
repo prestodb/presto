@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
@@ -29,14 +34,29 @@ import static java.util.Objects.requireNonNull;
  * A point on the continuous space defined by the specified type.
  * Each point may be just below, exact, or just above the specified value according to the Bound.
  */
+@ThriftStruct
 public final class Marker
         implements Comparable<Marker>
 {
+    @ThriftEnum
     public enum Bound
     {
-        BELOW,   // lower than the value, but infinitesimally close to the value
-        EXACTLY, // exactly the value
-        ABOVE    // higher than the value, but infinitesimally close to the value
+        BELOW(0),    // lower than the value, but infinitesimally close to the value
+        EXACTLY(1),  // exactly the value
+        ABOVE(2);    // higher than the value, but infinitesimally close to the value
+
+        private final int value;
+
+        Bound(int value)
+        {
+            this.value = value;
+        }
+
+        @ThriftEnumValue
+        public int getValue()
+        {
+            return value;
+        }
     }
 
     private final Type type;
@@ -48,6 +68,7 @@ public final class Marker
      * UPPER UNBOUNDED is specified with an empty value and a BELOW bound
      */
     @JsonCreator
+    @ThriftConstructor
     public Marker(
             @JsonProperty("type") Type type,
             @JsonProperty("valueBlock") Optional<Block> valueBlock,
@@ -110,12 +131,14 @@ public final class Marker
     }
 
     @JsonProperty
+    @ThriftField(1)
     public Type getType()
     {
         return type;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public Optional<Block> getValueBlock()
     {
         return valueBlock;
@@ -143,6 +166,7 @@ public final class Marker
     }
 
     @JsonProperty
+    @ThriftField(3)
     public Bound getBound()
     {
         return bound;

@@ -56,7 +56,12 @@ public final class JdbcQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = new DistributedQueryRunner(createSession(), 3);
+            queryRunner = DistributedQueryRunner.builder(createSession())
+                    .setNodeCount(3)
+                    .setExtraProperties(ImmutableMap.of(
+                            "experimental.internal-communication.task-info-response-thrift-serde-enabled", "true",
+                            "experimental.internal-communication.task-update-request-thrift-serde-enabled", "true"))
+                    .build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");

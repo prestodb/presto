@@ -20,8 +20,10 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.plugin.jdbc.MetadataUtil.COLUMN_CODEC;
+import static com.facebook.presto.plugin.jdbc.MetadataUtil.COLUMN_JSON_CODEC;
+import static com.facebook.presto.plugin.jdbc.MetadataUtil.COLUMN_THRIFT_CODEC;
 import static com.facebook.presto.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
+import static com.facebook.presto.plugin.jdbc.MetadataUtil.assertThriftRoundTrip;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 
@@ -30,7 +32,13 @@ public class TestJdbcColumnHandle
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR, true, Optional.empty()));
+        assertJsonRoundTrip(COLUMN_JSON_CODEC, new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR, true, Optional.empty()));
+    }
+
+    @Test
+    public void testThriftRoundTrip()
+    {
+        assertThriftRoundTrip(COLUMN_THRIFT_CODEC, new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR, true, Optional.empty()));
     }
 
     @Test
