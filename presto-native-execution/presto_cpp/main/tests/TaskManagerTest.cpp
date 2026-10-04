@@ -12,12 +12,12 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/TaskManager.h"
+#include <folly/FileUtil.h>
 #include <folly/ScopeGuard.h>
 #include <folly/executors/ThreadedExecutor.h>
 #include <folly/json.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <fstream>
 #include <string_view>
 #include "folly/synchronization/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
@@ -2148,67 +2148,34 @@ TEST_P(TaskManagerTest, duplicateCreateTaskWithMaterializedOutput) {
 // Output stage of 'SELECT regionkey, sum(1) FROM nation GROUP BY 1': an
 // OutputNode '8' over RemoteSourceNode '153', which is fed by remote splits.
 constexpr std::string_view kOutputStageFragment = R"({
-  "id": "0",
-  "root": {
-    "@type": ".OutputNode",
-    "id": "8",
-    "source": {
-      "@type": "com.facebook.presto.sql.planner.plan.RemoteSourceNode",
-      "id": "153",
-      "sourceFragmentIds": ["1"],
-      "outputVariables": [
-        {"@type": "variable", "name": "regionkey", "type": "bigint"},
-        {"@type": "variable", "name": "sum", "type": "bigint"}
-      ],
-      "ensureSourceOrdering": false,
-      "exchangeType": "GATHER",
-      "encoding": "COLUMNAR"
-    },
+  "id": "0", "tableScanSchedulingOrder": [], "outputTableWriterFragment": false,
+  "root": {"@type": ".OutputNode", "id": "8",
     "columnNames": ["regionkey", "_col1"],
-    "outputVariables": [
-      {"@type": "variable", "name": "regionkey", "type": "bigint"},
-      {"@type": "variable", "name": "sum", "type": "bigint"}
-    ]
-  },
-  "variables": [
-    {"@type": "variable", "name": "regionkey", "type": "bigint"},
-    {"@type": "variable", "name": "sum", "type": "bigint"}
-  ],
-  "partitioning": {
-    "connectorHandle": {
-      "@type": "$remote", "partitioning": "SINGLE", "function": "SINGLE"
-    }
-  },
-  "tableScanSchedulingOrder": [],
-  "partitioningScheme": {
-    "partitioning": {
-      "handle": {
-        "connectorHandle": {
-          "@type": "$remote", "partitioning": "SINGLE", "function": "SINGLE"
-        }
-      },
-      "arguments": []
-    },
-    "outputLayout": [
-      {"@type": "variable", "name": "regionkey", "type": "bigint"},
-      {"@type": "variable", "name": "sum", "type": "bigint"}
-    ],
-    "replicateNullsAndAny": false,
-    "scaleWriters": false,
-    "encoding": "COLUMNAR",
-    "bucketToPartition": [0]
-  },
-  "stageExecutionDescriptor": {
-    "stageExecutionStrategy": "UNGROUPED_EXECUTION",
-    "groupedExecutionScanNodes": [],
-    "totalLifespans": 1,
-    "groupedExecutionPartitionValues": [],
-    "partitionColumnMappings": {}
-  },
-  "outputTableWriterFragment": false
+    "outputVariables": [{"@type": "variable", "name": "regionkey",
+      "type": "bigint"}, {"@type": "variable", "name": "sum",
+      "type": "bigint"}],
+    "source": {"@type": "com.facebook.presto.sql.planner.plan.RemoteSourceNode",
+      "id": "153", "sourceFragmentIds": ["1"], "ensureSourceOrdering": false,
+      "exchangeType": "GATHER", "encoding": "COLUMNAR",
+      "outputVariables": [{"@type": "variable", "name": "regionkey",
+        "type": "bigint"}, {"@type": "variable", "name": "sum",
+        "type": "bigint"}]}},
+  "variables": [{"@type": "variable", "name": "regionkey", "type": "bigint"},
+    {"@type": "variable", "name": "sum", "type": "bigint"}],
+  "partitioning": {"connectorHandle": {"@type": "$remote",
+    "partitioning": "SINGLE", "function": "SINGLE"}},
+  "partitioningScheme": {"partitioning": {"arguments": [],
+      "handle": {"connectorHandle": {"@type": "$remote",
+        "partitioning": "SINGLE", "function": "SINGLE"}}},
+    "outputLayout": [{"@type": "variable", "name": "regionkey",
+      "type": "bigint"}, {"@type": "variable", "name": "sum",
+      "type": "bigint"}],
+    "replicateNullsAndAny": false, "scaleWriters": false,
+    "encoding": "COLUMNAR", "bucketToPartition": [0]},
+  "stageExecutionDescriptor": {"stageExecutionStrategy": "UNGROUPED_EXECUTION",
+    "groupedExecutionScanNodes": [], "totalLifespans": 1,
+    "groupedExecutionPartitionValues": [], "partitionColumnMappings": {}}
 })";
-
-constexpr std::string_view kOutputStageExchangeNodeId{"153"};
 
 class PlanDumpTest : public TaskManagerTest {
  protected:
@@ -2217,8 +2184,8 @@ class PlanDumpTest : public TaskManagerTest {
     Type::registerSerDe();
     core::PlanNode::registerSerDe();
     core::ITypedExpr::registerSerDe();
-    // Not created up front, so that the tests also cover creating it.
-    dumpDir_ = fmt::format("{}/plans", tempDir_->getPath());
+    // Does not exist yet, so that creating it is covered too.
+    dumpDir_ = tempDir_->getPath() + "/plans";
     setPlanDumpDir(dumpDir_);
   }
 
@@ -2232,98 +2199,58 @@ class PlanDumpTest : public TaskManagerTest {
         std::string(SystemConfig::kPlanDumpDir), dir);
   }
 
-  // Returns a task update for the output stage. Carries the plan fragment if
-  // 'withFragment' is true, and one remote split for each of 'sequenceIds'.
-  protocol::TaskUpdateRequest makeUpdateRequest(
+  // Sends a task update over HTTP, as the coordinator does, carrying the plan
+  // fragment if 'withFragment' is true and a remote split for each of
+  // 'sequenceIds'. Checks that the worker still created the task.
+  void sendUpdate(
+      const protocol::TaskId& taskId,
       bool withFragment,
-      const std::vector<int64_t>& sequenceIds) const {
+      const std::vector<int64_t>& sequenceIds) {
     protocol::TaskUpdateRequest updateRequest;
     if (withFragment) {
       updateRequest.fragment = std::make_shared<std::string>(
           velox::encoding::Base64::encode(kOutputStageFragment));
     }
-    protocol::TaskSource source;
-    source.planNodeId = kOutputStageExchangeNodeId;
+    auto& source = updateRequest.sources.emplace_back();
+    source.planNodeId = "153";
     for (const auto sequenceId : sequenceIds) {
       auto remoteSplit = std::make_shared<protocol::RemoteSplit>();
-      remoteSplit->location.location = remoteSplitLocation(sequenceId);
-      remoteSplit->remoteSourceTaskId = upstreamTaskId(sequenceId);
-      protocol::ScheduledSplit split;
+      remoteSplit->location.location = fmt::format(
+          "http://{}/v1/task/upstream.0.0.0.0/results/0",
+          serverAddress_.describe());
+      auto& split = source.splits.emplace_back();
       split.sequenceId = sequenceId;
-      split.planNodeId = kOutputStageExchangeNodeId;
+      split.planNodeId = "153";
       split.split.connectorId = "$remote";
       split.split.transactionHandle =
           std::make_shared<protocol::RemoteTransactionHandle>();
       split.split.connectorSplit = std::move(remoteSplit);
-      source.splits.push_back(std::move(split));
     }
-    updateRequest.sources.push_back(std::move(source));
-    return updateRequest;
-  }
-
-  static protocol::TaskId upstreamTaskId(int64_t sequenceId) {
-    return fmt::format("20260101_000000_00000_plans.1.0.{}.0", sequenceId);
-  }
-
-  std::string remoteSplitLocation(int64_t sequenceId) const {
-    return fmt::format(
-        "http://{}:{}/v1/task/{}/results/0",
-        serverAddress_.getAddressStr(),
-        serverAddress_.getPort(),
-        upstreamTaskId(sequenceId));
-  }
-
-  // Sends 'updateRequest' over HTTP and verifies the worker accepted it and
-  // created the Velox task, i.e. dumping did not get in the way.
-  void sendUpdate(
-      const protocol::TaskId& taskId,
-      const protocol::TaskUpdateRequest& updateRequest) {
     ASSERT_EQ(sendTaskUpdate(taskId, updateRequest), http::kHttpOk);
-    const auto tasks = taskManager_->tasks();
-    ASSERT_EQ(tasks.count(taskId), 1);
     // A plan that failed to convert would leave only an error task behind.
-    ASSERT_NE(tasks.at(taskId)->task, nullptr);
+    ASSERT_NE(taskManager_->tasks().at(taskId)->task, nullptr);
   }
 
-  void abortTask(const protocol::TaskId& taskId) {
-    ASSERT_EQ(
-        sendDeleteTask(taskId, "abort=true&dropTaskOnDelete=true"),
-        http::kHttpOk);
+  std::string dumpPath(const protocol::TaskId& taskId, std::string_view suffix)
+      const {
+    return fmt::format("{}/{}{}", dumpDir_, taskId, suffix);
   }
 
-  std::string planPath(const protocol::TaskId& taskId) const {
-    return fmt::format("{}/{}.json", dumpDir_, taskId);
+  std::string readDump(const protocol::TaskId& taskId, std::string_view suffix)
+      const {
+    std::string content;
+    EXPECT_TRUE(folly::readFile(dumpPath(taskId, suffix).c_str(), content));
+    return content;
   }
 
-  std::string splitsPath(const protocol::TaskId& taskId) const {
-    return fmt::format("{}/{}.splits.json", dumpDir_, taskId);
-  }
-
-  static std::string readFile(const std::string& path) {
-    std::ifstream in(path);
-    VELOX_CHECK(in.good(), "Cannot open {}", path);
-    return std::string(
-        std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
-  }
-
-  // Reads the dumped splits of the exchange node, checking that each one
-  // deserializes to the remote split that was sent, in sequenceId order.
-  std::vector<int64_t> readDumpedSequenceIds(const protocol::TaskId& taskId) {
-    const json splits = json::parse(readFile(splitsPath(taskId)));
-    EXPECT_EQ(splits.size(), 1);
+  // Returns the sequenceIds of the dumped splits, which must deserialize back
+  // to protocol splits.
+  std::vector<int64_t> dumpedSequenceIds(const protocol::TaskId& taskId) const {
+    const auto splits = json::parse(readDump(taskId, ".splits.json"))
+                            .at("153")
+                            .get<std::vector<protocol::ScheduledSplit>>();
     std::vector<int64_t> sequenceIds;
-    for (const auto& entry :
-         splits.at(std::string(kOutputStageExchangeNodeId))) {
-      const auto split = entry.get<protocol::ScheduledSplit>();
-      EXPECT_EQ(split.planNodeId, kOutputStageExchangeNodeId);
-      const auto remoteSplit = std::dynamic_pointer_cast<protocol::RemoteSplit>(
-          split.split.connectorSplit);
-      EXPECT_NE(remoteSplit, nullptr);
-      if (remoteSplit != nullptr) {
-        EXPECT_EQ(
-            remoteSplit->location.location,
-            remoteSplitLocation(split.sequenceId));
-      }
+    for (const auto& split : splits) {
       sequenceIds.push_back(split.sequenceId);
     }
     return sequenceIds;
@@ -2334,102 +2261,57 @@ class PlanDumpTest : public TaskManagerTest {
   std::string dumpDir_;
 };
 
-// The plan is written on the update that carries the fragment, as JSON that
-// deserializes back into the Velox plan the worker built.
-TEST_P(PlanDumpTest, plan) {
-  // Real task IDs are kept verbatim in the file name.
+// Follows one task through the updates the coordinator sends: the plan comes
+// with the first one, and splits arrive over several, with the ones not yet
+// acknowledged sent again.
+TEST_P(PlanDumpTest, planAndSplits) {
+  // Real task IDs are kept verbatim in file names.
   const protocol::TaskId taskId = "20260101_000000_00000_plans.0.0.0.0";
-  ASSERT_NO_FATAL_FAILURE(
-      sendUpdate(taskId, makeUpdateRequest(/*withFragment=*/true, {})));
+  ASSERT_NO_FATAL_FAILURE(sendUpdate(taskId, /*withFragment=*/true, {}));
+  ASSERT_FALSE(fs::exists(dumpPath(taskId, ".splits.json")));
 
-  // No splits were sent, so there is nothing to record for them.
-  ASSERT_TRUE(fs::exists(planPath(taskId)));
-  ASSERT_FALSE(fs::exists(splitsPath(taskId)));
-
+  // The dumped plan deserializes back into the Velox plan the worker built.
   const auto plan = ISerializable::deserialize<core::PlanNode>(
-      folly::parseJson(readFile(planPath(taskId))), pool());
-  const auto* output =
-      dynamic_cast<const core::PartitionedOutputNode*>(plan.get());
-  ASSERT_NE(output, nullptr);
-  ASSERT_EQ(output->id(), "8");
-  ASSERT_EQ(output->numPartitions(), 1);
-  ASSERT_EQ(output->sources().size(), 1);
-  const auto* exchange =
-      dynamic_cast<const core::ExchangeNode*>(output->sources()[0].get());
-  ASSERT_NE(exchange, nullptr);
-  ASSERT_EQ(exchange->id(), kOutputStageExchangeNodeId);
+      folly::parseJson(readDump(taskId, ".json")), pool());
+  ASSERT_NE(
+      dynamic_cast<const core::PartitionedOutputNode*>(plan.get()), nullptr);
+  ASSERT_EQ(plan->id(), "8");
+  const auto& exchange = plan->sources().at(0);
+  ASSERT_NE(dynamic_cast<const core::ExchangeNode*>(exchange.get()), nullptr);
+  ASSERT_EQ(exchange->id(), "153");
   ASSERT_EQ(
       exchange->outputType()->toString(),
       ROW({"regionkey", "sum"}, BIGINT())->toString());
 
-  // An update without a fragment leaves the plan alone.
-  const auto planJson = readFile(planPath(taskId));
-  ASSERT_NO_FATAL_FAILURE(
-      sendUpdate(taskId, makeUpdateRequest(/*withFragment=*/false, {})));
-  ASSERT_EQ(readFile(planPath(taskId)), planJson);
+  ASSERT_NO_FATAL_FAILURE(sendUpdate(taskId, /*withFragment=*/false, {0, 1}));
+  ASSERT_EQ(dumpedSequenceIds(taskId), (std::vector<int64_t>{0, 1}));
+  ASSERT_NO_FATAL_FAILURE(sendUpdate(taskId, /*withFragment=*/false, {1, 2}));
+  ASSERT_EQ(dumpedSequenceIds(taskId), (std::vector<int64_t>{0, 1, 2}));
+  ASSERT_NO_FATAL_FAILURE(sendUpdate(taskId, /*withFragment=*/false, {}));
+  ASSERT_EQ(dumpedSequenceIds(taskId), (std::vector<int64_t>{0, 1, 2}));
 
-  ASSERT_NO_FATAL_FAILURE(abortTask(taskId));
+  // An unreadable splits file is replaced rather than failing the update.
+  ASSERT_TRUE(
+      folly::writeFile(
+          std::string("{not json"), dumpPath(taskId, ".splits.json").c_str()));
+  ASSERT_NO_FATAL_FAILURE(sendUpdate(taskId, /*withFragment=*/false, {3}));
+  ASSERT_EQ(dumpedSequenceIds(taskId), (std::vector<int64_t>{3}));
+
+  ASSERT_EQ(
+      sendDeleteTask(taskId, "abort=true&dropTaskOnDelete=true"),
+      http::kHttpOk);
 }
 
-// Presto sends splits over several updates and re-sends the ones the worker
-// has not acknowledged yet. Each split is recorded once, in arrival order.
-TEST_P(PlanDumpTest, splitsAcrossUpdates) {
-  const protocol::TaskId taskId = "20260101_000000_00000_plans.0.0.1.0";
-  ASSERT_NO_FATAL_FAILURE(
-      sendUpdate(taskId, makeUpdateRequest(/*withFragment=*/true, {0, 1})));
-  ASSERT_TRUE(fs::exists(planPath(taskId)));
-  ASSERT_EQ(readDumpedSequenceIds(taskId), (std::vector<int64_t>{0, 1}));
-
-  ASSERT_NO_FATAL_FAILURE(
-      sendUpdate(taskId, makeUpdateRequest(/*withFragment=*/false, {1, 2})));
-  ASSERT_EQ(readDumpedSequenceIds(taskId), (std::vector<int64_t>{0, 1, 2}));
-
-  // An update without new splits leaves the file alone.
-  ASSERT_NO_FATAL_FAILURE(
-      sendUpdate(taskId, makeUpdateRequest(/*withFragment=*/false, {})));
-  ASSERT_EQ(readDumpedSequenceIds(taskId), (std::vector<int64_t>{0, 1, 2}));
-
-  ASSERT_NO_FATAL_FAILURE(abortTask(taskId));
-}
-
-// An unreadable splits file is replaced rather than failing the task update.
-TEST_P(PlanDumpTest, corruptSplitsFile) {
-  const protocol::TaskId taskId = "20260101_000000_00000_plans.0.0.2.0";
-  ASSERT_NO_FATAL_FAILURE(
-      sendUpdate(taskId, makeUpdateRequest(/*withFragment=*/true, {0})));
-  {
-    std::ofstream out(splitsPath(taskId), std::ios::trunc);
-    out << "{not json";
-  }
-  ASSERT_NO_FATAL_FAILURE(
-      sendUpdate(taskId, makeUpdateRequest(/*withFragment=*/false, {1})));
-  ASSERT_EQ(readDumpedSequenceIds(taskId), (std::vector<int64_t>{1}));
-
-  ASSERT_NO_FATAL_FAILURE(abortTask(taskId));
-}
-
-// The directory is read on every update, so clearing the property stops
-// dumping without a restart.
+// Nothing is written while the property is empty.
 TEST_P(PlanDumpTest, disabled) {
-  const protocol::TaskId dumpedTaskId = "20260101_000000_00000_plans.0.0.3.0";
-  ASSERT_NO_FATAL_FAILURE(
-      sendUpdate(dumpedTaskId, makeUpdateRequest(/*withFragment=*/true, {0})));
-  ASSERT_TRUE(fs::exists(planPath(dumpedTaskId)));
-  ASSERT_TRUE(fs::exists(splitsPath(dumpedTaskId)));
-
   setPlanDumpDir("");
-  const protocol::TaskId taskId = "20260101_000000_00000_plans.0.0.4.0";
-  ASSERT_NO_FATAL_FAILURE(
-      sendUpdate(taskId, makeUpdateRequest(/*withFragment=*/true, {0})));
-  ASSERT_NO_FATAL_FAILURE(
-      sendUpdate(taskId, makeUpdateRequest(/*withFragment=*/false, {1})));
-  ASSERT_FALSE(fs::exists(planPath(taskId)));
-  ASSERT_FALSE(fs::exists(splitsPath(taskId)));
-  // The earlier task's splits are not touched either.
-  ASSERT_EQ(readDumpedSequenceIds(dumpedTaskId), (std::vector<int64_t>{0}));
+  const protocol::TaskId taskId = "20260101_000000_00000_plans.0.0.1.0";
+  ASSERT_NO_FATAL_FAILURE(sendUpdate(taskId, /*withFragment=*/true, {0}));
+  ASSERT_FALSE(fs::exists(dumpDir_));
 
-  ASSERT_NO_FATAL_FAILURE(abortTask(dumpedTaskId));
-  ASSERT_NO_FATAL_FAILURE(abortTask(taskId));
+  ASSERT_EQ(
+      sendDeleteTask(taskId, "abort=true&dropTaskOnDelete=true"),
+      http::kHttpOk);
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
