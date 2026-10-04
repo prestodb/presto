@@ -1018,11 +1018,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kPlanConsistencyCheckEnabled{
       "plan-consistency-check-enabled"};
 
-  /// When set, each task's Velox plan is written to this directory as JSON and
-  /// task-source splits are accumulated in a sibling .splits.json file.
-  /// Filenames are derived from a sanitized task ID to keep them filesystem
-  /// safe. Useful for extracting plans for TPC-DS/TPC-H queries to build
-  /// TpcdsQueryBuilder-style plans.
+  /// Directory to write each task's Velox plan to as '<task-id>.json' and its
+  /// splits to as '<task-id>.splits.json'. Disabled if not set or empty.
   static constexpr std::string_view kPlanDumpDir{"plan-dump-dir"};
 
   SystemConfig();

@@ -667,10 +667,10 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
         taskId, updateRequest, planFragment, summarize, std::move(queryCtx), 0);
   }
 
-  // Sends 'method' 'path' to the test HTTP server so that TaskResource request
-  // handling is exercised rather than bypassed. Returns the status code for the
-  // caller to assert on: a fatal assertion here would return from this helper
-  // with 'eventBaseThread' still joinable.
+  // Sends a 'method' request for 'path' to the test HTTP server so that
+  // TaskResource request handling is exercised rather than bypassed. Returns
+  // the status code for the caller to assert on: a fatal assertion here would
+  // return from this helper with 'eventBaseThread' still joinable.
   uint16_t sendTaskRequest(
       proxygen::HTTPMethod method,
       const std::string& path,
