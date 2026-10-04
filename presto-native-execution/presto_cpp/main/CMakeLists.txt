@@ -26,7 +26,6 @@ add_library(
   CoordinatorDiscoverer.cpp
   PeriodicMemoryChecker.cpp
   PeriodicTaskManager.cpp
-  PlanDump.cpp
   PrestoExchangeSource.cpp
   PrestoServer.cpp
   PrestoServerOperations.cpp
