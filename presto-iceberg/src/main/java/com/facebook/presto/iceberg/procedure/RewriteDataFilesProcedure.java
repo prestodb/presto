@@ -68,6 +68,7 @@ import java.util.Set;
 
 import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.getSupportedSortFields;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.Z_ORDER;
@@ -199,12 +200,17 @@ public class RewriteDataFilesProcedure
                 Set<String> partitionColumnNames = layoutHandle.getPartitionColumns().stream()
                         .map(BaseHiveColumnHandle::getName)
                         .collect(toImmutableSet());
-                boolean hasNonPartitionPredicate = layoutHandle.getValidPredicate()
+                // Check domainPredicate directly (not getValidPredicate) so that subfield
+                // predicates like c3.a=5 are also caught — getValidPredicate drops them.
+                boolean hasNonPartitionDomainPredicate = layoutHandle.getDomainPredicate()
                         .getDomains()
                         .map(domains -> domains.keySet().stream()
-                                .anyMatch(col -> !partitionColumnNames.contains(col.getName())))
+                                .anyMatch(subfield -> !partitionColumnNames.contains(subfield.getRootName())))
                         .orElse(false);
-                if (hasNonPartitionPredicate) {
+                // Check remainingPredicate for complex expressions like lower(c2)='bar' that
+                // could not be expressed as domain predicates and are pushed to Velox as-is.
+                boolean hasRemainingPredicate = !layoutHandle.getRemainingPredicate().equals(TRUE_CONSTANT);
+                if (hasNonPartitionDomainPredicate || hasRemainingPredicate) {
                     throw new PrestoException(NOT_SUPPORTED,
                             "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
                 }

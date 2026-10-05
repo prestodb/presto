@@ -266,9 +266,21 @@ public abstract class AbstractTestRewriteDataFilesProcedure
             //The number of data files is 2, and the number of delete files is 0
             validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
 
-            // Non-partition column filter with pushdown enabled: blocked at coordinator to prevent
-            // Velox from applying the predicate as a row filter (which would cause data loss).
+            // Non-partition column filter: blocked (c1 is in domainPredicate as non-partition).
             assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, schemaName),
+                    "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
+
+            // IN list on non-partition column: blocked (same domainPredicate path as range).
+            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 IN (1, 2, 3)')", tableName, schemaName),
+                    "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
+
+            // Combined partition + non-partition (AND): blocked because c1 is non-partition.
+            // Verifies that a partition predicate does not whitelist the whole filter.
+            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar'' AND c1 > 3')", tableName, schemaName),
+                    "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
+
+            // OR across columns: cannot be simplified to a domain; lands in remainingPredicate.
+            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3 OR c2 = ''bar''')", tableName, schemaName),
                     "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
 
             // Partition column filter with pushdown enabled: safe to proceed. Files are pruned by
@@ -287,6 +299,184 @@ public abstract class AbstractTestRewriteDataFilesProcedure
                             "(3, 'foo'), (3, 'bar'), " +
                             "(4, 'foo'), (4, 'bar'), " +
                             "(5, 'foo'), (5, 'bar')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithFunctionFilterAndPushdownEnabled()
+    {
+        // Covers the remainingPredicate path: function expressions like lower(c2)='bar' cannot be
+        // expressed as domain predicates and are pushed to Velox as row-level filters, causing
+        // data loss. The guard must check remainingPredicate, not just domainPredicate.
+        String tableName = "example_function_filter_pushdown_table";
+        String schemaName = getSession().getSchema().get();
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['c2'])");
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'foo'), (3, 'foo')", 3);
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'bar'), (2, 'bar'), (3, 'bar')", 3);
+
+            assertQueryFails(sessionWithFilterPushdown,
+                    format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'lower(c2) = ''bar''')", tableName, schemaName),
+                    "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithSubfieldFilterAndPushdownEnabled()
+    {
+        // Covers the domainPredicate subfield path: predicates like person.age > 25 are stored
+        // as non-entire-column Subfield entries in domainPredicate. getValidPredicate() silently
+        // drops them (isEntireColumn check), so the guard must inspect domainPredicate directly.
+        String tableName = "example_subfield_filter_pushdown_table";
+        String schemaName = getSession().getSchema().get();
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar, person ROW(name VARCHAR, age INTEGER)) with (partitioning = ARRAY['c2'])");
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo', row('Alice', 30)), (2, 'foo', row('Bob', 20))", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'bar', row('Charlie', 25)), (2, 'bar', row('Dave', 35))", 2);
+
+            assertQueryFails(sessionWithFilterPushdown,
+                    format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'person.age > 25')", tableName, schemaName),
+                    "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithNonIdentityPartitionFilterAndPushdownEnabled()
+    {
+        // getPartitionKeyColumnHandles() only includes identity-transform partition columns.
+        // For bucket(c1, 4), c1 is NOT in partitionColumns, so the guard treats c1 as a
+        // non-partition column and blocks the filter — preventing data loss where Velox would
+        // apply c1=5 as a row filter on files that also contain c1=1,9,13 (same bucket).
+        String tableName = "example_bucket_partition_pushdown_table";
+        String schemaName = getSession().getSchema().get();
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['bucket(c1, 4)'])");
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (5, 'bar'), (9, 'baz')", 3);
+
+            assertQueryFails(sessionWithFilterPushdown,
+                    format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 = 5')", tableName, schemaName),
+                    "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithNullPartitionFilterAndPushdownEnabled()
+    {
+        // IS NULL on an identity partition column is safe: all rows in the NULL-partition files
+        // have c2 = NULL, so Velox applying c2 IS NULL as a row filter drops nothing.
+        // The guard must allow this — c2 is in partitionColumnNames.
+        String tableName = "example_null_partition_pushdown_table";
+        String schemaName = getSession().getSchema().get();
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['c2'])");
+            // Two files in the NULL partition
+            assertUpdate("INSERT INTO " + tableName + " values(1, NULL), (2, NULL)", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(3, NULL), (4, NULL)", 2);
+            // One file in a non-null partition to confirm data isolation
+            assertUpdate("INSERT INTO " + tableName + " values(5, 'foo')", 1);
+
+            // Guard passes (c2 is an identity partition column); rewrite-all with pushdown
+            // enabled rewrites the 2-file NULL partition and Prestissimo preserves all rows.
+            assertUpdate(sessionWithFilterPushdown,
+                    format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 IS NULL', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 4);
+            validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
+
+            assertQuery("select * from " + tableName,
+                    "values(1, NULL), (2, NULL), (3, NULL), (4, NULL), (5, 'foo')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithDateBasedPartitionFilterAndPushdownEnabled()
+    {
+        // year(event_date) is a non-identity transform. getPartitionKeyColumnHandles() only
+        // includes identity transforms, so event_date is NOT in partitionColumns. The guard
+        // treats event_date as a non-partition column and blocks the filter, preventing Velox
+        // from silently dropping rows whose event_date does not match the predicate.
+        String tableName = "example_year_partition_pushdown_table";
+        String schemaName = getSession().getSchema().get();
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, event_date date) with (partitioning = ARRAY['year(event_date)'])");
+            assertUpdate("INSERT INTO " + tableName + " values(1, DATE '2023-06-15'), (2, DATE '2024-03-20'), (3, DATE '2024-11-05')", 3);
+
+            assertQueryFails(sessionWithFilterPushdown,
+                    format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'event_date >= DATE ''2024-01-01''')", tableName, schemaName),
+                    "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithMultipleIdentityPartitionColumnsAndPushdownEnabled()
+    {
+        // Verifies that filtering on ALL identity partition columns is allowed when pushdown is
+        // enabled. Every column in the filter is in partitionColumns, so no non-partition
+        // predicate is present and the guard does not fire.
+        String tableName = "example_multi_partition_pushdown_table";
+        String schemaName = getSession().getSchema().get();
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar, c3 varchar) with (partitioning = ARRAY['c2', 'c3'])");
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo', 'x'), (2, 'foo', 'x'), (3, 'foo', 'x')", 3);
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'bar', 'y'), (2, 'bar', 'y'), (3, 'bar', 'y')", 3);
+
+            // Filter on all partition columns: allowed, data is preserved.
+            assertUpdate(sessionWithFilterPushdown,
+                    format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar'' AND c3 = ''y''', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 3);
+            validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
+
+            assertQuery("select * from " + tableName,
+                    "values(1, 'foo', 'x'), (2, 'foo', 'x'), (3, 'foo', 'x'), " +
+                            "(1, 'bar', 'y'), (2, 'bar', 'y'), (3, 'bar', 'y')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithFilterOnUnpartitionedTableAndPushdownEnabled()
+    {
+        // On a table with no partition columns, partitionColumnNames is empty, so any filter
+        // on any column is treated as a non-partition predicate and blocked.
+        String tableName = "example_unpartitioned_pushdown_table";
+        String schemaName = getSession().getSchema().get();
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar)");
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'bar'), (3, 'baz')", 3);
+            assertUpdate("INSERT INTO " + tableName + " values(4, 'foo'), (5, 'bar'), (6, 'baz')", 3);
+
+            assertQueryFails(sessionWithFilterPushdown,
+                    format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, schemaName),
+                    "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
+
+            // No filter on an unpartitioned table: safe regardless of pushdown setting.
+            assertUpdate(sessionWithFilterPushdown,
+                    format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 6);
+            validateDataFilesAndDeleteFiles(tableName, 1L, 0L);
         }
         finally {
             dropTable(tableName);
