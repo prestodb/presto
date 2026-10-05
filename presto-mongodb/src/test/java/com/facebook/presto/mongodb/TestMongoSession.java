@@ -22,12 +22,22 @@ import com.google.common.collect.ImmutableMap;
 import org.bson.Document;
 import org.testng.annotations.Test;
 
+import java.time.LocalDate;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
+
 import static com.facebook.presto.common.predicate.Range.equal;
 import static com.facebook.presto.common.predicate.Range.greaterThan;
 import static com.facebook.presto.common.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.common.predicate.Range.lessThan;
 import static com.facebook.presto.common.predicate.Range.range;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -41,6 +51,10 @@ public class TestMongoSession
     private static final MongoColumnHandle COL1 = new MongoColumnHandle("col1", BIGINT, false);
     private static final MongoColumnHandle COL2 = new MongoColumnHandle("col2", createUnboundedVarcharType(), false);
     private static final MongoColumnHandle COL3 = new MongoColumnHandle("col3", VARBINARY, false);
+    private static final MongoColumnHandle COL4 = new MongoColumnHandle("col4", DATE, false);
+    private static final MongoColumnHandle COL5 = new MongoColumnHandle("col5", TIMESTAMP, false);
+    private static final MongoColumnHandle COL6 = new MongoColumnHandle("col6", TIME, false);
+    private static final MongoColumnHandle COL7 = new MongoColumnHandle("col7", TIMESTAMP_WITH_TIME_ZONE, false);
 
     @Test
     public void testBuildQuery()
@@ -65,6 +79,74 @@ public class TestMongoSession
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document()
                 .append(COL3.getName(), new Document().append("$eq", "VarBinary Value"));
+        assertEquals(query, expected);
+    }
+
+    @Test
+    public void testBuildQueryDateType()
+    {
+        long days = LocalDate.of(2024, 1, 15).toEpochDay();
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                COL4, Domain.singleValue(DATE, days)));
+
+        Document query = MongoSession.buildQuery(tupleDomain);
+        Document expected = new Document()
+                .append(COL4.getName(), new Document("$eq", new Date(TimeUnit.DAYS.toMillis(days))));
+        assertEquals(query, expected);
+    }
+
+    @Test
+    public void testBuildQueryDateRange()
+    {
+        long low = LocalDate.of(2024, 1, 15).toEpochDay();
+        long high = LocalDate.of(2024, 1, 25).toEpochDay();
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                COL4, Domain.create(ValueSet.ofRanges(range(DATE, low, true, high, false)), false)));
+
+        Document query = MongoSession.buildQuery(tupleDomain);
+        Document expected = new Document()
+                .append(COL4.getName(), new Document()
+                        .append("$gte", new Date(TimeUnit.DAYS.toMillis(low)))
+                        .append("$lt", new Date(TimeUnit.DAYS.toMillis(high))));
+        assertEquals(query, expected);
+    }
+
+    @Test
+    public void testBuildQueryTimestampType()
+    {
+        long millis = 1_705_312_953_456L;
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                COL5, Domain.create(ValueSet.ofRanges(greaterThan(TIMESTAMP, millis)), false)));
+
+        Document query = MongoSession.buildQuery(tupleDomain);
+        Document expected = new Document()
+                .append(COL5.getName(), new Document("$gt", new Date(millis)));
+        assertEquals(query, expected);
+    }
+
+    @Test
+    public void testBuildQueryTimeType()
+    {
+        long millisOfDay = TimeUnit.HOURS.toMillis(11) + TimeUnit.MINUTES.toMillis(22);
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                COL6, Domain.singleValue(TIME, millisOfDay)));
+
+        Document query = MongoSession.buildQuery(tupleDomain);
+        Document expected = new Document()
+                .append(COL6.getName(), new Document("$eq", new Date(millisOfDay)));
+        assertEquals(query, expected);
+    }
+
+    @Test
+    public void testBuildQueryTimestampWithTimeZoneType()
+    {
+        long millis = 1_705_312_953_456L;
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                COL7, Domain.singleValue(TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(millis, UTC_KEY))));
+
+        Document query = MongoSession.buildQuery(tupleDomain);
+        Document expected = new Document()
+                .append(COL7.getName(), new Document("$eq", new Date(millis)));
         assertEquals(query, expected);
     }
 
