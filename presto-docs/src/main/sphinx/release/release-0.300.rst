@@ -16,10 +16,11 @@ _______________
 * Fix ``REFRESH MATERIALIZED VIEW`` analysis to reject unsupported predicates nested within an ``OR``. `#28570 <https://github.com/prestodb/presto/pull/28570>`_
 * Fix ``SHOW CREATE MATERIALIZED VIEW`` failure for materialized views created with materialized-view-only properties. `#28390 <https://github.com/prestodb/presto/pull/28390>`_
 * Fix ``SHOW CREATE TABLE`` to not show hidden table properties for all existing connectors. `#28123 <https://github.com/prestodb/presto/pull/28123>`_
-* Fix ``ST_Centroid`` to return ``NULL`` for empty geometries per ISO spec. `#26971 <https://github.com/prestodb/presto/pull/26971>`_
+* Fix ``ST_Centroid`` to return ``NULL`` for empty geometries according to the ISO spec. `#26971 <https://github.com/prestodb/presto/pull/26971>`_
 * Fix ``trim``, ``ltrim``, and ``rtrim`` functions for ``CHAR`` arguments to return unpadded ``VARCHAR`` results instead of padded ``CHAR`` values. `#28280 <https://github.com/prestodb/presto/pull/28280>`_
 * Fix a query failure that could occur during planning for some queries with a distinct aggregation over an inner join. `#28231 <https://github.com/prestodb/presto/pull/28231>`_
-* Fix failures when using an offset ``RANGE`` frame with ``ORDER BY`` inherited from a named window.  `#28517 <https://github.com/prestodb/presto/pull/28517>`_
+* Fix failures when using an offset ``RANGE`` frame with ``ORDER BY`` inherited from a named window. See :ref:`sql/select:named window clause`. `#28517 <https://github.com/prestodb/presto/pull/28517>`_
+
 * Fix fully qualified storage table names in materialized view queries. `#28423 <https://github.com/prestodb/presto/pull/28423>`_
 * Fix query planning failure with dynamic filtering enabled when using scalar subqueries with ``min/max/count`` aggregation functions. `#28392 <https://github.com/prestodb/presto/pull/28392>`_
 * Fix query runtime metrics being dropped for tables and materialized views referenced through a view. `#28367 <https://github.com/prestodb/presto/pull/28367>`_
@@ -31,12 +32,12 @@ _______________
 * Improve query planning performance by resolving window-value functions lazily during expression optimization. `#28265 <https://github.com/prestodb/presto/pull/28265>`_
 * Improve the ``optimize_join_fan_out`` optimization to collapse the null-supplying side of an outer join, and to detect the fan-out from the grouping a join input reports rather than from a fixed plan shape. `#28301 <https://github.com/prestodb/presto/pull/28301>`_
 * Add :func:`!xxhash128` function to compute the 128-bit XXH3 hash. `#28289 <https://github.com/prestodb/presto/pull/28289>`_
-* Add Basic authentication support to the Prometheus connector. `#28391 <https://github.com/prestodb/presto/pull/28391>`_
+* Add Basic :ref:`connector/prometheus:authentication` support to the Prometheus connector. `#28391 <https://github.com/prestodb/presto/pull/28391>`_
 * Add SQL Parser support for ``CREATE TABLE`` and ``ALTER TABLE`` to allow for derived column syntax. `#28123 <https://github.com/prestodb/presto/pull/28123>`_
 * Add ``ALTER TABLE ... ALTER COLUMN <column> FIRST | AFTER <column>`` to move an existing column within a table's column order. Reordering columns requires connector support. `#28349 <https://github.com/prestodb/presto/pull/28349>`_
-* Add ``spark.max-splits-count-per-partition`` configuration property and ``max_splits_count_per_spark_partition`` session property to bound the number of splits assigned to a single Spark input partition. Unbounded by default. `#28326 <https://github.com/prestodb/presto/pull/28326>`_
+* Add :ref:`admin/properties:\`\`spark.max-splits-count-per-partition\`\`` configuration property and :ref:`admin/properties-session:\`\`max_splits_count_per_spark_partition\`\`` session property to bound the number of splits assigned to a single Spark input partition. Unbounded by default. `#28326 <https://github.com/prestodb/presto/pull/28326>`_
 * Add an optional ``FIRST`` or ``AFTER <column>`` clause to ``ALTER TABLE ... ADD COLUMN`` to control where the new column is placed. Omitting the clause appends the column, which is the previous behavior. ``FIRST`` and ``AFTER`` require connector support. `#28328 <https://github.com/prestodb/presto/pull/28328>`_
-* Add opt-in coordinator query tracing to runtime statistics with the ``runtime_stats_tracing_enabled`` session property. `#28417 <https://github.com/prestodb/presto/pull/28417>`_
+* Add opt-in coordinator query tracing to runtime statistics with the :ref:`admin/properties-session:\`\`runtime_stats_tracing_enabled\`\`` session property. `#28417 <https://github.com/prestodb/presto/pull/28417>`_
 * Add session property ``rewrite_approx_distinct_if_to_mask`` and configuration property ``optimizer.rewrite-approx-distinct-if-to-mask``, disabled by default, which rewrites ``approx_distinct(IF(p, e))`` to ``approx_distinct(e)`` masked by ``p``. `#28363 <https://github.com/prestodb/presto/pull/28363>`_
 * Add support for declaring field names in a row constructor, for example ``ROW(1 AS a, 2 AS b)``. `#28298 <https://github.com/prestodb/presto/pull/28298>`_
 * Add support for fractional native RPC admission and adaptive pacing. `#28573 <https://github.com/prestodb/presto/pull/28573>`_
@@ -106,7 +107,7 @@ _______________________
 
 Oracle Connector Changes
 ________________________
-* Fix the Oracle connector ignoring per-session ``user-credential-name`` and ``password-credential-name``extraCredentials, always using the static ``connection-user`` and ``connection-password`` instead. `#28351 <https://github.com/prestodb/presto/pull/28351>`_
+* Fix the Oracle connector ignoring per-session ``user-credential-name`` and ``password-credential-name`` extraCredentials, always using the static ``connection-user`` and ``connection-password`` instead. `#28351 <https://github.com/prestodb/presto/pull/28351>`_
 
 Verifier Changes
 ________________
