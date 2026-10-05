@@ -79,7 +79,8 @@
         <dep.ratis.version>3.2.2</dep.ratis.version>
         <dep.errorprone.version>2.50.0</dep.errorprone.version>
         <dep.guava.version>32.1.0-jre</dep.guava.version>
-        <dep.jackson.version>2.18.9</dep.jackson.version>
+        <dep.jackson.version>2.22.3</dep.jackson.version>
+        <dep.jackson-annotations.version>2.22</dep.jackson-annotations.version>
         <dep.j2objc.version>3.0.0</dep.j2objc.version>
         <dep.avro.version>1.12.1</dep.avro.version>
         <dep.commons.compress.version>1.27.1</dep.commons.compress.version>
@@ -1054,7 +1055,7 @@
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-annotations</artifactId>
-                <version>${dep.jackson.version}</version>
+                <version>${dep.jackson-annotations.version}</version>
             </dependency>
 
             <dependency>
