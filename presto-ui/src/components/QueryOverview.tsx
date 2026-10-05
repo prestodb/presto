@@ -15,7 +15,7 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 import { clsx } from "clsx";
-import DataTable, { createTheme, TableStyles } from "react-data-table-component";
+import DataTable, { TableStyles } from "react-data-table-component";
 
 import {
     computeRate,
@@ -35,12 +35,7 @@ import {
     parseDataSize,
     parseDuration,
 } from "../utils";
-
-createTheme("dark", {
-    background: {
-        default: "transparent",
-    },
-});
+import { PRESTO_DARK_THEME } from "./DataTableTheme";
 
 type TaskStatus = {
     self: string;
@@ -292,14 +287,17 @@ function TaskList({ tasks }: { tasks: Task[] }): React.ReactElement {
     const customStyles = {
         headCells: {
             style: {
-                padding: "2px", // override the cell padding for head cells
+                // 8.x overrides the `padding` shorthand with its own layout styles, so use the longhands
+                paddingLeft: "2px", // override the cell padding for head cells
+                paddingRight: "2px",
                 fontSize: "15px",
                 overflowX: "auto", // Enables horizontal scrolling
             },
         },
         cells: {
             style: {
-                padding: "2px", // override the cell padding for data cells
+                paddingLeft: "2px", // override the cell padding for data cells
+                paddingRight: "2px",
                 fontSize: "15px",
                 overflowX: "auto", // Enables horizontal scrolling
             },
@@ -561,7 +559,7 @@ function TaskList({ tasks }: { tasks: Task[] }): React.ReactElement {
         <DataTable
             columns={columns}
             data={tasks}
-            theme="dark"
+            theme={PRESTO_DARK_THEME}
             customStyles={customStyles as TableStyles}
             striped={true}
         />
