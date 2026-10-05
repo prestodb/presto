@@ -33,7 +33,9 @@ import com.facebook.presto.spi.TestingColumnHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ColumnPosition;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
+import com.facebook.presto.spi.security.DenyAllAccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.ColumnDefinition;
@@ -177,6 +179,21 @@ public class TestAddColumnTask
         }
     }
 
+    @Test(expectedExceptions = AccessDeniedException.class)
+    public void testNestedAddColumnDeniedWhenAlterColumnNotAllowed()
+    {
+        ColumnDefinition nestedColumn = new ColumnDefinition(
+                QualifiedName.of(ImmutableList.of(identifier("info"), identifier("score"))),
+                "INTEGER",
+                true,
+                emptyList(),
+                Optional.empty());
+        AddColumn statement = new AddColumn(QualifiedName.of(TABLE_NAME), nestedColumn, false, false);
+
+        getFutureValue(new AddColumnTask().execute(
+                statement, transactionManager, metadata, new DenyAllAccessControl(), testSession, emptyList(), warningCollector, ""));
+    }
+
     @Test
     public void testNestedAddColumnPassesCorrectArgumentsToAddField()
     {
@@ -218,7 +235,7 @@ public class TestAddColumnTask
 
     private static ColumnDefinition columnDefinition()
     {
-        return new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "BIGINT", true, emptyList(), Optional.empty());
+        return new ColumnDefinition(QualifiedName.of("c"), "BIGINT", true, emptyList(), Optional.empty());
     }
 
     private void execute(AddColumn statement)

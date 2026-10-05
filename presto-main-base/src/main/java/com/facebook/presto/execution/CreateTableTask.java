@@ -34,6 +34,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
@@ -126,7 +127,7 @@ public class CreateTableTask
                 ColumnDefinition column = (ColumnDefinition) element;
                 if (column.getName().getParts().size() != 1) {
                     String qualifiedColumnName = column.getName().getOriginalParts().stream()
-                            .map(id -> id.getValue())
+                            .map(Identifier::getValue)
                             .collect(Collectors.joining("."));
                     throw new SemanticException(NOT_SUPPORTED, column, "Column name '%s' must not be qualified", qualifiedColumnName);
                 }

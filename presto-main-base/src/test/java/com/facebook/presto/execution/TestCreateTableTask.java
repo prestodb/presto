@@ -57,7 +57,6 @@ import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_C
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.PRIMARY_KEY_CONSTRAINT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.UNIQUE_CONSTRAINT;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
-import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -115,7 +114,7 @@ public class TestCreateTableTask
     public void testCreateTableNotExistsTrue()
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
-                ImmutableList.of(new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "BIGINT", true, emptyList(), Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), "BIGINT", true, emptyList(), Optional.empty())),
                 true,
                 ImmutableList.of(),
                 Optional.empty());
@@ -128,7 +127,7 @@ public class TestCreateTableTask
     public void testCreateTableNotExistsFalse()
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
-                ImmutableList.of(new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "BIGINT", true, emptyList(), Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), "BIGINT", true, emptyList(), Optional.empty())),
                 false,
                 ImmutableList.of(),
                 Optional.empty());
@@ -151,9 +150,9 @@ public class TestCreateTableTask
     {
         metadata.setConnectorCapabilities(NOT_NULL_COLUMN_CONSTRAINT);
         List<TableElement> inputColumns = ImmutableList.of(
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "DATE", true, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "VARCHAR", false, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "VARBINARY", false, emptyList(), Optional.empty()));
+                new ColumnDefinition(QualifiedName.of("a"), "DATE", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("b"), "VARCHAR", false, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("c"), "VARBINARY", false, emptyList(), Optional.empty()));
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
 
         getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector, ""));
@@ -178,9 +177,9 @@ public class TestCreateTableTask
     public void testCreateWithUnsupportedConnectorThrowsWhenNotNull()
     {
         List<TableElement> inputColumns = ImmutableList.of(
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "DATE", true, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "VARCHAR", false, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "VARBINARY", false, emptyList(), Optional.empty()));
+                new ColumnDefinition(QualifiedName.of("a"), "DATE", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("b"), "VARCHAR", false, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("c"), "VARBINARY", false, emptyList(), Optional.empty()));
         CreateTable statement = new CreateTable(
                 QualifiedName.of("test_table"),
                 inputColumns,
@@ -196,9 +195,9 @@ public class TestCreateTableTask
     {
         metadata.setConnectorCapabilities(PRIMARY_KEY_CONSTRAINT, UNIQUE_CONSTRAINT);
         List<TableElement> inputColumns = ImmutableList.of(
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "DATE", true, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "VARCHAR", true, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "VARBINARY", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("a"), "DATE", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("b"), "VARCHAR", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("c"), "VARBINARY", true, emptyList(), Optional.empty()),
                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("a"), PRIMARY_KEY, true, true, false),
                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b", "c"), UNIQUE, false, false, false));
 
@@ -222,9 +221,9 @@ public class TestCreateTableTask
     public void testCreateWithPrimaryKeyConstraintWithUnsupportedConnector()
     {
         List<TableElement> inputColumns = ImmutableList.of(
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "DATE", true, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "VARCHAR", true, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "VARBINARY", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("a"), "DATE", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("b"), "VARCHAR", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("c"), "VARBINARY", true, emptyList(), Optional.empty()),
                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("a"), PRIMARY_KEY, true, true, false));
 
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
@@ -236,9 +235,9 @@ public class TestCreateTableTask
     public void testCreateWithUniqueConstraintWithUnsupportedConnector()
     {
         List<TableElement> inputColumns = ImmutableList.of(
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("a"))), "DATE", true, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("b"))), "VARCHAR", true, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of(ImmutableList.of(identifier("c"))), "VARBINARY", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("a"), "DATE", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("b"), "VARCHAR", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("c"), "VARBINARY", true, emptyList(), Optional.empty()),
                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b", "c"), UNIQUE, false, false, false));
 
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());

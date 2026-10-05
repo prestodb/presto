@@ -1171,8 +1171,18 @@ public abstract class IcebergDistributedSmokeTestBase
                 ") WITH (" + format + ")");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_add_bad ADD COLUMN nonexistent.new_field VARCHAR",
-                ".*Cannot find parent field.*|.*Failed to add field.*");
+                ".*Cannot find parent field 'nonexistent' in table.*");
         dropTable(session, "test_nested_add_bad");
+
+        // --- Error: parent field exists but is not a struct ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_non_struct (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_non_struct ADD COLUMN id.x INT",
+                ".*is not a struct/ROW type.*");
+        dropTable(session, "test_nested_add_non_struct");
 
         // --- Error: child field already exists without IF NOT EXISTS ---
         assertUpdate(session, "CREATE TABLE test_nested_add_already_exists (" +
@@ -1193,22 +1203,22 @@ public abstract class IcebergDistributedSmokeTestBase
                 ") WITH (" + format + ")");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT NOT NULL",
-                ".*NOT NULL constraint is not supported for nested ADD COLUMN.*");
+                ".*NOT NULL constraint is not supported when adding a nested field.*");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT COMMENT 'user age'",
-                ".*COMMENT is not supported for nested ADD COLUMN.*");
+                ".*COMMENT is not supported when adding a nested field.*");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT FIRST",
-                ".*FIRST/AFTER is not supported for nested ADD COLUMN.*");
+                ".*FIRST/AFTER is not supported when adding a nested field.*");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT DEFAULT 10",
-                ".*DEFAULT is not supported for nested ADD COLUMN.*");
+                ".*DEFAULT is not supported when adding a nested field.*");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT AS (1 + 1) PERSISTENT",
-                ".*GENERATED/AS expression is not supported for nested ADD COLUMN.*");
+                ".*GENERATED/AS expression is not supported when adding a nested field.*");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT WITH (nullable = true)",
-                ".*WITH properties are not supported for nested ADD COLUMN.*");
+                ".*WITH properties are not supported when adding a nested field.*");
         dropTable(session, "test_nested_add_unsupported");
     }
 

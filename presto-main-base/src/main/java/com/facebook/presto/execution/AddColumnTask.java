@@ -92,13 +92,9 @@ public class AddColumnTask
         List<String> nameParts = element.getName().getParts();
 
         if (nameParts.size() == 1) {
-            // ---- top-level ADD COLUMN ----
             return executeAddColumn(statement, metadata, accessControl, session, parameters, tableName, tableHandle.get(), element);
         }
-        else {
-            // ---- nested ADD COLUMN (struct field) ----
-            return executeAddField(statement, metadata, accessControl, session, tableName, tableHandle.get(), element);
-        }
+        return executeAddField(statement, metadata, accessControl, session, tableName, tableHandle.get(), element);
     }
 
     private ListenableFuture<?> executeAddColumn(
@@ -189,40 +185,34 @@ public class AddColumnTask
     {
         accessControl.checkCanAlterColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        // FIRST / AFTER positioning is not supported for nested fields
         if (statement.getPosition().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, statement,
-                    "FIRST/AFTER is not supported for nested ADD COLUMN");
+                    "FIRST/AFTER is not supported when adding a nested field");
         }
 
-        // NOT NULL is silently accepted by the grammar but has no SPI support for nested fields
         if (!element.isNullable()) {
             throw new SemanticException(NOT_SUPPORTED, element,
-                    "NOT NULL constraint is not supported for nested ADD COLUMN");
+                    "NOT NULL constraint is not supported when adding a nested field");
         }
 
-        // COMMENT is silently accepted by the grammar but has no SPI support for nested fields
         if (element.getComment().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, element,
-                    "COMMENT is not supported for nested ADD COLUMN");
+                    "COMMENT is not supported when adding a nested field");
         }
 
-        // DEFAULT is silently accepted by the grammar but has no SPI support for nested fields
         if (element.getDefaultExpression().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, element,
-                    "DEFAULT is not supported for nested ADD COLUMN");
+                    "DEFAULT is not supported when adding a nested field");
         }
 
-        // GENERATED / AS derived-column expression is not supported for nested fields
         if (element.getDerivedColumnSpec().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, element,
-                    "GENERATED/AS expression is not supported for nested ADD COLUMN");
+                    "GENERATED/AS expression is not supported when adding a nested field");
         }
 
-        // WITH column properties are not supported for nested fields
         if (!element.getProperties().isEmpty()) {
             throw new SemanticException(NOT_SUPPORTED, element,
-                    "WITH properties are not supported for nested ADD COLUMN");
+                    "WITH properties are not supported when adding a nested field");
         }
 
         String displayName = element.getName().getOriginalParts().stream()
@@ -242,7 +232,7 @@ public class AddColumnTask
         // columnPath is all parts except the last; fieldName is the last part.
         // Use getOriginalParts() + getValue() to preserve user-supplied casing before normalizeIdentifier.
         List<String> originalParts = element.getName().getOriginalParts().stream()
-                .map(id -> id.getValue())
+                .map(Identifier::getValue)
                 .collect(toImmutableList());
         List<String> parentPath = originalParts.subList(0, originalParts.size() - 1).stream()
                 .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part))

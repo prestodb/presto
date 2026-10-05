@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static java.util.Collections.emptyList;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
@@ -149,7 +150,7 @@ public class TestDefaultTreeRewriterAddColumn
         {
             if (node instanceof Identifier) {
                 Identifier id = (Identifier) node;
-                String lower = id.getValue().toLowerCase(java.util.Locale.ENGLISH);
+                String lower = id.getValue().toLowerCase(ENGLISH);
                 if (lower.equals(id.getValue())) {
                     return node;
                 }

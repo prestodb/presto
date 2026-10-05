@@ -2267,8 +2267,9 @@ The optional ``IF NOT EXISTS`` clause suppresses the error if the field already 
 
      ALTER TABLE iceberg.web.orders ADD COLUMN IF NOT EXISTS address.zip VARCHAR;
 
-The dotted path may refer to arbitrarily nested fields. ``NOT NULL`` and ``COMMENT`` are not
-supported and will result in a parse error.
+The dotted path may refer to arbitrarily nested fields. The following clauses are not supported
+for nested fields and will be rejected: ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
+``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER``.
 
 ALTER VIEW
 ^^^^^^^^^^
