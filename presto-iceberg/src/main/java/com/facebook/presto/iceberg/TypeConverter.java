@@ -73,7 +73,6 @@ import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
 import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
-import static com.facebook.presto.hive.HiveType.HIVE_GEOMETRY;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
@@ -334,9 +333,6 @@ public final class TypeConverter
         }
         if (TimeType.TIME.equals(type)) {
             return HIVE_LONG.getTypeInfo();
-        }
-        if (GeometryType.GEOMETRY.equals(type)) {
-            return HIVE_GEOMETRY.getTypeInfo();
         }
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
