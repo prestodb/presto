@@ -74,7 +74,7 @@ public class TestUnknownColumnRead
     @Test
     public void testUnknownColumnRead()
     {
-        // Schema: id INTEGER REQUIRED, null_col UNKNOWN OPTIONAL; 3 rows
+        // Schema: id INTEGER OPTIONAL, null_col UNKNOWN OPTIONAL; 3 rows
         MaterializedResult result = computeActual(session,
                 format("SELECT * FROM %s.%s.%s ORDER BY id", CATALOGNAME, SCHEMANAME, TABLE_NAME));
 

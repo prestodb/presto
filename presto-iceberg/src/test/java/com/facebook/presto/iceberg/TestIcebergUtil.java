@@ -563,6 +563,50 @@ public class TestIcebergUtil
     }
 
     /**
+     * A renamed field keeps the same Iceberg field ID but has a different physical name in historical
+     * files. ID-based matching must find it correctly; without ID matching the renamed field would be
+     * treated as newly added and read as NULL.
+     */
+    @Test
+    public void testReadTypeRenamedFieldMatchedById()
+    {
+        // table: ROW(b INTEGER id=2, u UNKNOWN id=3, a BIGINT id=1)
+        //   — "a" was renamed from "old_a" (id=1) and "b" was renamed from "old_b" (id=2)
+        // file:  ROW(old_b INTEGER, old_a BIGINT)  — written before the renames, no unknown field
+        RowType tableType = RowType.from(ImmutableList.of(
+                RowType.field("b", INTEGER),
+                RowType.field("u", UNKNOWN),
+                RowType.field("a", BIGINT)));
+        RowType fileType = RowType.from(ImmutableList.of(
+                RowType.field("old_b", INTEGER),
+                RowType.field("old_a", BIGINT)));
+
+        // Table column identity: struct (id=0) with children b(id=2), u(id=3), a(id=1)
+        ColumnIdentity tableIdentity = new ColumnIdentity(
+                0,
+                "col",
+                ColumnIdentity.TypeCategory.STRUCT,
+                ImmutableList.of(
+                        ColumnIdentity.primitiveColumnIdentity(2, "b"),
+                        ColumnIdentity.primitiveColumnIdentity(3, "u"),
+                        ColumnIdentity.primitiveColumnIdentity(1, "a")));
+
+        // File's embedded Iceberg schema: struct with old_b(id=2) and old_a(id=1)
+        Types.StructType icebergFileStruct = Types.StructType.of(
+                Types.NestedField.optional(2, "old_b", Types.IntegerType.get()),
+                Types.NestedField.optional(1, "old_a", Types.LongType.get()));
+
+        // Both renamed fields are matched by ID; the result uses the file's physical names so
+        // Parquet GroupColumnIO can locate them. The unknown field is restored from tableType.
+        RowType expected = RowType.from(ImmutableList.of(
+                RowType.field("old_b", INTEGER),
+                RowType.field("u", UNKNOWN),
+                RowType.field("old_a", BIGINT)));
+        assertThat(UnknownFieldTypes.readType(tableType, fileType, null, tableIdentity, icebergFileStruct))
+                .isEqualTo(expected);
+    }
+
+    /**
      * When a ROW column has both hyphenated field names and an unknown field, the Parquet file stores
      * the hyphenated names Avro-encoded (e.g. "field-one" → "field_x2done") and omits the unknown
      * field entirely. The merged read type must match the encoded name back to the original field and

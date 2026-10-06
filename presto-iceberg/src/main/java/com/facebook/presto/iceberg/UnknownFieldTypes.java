@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.avro.AvroSchemaUtil;
+import org.apache.iceberg.types.Types;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,7 +69,7 @@ public final class UnknownFieldTypes
      */
     static Type readType(Type tableType, Type fileType)
     {
-        return readType(tableType, fileType, null);
+        return readType(tableType, fileType, null, null, null);
     }
 
     /**
@@ -78,12 +79,54 @@ public final class UnknownFieldTypes
      */
     static Type readType(Type tableType, Type fileType, TypeManager typeManager)
     {
+        return readType(tableType, fileType, typeManager, null, null);
+    }
+
+    /**
+     * Like {@link #readType(Type, Type, TypeManager)} but uses Iceberg field IDs to match struct
+     * children before falling back to names. This correctly handles field renames: a historical
+     * Parquet file keeps the old physical name but retains the same Iceberg field ID, so a renamed
+     * child is matched by ID rather than being treated as newly added (which would read as NULL).
+     *
+     * <p>Falls back to name-only matching when either {@code tableIdentity} or
+     * {@code icebergFileType} is {@code null} (e.g. for files written without embedded Iceberg IDs).
+     *
+     * @param tableIdentity the {@link ColumnIdentity} for the table's column whose children carry
+     *        the Iceberg field IDs for each struct field; {@code null} disables ID-based matching
+     * @param icebergFileType the Iceberg type as embedded in the Parquet file's metadata, whose
+     *        nested field IDs identify the physical fields stored in the file; {@code null} disables
+     *        ID-based matching
+     */
+    static Type readType(
+            Type tableType,
+            Type fileType,
+            TypeManager typeManager,
+            ColumnIdentity tableIdentity,
+            org.apache.iceberg.types.Type icebergFileType)
+    {
         if (tableType instanceof RowType && fileType instanceof RowType) {
-            return mergeRowReadType((RowType) tableType, (RowType) fileType, typeManager);
+            Types.StructType icebergFileStruct = (icebergFileType instanceof Types.StructType)
+                    ? (Types.StructType) icebergFileType : null;
+            return mergeRowReadType(
+                    (RowType) tableType,
+                    (RowType) fileType,
+                    typeManager,
+                    tableIdentity,
+                    icebergFileStruct);
         }
         if (tableType instanceof ArrayType && fileType instanceof ArrayType) {
             Type fileElement = ((ArrayType) fileType).getElementType();
-            Type merged = readType(((ArrayType) tableType).getElementType(), fileElement, typeManager);
+            // For ARRAY, ColumnIdentity.getChildren() has exactly one child: the element
+            ColumnIdentity elementIdentity = (tableIdentity != null && !tableIdentity.getChildren().isEmpty())
+                    ? tableIdentity.getChildren().get(0) : null;
+            org.apache.iceberg.types.Type icebergFileElement = (icebergFileType instanceof Types.ListType)
+                    ? ((Types.ListType) icebergFileType).elementType() : null;
+            Type merged = readType(
+                    ((ArrayType) tableType).getElementType(),
+                    fileElement,
+                    typeManager,
+                    elementIdentity,
+                    icebergFileElement);
             return merged.equals(fileElement) ? fileType : new ArrayType(merged);
         }
         if (tableType instanceof MapType && fileType instanceof MapType) {
@@ -91,8 +134,16 @@ public final class UnknownFieldTypes
             MapType fileMap = (MapType) fileType;
             Type fileKey = fileMap.getKeyType();
             Type fileValue = fileMap.getValueType();
-            Type mergedKey = readType(tableMap.getKeyType(), fileKey, typeManager);
-            Type mergedValue = readType(tableMap.getValueType(), fileValue, typeManager);
+            // For MAP, ColumnIdentity.getChildren() has two children: key then value
+            List<ColumnIdentity> mapChildren = (tableIdentity != null) ? tableIdentity.getChildren() : ImmutableList.of();
+            ColumnIdentity keyIdentity = mapChildren.size() >= 1 ? mapChildren.get(0) : null;
+            ColumnIdentity valueIdentity = mapChildren.size() >= 2 ? mapChildren.get(1) : null;
+            org.apache.iceberg.types.Type icebergFileKey = (icebergFileType instanceof Types.MapType)
+                    ? ((Types.MapType) icebergFileType).keyType() : null;
+            org.apache.iceberg.types.Type icebergFileValue = (icebergFileType instanceof Types.MapType)
+                    ? ((Types.MapType) icebergFileType).valueType() : null;
+            Type mergedKey = readType(tableMap.getKeyType(), fileKey, typeManager, keyIdentity, icebergFileKey);
+            Type mergedValue = readType(tableMap.getValueType(), fileValue, typeManager, valueIdentity, icebergFileValue);
             if (mergedKey.equals(fileKey) && mergedValue.equals(fileValue)) {
                 return fileType;
             }
@@ -111,45 +162,107 @@ public final class UnknownFieldTypes
      * Merges the {@code unknown} fields from {@code tableType} into the structure of {@code fileType},
      * so that schema-evolution differences in the non-unknown fields are preserved while unknown fields
      * are restored at their correct positions.
+     *
+     * <p>When {@code tableIdentity} and {@code icebergFileStruct} are both non-null, struct children
+     * are matched by Iceberg field ID first, which correctly handles renamed fields. Name-based
+     * matching is used as a fallback for files that lack embedded Iceberg field IDs.
      */
-    private static RowType mergeRowReadType(RowType tableType, RowType fileType, TypeManager typeManager)
+    private static RowType mergeRowReadType(
+            RowType tableType,
+            RowType fileType,
+            TypeManager typeManager,
+            ColumnIdentity tableIdentity,
+            Types.StructType icebergFileStruct)
     {
         List<Field> tableFields = tableType.getFields();
         List<Field> fileFields = fileType.getFields();
+
+        // Build file field lookup maps. ID-based lookup is preferred when the file's Iceberg
+        // schema is available: it survives renames because Iceberg field IDs are stable across
+        // schema evolution. Name-based lookup is a fallback for files written before IDs were
+        // embedded (e.g. Hive-migrated tables).
+        Map<Integer, Field> fileFieldsById = new HashMap<>();
+        Map<Integer, Types.NestedField> icebergFileFieldsById = new HashMap<>();
+        if (icebergFileStruct != null) {
+            List<Types.NestedField> icebergFields = icebergFileStruct.fields();
+            // fileType.getFields() and icebergFileStruct.fields() are derived from the same
+            // Parquet/Iceberg schema in the same order, so positional pairing is correct.
+            for (int j = 0; j < icebergFields.size() && j < fileFields.size(); j++) {
+                int fieldId = icebergFields.get(j).fieldId();
+                fileFieldsById.put(fieldId, fileFields.get(j));
+                icebergFileFieldsById.put(fieldId, icebergFields.get(j));
+            }
+        }
 
         Map<String, Field> fileFieldsByName = new HashMap<>();
         for (Field field : fileFields) {
             field.getName().ifPresent(name -> fileFieldsByName.put(name.toLowerCase(Locale.ENGLISH), field));
         }
+        Map<String, Types.NestedField> icebergFileFieldsByName = new HashMap<>();
+        if (icebergFileStruct != null) {
+            for (Types.NestedField f : icebergFileStruct.fields()) {
+                icebergFileFieldsByName.put(f.name().toLowerCase(Locale.ENGLISH), f);
+            }
+        }
 
         boolean changed = false;
         int filePosition = 0;
         List<Field> resultFields = new ArrayList<>(tableFields.size());
-        for (Field tableField : tableFields) {
+
+        // tableIdentity.getChildren() is in the same order as tableType.getFields() — both are
+        // derived from the Iceberg table schema's field list in order.
+        for (int i = 0; i < tableFields.size(); i++) {
+            Field tableField = tableFields.get(i);
             if (tableField.getType().equals(UNKNOWN)) {
                 resultFields.add(tableField);
                 changed = true;
                 continue;
             }
-            String key = tableField.getName().map(n -> n.toLowerCase(Locale.ENGLISH)).orElse(null);
-            Field fileField;
+
+            ColumnIdentity tableFieldIdentity = (tableIdentity != null && i < tableIdentity.getChildren().size())
+                    ? tableIdentity.getChildren().get(i) : null;
+
+            Field fileField = null;
+            Types.NestedField icebergFileField = null;
+            boolean matchedById = false;
             boolean matchedViaAvroEncoding = false;
-            if (key != null) {
-                fileField = fileFieldsByName.get(key);
-                if (fileField == null) {
-                    // Parquet stores field names Avro-encoded (e.g. "field-one" → "field_x2done"),
-                    // so also try the encoded form when the plain name isn't found.
-                    fileField = fileFieldsByName.get(AvroSchemaUtil.makeCompatibleName(key).toLowerCase(Locale.ENGLISH));
-                    matchedViaAvroEncoding = (fileField != null);
+
+            // Prefer ID-based matching: stable across renames
+            if (tableFieldIdentity != null && !fileFieldsById.isEmpty()) {
+                fileField = fileFieldsById.get(tableFieldIdentity.getId());
+                if (fileField != null) {
+                    icebergFileField = icebergFileFieldsById.get(tableFieldIdentity.getId());
+                    matchedById = true;
                 }
             }
-            else {
-                // Anonymous field: fall back to positional matching against the file's fields.
-                // Iceberg schemas always name their fields, so this branch handles only edge cases
-                // (e.g. a RowType constructed without names). Unknown fields are not stored in the
-                // file, so the position is the index among the non-unknown table fields seen so far.
-                fileField = filePosition < fileFields.size() ? fileFields.get(filePosition) : null;
+
+            // Name-based fallback for files without embedded Iceberg IDs
+            if (fileField == null) {
+                String key = tableField.getName().map(n -> n.toLowerCase(Locale.ENGLISH)).orElse(null);
+                if (key != null) {
+                    fileField = fileFieldsByName.get(key);
+                    icebergFileField = icebergFileFieldsByName.get(key);
+                    if (fileField == null) {
+                        // Parquet stores field names Avro-encoded (e.g. "field-one" → "field_x2done"),
+                        // so also try the encoded form when the plain name isn't found.
+                        String encodedKey = AvroSchemaUtil.makeCompatibleName(key).toLowerCase(Locale.ENGLISH);
+                        fileField = fileFieldsByName.get(encodedKey);
+                        icebergFileField = icebergFileFieldsByName.get(encodedKey);
+                        matchedViaAvroEncoding = (fileField != null);
+                    }
+                }
+                else {
+                    // Anonymous field: fall back to positional matching against the file's fields.
+                    // Iceberg schemas always name their fields, so this branch handles only edge cases
+                    // (e.g. a RowType constructed without names). Unknown fields are not stored in the
+                    // file, so the position is the index among the non-unknown table fields seen so far.
+                    fileField = filePosition < fileFields.size() ? fileFields.get(filePosition) : null;
+                    if (fileField != null && icebergFileStruct != null && filePosition < icebergFileStruct.fields().size()) {
+                        icebergFileField = icebergFileStruct.fields().get(filePosition);
+                    }
+                }
             }
+
             if (fileField == null) {
                 // Field was added to the table after the file was written; reader will produce null
                 resultFields.add(tableField);
@@ -157,11 +270,19 @@ public final class UnknownFieldTypes
             }
             else {
                 filePosition++;
-                Type mergedType = readType(tableField.getType(), fileField.getType(), typeManager);
-                // When matched via Avro encoding the file field carries the encoded name (e.g.
-                // "field_x2done"). Use that name in the result so constructField can locate the
-                // column in the Parquet GroupColumnIO, which is also keyed by encoded names.
-                Optional<String> resultName = matchedViaAvroEncoding ? fileField.getName() : tableField.getName();
+                org.apache.iceberg.types.Type icebergFileFieldType = (icebergFileField != null)
+                        ? icebergFileField.type() : null;
+                Type mergedType = readType(
+                        tableField.getType(),
+                        fileField.getType(),
+                        typeManager,
+                        tableFieldIdentity,
+                        icebergFileFieldType);
+                // When matched via Avro encoding or by ID (rename), the file field carries the
+                // physical name stored in Parquet (e.g. the encoded or old name). Use that name
+                // in the result so constructField can locate the column in the Parquet GroupColumnIO.
+                Optional<String> resultName = (matchedViaAvroEncoding || matchedById)
+                        ? fileField.getName() : tableField.getName();
                 resultFields.add(new Field(resultName, mergedType));
                 if (!mergedType.equals(fileField.getType())) {
                     changed = true;

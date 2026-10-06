@@ -417,8 +417,11 @@ public class IcebergPageSourceProvider
                         if (!parquetField.get().isPrimitive()) {
                             MessageType parquetMessageType = new MessageType("", parquetField.get());
                             Schema icebergSchema = ParquetSchemaUtil.convert(parquetMessageType);
-                            Type parquetDerivedType = toPrestoType(icebergSchema.columns().get(0).type(), typeManager);
-                            type = hasUnknownType(type) ? readType(type, parquetDerivedType, typeManager) : parquetDerivedType;
+                            org.apache.iceberg.types.Type icebergFileType = icebergSchema.columns().get(0).type();
+                            Type parquetDerivedType = toPrestoType(icebergFileType, typeManager);
+                            type = hasUnknownType(type)
+                                    ? readType(type, parquetDerivedType, typeManager, column.getColumnIdentity(), icebergFileType)
+                                    : parquetDerivedType;
                         }
                         internalFields.add(constructField(type, lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
                     }

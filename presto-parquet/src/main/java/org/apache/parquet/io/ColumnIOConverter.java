@@ -72,10 +72,13 @@ public class ColumnIOConverter
                     structHasParameters |= field.isPresent();
                     fieldsBuilder.add(field);
                 }
-                if (structHasParameters) {
-                    return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fieldsBuilder.build()));
-                }
-                return Optional.empty();
+                // Always return a GroupField, even when no children are present in the file.
+                // An all-absent struct (all fields are UNKNOWN or all were added after this file
+                // was written) must still produce a non-null struct block with null fields —
+                // Iceberg semantics say the struct row is non-null if its fields are null.
+                // Returning Optional.empty() here would let ParquetPageSource substitute an
+                // all-null RLE block, making the struct position itself null.
+                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fieldsBuilder.build()));
             }
             else if (MAP.equals(type.getTypeSignature().getBase())) {
                 GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
