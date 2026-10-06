@@ -1408,6 +1408,22 @@ concurrency.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`local_exchange_parent_preference_strategy\`\``.
 
+``analyzer.warn-on-window-without-partition-by``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Emit a performance warning for window functions whose window has no ``PARTITION BY``.
+Such a window forms a single partition, so the planner gathers every input row onto one
+node to evaluate it, which can be slow for large inputs. When the window function is an
+aggregate with neither ``ORDER BY`` nor a frame, the warning also suggests computing the
+aggregate in a separate query and joining it back with a ``CROSS JOIN``. The ranking
+functions ``row_number``, ``rank`` and ``dense_rank`` are not reported when the window
+has an ``ORDER BY``, because the planner evaluates such top-N queries in parallel.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`warn_on_window_without_partition_by\`\``.
+
 Planner Properties
 ------------------
 
