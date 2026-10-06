@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.openlineage;
 
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
+import com.google.common.annotations.VisibleForTesting;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClient;
 import io.openlineage.client.transports.ConsoleTransport;
@@ -45,9 +46,20 @@ public class OpenLineageEventListenerFactory
     {
         requireNonNull(config, "config is null");
 
+        Transport transport = buildTransport(new OpenLineageTransportConfig(config), config);
+        return create(config, transport);
+    }
+
+    /**
+     * Creates the listener from the listener configuration, sending events to the given transport.
+     */
+    @VisibleForTesting
+    static OpenLineageEventListener create(Map<String, String> config, Transport transport)
+    {
+        requireNonNull(config, "config is null");
+        requireNonNull(transport, "transport is null");
+
         OpenLineageEventListenerConfig listenerConfig = new OpenLineageEventListenerConfig(config);
-        OpenLineageTransportConfig transportConfig = new OpenLineageTransportConfig(config);
-        Transport transport = buildTransport(transportConfig, config);
 
         String[] disabledFacets = listenerConfig.getDisabledFacets().stream()
                 .map(OpenLineagePrestoFacet::asText)
