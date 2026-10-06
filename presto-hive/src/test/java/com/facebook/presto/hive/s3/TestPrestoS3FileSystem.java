@@ -425,9 +425,12 @@ public class TestPrestoS3FileSystem
             try (FSDataOutputStream stream = fileSystem.create(new Path("s3n://test-bucket/test"))) {
                 OutputStream positionCache = getFieldValue(stream, FilterOutputStream.class, "out", OutputStream.class);
                 OutputStream prestoStream = getFieldValue(positionCache, FilterOutputStream.class, "out", OutputStream.class);
-                assertTrue(prestoStream.getClass().getName().endsWith("PrestoS3OutputStream"));
+                assertEquals(prestoStream.getClass().getSimpleName(), "PrestoS3OutputStream");
                 OutputStream original = getFieldValue(prestoStream, FilterOutputStream.class, "out", OutputStream.class);
                 CountingOutputStream counting = new CountingOutputStream();
+                // create() is FSDataOutputStream -> PositionCache -> PrestoS3OutputStream ->
+                // staging buffer. Swap that inner stream so the sliced write is counted once,
+                // then put the original back so close() still flushes the temp file.
                 setField(prestoStream, "out", counting);
                 try {
                     byte[] data = new byte[] {0, 1, 2, 3, 4, 5, 6, 7};
