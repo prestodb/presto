@@ -981,7 +981,8 @@ public final class SystemSessionProperties
                         true),
                 booleanProperty(
                         LEGACY_TIMESTAMP_WITH_TIMEZONE,
-                        "Render TIMESTAMP WITH TIME ZONE values in each value's embedded time zone instead of the session time zone",
+                        "When true, render TIMESTAMP WITH TIME ZONE values in their embedded zone and keep AT TIME ZONE on those values zoned; " +
+                                "when false, render them in the session zone and return their target-zone wall clock as TIMESTAMP",
                         functionsConfig.isLegacyTimestampWithTimezone(),
                         false),
                 booleanProperty(

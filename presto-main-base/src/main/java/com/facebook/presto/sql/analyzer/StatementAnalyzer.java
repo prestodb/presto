@@ -261,10 +261,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP_WITH_TIMEZONE;
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.SystemSessionProperties.isAllowWindowOrderByLiterals;
 import static com.facebook.presto.SystemSessionProperties.isAlwaysAnalyzeCreateTableQueryEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
+import static com.facebook.presto.SystemSessionProperties.isLegacyTimestampWithTimezone;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT;
@@ -5412,6 +5414,7 @@ class StatementAnalyzer
                     .setSchema(schema.orElse(null))
                     .setTimeZoneKey(session.getTimeZoneKey())
                     .setLocale(session.getLocale())
+                    .setSystemProperty(LEGACY_TIMESTAMP_WITH_TIMEZONE, Boolean.toString(isLegacyTimestampWithTimezone(session)))
                     .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                     .setUserAgent(session.getUserAgent().orElse(null))
                     .setClientInfo(session.getClientInfo().orElse(null))
@@ -5451,9 +5454,38 @@ class StatementAnalyzer
 
         private boolean areViewColumnTypesCompatible(Type storedType, Type analyzedType)
         {
+            if (hasTimestampZoneMismatch(storedType, analyzedType)) {
+                return false;
+            }
+
             return functionAndTypeResolver.canCoerce(analyzedType, storedType) ||
                     functionAndTypeResolver.canCoerce(storedType, analyzedType) ||
                     isCharacterStringCompatibility(storedType, analyzedType);
+        }
+
+        // Coercing between TIMESTAMP and TIMESTAMP WITH TIME ZONE goes through the session zone, which moves the instant.
+        private boolean hasTimestampZoneMismatch(Type storedType, Type analyzedType)
+        {
+            if (isTimestampZonePair(storedType, analyzedType) || isTimestampZonePair(analyzedType, storedType)) {
+                return true;
+            }
+
+            List<Type> storedParameters = storedType.getTypeParameters();
+            List<Type> analyzedParameters = analyzedType.getTypeParameters();
+            if (storedParameters.size() != analyzedParameters.size()) {
+                return false;
+            }
+            for (int i = 0; i < storedParameters.size(); i++) {
+                if (hasTimestampZoneMismatch(storedParameters.get(i), analyzedParameters.get(i))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean isTimestampZonePair(Type withZone, Type withoutZone)
+        {
+            return withZone instanceof TimestampWithTimeZoneType && withoutZone instanceof TimestampType;
         }
 
         private boolean isCharacterStringCompatibility(Type first, Type second)

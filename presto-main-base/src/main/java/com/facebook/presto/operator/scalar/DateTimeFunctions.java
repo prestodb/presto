@@ -397,6 +397,33 @@ public final class DateTimeFunctions
         }
     }
 
+    // Returns the wall clock in the target zone as a naive TIMESTAMP, where at_timezone keeps the instant and the zone.
+    @ScalarFunction(value = "at_timezone_convert", visibility = HIDDEN)
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.TIMESTAMP)
+    public static long timestampAtTimeZoneConvert(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType("varchar(x)") Slice zoneId)
+    {
+        return wallClockInOwnZone(properties, timestampAtTimeZone(timestampWithTimeZone, zoneId));
+    }
+
+    @ScalarFunction(value = "at_timezone_convert", visibility = HIDDEN)
+    @SqlType(StandardTypes.TIMESTAMP)
+    public static long timestampAtTimeZoneConvert(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
+    {
+        return wallClockInOwnZone(properties, timestampAtTimeZone(timestampWithTimeZone, zoneOffset));
+    }
+
+    // Wall clock in the value's own zone. A legacy TIMESTAMP is an instant rendered in the session zone, so re-encode there.
+    private static long wallClockInOwnZone(SqlFunctionProperties properties, long timestampWithTimeZone)
+    {
+        long localMillis = getChronology(unpackZoneKey(timestampWithTimeZone)).getZone().convertUTCToLocal(unpackMillisUtc(timestampWithTimeZone));
+        if (properties.isLegacyTimestamp()) {
+            DateTimeZone sessionTimeZone = getChronology(properties.getTimeZoneKey()).getZone();
+            return localMillis - sessionTimeZone.getOffsetFromLocal(localMillis);
+        }
+        return localMillis;
+    }
+
     @Description("truncate to the specified precision in the session timezone")
     @ScalarFunction("date_trunc")
     @LiteralParameters("x")

@@ -42,7 +42,9 @@ Native Execution only. Use legacy TIME and TIMESTAMP semantics.
 
 When ``true``, ``TIMESTAMP WITH TIME ZONE`` values render in each value's embedded
 time zone. When ``false``, they render the UTC instant in the session time zone, so
-values that compare equal render identically.
+values that compare equal render identically. For a ``TIMESTAMP WITH TIME ZONE``
+input, ``AT TIME ZONE`` returns a zoned timestamp when this property is ``true``
+and a ``TIMESTAMP`` containing the requested-zone wall clock when it is ``false``.
 
 ``native_aggregation_spill_memory_threshold``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
