@@ -313,24 +313,54 @@ public class ParquetReader
     {
         List<TypeSignatureParameter> fields = field.getType().getTypeSignature().getParameters();
         Block[] blocks = new Block[fields.size()];
+        // levelSource tracks the ColumnChunk whose definition/repetition levels we'll use to
+        // determine which struct positions are null.  Children that are themselves all-absent
+        // (nested all-UNKNOWN structs, or all fields added after the file was written) return
+        // an empty-level ColumnChunk (new int[0]).  We must not let one of those overwrite a
+        // previous child that carries real level data, or calculateStructOffsets would receive
+        // an empty array and produce a zero-row result.
         ColumnChunk columnChunk = null;
+        ColumnChunk levelSource = null;
         List<Optional<Field>> parameters = field.getChildren();
         for (int i = 0; i < fields.size(); i++) {
             Optional<Field> parameter = parameters.get(i);
             if (parameter.isPresent()) {
                 columnChunk = readColumnChunk(parameter.get());
                 blocks[i] = columnChunk.getBlock();
+                if (levelSource == null || columnChunk.getDefinitionLevels().length > 0) {
+                    levelSource = columnChunk;
+                }
             }
         }
+        if (levelSource == null || levelSource.getDefinitionLevels().length == 0) {
+            // No child with stored level data exists: either no child was present at all
+            // (columnChunk == null), or every present child was itself an all-absent nested
+            // struct that returned empty level arrays.  Produce a non-null struct block
+            // with null fields — no definition levels to derive nullability from, so every
+            // struct position is treated as non-null (Iceberg: a struct is non-null when
+            // its fields are all null).
+            List<Type> fieldTypes = field.getType().getTypeParameters();
+            Block[] nullBlocks = new Block[fields.size()];
+            for (int i = 0; i < fields.size(); i++) {
+                // Reuse blocks already filled by all-absent nested structs; create null
+                // RLE blocks for fields that have no data at all.
+                nullBlocks[i] = (blocks[i] != null)
+                        ? blocks[i]
+                        : RunLengthEncodedBlock.create(fieldTypes.get(i), null, batchSize);
+            }
+            Block rowBlock = RowBlock.fromFieldBlocks(batchSize, Optional.empty(), nullBlocks);
+            return new ColumnChunk(rowBlock, new int[0], new int[0]);
+        }
+        List<Type> fieldTypes = field.getType().getTypeParameters();
         for (int i = 0; i < fields.size(); i++) {
             if (blocks[i] == null) {
-                blocks[i] = RunLengthEncodedBlock.create(field.getType(), null, columnChunk.getBlock().getPositionCount());
+                blocks[i] = RunLengthEncodedBlock.create(fieldTypes.get(i), null, levelSource.getBlock().getPositionCount());
             }
         }
-        BooleanList structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
+        BooleanList structIsNull = StructColumnReader.calculateStructOffsets(field, levelSource.getDefinitionLevels(), levelSource.getRepetitionLevels());
         boolean[] structIsNullVector = structIsNull.toBooleanArray();
         Block rowBlock = RowBlock.fromFieldBlocks(structIsNullVector.length, Optional.of(structIsNullVector), blocks);
-        return new ColumnChunk(rowBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
+        return new ColumnChunk(rowBlock, levelSource.getDefinitionLevels(), levelSource.getRepetitionLevels());
     }
 
     private ColumnChunk readPrimitive(PrimitiveField field)

@@ -65,6 +65,7 @@ import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.UNKNOWN_COLUMN_TYPE;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
@@ -133,8 +134,11 @@ public class CreateTableTask
                 catch (IllegalArgumentException | UnknownTypeException e) {
                     throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
                 }
-                if (type.equals(UNKNOWN)) {
+                if (type.equals(UNKNOWN) && !metadata.getConnectorCapabilities(session, connectorId).contains(UNKNOWN_COLUMN_TYPE)) {
                     throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                }
+                if (type.equals(UNKNOWN) && !column.isNullable()) {
+                    throw new SemanticException(TYPE_MISMATCH, element, "Column '%s' of type unknown cannot be declared NOT NULL: the unknown type only holds null values", column.getName());
                 }
                 if (columns.containsKey(name)) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
