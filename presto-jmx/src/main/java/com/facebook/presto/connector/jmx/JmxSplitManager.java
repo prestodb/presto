@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.NodeManager;
@@ -43,11 +44,13 @@ public class JmxSplitManager
         implements ConnectorSplitManager
 {
     private final NodeManager nodeManager;
+    private final boolean nativeExecution;
 
     @Inject
-    public JmxSplitManager(NodeManager nodeManager)
+    public JmxSplitManager(NodeManager nodeManager, ConnectorSystemConfig connectorSystemConfig)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.nativeExecution = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null").isNativeExecution();
     }
 
     @Override
@@ -68,6 +71,7 @@ public class JmxSplitManager
         checkState(nodeColumnHandle.isPresent(), "Failed to find %s column", NODE_COLUMN_NAME);
 
         List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
+                .filter(node -> !nativeExecution || node.isCoordinator())
                 .filter(node -> {
                     NullableValue value = NullableValue.of(createUnboundedVarcharType(), utf8Slice(node.getNodeIdentifier()));
                     return predicate.overlaps(fromFixedValues(ImmutableMap.of(nodeColumnHandle.get(), value)));

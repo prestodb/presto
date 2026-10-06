@@ -183,6 +183,8 @@ import static java.util.stream.Collectors.toList;
 public class AddExchanges
         implements PlanOptimizer
 {
+    private static final String JMX_CATALOG_NAME = "jmx";
+
     private final Metadata metadata;
     private final PartitioningProviderManager partitioningProviderManager;
     private final boolean nativeExecution;
@@ -961,7 +963,7 @@ public class AddExchanges
             PlanNode plan = pushPredicateIntoTableScan(node, predicate, true, session, idAllocator, metadata);
             // Presto Java and Presto Native use different hash functions for partitioning
             // An additional exchange makes sure the data flows through a native worker in case it need to be partitioned for downstream processing
-            if (nativeExecution && containsSystemTableScan(plan)) {
+            if (nativeExecution && (containsSystemTableScan(plan) || containsJmxTableScan(plan))) {
                 plan = gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
             }
             else if (!getTableScanShuffleStrategy(session).equals(DISABLED) && !isDeleteOrUpdateQuery) {
@@ -978,6 +980,14 @@ public class AddExchanges
             }
             // TODO: Support selecting layout with best local property once connector can participate in query optimization.
             return new PlanWithProperties(plan, derivePropertiesRecursively(plan));
+        }
+
+        private boolean containsJmxTableScan(PlanNode plan)
+        {
+            return PlanNodeSearcher.searchFrom(plan)
+                    .where(planNode -> planNode instanceof TableScanNode &&
+                            JMX_CATALOG_NAME.equals(((TableScanNode) planNode).getTable().getConnectorId().getCatalogName()))
+                    .matches();
         }
 
         @Override
