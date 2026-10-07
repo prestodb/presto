@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.spi.HostAddress;
 import jakarta.inject.Inject;
 import org.apache.kafka.common.serialization.ByteBufferDeserializer;
 
+import java.util.List;
 import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
@@ -48,14 +48,14 @@ public class PlainTextKafkaConsumerManager
     }
 
     @Override
-    public Properties configure(String threadName, HostAddress hostAddress)
+    public Properties configure(String threadName, List<String> hostAddresses)
     {
         final Properties properties = new Properties();
-        properties.put(BOOTSTRAP_SERVERS_CONFIG, hostAddress.toString());
+        properties.put(BOOTSTRAP_SERVERS_CONFIG, hostAddresses);
         properties.put(GROUP_ID_CONFIG, threadName);
         properties.put(MAX_POLL_RECORDS_CONFIG, Integer.toString(maxPollRecords));
         properties.put(MAX_PARTITION_FETCH_BYTES_CONFIG, maxPartitionFetchBytes);
-        properties.put(CLIENT_ID_CONFIG, String.format("%s-%s", threadName, hostAddress));
+        properties.put(CLIENT_ID_CONFIG, String.format("%s-%s", threadName, hostAddresses.get(0)));
         properties.put(ENABLE_AUTO_COMMIT_CONFIG, false);
         properties.setProperty(KEY_DESERIALIZER_CLASS_CONFIG, ByteBufferDeserializer.class.getName());
         properties.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, ByteBufferDeserializer.class.getName());
