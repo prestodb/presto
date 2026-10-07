@@ -29,6 +29,7 @@ public final class DeltaColumn
     private final String physicalName;
     private final String logicalName;
     private final TypeSignature type;
+    private final TypeSignature physicalType;
     private final boolean nullable;
     private final boolean partition;
 
@@ -38,6 +39,7 @@ public final class DeltaColumn
             @JsonProperty("physicalName") String physicalName,
             @JsonProperty("logicalName") String logicalName,
             @JsonProperty("type") TypeSignature type,
+            @JsonProperty("physicalType") TypeSignature physicalType,
             @JsonProperty("nullable") boolean nullable,
             @JsonProperty("partition") boolean partition)
     {
@@ -46,8 +48,20 @@ public final class DeltaColumn
         this.physicalName = physicalName;
         this.logicalName = logicalName;
         this.type = requireNonNull(type, "type is null");
+        this.physicalType = physicalType == null ? type : physicalType;
         this.nullable = nullable;
         this.partition = partition;
+    }
+
+    public DeltaColumn(
+            Long id,
+            String physicalName,
+            String logicalName,
+            TypeSignature type,
+            boolean nullable,
+            boolean partition)
+    {
+        this(id, physicalName, logicalName, type, type, nullable, partition);
     }
 
     @JsonProperty
@@ -74,6 +88,16 @@ public final class DeltaColumn
         return type;
     }
 
+    /**
+     * Returns the type as stored in the Parquet files. For column-mapped
+     * tables, nested ROW fields use their Delta physical names.
+     */
+    @JsonProperty
+    public TypeSignature getPhysicalType()
+    {
+        return physicalType;
+    }
+
     @JsonProperty
     public boolean isNullable()
     {
@@ -89,7 +113,7 @@ public final class DeltaColumn
     @Override
     public int hashCode()
     {
-        return Objects.hash(this.physicalName, type, nullable, partition);
+        return Objects.hash(this.physicalName, type, physicalType, nullable, partition);
     }
 
     @Override
@@ -106,6 +130,7 @@ public final class DeltaColumn
         return Objects.equals(this.id, other.id) &&
                 Objects.equals(this.physicalName, other.physicalName) &&
                 Objects.equals(this.type, other.type) &&
+                Objects.equals(this.physicalType, other.physicalType) &&
                 Objects.equals(this.nullable, other.nullable) &&
                 Objects.equals(this.partition, other.partition);
     }
@@ -114,6 +139,7 @@ public final class DeltaColumn
     public String toString()
     {
         return "id=" + this.id + ":physicalName=" + this.physicalName + ":logicalName" +
-            this.logicalName + ":nullable=" + nullable + ":partition=" + partition;
+            this.logicalName + ":type=" + type + ":physicalType=" + physicalType +
+            ":nullable=" + nullable + ":partition=" + partition;
     }
 }

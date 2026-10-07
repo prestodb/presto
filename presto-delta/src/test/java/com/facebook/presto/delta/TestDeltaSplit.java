@@ -34,11 +34,13 @@ public class TestDeltaSplit
                 "delta",
                 "database",
                 "table",
-                "s3://bucket/path/to/delta/table/file1.parquet",
+                "s3://bucket/path/to/delta/table",
+                "file1.parquet",
                 0,
                 200,
                 500,
                 ImmutableMap.of("part1", "part1Val"),
+                "name",
                 NodeSelectionStrategy.NO_PREFERENCE);
 
         String json = codec.toJson(expected);
@@ -47,11 +49,52 @@ public class TestDeltaSplit
         assertEquals(actual.getConnectorId(), expected.getConnectorId());
         assertEquals(actual.getSchema(), expected.getSchema());
         assertEquals(actual.getTable(), expected.getTable());
+        assertEquals(actual.getTableLocation(), expected.getTableLocation());
         assertEquals(actual.getFilePath(), expected.getFilePath());
         assertEquals(actual.getStart(), expected.getStart());
         assertEquals(actual.getLength(), expected.getLength());
         assertEquals(actual.getFileSize(), expected.getFileSize());
         assertEquals(actual.getSplitSizeInBytes(), expected.getSplitSizeInBytes());
         assertEquals(actual.getPartitionValues(), expected.getPartitionValues());
+        assertEquals(actual.getColumnMappingMode(), expected.getColumnMappingMode());
+    }
+
+    @Test
+    public void testColumnMappingModeDefaultsToNone()
+    {
+        DeltaSplit split = new DeltaSplit(
+                "delta",
+                "database",
+                "table",
+                "s3://bucket/path/to/delta/table",
+                "file1.parquet",
+                0,
+                200,
+                500,
+                ImmutableMap.of(),
+                null,
+                NodeSelectionStrategy.NO_PREFERENCE);
+        // A null or empty value on the wire (older split serializations, or
+        // callers that omit the field) resolves to the canonical "none".
+        assertEquals(split.getColumnMappingMode(), DeltaTable.COLUMN_MAPPING_MODE_NONE);
+    }
+
+    @Test
+    public void testColumnMappingModeIdRoundTrip()
+    {
+        DeltaSplit expected = new DeltaSplit(
+                "delta",
+                "database",
+                "table",
+                "s3://bucket/path/to/delta/table",
+                "file1.parquet",
+                0,
+                200,
+                500,
+                ImmutableMap.of(),
+                "id",
+                NodeSelectionStrategy.NO_PREFERENCE);
+        DeltaSplit actual = codec.fromJson(codec.toJson(expected));
+        assertEquals(actual.getColumnMappingMode(), "id");
     }
 }

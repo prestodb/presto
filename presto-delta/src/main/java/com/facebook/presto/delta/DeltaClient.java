@@ -23,11 +23,9 @@ import com.facebook.presto.spi.StandardErrorCode;
 import io.delta.kernel.Snapshot;
 import io.delta.kernel.Table;
 import io.delta.kernel.data.FilteredColumnarBatch;
-import io.delta.kernel.data.Row;
 import io.delta.kernel.defaults.engine.DefaultEngine;
 import io.delta.kernel.engine.Engine;
 import io.delta.kernel.exceptions.TableNotFoundException;
-import io.delta.kernel.internal.InternalScanFileUtils;
 import io.delta.kernel.internal.SnapshotImpl;
 import io.delta.kernel.utils.CloseableIterator;
 import jakarta.inject.Inject;
@@ -35,12 +33,11 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.delta.DeltaTable.DataFormat.PARQUET;
@@ -95,7 +92,29 @@ public class DeltaClient
                 schemaTableName.getTableName(),
                 tableLocation,
                 Optional.of(snapshot.getVersion()), // lock the snapshot version
-                getSchema(config, schemaTableName, deltaEngine.get(), snapshot)));
+                getSchema(config, schemaTableName, snapshot),
+                getColumnMappingMode(snapshot)));
+    }
+
+    /**
+     * Reads the {@code delta.columnMapping.mode} table property from the
+     * snapshot's metadata. Falls back to {@link DeltaTable#COLUMN_MAPPING_MODE_NONE}
+     * when the property is absent (older tables, or column-mapping never
+     * enabled). The Delta protocol uses lower-case strings, so we normalize
+     * to lower case for stable equality on the wire.
+     */
+    private static String getColumnMappingMode(Snapshot snapshot)
+    {
+        if (!(snapshot instanceof SnapshotImpl)) {
+            return DeltaTable.COLUMN_MAPPING_MODE_NONE;
+        }
+        Map<String, String> configuration =
+                ((SnapshotImpl) snapshot).getMetadata().getConfiguration();
+        String mode = configuration.get("delta.columnMapping.mode");
+        if (mode == null || mode.isEmpty()) {
+            return DeltaTable.COLUMN_MAPPING_MODE_NONE;
+        }
+        return mode.toLowerCase(US);
     }
 
     private Snapshot getSnapshot(
@@ -242,42 +261,27 @@ public class DeltaClient
      * Utility method that returns the columns in given Delta metadata. Returned columns include regular and partition types.
      * Data type from Delta is mapped to appropriate Presto data type.
      */
-    private static List<DeltaColumn> getSchema(DeltaConfig config, SchemaTableName tableName, Engine deltaEngine,
-                                               Snapshot snapshot)
+    private static List<DeltaColumn> getSchema(DeltaConfig config, SchemaTableName tableName, Snapshot snapshot)
     {
-        try (CloseableIterator<FilteredColumnarBatch> columnBatches = snapshot.getScanBuilder().build()
-                    .getScanFiles(deltaEngine)) {
-            Row row = null;
-            while (columnBatches.hasNext()) {
-                CloseableIterator<Row> rows = columnBatches.next().getRows();
-                if (rows.hasNext()) {
-                    row = rows.next();
-                    break;
-                }
-            }
-            Map<String, String> partitionValues = row != null ?
-                    InternalScanFileUtils.getPartitionValues(row) : new HashMap<>(0);
-            return snapshot.getSchema().fields().stream()
-                    .map(field -> {
-                        String columnName = config.isCaseSensitivePartitionsEnabled() ? field.getName() :
-                                field.getName().toLowerCase(US);
-                        TypeSignature prestoType = DeltaTypeUtils.convertDeltaDataTypePrestoDataType(tableName,
-                                columnName, field.getDataType());
-                        return new DeltaColumn(
-                                DeltaColumnMetadataUtil.getColumnIdFromMetadata(field.getMetadata()),
-                                DeltaColumnMetadataUtil.getPhysicalNameFromMetadata(field.getMetadata()),
-                                columnName,
-                                prestoType,
-                                field.isNullable(),
-                                partitionValues.containsKey(columnName));
-                    }).collect(Collectors.toList());
-        }
-        catch (TableNotFoundException e) {
-            throw new PrestoException(StandardErrorCode.NOT_FOUND,
-                    format(TABLE_NOT_FOUND_ERROR_TEMPLATE, tableName.getSchemaName(), tableName.getTableName()));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Could not close columnar batch row", e);
-        }
+        Set<String> partitionColumns = snapshot.getPartitionColumnNames().stream()
+                .map(columnName -> config.isCaseSensitivePartitionsEnabled() ? columnName : columnName.toLowerCase(US))
+                .collect(Collectors.toSet());
+        return snapshot.getSchema().fields().stream()
+                .map(field -> {
+                    String columnName = config.isCaseSensitivePartitionsEnabled() ? field.getName() :
+                            field.getName().toLowerCase(US);
+                    TypeSignature prestoType = DeltaTypeUtils.convertDeltaDataTypePrestoDataType(tableName,
+                            columnName, field.getDataType());
+                    TypeSignature physicalType = DeltaTypeUtils.convertDeltaDataTypePrestoPhysicalType(tableName,
+                            columnName, field.getDataType());
+                    return new DeltaColumn(
+                            DeltaColumnMetadataUtil.getColumnIdFromMetadata(field.getMetadata()),
+                            DeltaColumnMetadataUtil.getPhysicalNameFromMetadata(field.getMetadata()),
+                            columnName,
+                            prestoType,
+                            physicalType,
+                            field.isNullable(),
+                            partitionColumns.contains(columnName));
+                }).collect(Collectors.toList());
     }
 }
