@@ -28,12 +28,16 @@ import java.util.List;
 
 public class PluginManagerConfig
 {
+    /** Config property listing jars plugin class loaders must not open; see {@link #setExcludedJars}. */
+    public static final String PLUGIN_EXCLUDED_JARS = "plugin.excluded-jars";
+
     private Path installedPluginsDir = Paths.get("plugin");
     private List<String> plugins;
     private Path pluginConfigurationDir = Paths.get("etc/");
     private String mavenLocalRepository = ArtifactResolver.USER_LOCAL_REPO;
     private List<String> mavenRemoteRepository = ImmutableList.of(ArtifactResolver.MAVEN_CENTRAL_URI);
     private ImmutableSet<String> disabledConnectors = ImmutableSet.of();
+    private ImmutableSet<String> excludedJars = ImmutableSet.of();
 
     public File getInstalledPluginsDir()
     {
@@ -106,6 +110,21 @@ public class PluginManagerConfig
     public ImmutableSet<String> getDisabledConnectors()
     {
         return this.disabledConnectors;
+    }
+
+    public ImmutableSet<String> getExcludedJars()
+    {
+        return excludedJars;
+    }
+
+    @Config(PLUGIN_EXCLUDED_JARS)
+    @ConfigDescription("File names of jars a plugin loaded from a directory must not open; a directory that would " +
+            "be left with no jars is loaded whole. Presto-on-Spark sets this on native executors from the executor " +
+            "classpath manifest")
+    public PluginManagerConfig setExcludedJars(String excludedJars)
+    {
+        this.excludedJars = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(excludedJars));
+        return this;
     }
 
     @Config("plugin.disabled-connectors")
