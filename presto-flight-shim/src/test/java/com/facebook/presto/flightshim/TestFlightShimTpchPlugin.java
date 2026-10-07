@@ -39,6 +39,8 @@ import static com.facebook.presto.flightshim.FlightShimProducer.METADATA_KEY_ARR
 import static com.facebook.presto.flightshim.FlightShimProducer.METADATA_KEY_ARROW_STATUS_CODE;
 import static com.facebook.presto.flightshim.TestFlightShimRequest.REQUEST_JSON_CODEC;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -192,6 +194,50 @@ public class TestFlightShimTpchPlugin
             assertEquals(failureInfo.getMessage(), "Table invalid_table not found");
             assertEquals(failureInfo.getType(), "java.lang.IllegalArgumentException");
             assertEquals(failureInfo.getErrorCode(), StandardErrorCode.GENERIC_INTERNAL_ERROR.toErrorCode());
+        }
+    }
+
+    @Test
+    public void testRejectsHandleOfOtherConnector() throws Exception
+    {
+        FlightShimRequest request = createTpchTableRequest(0, 1, ImmutableList.of(getOrderKeyColumn()));
+        byte[] emptySplitBytes = format("{\"@type\" : \"$empty\", \"connectorId\" : \"%s\"}", getConnectorId()).getBytes(UTF_8);
+        ExecutionFailureInfo failureInfo = getStreamFailure(withSplitBytes(request, emptySplitBytes));
+        assertEquals(failureInfo.getMessage(), "Handle of type com.facebook.presto.split.EmptySplit does not belong to connector tpch");
+    }
+
+    @Test
+    public void testRejectsHandleWithoutType() throws Exception
+    {
+        FlightShimRequest request = createTpchTableRequest(0, 1, ImmutableList.of(getOrderKeyColumn()));
+        byte[] untypedSplitBytes = createTpchSplit(getConnectorName(), TPCH_TABLE, 0, 1).replace("\"@type\" : \"tpch\",", "").getBytes(UTF_8);
+        ExecutionFailureInfo failureInfo = getStreamFailure(withSplitBytes(request, untypedSplitBytes));
+        assertEquals(failureInfo.getMessage(), "Invalid JSON bytes for [simple type, class com.facebook.presto.spi.ConnectorSplit]");
+    }
+
+    private static FlightShimRequest withSplitBytes(FlightShimRequest request, byte[] splitBytes)
+    {
+        return new FlightShimRequest(
+                request.getConnectorId(),
+                request.getFields(),
+                splitBytes,
+                request.getColumnHandlesBytes(),
+                request.getTableHandleBytes(),
+                request.getTableLayoutHandleBytes(),
+                request.getTransactionHandleBytes());
+    }
+
+    private ExecutionFailureInfo getStreamFailure(FlightShimRequest request) throws Exception
+    {
+        try (BufferAllocator bufferAllocator = allocator.newChildAllocator("connector-test-client", 0, Long.MAX_VALUE);
+                FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
+            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(request));
+            FlightRuntimeException e = expectThrows(FlightRuntimeException.class, () -> {
+                try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
+                    stream.next();
+                }
+            });
+            return EXECUTION_FAILURE_INFO_JSON_CODEC.fromJson(e.status().metadata().getByte(METADATA_KEY_ARROW_STATUS_BIN));
         }
     }
 

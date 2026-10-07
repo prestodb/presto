@@ -98,7 +98,7 @@ public class TestFlightShimRequest
 
     FlightShimRequest createTpchCustomerRequest()
     {
-        String split = createJdbcSplit("postgresql", "tpch", TPCH_TABLE);
+        String split = createJdbcSplit("postgresql", "postgresql", "tpch", TPCH_TABLE);
         byte[] splitBytes = split.getBytes(StandardCharsets.UTF_8);
 
         JdbcColumnHandle custkeyHandle = new JdbcColumnHandle(
