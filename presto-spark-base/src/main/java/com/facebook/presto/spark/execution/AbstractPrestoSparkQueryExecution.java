@@ -108,6 +108,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.ShuffledRDD;
 import org.apache.spark.util.CollectionAccumulator;
+import scala.Option;
 import scala.Tuple2;
 
 import java.util.ArrayList;
@@ -217,6 +218,8 @@ public abstract class AbstractPrestoSparkQueryExecution
     @GuardedBy("this")
     private final Map<PlanFragmentId, RddAndMore> fragmentIdToRdd = new HashMap<>();
     private final Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector;
+    // Held outside taskInfoCollector so it survives the drop in queryCompletedEvent. See collectPages.
+    private final AtomicReference<TaskInfo> coordinatorOnlyTaskInfo = new AtomicReference<>();
 
     public AbstractPrestoSparkQueryExecution(
             JavaSparkContext sparkContext,
@@ -523,16 +526,47 @@ public abstract class AbstractPrestoSparkQueryExecution
                 DataSize.succinctBytes(totalCompressedSizeInBytes),
                 DataSize.succinctBytes(totalUncompressedSizeInBytes));
 
+        // Dedicated accumulator: queryCompletedEvent drops the shared taskInfoCollector wholesale past
+        // spark_max_task_infos_in_query_completed_event, which would take this task's TableFinishInfo with it.
+        CollectionAccumulator<SerializedTaskInfo> coordinatorOnlyTaskInfoCollector = new CollectionAccumulator<>();
+        coordinatorOnlyTaskInfoCollector.register(sparkContext.sc(), Option.empty(), true);
+
         IPrestoSparkTaskExecutor<PrestoSparkSerializedPage> prestoSparkTaskExecutor = taskExecutorFactory.create(
                 0,
                 0,
                 serializedTaskDescriptor,
                 emptyScalaIterator(),
                 new PrestoSparkJavaExecutionTaskInputs(ImmutableMap.of(), ImmutableMap.of(), inputs.build()),
-                taskInfoCollector,
+                coordinatorOnlyTaskInfoCollector,
                 shuffleStatsCollector,
                 PrestoSparkSerializedPage.class);
-        return collectScalaIterator(prestoSparkTaskExecutor);
+        try {
+            return collectScalaIterator(prestoSparkTaskExecutor);
+        }
+        finally {
+            captureCoordinatorOnlyTaskInfo(coordinatorOnlyTaskInfoCollector);
+        }
+    }
+
+    private void captureCoordinatorOnlyTaskInfo(CollectionAccumulator<SerializedTaskInfo> coordinatorOnlyTaskInfoCollector)
+    {
+        try {
+            List<SerializedTaskInfo> collected = coordinatorOnlyTaskInfoCollector.value();
+            coordinatorOnlyTaskInfoCollector.reset();
+            if (!collected.isEmpty()) {
+                coordinatorOnlyTaskInfo.set(deserializeZstdCompressed(taskInfoCodec, collected.get(0).getBytesAndClear()));
+            }
+        }
+        catch (RuntimeException e) {
+            // Called from a finally block, so this must not replace an exception that is already propagating.
+            log.warn(e, "Failed to capture the coordinator only task info");
+        }
+    }
+
+    @VisibleForTesting
+    public Optional<TaskInfo> getCoordinatorOnlyTaskInfo()
+    {
+        return Optional.ofNullable(coordinatorOnlyTaskInfo.get());
     }
 
     @VisibleForTesting
@@ -651,7 +685,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         // and retaining them. Each TaskInfo carries the full pipeline/operator/runtime-stats tree, so on queries
         // with very large task counts retaining them would blow up driver memory. This is deliberately
         // all-or-nothing: an empty stats set makes it obvious that statistics could not be collected, whereas a
-        // partial set would be silently misleading.
+        // partial set would be silently misleading. The coordinator-only task info is exempt, merged in below.
         boolean taskInfoLimitExceeded = serializedTaskInfos.size() > maxTaskInfos;
         for (SerializedTaskInfo serializedTaskInfo : serializedTaskInfos) {
             // Always clear the compressed buffer to free driver memory, even when over the limit.
@@ -665,8 +699,14 @@ public abstract class AbstractPrestoSparkQueryExecution
         }
         taskInfoCollector.reset();
 
+        // Carries the TableFinishInfo that QueryMonitor#getQueryIOMetadata reads the written partitions from.
+        TaskInfo capturedCoordinatorOnlyTaskInfo = coordinatorOnlyTaskInfo.get();
+        if (capturedCoordinatorOnlyTaskInfo != null) {
+            updateTaskInfoMap(taskInfoMap, capturedCoordinatorOnlyTaskInfo);
+        }
+
         if (taskInfoLimitExceeded) {
-            log.warn("Query %s task info count (%s) exceeded the max task info count (%s) for the query completed event; DROPPING ALL task infos - stage statistics will be empty",
+            log.warn("Query %s task info count (%s) exceeded the max task info count (%s) for the query completed event; DROPPING ALL task infos except the coordinator only task - stage statistics will be empty",
                     session.getQueryId(),
                     serializedTaskInfos.size(),
                     maxTaskInfos);
