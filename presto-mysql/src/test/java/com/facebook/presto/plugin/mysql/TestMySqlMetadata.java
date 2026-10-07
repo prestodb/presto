@@ -294,10 +294,10 @@ public class TestMySqlMetadata
     @Test
     public void testDefinerUser()
     {
-        assertEquals(MySqlClient.definerUser("alice@%"), "alice");
-        assertEquals(MySqlClient.definerUser("root@localhost"), "root");
-        assertEquals(MySqlClient.definerUser("carol@example.com@%"), "carol@example.com");
-        assertEquals(MySqlClient.definerUser("nohost"), "nohost");
+        assertEquals(MySqlClient.extractDefinerUser("alice@%"), "alice");
+        assertEquals(MySqlClient.extractDefinerUser("root@localhost"), "root");
+        assertEquals(MySqlClient.extractDefinerUser("carol@example.com@%"), "carol@example.com");
+        assertEquals(MySqlClient.extractDefinerUser("nohost"), "nohost");
     }
 
     @Test

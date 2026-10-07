@@ -36,6 +36,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -367,33 +368,6 @@ public class MySqlClient
         return views.build();
     }
 
-    private static List<RemoteView> listRemoteViews(Connection connection, SchemaTablePrefix prefix)
-            throws SQLException
-    {
-        try (PreparedStatement statement = connection.prepareStatement(viewsQuery(prefix))) {
-            int parameterIndex = 1;
-            if (prefix.getSchemaName() != null) {
-                statement.setString(parameterIndex++, prefix.getSchemaName());
-            }
-            if (prefix.getTableName() != null) {
-                statement.setString(parameterIndex, prefix.getTableName());
-            }
-
-            ImmutableList.Builder<RemoteView> remoteViews = ImmutableList.builder();
-            try (ResultSet resultSet = statement.executeQuery()) {
-                while (resultSet.next()) {
-                    remoteViews.add(new RemoteView(
-                            new SchemaTableName(resultSet.getString("TABLE_SCHEMA"), resultSet.getString("TABLE_NAME")),
-                            // StatementAnalyzer can't parse sql with back ticks, so we replace them here
-                            resultSet.getString("VIEW_DEFINITION").replace('`', '"'),
-                            definerUser(resultSet.getString("DEFINER")),
-                            "INVOKER".equals(resultSet.getString("SECURITY_TYPE"))));
-                }
-            }
-            return remoteViews.build();
-        }
-    }
-
     /**
      * Reads the columns of the listed views with one DatabaseMetaData.getColumns call per schema
      * holding any of them, instead of one call per view, so listing a schema costs one metadata
@@ -435,31 +409,6 @@ public class MySqlClient
         return columns.build();
     }
 
-    /**
-     * Builds the INFORMATION_SCHEMA.VIEWS lookup for a prefix, binding the names as parameters:
-     * they arrive from user SQL and may contain quotes. A prefix with no table name, and possibly
-     * no schema name either, comes from queries such as SELECT * FROM information_schema.views,
-     * and is answered by this one statement, so the row count rather than the query count grows
-     * with the number of views on the server. The parameters have to be bound in the same order
-     * the conditions are appended here.
-     */
-    private static String viewsQuery(SchemaTablePrefix prefix)
-    {
-        String sql = "SELECT TABLE_SCHEMA, TABLE_NAME, VIEW_DEFINITION, DEFINER, SECURITY_TYPE FROM INFORMATION_SCHEMA.VIEWS";
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
-        if (prefix.getSchemaName() != null) {
-            builder.add("TABLE_SCHEMA = ?");
-        }
-        if (prefix.getTableName() != null) {
-            builder.add("TABLE_NAME = ?");
-        }
-        List<String> conditions = builder.build();
-        if (conditions.isEmpty()) {
-            return sql;
-        }
-        return sql + " WHERE " + join(" AND ", conditions);
-    }
-
     private SchemaTableName viewName(ConnectorSession session, SchemaTablePrefix prefix, SchemaTableName remoteName)
     {
         // A prefix naming one table is keyed by the requested name rather than the name MySQL
@@ -473,18 +422,6 @@ public class MySqlClient
         return new SchemaTableName(
                 normalizeIdentifier(session, schemaName),
                 normalizeIdentifier(session, remoteName.getTableName()));
-    }
-
-    /**
-     * Returns the user part of a DEFINER as INFORMATION_SCHEMA.VIEWS reports it, an unquoted
-     * user@host. The owner of a view created through Presto is the Presto user, stored with the
-     * host % by {@link #createView}. A user name may itself contain an @, as an email address
-     * does, but a host cannot, so the split is on the last one.
-     */
-    static String definerUser(String definer)
-    {
-        int separator = definer.lastIndexOf('@');
-        return separator < 0 ? definer : definer.substring(0, separator);
     }
 
     @Override
@@ -531,11 +468,11 @@ public class MySqlClient
             // created the view would be lost. Naming another account requires the connection user
             // to hold SET_USER_ID (SET_ANY_DEFINER from MySQL 8.2) or SUPER. The Presto user is
             // stored with the host % since Presto has no notion of the client host.
+            String definer = quoted(session.getUser()) + "@" + quoted("%");
             String sql = format(
-                    "%s DEFINER = %s@%s SQL SECURITY %s VIEW %s AS %s",
+                    "%s DEFINER = %s SQL SECURITY %s VIEW %s AS %s",
                     replace ? "CREATE OR REPLACE" : "CREATE",
-                    quoted(session.getUser()),
-                    quoted("%"),
+                    definer,
                     viewDefinition.isRunAsInvoker() ? "INVOKER" : "DEFINER",
                     quotedRemoteName(schema, view),
                     viewDefinition.getOriginalSql());
@@ -607,6 +544,71 @@ public class MySqlClient
     private String quotedRemoteName(String remoteSchema, String remoteName)
     {
         return quoted(null, remoteSchema, remoteName);
+    }
+
+    private static List<RemoteView> listRemoteViews(Connection connection, SchemaTablePrefix prefix)
+            throws SQLException
+    {
+        try (PreparedStatement statement = connection.prepareStatement(viewsQuery(prefix))) {
+            int parameterIndex = 1;
+            if (prefix.getSchemaName() != null) {
+                statement.setString(parameterIndex++, prefix.getSchemaName());
+            }
+            if (prefix.getTableName() != null) {
+                statement.setString(parameterIndex, prefix.getTableName());
+            }
+
+            ImmutableList.Builder<RemoteView> remoteViews = ImmutableList.builder();
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    remoteViews.add(new RemoteView(
+                            new SchemaTableName(resultSet.getString("TABLE_SCHEMA"), resultSet.getString("TABLE_NAME")),
+                            // StatementAnalyzer can't parse sql with back ticks, so we replace them here
+                            resultSet.getString("VIEW_DEFINITION").replace('`', '"'),
+                            extractDefinerUser(resultSet.getString("DEFINER")),
+                            "INVOKER".equals(resultSet.getString("SECURITY_TYPE"))));
+                }
+            }
+            return remoteViews.build();
+        }
+    }
+
+    /**
+     * Builds the INFORMATION_SCHEMA.VIEWS lookup for a prefix, binding the names as parameters:
+     * they arrive from user SQL and may contain quotes. A prefix with no table name, and possibly
+     * no schema name either, comes from queries such as SELECT * FROM information_schema.views,
+     * and is answered by this one statement, so the row count rather than the query count grows
+     * with the number of views on the server. The parameters have to be bound in the same order
+     * the conditions are appended here.
+     */
+    private static String viewsQuery(SchemaTablePrefix prefix)
+    {
+        String sql = "SELECT TABLE_SCHEMA, TABLE_NAME, VIEW_DEFINITION, DEFINER, SECURITY_TYPE FROM INFORMATION_SCHEMA.VIEWS";
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        if (prefix.getSchemaName() != null) {
+            builder.add("TABLE_SCHEMA = ?");
+        }
+        if (prefix.getTableName() != null) {
+            builder.add("TABLE_NAME = ?");
+        }
+        List<String> conditions = builder.build();
+        if (conditions.isEmpty()) {
+            return sql;
+        }
+        return sql + " WHERE " + join(" AND ", conditions);
+    }
+
+    /**
+     * Returns the user part of a DEFINER as INFORMATION_SCHEMA.VIEWS reports it, an unquoted
+     * user@host. The owner of a view created through Presto is the Presto user, stored with the
+     * host % by {@link #createView}. A user name may itself contain an @, as an email address
+     * does, but a host cannot, so the split is on the last one.
+     */
+    @VisibleForTesting
+    static String extractDefinerUser(String definer)
+    {
+        int separator = definer.lastIndexOf('@');
+        return separator < 0 ? definer : definer.substring(0, separator);
     }
 
     /**
