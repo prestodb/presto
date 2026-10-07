@@ -81,6 +81,8 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowReference;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -398,7 +400,7 @@ public final class ExpressionFormatter
             }
 
             if (node.getWindow().isPresent()) {
-                builder.append(" OVER ").append(visitWindow(node.getWindow().get(), context));
+                builder.append(" OVER ").append(formatWindow(node.getWindow().get(), parameters));
             }
 
             return builder.toString();
@@ -621,10 +623,13 @@ public final class ExpressionFormatter
         }
 
         @Override
-        public String visitWindow(Window node, Void context)
+        public String visitWindowSpecification(WindowSpecification node, Void context)
         {
             List<String> parts = new ArrayList<>();
 
+            if (node.getExistingWindowName().isPresent()) {
+                parts.add(formatExpression(node.getExistingWindowName().get(), parameters));
+            }
             if (!node.getPartitionBy().isEmpty()) {
                 parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy()));
             }
@@ -636,6 +641,12 @@ public final class ExpressionFormatter
             }
 
             return '(' + Joiner.on(' ').join(parts) + ')';
+        }
+
+        @Override
+        public String visitWindowReference(WindowReference node, Void context)
+        {
+            return formatExpression(node.getName(), parameters);
         }
 
         @Override
@@ -748,6 +759,20 @@ public final class ExpressionFormatter
         }
         builder.append("'");
         return builder.toString();
+    }
+
+    static String formatWindow(Window window, Optional<List<Expression>> parameters)
+    {
+        if (window instanceof WindowReference) {
+            return new Formatter(parameters).process((WindowReference) window, null);
+        }
+
+        return formatWindowSpecification((WindowSpecification) window, parameters);
+    }
+
+    static String formatWindowSpecification(WindowSpecification windowSpecification, Optional<List<Expression>> parameters)
+    {
+        return new Formatter(parameters).process(windowSpecification, null);
     }
 
     static String formatOrderBy(OrderBy orderBy, Optional<List<Expression>> parameters)

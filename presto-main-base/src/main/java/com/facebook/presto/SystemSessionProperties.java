@@ -178,6 +178,7 @@ public final class SystemSessionProperties
     public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
     public static final String EXCHANGE_CHECKSUM = "exchange_checksum";
     public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
+    public static final String LEGACY_TIMESTAMP_WITH_TIMEZONE = "legacy_timestamp_with_timezone";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PARALLELIZE_CHAINED_AGGREGATION = "parallelize_chained_aggregation";
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
@@ -298,6 +299,8 @@ public final class SystemSessionProperties
     public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
     public static final String DISTRIBUTED_TRACING_MODE = "distributed_tracing_mode";
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
+    public static final String RUNTIME_STATS_TRACING_ENABLED = "runtime_stats_tracing_enabled";
+    public static final String RUNTIME_STATS_TRACING_MAX_EVENTS = "runtime_stats_tracing_max_events";
     public static final String VERBOSE_PLANNER_RUNTIME_STATS_ENABLED = "verbose_planner_runtime_stats_enabled";
     public static final String OPTIMIZERS_TO_ENABLE_VERBOSE_RUNTIME_STATS = "optimizers_to_enable_verbose_runtime_stats";
     public static final String VERBOSE_OPTIMIZER_INFO_ENABLED = "verbose_optimizer_info_enabled";
@@ -976,6 +979,11 @@ public final class SystemSessionProperties
                         "Use legacy TIME & TIMESTAMP semantics (warning: this will be removed)",
                         functionsConfig.isLegacyTimestamp(),
                         true),
+                booleanProperty(
+                        LEGACY_TIMESTAMP_WITH_TIMEZONE,
+                        "Render TIMESTAMP WITH TIME ZONE values in each value's embedded time zone instead of the session time zone",
+                        functionsConfig.isLegacyTimestampWithTimezone(),
+                        false),
                 booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
                         "Enable the use of intermediate aggregations",
@@ -1702,6 +1710,20 @@ public final class SystemSessionProperties
                         "Enable logging all runtime stats",
                         featuresConfig.isVerboseRuntimeStatsEnabled(),
                         false),
+                booleanProperty(
+                        RUNTIME_STATS_TRACING_ENABLED,
+                        "Record individual start time, end time, and duration events for timed runtime stats",
+                        false,
+                        false),
+                new PropertyMetadata<>(
+                        RUNTIME_STATS_TRACING_MAX_EVENTS,
+                        "Maximum number of runtime stats trace events retained per query, including the query root event",
+                        INTEGER,
+                        Integer.class,
+                        queryManagerConfig.getRuntimeStatsTracingMaxEvents(),
+                        false,
+                        value -> validateIntegerValue(value, RUNTIME_STATS_TRACING_MAX_EVENTS, 1, false),
+                        value -> value),
                 booleanProperty(
                         VERBOSE_PLANNER_RUNTIME_STATS_ENABLED,
                         "Enable verbose runtime stats for analyzer, logical planner, and optimizer phases only",
@@ -2929,6 +2951,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(LEGACY_TIMESTAMP, Boolean.class);
     }
 
+    public static boolean isLegacyTimestampWithTimezone(Session session)
+    {
+        return session.getSystemProperty(LEGACY_TIMESTAMP_WITH_TIMEZONE, Boolean.class);
+    }
+
     public static Duration getOptimizerTimeout(Session session)
     {
         return session.getSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, Duration.class);
@@ -3594,6 +3621,16 @@ public final class SystemSessionProperties
     public static boolean isVerboseRuntimeStatsEnabled(Session session)
     {
         return session.getSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isRuntimeStatsTracingEnabled(Session session)
+    {
+        return session.getSystemProperty(RUNTIME_STATS_TRACING_ENABLED, Boolean.class);
+    }
+
+    public static int getRuntimeStatsTracingMaxEvents(Session session)
+    {
+        return session.getSystemProperty(RUNTIME_STATS_TRACING_MAX_EVENTS, Integer.class);
     }
 
     public static boolean isVerbosePlannerRuntimeStatsEnabled(Session session)

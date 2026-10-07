@@ -18,6 +18,8 @@ import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.TimeType;
@@ -183,6 +185,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static com.facebook.presto.type.DecimalParametricType.DECIMAL;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
@@ -1409,6 +1412,25 @@ public abstract class IcebergDistributedTestBase
         return result.getOnlyColumn().map(Long.class::cast).collect(Collectors.toList());
     }
 
+    @Test
+    public void testStatisticsUseThePredicateOfTheLayout()
+    {
+        // Statistics are asked for with two predicates: the constraint of the call, and the one
+        // already pushed into the table layout. Both have to narrow the manifests that are read.
+        // With the layout's predicate dropped, the row count comes back as if it were not there.
+        assertUpdate("CREATE TABLE test_stats_layout_predicate(i int, part varchar) WITH (partitioning = ARRAY['part'])");
+        try {
+            assertUpdate("INSERT INTO test_stats_layout_predicate VALUES (1, 'a'), (2, 'a'), (3, 'b')", 3);
+
+            assertEquals(getTableStats("test_stats_layout_predicate").getRowCount().getValue(), 3.0);
+            assertEquals(getTableStats("test_stats_layout_predicate", Optional.empty(), getSession(), Optional.empty(), ImmutableMap.of("part", "a"))
+                    .getRowCount().getValue(), 2.0);
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS test_stats_layout_predicate");
+        }
+    }
+
     private TableStatistics getTableStats(String name)
     {
         return getTableStats(name, Optional.empty());
@@ -1426,25 +1448,55 @@ public abstract class IcebergDistributedTestBase
 
     private TableStatistics getTableStats(String name, Optional<Long> snapshot, Session session, Optional<List<String>> columns)
     {
-        TransactionId transactionId = getQueryRunner().getTransactionManager().beginTransaction(false);
-        Session metadataSession = session.beginTransactionId(
-                transactionId,
-                getQueryRunner().getTransactionManager(),
-                new AllowAllAccessControl());
-        Metadata metadata = getDistributedQueryRunner().getMetadata();
-        MetadataResolver resolver = metadata.getMetadataResolver(metadataSession);
-        String tableName = snapshot.map(snap -> format("%s@%d", name, snap)).orElse(name);
-        String qualifiedName = format("%s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
-        TableHandle handle = resolver.getTableHandle(QualifiedObjectName.valueOf(qualifiedName)).get();
-        TableStatistics tableStatistics = metadata.getTableStatistics(metadataSession,
-                handle,
-                new ArrayList<>(columns
-                        .map(columnSet -> Maps.filterKeys(resolver.getColumnHandles(handle), columnSet::contains))
-                        .orElseGet(() -> resolver.getColumnHandles(handle)).values()),
-                Constraint.alwaysTrue());
+        return getTableStats(name, snapshot, session, columns, ImmutableMap.of());
+    }
 
-        getQueryRunner().getTransactionManager().asyncAbort(transactionId);
-        return tableStatistics;
+    /**
+     * @param layoutPredicate single varchar values to push into the table layout, by column name.
+     * The constraint of the statistics call itself stays "always true", so when this is not empty
+     * only the layout's predicate can narrow the answer.
+     */
+    private TableStatistics getTableStats(String name, Optional<Long> snapshot, Session session, Optional<List<String>> columns, Map<String, String> layoutPredicate)
+    {
+        TransactionId transactionId = getQueryRunner().getTransactionManager().beginTransaction(false);
+        try {
+            Session metadataSession = session.beginTransactionId(
+                    transactionId,
+                    getQueryRunner().getTransactionManager(),
+                    new AllowAllAccessControl());
+            Metadata metadata = getDistributedQueryRunner().getMetadata();
+            MetadataResolver resolver = metadata.getMetadataResolver(metadataSession);
+            String tableName = snapshot.map(snap -> format("%s@%d", name, snap)).orElse(name);
+            String qualifiedName = format("%s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+            TableHandle handle = resolver.getTableHandle(QualifiedObjectName.valueOf(qualifiedName)).get();
+            // A layout predicate reaches the statistics as the layout's valid predicate, which is
+            // a different path from the constraint passed below.
+            TableHandle statsHandle = layoutPredicate.isEmpty() ? handle :
+                    metadata.getLayout(metadataSession, handle, layoutConstraint(metadata, metadataSession, handle, resolver, layoutPredicate), Optional.empty())
+                            .getLayout()
+                            .getNewTableHandle();
+            return metadata.getTableStatistics(metadataSession,
+                    statsHandle,
+                    new ArrayList<>(columns
+                            .map(columnSet -> Maps.filterKeys(resolver.getColumnHandles(statsHandle), columnSet::contains))
+                            .orElseGet(() -> resolver.getColumnHandles(statsHandle)).values()),
+                    Constraint.alwaysTrue());
+        }
+        finally {
+            getQueryRunner().getTransactionManager().asyncAbort(transactionId);
+        }
+    }
+
+    private static Constraint<ColumnHandle> layoutConstraint(Metadata metadata, Session session, TableHandle handle, MetadataResolver resolver, Map<String, String> predicate)
+    {
+        Map<String, ColumnHandle> columnHandles = resolver.getColumnHandles(handle);
+        ImmutableMap.Builder<ColumnHandle, Domain> domains = ImmutableMap.builder();
+        predicate.forEach((columnName, value) -> {
+            ColumnHandle column = columnHandles.get(columnName);
+            Type columnType = metadata.getColumnMetadata(session, handle, column).getType();
+            domains.put(column, Domain.singleValue(columnType, utf8Slice(value)));
+        });
+        return new Constraint<>(TupleDomain.withColumnDomains(domains.build()));
     }
 
     private static ColumnStatistics columnStatsFor(TableStatistics statistics, String name)
@@ -2636,12 +2688,52 @@ public abstract class IcebergDistributedTestBase
         assertUpdate("ALTER TABLE test_table_references DROP COLUMN id2");
         assertUpdate("ALTER TABLE test_table_references ADD COLUMN id2_new BIGINT");
 
-        // since current table schema is changed from col id2 to id2_new
+        // The current table schema changed from id2 to id2_new.
         assertQuery("SELECT * FROM test_table_references where id1=1", "VALUES(1, NULL)");
+        // A branch is still being written to, so reading one uses the current schema.
         assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testBranch' where id1=1", "VALUES(1, NULL)");
-        // Currently Presto returns current table schema for any previous snapshot access https://github.com/prestodb/presto/issues/23553
-        // otherwise querying a tag uses the snapshot's schema https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
-        assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag' where id1=1", "VALUES(1, NULL)");
+        // A tag marks a point in history, so reading one uses the schema its snapshot was written
+        // with, which still had id2.
+        // https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
+        assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag' where id1=1", "VALUES(1, 10)");
+    }
+
+    @Test
+    public void testTimeTravelWithNestedSchemaEvolution()
+    {
+        String tableName = "test_time_travel_nested_evolution";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, s ROW(a INTEGER, b INTEGER))");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(10, 20))", 1);
+            Table icebergTable = loadTable(tableName);
+            long snapshotId = icebergTable.currentSnapshot().snapshotId();
+
+            // Presto's ALTER TABLE only changes top-level columns, so the fields inside s are
+            // changed through the Iceberg API. None of these changes creates a new snapshot.
+            icebergTable.updateSchema().deleteColumn("s.b").commit();
+            icebergTable.updateSchema().addColumn("s", "c", Types.IntegerType.get()).commit();
+            icebergTable.updateSchema().renameColumn("s.a", "a_renamed").commit();
+
+            // A plain read uses the current schema: s is now (a_renamed, c). Only the names are
+            // checked here, not the value of a_renamed, because that value comes from how the
+            // reader matches renamed nested fields in data files, which is not what this test
+            // is about.
+            assertQuery("SELECT s.c FROM " + tableName, "VALUES NULL");
+            assertQuerySucceeds("SELECT s.a_renamed FROM " + tableName);
+            assertQueryFails("SELECT s.a FROM " + tableName, ".*cannot be resolved.*");
+            assertQueryFails("SELECT s.b FROM " + tableName, ".*cannot be resolved.*");
+
+            // A read of the old snapshot uses the schema it was written with: s is still (a, b),
+            // so the dropped field b can be read, and the added field c and the new name
+            // a_renamed are unknown.
+            String oldSnapshot = tableName + " FOR VERSION AS OF " + snapshotId;
+            assertQuery("SELECT s.a, s.b FROM " + oldSnapshot, "VALUES (10, 20)");
+            assertQueryFails("SELECT s.c FROM " + oldSnapshot, ".*cannot be resolved.*");
+            assertQueryFails("SELECT s.a_renamed FROM " + oldSnapshot, ".*cannot be resolved.*");
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test

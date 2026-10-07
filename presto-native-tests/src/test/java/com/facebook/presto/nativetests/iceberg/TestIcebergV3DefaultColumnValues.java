@@ -294,6 +294,135 @@ public class TestIcebergV3DefaultColumnValues
         }
     }
 
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testDefaultDateColumnForHistoricalRows(boolean pushdownFilterEnabled)
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        // Iceberg stores DATE defaults as integer days since the Unix epoch.
+        // The native worker must decode that integer and return the correct DATE
+        // value for rows written before the column was added.
+        String tableName = "orders_v3_default_date";
+        try {
+            // Write two rows before the date column exists.
+            createTableWithRows(session, tableName, "(id BIGINT, name VARCHAR)", "VALUES (1, 'Alice'), (2, 'Bob')", 2);
+
+            // Add a DATE column with an initial-default (2023-01-01 = day 19358 since epoch).
+            assertUpdate(String.format(
+                    "ALTER TABLE %s ADD COLUMN created_date DATE DEFAULT DATE '2023-01-01'", tableName));
+
+            // Historical rows must surface the initial-default.
+            assertQuery(
+                    String.format("SELECT id, created_date FROM %s ORDER BY id", tableName),
+                    "VALUES (BIGINT '1', DATE '2023-01-01'), (BIGINT '2', DATE '2023-01-01')");
+
+            // New row written with an explicit date value must use that value.
+            assertUpdate(String.format(
+                    "INSERT INTO %s VALUES (3, 'Charlie', DATE '2024-06-15')", tableName), 1);
+            assertQuery(
+                    String.format("SELECT id, created_date FROM %s ORDER BY id", tableName),
+                    "VALUES (BIGINT '1', DATE '2023-01-01'), "
+                            + "(BIGINT '2', DATE '2023-01-01'), "
+                            + "(BIGINT '3', DATE '2024-06-15')");
+
+            // New row written without a date value must return NULL (not the initial-default).
+            assertUpdate(String.format(
+                    "INSERT INTO %s (id, name) VALUES (4, 'David')", tableName), 1);
+            assertQuery(
+                    String.format("SELECT id, created_date FROM %s WHERE id = 4", tableName),
+                    "VALUES (BIGINT '4', NULL)");
+
+            // SELECT * must return all columns for all rows, mixing the initial-default,
+            // an explicit file value, and NULL in the same result set.
+            assertQuery(
+                    String.format("SELECT * FROM %s ORDER BY id", tableName),
+                    "VALUES (BIGINT '1', 'Alice', DATE '2023-01-01'), "
+                            + "(BIGINT '2', 'Bob',   DATE '2023-01-01'), "
+                            + "(BIGINT '3', 'Charlie', DATE '2024-06-15'), "
+                            + "(BIGINT '4', 'David',   NULL)");
+
+            // Filter pushdown on the default date value must return only historical rows.
+            assertQuery(
+                    String.format("SELECT id FROM %s WHERE created_date = DATE '2023-01-01' ORDER BY id", tableName),
+                    "VALUES (1), (2)");
+
+            // Filter on the explicit date must return only row 3.
+            assertQuery(
+                    String.format("SELECT id FROM %s WHERE created_date = DATE '2024-06-15'", tableName),
+                    "VALUES (3)");
+        }
+        finally {
+            dropTableIfExists(session, tableName);
+        }
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testDefaultTimestampColumnForHistoricalRows(boolean pushdownFilterEnabled)
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        // Iceberg stores TIMESTAMP defaults as integer microseconds since the Unix epoch.
+        // The native worker must decode that integer and return the correct TIMESTAMP
+        // value for rows written before the column was added.
+        String tableName = "orders_v3_default_timestamp";
+        try {
+            // Write two rows before the timestamp column exists.
+            createTableWithRows(session, tableName, "(id BIGINT, name VARCHAR)", "VALUES (1, 'Alice'), (2, 'Bob')", 2);
+
+            // Add a TIMESTAMP column with an initial-default
+            // (2023-01-01 11:00:00 UTC = 1672570800000000 microseconds since epoch).
+            assertUpdate(String.format(
+                    "ALTER TABLE %s ADD COLUMN created_at TIMESTAMP DEFAULT TIMESTAMP '2023-01-01 11:00:00.000000'",
+                    tableName));
+
+            // Historical rows must surface the initial-default.
+            assertQuery(
+                    String.format("SELECT id, created_at FROM %s ORDER BY id", tableName),
+                    "VALUES (BIGINT '1', TIMESTAMP '2023-01-01 11:00:00.000000'), "
+                            + "(BIGINT '2', TIMESTAMP '2023-01-01 11:00:00.000000')");
+
+            // New row written with an explicit timestamp must use that value.
+            assertUpdate(String.format(
+                    "INSERT INTO %s VALUES (3, 'Charlie', TIMESTAMP '2024-12-25 15:30:00.000000')", tableName), 1);
+            assertQuery(
+                    String.format("SELECT id, created_at FROM %s ORDER BY id", tableName),
+                    "VALUES (BIGINT '1', TIMESTAMP '2023-01-01 11:00:00.000000'), "
+                            + "(BIGINT '2', TIMESTAMP '2023-01-01 11:00:00.000000'), "
+                            + "(BIGINT '3', TIMESTAMP '2024-12-25 15:30:00.000000')");
+
+            // New row written without a timestamp value must return NULL (not the initial-default).
+            assertUpdate(String.format(
+                    "INSERT INTO %s (id, name) VALUES (4, 'David')", tableName), 1);
+            assertQuery(
+                    String.format("SELECT id, created_at FROM %s WHERE id = 4", tableName),
+                    "VALUES (BIGINT '4', NULL)");
+
+            // SELECT * must return all columns for all rows, mixing the initial-default,
+            // an explicit file value, and NULL in the same result set.
+            assertQuery(
+                    String.format("SELECT * FROM %s ORDER BY id", tableName),
+                    "VALUES (BIGINT '1', 'Alice',   TIMESTAMP '2023-01-01 11:00:00.000000'), "
+                            + "(BIGINT '2', 'Bob',     TIMESTAMP '2023-01-01 11:00:00.000000'), "
+                            + "(BIGINT '3', 'Charlie', TIMESTAMP '2024-12-25 15:30:00.000000'), "
+                            + "(BIGINT '4', 'David',   NULL)");
+
+            // Filter pushdown on the default timestamp must return only historical rows.
+            assertQuery(
+                    String.format(
+                            "SELECT id FROM %s WHERE created_at = TIMESTAMP '2023-01-01 11:00:00.000000' ORDER BY id",
+                            tableName),
+                    "VALUES (1), (2)");
+
+            // Filter on the explicit timestamp must return only row 3.
+            assertQuery(
+                    String.format(
+                            "SELECT id FROM %s WHERE created_at = TIMESTAMP '2024-12-25 15:30:00.000000'",
+                            tableName),
+                    "VALUES (3)");
+        }
+        finally {
+            dropTableIfExists(session, tableName);
+        }
+    }
+
     private Session sessionWithPushdown(boolean pushdownFilterEnabled)
     {
         return Session.builder(getSession())

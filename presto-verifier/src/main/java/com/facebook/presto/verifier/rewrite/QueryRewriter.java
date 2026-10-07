@@ -502,6 +502,7 @@ public class QueryRewriter
                 partitionsPredicate,
                 Optional.empty(),
                 Optional.empty(),
+                ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -554,6 +555,7 @@ public class QueryRewriter
                             querySpecification.getWhere(),
                             querySpecification.getGroupBy(),
                             querySpecification.getHaving(),
+                            querySpecification.getWindows(),
                             querySpecification.getOrderBy(),
                             querySpecification.getOffset(),
                             Optional.of("0")),
@@ -634,6 +636,7 @@ public class QueryRewriter
                         querySpecification.getWhere(),
                         querySpecification.getGroupBy(),
                         querySpecification.getHaving(),
+                        querySpecification.getWindows(),
                         querySpecification.getOrderBy(),
                         Optional.empty(),
                         querySpecification.getLimit()),

@@ -66,6 +66,7 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import jakarta.annotation.Nullable;
@@ -464,8 +465,12 @@ class AggregationAnalyzer
                 }
             }
 
-            if (node.getWindow().isPresent() && !process(node.getWindow().get(), context)) {
-                return false;
+            if (node.getWindow().isPresent()) {
+                Window window = node.getWindow().get();
+                // A window referenced by name is validated where it is declared, in the WINDOW clause.
+                if (window instanceof WindowSpecification && !process((WindowSpecification) window, context)) {
+                    return false;
+                }
             }
 
             return node.getArguments().stream().allMatch(expression -> process(expression, context));
@@ -489,7 +494,7 @@ class AggregationAnalyzer
         }
 
         @Override
-        public Boolean visitWindow(Window node, Void context)
+        public Boolean visitWindowSpecification(WindowSpecification node, Void context)
         {
             for (Expression expression : node.getPartitionBy()) {
                 if (!process(expression, context)) {

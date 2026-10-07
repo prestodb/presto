@@ -137,7 +137,7 @@ public class TestAddColumnTask
      * here rather than being pushed down for every connector to reject on its own. The error says the column
      * is hidden rather than that it does not exist, matching how DROP COLUMN and RENAME COLUMN report it.
      */
-    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*Cannot add a column after hidden column 'hidden'")
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*Cannot position a column after hidden column 'hidden'")
     public void testAddColumnAfterHiddenColumn()
     {
         execute(addColumn(new After(identifier("hidden"))));

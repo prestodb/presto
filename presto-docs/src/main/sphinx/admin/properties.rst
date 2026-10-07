@@ -940,7 +940,7 @@ to make the query plan easier to read.
 The corresponding session property is :ref:`admin/properties-session:\`\`optimize_hash_generation\`\``.
 
 ``optimizer.rewrite-approx-distinct-if-to-mask``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
@@ -1555,6 +1555,19 @@ The corresponding session property is :ref:`admin/properties-session:\`\`query_c
 Use to configure how long a query can be queued before it is terminated.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`query_max_queued_time\`\``.
+
+``query.runtime-stats-tracing.max-events``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``2000``
+
+The default maximum number of trace events retained per query, including the
+query root event. After the limit is reached, additional trace events are
+omitted while aggregate runtime statistics continue to be recorded.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`runtime_stats_tracing_max_events\`\``.
 
 ``query-manager.query-pacing.max-queries-per-second``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

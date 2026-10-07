@@ -35,8 +35,8 @@ as a Hive connector.
 File-Based Metastore
 ^^^^^^^^^^^^^^^^^^^^
 
-For testing or development purposes, this connector can be configured to use a local 
-filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
+For testing or development purposes, this connector can be configured to use a local
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.
 
 Glue catalog
 ^^^^^^^^^^^^
@@ -648,7 +648,10 @@ Session properties set behavior changes for queries executed within the given se
 
        ``materialized_view_storage_table_name_prefix``
      - Prefix for automatically generated materialized view storage table names.
-       Default: ``__mv_storage__``
+       Default: ``__mv_storage__``. When ``materialized_view_default_storage_schema``
+       routes storage tables into a shared schema, the generated name uses a
+       length-prefix encoding to include the source schema and avoid collisions:
+       ``<prefix><schemaLen>_<schema>__<viewName>``.
      - Yes
      - Yes
    * - .. _iceberg-sess-materialized-view-missing-base-table-behavior:
@@ -1792,49 +1795,103 @@ frequently used together in query predicates.
 SQL Support
 -----------
 
-======================================== ============= ============ ============================================================================
-SQL Operation                            Presto Java   Presto C++   Comments
-======================================== ============= ============ ============================================================================
-``CREATE SCHEMA``                        Yes           Yes
+.. list-table::
+   :header-rows: 1
+   :widths: 30 10 10 50
 
-``CREATE TABLE``                         Yes           Yes
-
-``CREATE VIEW``                          Yes           Yes
-
-``INSERT INTO``                          Yes           No
-
-``CREATE TABLE AS SELECT``               Yes           No
-
-``SELECT``                               Yes           Yes          Read is supported in Presto C++ including those with positional delete files.
-
-``ALTER TABLE``                              Yes           Yes
-
-``ALTER TABLE ADD COLUMN DEFAULT``           Yes           Yes
-
-``ALTER TABLE ALTER COLUMN SET DEFAULT``     Yes           Yes
-
-``ALTER VIEW``                               Yes           Yes
-
-``TRUNCATE``                             Yes           Yes
-
-``DELETE``                               Yes           No
-
-``DROP TABLE``                           Yes           Yes
-
-``DROP VIEW``                            Yes           Yes
-
-``DROP SCHEMA``                          Yes           Yes
-
-``SHOW CREATE TABLE``                    Yes           Yes
-
-``SHOW COLUMNS``                         Yes           Yes
-
-``DESCRIBE``                             Yes           Yes
-
-``UPDATE``                               Yes           No
-
-``MERGE``                                Yes           No
-======================================== ============= ============ ============================================================================
+   * - SQL Operation
+     - Presto Java
+     - Presto C++
+     - Comments
+   * - ``CREATE SCHEMA``
+     - Yes
+     - Yes
+     -
+   * - ``CREATE TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``CREATE VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``INSERT INTO``
+     - Yes
+     - No
+     -
+   * - ``CREATE TABLE AS SELECT``
+     - Yes
+     - No
+     -
+   * - ``SELECT``
+     - Yes
+     - Yes
+     - Read is supported in Presto C++ including those with positional delete
+       files.
+   * - ``ALTER TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ADD COLUMN DEFAULT``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ADD COLUMN FIRST|AFTER``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN FIRST|AFTER``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN SET DEFAULT``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``TRUNCATE``
+     - Yes
+     - Yes
+     -
+   * - ``DELETE``
+     - Yes
+     - No
+     -
+   * - ``DROP TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``DROP VIEW``
+     - Yes
+     - Yes
+     -
+   * - ``DROP SCHEMA``
+     - Yes
+     - Yes
+     -
+   * - ``SHOW CREATE TABLE``
+     - Yes
+     - Yes
+     -
+   * - ``SHOW COLUMNS``
+     - Yes
+     - Yes
+     -
+   * - ``DESCRIBE``
+     - Yes
+     - Yes
+     -
+   * - ``UPDATE``
+     - Yes
+     - No
+     -
+   * - ``MERGE``
+     - Yes
+     - No
+     -
 
 The Iceberg connector supports querying and manipulating Iceberg tables and schemas
 (databases). Here are some examples of the SQL operations supported by Presto:
@@ -2031,6 +2088,10 @@ Alter table operations are supported in the Iceberg connector::
      ALTER TABLE iceberg.web.page_views ADD COLUMN region VARCHAR FIRST;
 
      ALTER TABLE iceberg.web.page_views ADD COLUMN city VARCHAR AFTER country;
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN zipcode FIRST;
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN zipcode AFTER city;
 
      ALTER TABLE iceberg.web.page_views RENAME COLUMN zipcode TO location;
 
@@ -2790,6 +2851,63 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
             10 | united states |         1 | comment
     (1 row)
 
+Schema used by a time travel query
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Iceberg keeps the data of a table and the schema of a table apart. A snapshot is a set of data files,
+while the schema is part of the table metadata, and each snapshot records the schema it was written
+with. ``ALTER TABLE`` writes new table metadata and creates no snapshot, so the newest snapshot and
+the current schema can differ.
+
+A query that reads a point in history is answered with the schema recorded on the snapshot it reads,
+so it returns the columns the data was written with:
+
+* ``FOR VERSION AS OF`` and ``FOR SYSTEM_VERSION AS OF`` with a snapshot ID
+* ``FOR TIMESTAMP AS OF`` and ``FOR SYSTEM_TIME AS OF``, and the ``BEFORE`` form of either
+* ``"<table>@<snapshot ID>"``
+* ``FOR SYSTEM_VERSION AS OF '<tag>'``, because a tag marks a point in history
+
+Every other read is answered with the current schema:
+
+* a read of the table itself
+* ``FOR SYSTEM_VERSION AS OF '<branch>'`` and ``"<table>.branch_<branch>"``, because a branch is
+  still being written to
+
+This is the rule Iceberg states for `schema selection with branches and tags
+<https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags>`_.
+
+So a column dropped after a snapshot was written is still returned by a query that reads that
+snapshot, and a column added after it is not:
+
+.. code-block:: sql
+
+    CREATE TABLE ctas_nation_evolved (nationkey bigint, name varchar);
+
+    // snapshot ID 5300424205832769799
+    INSERT INTO ctas_nation_evolved VALUES(10, 'united states');
+
+    ALTER TABLE ctas_nation_evolved DROP COLUMN name;
+
+    SELECT * FROM ctas_nation_evolved;
+
+.. code-block:: text
+
+     nationkey
+    -----------
+            10
+    (1 row)
+
+.. code-block:: sql
+
+    SELECT * FROM ctas_nation_evolved FOR VERSION AS OF 5300424205832769799;
+
+.. code-block:: text
+
+     nationkey |      name
+    -----------+---------------
+            10 | united states
+    (1 row)
+
 Querying branches and tags
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -2999,6 +3117,8 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``ROW``
   * - ``GEOMETRY``
     - ``GEOMETRY``
+  * - ``VARIANT``
+    - ``JSON``
 
 
 No other types are supported.
@@ -3137,7 +3257,17 @@ The Iceberg connector supports materialized views. See :doc:`/admin/materialized
 Storage
 ^^^^^^^
 
-Materialized views use a dedicated Iceberg storage table to persist the pre-computed results. By default, the storage table is created with the prefix ``__mv_storage__`` followed by the materialized view name in the same schema as the view.
+Materialized views use a dedicated Iceberg storage table to persist the pre-computed results. By
+default, the storage table is placed in the same schema as the view and its name is generated
+automatically from the configured prefix (``__mv_storage__`` by default) and the materialized view
+name.
+
+When ``iceberg.materialized-view-default-storage-schema`` is set to route storage tables into a
+shared schema, the generated name also embeds the source schema to prevent collisions between
+materialized views with the same name in different schemas. The format used is::
+
+    <prefix><schemaLength>_<sourceSchema>__<viewName>
+
 
 Catalog Configuration
 ^^^^^^^^^^^^^^^^^^^^^
@@ -3164,7 +3294,10 @@ view creation time and can be overridden per-view by using the ``storage_schema`
        ``iceberg.materialized-view-default-storage-schema``
      - Schema in which storage tables are created when the per-view ``storage_schema``
        property is not set. Point at a locked-down schema to keep storage tables out of
-       users' reach without affecting materialized view reads.
+       users' reach without affecting materialized view reads. When this property is set,
+       the auto-generated storage table name includes the source schema using a
+       length-prefix encoding (``<prefix><schemaLen>_<schema>__<viewName>``) to avoid
+       collisions between same-named views in different schemas.
      - (the view's own schema)
    * - .. _mv-cfg-max-changed-partitions:
 
@@ -3206,7 +3339,12 @@ by using :doc:`/sql/alter-materialized-view`; properties not specified in the
      - Schema name for the storage table. Defaults to the materialized view's schema.
      - No
    * - ``storage_table``
-     - Custom name for the storage table. Defaults to the prefix plus the materialized view name.
+     - Custom name for the storage table. When not set, the name is auto-generated from
+       the configured prefix and the materialized view name. If
+       ``iceberg.materialized-view-default-storage-schema`` (or the session property
+       ``materialized_view_default_storage_schema``) routes storage into a different schema,
+       the source schema is also embedded using length-prefix encoding:
+       ``<prefix><schemaLen>_<schema>__<viewName>``.
      - No
    * - ``stale_read_behavior``
      - Behavior when reading from a materialized view that is stale beyond the staleness window.

@@ -296,6 +296,16 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count), Optional.of(planAssertion));
     }
 
+    protected void assertUpdateExpected(@Language("SQL") String sql)
+    {
+        QueryAssertions.assertUpdate((QueryRunner) expectedQueryRunner, getSession(), sql, OptionalLong.empty(), Optional.empty());
+    }
+
+    protected void assertUpdateExpected(@Language("SQL") String sql, long count)
+    {
+        assertUpdateExpected(getSession(), sql, count);
+    }
+
     protected void assertUpdateExpected(Session session, @Language("SQL") String sql, long count)
     {
         QueryAssertions.assertUpdate((QueryRunner) expectedQueryRunner, session, sql, OptionalLong.of(count), Optional.empty());

@@ -387,6 +387,84 @@ public class TestIcebergSmokeHive
         dropTable(session, tableName);
     }
 
+    /**
+     * {@code ALTER COLUMN ... FIRST|AFTER} is resolved in the engine and applied by
+     * {@code IcebergAbstractMetadata} through {@code UpdateSchema}, so it behaves identically for every
+     * Iceberg catalog. {@link IcebergDistributedSmokeTestBase} therefore keeps only the tests covering the
+     * positions themselves and their error paths, and the cases below live here rather than being run once
+     * per catalog.
+     */
+    @Test
+    public void testSetColumnPositionWithComplexTypes()
+    {
+        Session session = getSession();
+        String tableName = "test_set_column_position_complex";
+        assertUpdate(session, "CREATE TABLE " + tableName + " (r ROW(x INTEGER, y VARCHAR), a ARRAY(INTEGER), m MAP(VARCHAR, INTEGER), i INTEGER)");
+        assertUpdate(
+                session,
+                "INSERT INTO " + tableName + " VALUES (CAST(ROW(7, 'seven') AS ROW(x INTEGER, y VARCHAR)), ARRAY[8, 9], MAP(ARRAY['ten'], ARRAY[10]), 11)",
+                1);
+
+        // A column of a complex type moves as a whole, and so does a column moved past one
+        assertUpdate(session, "ALTER TABLE " + tableName + " ALTER COLUMN i FIRST");
+        assertEquals(columnNames(tableName), ImmutableList.of("i", "r", "a", "m"));
+
+        assertUpdate(session, "ALTER TABLE " + tableName + " ALTER COLUMN m AFTER i");
+        assertEquals(columnNames(tableName), ImmutableList.of("i", "m", "r", "a"));
+
+        assertUpdate(session, "ALTER TABLE " + tableName + " ALTER COLUMN r AFTER a");
+        assertEquals(columnNames(tableName), ImmutableList.of("i", "m", "a", "r"));
+
+        // Asserted against the materialized row rather than with assertQuery, because the expected side of
+        // assertQuery runs on H2, which cannot represent map, array or row types
+        MaterializedRow row = getOnlyElement(computeActual(session, "SELECT * FROM " + tableName).getMaterializedRows());
+        assertEquals(row.getField(0), 11);
+        assertEquals(row.getField(1), ImmutableMap.of("ten", 10));
+        assertEquals(row.getField(2), ImmutableList.of(8, 9));
+        assertEquals(row.getField(3), ImmutableList.of(7, "seven"));
+
+        // Reading the complex columns by name, including a field of the moved struct, must agree with the
+        // positional read above
+        assertQuery(session, "SELECT i, m['ten'], a[1], a[2], r.x, r.y FROM " + tableName, "VALUES (11, 10, 8, 9, 7, 'seven')");
+
+        // A nested field is neither movable nor a valid target, because the engine resolves both names
+        // against the table's columns and so never passes a dotted name to the connector
+        assertQueryFails(session, "ALTER TABLE " + tableName + " ALTER COLUMN \"r.x\" FIRST", ".*Column 'r.x' does not exist");
+        assertQueryFails(session, "ALTER TABLE " + tableName + " ALTER COLUMN i AFTER \"r.x\"", ".*Column 'r.x' does not exist");
+        assertEquals(columnNames(tableName), ImmutableList.of("i", "m", "a", "r"));
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testSetColumnPositionOnPartitionedTable()
+    {
+        Session session = getSession();
+        String tableName = "test_set_column_position_partitioned";
+        assertUpdate(session, "CREATE TABLE " + tableName + " (a INTEGER, b INTEGER, part VARCHAR) WITH (partitioning = ARRAY['part'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, 2, 'p1'), (10, 20, 'p2')", 2);
+
+        // The partition column itself can be moved; reordering is metadata-only and leaves the partition spec alone
+        assertUpdate(session, "ALTER TABLE " + tableName + " ALTER COLUMN part FIRST");
+        assertEquals(columnNames(tableName), ImmutableList.of("part", "a", "b"));
+        assertQuery(session, "SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 2");
+        assertQuery(session, "SELECT * FROM " + tableName + " WHERE part = 'p1'", "VALUES ('p1', 1, 2)");
+        assertQuery(session, "SELECT a, b FROM " + tableName + " WHERE part = 'p2'", "VALUES (10, 20)");
+
+        // Moving a non-partition column of a partitioned table works the same way
+        assertUpdate(session, "ALTER TABLE " + tableName + " ALTER COLUMN b AFTER part");
+        assertEquals(columnNames(tableName), ImmutableList.of("part", "b", "a"));
+        assertQuery(session, "SELECT * FROM " + tableName + " WHERE part = 'p1'", "VALUES ('p1', 2, 1)");
+
+        // Writes after the moves still land in the right partition, and partition pruning still finds them
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('p3', 200, 100)", 1);
+        assertQuery(session, "SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 3");
+        assertQuery(session, "SELECT a, b FROM " + tableName + " WHERE part = 'p3'", "VALUES (100, 200)");
+        assertQueryOrdered(session, "SELECT * FROM " + tableName + " ORDER BY part", "VALUES ('p1', 2, 1), ('p2', 20, 10), ('p3', 200, 100)");
+
+        dropTable(session, tableName);
+    }
+
     private Table getIcebergTable(Session session, String tableName)
     {
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();

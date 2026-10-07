@@ -59,6 +59,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetColumnPosition;
 import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -70,8 +71,9 @@ import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
-import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowDefinition;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -111,6 +113,18 @@ public class DefaultTreeRewriter<C>
         }
 
         return new AddColumn(node.getName(), (ColumnDefinition) column, position, node.isTableExists(), node.isColumnNotExists());
+    }
+
+    @Override
+    protected Node visitSetColumnPosition(SetColumnPosition node, C context)
+    {
+        Node column = process(node.getColumn(), context);
+        ColumnPosition position = processColumnPosition(node.getPosition(), context);
+        if (node.getColumn() == column && node.getPosition() == position) {
+            return node;
+        }
+
+        return new SetColumnPosition(node.getTable(), (Identifier) column, position, node.isTableExists());
     }
 
     @Override
@@ -446,9 +460,10 @@ public class DefaultTreeRewriter<C>
         Optional<GroupBy> groupBy = process(node.getGroupBy(), context);
         Optional<Expression> having = process(node.getHaving(), context);
         Optional<OrderBy> orderBy = process(node.getOrderBy(), context);
+        List<WindowDefinition> windows = process(node.getWindows(), context);
         if (node.getSelect() ==
                 select && sameElement(node.getFrom(), from) && sameElement(node.getWhere(), where) && sameElement(node.getGroupBy(), groupBy) && sameElement(node.getHaving(),
-                having) && sameElement(node.getOrderBy(), orderBy)) {
+                having) && sameElements(node.getWindows(), windows) && sameElement(node.getOrderBy(), orderBy)) {
             return node;
         }
 
@@ -458,6 +473,7 @@ public class DefaultTreeRewriter<C>
                 where,
                 groupBy,
                 having,
+                windows,
                 orderBy,
                 node.getOffset(),
                 node.getLimit());
@@ -627,7 +643,18 @@ public class DefaultTreeRewriter<C>
     }
 
     @Override
-    protected Node visitWindow(Window node, C context)
+    protected Node visitWindowDefinition(WindowDefinition node, C context)
+    {
+        Node window = process(node.getWindow(), context);
+        if (node.getWindow() == window) {
+            return node;
+        }
+
+        return new WindowDefinition(node.getName(), (WindowSpecification) window);
+    }
+
+    @Override
+    protected Node visitWindowSpecification(WindowSpecification node, C context)
     {
         List<Expression> partitionBy = process(node.getPartitionBy(), context);
         Optional<OrderBy> orderBy = process(node.getOrderBy(), context);
@@ -636,7 +663,7 @@ public class DefaultTreeRewriter<C>
             return node;
         }
 
-        return new Window(partitionBy, orderBy, frame);
+        return new WindowSpecification(node.getExistingWindowName(), partitionBy, orderBy, frame);
     }
 
     @Override
@@ -701,12 +728,21 @@ public class DefaultTreeRewriter<C>
      */
     private Optional<ColumnPosition> processColumnPosition(Optional<ColumnPosition> position, C context)
     {
-        if (position == null || !position.isPresent() || !(position.get() instanceof ColumnPosition.After)) {
+        if (!position.isPresent()) {
             return position;
         }
-        Identifier afterColumn = ((ColumnPosition.After) position.get()).getColumn();
+        ColumnPosition rewritten = processColumnPosition(position.get(), context);
+        return rewritten == position.get() ? position : Optional.of(rewritten);
+    }
+
+    private ColumnPosition processColumnPosition(ColumnPosition position, C context)
+    {
+        if (!(position instanceof ColumnPosition.After)) {
+            return position;
+        }
+        Identifier afterColumn = ((ColumnPosition.After) position).getColumn();
         Node rewritten = process(afterColumn, context);
-        return afterColumn == rewritten ? position : Optional.of(new ColumnPosition.After((Identifier) rewritten));
+        return afterColumn == rewritten ? position : new ColumnPosition.After((Identifier) rewritten);
     }
 
     private static <T> boolean sameElement(Optional<T> a, Optional<T> b)

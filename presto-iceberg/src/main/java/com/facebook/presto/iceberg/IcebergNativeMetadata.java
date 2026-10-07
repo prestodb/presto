@@ -456,14 +456,14 @@ public class IcebergNativeMetadata
                         schema,
                         partitionSpec,
                         targetPath,
-                        populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session)));
+                        populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session, schema)));
             }
             else {
                 openCreateTableTransaction(schemaTableName, catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
                         schema,
                         partitionSpec,
-                        populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session)));
+                        populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session, schema)));
             }
         }
         catch (AlreadyExistsException e) {

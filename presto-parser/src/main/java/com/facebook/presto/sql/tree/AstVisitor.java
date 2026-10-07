@@ -517,7 +517,17 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitWindow(Window node, C context)
+    protected R visitWindowSpecification(WindowSpecification node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitWindowDefinition(WindowDefinition node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitWindowReference(WindowReference node, C context)
     {
         return visitNode(node, context);
     }
@@ -683,6 +693,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitSetColumnDefault(SetColumnDefault node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSetColumnPosition(SetColumnPosition node, C context)
     {
         return visitStatement(node, context);
     }

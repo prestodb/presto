@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.GenericInternalException;
@@ -52,7 +53,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
+import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpecList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -103,6 +108,11 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -116,6 +126,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -155,6 +166,7 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMB
 import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
@@ -162,15 +174,18 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.isMetadataColumn
 import static com.facebook.presto.iceberg.IcebergPartitionType.IDENTITY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMN_EXPRESSION_SPEC;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getWriteDataLocation;
 import static com.facebook.presto.iceberg.IcebergTableProperties.isHiveLocksEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_DERIVED_COLUMN_SPEC;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.lenientFormat;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -255,6 +270,8 @@ public final class IcebergUtil
     public static final int REAL_NEGATIVE_INFINITE = 0xff800000;
 
     protected static final String VIEW_OWNER = "view_owner";
+    static final JsonCodec<DerivedColumnSpecList> DERIVED_COLUMN_SPEC_JSON_CODEC = JsonCodec.jsonCodec(DerivedColumnSpecList.class);
+    static final String DERIVED_COL_EMPTY_SPEC = DERIVED_COLUMN_SPEC_JSON_CODEC.toJson(new DerivedColumnSpecList(ImmutableList.of()));
 
     public static final int DEFAULT_MIN_INPUT_FILES = 5;
 
@@ -528,6 +545,12 @@ public final class IcebergUtil
         // Special handling for GEOMETRY type: geometry stored as well-known binary in iceberg
         if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.GEOMETRY) {
             return HiveType.HIVE_BINARY.toString();
+        }
+
+        // Special handling for VARIANT type: stored in Hive Metastore as string
+        // (the actual column is read back as JSON via the Iceberg type mapping)
+        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.VARIANT) {
+            return HiveType.HIVE_STRING.toString();
         }
 
         if (icebergType.isPrimitiveType()) {
@@ -884,12 +907,76 @@ public final class IcebergUtil
 
     public static Optional<Schema> tryGetSchema(Table table)
     {
+        return tryGetSchemaFor(table, table::schema);
+    }
+
+    /**
+     * The schema a read should use.
+     *
+     * Iceberg keeps data history and schema apart. A snapshot is a set of data files; the schema
+     * lives in the table metadata. ALTER TABLE writes new table metadata and makes no new
+     * snapshot, so the newest snapshot and the current schema can disagree.
+     *
+     * A read of a point in history must use the schema its snapshot was written with. Otherwise
+     * it loses a column that was dropped later, even though that column's values are in the
+     * snapshot's data files, and it gains a column that was added later, which that snapshot
+     * never had. Every other read uses the current schema.
+     *
+     * Which kind of read this is cannot be told from the snapshot id alone, because a plain read
+     * carries the current snapshot id too, so the version expression and the table name decide it.
+     */
+    public static Optional<Schema> tryGetReadSchema(Table table, IcebergTableName name, Optional<ConnectorTableVersion> tableVersion, Optional<Long> snapshotId)
+    {
+        // A changelog reports its rows as one "rowdata" column, and that column, its column
+        // handles and its splits are all built from the current schema, so a changelog read is
+        // left on the current schema as well. See getColumnHandles and ChangelogSplitSource.
+        if (name.getTableType() == IcebergTableType.CHANGELOG) {
+            return tryGetSchema(table);
+        }
+
+        if (tableVersion.isPresent()) {
+            ConnectorTableVersion version = tableVersion.get();
+            // FOR SYSTEM_VERSION AS OF 'name' takes a branch or a tag, and Iceberg tells the two
+            // apart itself: a tag marks a point in history and is read with the schema of its
+            // snapshot, while a branch is still being written to and is read with the current
+            // schema. An unknown name never gets here: getSnapshotIdForTableVersion has already
+            // refused it.
+            // See https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
+            if (version.getVersionType() == VersionType.VERSION && version.getVersionExpressionType() instanceof VarcharType) {
+                return tryGetSchemaFor(table, () -> SnapshotUtil.schemaFor(table, ((Slice) version.getTableVersion()).toStringUtf8()));
+            }
+        }
+        else if (!name.getSnapshotId().isPresent()) {
+            // A plain read, or "table.branch_x": the newest data of a ref, read with the current
+            // schema.
+            return tryGetSchema(table);
+        }
+
+        // What is left names one snapshot: "table@123", FOR VERSION AS OF <id>, or FOR TIMESTAMP
+        // AS OF <time>, which was already resolved to a snapshot id.
+        if (!snapshotId.isPresent()) {
+            return tryGetSchema(table);
+        }
+        // Falls back to the current schema for a snapshot that recorded none, which is how tables
+        // written by older Iceberg versions look.
+        return tryGetSchemaFor(table, () -> SnapshotUtil.schemaFor(table, snapshotId.get()));
+    }
+
+    private static Optional<Schema> tryGetSchemaFor(Table table, Supplier<Schema> schema)
+    {
         try {
-            return Optional.ofNullable(table.schema());
+            return Optional.ofNullable(schema.get());
         }
         catch (TableNotFoundException e) {
             log.warn(String.format("Unable to fetch schema for table %s: %s", table.name(), e.getMessage()));
             return Optional.empty();
+        }
+        catch (IllegalArgumentException | IllegalStateException e) {
+            // SnapshotUtil.schemaFor throws these when the snapshot is not found, or when the
+            // snapshot names a schema that the table metadata does not have. Returning empty
+            // here would make the read fall back to the current schema, which is the wrong one
+            // for an old snapshot, so fail instead.
+            throw new PrestoException(ICEBERG_INVALID_METADATA, format("Cannot find the schema to read table %s with: %s", table.name(), e.getMessage()), e);
         }
     }
 
@@ -930,10 +1017,41 @@ public final class IcebergUtil
                 return parseDouble(valueString);
             }
             if (type.equals(TIMESTAMP) || type.equals(TIME)) {
-                return MICROSECONDS.toMillis(parseLong(valueString));
+                // Default values are serialised as ISO datetime strings
+                // (e.g. "2023-01-01 11:00:00.000000"); partition values arrive
+                // as microseconds-since-epoch numeric strings.  Accept both.
+                try {
+                    return MICROSECONDS.toMillis(parseLong(valueString));
+                }
+                catch (NumberFormatException ignored) {
+                    // ISO string: parse to epoch-millis via LocalDateTime
+                    try {
+                        LocalDateTime ldt = LocalDateTime.parse(
+                                valueString,
+                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSSSSS][.SSS]"));
+                        return ldt.toInstant(ZoneOffset.UTC).toEpochMilli();
+                    }
+                    catch (DateTimeParseException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                }
             }
             if (type.equals(DATE) || type.equals(TIMESTAMP_MICROSECONDS)) {
-                return parseLong(valueString);
+                // Default values are serialised as ISO date strings
+                // (e.g. "2023-01-01"); partition values arrive as integer
+                // days-since-epoch numeric strings.  Accept both.
+                try {
+                    return parseLong(valueString);
+                }
+                catch (NumberFormatException ignored) {
+                    // ISO date string
+                    try {
+                        return LocalDate.parse(valueString).toEpochDay();
+                    }
+                    catch (DateTimeParseException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                }
             }
             if (type instanceof VarcharType) {
                 return utf8Slice(valueString);
@@ -1378,10 +1496,31 @@ public final class IcebergUtil
         }
     }
 
-    public static Map<String, String> populateTableProperties(IcebergAbstractMetadata metadata, ConnectorTableMetadata tableMetadata, IcebergTableProperties tableProperties, FileFormat fileFormat, ConnectorSession session)
+    public static Map<String, String> populateTableProperties(
+            IcebergAbstractMetadata metadata,
+            ConnectorTableMetadata tableMetadata,
+            IcebergTableProperties tableProperties,
+            FileFormat fileFormat,
+            ConnectorSession session,
+            Schema schema)
     {
-        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(5);
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(10);
+        checkNotSupported(IcebergTableProperties.getDerivedColumnSpec(tableMetadata.getProperties()).getDerivedColumnSpecs().isEmpty(),
+                "property %s is not user configurable", DERIVED_COLUMN_EXPRESSION_SPEC);
+        List<DerivedColumnSpec> derivedColumnSpecs = tableMetadata.getColumns().stream()
+                .filter(columnMetadata -> columnMetadata.getDerivedColumnSpec().isPresent())
+                .map(columnMetadata -> columnMetadata.getDerivedColumnSpec().get())
+                .map(derivedColumnSpec ->
+                        DerivedColumnSpec.buildFrom(derivedColumnSpec).setDerivedColumnFieldId(schema.findField(derivedColumnSpec.getDerivedColumnName()).fieldId()).build())
+                .collect(toImmutableList());
 
+        DerivedColumnSpecList derivedColumnSpecList = new DerivedColumnSpecList(derivedColumnSpecs);
+        checkInvalidDerivedColumnSpec(derivedColumnSpecList.validateFieldIds(), "derived column spec has invalid fieldIds for table %s.%s",
+                tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
+        if (!derivedColumnSpecList.getDerivedColumnSpecs().isEmpty()) {
+            // Following property is updated automatically via create/alter table, user overrides are not permitted.
+            propertiesBuilder.put(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COLUMN_SPEC_JSON_CODEC.toJson(derivedColumnSpecList));
+        }
         String writeDataLocation = getWriteDataLocation(tableMetadata.getProperties());
         if (!isNullOrEmpty(writeDataLocation)) {
             propertiesBuilder.put(WRITE_DATA_LOCATION, writeDataLocation);
@@ -1466,6 +1605,11 @@ public final class IcebergUtil
         return RowLevelOperationMode.fromName(table.properties()
                 .getOrDefault(DELETE_MODE, DELETE_MODE_DEFAULT)
                 .toUpperCase(Locale.ENGLISH));
+    }
+
+    public static DerivedColumnSpecList getDerivedColumnSpec(Table table)
+    {
+        return DERIVED_COLUMN_SPEC_JSON_CODEC.fromJson(table.properties().getOrDefault(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COL_EMPTY_SPEC));
     }
 
     public static RowLevelOperationMode getUpdateMode(Table table)
@@ -1931,5 +2075,25 @@ public final class IcebergUtil
             return (minFileSizeBytes > 0 && fileSize < minFileSizeBytes) ||
                     (maxFileSizeBytes > 0 && fileSize > maxFileSizeBytes);
         });
+    }
+
+    static void checkNotSupported(
+            boolean expression,
+            String errorMessageTemplate,
+            Object... errorMessageArgs)
+    {
+        if (!expression) {
+            throw new PrestoException(NOT_SUPPORTED, lenientFormat(errorMessageTemplate, errorMessageArgs));
+        }
+    }
+
+    static void checkInvalidDerivedColumnSpec(
+            boolean expression,
+            String errorMessageTemplate,
+            Object... errorMessageArgs)
+    {
+        if (!expression) {
+            throw new PrestoException(INVALID_DERIVED_COLUMN_SPEC, lenientFormat(errorMessageTemplate, errorMessageArgs));
+        }
     }
 }

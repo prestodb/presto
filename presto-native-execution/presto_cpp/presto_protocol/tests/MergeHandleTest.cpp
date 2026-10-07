@@ -135,3 +135,24 @@ TEST_F(
   ASSERT_EQ(mergeHandle->_type, kTestConnector);
   ASSERT_EQ(mergeHandle->marker, "merge-marker");
 }
+
+TEST_F(MergeHandleTest, wrappedExecutionWriterTargetShape) {
+  // TableWriteInfo.writerTarget arrives as ExecutionWriterTarget.MergeHandle,
+  // which nests the spi.MergeHandle fields under "handle" instead of inlining
+  // them. Both shapes deserialize into this one struct.
+  const MergeHandle handle =
+      json{{"@type", "MergeHandle"}, {"handle", makeMergeHandleJson(false)}};
+
+  ASSERT_EQ(handle._type, "MergeHandle");
+  ASSERT_EQ(handle.tableHandle.connectorId, kTestConnector);
+
+  auto tableHandle = std::dynamic_pointer_cast<TestConnectorTableHandle>(
+      handle.tableHandle.connectorHandle);
+  ASSERT_NE(tableHandle, nullptr);
+  ASSERT_EQ(tableHandle->table, "orders");
+
+  auto mergeHandle = std::dynamic_pointer_cast<TestConnectorMergeTableHandle>(
+      handle.connectorMergeTableHandle);
+  ASSERT_NE(mergeHandle, nullptr);
+  ASSERT_EQ(mergeHandle->marker, "merge-marker");
+}

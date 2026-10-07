@@ -75,6 +75,7 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
@@ -136,6 +137,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetColumnDefault;
+import com.facebook.presto.sql.tree.SetColumnPosition;
 import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
@@ -177,7 +179,10 @@ import com.facebook.presto.sql.tree.Update;
 import com.facebook.presto.sql.tree.UpdateAssignment;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
-import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowDefinition;
+import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowReference;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -609,6 +614,7 @@ public class TestSqlParser
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -862,6 +868,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -878,6 +885,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -899,6 +907,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -915,6 +924,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -939,6 +949,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -959,6 +970,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -976,6 +988,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -996,6 +1009,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(
                                         new Identifier("a"),
                                         ASCENDING,
@@ -1030,6 +1044,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.of(new Offset("2")),
                                 Optional.empty()),
@@ -1046,6 +1061,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x"), ASCENDING, UNDEFINED)))),
                                 Optional.of(new Offset("2")),
                                 Optional.of("10")),
@@ -1062,6 +1078,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x"), ASCENDING, UNDEFINED)))),
                                 Optional.empty(),
                                 Optional.of("10")),
@@ -1106,6 +1123,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(new Identifier("a")))))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1124,6 +1142,7 @@ public class TestSqlParser
                                         new SimpleGroupBy(ImmutableList.of(new Identifier("a"))),
                                         new SimpleGroupBy(ImmutableList.of(new Identifier("b")))))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1140,6 +1159,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of())))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1156,6 +1176,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(new Identifier("a"))))))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1177,6 +1198,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(new Identifier("a")), ImmutableList.of(new Identifier("b"))))))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1199,6 +1221,7 @@ public class TestSqlParser
                                         new Cube(ImmutableList.of(new Identifier("c"))),
                                         new Rollup(ImmutableList.of(new Identifier("d")))))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1221,6 +1244,7 @@ public class TestSqlParser
                                         new Cube(ImmutableList.of(new Identifier("c"))),
                                         new Rollup(ImmutableList.of(new Identifier("d")))))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -2168,6 +2192,77 @@ public class TestSqlParser
     }
 
     @Test
+    public void testSetColumnPosition()
+    {
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN c FIRST", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("c"),
+                new ColumnPosition.First(),
+                false));
+
+        // There is no LAST keyword, as there is none for ADD COLUMN; a column is moved to the end by naming
+        // the column that is currently last
+        assertInvalidStatement("ALTER TABLE foo.t ALTER COLUMN c LAST", ".*mismatched input 'LAST'.*");
+
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN c AFTER b", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("c"),
+                new ColumnPosition.After(identifier("b")),
+                false));
+
+        // The COLUMN keyword is optional, matching the other ALTER COLUMN statements
+        assertStatement("ALTER TABLE foo.t ALTER c AFTER b", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("c"),
+                new ColumnPosition.After(identifier("b")),
+                false));
+
+        assertStatement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN c FIRST", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("c"),
+                new ColumnPosition.First(),
+                true));
+
+        // AFTER, FIRST and LAST remain usable as identifiers, both as the moved column and as the target
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN first AFTER last", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("first"),
+                new ColumnPosition.After(identifier("last")),
+                false));
+
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN after AFTER after", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("after"),
+                new ColumnPosition.After(identifier("after")),
+                false));
+
+        // Delimited names keep their case
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN \"MixedCase\" AFTER \"OtherCase\"", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                new Identifier("MixedCase", true),
+                new ColumnPosition.After(new Identifier("OtherCase", true)),
+                false));
+
+        // COLUMN is optional even when the column name is a non-reserved keyword like FIRST
+        assertStatement("ALTER TABLE foo.t ALTER first FIRST", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("first"),
+                new ColumnPosition.First(),
+                false));
+
+        // The position is required, since moving a column is the only thing the statement does
+        assertInvalidStatement("ALTER TABLE foo.t ALTER COLUMN c", "mismatched input '<EOF>'.*");
+    }
+
+    @Test
     public void testAlterColumnSetDataType()
     {
         assertStatement("ALTER TABLE foo.t ALTER COLUMN c SET DATA TYPE BIGINT", new SetColumnType(
@@ -2770,6 +2865,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -3026,6 +3122,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -3084,6 +3181,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -3287,7 +3385,7 @@ public class TestSqlParser
         assertExpression("lead(x, 1) ignore nulls over()",
                 new FunctionCall(
                         QualifiedName.of("lead"),
-                        Optional.of(new Window(ImmutableList.of(), Optional.empty(), Optional.empty())),
+                        Optional.of(new WindowSpecification(Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -3296,12 +3394,97 @@ public class TestSqlParser
         assertExpression("lead(x, 1) respect nulls over()",
                 new FunctionCall(
                         QualifiedName.of("lead"),
-                        Optional.of(new Window(ImmutableList.of(), Optional.empty(), Optional.empty())),
+                        Optional.of(new WindowSpecification(Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
                         false,
                         false,
                         ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
+    }
+
+    @Test
+    public void testWindowSpecification()
+    {
+        assertExpression("rank() OVER someWindow",
+                new FunctionCall(
+                        QualifiedName.of("rank"),
+                        Optional.of(new WindowReference(new Identifier("someWindow"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        false,
+                        ImmutableList.of()));
+
+        assertExpression("rank() OVER (someWindow PARTITION BY x ORDER BY y ROWS CURRENT ROW)",
+                new FunctionCall(
+                        QualifiedName.of("rank"),
+                        Optional.of(new WindowSpecification(
+                                Optional.of(new Identifier("someWindow")),
+                                ImmutableList.of(new Identifier("x")),
+                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)))),
+                                Optional.of(new WindowFrame(WindowFrame.Type.ROWS, new FrameBound(FrameBound.Type.CURRENT_ROW), Optional.empty())))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        false,
+                        ImmutableList.of()));
+
+        assertExpression("rank() OVER (PARTITION BY x ORDER BY y ROWS CURRENT ROW)",
+                new FunctionCall(
+                        QualifiedName.of("rank"),
+                        Optional.of(new WindowSpecification(
+                                Optional.empty(),
+                                ImmutableList.of(new Identifier("x")),
+                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)))),
+                                Optional.of(new WindowFrame(WindowFrame.Type.ROWS, new FrameBound(FrameBound.Type.CURRENT_ROW), Optional.empty())))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        false,
+                        ImmutableList.of()));
+    }
+
+    @Test
+    public void testWindowClause()
+    {
+        // referencing a named window goes through assertStatement, so the format and reparse
+        // round trip that CREATE VIEW relies on is covered for WindowReference too
+        assertStatement("SELECT rank() OVER someWindow FROM t WINDOW someWindow AS (PARTITION BY a), otherWindow AS (someWindow ORDER BY b)",
+                simpleQuery(
+                        selectList(new FunctionCall(
+                                QualifiedName.of("rank"),
+                                Optional.of(new WindowReference(new Identifier("someWindow"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                false,
+                                false,
+                                ImmutableList.of())),
+                        table(QualifiedName.of("t")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                new WindowDefinition(
+                                        new Identifier("someWindow"),
+                                        new WindowSpecification(
+                                                Optional.empty(),
+                                                ImmutableList.of(new Identifier("a")),
+                                                Optional.empty(),
+                                                Optional.empty())),
+                                new WindowDefinition(
+                                        new Identifier("otherWindow"),
+                                        new WindowSpecification(
+                                                Optional.of(new Identifier("someWindow")),
+                                                ImmutableList.of(),
+                                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("b"), ASCENDING, UNDEFINED)))),
+                                                Optional.empty()))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // WINDOW is not a reserved word
+        assertStatement("SELECT window FROM t",
+                simpleQuery(selectList(new Identifier("window")), table(QualifiedName.of("t"))));
     }
 
     @Test
@@ -3939,6 +4122,16 @@ public class TestSqlParser
     }
 
     @Test
+    public void testFormatNestedTableVersion()
+    {
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("WITH t AS (SELECT id FROM table1 FOR VERSION AS OF 12345) SELECT * FROM t"));
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("SELECT * FROM (SELECT * FROM table1 FOR VERSION BEFORE 12345)"));
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("SELECT * FROM (SELECT * FROM table1 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles') t"));
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("SELECT * FROM table1 WHERE id IN (SELECT id FROM table2 FOR VERSION AS OF 'branch-name')"));
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("INSERT INTO table2 SELECT * FROM (SELECT * FROM table1 FOR VERSION AS OF 12345)"));
+    }
+
+    @Test
     public void testSelectWithBeforeVersion()
     {
         assertStatement("SELECT * FROM table1 FOR VERSION BEFORE 8772871542276440693",
@@ -4259,6 +4452,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        ImmutableList.of(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()),
