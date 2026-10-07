@@ -2443,6 +2443,8 @@ class AstBuilder
 
         Optional<DerivedColumnSpec> derivedColumnExpressionSpec = Optional.empty();
         QualifiedName columnName = getQualifiedName(context.qualifiedName());
+        // Derived columns are only supported for top-level columns, so the path is always single-part.
+        // Callers reject the dotted form: AddColumnTask (nested ADD COLUMN) and CreateTableTask.
         Identifier columnIdentifier = columnName.getOriginalParts().get(0);
         Optional<Expression> derivedColumnExpression = Optional.empty();
         if (context.AS() != null && !context.expression().isEmpty()) {

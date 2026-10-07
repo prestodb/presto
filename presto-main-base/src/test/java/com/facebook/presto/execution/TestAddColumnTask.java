@@ -35,7 +35,6 @@ import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ColumnPosition;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
-import com.facebook.presto.spi.security.DenyAllAccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.ColumnDefinition;
@@ -43,6 +42,7 @@ import com.facebook.presto.sql.tree.ColumnPosition.After;
 import com.facebook.presto.sql.tree.ColumnPosition.First;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.testing.TestingWarningCollector;
@@ -62,6 +62,9 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.sql.QueryUtil.identifier;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ALTER_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -179,19 +182,34 @@ public class TestAddColumnTask
         }
     }
 
-    @Test(expectedExceptions = AccessDeniedException.class)
+    @Test
     public void testNestedAddColumnDeniedWhenAlterColumnNotAllowed()
     {
+        TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager);
         ColumnDefinition nestedColumn = new ColumnDefinition(
-                QualifiedName.of(ImmutableList.of(identifier("info"), identifier("score"))),
+                QualifiedName.of("info", "score"),
                 "INTEGER",
                 true,
                 emptyList(),
                 Optional.empty());
         AddColumn statement = new AddColumn(QualifiedName.of(TABLE_NAME), nestedColumn, false, false);
 
+        // Denying ALTER_COLUMN must cause execution to fail with AccessDeniedException
+        accessControl.deny(privilege(TABLE_NAME, ALTER_COLUMN));
+        try {
+            getFutureValue(new AddColumnTask().execute(
+                    statement, transactionManager, metadata, accessControl, testSession, emptyList(), warningCollector, ""));
+            fail("Expected AccessDeniedException");
+        }
+        catch (AccessDeniedException expected) {
+            // expected
+        }
+
+        // Denying only ADD_COLUMN must allow nested ADD COLUMN to succeed since it requires ALTER_COLUMN
+        accessControl.reset();
+        accessControl.deny(privilege(TABLE_NAME, ADD_COLUMN));
         getFutureValue(new AddColumnTask().execute(
-                statement, transactionManager, metadata, new DenyAllAccessControl(), testSession, emptyList(), warningCollector, ""));
+                statement, transactionManager, metadata, accessControl, testSession, emptyList(), warningCollector, ""));
     }
 
     @Test
