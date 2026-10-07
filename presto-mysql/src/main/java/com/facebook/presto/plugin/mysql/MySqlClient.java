@@ -326,7 +326,7 @@ public class MySqlClient
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        JdbcIdentity identity = new JdbcIdentity(session.getUser(), session.getIdentity().getExtraCredentials());
+        JdbcIdentity identity = JdbcIdentity.from(session);
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
