@@ -75,6 +75,24 @@ When good data reduction is achieved through partial aggregation, more memory wo
 when we reach the limit of ``native_max_partial_aggregation_memory``.
 Default is 64MB.
 
+``native_abandon_partial_aggregation_min_rows``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``100000``
+
+Native Execution only. Number of input rows to receive before starting to check whether to abandon
+partial aggregation.
+
+``native_abandon_partial_aggregation_min_pct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``80``
+
+Native Execution only. Abandons partial aggregation if the number of groups equals or exceeds this
+percentage of the number of input rows.
+
 
 ``native_debug_validate_output_from_operators``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
