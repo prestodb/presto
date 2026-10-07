@@ -62,7 +62,7 @@ public class MySqlClientModule
 
     public MySqlClientModule(String connectorId)
     {
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
     @Override
