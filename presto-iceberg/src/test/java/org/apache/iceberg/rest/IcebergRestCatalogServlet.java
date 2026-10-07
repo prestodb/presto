@@ -26,7 +26,6 @@ import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.io.CharStreams;
 import org.apache.iceberg.rest.HTTPRequest.HTTPMethod;
-import org.apache.iceberg.rest.RESTCatalogAdapter.Route;
 import org.apache.iceberg.rest.responses.ErrorResponse;
 import org.apache.iceberg.rest.responses.OAuthTokenResponse;
 import org.apache.iceberg.util.Pair;
@@ -149,10 +148,14 @@ public class IcebergRestCatalogServlet
                             request,
                             context.route().responseClass(),
                             handleResponseError(response),
-                            handleResponseHeader());
+                            handleResponseHeader(response));
 
             if (responseBody != null) {
                 RESTObjectMapper.mapper().writeValue(response.getWriter(), responseBody);
+            }
+            else if (context.route() == Route.LOAD_TABLE) {
+                // A null load table response means the client's If-None-Match ETag is still current
+                response.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
             }
         }
         catch (RESTException e) {
@@ -164,11 +167,9 @@ public class IcebergRestCatalogServlet
         }
     }
 
-    private Consumer<Map<String, String>> handleResponseHeader()
+    protected Consumer<Map<String, String>> handleResponseHeader(HttpServletResponse response)
     {
-        return (responseHeaders) -> {
-            throw new RuntimeException("Unexpected response header: " + responseHeaders);
-        };
+        return (responseHeaders) -> responseHeaders.forEach(response::setHeader);
     }
 
     protected Consumer<ErrorResponse> handleResponseError(HttpServletResponse response)
