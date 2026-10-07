@@ -86,7 +86,7 @@ public class TestIcebergV3DefaultColumnValues
     }
 
     @Test(dataProvider = "pushdownFilterEnabled")
-    public void testDefaultForHistoricalRows(boolean pushdownFilterEnabled)
+    public void testDefaultForHistoricalAndNewRows(boolean pushdownFilterEnabled)
     {
         Session session = sessionWithPushdown(pushdownFilterEnabled);
         String tableName = "orders_v3_default_basic";
@@ -97,23 +97,14 @@ public class TestIcebergV3DefaultColumnValues
             assertQuery(session, format("SELECT country FROM %s WHERE country = 'IN'", tableName), "VALUES ('IN'), ('IN')");
             assertQuery(session, format("SELECT count(*) FROM %s WHERE country = 'IN'", tableName), "SELECT 2");
             assertQuery(session, String.format("SELECT id, amount, country FROM %s ORDER BY id", tableName), "VALUES (BIGINT '1', DOUBLE '100.0', 'IN'), (BIGINT '2', DOUBLE '200.0', 'IN')");
-        }
-        finally {
-            dropTableIfExists(session, tableName);
-        }
-    }
 
-    @Test(dataProvider = "pushdownFilterEnabled")
-    public void testNewRowsWithoutExplicitValueUseWriteDefault(boolean pushdownFilterEnabled)
-    {
-        Session session = sessionWithPushdown(pushdownFilterEnabled);
-        String tableName = "orders_v3_new_rows_write_default";
-        try {
-            createTableWithRows(session, tableName, "(id BIGINT, amount DOUBLE)", "VALUES (1, 100.0), (2, 200.0)", 2);
-            assertUpdate(session, String.format("ALTER TABLE %s ADD COLUMN country VARCHAR DEFAULT 'IN'", tableName));
-            assertUpdate(session, String.format("INSERT INTO %s (id, amount) VALUES (3, 300.0)", tableName), 1);
-            assertQuery(session, String.format("SELECT id, amount, country FROM %s ORDER BY id", tableName), "VALUES " +
-                    "(BIGINT '1', DOUBLE '100.0', 'IN'), " + "(BIGINT '2', DOUBLE '200.0', 'IN'), " + "(BIGINT '3', DOUBLE '300.0', 'IN')");
+            // A new row that omits the column is written with the write-default.
+            assertUpdate(session, format("INSERT INTO %s (id, amount) VALUES (3, 300.0)", tableName), 1);
+            assertQuery(session, format("SELECT count(*) FROM %s WHERE country = 'IN'", tableName), "SELECT 3");
+            assertQuery(session, format("SELECT id, amount, country FROM %s ORDER BY id", tableName),
+                    "VALUES (BIGINT '1', DOUBLE '100.0', 'IN'), " +
+                    "(BIGINT '2', DOUBLE '200.0', 'IN'), " +
+                    "(BIGINT '3', DOUBLE '300.0', 'IN')");
         }
         finally {
             dropTableIfExists(session, tableName);
@@ -457,7 +448,9 @@ public class TestIcebergV3DefaultColumnValues
                     "(BIGINT '3', DOUBLE '300.0', 'US')");
 
             // Clearing the write-default must write NULL for omitted columns rather than falling back
-            // to the initial-default 'IN', which still applies to row 1.
+            // to the initial-default. Rows 1 and 2 still read 'IN': row 1's data file predates the
+            // column, so the reader fills in the initial-default, which SET DEFAULT never changes;
+            // row 2 was written with the write-default 'IN' stored in its data file.
             assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN country SET DEFAULT NULL", tableName));
             assertUpdate(session, format("INSERT INTO %s (id, amount) VALUES (4, 400.0)", tableName), 1);
             assertQuery(session, format("SELECT id, amount, country FROM %s ORDER BY id", tableName),
@@ -495,6 +488,8 @@ public class TestIcebergV3DefaultColumnValues
     @Test(dataProvider = "pushdownFilterEnabled")
     public void testInsertWithMultipleWriteDefaultColumns(boolean pushdownFilterEnabled)
     {
+        // DECIMAL and REAL have serialized defaults with a non-trivial string form, which the
+        // native worker parses back into a constant.
         Session session = sessionWithPushdown(pushdownFilterEnabled);
         String tableName = "orders_v3_multi_write_defaults";
         try {
@@ -502,37 +497,17 @@ public class TestIcebergV3DefaultColumnValues
             assertUpdate(session, format("ALTER TABLE %s ADD COLUMN country VARCHAR DEFAULT 'US'", tableName));
             assertUpdate(session, format("ALTER TABLE %s ADD COLUMN priority INTEGER DEFAULT 10", tableName));
             assertUpdate(session, format("ALTER TABLE %s ADD COLUMN is_enabled BOOLEAN DEFAULT true", tableName));
-            assertUpdate(session, format("INSERT INTO %s (id) VALUES (2)", tableName), 1);
-            // Only the omitted columns take their write-defaults.
-            assertUpdate(session, format("INSERT INTO %s (id, country) VALUES (3, 'UK')", tableName), 1);
-            assertQuery(session, format("SELECT id, country, priority, is_enabled FROM %s ORDER BY id", tableName),
-                    "VALUES (BIGINT '1', 'US', INTEGER '10', BOOLEAN 'true'), " +
-                    "(BIGINT '2', 'US', INTEGER '10', BOOLEAN 'true'), " +
-                    "(BIGINT '3', 'UK', INTEGER '10', BOOLEAN 'true')");
-        }
-        finally {
-            dropTableIfExists(session, tableName);
-        }
-    }
-
-    @Test(dataProvider = "pushdownFilterEnabled")
-    public void testInsertWithWriteDefaultDifferentDataTypes(boolean pushdownFilterEnabled)
-    {
-        // Covers types whose serialized default has a non-trivial string form, which the native
-        // worker parses back into a constant. Other primitive types are covered by
-        // testAddColumnWithDefaultMultipleDataTypes.
-        Session session = sessionWithPushdown(pushdownFilterEnabled);
-        String tableName = "orders_v3_write_default_types";
-        try {
-            createTableWithRows(session, tableName, "(id BIGINT)", "VALUES (1)", 1);
             assertUpdate(session, format("ALTER TABLE %s ADD COLUMN price DECIMAL(10, 2) DEFAULT DECIMAL '12.34'", tableName));
             assertUpdate(session, format("ALTER TABLE %s ADD COLUMN ratio REAL DEFAULT REAL '1.5'", tableName));
             assertUpdate(session, format("INSERT INTO %s (id) VALUES (2)", tableName), 1);
-            assertUpdate(session, format("INSERT INTO %s VALUES (3, DECIMAL '99.99', REAL '-2.25')", tableName), 1);
-            assertQuery(session, format("SELECT id, price, ratio FROM %s ORDER BY id", tableName),
-                    "VALUES (BIGINT '1', CAST(12.34 AS DECIMAL(10, 2)), REAL '1.5'), " +
-                    "(BIGINT '2', CAST(12.34 AS DECIMAL(10, 2)), REAL '1.5'), " +
-                    "(BIGINT '3', CAST(99.99 AS DECIMAL(10, 2)), REAL '-2.25')");
+            // Only the omitted columns take their write-defaults.
+            assertUpdate(session, format("INSERT INTO %s (id, country, price) VALUES (3, 'UK', DECIMAL '99.99')", tableName), 1);
+            // Row 1 reads the initial-defaults, row 2 has every write-default, and row 3 has
+            // write-defaults only for priority, is_enabled and ratio.
+            assertQuery(session, format("SELECT id, country, priority, is_enabled, price, ratio FROM %s ORDER BY id", tableName),
+                    "VALUES (BIGINT '1', 'US', INTEGER '10', BOOLEAN 'true', CAST(12.34 AS DECIMAL(10, 2)), REAL '1.5'), " +
+                    "(BIGINT '2', 'US', INTEGER '10', BOOLEAN 'true', CAST(12.34 AS DECIMAL(10, 2)), REAL '1.5'), " +
+                    "(BIGINT '3', 'UK', INTEGER '10', BOOLEAN 'true', CAST(99.99 AS DECIMAL(10, 2)), REAL '1.5')");
             assertQuery(session, format("SELECT id FROM %s WHERE price = DECIMAL '12.34' ORDER BY id", tableName),
                     "VALUES (BIGINT '1'), (BIGINT '2')");
         }
@@ -573,28 +548,30 @@ public class TestIcebergV3DefaultColumnValues
         // use different compression enums, so the read fails with "lz4 failed to decompress".
         // See https://github.com/prestodb/presto/issues/28599.
         Object[][] formatsAndPartitioning = {
-                {"PARQUET", ""},
-                {"PARQUET", " WITH (partitioning = 'identity')"}
+                {"PARQUET", "unpartitioned", ""},
+                {"PARQUET", "identity", " WITH (partitioning = 'identity')"},
+                {"PARQUET", "bucket", " WITH (partitioning = 'bucket(4)')"},
+                {"PARQUET", "truncate", " WITH (partitioning = 'truncate(1)')"}
         };
         Object[][] result = new Object[formatsAndPartitioning.length * 2][];
         int index = 0;
         for (Object[] formatAndPartitioning : formatsAndPartitioning) {
             for (boolean pushdownFilterEnabled : new boolean[] {true, false}) {
-                result[index++] = new Object[] {pushdownFilterEnabled, formatAndPartitioning[0], formatAndPartitioning[1]};
+                result[index++] = new Object[] {pushdownFilterEnabled, formatAndPartitioning[0], formatAndPartitioning[1], formatAndPartitioning[2]};
             }
         }
         return result;
     }
 
     @Test(dataProvider = "withPartitioning")
-    public void testInsertWithPartitionEvolution(boolean pushdownFilterEnabled, String fileFormat, String withPartitioning)
+    public void testInsertWithPartitionEvolution(boolean pushdownFilterEnabled, String fileFormat, String partitioningName, String withPartitioning)
     {
-        // When the default column is also an identity partition key, the write-default must
-        // feed the partition value as well as the data file.
+        // When the default column is also a partition key, the write-default must feed the
+        // partition transform as well as the data file.
         Session session = sessionWithPushdown(pushdownFilterEnabled);
         String tableName = format("orders_v3_write_default_%s_%s_%s",
                 fileFormat.toLowerCase(),
-                withPartitioning.isEmpty() ? "unpartitioned" : "partitioned",
+                partitioningName,
                 pushdownFilterEnabled ? "pushdown" : "no_pushdown");
         try {
             assertUpdate(session, format("CREATE TABLE %s (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3', format = '%s')",
@@ -641,6 +618,84 @@ public class TestIcebergV3DefaultColumnValues
         }
         finally {
             dropTableIfExists(session, tableName);
+        }
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testInsertWithWriteDefaultWithoutInitialDefault(boolean pushdownFilterEnabled)
+    {
+        // SET DEFAULT on a column created without a default sets only the write-default, so
+        // existing rows keep NULL while omitted columns in new rows get the write-default.
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = "orders_v3_write_default_only";
+        try {
+            createTableWithRows(session, tableName, "(id BIGINT, country VARCHAR)", "VALUES (1, NULL)", 1);
+            assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN country SET DEFAULT 'US'", tableName));
+            assertUpdate(session, format("INSERT INTO %s (id) VALUES (2)", tableName), 1);
+            assertQuery(session, format("SELECT id, country FROM %s ORDER BY id", tableName),
+                    "VALUES (BIGINT '1', NULL), (BIGINT '2', 'US')");
+        }
+        finally {
+            dropTableIfExists(session, tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesPreservesExplicitNull()
+    {
+        // rewrite_data_files sends no inserted column list, so it must copy an explicit NULL
+        // as is instead of replacing it with the write-default. The procedure does not run
+        // with native filter pushdown enabled, so only the non-pushdown session is used.
+        Session session = sessionWithPushdown(false);
+        String tableName = "orders_v3_rewrite_explicit_null";
+        try {
+            createTableWithRows(session, tableName, "(id BIGINT)", "VALUES (1)", 1);
+            assertUpdate(session, format("ALTER TABLE %s ADD COLUMN status VARCHAR DEFAULT 'ACTIVE'", tableName));
+            assertUpdate(session, format("INSERT INTO %s (id, status) VALUES (2, NULL)", tableName), 1);
+            assertUpdate(session, format("INSERT INTO %s (id) VALUES (3)", tableName), 1);
+            assertUpdate(session, format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))",
+                    tableName, session.getSchema().orElseThrow()), 3);
+            assertQuery(session, format("SELECT id, status FROM %s ORDER BY id", tableName),
+                    "VALUES (BIGINT '1', 'ACTIVE'), (BIGINT '2', NULL), (BIGINT '3', 'ACTIVE')");
+        }
+        finally {
+            dropTableIfExists(session, tableName);
+        }
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testInsertWithWriteDefaultManyRows(boolean pushdownFilterEnabled)
+    {
+        // Enough rows to span several batches, and a second INSERT ... SELECT that scans the
+        // table's files in parallel, so the write-default is applied by multiple writers.
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = "orders_v3_write_default_many_rows";
+        try {
+            createTableWithRows(session, tableName, "(id BIGINT)", "VALUES (0)", 1);
+            assertUpdate(session, format("ALTER TABLE %s ADD COLUMN country VARCHAR DEFAULT 'US'", tableName));
+            assertUpdate(session, format("INSERT INTO %s (id) SELECT x FROM UNNEST(sequence(1, 10000)) AS t(x)", tableName), 10000);
+            assertUpdate(session, format("INSERT INTO %1$s (id) SELECT id + 10000 FROM %1$s WHERE id > 0", tableName), 10000);
+            assertQuery(session, format("SELECT count(*) FROM %s WHERE country = 'US'", tableName), "SELECT 20001");
+            assertQuery(session, format("SELECT count(*) FROM %s WHERE country IS NULL", tableName), "SELECT 0");
+        }
+        finally {
+            dropTableIfExists(session, tableName);
+        }
+    }
+
+    @Test
+    public void testUnsupportedWriteDefaultTypes()
+    {
+        String tableName = "orders_v3_write_default_unsupported_types";
+        try {
+            createTableWithRows(getSession(), tableName, "(id BIGINT)", "VALUES (1)", 1);
+            assertQueryFails(format("ALTER TABLE %s ADD COLUMN u UUID DEFAULT UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'", tableName),
+                    "Default values not supported for type: UUID");
+            assertQueryFails(format("ALTER TABLE %s ADD COLUMN t TIME DEFAULT TIME '10:30:00'", tableName),
+                    "Default values not supported for type: TIME");
+        }
+        finally {
+            dropTableIfExists(getSession(), tableName);
         }
     }
 

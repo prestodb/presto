@@ -1312,17 +1312,67 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitKeepsUnassignedSequenceNumber) {
 
 namespace {
 
+// A REGULAR primitive Iceberg column.
+protocol::iceberg::IcebergColumnHandle makeIcebergColumn(
+    const std::string& name,
+    int32_t id,
+    const std::string& type) {
+  protocol::iceberg::IcebergColumnHandle column;
+  column.columnIdentity.name = name;
+  column.columnIdentity.id = id;
+  column.columnIdentity.typeCategory =
+      protocol::iceberg::TypeCategory::PRIMITIVE;
+  column.type = type;
+  column.columnType = protocol::hive::ColumnType::REGULAR;
+  return column;
+}
+
 // One REGULAR integer column named "id", used as both an input column and the
 // source of the partition field below.
 protocol::iceberg::IcebergColumnHandle makeIcebergIdColumn() {
-  protocol::iceberg::IcebergColumnHandle column;
-  column.columnIdentity.name = "id";
-  column.columnIdentity.id = 1;
-  column.columnIdentity.typeCategory =
-      protocol::iceberg::TypeCategory::PRIMITIVE;
-  column.type = "integer";
-  column.columnType = protocol::hive::ColumnType::REGULAR;
-  return column;
+  return makeIcebergColumn("id", 1, "integer");
+}
+
+// Converts 'column' and returns the Velox Iceberg column handle, or nullptr if
+// the conversion produced a different handle type.
+std::shared_ptr<const connector::hive::iceberg::IcebergColumnHandle>
+toVeloxIcebergColumnHandle(
+    const protocol::iceberg::IcebergColumnHandle& column,
+    const TypeParser& typeParser) {
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  std::shared_ptr<const connector::ColumnHandle> handle =
+      icebergConnector.toVeloxColumnHandle(&column, typeParser);
+  return std::dynamic_pointer_cast<
+      const connector::hive::iceberg::IcebergColumnHandle>(handle);
+}
+
+// Wraps a minimal Iceberg insert table handle in an InsertHandle, converts it
+// and returns the Velox Iceberg insert handle, or nullptr if the conversion
+// produced a different handle type.
+std::shared_ptr<const connector::hive::iceberg::IcebergInsertTableHandle>
+toVeloxIcebergInsertHandle(
+    std::vector<protocol::iceberg::IcebergColumnHandle> inputColumns,
+    std::vector<std::string> insertedColumns,
+    protocol::iceberg::FileFormat fileFormat,
+    const TypeParser& typeParser) {
+  auto protoHandle =
+      std::make_shared<protocol::iceberg::IcebergInsertTableHandle>();
+  protoHandle->_type = "hive-iceberg";
+  protoHandle->outputPath = "/path/to/table";
+  protoHandle->fileFormat = fileFormat;
+  protoHandle->compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
+  protoHandle->inputColumns = std::move(inputColumns);
+  protoHandle->insertedColumns = std::move(insertedColumns);
+
+  protocol::InsertHandle insertHandle;
+  insertHandle.handle.connectorHandle = protoHandle;
+  insertHandle.handle.connectorId = "iceberg";
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  std::shared_ptr<const connector::ConnectorInsertTableHandle> handle =
+      icebergConnector.toVeloxInsertTableHandle(&insertHandle, typeParser);
+  return std::dynamic_pointer_cast<
+      const connector::hive::iceberg::IcebergInsertTableHandle>(handle);
 }
 
 // A one-field identity partition spec over "id".
@@ -1664,51 +1714,25 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitMapsWriteOrientedFileFormats) {
 TEST_F(PrestoToVeloxConnectorTest, toVeloxColumnHandleCarriesDefaultValue) {
   // Iceberg V3 column defaults: a column added after the file was written has
   // no physical data, so the reader materializes this constant instead.
-  protocol::iceberg::IcebergColumnHandle column;
-  column.columnIdentity.name = "added_col";
-  column.columnIdentity.id = 7;
-  column.columnIdentity.typeCategory =
-      protocol::iceberg::TypeCategory::PRIMITIVE;
-  column.type = "integer";
-  column.columnType = protocol::hive::ColumnType::REGULAR;
+  auto column = makeIcebergColumn("added_col", 7, "integer");
   column.defaultValue = std::make_shared<protocol::String>("42");
 
-  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
-  auto handle = icebergConnector.toVeloxColumnHandle(&column, *typeParser_);
-  ASSERT_NE(handle, nullptr);
-
-  auto* icebergHandle =
-      dynamic_cast<connector::hive::iceberg::IcebergColumnHandle*>(
-          handle.get());
+  auto icebergHandle = toVeloxIcebergColumnHandle(column, *typeParser_);
   ASSERT_NE(icebergHandle, nullptr);
   ASSERT_TRUE(icebergHandle->initialDefaultValue().has_value());
   EXPECT_EQ(*icebergHandle->initialDefaultValue(), "42");
   EXPECT_FALSE(icebergHandle->writeDefaultValue().has_value());
 }
 
-TEST_F(
-    PrestoToVeloxConnectorTest,
-    toVeloxColumnHandleCarriesWriteDefaultValue) {
+TEST_F(PrestoToVeloxConnectorTest, columnHandleWithWriteDefault) {
   // Iceberg V3 write-default: the data sink substitutes this constant for
   // columns omitted from an INSERT. It is independent of the initial-default,
   // which ALTER COLUMN SET DEFAULT leaves untouched.
-  protocol::iceberg::IcebergColumnHandle column;
-  column.columnIdentity.name = "added_col";
-  column.columnIdentity.id = 7;
-  column.columnIdentity.typeCategory =
-      protocol::iceberg::TypeCategory::PRIMITIVE;
-  column.type = "integer";
-  column.columnType = protocol::hive::ColumnType::REGULAR;
+  auto column = makeIcebergColumn("added_col", 7, "integer");
   column.defaultValue = std::make_shared<protocol::String>("42");
   column.writeDefaultValue = std::make_shared<protocol::String>("7");
 
-  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
-  auto handle = icebergConnector.toVeloxColumnHandle(&column, *typeParser_);
-  ASSERT_NE(handle, nullptr);
-
-  auto* icebergHandle =
-      dynamic_cast<connector::hive::iceberg::IcebergColumnHandle*>(
-          handle.get());
+  auto icebergHandle = toVeloxIcebergColumnHandle(column, *typeParser_);
   ASSERT_NE(icebergHandle, nullptr);
   ASSERT_TRUE(icebergHandle->initialDefaultValue().has_value());
   EXPECT_EQ(*icebergHandle->initialDefaultValue(), "42");
@@ -1716,37 +1740,31 @@ TEST_F(
   EXPECT_EQ(*icebergHandle->writeDefaultValue(), "7");
 }
 
-TEST_F(PrestoToVeloxConnectorTest, icebergInsertHandleCarriesInsertedColumns) {
+TEST_F(PrestoToVeloxConnectorTest, columnHandleWithOnlyWriteDefault) {
+  // ALTER COLUMN SET DEFAULT on a column created without a default sets only
+  // the write-default, so existing rows still read as NULL.
+  auto column = makeIcebergColumn("country", 2, "varchar");
+  column.writeDefaultValue = std::make_shared<protocol::String>("US");
+
+  auto icebergHandle = toVeloxIcebergColumnHandle(column, *typeParser_);
+  ASSERT_NE(icebergHandle, nullptr);
+  EXPECT_FALSE(icebergHandle->initialDefaultValue().has_value());
+  ASSERT_TRUE(icebergHandle->writeDefaultValue().has_value());
+  EXPECT_EQ(*icebergHandle->writeDefaultValue(), "US");
+}
+
+TEST_F(PrestoToVeloxConnectorTest, insertHandleWithInsertedColumns) {
   // The data sink applies write-defaults only to columns absent from the
   // INSERT statement's column list, so the list must reach Velox intact.
-  auto writeDefaultColumn = makeIcebergIdColumn();
-  writeDefaultColumn.columnIdentity.name = "country";
-  writeDefaultColumn.columnIdentity.id = 2;
-  writeDefaultColumn.type = "varchar";
+  auto writeDefaultColumn = makeIcebergColumn("country", 2, "varchar");
   writeDefaultColumn.writeDefaultValue =
       std::make_shared<protocol::String>("IN");
 
-  auto protoHandle =
-      std::make_shared<protocol::iceberg::IcebergInsertTableHandle>();
-  protoHandle->_type = "hive-iceberg";
-  protoHandle->outputPath = "/path/to/table";
-  protoHandle->fileFormat = protocol::iceberg::FileFormat::PARQUET;
-  protoHandle->compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
-  protoHandle->inputColumns = {makeIcebergIdColumn(), writeDefaultColumn};
-  protoHandle->insertedColumns = {"id"};
-
-  protocol::InsertHandle insertHandle;
-  insertHandle.handle.connectorHandle = protoHandle;
-  insertHandle.handle.connectorId = "iceberg";
-
-  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
-  auto result =
-      icebergConnector.toVeloxInsertTableHandle(&insertHandle, *typeParser_);
-  ASSERT_NE(result, nullptr);
-
-  auto* icebergInsert =
-      dynamic_cast<connector::hive::iceberg::IcebergInsertTableHandle*>(
-          result.get());
+  auto icebergInsert = toVeloxIcebergInsertHandle(
+      {makeIcebergIdColumn(), writeDefaultColumn},
+      {"id"},
+      protocol::iceberg::FileFormat::PARQUET,
+      *typeParser_);
   ASSERT_NE(icebergInsert, nullptr);
   EXPECT_EQ(icebergInsert->insertedColumns(), std::vector<std::string>{"id"});
   EXPECT_EQ(
@@ -1762,31 +1780,14 @@ TEST_F(PrestoToVeloxConnectorTest, icebergInsertHandleCarriesInsertedColumns) {
   EXPECT_EQ(*countryHandle->writeDefaultValue(), "IN");
 }
 
-TEST_F(
-    PrestoToVeloxConnectorTest,
-    icebergInsertHandleWithEmptyInsertedColumns) {
+TEST_F(PrestoToVeloxConnectorTest, insertHandleWithEmptyInsertedColumns) {
   // An empty list tells the data sink to apply no write-defaults. CTAS, MERGE
   // and materialized view refresh send an empty list and rely on this.
-  auto protoHandle =
-      std::make_shared<protocol::iceberg::IcebergInsertTableHandle>();
-  protoHandle->_type = "hive-iceberg";
-  protoHandle->outputPath = "/path/to/table";
-  protoHandle->fileFormat = protocol::iceberg::FileFormat::PARQUET;
-  protoHandle->compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
-  protoHandle->inputColumns = {makeIcebergIdColumn()};
-
-  protocol::InsertHandle insertHandle;
-  insertHandle.handle.connectorHandle = protoHandle;
-  insertHandle.handle.connectorId = "iceberg";
-
-  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
-  auto result =
-      icebergConnector.toVeloxInsertTableHandle(&insertHandle, *typeParser_);
-  ASSERT_NE(result, nullptr);
-
-  auto* icebergInsert =
-      dynamic_cast<connector::hive::iceberg::IcebergInsertTableHandle*>(
-          result.get());
+  auto icebergInsert = toVeloxIcebergInsertHandle(
+      {makeIcebergIdColumn()},
+      /*insertedColumns=*/{},
+      protocol::iceberg::FileFormat::PARQUET,
+      *typeParser_);
   ASSERT_NE(icebergInsert, nullptr);
   EXPECT_TRUE(icebergInsert->insertedColumns().empty());
 }
@@ -1795,26 +1796,11 @@ TEST_F(PrestoToVeloxConnectorTest, icebergWriteHandleMapsOrcToDwrf) {
   // On the write path Iceberg "ORC" means Meta's DWRF, since Velox only
   // registers a DWRF writer. The read path deliberately maps ORC -> ORC
   // instead, so this branch is only reachable through a write handle.
-  auto protoHandle =
-      std::make_shared<protocol::iceberg::IcebergInsertTableHandle>();
-  protoHandle->_type = "hive-iceberg";
-  protoHandle->outputPath = "/path/to/table";
-  protoHandle->fileFormat = protocol::iceberg::FileFormat::ORC;
-  protoHandle->compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
-  protoHandle->inputColumns = {makeIcebergIdColumn()};
-
-  protocol::InsertHandle insertHandle;
-  insertHandle.handle.connectorHandle = protoHandle;
-  insertHandle.handle.connectorId = "iceberg";
-
-  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
-  auto result =
-      icebergConnector.toVeloxInsertTableHandle(&insertHandle, *typeParser_);
-  ASSERT_NE(result, nullptr);
-
-  auto* icebergInsert =
-      dynamic_cast<connector::hive::iceberg::IcebergInsertTableHandle*>(
-          result.get());
+  auto icebergInsert = toVeloxIcebergInsertHandle(
+      {makeIcebergIdColumn()},
+      /*insertedColumns=*/{},
+      protocol::iceberg::FileFormat::ORC,
+      *typeParser_);
   ASSERT_NE(icebergInsert, nullptr);
   EXPECT_EQ(icebergInsert->storageFormat(), dwio::common::FileFormat::DWRF);
 }
