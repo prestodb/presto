@@ -39,19 +39,39 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 
+/**
+ * Ways of asking for the columns of a table.
+ *
+ * Two things vary. What the table is identified by, which the name of each method says: a table
+ * name, or a table handle, which a versioned read needs because only the handle carries the
+ * version. And whether metadata prepared ahead of the query may be used, which the parameters
+ * say: the overload taking a {@link MetadataHandle} returns that prepared metadata when
+ * pre-processing is on, and the ones without it always ask the connector.
+ *
+ * An analyzer should call {@link #getTableColumnsMetadataByName} with the MetadataHandle, or
+ * {@link #getTableColumnsMetadataByHandle} when it holds a versioned handle.
+ */
 public class MetadataUtils
 {
     private MetadataUtils()
     {
     }
 
-    public static TableColumnMetadata getTableColumnsMetadata(Session session, MetadataResolver metadataResolver, MetadataHandle metadataHandle, QualifiedObjectName tableName)
+    /**
+     * The columns of the table a name resolves to: the metadata prepared ahead of the query when
+     * pre-processing is on, and the connector's answer otherwise.
+     *
+     * A name cannot say which version to read, and the prepared metadata is keyed by name and is
+     * built before any version is resolved, so a versioned read has to ask
+     * {@link #getTableColumnsMetadataByHandle} instead.
+     */
+    public static TableColumnMetadata getTableColumnsMetadataByName(Session session, MetadataResolver metadataResolver, MetadataHandle metadataHandle, QualifiedObjectName tableName)
     {
         if (metadataHandle.isPreProcessMetadataCalls()) {
             return metadataHandle.getTableColumnsMetadata(tableName);
         }
 
-        return getTableColumnMetadata(session, metadataResolver, tableName);
+        return getTableColumnsMetadataByName(session, metadataResolver, tableName);
     }
 
     public static Optional<ViewDefinition> getViewDefinition(Session session, MetadataResolver metadataResolver, MetadataHandle metadataHandle, QualifiedObjectName viewName)
@@ -76,7 +96,16 @@ public class MetadataUtils
                 () -> metadataResolver.getMaterializedView(viewName));
     }
 
-    public static TableColumnMetadata getTableColumnMetadata(Session session, MetadataResolver metadataResolver, QualifiedObjectName tableName)
+    /**
+     * The columns of the table a name resolves to, always asked of the connector. Pre-processing
+     * runs this ahead of the query, and the overload taking a {@link MetadataHandle} falls back to
+     * it when pre-processing is off.
+     *
+     * Unlike {@link #getTableColumnsMetadataByHandle} it starts from a name, so it is also what
+     * reports a missing catalog, schema or table, and the columns it returns are the current ones
+     * rather than those of a version.
+     */
+    public static TableColumnMetadata getTableColumnsMetadataByName(Session session, MetadataResolver metadataResolver, QualifiedObjectName tableName)
     {
         Optional<TableHandle> tableHandle = session.getRuntimeStats().recordWallTime(
                 GET_TABLE_HANDLE_TIME_NANOS,
@@ -101,5 +130,29 @@ public class MetadataUtils
                 () -> metadataResolver.getColumns(tableHandle.get()));
 
         return new TableColumnMetadata(tableHandle, columnHandles, columnsMetadata);
+    }
+
+    /**
+     * The column handles and the column metadata of a table handle.
+     *
+     * Use this when the caller already holds a handle and the name is not enough. A handle for a
+     * versioned read carries the version, and the columns of that version can differ from the
+     * current ones.
+     *
+     * Pre-processed metadata cannot answer this. It is keyed by table name, and it is prepared
+     * before any version is resolved, so the resolver is asked directly here. Both calls are timed
+     * the same way as the ones made by name.
+     */
+    public static TableColumnMetadata getTableColumnsMetadataByHandle(Session session, MetadataResolver metadataResolver, TableHandle tableHandle)
+    {
+        Map<String, ColumnHandle> columnHandles = session.getRuntimeStats().recordWallTime(
+                GET_COLUMN_HANDLE_TIME_NANOS,
+                () -> metadataResolver.getColumnHandles(tableHandle));
+
+        List<ColumnMetadata> columnsMetadata = session.getRuntimeStats().recordWallTime(
+                GET_COLUMN_METADATA_TIME_NANOS,
+                () -> metadataResolver.getColumns(tableHandle));
+
+        return new TableColumnMetadata(Optional.of(tableHandle), columnHandles, columnsMetadata);
     }
 }
