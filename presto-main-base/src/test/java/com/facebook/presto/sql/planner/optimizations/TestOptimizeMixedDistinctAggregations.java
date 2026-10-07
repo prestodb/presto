@@ -14,6 +14,12 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.Optimizer;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
@@ -22,6 +28,7 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +50,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestOptimizeMixedDistinctAggregations
         extends BasePlanTest
@@ -127,5 +136,107 @@ public class TestOptimizeMixedDistinctAggregations
                 new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
                 new PruneUnreferencedOutputs());
         assertPlan(sql, pattern, optimizers);
+    }
+
+    @Test
+    public void testIssue27860PercentileVarInGroupIdNodeGroupingSets()
+    {
+        // Issue #27860: OptimizeMixedDistinctAggregations builds GroupIdNode with two grouping sets:
+        //   g0 = {orderstatus, cast_totalprice, percentile_var}
+        //   g1 = {orderstatus, custkey}
+        // The percentile_var (2nd arg of approx_percentile) is absent from g1, so GroupIdNode
+        // NULLs it out for g1 rows. Velox then sees inconsistent percentile values across a batch:
+        //   "Percentile argument must be constant for all input rows (0 vs. 0.9)"
+        // FIX: percentile_var must appear in g1 as well so it is never NULLed.
+        // This test FAILS with the bug present and PASSES after the fix.
+        @Language("SQL") String sql =
+                "SELECT approx_percentile(CAST(totalprice AS BIGINT), CAST(90 AS DOUBLE) / 100)," +
+                "       count(DISTINCT custkey) " +
+                "FROM orders " +
+                "GROUP BY orderstatus";
+
+        List<PlanOptimizer> optimizers = buildUnitOptimizers();
+
+        getQueryRunner().inTransaction(getQueryRunner().getDefaultSession(), session -> {
+            Plan plan = getQueryRunner().createPlan(
+                    session,
+                    sql,
+                    optimizers,
+                    Optimizer.PlanStage.OPTIMIZED,
+                    WarningCollector.NOOP);
+
+            GroupIdNode groupIdNode = findGroupIdNode(plan.getRoot());
+            assertNotNull(groupIdNode, "GroupIdNode must exist after OptimizeMixedDistinctAggregations");
+
+            AggregationNode innerAgg = findAggregationWithGroupIdSource(plan.getRoot(), groupIdNode);
+            assertNotNull(innerAgg, "Inner AggregationNode (with GroupIdNode as source) not found");
+
+            // Find the approx_percentile call and extract its 2nd argument (the percentile variable)
+            Optional<VariableReferenceExpression> percentileVar = innerAgg.getAggregations().values().stream()
+                    .filter(agg -> agg.getCall().getDisplayName().equals("approx_percentile"))
+                    .flatMap(agg -> agg.getArguments().stream().skip(1).limit(1))
+                    .filter(VariableReferenceExpression.class::isInstance)
+                    .map(VariableReferenceExpression.class::cast)
+                    .findFirst();
+
+            assertTrue(percentileVar.isPresent(), "approx_percentile with 2+ args not found in inner aggregation");
+
+            List<VariableReferenceExpression> g1 = groupIdNode.getGroupingSets().get(1);
+
+            // This assertion FAILS with the bug: g1 does not contain percentileVar
+            // (GroupIdNode NULLs it out for g1 rows, causing the Velox error)
+            assertTrue(
+                    g1.contains(percentileVar.get()),
+                    "Bug #27860: percentile variable '" + percentileVar.get().getName() +
+                    "' is absent from g1 grouping set. GroupIdNode NULLs it out for g1 rows, " +
+                    "causing Velox: 'Percentile argument must be constant for all input rows'");
+
+            return null;
+        });
+    }
+
+    private List<PlanOptimizer> buildUnitOptimizers()
+    {
+        return ImmutableList.of(
+                new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
+                new IterativeOptimizer(
+                        getMetadata(),
+                        new RuleStatsRecorder(),
+                        getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getEstimatedExchangesCostCalculator(),
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
+                                new SingleDistinctAggregationToGroupBy(),
+                                new MultipleDistinctAggregationToMarkDistinct())),
+                new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
+                new PruneUnreferencedOutputs());
+    }
+
+    private static GroupIdNode findGroupIdNode(PlanNode root)
+    {
+        if (root instanceof GroupIdNode) {
+            return (GroupIdNode) root;
+        }
+        for (PlanNode source : root.getSources()) {
+            GroupIdNode found = findGroupIdNode(source);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    private static AggregationNode findAggregationWithGroupIdSource(PlanNode root, GroupIdNode groupIdNode)
+    {
+        if (root instanceof AggregationNode && root.getSources().contains(groupIdNode)) {
+            return (AggregationNode) root;
+        }
+        for (PlanNode source : root.getSources()) {
+            AggregationNode found = findAggregationWithGroupIdSource(source, groupIdNode);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
     }
 }
