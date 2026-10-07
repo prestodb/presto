@@ -22,6 +22,19 @@ For information on configuration properties, see :doc:`properties`.
 General Properties
 ------------------
 
+``legacy_timestamp_with_timezone``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+When ``true``, ``TIMESTAMP WITH TIME ZONE`` values render in each value's embedded
+time zone. When ``false``, functions, casts, field extraction, and calendar
+operations render the UTC instant in the session time zone, so values that compare
+equal produce equal results. For a ``TIMESTAMP WITH TIME ZONE`` input,
+``AT TIME ZONE`` returns a zoned timestamp when this property is ``true`` and a
+``TIMESTAMP`` containing the requested-zone wall clock when it is ``false``.
+
 ``join_distribution_type``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

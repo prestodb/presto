@@ -577,7 +577,7 @@ public class IOPlanPrinter
                 return printTimestampWithoutTimeZone(timestampValue);
             }
             if (type instanceof TimestampWithTimeZoneType) {
-                return printTimestampWithTimeZone((Long) value);
+                return printTimestampWithTimeZone(session.getSqlFunctionProperties(), (Long) value);
             }
             if (type instanceof DateType) {
                 return printDate(((Long) value).intValue());

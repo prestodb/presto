@@ -60,6 +60,7 @@ import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinute
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
+import static com.facebook.presto.util.DateTimeZoneIndex.renderingChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -288,11 +289,11 @@ public final class DateTimeFunctions
     // YYYY-MM-DDTHH:MM:SS.mmm+HH:MM is a standard notation, and it requires 29 characters.
     // However extended notation with format ±(Y)+-MM-DDTHH:MM:SS.mmm+HH:MM is also acceptable and as
     // the maximum year represented by 64bits timestamp is ~584944387 it may require up to 35 characters.
-    public static Slice toISO8601FromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static Slice toISO8601FromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
         long millisUtc = unpackMillisUtc(timestampWithTimeZone);
         DateTimeFormatter formatter = ISODateTimeFormat.dateTime()
-                .withChronology(getChronology(unpackZoneKey(timestampWithTimeZone)));
+                .withChronology(renderingChronology(properties, timestampWithTimeZone));
         return utf8Slice(formatter.print(millisUtc));
     }
 
@@ -476,9 +477,9 @@ public final class DateTimeFunctions
     @ScalarFunction("date_trunc")
     @LiteralParameters("x")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long truncateTimestampWithTimezone(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long truncateTimestampWithTimezone(SqlFunctionProperties properties, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        long millis = getTimestampField(unpackChronology(timestampWithTimeZone), unit).roundFloor(unpackMillisUtc(timestampWithTimeZone));
+        long millis = getTimestampField(renderingChronology(properties, timestampWithTimeZone), unit).roundFloor(unpackMillisUtc(timestampWithTimeZone));
         return updateMillisUtc(millis, timestampWithTimeZone);
     }
 
@@ -542,11 +543,12 @@ public final class DateTimeFunctions
     @ScalarFunction("date_add")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long addFieldValueTimestampWithTimeZone(
+            SqlFunctionProperties properties,
             @SqlType("varchar(x)") Slice unit,
             @SqlType(StandardTypes.BIGINT) long value,
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        long millis = getTimestampField(unpackChronology(timestampWithTimeZone), unit).add(unpackMillisUtc(timestampWithTimeZone), toIntExact(value));
+        long millis = getTimestampField(renderingChronology(properties, timestampWithTimeZone), unit).add(unpackMillisUtc(timestampWithTimeZone), toIntExact(value));
         return updateMillisUtc(millis, timestampWithTimeZone);
     }
 
@@ -608,11 +610,12 @@ public final class DateTimeFunctions
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long diffTimestampWithTimeZone(
+            SqlFunctionProperties properties,
             @SqlType("varchar(x)") Slice unit,
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone1,
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone2)
     {
-        return getTimestampField(unpackChronology(timestampWithTimeZone1), unit).getDifferenceAsLong(unpackMillisUtc(timestampWithTimeZone2), unpackMillisUtc(timestampWithTimeZone1));
+        return getTimestampField(renderingChronology(properties, timestampWithTimeZone1), unit).getDifferenceAsLong(unpackMillisUtc(timestampWithTimeZone2), unpackMillisUtc(timestampWithTimeZone1));
     }
 
     private static DateTimeField getDateField(ISOChronology chronology, Slice unit)
@@ -765,7 +768,7 @@ public final class DateTimeFunctions
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone,
             @SqlType("varchar(x)") Slice formatString)
     {
-        return formatDatetime(unpackChronology(timestampWithTimeZone), properties.getSessionLocale(), unpackMillisUtc(timestampWithTimeZone), formatString);
+        return formatDatetime(renderingChronology(properties, timestampWithTimeZone), properties.getSessionLocale(), unpackMillisUtc(timestampWithTimeZone), formatString);
     }
 
     private static Slice formatDatetime(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
@@ -802,7 +805,7 @@ public final class DateTimeFunctions
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone,
             @SqlType("varchar(x)") Slice formatString)
     {
-        return dateFormat(unpackChronology(timestampWithTimeZone), properties.getSessionLocale(), unpackMillisUtc(timestampWithTimeZone), formatString);
+        return dateFormat(renderingChronology(properties, timestampWithTimeZone), properties.getSessionLocale(), unpackMillisUtc(timestampWithTimeZone), formatString);
     }
 
     private static Slice dateFormat(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
@@ -895,9 +898,9 @@ public final class DateTimeFunctions
     @Description("second of the minute of the given timestamp")
     @ScalarFunction("second")
     @SqlType(StandardTypes.BIGINT)
-    public static long secondFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long secondFromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        return unpackChronology(timestampWithTimeZone).secondOfMinute().get(unpackMillisUtc(timestampWithTimeZone));
+        return renderingChronology(properties, timestampWithTimeZone).secondOfMinute().get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("second of the minute of the given time")
@@ -945,9 +948,9 @@ public final class DateTimeFunctions
     @Description("minute of the hour of the given timestamp")
     @ScalarFunction("minute")
     @SqlType(StandardTypes.BIGINT)
-    public static long minuteFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long minuteFromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        return unpackChronology(timestampWithTimeZone).minuteOfHour().get(unpackMillisUtc(timestampWithTimeZone));
+        return renderingChronology(properties, timestampWithTimeZone).minuteOfHour().get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("minute of the hour of the given time")
@@ -995,9 +998,9 @@ public final class DateTimeFunctions
     @Description("hour of the day of the given timestamp")
     @ScalarFunction("hour")
     @SqlType(StandardTypes.BIGINT)
-    public static long hourFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long hourFromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        return unpackChronology(timestampWithTimeZone).hourOfDay().get(unpackMillisUtc(timestampWithTimeZone));
+        return renderingChronology(properties, timestampWithTimeZone).hourOfDay().get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("hour of the day of the given time")
@@ -1045,9 +1048,9 @@ public final class DateTimeFunctions
     @Description("day of the week of the given timestamp")
     @ScalarFunction(value = "day_of_week", alias = "dow")
     @SqlType(StandardTypes.BIGINT)
-    public static long dayOfWeekFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long dayOfWeekFromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        return unpackChronology(timestampWithTimeZone).dayOfWeek().get(unpackMillisUtc(timestampWithTimeZone));
+        return renderingChronology(properties, timestampWithTimeZone).dayOfWeek().get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("day of the week of the given date")
@@ -1074,9 +1077,9 @@ public final class DateTimeFunctions
     @Description("day of the month of the given timestamp")
     @ScalarFunction(value = "day", alias = "day_of_month")
     @SqlType(StandardTypes.BIGINT)
-    public static long dayFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long dayFromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        return unpackChronology(timestampWithTimeZone).dayOfMonth().get(unpackMillisUtc(timestampWithTimeZone));
+        return renderingChronology(properties, timestampWithTimeZone).dayOfMonth().get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("day of the month of the given date")
@@ -1098,9 +1101,9 @@ public final class DateTimeFunctions
     @Description("last day of the month of the given timestamp")
     @ScalarFunction("last_day_of_month")
     @SqlType(StandardTypes.DATE)
-    public static long lastDayOfMonthFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long lastDayOfMonthFromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        ISOChronology isoChronology = unpackChronology(timestampWithTimeZone);
+        ISOChronology isoChronology = renderingChronology(properties, timestampWithTimeZone);
         long millis = unpackMillisUtc(timestampWithTimeZone);
         // Calculate point in time corresponding to midnight (00:00) of first day of next month in the given zone.
         millis = isoChronology.monthOfYear().roundCeiling(millis + 1);
@@ -1147,9 +1150,9 @@ public final class DateTimeFunctions
     @Description("day of the year of the given timestamp")
     @ScalarFunction(value = "day_of_year", alias = "doy")
     @SqlType(StandardTypes.BIGINT)
-    public static long dayOfYearFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long dayOfYearFromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        return unpackChronology(timestampWithTimeZone).dayOfYear().get(unpackMillisUtc(timestampWithTimeZone));
+        return renderingChronology(properties, timestampWithTimeZone).dayOfYear().get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("day of the year of the given date")
@@ -1176,9 +1179,9 @@ public final class DateTimeFunctions
     @Description("week of the year of the given timestamp")
     @ScalarFunction(value = "week", alias = "week_of_year")
     @SqlType(StandardTypes.BIGINT)
-    public static long weekFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long weekFromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        return unpackChronology(timestampWithTimeZone).weekOfWeekyear().get(unpackMillisUtc(timestampWithTimeZone));
+        return renderingChronology(properties, timestampWithTimeZone).weekOfWeekyear().get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("week of the year of the given date")
@@ -1205,9 +1208,9 @@ public final class DateTimeFunctions
     @Description("year of the ISO week of the given timestamp")
     @ScalarFunction(value = "year_of_week", alias = "yow")
     @SqlType(StandardTypes.BIGINT)
-    public static long yearOfWeekFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long yearOfWeekFromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        return unpackChronology(timestampWithTimeZone).weekyear().get(unpackMillisUtc(timestampWithTimeZone));
+        return renderingChronology(properties, timestampWithTimeZone).weekyear().get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("year of the ISO week of the given date")
@@ -1234,9 +1237,9 @@ public final class DateTimeFunctions
     @Description("month of the year of the given timestamp")
     @ScalarFunction("month")
     @SqlType(StandardTypes.BIGINT)
-    public static long monthFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long monthFromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        return unpackChronology(timestampWithTimeZone).monthOfYear().get(unpackMillisUtc(timestampWithTimeZone));
+        return renderingChronology(properties, timestampWithTimeZone).monthOfYear().get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("month of the year of the given date")
@@ -1271,9 +1274,9 @@ public final class DateTimeFunctions
     @Description("quarter of the year of the given timestamp")
     @ScalarFunction("quarter")
     @SqlType(StandardTypes.BIGINT)
-    public static long quarterFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long quarterFromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        return QUARTER_OF_YEAR.getField(unpackChronology(timestampWithTimeZone)).get(unpackMillisUtc(timestampWithTimeZone));
+        return QUARTER_OF_YEAR.getField(renderingChronology(properties, timestampWithTimeZone)).get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("quarter of the year of the given date")
@@ -1300,9 +1303,9 @@ public final class DateTimeFunctions
     @Description("year of the given timestamp")
     @ScalarFunction("year")
     @SqlType(StandardTypes.BIGINT)
-    public static long yearFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    public static long yearFromTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        return unpackChronology(timestampWithTimeZone).year().get(unpackMillisUtc(timestampWithTimeZone));
+        return renderingChronology(properties, timestampWithTimeZone).year().get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("year of the given date")
