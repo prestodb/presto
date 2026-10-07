@@ -19,6 +19,7 @@ This guide is intended for Presto contributors and plugin developers.
     develop/password-authenticator
     develop/event-listener
     develop/openlineage-event-listener
+    develop/prestissimo-otel-monitoring
     develop/client-protocol
     develop/worker-protocol
     develop/serialized-page
