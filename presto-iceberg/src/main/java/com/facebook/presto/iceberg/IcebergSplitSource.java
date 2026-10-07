@@ -26,6 +26,7 @@ import com.google.common.io.Closer;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.InclusiveMetricsEvaluator;
@@ -38,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getAffinitySchedulingFileSectionSize;
@@ -45,6 +47,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelect
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.buildLastUpdatedSequenceNumberEvaluator;
+import static com.facebook.presto.iceberg.IcebergUtil.getAppendSequenceNumbers;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getFirstRowId;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
@@ -70,6 +73,7 @@ public class IcebergSplitSource
 
     private final TupleDomain<IcebergColumnHandle> metadataColumnConstraints;
     private final InclusiveMetricsEvaluator lineageEvaluator;
+    private final Set<Long> appendSequenceNumbers;
     // Preferred Presto FileFormat the table is configured to write
     // (`write.format.default`), or null when the property is absent /
     // unrecognized. Used to disambiguate the iceberg-api wire format on
@@ -84,16 +88,17 @@ public class IcebergSplitSource
             TableScan tableScan,
             TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
     {
-        this(session, getTargetSplitSize(session, tableScan).toBytes(), tableScan.planFiles(), metadataColumnConstraints, parseTableWriteFormat(tableScan));
+        this(session, getTargetSplitSize(session, tableScan).toBytes(), tableScan.planFiles(), metadataColumnConstraints, tableScan.table(), parseTableWriteFormat(tableScan));
     }
 
     public IcebergSplitSource(
             ConnectorSession session,
             long targetSplitSize,
             CloseableIterable<FileScanTask> fileScanTasks,
-            TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
+            TupleDomain<IcebergColumnHandle> metadataColumnConstraints,
+            Table table)
     {
-        this(session, targetSplitSize, fileScanTasks, metadataColumnConstraints, null);
+        this(session, targetSplitSize, fileScanTasks, metadataColumnConstraints, table, null);
     }
 
     private IcebergSplitSource(
@@ -101,11 +106,13 @@ public class IcebergSplitSource
             long targetSplitSize,
             CloseableIterable<FileScanTask> fileScanTasks,
             TupleDomain<IcebergColumnHandle> metadataColumnConstraints,
+            Table table,
             FileFormat tableWriteFormat)
     {
         requireNonNull(session, "session is null");
         this.metadataColumnConstraints = requireNonNull(metadataColumnConstraints, "metadataColumnConstraints is null");
         this.lineageEvaluator = buildLastUpdatedSequenceNumberEvaluator(metadataColumnConstraints);
+        this.appendSequenceNumbers = getAppendSequenceNumbers(requireNonNull(table, "table is null"), metadataColumnConstraints);
         this.targetSplitSize = targetSplitSize;
         this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
         this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
@@ -152,7 +159,8 @@ public class IcebergSplitSource
                     icebergSplit.getPath(),
                     icebergSplit.getDataSequenceNumber(),
                     task.file(),
-                    lineageEvaluator)) {
+                    lineageEvaluator,
+                    appendSequenceNumbers)) {
                 splits.add(icebergSplit);
             }
         }

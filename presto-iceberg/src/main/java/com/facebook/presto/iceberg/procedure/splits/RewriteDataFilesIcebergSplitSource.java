@@ -40,7 +40,7 @@ public class RewriteDataFilesIcebergSplitSource
             TupleDomain<IcebergColumnHandle> metadataColumnConstraints,
             Map<String, String> options)
     {
-        super(session, getTargetSplitSize(session, tableScan).toBytes(), applyFilters(tableScan, options), metadataColumnConstraints);
+        super(session, getTargetSplitSize(session, tableScan).toBytes(), applyFilters(tableScan, options), metadataColumnConstraints, tableScan.table());
     }
 
     private static CloseableIterable<FileScanTask> applyFilters(TableScan tableScan, Map<String, String> options)
