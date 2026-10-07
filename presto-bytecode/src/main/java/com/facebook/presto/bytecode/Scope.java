@@ -31,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class Scope
 {
     private final Map<String, Variable> variables = new TreeMap<>();
+    private final Map<String, Variable> tempVariables = new TreeMap<>();
     private final List<Variable> allVariables = new ArrayList<>();
 
     private final Variable thisVariable;
@@ -67,7 +68,15 @@ public class Scope
         nextTempVariableId += Type.getType(type(type).getType()).getSize();
 
         allVariables.add(variable);
+        tempVariables.put(variable.getName(), variable);
 
+        return variable;
+    }
+
+    public Variable getTempVariable(String name)
+    {
+        Variable variable = tempVariables.get(name);
+        checkArgument(variable != null, "Temp variable %s not defined", name);
         return variable;
     }
 
