@@ -283,11 +283,6 @@ public class GroupInnerJoinsByConnectorRuleSet
             return isEnabledForTesting || isInnerJoinPushdownEnabled(session);
         }
 
-        public void setEnabledForTesting(boolean isSet)
-        {
-            isEnabledForTesting = isSet;
-        }
-
         private static List<RowExpression> getExpressionsWithinVariableScope(Set<RowExpression> rowExpressions, Set<VariableReferenceExpression> variableScope)
         {
             return rowExpressions.stream()
