@@ -37,6 +37,7 @@ class KllSketchType final : public velox::VarbinaryType {
   }
 
   size_t hash() const noexcept override;
+  using velox::VarbinaryType::hash;
 
   const char* name() const override {
     return "KLLSKETCH";
