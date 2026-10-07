@@ -47,6 +47,16 @@ public class LauncherUtils
         return directory;
     }
 
+    /** {@link File#listFiles()}, failing with the directory named instead of returning null. */
+    public static File[] listFiles(File directory)
+    {
+        File[] files = directory.listFiles();
+        if (files == null) {
+            throw new IllegalStateException("could not list " + directory);
+        }
+        return files;
+    }
+
     public static String readFileUtf8(File file)
     {
         try {

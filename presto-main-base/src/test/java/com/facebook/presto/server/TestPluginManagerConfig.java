@@ -17,10 +17,13 @@ import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.airlift.resolver.ArtifactResolver;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.nio.file.Paths;
 import java.util.Map;
+
+import static org.testng.Assert.assertEquals;
 
 public class TestPluginManagerConfig
 {
@@ -31,6 +34,7 @@ public class TestPluginManagerConfig
                 .setInstalledPluginsDir(Paths.get("plugin").toFile())
                 .setPlugins((String) null)
                 .setDisabledConnectors("")
+                .setExcludedJars("")
                 .setMavenLocalRepository(ArtifactResolver.USER_LOCAL_REPO)
                 .setMavenRemoteRepository(ArtifactResolver.MAVEN_CENTRAL_URI));
     }
@@ -42,6 +46,7 @@ public class TestPluginManagerConfig
                 .put("plugin.dir", "plugins-dir")
                 .put("plugin.bundles", "a,b,c")
                 .put("plugin.disabled-connectors", "scuba,prism")
+                .put("plugin.excluded-jars", "a.jar, b.jar")
                 .put("maven.repo.local", "local-repo")
                 .put("maven.repo.remote", "remote-a,remote-b")
                 .build();
@@ -50,9 +55,17 @@ public class TestPluginManagerConfig
                 .setInstalledPluginsDir(Paths.get("plugins-dir").toFile())
                 .setPlugins(ImmutableList.of("a", "b", "c"))
                 .setDisabledConnectors("scuba,prism")
+                .setExcludedJars("a.jar,b.jar")
                 .setMavenLocalRepository("local-repo")
                 .setMavenRemoteRepository(ImmutableList.of("remote-a", "remote-b"));
 
         ConfigAssertions.assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testExcludedJars()
+    {
+        assertEquals(new PluginManagerConfig().setExcludedJars(" a.jar , b.jar ,").getExcludedJars(), ImmutableSet.of("a.jar", "b.jar"));
+        assertEquals(new PluginManagerConfig().setExcludedJars("").getExcludedJars(), ImmutableSet.of());
     }
 }

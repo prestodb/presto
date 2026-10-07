@@ -243,6 +243,26 @@ complete. Enabling this property defers the ``ACTIVE`` state until startup has f
 finished, so that external components such as load balancers, routers, and health
 checks do not route queries to a coordinator that is still initializing.
 
+``plugin.excluded-jars``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** (empty)
+
+A comma-separated list of jar file names that plugins loaded from a plugin directory
+must not open, for example ``hudi-presto-bundle-0.14.0.jar,fastutil-8.5.2.jar``. A name
+excludes that jar in every plugin directory. If excluding the listed jars would leave a
+plugin directory with no jars, that directory is loaded whole.
+
+Every jar a plugin class loader opens keeps a copy of the jar's ZIP central directory on
+the heap for the life of the process, whether or not a class is ever loaded from it.
+Excluding large jars that a process never uses reduces that memory. Only exclude jars that
+are known to be unused: a class from an excluded jar fails to load.
+
+When not set, every jar in a plugin directory is loaded. Presto on Spark sets this property
+on native executors from the executor classpath manifest; see
+:ref:`admin/spark:Executor Classpath Manifest`.
+
 Memory Management Properties
 ----------------------------
 
