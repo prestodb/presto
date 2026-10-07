@@ -76,11 +76,14 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.facebook.presto.operator.PageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static com.facebook.presto.operator.PageBufferClient.PagesResponse.createPagesResponse;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeExecutionCompressTaskUpdateEnabled;
 import static com.facebook.presto.spark.execution.http.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.spark.execution.http.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.readSerializedPages;
+import static com.google.common.net.HttpHeaders.CONTENT_ENCODING;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static com.google.common.util.concurrent.Futures.addCallback;
@@ -96,6 +99,7 @@ public class PrestoSparkHttpTaskClient
 {
     private static final String TASK_URI = "/v1/task/";
     private static final String DROP_TASK_ON_DELETE_URL_PARAM = "dropTaskOnDelete";
+    private static final String ZSTD_CONTENT_ENCODING = "zstd";
     private static final Logger log = Logger.get(PrestoSparkHttpTaskClient.class);
     private final OkHttpClient httpClient;
     private final URI location;
@@ -264,11 +268,21 @@ public class PrestoSparkHttpTaskClient
         HttpUrl url = HttpUrl.get(getTaskUri(taskId)).newBuilder()
                 .addPathSegment("batch")
                 .build();
-        byte[] requestBody = taskUpdateRequestCodec.toBytes(batchTaskUpdateRequest);
-        Request request = setContentTypeHeaders(new Request.Builder())
+        // The body is mostly per-split metadata that repeats, so it compresses well, and streaming it
+        // through the compressor avoids materializing the uncompressed body (and its full-size copy).
+        boolean compress = isNativeExecutionCompressTaskUpdateEnabled(session);
+        byte[] requestBody = compress
+                ? serializeZstdCompressed(taskUpdateRequestCodec, batchTaskUpdateRequest)
+                : taskUpdateRequestCodec.toBytes(batchTaskUpdateRequest);
+        Request.Builder requestBuilder = setContentTypeHeaders(new Request.Builder())
                 .url(url)
-                .post(RequestBody.create(MediaType.parse(JSON_UTF_8.toString()), requestBody))
-                .build();
+                .post(RequestBody.create(MediaType.parse(JSON_UTF_8.toString()), requestBody));
+        if (compress) {
+            // The native worker decompresses whenever Content-Encoding is set and not identity,
+            // and accepts only zstd
+            requestBuilder.header(CONTENT_ENCODING, ZSTD_CONTENT_ENCODING);
+        }
+        Request request = requestBuilder.build();
         ListenableFuture<TaskInfo> future = executeWithRetries(
                 "updateTask",
                 "create or update remote task",
