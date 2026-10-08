@@ -66,7 +66,6 @@ import static org.apache.iceberg.expressions.Expressions.and;
 import static org.apache.iceberg.expressions.Expressions.equal;
 import static org.apache.iceberg.expressions.Expressions.greaterThan;
 import static org.apache.iceberg.expressions.Expressions.greaterThanOrEqual;
-import static org.apache.iceberg.expressions.Expressions.in;
 import static org.apache.iceberg.expressions.Expressions.isNull;
 import static org.apache.iceberg.expressions.Expressions.lessThan;
 import static org.apache.iceberg.expressions.Expressions.lessThanOrEqual;
@@ -75,11 +74,6 @@ import static org.apache.iceberg.expressions.Expressions.or;
 
 public final class ExpressionConverter
 {
-    // ManifestEvaluator and InclusiveMetricsEvaluator define IN_PREDICATE_LIMIT = 200.
-    // For IN sets larger than the limit they skip bounds checking and return ROWS_MIGHT_MATCH
-    // unconditionally, defeating manifest and file pruning.  Keep each chunk within the limit.
-    private static final int ICEBERG_IN_PREDICATE_LIMIT = 200;
-
     private ExpressionConverter() {}
 
     public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain)
@@ -154,17 +148,15 @@ public final class ExpressionConverter
 
             List<Object> equalityValues = equalityValuesBuilder.build();
             if (!equalityValues.isEmpty()) {
-                // Chunk into IN predicates of at most ICEBERG_IN_PREDICATE_LIMIT each so
-                // ManifestEvaluator / InclusiveMetricsEvaluator still prune by bounds.
-                // Combine chunks with buildOrTree so depth stays O(log(N/200)).
-                ImmutableList.Builder<Expression> chunkExprs = ImmutableList.builder();
-                for (int i = 0; i < equalityValues.size(); i += ICEBERG_IN_PREDICATE_LIMIT) {
-                    List<Object> chunk = equalityValues.subList(i, Math.min(i + ICEBERG_IN_PREDICATE_LIMIT, equalityValues.size()));
-                    chunkExprs.add(chunk.size() == 1
-                            ? equal(columnName, chunk.get(0))
-                            : in(columnName, chunk));
+                // Build a balanced OR tree of equal() predicates (depth O(log N)).
+                // Iceberg's in() throws NullPointerException when the partition value is null
+                // (partition evolution leaves null partition entries for pre-evolution files).
+                // Individual equal() predicates use null-safe comparators and are safe.
+                ImmutableList.Builder<Expression> equalExprs = ImmutableList.builder();
+                for (Object v : equalityValues) {
+                    equalExprs.add(equal(columnName, v));
                 }
-                expression = or(expression, buildOrTree(chunkExprs.build()));
+                expression = or(expression, buildOrTree(equalExprs.build()));
             }
 
             List<Expression> rangeExprs = rangeExprsBuilder.build();

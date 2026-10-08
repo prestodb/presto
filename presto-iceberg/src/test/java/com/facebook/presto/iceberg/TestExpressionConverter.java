@@ -72,8 +72,8 @@ public class TestExpressionConverter
 
         Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
 
-        // 5,000 values -> 25 chunks -> balanced depth <= 10 (log2(25) ~ 5, plus wrapper levels)
-        assertTrue(depth(expression) <= 10, "expected a shallow tree, got depth " + depth(expression));
+        // 5,000 values -> balanced equal() tree, depth = ceil(log2(5000)) ~ 13
+        assertTrue(depth(expression) <= 15, "expected a shallow tree, got depth " + depth(expression));
 
         // Verify no value is lost, including at chunk boundaries (e.g., 19200).
         int[] holder = {0};
@@ -134,10 +134,9 @@ public class TestExpressionConverter
         assertFalse(evalOnDate(expression, 19100L), "value after range should not match");
     }
 
-    // Chunk boundary: at exactly 200 values a single in() is used; at 201 values it is split
-    // into chunks and both must still prune a file whose bounds exclude all predicate values.
+    // Balanced equal() tree must still prune a file whose bounds exclude all predicate values.
     @Test
-    public void testChunkBoundaryPreservesPruning()
+    public void testLargeEqualityDomainPreservesPruning()
     {
         // File with created_date values in [15000, 15099]: below all predicate values (19000+).
         ByteBuffer lower = Conversions.toByteBuffer(Types.DateType.get(), 15000);
@@ -157,19 +156,19 @@ public class TestExpressionConverter
                 .withMetrics(fileMetrics)
                 .build();
 
-        // 200 values — single in() within IN_PREDICATE_LIMIT: file must be pruned.
+        // 200 values: balanced equal() tree must prune the file.
         Domain domain200 = Domain.multipleValues(DateType.DATE, buildDateValues(200));
         Expression expr200 = ExpressionConverter.toIcebergExpression(
                 TupleDomain.withColumnDomains(ImmutableMap.of(CREATED_DATE_HANDLE, domain200)));
         assertFalse(new InclusiveMetricsEvaluator(DATE_ICEBERG_SCHEMA, expr200).eval(file),
                 "200-value domain should prune a file with no matching values");
 
-        // 201 values — split into two chunks; each chunk must independently prune the file.
+        // 201 values: balanced equal() tree must still prune the file.
         Domain domain201 = Domain.multipleValues(DateType.DATE, buildDateValues(201));
         Expression expr201 = ExpressionConverter.toIcebergExpression(
                 TupleDomain.withColumnDomains(ImmutableMap.of(CREATED_DATE_HANDLE, domain201)));
         assertFalse(new InclusiveMetricsEvaluator(DATE_ICEBERG_SCHEMA, expr201).eval(file),
-                "201-value domain should still prune a file with no matching values (chunked in()s)");
+                "201-value domain should prune a file with no matching values");
     }
 
     // Null-allowed domain must include an isNull() predicate OR'd with the value predicate.
