@@ -361,8 +361,8 @@ public class TestPageBufferClient
                 pageBufferClientCallbackExecutor);
 
         // Schedule a GET request. CancelledDeleteRpcShuffleClient returns an
-        // already-completed empty (non-complete) PagesResponse, so onSuccess fires
-        // synchronously and calls requestComplete(client) → awaitDone().
+        // already-completed empty (non-complete) PagesResponse, so the callback
+        // executor invokes onSuccess, which calls requestComplete(client) → awaitDone().
         client.scheduleRequest(expectedMaxSize);
         // Wait for the GET callback (requestComplete).
         requestComplete.await(10, TimeUnit.SECONDS);

@@ -418,15 +418,23 @@ public final class PageBufferClient
                 // as an error or propagate it to the callback.
                 if (t instanceof CancellationException) {
                     backoff.success();
+                    boolean isCurrent;
                     synchronized (PageBufferClient.this) {
                         closed = true;
-                        if (future == resultFuture) {
+                        isCurrent = (future == resultFuture);
+                        if (isCurrent) {
                             future = null;
                         }
                         lastUpdate = currentTimeMillis();
                     }
                     requestsCompleted.incrementAndGet();
-                    clientCallback.clientFinished(PageBufferClient.this);
+                    // Only invoke clientFinished when this callback owns the current DELETE
+                    // future. If close() raced, cancelled this future, and issued a replacement
+                    // DELETE, this callback belongs to the superseded request and the
+                    // replacement will call clientFinished when it completes.
+                    if (isCurrent) {
+                        clientCallback.clientFinished(PageBufferClient.this);
+                    }
                     return;
                 }
 
