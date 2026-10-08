@@ -24,7 +24,6 @@ Release 0.299
 
 General Changes
 _______________
-* Add support for dotted column paths in ``ALTER TABLE ... ADD COLUMN`` to add fields to nested ``ROW`` columns; the SQL parser now accepts a qualified path as the column name. `#28342 <https://github.com/prestodb/presto/pull/28342>`_
 * Fix BATCH-mode RPC dispatch dropping and under-batching rows by gathering RPC input to a single driver in the local plan. `#28230 <https://github.com/prestodb/presto/pull/28230>`_
 * Fix incorrect epoch-second and nanosecond decomposition for pre-1970 (negative) timestamps in TimestampType; getEpochSecond and getNanos now use floor division instead of truncation toward zero. `#27935 <https://github.com/prestodb/presto/pull/27935>`_
 * Fix the ``optimize_row_in_predicate`` optimization so it applies to constant-folded ``ROW(...) IN (...)`` predicates, enabling per-column predicate derivation and partition pruning that previously did not occur. `#27942 <https://github.com/prestodb/presto/pull/27942>`_
@@ -110,7 +109,6 @@ ______________________
 
 Iceberg Connector Changes
 _________________________
-* Add support for adding fields to nested ``ROW`` columns using ``ALTER TABLE ... ADD COLUMN`` with a dotted path. `#28342 <https://github.com/prestodb/presto/pull/28342>`_
 * Fix ``DROP TABLE`` for Hive-backed Iceberg tables to properly delete all data and metadata files on S3 using Iceberg's CatalogUtil instead of relying on Hive metastore directory deletion. `#27938 <https://github.com/prestodb/presto/pull/27938>`_
 * Fix timestamp-to-micros conversion and legacy-timezone adjustment in IcebergPageSink for pre-epoch timestamps, using the corrected TimestampType epoch helpers. `#27935 <https://github.com/prestodb/presto/pull/27935>`_
 * Improve Iceberg table statistics computation by using snapshot-level total record counts instead of re-scanning manifests. `#28248 <https://github.com/prestodb/presto/pull/28248>`_
@@ -140,7 +138,6 @@ ________________________
 
 SPI Changes
 ___________
-* Add ``ConnectorMetadata.addField`` to support adding a field to a nested ``ROW`` column by path. `#28342 <https://github.com/prestodb/presto/pull/28342>`_
 * Add ``OutputColumnMetadata.getColumnLineage()`` returning a unified ``Set<ColumnLineageEntry>`` that covers both DIRECT and INDIRECT lineage from :pr:`27695`, with direct entries carrying ``IDENTITY``, ``TRANSFORMATION``, or ``AGGREGATION`` subtypes derived from the SELECT-list expression. ``getSourceColumns()`` and ``getIndirectSourceColumns()`` are retained as derived views and marked ``@Deprecated``; existing event listeners and JSON consumers are unaffected. `#27995 <https://github.com/prestodb/presto/pull/27995>`_
 * Add ``getScanRawInputBytes`` to ``QueryStatistics``. Note: this adds a required constructor argument; plugins that construct ``QueryStatistics`` directly must be updated. `#28222 <https://github.com/prestodb/presto/pull/28222>`_
 * Add a ``ConnectorMetadata.beginRefreshMaterializedView``` overload that carries the materialized view refresh predicate (refresh scope) to connectors. `#27949 <https://github.com/prestodb/presto/pull/27949>`_

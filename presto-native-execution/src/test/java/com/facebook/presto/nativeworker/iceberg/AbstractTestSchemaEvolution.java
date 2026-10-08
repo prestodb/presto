@@ -58,7 +58,7 @@ import static org.testng.Assert.assertTrue;
  * workers. Each scenario evolves an Iceberg table's schema and asserts that the
  * native reader resolves columns by Iceberg field id (not by name or position).
  *
- * Concrete subclasses bind the storage format (PARQUET, ORC) so the same matrix
+ * Concrete subclasses bind the storage format (PARQUET) so the same matrix
  * runs against every reader and proves parity.
  *
  * Top-level column reordering via {@code ALTER TABLE … ADD COLUMN … FIRST|AFTER}
