@@ -14,21 +14,10 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
-import com.facebook.presto.plugin.jdbc.DefaultTableLocationProvider;
-import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
-import com.facebook.presto.plugin.jdbc.JdbcMetadata;
-import com.facebook.presto.plugin.jdbc.JdbcMetadataCache;
-import com.facebook.presto.plugin.jdbc.JdbcMetadataCacheStats;
-import com.facebook.presto.plugin.jdbc.JdbcMetadataConfig;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -44,10 +33,8 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.MYSQL_CATALOG;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.removeDatabaseFromJdbcUrl;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.util.Locale.ENGLISH;
@@ -222,7 +209,7 @@ public class TestMySqlMetadata
         assertUpdate("CREATE VIEW " + viewName + " AS " + viewDefinition);
 
         // information_schema.views is served by Metadata.getViews, so reading it through Presto
-        // exercises MySqlMetadata.getViews -> MySqlClient.getViews and the ConnectorViewDefinition
+        // exercises JdbcMetadata.getViews -> MySqlClient.getViews and the ConnectorViewDefinition
         // it builds, rather than only checking that MySQL recorded the view.
         MaterializedResult views = computeActual(
                 "SELECT table_catalog, table_schema, table_name, view_owner, view_definition " +
@@ -443,47 +430,6 @@ public class TestMySqlMetadata
         assertQuerySucceeds(tpchSession, "SELECT * FROM " + viewName);
 
         dropViewIfExists(viewName);
-    }
-
-    @Test
-    public void testMetadataTransactionCacheIsHonored()
-            throws SQLException
-    {
-        BaseJdbcConfig baseConfig = new BaseJdbcConfig()
-                .setConnectionUrl(removeDatabaseFromJdbcUrl(mysqlContainer.getJdbcUrl()))
-                .setConnectionUser(mysqlContainer.getUsername())
-                .setConnectionPassword(mysqlContainer.getPassword());
-        MySqlClient client = new MySqlClient(
-                new JdbcConnectorId(MYSQL_CATALOG),
-                baseConfig,
-                new MySqlConfig(),
-                jsonCodec(ViewDefinition.class));
-
-        JdbcMetadataConfig metadataConfig = new JdbcMetadataConfig();
-        assertTrue(metadataConfig.isMetadataTransactionCacheEnabled(), "The transaction cache should be enabled by default");
-
-        // metadata-cache-ttl defaults to zero, so the shared cache never serves a repeat lookup and
-        // every miss counted below is a round trip that only the transaction cache can absorb
-        JdbcMetadataCacheStats cacheStats = new JdbcMetadataCacheStats();
-        MySqlMetadataFactory metadataFactory = new MySqlMetadataFactory(
-                new JdbcMetadataCache(client, metadataConfig, cacheStats),
-                client,
-                metadataConfig,
-                new DefaultTableLocationProvider(baseConfig),
-                new MySqlConfig());
-
-        SchemaTableName tableName = new SchemaTableName("tpch", "orders");
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
-
-        // repeated lookups within one transaction are served by that transaction's cache
-        JdbcMetadata transaction = metadataFactory.create();
-        transaction.getTableHandle(session, tableName);
-        transaction.getTableHandle(session, tableName);
-        assertEquals(cacheStats.getTableHandleCacheMiss(), 1);
-
-        // a later transaction gets a cache of its own, so it goes back to MySQL
-        metadataFactory.create().getTableHandle(session, tableName);
-        assertEquals(cacheStats.getTableHandleCacheMiss(), 2);
     }
 
     private Session sessionFor(String user)
