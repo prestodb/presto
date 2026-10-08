@@ -264,6 +264,7 @@ public final class SystemSessionProperties
     public static final String CHECK_ACCESS_CONTROL_WITH_SUBFIELDS = "check_access_control_with_subfields";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
+    public static final String WARN_ON_WINDOW_WITHOUT_PARTITION_BY = "warn_on_window_without_partition_by";
     public static final String ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR = "enforce_fixed_distribution_for_output_operator";
     public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
     public static final String OPTIMIZE_JOINS_WITH_EMPTY_SOURCES = "optimize_joins_with_empty_sources";
@@ -1510,6 +1511,11 @@ public final class SystemSessionProperties
                         featuresConfig.isAllowWindowOrderByLiterals(),
                         false),
                 booleanProperty(
+                        WARN_ON_WINDOW_WITHOUT_PARTITION_BY,
+                        "Emit a performance warning for window functions whose window has no PARTITION BY",
+                        featuresConfig.isWarnOnWindowWithoutPartitionBy(),
+                        false),
+                booleanProperty(
                         ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR,
                         "Enforce fixed distribution for output operator",
                         featuresConfig.isEnforceFixedDistributionForOutputOperator(),
@@ -2533,6 +2539,11 @@ public final class SystemSessionProperties
     public static boolean isAllowWindowOrderByLiterals(Session session)
     {
         return session.getSystemProperty(ALLOW_WINDOW_ORDER_BY_LITERALS, Boolean.class);
+    }
+
+    public static boolean isWarnOnWindowWithoutPartitionBy(Session session)
+    {
+        return session.getSystemProperty(WARN_ON_WINDOW_WITHOUT_PARTITION_BY, Boolean.class);
     }
 
     public static boolean isKeyBasedSamplingEnabled(Session session)

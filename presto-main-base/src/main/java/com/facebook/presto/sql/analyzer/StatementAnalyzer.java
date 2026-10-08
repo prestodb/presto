@@ -269,6 +269,7 @@ import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedVi
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestampWithTimezone;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
+import static com.facebook.presto.SystemSessionProperties.isWarnOnWindowWithoutPartitionBy;
 import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -437,6 +438,12 @@ class StatementAnalyzer
             QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "current_time"),
             QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "localtime"),
             QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "localtimestamp"));
+    // Ranking functions ordered within a single partition usually express a top-N query, which the planner evaluates in
+    // parallel instead of on a single node (see WindowFilterPushDown), so they are excluded from the PARTITION BY warning
+    private static final Set<QualifiedObjectName> TOP_N_RANKING_FUNCTIONS = ImmutableSet.of(
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "row_number"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "rank"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "dense_rank"));
     private final Analysis analysis;
     private final Metadata metadata;
     private final FunctionAndTypeResolver functionAndTypeResolver;
@@ -4377,13 +4384,44 @@ class StatementAnalyzer
                     analyzeWindowFrame(window.getFrame().get());
                 }
 
-                FunctionKind kind = functionAndTypeResolver.getFunctionMetadata(analysis.getFunctionHandle(windowFunction)).getFunctionKind();
+                FunctionMetadata functionMetadata = functionAndTypeResolver.getFunctionMetadata(analysis.getFunctionHandle(windowFunction));
+                FunctionKind kind = functionMetadata.getFunctionKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
                     throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
+                }
+
+                if (isWarnOnWindowWithoutPartitionBy(session) && shouldWarnOnWindowWithoutPartitionBy(window, functionMetadata)) {
+                    warningCollector.add(new PrestoWarning(PERFORMANCE_WARNING, createWindowWithoutPartitionByWarningMessage(windowFunction, window, kind)));
                 }
             }
 
             return windowFunctions;
+        }
+
+        /**
+         * A window without PARTITION BY is a single partition, which the planner places behind a gathering exchange
+         * so that one node evaluates every row. The resolved window already contains any PARTITION BY inherited from
+         * a named WINDOW, so only windows that are unpartitioned after resolution are reported. Ranking functions
+         * with an ORDER BY are skipped because they usually express a top-N query that the planner parallelizes.
+         */
+        private boolean shouldWarnOnWindowWithoutPartitionBy(ResolvedWindow window, FunctionMetadata functionMetadata)
+        {
+            if (!window.getPartitionBy().isEmpty()) {
+                return false;
+            }
+            return !(window.getOrderBy().isPresent() && TOP_N_RANKING_FUNCTIONS.contains(functionMetadata.getName()));
+        }
+
+        private String createWindowWithoutPartitionByWarningMessage(FunctionCall windowFunction, ResolvedWindow window, FunctionKind kind)
+        {
+            String description = format(
+                    "Window function '%s' has no PARTITION BY, so the window is evaluated on a single node, which can be slow for large inputs",
+                    windowFunction.getName());
+            // Without ORDER BY or a frame the aggregate covers the whole partition, so every row receives the same value
+            if (kind == AGGREGATE && !window.getOrderBy().isPresent() && !window.getFrame().isPresent()) {
+                description += ". Consider computing the aggregate in a separate query and joining it back with a CROSS JOIN";
+            }
+            return createWarningMessage(windowFunction, description);
         }
 
         private void analyzeWindowFrame(WindowFrame frame)

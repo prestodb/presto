@@ -932,6 +932,19 @@ concurrency.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.local-exchange-parent-preference-strategy\`\``.
 
+``warn_on_window_without_partition_by``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Emit a performance warning for window functions whose window has no ``PARTITION BY``,
+because such a window is evaluated on a single node. This property does not affect
+window functions inside a view definition, which are analyzed with the view owner's
+session; use the configuration property to control those.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`analyzer.warn-on-window-without-partition-by\`\``.
+
 ``join_prefilter_build_side_with_complex_probe_side``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
