@@ -695,13 +695,8 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
     }
   }
 
-  // Row-lineage columns (_row_id, _last_updated_sequence_number) requested
-  // purely in the SELECT projection -- not in a filter predicate or as a
-  // partition column -- must also reach finalDataColumns below. Otherwise the
-  // Velox reader never learns their Parquet field IDs and silently falls back
-  // to firstRowId+position / the file's own dataSequenceNumber instead of
-  // each row's real physical value written by an external row-preserving
-  // UPDATE/MERGE.
+  // Projection-only row lineage columns must reach finalDataColumns so the
+  // reader knows their Parquet field IDs and returns stored values.
   if (icebergLayout->requestedColumns) {
     for (const auto& entry : *icebergLayout->requestedColumns) {
       if (kRowLineageColumnNames.count(entry.columnIdentity.name) &&

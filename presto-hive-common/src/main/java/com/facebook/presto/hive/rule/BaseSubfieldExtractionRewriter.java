@@ -273,11 +273,7 @@ public abstract class BaseSubfieldExtractionRewriter
                 tableHandle);
     }
 
-    // 'desiredColumns' is the table scan's actual output (tableScan.getAssignments().values()), not
-    // 'currentLayoutHandle', because pushdown-filter-enabled connectors skip the legacy
-    // getTableLayoutForConstraint()/desiredColumns SPI path entirely (see
-    // ConnectorMetadata#isLegacyGetLayoutSupported), so 'currentLayoutHandle' is empty on the call
-    // that establishes the layout and there is otherwise no way to learn which columns the query needs.
+    // 'desiredColumns' are the table scan's output columns; 'currentLayoutHandle' is empty on the first pushdown call
     protected abstract ConnectorPushdownFilterResult getConnectorPushdownFilterResult(
             Map<String, ColumnHandle> columnHandles,
             ConnectorMetadata metadata,
