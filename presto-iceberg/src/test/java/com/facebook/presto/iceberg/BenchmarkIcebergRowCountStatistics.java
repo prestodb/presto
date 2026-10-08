@@ -39,17 +39,29 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 
+/**
+ * Measures planning a query whose table scan reads no columns, so the statistics the optimizer asks
+ * the connector for can only use the row count.
+ *
+ * <p>Aggregate pushdown is off, so {@code count(*)} is planned as an aggregation over a scan rather
+ * than folded to a constant, and EXPLAIN makes the optimizer cost that scan. The table is written
+ * in ten inserts of a thousand partitions each, so its manifests list thousands of data files.
+ *
+ * <ul>
+ *   <li>{@link #explainCountStar} - unfiltered, so the row count can come from the snapshot summary
+ *   <li>{@link #explainCountStarWithFilter} - filtered on the partition column, which the summary
+ *       cannot answer, so the manifests are still read; the control
+ * </ul>
+ */
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(1)
 @Warmup(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 10, time = 2, timeUnit = TimeUnit.SECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkIcebergAggregatePushDown
+public class BenchmarkIcebergRowCountStatistics
 {
     DistributedQueryRunner queryRunner;
-    Session writerSession;
-    Session aggregatePushDownEnabledSession;
     Session aggregatePushDownDisabledSession;
 
     @Setup
@@ -58,7 +70,7 @@ public class BenchmarkIcebergAggregatePushDown
         queryRunner = IcebergQueryRunner.builder()
                 .build()
                 .getQueryRunner();
-        writerSession = Session.builder(queryRunner.getDefaultSession())
+        Session writerSession = Session.builder(queryRunner.getDefaultSession())
                 .setCatalogSessionProperty("iceberg", "max_partitions_per_writer", "1000")
                 .build();
         queryRunner.execute(writerSession, "create table iceberg_lineitem with (partitioning = ARRAY['suppkey']) " +
@@ -68,65 +80,24 @@ public class BenchmarkIcebergAggregatePushDown
                     "select * from tpch.sf1.lineitem where suppkey > " + i * 1000 + " and suppkey <= " + (i + 1) * 1000);
         }
 
-        aggregatePushDownEnabledSession = Session.builder(queryRunner.getDefaultSession())
-                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "true")
-                .build();
         aggregatePushDownDisabledSession = Session.builder(queryRunner.getDefaultSession())
                 .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "false")
                 .build();
     }
 
     @Benchmark
-    public void aggregatePushDownEnabledQuery(Blackhole bh)
-    {
-        MaterializedResult result = queryRunner.execute(aggregatePushDownEnabledSession,
-                "select count(*), min(orderkey), max(orderkey), min(commitdate), max(commitdate)" +
-                        " from iceberg_lineitem");
-        bh.consume(result.getRowCount());
-    }
-
-    @Benchmark
-    public void aggregatePushDownDisabledQuery(Blackhole bh)
+    public void explainCountStar(Blackhole bh)
     {
         MaterializedResult result = queryRunner.execute(aggregatePushDownDisabledSession,
-                "select count(*), min(orderkey), max(orderkey), min(commitdate), max(commitdate)" +
-                        " from iceberg_lineitem");
+                "explain select count(*) from iceberg_lineitem");
         bh.consume(result.getRowCount());
     }
 
     @Benchmark
-    public void aggregatePushDownEnabledQueryWithFilter(Blackhole bh)
-    {
-        MaterializedResult result = queryRunner.execute(aggregatePushDownEnabledSession,
-                "select count(*), min(orderkey), max(orderkey), min(commitdate), max(commitdate)" +
-                        " from iceberg_lineitem" +
-                        " where suppkey > 1000 and suppkey <= 9000");
-        bh.consume(result.getRowCount());
-    }
-
-    @Benchmark
-    public void aggregatePushDownDisabledQueryWithFilter(Blackhole bh)
+    public void explainCountStarWithFilter(Blackhole bh)
     {
         MaterializedResult result = queryRunner.execute(aggregatePushDownDisabledSession,
-                "select count(*), min(orderkey), max(orderkey), min(commitdate), max(commitdate)" +
-                        " from iceberg_lineitem" +
-                        " where suppkey > 1000 and suppkey <= 9000");
-        bh.consume(result.getRowCount());
-    }
-
-    @Benchmark
-    public void aggregatePushDownEnabledCountStar(Blackhole bh)
-    {
-        MaterializedResult result = queryRunner.execute(aggregatePushDownEnabledSession,
-                "select count(*) from iceberg_lineitem");
-        bh.consume(result.getRowCount());
-    }
-
-    @Benchmark
-    public void aggregatePushDownEnabledCountStarWithFilter(Blackhole bh)
-    {
-        MaterializedResult result = queryRunner.execute(aggregatePushDownEnabledSession,
-                "select count(*) from iceberg_lineitem" +
+                "explain select count(*) from iceberg_lineitem" +
                         " where suppkey > 1000 and suppkey <= 9000");
         bh.consume(result.getRowCount());
     }
@@ -144,7 +115,7 @@ public class BenchmarkIcebergAggregatePushDown
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .warmupMode(WarmupMode.INDI)
-                .include(".*" + BenchmarkIcebergAggregatePushDown.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkIcebergRowCountStatistics.class.getSimpleName() + ".*")
                 .build();
         new Runner(options).run();
     }
