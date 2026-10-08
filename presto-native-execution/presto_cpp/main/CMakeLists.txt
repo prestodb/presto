@@ -79,6 +79,12 @@ if(PRESTO_ENABLE_CUDF)
   # The symbols from velox_cudf_exec are not included in the Velox mono library
   # and need to be linked separately.
   target_link_libraries(presto_server_lib velox_cudf_exec)
+  # Same for velox_ucx_exchange, which velox_cudf_exec links privately: this is
+  # also what puts the ucxx include directories on the compile line for
+  # PrestoServer.cpp, which starts the UCX Communicator.
+  if(VELOX_ENABLE_UCX_EXCHANGE)
+    target_link_libraries(presto_server_lib velox_ucx_exchange)
+  endif()
 endif()
 
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
