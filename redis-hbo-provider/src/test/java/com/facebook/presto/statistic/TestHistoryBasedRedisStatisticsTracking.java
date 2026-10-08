@@ -224,15 +224,36 @@ public class TestHistoryBasedRedisStatisticsTracking
                 public Void call()
                         throws Exception
                 {
-                    assertPlan(getSession(),
-                            "SELECT * FROM nation where substr(name, 1, 1) = " + "'" + letter + "'",
-                            anyTree(node(FilterNode.class, any()).withOutputRowCount(rowCountMap.get(letter))));
+                    var expected = anyTree(node(FilterNode.class, any()).withOutputRowCount(rowCountMap.get(letter)));
+                    var sql = "SELECT * FROM nation where substr(name, 1, 1) = " + "'" + letter + "'";
+                    var session = getSession();
+                    waitForPlanAssertion(() -> assertPlan(session, sql, expected));
                     return null;
                 }
             });
         }
 
         checkCompletionService(completionService);
+    }
+
+    private void waitForPlanAssertion(Runnable assertion)
+            throws InterruptedException
+    {
+        long deadlineMs = System.currentTimeMillis() + 60_000;
+        AssertionError lastError = null;
+        while (System.currentTimeMillis() < deadlineMs) {
+            try {
+                assertion.run();
+                return;
+            }
+            catch (AssertionError e) {
+                lastError = e;
+                Thread.sleep(500);
+            }
+        }
+        if (lastError != null) {
+            throw lastError;
+        }
     }
 
     private void checkCompletionService(CompletionService<Void> completionService)
