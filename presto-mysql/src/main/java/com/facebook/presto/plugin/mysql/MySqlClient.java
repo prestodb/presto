@@ -99,7 +99,9 @@ public class MySqlClient
      */
     private static final int ER_PARSE_ERROR = 1064;
     private static final int ER_NO_DB_ERROR = 1046;
+
     private final JsonCodec<ViewDefinition> viewCodec;
+    private final boolean datasourceManagedViewsEnabled;
 
     @Inject
     public MySqlClient(
@@ -111,6 +113,7 @@ public class MySqlClient
     {
         super(connectorId, config, "`", connectionFactory(config, mySqlConfig));
         this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
+        this.datasourceManagedViewsEnabled = mySqlConfig.isDatasourceManagedViewsEnabled();
     }
 
     private static ConnectionFactory connectionFactory(BaseJdbcConfig config, MySqlConfig mySqlConfig)
@@ -327,6 +330,11 @@ public class MySqlClient
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
+        // Reporting no views leaves MySQL to resolve the view definition itself: Presto never
+        // analyzes the stored SQL and reaches the view through the normal table flow instead.
+        if (datasourceManagedViewsEnabled) {
+            return ImmutableMap.of();
+        }
         JdbcIdentity identity = JdbcIdentity.from(session);
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
 
@@ -427,6 +435,11 @@ public class MySqlClient
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
+        // Listed views would be reported by SHOW VIEWS and typed as views in information_schema
+        // even though getViews reports none of them, so datasource-managed mode lists none either.
+        if (datasourceManagedViewsEnabled) {
+            return ImmutableList.of();
+        }
         JdbcIdentity identity = JdbcIdentity.from(session);
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
