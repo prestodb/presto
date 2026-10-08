@@ -591,7 +591,7 @@ final class ShowQueriesRewrite
                         .map(column -> {
                             List<Property> propertyNodes = buildProperties(toQualifiedName(objectName, Optional.of(column.getName())), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
                             return new ColumnDefinition(Optional.empty(),
-                                    QueryUtil.quotedIdentifier(column.getName()),
+                                    QualifiedName.of(ImmutableList.of(QueryUtil.quotedIdentifier(column.getName()))),
                                     column.getType().getDisplayName(),
                                     column.isNullable() && !notNullColumns.contains(column.getName()),
                                     propertyNodes,

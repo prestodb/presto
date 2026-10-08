@@ -61,14 +61,9 @@ import static org.testng.Assert.assertTrue;
  * Concrete subclasses bind the storage format (PARQUET) so the same matrix
  * runs against every reader and proves parity.
  *
- * One velox-level scenario is intentionally absent because it is not
- * expressible as Presto Iceberg SQL DDL and is covered by the velox unit/e2e
- * tests instead:
- * - nested struct field add/drop/reorder (the connector only evolves top-level
- *   columns).
- *
  * Top-level column reordering via {@code ALTER TABLE … ADD COLUMN … FIRST|AFTER}
  * is tested by {@link #testAddColumnFirst} and {@link #testAddColumnAfter}.
+ * Nested struct field ADD COLUMN is tested by {@link #testAddNestedStructField}.
  */
 public abstract class AbstractTestSchemaEvolution
         extends AbstractTestQueryFramework
@@ -512,6 +507,43 @@ public abstract class AbstractTestSchemaEvolution
             assertQuery(format("SELECT id FROM %s WHERE rec_source = 'B' ORDER BY id", table),
                     "VALUES 2, 4");
             assertQuery(format("SELECT count(*) FROM %s", table), "VALUES 4");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s", table));
+        }
+    }
+
+    // Nested struct field ADD COLUMN: the DDL is coordinator-side only.
+    // The native reader must resolve the new field by Iceberg field id and
+    // null-fill for rows written before the field was added.
+    @Test
+    public void testAddNestedStructField()
+    {
+        String table = "schema_evolution_nested_add";
+        try {
+            assertUpdate(format(
+                    "CREATE TABLE %s (id INTEGER, info ROW(name VARCHAR, age INTEGER)) WITH (format = '%s')",
+                    table, storageFormat()));
+            assertUpdate(format("INSERT INTO %s VALUES (1, ROW('alice', 30)), (2, ROW('bob', 25))", table), 2);
+
+            // DDL: add a new field inside the nested struct — coordinator-side metadata only.
+            assertUpdate(format("ALTER TABLE %s ADD COLUMN info.email VARCHAR", table));
+
+            // Old rows must null-fill the new field; the rest of the struct must still be readable.
+            assertQuery(
+                    format("SELECT id, info.name, info.age, info.email FROM %s ORDER BY id", table),
+                    "VALUES (1, 'alice', 30, NULL), (2, 'bob', 25, NULL)");
+
+            // New rows carry a value for the new field.
+            assertUpdate(format("INSERT INTO %s VALUES (3, ROW('carol', 35, 'carol@example.com'))", table), 1);
+            assertQuery(
+                    format("SELECT id, info.name, info.age, info.email FROM %s ORDER BY id", table),
+                    "VALUES (1, 'alice', 30, NULL), (2, 'bob', 25, NULL), (3, 'carol', 35, 'carol@example.com')");
+
+            // Selecting the whole struct column must also work after schema evolution.
+            assertQuery(
+                    format("SELECT id, info FROM %s ORDER BY id", table),
+                    "VALUES (1, ROW('alice', 30, NULL)), (2, ROW('bob', 25, NULL)), (3, ROW('carol', 35, 'carol@example.com'))");
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", table));
