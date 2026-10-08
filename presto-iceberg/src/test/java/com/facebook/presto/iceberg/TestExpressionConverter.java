@@ -27,12 +27,12 @@ import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
-import org.apache.iceberg.expressions.BoundPredicate;
+import org.apache.iceberg.expressions.And;
 import org.apache.iceberg.expressions.Evaluator;
 import org.apache.iceberg.expressions.Expression;
-import org.apache.iceberg.expressions.ExpressionVisitors;
-import org.apache.iceberg.expressions.ExpressionVisitors.ExpressionVisitor;
 import org.apache.iceberg.expressions.InclusiveMetricsEvaluator;
+import org.apache.iceberg.expressions.Not;
+import org.apache.iceberg.expressions.Or;
 import org.apache.iceberg.expressions.UnboundPredicate;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
@@ -62,9 +62,9 @@ public class TestExpressionConverter
     private static final Schema DATE_ICEBERG_SCHEMA = new Schema(
             Types.NestedField.optional(1, "created_date", Types.DateType.get()));
 
-    // Regression test for the primary bug: a 5000-point domain must not overflow ExpressionVisitors.
+    // Regression test for the primary bug: a 5000-point domain must produce a shallow tree.
     @Test
-    public void testLargeMultiValueDomainProducesInExpression()
+    public void testLargeMultiValueDomainProducesShallowTree()
     {
         Domain domain = Domain.multipleValues(DateType.DATE, buildDateValues(LARGE_PARTITION_COUNT));
         TupleDomain<IcebergColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
@@ -72,15 +72,39 @@ public class TestExpressionConverter
 
         Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
 
-        // Should not overflow — visiting a tree of depth O(log(N/200)) is safe.
-        visitExpression(expression);
-        assertTrue(evalOnDate(expression, 19000L), "first value should match");
-        assertTrue(evalOnDate(expression, 19000L + LARGE_PARTITION_COUNT - 1), "last value should match");
+        // 5,000 values -> 25 chunks -> balanced depth <= 10 (log2(25) ~ 5, plus wrapper levels)
+        assertTrue(depth(expression) <= 10, "expected a shallow tree, got depth " + depth(expression));
+
+        // Verify no value is lost, including at chunk boundaries (e.g., 19200).
+        int[] holder = {0};
+        StructLike row = new StructLike()
+        {
+            @Override
+            public int size()
+            {
+                return 1;
+            }
+
+            @SuppressWarnings("unchecked")
+            @Override
+            public <T> T get(int pos, Class<T> javaClass)
+            {
+                return (T) (Integer) holder[0];
+            }
+
+            @Override
+            public <T> void set(int pos, T value) {}
+        };
+        Evaluator evaluator = new Evaluator(DATE_SCHEMA, expression);
+        for (long v = 19000; v < 19000 + LARGE_PARTITION_COUNT; v++) {
+            holder[0] = toIntExact(v);
+            assertTrue(evaluator.eval(row), "value " + v + " should match");
+        }
         assertFalse(evalOnDate(expression, 18999L), "value before range should not match");
         assertFalse(evalOnDate(expression, 19000L + LARGE_PARTITION_COUNT), "value after range should not match");
     }
 
-    // Single equality value takes the equal() branch, not in(); verify the short-circuit.
+    // Single equality value takes the equal() branch, not in(); verify the expression type.
     @Test
     public void testSingleEqualityValueUsesEqualPredicate()
     {
@@ -89,6 +113,8 @@ public class TestExpressionConverter
                 ImmutableMap.of(CREATED_DATE_HANDLE, domain));
 
         Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
+        assertTrue(expression instanceof UnboundPredicate, "single equality should produce UnboundPredicate");
+        assertTrue(((UnboundPredicate<?>) expression).op() == Expression.Operation.EQ, "should use equal() predicate");
         assertTrue(evalOnDate(expression, 19000L), "19000 should match equal(19000)");
         assertFalse(evalOnDate(expression, 19001L), "19001 should not match equal(19000)");
     }
@@ -165,8 +191,9 @@ public class TestExpressionConverter
 
     // Regression test for wrong-results bug: a null-allowed half-open range (x > a AND x < b)
     // used to produce and(or(isNull, gt(a)), lt(b)) which caused InclusiveMetricsEvaluator to
-    // prune all-null files (valueCount=0 makes lt() return ROWS_CANNOT_MATCH, so and(_, CANNOT)
-    // = CANNOT_MATCH). Null rows that satisfied IS NULL were silently dropped.
+    // prune all-null files (containsNullsOnly is true when valueCount==nullCount; lt() then
+    // returns ROWS_CANNOT_MATCH, so and(_, CANNOT) = CANNOT_MATCH). Null rows that satisfied
+    // IS NULL were silently dropped.
     // New code produces or(isNull, and(gt(a), lt(b))): or(HAS_NULLS, CANNOT) = ROWS_MIGHT_MATCH.
     @Test
     public void testNullAllowedHalfOpenRangePreservesNullFilesInMetrics()
@@ -185,7 +212,7 @@ public class TestExpressionConverter
         Metrics allNullMetrics = new Metrics(
                 10L,
                 null,
-                ImmutableMap.of(1, 0L),   // no non-null values
+                ImmutableMap.of(1, 10L),  // value count includes nulls
                 ImmutableMap.of(1, 10L),  // all 10 rows are null
                 null,
                 null,
@@ -337,51 +364,17 @@ public class TestExpressionConverter
         });
     }
 
-    private static void visitExpression(Expression expression)
+    private static int depth(Expression expression)
     {
-        ExpressionVisitors.visit(expression, new ExpressionVisitor<String>()
-        {
-            @Override
-            public String alwaysTrue()
-            {
-                return "TRUE";
-            }
-
-            @Override
-            public String alwaysFalse()
-            {
-                return "FALSE";
-            }
-
-            @Override
-            public String not(String result)
-            {
-                return "NOT(" + result + ")";
-            }
-
-            @Override
-            public String and(String left, String right)
-            {
-                return "AND(" + left + "," + right + ")";
-            }
-
-            @Override
-            public String or(String left, String right)
-            {
-                return "OR(" + left + "," + right + ")";
-            }
-
-            @Override
-            public <T> String predicate(BoundPredicate<T> pred)
-            {
-                return pred.toString();
-            }
-
-            @Override
-            public <T> String predicate(UnboundPredicate<T> pred)
-            {
-                return pred.toString();
-            }
-        });
+        if (expression instanceof And) {
+            return 1 + Math.max(depth(((And) expression).left()), depth(((And) expression).right()));
+        }
+        if (expression instanceof Or) {
+            return 1 + Math.max(depth(((Or) expression).left()), depth(((Or) expression).right()));
+        }
+        if (expression instanceof Not) {
+            return 1 + depth(((Not) expression).child());
+        }
+        return 1;
     }
 }

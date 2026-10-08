@@ -44,6 +44,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.facebook.presto.common.predicate.Marker.Bound.ABOVE;
@@ -129,12 +130,8 @@ public final class ExpressionConverter
         }
 
         ValueSet domainValues = domain.getValues();
-        // isNull is seeded as the initial accumulator so that each range predicate is OR'd
-        // directly on top, producing or(isNull, rangePred).  The old code accumulated
-        // lower/upper bounds one at a time into the expression while isNull was already present,
-        // producing and(or(isNull, lowerBound), upperBound) for half-open ranges.  That shape
-        // caused InclusiveMetricsEvaluator to prune all-null files for half-open ranges even
-        // when IS NULL was in the predicate, silently dropping rows.
+        // Each range is built as a self-contained predicate before it is OR'd into the result.
+        // Applying a bound to the accumulator would also constrain isNull and the earlier ranges.
         Expression expression = null;
         if (domain.isNullAllowed()) {
             expression = isNull(columnName);
@@ -144,28 +141,17 @@ public final class ExpressionConverter
             List<Range> orderedRanges = ((SortedRangeSet) domainValues).getOrderedRanges();
             expression = firstNonNull(expression, alwaysFalse());
 
-            // Pass 1: collect single-point equality ranges so we can emit a single in() predicate
-            // (depth-1 expression tree) rather than left-folding N or() calls into a chain of depth N,
-            // which overflows ExpressionVisitors' recursive visit(). Use Range.isSingleValue() for
-            // the equality check (operates on Presto block values; avoids BigDecimal scale issues).
-            // Also cache EXACTLY/EXACTLY non-equality (BETWEEN) bound values so pass 2 can reuse them.
-            boolean[] isEquality = new boolean[orderedRanges.size()];
-            Object[] cachedLow = new Object[orderedRanges.size()];
-            Object[] cachedHigh = new Object[orderedRanges.size()];
             ImmutableList.Builder<Object> equalityValuesBuilder = ImmutableList.builder();
-            for (int i = 0; i < orderedRanges.size(); i++) {
-                Range range = orderedRanges.get(i);
-                Marker low = range.getLow();
-                Marker high = range.getHigh();
+            ImmutableList.Builder<Expression> rangeExprsBuilder = ImmutableList.builder();
+            for (Range range : orderedRanges) {
                 if (range.isSingleValue()) {
-                    equalityValuesBuilder.add(getIcebergLiteralValue(type, low));
-                    isEquality[i] = true;
+                    equalityValuesBuilder.add(getIcebergLiteralValue(type, range.getLow()));
                 }
-                else if (low.getBound() == EXACTLY && high.getBound() == EXACTLY) {
-                    cachedLow[i] = getIcebergLiteralValue(type, low);
-                    cachedHigh[i] = getIcebergLiteralValue(type, high);
+                else {
+                    rangeToExpression(columnName, type, range).ifPresent(rangeExprsBuilder::add);
                 }
             }
+
             List<Object> equalityValues = equalityValuesBuilder.build();
             if (!equalityValues.isEmpty()) {
                 // Chunk into IN predicates of at most ICEBERG_IN_PREDICATE_LIMIT each so
@@ -181,55 +167,6 @@ public final class ExpressionConverter
                 expression = or(expression, buildOrTree(chunkExprs.build()));
             }
 
-            // Pass 2: collect each non-equality range predicate into a list, then combine
-            // them with a balanced OR tree (depth O(log M)) before OR-ing into the accumulator.
-            // Left-folding directly into the accumulator would produce a depth-M chain, which
-            // overflows ExpressionVisitors.visit() for large M, just as the equality case did.
-            ImmutableList.Builder<Expression> rangeExprsBuilder = ImmutableList.builder();
-            for (int i = 0; i < orderedRanges.size(); i++) {
-                if (isEquality[i]) {
-                    continue;
-                }
-                Range range = orderedRanges.get(i);
-                Marker low = range.getLow();
-                Marker high = range.getHigh();
-                Marker.Bound lowBound = low.getBound();
-                Marker.Bound highBound = high.getBound();
-
-                if (lowBound == EXACTLY && highBound == EXACTLY) {
-                    // BETWEEN lo AND hi (single-point equalities batched in pass 1, so lo != hi here).
-                    // cachedLow[i] / cachedHigh[i] non-null: pass 1 always fills them for EXACTLY/EXACTLY non-equality ranges.
-                    rangeExprsBuilder.add(and(
-                            greaterThanOrEqual(columnName, requireNonNull(cachedLow[i], "cachedLow")),
-                            lessThanOrEqual(columnName, requireNonNull(cachedHigh[i], "cachedHigh"))));
-                }
-                else {
-                    Expression rangeExpr = null;
-                    if (lowBound == EXACTLY && low.getValueBlock().isPresent()) {
-                        // case >=
-                        rangeExpr = greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low));
-                    }
-                    else if (lowBound == ABOVE && low.getValueBlock().isPresent()) {
-                        // case >
-                        rangeExpr = greaterThan(columnName, getIcebergLiteralValue(type, low));
-                    }
-
-                    if (highBound == EXACTLY && high.getValueBlock().isPresent()) {
-                        // case <=
-                        Expression upperPred = lessThanOrEqual(columnName, getIcebergLiteralValue(type, high));
-                        rangeExpr = rangeExpr != null ? and(rangeExpr, upperPred) : upperPred;
-                    }
-                    else if (highBound == BELOW && high.getValueBlock().isPresent()) {
-                        // case <
-                        Expression upperPred = lessThan(columnName, getIcebergLiteralValue(type, high));
-                        rangeExpr = rangeExpr != null ? and(rangeExpr, upperPred) : upperPred;
-                    }
-
-                    if (rangeExpr != null) {
-                        rangeExprsBuilder.add(rangeExpr);
-                    }
-                }
-            }
             List<Expression> rangeExprs = rangeExprsBuilder.build();
             if (!rangeExprs.isEmpty()) {
                 expression = or(expression, buildOrTree(rangeExprs));
@@ -249,6 +186,39 @@ public final class ExpressionConverter
         }
         int mid = exprs.size() / 2;
         return or(buildOrTree(exprs.subList(0, mid)), buildOrTree(exprs.subList(mid, exprs.size())));
+    }
+
+    private static Optional<Expression> rangeToExpression(String columnName, Type type, Range range)
+    {
+        Marker low = range.getLow();
+        Marker high = range.getHigh();
+        Marker.Bound lowBound = low.getBound();
+        Marker.Bound highBound = high.getBound();
+
+        if (lowBound == EXACTLY && highBound == EXACTLY) {
+            return Optional.of(and(
+                    greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low)),
+                    lessThanOrEqual(columnName, getIcebergLiteralValue(type, high))));
+        }
+
+        Expression rangeExpr = null;
+        if (lowBound == EXACTLY && low.getValueBlock().isPresent()) {
+            rangeExpr = greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low));
+        }
+        else if (lowBound == ABOVE && low.getValueBlock().isPresent()) {
+            rangeExpr = greaterThan(columnName, getIcebergLiteralValue(type, low));
+        }
+
+        if (highBound == EXACTLY && high.getValueBlock().isPresent()) {
+            Expression upperPred = lessThanOrEqual(columnName, getIcebergLiteralValue(type, high));
+            rangeExpr = rangeExpr != null ? and(rangeExpr, upperPred) : upperPred;
+        }
+        else if (highBound == BELOW && high.getValueBlock().isPresent()) {
+            Expression upperPred = lessThan(columnName, getIcebergLiteralValue(type, high));
+            rangeExpr = rangeExpr != null ? and(rangeExpr, upperPred) : upperPred;
+        }
+
+        return Optional.ofNullable(rangeExpr);
     }
 
     private static Object getIcebergLiteralValue(Type type, Marker marker)

@@ -29,7 +29,8 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILT
  *
  * ExpressionConverter.toIcebergExpression() built a left-nested Or chain of depth N for N
  * single-point equality values, overflowing ExpressionVisitors' recursive visit() call.
- * Fixed by emitting Expressions.in() (depth 1) instead.
+ * Fixed by emitting chunked in() predicates (at most 200 values each) combined with a
+ * balanced OR tree, keeping depth at O(log(N/200)).
  *
  * Workaround: SET SESSION pushdown_filter_enabled = false.
  */
@@ -88,7 +89,7 @@ public class TestLargePartitionStackOverflow
         // Regression test: planning SELECT * on a 3000-partition table with pushdown=true
         // previously overflowed with "statement is too large (stack overflow during analysis)".
         // plan() throws StackOverflowError if ExpressionVisitors recurses into a depth-N OR chain.
-        plan("SELECT * FROM " + TABLE + " LIMIT 1", pushdownSession(true));
+        plan("SELECT * FROM " + TABLE + " LIMIT 1", pushdownSession());
     }
 
     @Test
@@ -96,13 +97,13 @@ public class TestLargePartitionStackOverflow
     {
         // Regression test: same overflow triggered by COUNT(*) on a large partitioned table.
         // plan() throws StackOverflowError if ExpressionVisitors recurses into a depth-N OR chain.
-        plan("SELECT COUNT(*) FROM " + TABLE, pushdownSession(true));
+        plan("SELECT COUNT(*) FROM " + TABLE, pushdownSession());
     }
 
-    private Session pushdownSession(boolean enabled)
+    private Session pushdownSession()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty(ICEBERG_CATALOG, PUSHDOWN_FILTER_ENABLED, Boolean.toString(enabled))
+                .setCatalogSessionProperty(ICEBERG_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
                 .build();
     }
 }
