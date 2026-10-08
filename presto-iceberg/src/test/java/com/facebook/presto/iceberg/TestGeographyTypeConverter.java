@@ -29,7 +29,6 @@ import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunc
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.apache.iceberg.types.Types.NestedField.optional;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.fail;
 
 public class TestGeographyTypeConverter
@@ -95,10 +94,9 @@ public class TestGeographyTypeConverter
     {
         org.apache.iceberg.types.Type icebergType = TypeConverter.toIcebergType(SPHERICAL_GEOGRAPHY);
         assertEquals(icebergType, Types.GeographyType.crs84());
+        // Unset CRS and algorithm are what serialize as the bare "geography". The accessors
+        // cannot tell: Iceberg 1.10 reports them as null and later versions as the defaults
         assertEquals(icebergType.toString(), "geography");
-        Types.GeographyType geographyType = (Types.GeographyType) icebergType;
-        assertNull(geographyType.crs());
-        assertNull(geographyType.algorithm());
     }
 
     @Test

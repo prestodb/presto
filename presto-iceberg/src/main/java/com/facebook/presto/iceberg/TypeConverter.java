@@ -79,7 +79,6 @@ import static com.facebook.presto.hive.HiveType.HIVE_GEOMETRY;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
-import static com.facebook.presto.hive.HiveType.HIVE_SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
@@ -164,10 +163,10 @@ public final class TypeConverter
     /**
      * Presto's SPHERICAL_GEOGRAPHY models WGS84 longitude-latitude coordinates joined by
      * great-circle edges, so only Iceberg geography columns with those semantics can be
-     * read or written. Iceberg normalizes the default CRS (OGC:CRS84) and an unspecified
-     * edge interpolation algorithm (spherical) to null, so a value in either accessor that
-     * is neither null nor a WGS84 alias means the column carries semantics Presto would
-     * silently misinterpret.
+     * read or written. Iceberg 1.10 reports the default CRS (OGC:CRS84) and an unspecified
+     * edge interpolation algorithm (spherical) as null, while later versions report the
+     * defaults themselves, so either form is accepted. Any other value means the column
+     * carries semantics Presto would silently misinterpret.
      */
     private static Type toPrestoSphericalGeography(Types.GeographyType type)
     {
@@ -190,8 +189,8 @@ public final class TypeConverter
     /**
      * Iceberg geography coordinates are always longitude-latitude on the WGS84 datum, so
      * {@code EPSG:4326} names the same coordinates as the default {@code OGC:CRS84} despite
-     * its axis order being formally latitude-longitude. Iceberg normalizes the default CRS
-     * to null, so null is WGS84 too.
+     * its axis order being formally latitude-longitude. Iceberg 1.10 reports the default
+     * CRS as null, so null is WGS84 too.
      */
     private static boolean isWgs84(String crs)
     {
@@ -390,7 +389,8 @@ public final class TypeConverter
             return HIVE_GEOMETRY.getTypeInfo();
         }
         if (SphericalGeographyType.SPHERICAL_GEOGRAPHY.equals(type)) {
-            return HIVE_SPHERICAL_GEOGRAPHY.getTypeInfo();
+            // Iceberg stores geography as well-known binary
+            return HIVE_BINARY.getTypeInfo();
         }
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;

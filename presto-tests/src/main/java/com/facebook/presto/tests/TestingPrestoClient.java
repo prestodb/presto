@@ -312,10 +312,7 @@ public class TestingPrestoClient
         else if (JSON.equals(type)) {
             return value;
         }
-        else if (type instanceof GeometryType) {
-            return value;
-        }
-        else if (type instanceof SphericalGeographyType) {
+        else if (type instanceof GeometryType || type instanceof SphericalGeographyType) {
             return value;
         }
         else {

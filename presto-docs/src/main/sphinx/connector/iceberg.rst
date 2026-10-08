@@ -3142,6 +3142,20 @@ created or written, before any data is written::
         location SphericalGeography)
     WITH (format_version = '3')
 
+The same format version and file format checks apply when a ``GEOGRAPHY`` column is added
+with ``ALTER TABLE ... ADD COLUMN``.
+
+``GEOGRAPHY`` columns have the following limitations:
+
+* Only the ``PARQUET`` file format is supported, for both reading and writing. ``ORC``
+  data files with ``GEOGRAPHY`` columns cannot be read.
+* Lower and upper bounds are not recorded in the data file metrics, so predicates on a
+  ``GEOGRAPHY`` column do not prune data files.
+* ``ANALYZE`` does not collect distinct value counts, histograms, or min/max values for
+  ``GEOGRAPHY`` columns.
+* A ``GEOGRAPHY`` column cannot be used as a partition column, because no Iceberg
+  partition transform, including ``identity``, accepts geospatial types.
+
 PrestoDB to Iceberg type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

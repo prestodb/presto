@@ -19,6 +19,9 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.hadoop.HadoopTables;
+import org.apache.iceberg.types.Types;
 import org.apache.parquet.HadoopReadOptions;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
@@ -29,7 +32,6 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -38,7 +40,6 @@ import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GE
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -62,7 +63,7 @@ public class TestGeographyType
         extends AbstractTestQueryFramework
 {
     private static final String SCHEMA = "geography";
-    private static final String V3 = "WITH (format_version = '3')";
+    private static final String V3 = "WITH (\"format-version\" = '3')";
 
     /**
      * One geography of every type Presto's spherical geography functions accept, with valid
@@ -159,7 +160,8 @@ public class TestGeographyType
                             SCHEMA,
                             table)).getMaterializedRows().get(0).getField(0),
                     SPHERICAL_GEOGRAPHY.getDisplayName());
-            assertThat(tableMetadataJson(table)).contains("\"name\":\"geog\",\"required\":false,\"type\":\"geography\"");
+            // Presto's defaults leave the CRS and algorithm unset, the canonical "geography"
+            assertEquals(loadTable(table).schema().findType("geog"), Types.GeographyType.crs84());
         }
         finally {
             assertUpdate(session, "DROP TABLE " + table);
@@ -277,20 +279,61 @@ public class TestGeographyType
                 "Writing to Iceberg geography column 'geog' is only supported for the PARQUET file format, but the table uses ORC");
     }
 
-    private String tableMetadataJson(String table)
+    /**
+     * ADD COLUMN must apply the same checks as CREATE TABLE, so that the schema is never
+     * changed to one that no later write could satisfy.
+     */
+    @Test
+    public void testAddColumnRejectsUnsupportedGeographyColumn()
     {
+        String v2Table = "test_geography_add_column_v2";
+        String orcTable = "test_geography_add_column_orc";
+        assertUpdate(session, format("CREATE TABLE %s (id INTEGER) WITH (format_version = '2')", v2Table));
+        assertUpdate(session, format("CREATE TABLE %s (id INTEGER) WITH (format_version = '3', \"write.format.default\" = 'ORC')", orcTable));
         try {
-            Path metadataDirectory = tableDirectory(table).resolve("metadata");
-            try (Stream<Path> files = Files.list(metadataDirectory)) {
-                Path latest = files.filter(path -> path.toString().endsWith(".metadata.json"))
-                        .max(Comparator.comparing(Path::toString))
-                        .orElseThrow(() -> new IllegalStateException("no metadata file for " + table));
-                return new String(Files.readAllBytes(latest), UTF_8);
-            }
+            assertQueryFails(
+                    session,
+                    format("ALTER TABLE %s ADD COLUMN geog SphericalGeography", v2Table),
+                    "Iceberg geography column 'geog' requires format version 3 or higher, but the table is at format version 2");
+            assertQueryFails(
+                    session,
+                    format("ALTER TABLE %s ADD COLUMN geogs ARRAY(SphericalGeography)", v2Table),
+                    "Iceberg geography column 'geogs' requires format version 3 or higher, but the table is at format version 2");
+            assertQueryFails(
+                    session,
+                    format("ALTER TABLE %s ADD COLUMN geog SphericalGeography", orcTable),
+                    "Writing to Iceberg geography column 'geog' is only supported for the PARQUET file format, but the table uses ORC");
+
+            // The rejected columns must not have reached the schema
+            assertQuery(session, format("SELECT count(*) FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", SCHEMA, v2Table), "SELECT 1");
+            assertQuery(session, format("SELECT count(*) FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", SCHEMA, orcTable), "SELECT 1");
         }
-        catch (Exception e) {
-            throw new RuntimeException(e);
+        finally {
+            assertUpdate(session, "DROP TABLE " + v2Table);
+            assertUpdate(session, "DROP TABLE " + orcTable);
         }
+    }
+
+    @Test
+    public void testAddGeographyColumn()
+    {
+        String table = "test_geography_add_column";
+        assertUpdate(session, format("CREATE TABLE %s (id INTEGER) %s", table, V3));
+        try {
+            assertUpdate(session, format("INSERT INTO %s VALUES 1", table), 1);
+            assertUpdate(session, format("ALTER TABLE %s ADD COLUMN geog SphericalGeography", table));
+            assertUpdate(session, format("INSERT INTO %s VALUES (2, to_spherical_geography(ST_GeometryFromText('POINT (10 20)')))", table), 1);
+
+            assertQuery(session, format("SELECT id, ST_AsText(geog) FROM %s", table), "VALUES (1, NULL), (2, 'POINT (10 20)')");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE " + table);
+        }
+    }
+
+    private Table loadTable(String table)
+    {
+        return new HadoopTables(new Configuration()).load(tableDirectory(table).toString());
     }
 
     private List<Path> dataFiles(String table)

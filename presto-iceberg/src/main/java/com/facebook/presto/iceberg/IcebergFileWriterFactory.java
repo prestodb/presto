@@ -41,10 +41,12 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
@@ -59,9 +61,9 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_N
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_FAILED;
-import static com.facebook.presto.iceberg.IcebergGeospatialUtils.geospatialFieldIds;
 import static com.facebook.presto.iceberg.IcebergGeospatialUtils.toFileType;
 import static com.facebook.presto.iceberg.IcebergParquetSchemaUtil.convert;
+import static com.facebook.presto.iceberg.IcebergParquetSchemaUtil.geospatialAnnotations;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcOptimizedWriterMaxStripeRows;
@@ -147,6 +149,7 @@ public class IcebergFileWriterFactory
                 .map(column -> toPrestoType(column.type(), typeManager))
                 .map(type -> toFileType(type, typeManager))
                 .collect(toImmutableList());
+        Map<Integer, LogicalTypeAnnotation> geospatialAnnotations = geospatialAnnotations(icebergSchema);
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), outputPath, jobConf);
@@ -167,7 +170,7 @@ public class IcebergFileWriterFactory
                     rollbackAction,
                     fileColumnNames,
                     fileColumnTypes,
-                    convert(icebergSchema, "table"),
+                    convert(icebergSchema, "table", geospatialAnnotations),
                     makeTypeMap(fileColumnTypes, fileColumnNames),
                     parquetWriterOptions,
                     IntStream.range(0, fileColumnNames.size()).toArray(),
@@ -178,7 +181,7 @@ public class IcebergFileWriterFactory
                     metricsConfig,
                     writerTimezone,
                     nodeVersion.toString(),
-                    geospatialFieldIds(icebergSchema));
+                    geospatialAnnotations.keySet());
         }
         catch (IOException e) {
             throw new PrestoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);

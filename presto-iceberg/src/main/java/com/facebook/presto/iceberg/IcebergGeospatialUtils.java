@@ -31,7 +31,6 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -41,7 +40,6 @@ import org.apache.iceberg.types.Types;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
 import static com.facebook.presto.common.block.ColumnarMap.toColumnarMap;
@@ -286,13 +284,12 @@ public final class IcebergGeospatialUtils
     public static void validateGeospatialWrite(Schema schema, int formatVersion, FileFormat fileFormat)
     {
         for (Types.NestedField field : schema.columns()) {
-            validateGeospatialWrite(field, field.name(), formatVersion, fileFormat);
+            validateGeospatialWrite(field.name(), field.type(), formatVersion, fileFormat);
         }
     }
 
-    private static void validateGeospatialWrite(Types.NestedField field, String columnName, int formatVersion, FileFormat fileFormat)
+    public static void validateGeospatialWrite(String columnName, org.apache.iceberg.types.Type type, int formatVersion, FileFormat fileFormat)
     {
-        org.apache.iceberg.types.Type type = field.type();
         if (type.typeId() == TypeID.GEOMETRY) {
             throw new PrestoException(NOT_SUPPORTED, format(
                     "Writing to Iceberg geometry column '%s' is not supported. Only geography columns can be written",
@@ -317,35 +314,7 @@ public final class IcebergGeospatialUtils
         }
         if (type.isNestedType()) {
             for (Types.NestedField child : type.asNestedType().fields()) {
-                validateGeospatialWrite(child, columnName, formatVersion, fileFormat);
-            }
-        }
-    }
-
-    /**
-     * Field ids of every geospatial column in the schema, including nested ones. Iceberg
-     * gives geospatial fields bounds with geospatial meaning rather than byte comparisons,
-     * so these fields are excluded from the byte-wise bounds the writers would otherwise
-     * report.
-     */
-    public static Set<Integer> geospatialFieldIds(Schema schema)
-    {
-        ImmutableSet.Builder<Integer> fieldIds = ImmutableSet.builder();
-        for (Types.NestedField field : schema.columns()) {
-            collectGeospatialFieldIds(field, fieldIds);
-        }
-        return fieldIds.build();
-    }
-
-    private static void collectGeospatialFieldIds(Types.NestedField field, ImmutableSet.Builder<Integer> fieldIds)
-    {
-        if (isGeospatialType(field.type())) {
-            fieldIds.add(field.fieldId());
-            return;
-        }
-        if (field.type().isNestedType()) {
-            for (Types.NestedField child : field.type().asNestedType().fields()) {
-                collectGeospatialFieldIds(child, fieldIds);
+                validateGeospatialWrite(columnName, child.type(), formatVersion, fileFormat);
             }
         }
     }

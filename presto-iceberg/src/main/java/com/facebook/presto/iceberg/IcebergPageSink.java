@@ -79,6 +79,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METAD
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static com.facebook.presto.iceberg.IcebergGeospatialUtils.containsGeospatialType;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.toWellKnownBinary;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.Z_ORDER;
 import static com.facebook.presto.iceberg.IcebergUtil.deserializeIcebergValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
@@ -313,7 +314,7 @@ public class IcebergPageSink
 
     private void writePage(Page page)
     {
-        Page pageWithWriteDefaults = toWellKnownBinary(fillWriteDefaults(page));
+        Page pageWithWriteDefaults = convertGeospatialChannels(fillWriteDefaults(page));
         int[] writerIndexes = getWriterIndexes(pageWithWriteDefaults);
 
         // position count for each writer
@@ -372,7 +373,7 @@ public class IcebergPageSink
      * Iceberg has no geospatial partition transform, so no partition value is derived from
      * these columns and the conversion can happen before the page is split across writers.
      */
-    private Page toWellKnownBinary(Page page)
+    private Page convertGeospatialChannels(Page page)
     {
         if (geospatialChannels.isEmpty()) {
             return page;
@@ -381,7 +382,7 @@ public class IcebergPageSink
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
             Block block = page.getBlock(channel);
             if (geospatialChannels.contains(channel)) {
-                block = IcebergGeospatialUtils.toWellKnownBinary(block, inputColumns.get(channel).getType());
+                block = toWellKnownBinary(block, inputColumns.get(channel).getType());
             }
             blocks[channel] = block;
         }

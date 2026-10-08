@@ -1339,6 +1339,9 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        // Reject a geospatial column the table could never be written with, rather than
+        // accepting the schema change and failing every subsequent write
+        validateGeospatialWrite(column.getName(), columnType, opsFromTable(icebergTable).current().formatVersion(), getFileFormat(icebergTable));
         UpdateSchema updateSchema = icebergTable.updateSchema();
         checkNotSupported(column.getDefaultValue().isEmpty() || column.getDerivedColumnSpec().isEmpty(),
                 "A column can either have a 'default expression' or 'derived column definition' and not both.");

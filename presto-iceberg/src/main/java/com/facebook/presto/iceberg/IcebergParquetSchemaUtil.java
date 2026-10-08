@@ -43,8 +43,9 @@ import static org.apache.parquet.schema.Types.primitive;
  * <p>{@link ParquetSchemaUtil#convert(Schema, String)} throws
  * {@code UnsupportedOperationException: Unsupported type for Parquet: geography} for
  * geospatial columns: its Parquet binding has no geometry or geography support in either
- * direction, neither in the Iceberg version Presto uses nor in the latest Iceberg release. To still produce a file that conforms to the
- * Iceberg specification (a {@code BYTE_ARRAY} column annotated {@code GEOGRAPHY} holding
+ * direction, neither in the Iceberg version Presto uses nor in the latest Iceberg release.
+ * To still produce a file that conforms to the Iceberg specification (a {@code BYTE_ARRAY}
+ * column annotated {@code GEOGRAPHY} holding
  * well-known binary), this class converts a schema in which geospatial columns have been
  * erased to {@code binary} and then restores the annotation on the resulting leaves,
  * matched by field id. Delegating the conversion keeps Iceberg's naming and nesting
@@ -60,7 +61,16 @@ public final class IcebergParquetSchemaUtil
 
     public static MessageType convert(Schema schema, String name)
     {
-        Map<Integer, LogicalTypeAnnotation> annotations = geospatialAnnotations(schema);
+        return convert(schema, name, geospatialAnnotations(schema));
+    }
+
+    /**
+     * Converts the schema using annotations already collected by
+     * {@link #geospatialAnnotations}, so a caller that also needs the geospatial field ids
+     * walks the schema only once.
+     */
+    public static MessageType convert(Schema schema, String name, Map<Integer, LogicalTypeAnnotation> annotations)
+    {
         MessageType converted = ParquetSchemaUtil.convert(toBinarySchema(schema), name);
         if (annotations.isEmpty()) {
             return converted;
@@ -125,7 +135,11 @@ public final class IcebergParquetSchemaUtil
         return type;
     }
 
-    private static Map<Integer, LogicalTypeAnnotation> geospatialAnnotations(Schema schema)
+    /**
+     * The Parquet logical annotation of every geospatial column in the schema, including
+     * nested ones, keyed by field id.
+     */
+    public static Map<Integer, LogicalTypeAnnotation> geospatialAnnotations(Schema schema)
     {
         ImmutableMap.Builder<Integer, LogicalTypeAnnotation> annotations = ImmutableMap.builder();
         for (Types.NestedField field : schema.columns()) {
@@ -154,16 +168,20 @@ public final class IcebergParquetSchemaUtil
         // IcebergGeospatialUtils.validateGeospatialWrite
         verify(type.typeId() == TypeID.GEOGRAPHY, "Unexpected geospatial type for Parquet column '%s': %s", fieldName, type);
         Types.GeographyType geographyType = (Types.GeographyType) type;
+        // Iceberg 1.10 reports an unset CRS and algorithm as null, while later versions
+        // report the defaults instead, so both forms are treated as the default
         String crs = geographyType.crs();
         EdgeAlgorithm algorithm = geographyType.algorithm();
-        if (crs == null && algorithm == null) {
+        boolean defaultCrs = crs == null || crs.equalsIgnoreCase(Types.GeographyType.DEFAULT_CRS);
+        boolean defaultAlgorithm = algorithm == null || algorithm == EdgeAlgorithm.SPHERICAL;
+        if (defaultCrs && defaultAlgorithm) {
             // Both defaults: emit the parameterless annotation so the file records nothing
             // the reader would have to compare against the defaults.
             return LogicalTypeAnnotation.geographyType();
         }
         return LogicalTypeAnnotation.geographyType(
-                crs == null ? Types.GeographyType.DEFAULT_CRS : crs,
-                algorithm == null ? LogicalTypeAnnotation.DEFAULT_ALGO : EdgeInterpolationAlgorithm.valueOf(algorithm.name()));
+                defaultCrs ? Types.GeographyType.DEFAULT_CRS : crs,
+                defaultAlgorithm ? LogicalTypeAnnotation.DEFAULT_ALGO : EdgeInterpolationAlgorithm.valueOf(algorithm.name()));
     }
 
     private static List<Type> restoreAnnotations(List<Type> fields, Map<Integer, LogicalTypeAnnotation> annotations)
