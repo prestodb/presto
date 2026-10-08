@@ -23,13 +23,14 @@ import com.facebook.presto.sql.planner.TypeProvider;
 public interface PlanOptimizer
 {
     PlanOptimizerResult optimize(PlanNode plan,
-            Session session,
-            TypeProvider types,
-            VariableAllocator variableAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector);
+                                 Session session,
+                                 TypeProvider types,
+                                 VariableAllocator variableAllocator,
+                                 PlanNodeIdAllocator idAllocator,
+                                 WarningCollector warningCollector,
+                                 boolean forceEnableOptimizer);
 
-    default boolean isEnabled(Session session)
+    default boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
         return true;
     }
@@ -43,31 +44,5 @@ public interface PlanOptimizer
     {
         // source of statistics used for this optimizer: reimplement accordingly for each cost-based optimizer
         return null;
-    }
-
-    default void setEnabledForTesting(boolean isSet)
-    {
-        return;
-    }
-
-    default boolean isApplicable(PlanNode plan,
-            Session session,
-            TypeProvider types,
-            VariableAllocator variableAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector)
-    {
-        setEnabledForTesting(true);
-
-        boolean isApplicable = false;
-        try {
-            // wrap in try/catch block in case optimization throws an error
-            PlanOptimizerResult optimizerResult = optimize(plan, session, types, variableAllocator, idAllocator, warningCollector);
-            isApplicable = optimizerResult.isOptimizerTriggered();
-        }
-        finally {
-            setEnabledForTesting(false);
-            return isApplicable;
-        }
     }
 }

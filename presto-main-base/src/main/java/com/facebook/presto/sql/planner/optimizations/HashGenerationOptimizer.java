@@ -98,7 +98,6 @@ public class HashGenerationOptimizer
         implements PlanOptimizer
 {
     private final FunctionAndTypeManager functionAndTypeManager;
-    private boolean isEnabledForTesting;
 
     public HashGenerationOptimizer(FunctionAndTypeManager functionAndTypeManager)
     {
@@ -106,26 +105,21 @@ public class HashGenerationOptimizer
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        isEnabledForTesting = isSet;
+        return forceEnableOptimizer || SystemSessionProperties.isOptimizeHashGenerationEnabled(session);
     }
 
     @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || SystemSessionProperties.isOptimizeHashGenerationEnabled(session);
-    }
-
-    @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
-        if (isEnabled(session)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, functionAndTypeManager, session).accept(plan, new HashComputationSet());
             return PlanOptimizerResult.optimizerResult(result.getNode(), true);
         }
