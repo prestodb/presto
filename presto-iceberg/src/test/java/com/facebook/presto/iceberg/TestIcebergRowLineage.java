@@ -25,6 +25,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MetadataColumns;
+import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -185,6 +186,74 @@ public class TestIcebergRowLineage
         }
     }
 
+    /**
+     * A compacted file whose lineage columns are written with metrics mode {@code none} carries no
+     * lineage metrics, like a file that stores no lineage, yet its stored values must still match.
+     */
+    @Test
+    public void testNoMetricsCompactedFileIsNotMisPruned()
+            throws Exception
+    {
+        String tableName = "test_lineage_no_metrics";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = catalog.createTable(tableId, PUSHDOWN_TABLE_SCHEMA, PartitionSpec.unpartitioned(),
+                    ImmutableMap.of("format-version", "3"));
+
+            appendOneRow(table, 1, "one");
+            appendOneRow(table, 2, "two");
+            List<long[]> idAndSeq = readIdAndSequenceNumber(tableName);
+            long preSeq1 = sequenceNumberForId(idAndSeq, 1);
+            long preSeq2 = sequenceNumberForId(idAndSeq, 2);
+
+            Set<DataFile> preCompactionFiles = new HashSet<>();
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    preCompactionFiles.add(task.file());
+                }
+            }
+
+            Schema lineageAugmentedSchema = MetadataColumns.schemaWithRowLineage(table.schema());
+            Record row1 = GenericRecord.create(lineageAugmentedSchema);
+            row1.setField("id", 1);
+            row1.setField("value", "one");
+            row1.setField(MetadataColumns.ROW_ID.name(), 0L);
+            row1.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), preSeq1);
+            Record row2 = GenericRecord.create(lineageAugmentedSchema);
+            row2.setField("id", 2);
+            row2.setField("value", "two");
+            row2.setField(MetadataColumns.ROW_ID.name(), 1L);
+            row2.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), preSeq2);
+            MetricsConfig noLineageMetrics = MetricsConfig.fromProperties(ImmutableMap.of(
+                    "write.metadata.metrics.column." + MetadataColumns.ROW_ID.name(), "none",
+                    "write.metadata.metrics.column." + MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), "none"));
+            DataFile compactedFile = writeFileWithSchema(table, lineageAugmentedSchema, noLineageMetrics, row1, row2);
+
+            Set<DataFile> compactedFiles = new HashSet<>();
+            compactedFiles.add(compactedFile);
+            table.newRewrite()
+                    .rewriteFiles(preCompactionFiles, compactedFiles)
+                    .commit();
+            table.refresh();
+
+            int lineageFieldId = MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().includeColumnStats().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    assertTrue(task.file().valueCounts() == null || !task.file().valueCounts().containsKey(lineageFieldId),
+                            "compacted file should carry no lineage metrics");
+                }
+            }
+
+            assertIdsForPredicate(tableName, "= " + preSeq1, ImmutableList.of(1));
+            assertIdsForPredicate(tableName, "= " + preSeq2, ImmutableList.of(2));
+            assertIdsForPredicate(tableName, "<= " + preSeq2, ImmutableList.of(1, 2));
+        }
+        finally {
+            catalog.dropTable(tableId, true);
+        }
+    }
+
     @Test
     public void testV2TableLineagePredicates()
             throws Exception
@@ -333,6 +402,12 @@ public class TestIcebergRowLineage
     private DataFile writeFileWithSchema(Table table, Schema writeSchema, Record... records)
             throws Exception
     {
+        return writeFileWithSchema(table, writeSchema, MetricsConfig.forTable(table), records);
+    }
+
+    private DataFile writeFileWithSchema(Table table, Schema writeSchema, MetricsConfig metricsConfig, Record... records)
+            throws Exception
+    {
         String filename = "data-" + UUID.randomUUID() + ".parquet";
         org.apache.hadoop.fs.Path filePath = new org.apache.hadoop.fs.Path(
                 table.location(), "data/" + filename);
@@ -342,7 +417,7 @@ public class TestIcebergRowLineage
                 .schema(writeSchema)
                 .withSpec(table.spec())
                 .createWriterFunc(GenericParquetWriter::create)
-                .metricsConfig(org.apache.iceberg.MetricsConfig.forTable(table))
+                .metricsConfig(metricsConfig)
                 .overwrite()
                 .build();
         try {

@@ -69,6 +69,7 @@ import org.apache.iceberg.BaseTransaction;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ContentScanTask;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataOperations;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
@@ -825,7 +826,8 @@ public final class IcebergUtil
             String path,
             long dataSequenceNumber,
             ContentFile<?> file,
-            InclusiveMetricsEvaluator lineageEvaluator)
+            InclusiveMetricsEvaluator lineageEvaluator,
+            Set<Long> appendSequenceNumbers)
     {
         if (constraints.isAll()) {
             return true;
@@ -843,7 +845,7 @@ public final class IcebergUtil
                     matches &= domain.includesNullableValue(dataSequenceNumber);
                 }
                 else if (handle.isLastUpdatedSequenceNumberColumn()) {
-                    matches &= lastUpdatedSequenceNumberMatches(domain, dataSequenceNumber, file, lineageEvaluator);
+                    matches &= lastUpdatedSequenceNumberMatches(domain, dataSequenceNumber, file, lineageEvaluator, appendSequenceNumbers);
                 }
             }
         }
@@ -853,12 +855,15 @@ public final class IcebergUtil
 
     // The fallback branches handle cases where InclusiveMetricsEvaluator would over-include:
     // V2/no-row-lineage files (column always null) and V3 pre-compaction (effective value =
-    // dataSequenceNumber per Iceberg's LastUpdatedSeqReader).
+    // dataSequenceNumber per Iceberg's LastUpdatedSeqReader). A file with no metrics for the column
+    // stores no values only when an append snapshot added it; any other such file may store values
+    // written with metrics mode "none", so it matches.
     private static boolean lastUpdatedSequenceNumberMatches(
             Domain domain,
             long dataSequenceNumber,
             ContentFile<?> file,
-            InclusiveMetricsEvaluator evaluator)
+            InclusiveMetricsEvaluator evaluator,
+            Set<Long> appendSequenceNumbers)
     {
         int fieldId = LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
         Map<Integer, ByteBuffer> lowerBounds = file.lowerBounds();
@@ -869,6 +874,13 @@ public final class IcebergUtil
         }
         if (file instanceof DataFile && ((DataFile) file).firstRowId() == null) {
             return domain.isNullAllowed();
+        }
+        Map<Integer, Long> valueCounts = file.valueCounts();
+        if (valueCounts == null || !valueCounts.containsKey(fieldId)) {
+            Long addedSequenceNumber = file.fileSequenceNumber();
+            if (addedSequenceNumber == null || !appendSequenceNumbers.contains(addedSequenceNumber)) {
+                return true;
+            }
         }
         return domain.includesNullableValue(dataSequenceNumber);
     }
@@ -885,6 +897,21 @@ public final class IcebergUtil
         Expression expression = toIcebergExpression(TupleDomain.withColumnDomains(
                 ImmutableMap.of(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE, domain)));
         return new InclusiveMetricsEvaluator(LINEAGE_ONLY_SCHEMA, expression);
+    }
+
+    // Sequence numbers of the table's append snapshots, whose rows inherit their lineage, so the
+    // files they add store none. Empty when the constraints do not filter on lineage.
+    public static Set<Long> getAppendSequenceNumbers(Table table, TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
+    {
+        if (!metadataColumnConstraints.getDomains()
+                .map(domains -> domains.containsKey(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE))
+                .orElse(false)) {
+            return ImmutableSet.of();
+        }
+        return stream(table.snapshots())
+                .filter(snapshot -> DataOperations.APPEND.equals(snapshot.operation()))
+                .map(Snapshot::sequenceNumber)
+                .collect(toImmutableSet());
     }
 
     public static PartitionSet getPartitions(
