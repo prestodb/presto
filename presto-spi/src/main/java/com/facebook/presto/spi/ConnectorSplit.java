@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 public interface ConnectorSplit
@@ -38,6 +39,17 @@ public interface ConnectorSplit
      * 3. Empty list indicates no preference.
      */
     List<HostAddress> getPreferredNodes(NodeProvider nodeProvider);
+
+    /**
+     * Stable identity of the data sharing a cache-affinity owner. This must not
+     * depend on the query, projection, task, or order of split enumeration.
+     * An empty value means deterministic cache placement is not supported.
+     */
+    @JsonIgnore
+    default Optional<String> getCacheAffinityKey()
+    {
+        return Optional.empty();
+    }
 
     /**
      * This method returns a raw object.
