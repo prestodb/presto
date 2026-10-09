@@ -308,17 +308,22 @@ public class JdbcMetadata
     public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
         jdbcClient.createView(session, viewMetadata, viewData, replace);
+        // a replaced view can expose different columns than the one it replaced
+        jdbcMetadataCache.invalidateView(session, viewMetadata.getTable());
     }
 
     @Override
     public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
     {
         jdbcClient.renameView(session, viewName, newViewName);
+        jdbcMetadataCache.invalidateView(session, viewName);
+        jdbcMetadataCache.invalidateView(session, newViewName);
     }
 
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
         jdbcClient.dropView(session, viewName);
+        jdbcMetadataCache.invalidateView(session, viewName);
     }
 }
