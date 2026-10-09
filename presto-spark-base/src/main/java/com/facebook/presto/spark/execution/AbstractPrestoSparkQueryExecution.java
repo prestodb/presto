@@ -127,6 +127,7 @@ import java.util.stream.IntStream;
 import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -175,6 +176,8 @@ public abstract class AbstractPrestoSparkQueryExecution
 {
     private static final Logger log = Logger.get(AbstractPrestoSparkQueryExecution.class);
 
+    public static final String EXECUTOR_TASK_INFOS_DROPPED_METRIC = "executorTaskInfosDropped";
+
     protected final Session session;
     protected final QueryMonitor queryMonitor;
     protected final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
@@ -217,6 +220,8 @@ public abstract class AbstractPrestoSparkQueryExecution
     @GuardedBy("this")
     private final Map<PlanFragmentId, RddAndMore> fragmentIdToRdd = new HashMap<>();
     private final Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector;
+    // Never sent to an executor, so it does not need to be registered with the SparkContext.
+    private final CollectionAccumulator<SerializedTaskInfo> driverTaskInfoCollector = new CollectionAccumulator<>();
 
     public AbstractPrestoSparkQueryExecution(
             JavaSparkContext sparkContext,
@@ -529,7 +534,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                 serializedTaskDescriptor,
                 emptyScalaIterator(),
                 new PrestoSparkJavaExecutionTaskInputs(ImmutableMap.of(), ImmutableMap.of(), inputs.build()),
-                taskInfoCollector,
+                driverTaskInfoCollector,
                 shuffleStatsCollector,
                 PrestoSparkSerializedPage.class);
         return collectScalaIterator(prestoSparkTaskExecutor);
@@ -644,36 +649,33 @@ public abstract class AbstractPrestoSparkQueryExecution
     protected void queryCompletedEvent(Optional<ExecutionFailureInfo> failureInfo, OptionalLong updateCount)
     {
         List<SerializedTaskInfo> serializedTaskInfos = taskInfoCollector.value();
+        List<SerializedTaskInfo> driverSerializedTaskInfos = driverTaskInfoCollector.value();
         int maxTaskInfos = getMaxTaskInfosInQueryCompletedEvent(session);
         HashMap<String, TaskInfo> taskInfoMap = new HashMap<>();
-        long totalSerializedTaskInfoSizeInBytes = 0;
-        // When the task info count exceeds the configured maximum, drop ALL task infos instead of deserializing
-        // and retaining them. Each TaskInfo carries the full pipeline/operator/runtime-stats tree, so on queries
-        // with very large task counts retaining them would blow up driver memory. This is deliberately
-        // all-or-nothing: an empty stats set makes it obvious that statistics could not be collected, whereas a
-        // partial set would be silently misleading.
+        // When the executor task info count exceeds the configured maximum, drop ALL executor task infos instead of
+        // deserializing and retaining them. Each TaskInfo carries the full pipeline/operator/runtime-stats tree, so on
+        // queries with very large task counts retaining them would blow up driver memory. This is deliberately
+        // all-or-nothing: empty stats for the executor stages make it obvious that their statistics could not be
+        // collected, whereas a partial set would be silently misleading.
         boolean taskInfoLimitExceeded = serializedTaskInfos.size() > maxTaskInfos;
-        for (SerializedTaskInfo serializedTaskInfo : serializedTaskInfos) {
-            // Always clear the compressed buffer to free driver memory, even when over the limit.
-            byte[] bytes = serializedTaskInfo.getBytesAndClear();
-            totalSerializedTaskInfoSizeInBytes += bytes.length;
-            if (taskInfoLimitExceeded) {
-                continue;
-            }
-            TaskInfo taskInfo = deserializeZstdCompressed(taskInfoCodec, bytes);
-            updateTaskInfoMap(taskInfoMap, taskInfo);
-        }
+        long totalSerializedTaskInfoSizeInBytes = addTaskInfos(taskInfoMap, serializedTaskInfos, !taskInfoLimitExceeded);
         taskInfoCollector.reset();
+        // The driver task is exempt from the limit: it is a single task, and for a write its TableFinishInfo carries
+        // the output metadata of the query, such as the written partitions.
+        totalSerializedTaskInfoSizeInBytes += addTaskInfos(taskInfoMap, driverSerializedTaskInfos, true);
+        driverTaskInfoCollector.reset();
 
         if (taskInfoLimitExceeded) {
-            log.warn("Query %s task info count (%s) exceeded the max task info count (%s) for the query completed event; DROPPING ALL task infos - stage statistics will be empty",
+            log.warn("Query %s task info count (%s) exceeded the max task info count (%s) for the query completed event; DROPPING ALL executor task infos and keeping %s driver task infos",
                     session.getQueryId(),
                     serializedTaskInfos.size(),
-                    maxTaskInfos);
+                    maxTaskInfos,
+                    driverSerializedTaskInfos.size());
+            session.getRuntimeStats().addMetricValue(EXECUTOR_TASK_INFOS_DROPPED_METRIC, NONE, serializedTaskInfos.size());
         }
 
         log.info("Total serialized task info count %s size: %s. Total deduped task info count %s",
-                serializedTaskInfos.size(),
+                serializedTaskInfos.size() + driverSerializedTaskInfos.size(),
                 DataSize.succinctBytes(totalSerializedTaskInfoSizeInBytes),
                 taskInfoMap.size());
 
@@ -708,6 +710,23 @@ public abstract class AbstractPrestoSparkQueryExecution
                     queryStatusInfoJsonCodec.toJsonBytes(prestoSparkQueryStatusInfo));
         }
         processBootstrapStats();
+    }
+
+    /**
+     * Clears the compressed buffers of the task infos to free driver memory, decodes them into the map if
+     * {@code decode} is set, and returns their total compressed size.
+     */
+    private long addTaskInfos(HashMap<String, TaskInfo> taskInfoMap, List<SerializedTaskInfo> serializedTaskInfos, boolean decode)
+    {
+        long totalSizeInBytes = 0;
+        for (SerializedTaskInfo serializedTaskInfo : serializedTaskInfos) {
+            byte[] bytes = serializedTaskInfo.getBytesAndClear();
+            totalSizeInBytes += bytes.length;
+            if (decode) {
+                updateTaskInfoMap(taskInfoMap, deserializeZstdCompressed(taskInfoCodec, bytes));
+            }
+        }
+        return totalSizeInBytes;
     }
 
     protected final void setFinalFragmentedPlan(SubPlan subPlan)
