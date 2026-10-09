@@ -65,9 +65,9 @@ public final class MySqlQueryRunner
             queryRunner.installPlugin(new MySqlPlugin());
             queryRunner.createCatalog(MYSQL_CATALOG, "mysql", connectorProperties);
 
-            // Second catalog with enable-datasource-managed-views=true (passthrough)
+            // Second catalog with datasource-managed-views.enabled=true (passthrough)
             Map<String, String> passthroughProperties = new HashMap<>(connectorProperties);
-            passthroughProperties.put("enable-datasource-managed-views", "true");
+            passthroughProperties.put("datasource-managed-views.enabled", "true");
             queryRunner.createCatalog(MYSQL_PASSTHROUGH_CATALOG, "mysql", passthroughProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
