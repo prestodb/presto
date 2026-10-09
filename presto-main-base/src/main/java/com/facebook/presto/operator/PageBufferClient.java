@@ -36,6 +36,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -410,6 +411,32 @@ public final class PageBufferClient
             public void onFailure(Throwable t)
             {
                 checkNotHoldsLock(this);
+
+                // The delete request is fire-and-forget (see RpcShuffleClient.abortResults).
+                // If it is cancelled during close/teardown, the remote buffer abort is
+                // best-effort and a CancellationException here is expected, so don't log it
+                // as an error or propagate it to the callback.
+                if (t instanceof CancellationException) {
+                    backoff.success();
+                    boolean isCurrent;
+                    synchronized (PageBufferClient.this) {
+                        closed = true;
+                        isCurrent = (future == resultFuture);
+                        if (isCurrent) {
+                            future = null;
+                        }
+                        lastUpdate = currentTimeMillis();
+                    }
+                    requestsCompleted.incrementAndGet();
+                    // Only invoke clientFinished when this callback owns the current DELETE
+                    // future. If close() raced, cancelled this future, and issued a replacement
+                    // DELETE, this callback belongs to the superseded request and the
+                    // replacement will call clientFinished when it completes.
+                    if (isCurrent) {
+                        clientCallback.clientFinished(PageBufferClient.this);
+                    }
+                    return;
+                }
 
                 log.error(t, "Request to delete %s failed", location);
                 if (!(t instanceof PrestoException) && backoff.failure()) {
