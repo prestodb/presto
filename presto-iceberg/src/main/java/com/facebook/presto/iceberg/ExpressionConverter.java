@@ -173,6 +173,7 @@ public final class ExpressionConverter
     // depth O(N), to avoid stack overflow in ExpressionVisitors.visit() for large collections.
     private static Expression buildOrTree(List<Expression> exprs)
     {
+        checkArgument(!exprs.isEmpty(), "exprs must not be empty");
         if (exprs.size() == 1) {
             return exprs.get(0);
         }

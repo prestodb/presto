@@ -119,7 +119,7 @@ public class TestExpressionConverter
         assertFalse(evalOnDate(expression, 19001L), "19001 should not match equal(19000)");
     }
 
-    // Small domains (100 values, within IN_PREDICATE_LIMIT) convert to a single in() after the fix.
+    // Small domain (100 values) produces a balanced equal() tree of depth ceil(log2(100)) = 7.
     @Test
     public void testSmallDomainConvertsCorrectly()
     {
@@ -128,6 +128,7 @@ public class TestExpressionConverter
                 ImmutableMap.of(CREATED_DATE_HANDLE, domain));
 
         Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
+        assertTrue(depth(expression) <= 8, "expected a shallow tree, got depth " + depth(expression));
         assertTrue(evalOnDate(expression, 19000L), "first value should match");
         assertTrue(evalOnDate(expression, 19099L), "last value should match");
         assertFalse(evalOnDate(expression, 18999L), "value before range should not match");
@@ -244,7 +245,7 @@ public class TestExpressionConverter
         assertFalse(evalOnDate(expression, 19100L), "19100 is above 19050, should not match");
     }
 
-    // BETWEEN range (lo <= date <= hi, lo != hi) exercises the cachedLow/cachedHigh paths in pass 2.
+    // BETWEEN range (lo <= date <= hi, lo != hi) is emitted as and(greaterThanOrEqual, lessThanOrEqual).
     @Test
     public void testBetweenRangeConvertsCorrectly()
     {
