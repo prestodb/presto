@@ -2185,11 +2185,10 @@ ADD COLUMN with DEFAULT (Iceberg V3)
 
 .. note::
 
-    ``ADD COLUMN DEFAULT`` read support is available in both **Presto Java** and **Presto C++** (Prestissimo).
-    Both engines execute the DDL, store the default in Iceberg metadata, and inject the ``initial-default``
-    value during reads for historical rows. In addition, **Presto Java** supports write-time handling of
-    ``write-default`` for omitted columns during ``INSERT`` into Iceberg V3 tables. **Presto C++** does not
-    support this behavior.
+    ``ADD COLUMN DEFAULT`` is supported in both **Presto Java** and **Presto C++** (Prestissimo).
+    Both engines execute the DDL, store the default in Iceberg metadata, inject the ``initial-default``
+    value during reads for historical rows, and write the ``write-default`` value for columns omitted
+    from an ``INSERT`` into Iceberg V3 tables.
 
 Iceberg Format Version 3 supports default column values for schema evolution. When a column is
 added with a ``DEFAULT`` clause, Presto sets both the ``initial-default`` and ``write-default``
@@ -2220,8 +2219,8 @@ ALTER COLUMN SET DEFAULT (Iceberg V3)
 .. note::
 
     ``ALTER COLUMN SET DEFAULT`` updates the Iceberg metadata (``write-default`` field).
-    In **Presto Java**, subsequent ``INSERT`` statements use the ``write-default`` value for omitted
-    columns. **Presto C++** does not yet support write-default materialization during ``INSERT``.
+    In both **Presto Java** and **Presto C++**, subsequent ``INSERT`` statements use the
+    ``write-default`` value for omitted columns.
 
 Iceberg Format Version 3 allows updating the ``write-default`` value for an existing column without
 modifying the ``initial-default``. This is useful for schema evolution and maintaining compatibility
