@@ -342,7 +342,7 @@ public class RewriteDataFilesProcedure
 
                 TableScan tableScan = procedureContext.getTable().newScan()
                         .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
-                        .filter(toIcebergExpression(predicate))
+                        .filter(toIcebergExpression(predicate, procedureContext.getTable().schemas().values()))
                         .useSnapshot(scanSnapshot.snapshotId());
 
                 Map<String, String> options = procedureContext.getOptions();

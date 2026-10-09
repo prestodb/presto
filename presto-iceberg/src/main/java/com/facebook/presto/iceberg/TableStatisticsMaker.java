@@ -296,7 +296,7 @@ public class TableStatisticsMaker
         TupleDomain<IcebergColumnHandle> nonMetadataIntersection = IcebergUtil.getNonMetadataColumnConstraints(intersection);
         TableScan tableScan = icebergTable.newScan()
                 .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
-                .filter(toIcebergExpression(nonMetadataIntersection))
+                .filter(toIcebergExpression(nonMetadataIntersection, icebergTable.schemas().values()))
                 .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
                 .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
                 .includeColumnStats();

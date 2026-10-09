@@ -1852,6 +1852,14 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE ALTER COLUMN SET NOT NULL``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN DROP NOT NULL``
+     - Yes
+     - Yes
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2269,6 +2277,59 @@ The optional ``IF NOT EXISTS`` clause suppresses the error if the field already 
 The dotted path may refer to arbitrarily nested fields. The following clauses are not supported
 for nested fields and will be rejected: ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
 ``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER``.
+
+ALTER COLUMN SET NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports adding a ``NOT NULL`` constraint on an existing column
+via ``ALTER COLUMN``.
+
+.. code-block:: sql
+
+    ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id SET NOT NULL;
+
+**Important:** ``SET NOT NULL`` applies only to future writes. It is a metadata-only operation
+in Iceberg: it updates the column's required/optional flag in the schema, and does not check or
+rewrite existing data files. This means:
+
+* After the constraint is set, a write that stores ``NULL`` in the column fails.
+* Existing data is left as it is. Rows written before the constraint was set keep their values,
+  including ``NULL`` values, and the operation succeeds even if such rows exist.
+* Pre-existing ``NULL`` values stay readable, and ``IS NULL`` predicates still match them.
+* Setting ``NOT NULL`` on a column that already has the constraint succeeds and does not change the schema.
+
+.. warning::
+
+    Iceberg classifies promoting a column from optional to required as an *incompatible*
+    schema change, and Presto applies it without first validating that the column contains
+    no ``NULL`` values. A table can therefore end up advertising a ``required`` field while
+    its data files still contain ``NULL`` values for that column. Other engines reading the
+    table may treat ``required`` as a guarantee and optimize on it, so only use ``SET NOT NULL``
+    on a column you know contains no ``NULL`` values. Verify with
+    ``SELECT count(*) FROM <table> WHERE <column> IS NULL`` before running it.
+
+ALTER COLUMN DROP NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports removing a ``NOT NULL`` constraint from an existing column
+via ``ALTER COLUMN``.
+
+.. code-block:: sql
+
+    ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id DROP NOT NULL;
+
+**Important:** ``DROP NOT NULL`` applies only to future writes. It is a metadata-only operation
+in Iceberg: it relaxes the column's required/optional flag in the schema, and does not rewrite
+existing data files. This means:
+
+* After the constraint is dropped, writes can store ``NULL`` in the column.
+* Existing data is left as it is. Rows written before the constraint was dropped keep their
+  values, including any ``NULL`` values written before a ``SET NOT NULL``.
+* The operation succeeds immediately, regardless of the amount of existing data.
+* Dropping ``NOT NULL`` on a column that does not have the constraint fails.
+
+Unlike ``SET NOT NULL``, relaxing a column from required to optional is a compatible schema
+change in Iceberg, so this direction is always safe.
 
 ALTER VIEW
 ^^^^^^^^^^

@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg.optimizer;
 
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.PartitionSet;
@@ -41,12 +42,15 @@ import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.base.Functions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,6 +58,7 @@ import java.util.Set;
 
 import static com.facebook.presto.hive.rule.FilterPushdownUtils.getDomainPredicate;
 import static com.facebook.presto.hive.rule.FilterPushdownUtils.getPredicateColumnNames;
+import static com.facebook.presto.iceberg.ExpressionConverter.isNullSensitiveOnRequiredField;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
@@ -142,7 +147,11 @@ public class IcebergFilterPushdown
 
             Table icebergTable = getIcebergTable(metadata, session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
             List<IcebergColumnHandle> partitionColumns = getPartitionKeyColumnHandles((IcebergTableHandle) tableHandle, icebergTable, typeManager);
-            TupleDomain<ColumnHandle> unenforcedConstraint = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().get(), not(Predicates.in(partitionColumns))));
+            Map<ColumnHandle, Domain> constraintDomains = constraint.getSummary().getDomains().get();
+            Collection<Schema> schemas = icebergTable.schemas().values();
+            Predicate<ColumnHandle> enforcedByPartitionPruning = column -> partitionColumns.contains(column)
+                    && !isNullSensitiveOnRequiredField(schemas, ((IcebergColumnHandle) column).getName(), constraintDomains.get(column));
+            TupleDomain<ColumnHandle> unenforcedConstraint = TupleDomain.withColumnDomains(Maps.filterKeys(constraintDomains, not(enforcedByPartitionPruning)));
 
             TupleDomain<Subfield> domainPredicate = getDomainPredicate(decomposedFilter, unenforcedConstraint);
 
@@ -156,7 +165,7 @@ public class IcebergFilterPushdown
             Optional<Set<IcebergColumnHandle>> requestedColumns = currentLayoutHandle.map(layout -> ((IcebergTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty());
 
             TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(
-                    constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
+                    constraintDomains, Predicates.in(partitionColumns)));
 
             RuntimeStats runtimeStats = session.getRuntimeStats();
             PartitionSet partitions = getPartitions(
