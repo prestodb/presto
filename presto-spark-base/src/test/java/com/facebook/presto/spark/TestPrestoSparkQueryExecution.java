@@ -15,11 +15,14 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.operator.TableFinishInfo;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskRdd;
+import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
 import com.facebook.presto.spark.execution.FragmentExecutionResult;
 import com.facebook.presto.spark.execution.PrestoSparkAdaptiveQueryExecution;
 import com.facebook.presto.spark.execution.PrestoSparkStaticQueryExecution;
@@ -41,6 +44,7 @@ import org.apache.spark.rdd.ShuffledRDD;
 import org.testng.annotations.Test;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -48,12 +52,14 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_MAX_TASK_INFOS_IN_QUERY_COMPLETED_EVENT;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
 import static com.facebook.presto.spark.execution.RuntimeStatistics.createRuntimeStats;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -250,6 +256,88 @@ public class TestPrestoSparkQueryExecution
         // Multiple partition case
         planNodeStatsEstimate = createRuntimeStats(Optional.of(new MapOutputStatistics(0, new long[] {23, 520, 190})));
         assertEquals(planNodeStatsEstimate.get().getOutputSizeInBytes(), 733);
+    }
+
+    /**
+     * Regression test for the DWQL lineage gap: the written partition list is carried only by
+     * {@link TableFinishInfo}, on the TaskInfo of the COORDINATOR_ONLY root fragment. That task info used to go
+     * into the shared collector, so the all-or-nothing drop past
+     * {@code spark_max_task_infos_in_query_completed_event} took it with everything else and lineage lost the
+     * partitions for a write that landed. The cap is forced to 0 here so the drop branch is always taken.
+     */
+    @Test
+    public void testCoordinatorOnlyTaskInfoSurvivesTaskInfoDrop()
+    {
+        String tableName = "hive.hive_test.test_coordinator_only_task_info";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED, "false")
+                .setSystemProperty(SPARK_MAX_TASK_INFOS_IN_QUERY_COMPLETED_EVENT, "0")
+                .build();
+
+        try {
+            String sql = "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['orderstatus']) AS " +
+                    "SELECT orderkey, custkey, orderstatus FROM orders";
+            IPrestoSparkQueryExecution queryExecution = getPrestoSparkQueryExecution(session, sql);
+            assertTrue(queryExecution instanceof AbstractPrestoSparkQueryExecution);
+            AbstractPrestoSparkQueryExecution execution = (AbstractPrestoSparkQueryExecution) queryExecution;
+
+            List<List<Object>> rows = execution.execute();
+
+            // The write must really have happened, else a missing capture below could be explained away by a
+            // query that never reached TableFinish.
+            assertEquals(rows.size(), 1);
+            assertEquals(((Number) rows.get(0).get(0)).longValue(), 15000L);
+
+            Optional<TaskInfo> coordinatorOnlyTaskInfo = execution.getCoordinatorOnlyTaskInfo();
+            assertTrue(coordinatorOnlyTaskInfo.isPresent(), "coordinator only task info was not captured");
+            assertEquals(coordinatorOnlyTaskInfo.get().getTaskId().getStageExecutionId().getStageId().getId(), 0);
+
+            Optional<TableFinishInfo> tableFinishInfo = coordinatorOnlyTaskInfo.get().getStats().getPipelines().stream()
+                    .flatMap(pipeline -> pipeline.getOperatorSummaries().stream())
+                    .map(operatorStats -> operatorStats.getInfo())
+                    .filter(info -> info instanceof TableFinishInfo)
+                    .map(info -> (TableFinishInfo) info)
+                    .findFirst();
+            assertTrue(tableFinishInfo.isPresent(), "TableFinishInfo is missing from the captured task info");
+
+            // QueryMonitor#getQueryIOMetadata reads exactly this field to build QueryOutputMetadata, which DWQL
+            // renders as outputs[].partition.
+            assertNotNull(
+                    tableFinishInfo.get().getSerializedConnectorOutputMetadata(),
+                    "TableFinishInfo carries no connector output metadata, so the written partition list is empty");
+            assertFalse(tableFinishInfo.get().isJsonLengthLimitExceeded());
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    /**
+     * Negative control: same forced-low cap, but a read-only query. A plain SELECT's root fragment is not
+     * COORDINATOR_DISTRIBUTION, so collectPages is never entered and nothing may be captured. Without this, the
+     * positive test would also pass against an implementation that stashed any TaskInfo unconditionally.
+     */
+    @Test
+    public void testCoordinatorOnlyTaskInfoAbsentForReadOnlyQuery()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED, "false")
+                .setSystemProperty(SPARK_MAX_TASK_INFOS_IN_QUERY_COMPLETED_EVENT, "0")
+                .build();
+
+        IPrestoSparkQueryExecution queryExecution = getPrestoSparkQueryExecution(session, "SELECT count(*) FROM orders");
+        assertTrue(queryExecution instanceof AbstractPrestoSparkQueryExecution);
+        AbstractPrestoSparkQueryExecution execution = (AbstractPrestoSparkQueryExecution) queryExecution;
+
+        List<List<Object>> rows = execution.execute();
+
+        // The control is only meaningful if the query actually executed.
+        assertEquals(rows.size(), 1);
+        assertEquals(((Number) rows.get(0).get(0)).longValue(), 15000L);
+
+        assertFalse(
+                execution.getCoordinatorOnlyTaskInfo().isPresent(),
+                "coordinator only task info was captured for a non-COORDINATOR_DISTRIBUTION root fragment");
     }
 
     private void validateFragmentedRddCreation(Session session, String sql)
