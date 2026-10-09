@@ -76,7 +76,7 @@ when we reach the limit of ``native_max_partial_aggregation_memory``.
 Default is 64MB.
 
 ``native_abandon_partial_aggregation_min_rows``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
 * **Default value:** ``100000``
