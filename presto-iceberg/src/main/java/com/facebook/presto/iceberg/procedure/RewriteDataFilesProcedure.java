@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg.procedure;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.BaseHiveColumnHandle;
@@ -94,6 +95,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class RewriteDataFilesProcedure
         implements Provider<DistributedProcedure>
@@ -213,6 +215,21 @@ public class RewriteDataFilesProcedure
                 if (hasNonPartitionDomainPredicate || hasRemainingPredicate) {
                     throw new PrestoException(NOT_SUPPORTED,
                             "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
+                }
+                // Any domain left here is on a partition column, and reaches domainPredicate only when it admits or
+                // excludes only NULL on a NOT NULL column, which partition pruning cannot enforce.
+                String unenforcedPartitionColumns = layoutHandle.getDomainPredicate()
+                        .getDomains()
+                        .map(domains -> domains.keySet().stream()
+                                .map(Subfield::getRootName)
+                                .distinct()
+                                .sorted()
+                                .collect(joining(", ")))
+                        .orElse("");
+                if (!unenforcedPartitionColumns.isEmpty()) {
+                    throw new PrestoException(NOT_SUPPORTED, format(
+                            "rewrite_data_files does not support IS NULL or IS NOT NULL filters on NOT NULL partition column %s when pushdown_filter_enabled=true",
+                            unenforcedPartitionColumns));
                 }
             }
 
@@ -342,7 +359,7 @@ public class RewriteDataFilesProcedure
 
                 TableScan tableScan = procedureContext.getTable().newScan()
                         .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
-                        .filter(toIcebergExpression(predicate))
+                        .filter(toIcebergExpression(predicate, procedureContext.getTable().schemas().values()))
                         .useSnapshot(scanSnapshot.snapshotId());
 
                 Map<String, String> options = procedureContext.getOptions();

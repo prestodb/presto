@@ -1515,6 +1515,10 @@ merged into fewer but larger files under the newest partition spec. If the table
 files compaction can act separately on the selected partitions to improve read performance by reducing
 metadata overhead and runtime file open cost.
 
+The data files being rewritten must not hold ``NULL`` values in a ``NOT NULL`` column, which rows
+written before ``ALTER COLUMN ... SET NOT NULL`` can. Otherwise the procedure fails and nothing is
+rewritten. See `ALTER COLUMN SET NOT NULL`_.
+
 The following arguments are available:
 
 ===================== ========== =============== =======================================================================
@@ -1851,6 +1855,14 @@ SQL Support
      - Yes
      -
    * - ``ALTER TABLE ADD COLUMN`` (nested struct field)
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN SET NOT NULL``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN DROP NOT NULL``
      - Yes
      - Yes
      -
@@ -2271,6 +2283,76 @@ The optional ``IF NOT EXISTS`` clause suppresses the error if the field already 
 The dotted path may refer to arbitrarily nested fields. The following clauses are not supported
 for nested fields and will be rejected: ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
 ``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER``.
+
+ALTER COLUMN SET NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports adding a ``NOT NULL`` constraint on an existing column
+via ``ALTER COLUMN``.
+
+.. code-block:: sql
+
+    ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id SET NOT NULL;
+
+Only top-level columns can be altered, and the statement is not supported on a branch.
+
+**Important:** ``SET NOT NULL`` applies only to future writes. It is a metadata-only operation
+in Iceberg: it updates the column's required/optional flag in the schema, and does not check or
+rewrite existing data files. This means:
+
+* After the constraint is set, a write that stores ``NULL`` in the column fails. A write that
+  was already running when ``SET NOT NULL`` committed is not checked against the constraint and
+  can still store ``NULL``.
+* Existing data is left as it is. Rows written before the constraint was set keep their values,
+  including ``NULL`` values, and the operation succeeds even if such rows exist.
+* Pre-existing ``NULL`` values stay readable, and ``IS NULL`` predicates still match them.
+* Presto does not treat ``NOT NULL`` as a guarantee about existing data, so ``IS NULL`` and
+  ``IS NOT NULL`` predicates on a ``NOT NULL`` column are not used for file pruning, partition
+  pruning, or metadata deletes. This also applies to columns declared ``NOT NULL`` in
+  ``CREATE TABLE``. A format version 1 table has no row-level deletes, so on it a ``DELETE`` with
+  such a predicate on a partition column fails. Such a predicate cannot select whole partitions,
+  so ``rewrite_data_files`` with it as the ``filter`` also fails.
+* ``rewrite_data_files`` fails if the data files it rewrites hold ``NULL`` values in a ``NOT NULL``
+  column, and nothing is rewritten. Before compacting, ``UPDATE`` or ``DELETE`` those rows, or drop
+  the constraint. Setting a default value on the column does not change ``NULL`` values that are
+  already stored.
+* Setting ``NOT NULL`` on a column that already has the constraint succeeds and does not change the schema.
+
+.. warning::
+
+    Iceberg classifies promoting a column from optional to required as an *incompatible*
+    schema change, and Presto applies it without first validating that the column contains
+    no ``NULL`` values. A table can therefore end up advertising a ``required`` field while
+    its data files still contain ``NULL`` values for that column. Other engines reading the
+    table may treat ``required`` as a guarantee and optimize on it, so only use ``SET NOT NULL``
+    on a column you know contains no ``NULL`` values. Verify with
+    ``SELECT count(*) FROM <table> WHERE <column> IS NULL`` before running it.
+
+ALTER COLUMN DROP NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports removing a ``NOT NULL`` constraint from an existing column
+via ``ALTER COLUMN``.
+
+.. code-block:: sql
+
+    ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id DROP NOT NULL;
+
+The same restrictions as ``SET NOT NULL`` apply. A column that is an Iceberg identifier field
+must stay ``NOT NULL``, so dropping the constraint on it fails.
+
+**Important:** ``DROP NOT NULL`` applies only to future writes. It is a metadata-only operation
+in Iceberg: it relaxes the column's required/optional flag in the schema, and does not rewrite
+existing data files. This means:
+
+* After the constraint is dropped, writes can store ``NULL`` in the column.
+* Existing data is left as it is. Rows written before the constraint was dropped keep their
+  values, including any ``NULL`` values written before a ``SET NOT NULL``.
+* The operation succeeds immediately, regardless of the amount of existing data.
+* Dropping ``NOT NULL`` on a column that does not have the constraint fails.
+
+Unlike ``SET NOT NULL``, relaxing a column from required to optional is a compatible schema
+change in Iceberg, so this direction is always safe.
 
 ALTER VIEW
 ^^^^^^^^^^

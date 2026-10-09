@@ -622,7 +622,7 @@ public final class IcebergUtil
 
     public static TableScan getTableScan(TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable, RuntimeStats runtimeStats)
     {
-        Expression expression = ExpressionConverter.toIcebergExpression(predicates);
+        Expression expression = ExpressionConverter.toIcebergExpression(predicates, icebergTable.schemas().values());
         TableScan tableScan = icebergTable
                 .newScan()
                 .metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats))
@@ -883,7 +883,7 @@ public final class IcebergUtil
             return MATCH_ALL_LINEAGE_EVALUATOR;
         }
         Expression expression = toIcebergExpression(TupleDomain.withColumnDomains(
-                ImmutableMap.of(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE, domain)));
+                ImmutableMap.of(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE, domain)), ImmutableList.of(LINEAGE_ONLY_SCHEMA));
         return new InclusiveMetricsEvaluator(LINEAGE_ONLY_SCHEMA, expression);
     }
 
@@ -1239,7 +1239,7 @@ public final class IcebergUtil
             Optional<Set<Integer>> requestedSchema,
             RuntimeStats runtimeStats)
     {
-        Expression filterExpression = toIcebergExpression(filter);
+        Expression filterExpression = toIcebergExpression(filter, table.schemas().values());
         CloseableIterable<FileScanTask> fileTasks = table
                 .newScan()
                 .metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats))
