@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.DateType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,8 +44,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.LongStream;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.iceberg.ExpressionConverter.isNullSensitiveOnRequiredField;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static java.lang.Math.toIntExact;
+import static org.apache.iceberg.types.Types.NestedField.optional;
+import static org.apache.iceberg.types.Types.NestedField.required;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -62,6 +67,8 @@ public class TestExpressionConverter
     private static final Schema DATE_ICEBERG_SCHEMA = new Schema(
             Types.NestedField.optional(1, "created_date", Types.DateType.get()));
 
+    private static final List<Domain> NULL_SENSITIVE_DOMAINS = ImmutableList.of(Domain.onlyNull(BIGINT), Domain.notNull(BIGINT));
+
     // Regression test for the primary bug: a 5000-point domain must produce a shallow tree.
     @Test
     public void testLargeMultiValueDomainProducesShallowTree()
@@ -70,7 +77,7 @@ public class TestExpressionConverter
         TupleDomain<IcebergColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.of(CREATED_DATE_HANDLE, domain));
 
-        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
+        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain, ImmutableList.of(DATE_ICEBERG_SCHEMA));
 
         // 5,000 values -> balanced equal() tree, depth = ceil(log2(5000)) ~ 13
         assertTrue(depth(expression) <= 15, "expected a shallow tree, got depth " + depth(expression));
@@ -112,7 +119,7 @@ public class TestExpressionConverter
         TupleDomain<IcebergColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.of(CREATED_DATE_HANDLE, domain));
 
-        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
+        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain, ImmutableList.of(DATE_ICEBERG_SCHEMA));
         assertTrue(expression instanceof UnboundPredicate, "single equality should produce UnboundPredicate");
         assertTrue(((UnboundPredicate<?>) expression).op() == Expression.Operation.EQ, "should use equal() predicate");
         assertTrue(evalOnDate(expression, 19000L), "19000 should match equal(19000)");
@@ -127,7 +134,7 @@ public class TestExpressionConverter
         TupleDomain<IcebergColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.of(CREATED_DATE_HANDLE, domain));
 
-        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
+        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain, ImmutableList.of(DATE_ICEBERG_SCHEMA));
         assertTrue(depth(expression) <= 8, "expected a shallow tree, got depth " + depth(expression));
         assertTrue(evalOnDate(expression, 19000L), "first value should match");
         assertTrue(evalOnDate(expression, 19099L), "last value should match");
@@ -160,14 +167,14 @@ public class TestExpressionConverter
         // 200 values: balanced equal() tree must prune the file.
         Domain domain200 = Domain.multipleValues(DateType.DATE, buildDateValues(200));
         Expression expr200 = ExpressionConverter.toIcebergExpression(
-                TupleDomain.withColumnDomains(ImmutableMap.of(CREATED_DATE_HANDLE, domain200)));
+                TupleDomain.withColumnDomains(ImmutableMap.of(CREATED_DATE_HANDLE, domain200)), ImmutableList.of(DATE_ICEBERG_SCHEMA));
         assertFalse(new InclusiveMetricsEvaluator(DATE_ICEBERG_SCHEMA, expr200).eval(file),
                 "200-value domain should prune a file with no matching values");
 
         // 201 values: balanced equal() tree must still prune the file.
         Domain domain201 = Domain.multipleValues(DateType.DATE, buildDateValues(201));
         Expression expr201 = ExpressionConverter.toIcebergExpression(
-                TupleDomain.withColumnDomains(ImmutableMap.of(CREATED_DATE_HANDLE, domain201)));
+                TupleDomain.withColumnDomains(ImmutableMap.of(CREATED_DATE_HANDLE, domain201)), ImmutableList.of(DATE_ICEBERG_SCHEMA));
         assertFalse(new InclusiveMetricsEvaluator(DATE_ICEBERG_SCHEMA, expr201).eval(file),
                 "201-value domain should prune a file with no matching values");
     }
@@ -183,7 +190,7 @@ public class TestExpressionConverter
         TupleDomain<IcebergColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.of(CREATED_DATE_HANDLE, domain));
 
-        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
+        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain, ImmutableList.of(DATE_ICEBERG_SCHEMA));
         assertTrue(evalOnDate(expression, 19000L), "19000 should match");
         assertFalse(evalOnDate(expression, 19001L), "19001 should not match");
         assertTrue(evalOnNull(expression), "null should match null-allowed domain");
@@ -204,7 +211,7 @@ public class TestExpressionConverter
                 true);
         TupleDomain<IcebergColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.of(CREATED_DATE_HANDLE, domain));
-        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
+        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain, ImmutableList.of(DATE_ICEBERG_SCHEMA));
 
         assertTrue(evalOnNull(expression), "null rows must match a null-allowed domain");
 
@@ -238,7 +245,7 @@ public class TestExpressionConverter
         TupleDomain<IcebergColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.of(CREATED_DATE_HANDLE, domain));
 
-        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
+        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain, ImmutableList.of(DATE_ICEBERG_SCHEMA));
         assertTrue(evalOnDate(expression, 19000L), "19000 is below 19050, should match");
         assertTrue(evalOnDate(expression, 19049L), "19049 is below 19050, should match");
         assertFalse(evalOnDate(expression, 19050L), "19050 is the exclusive upper bound, should not match");
@@ -256,7 +263,7 @@ public class TestExpressionConverter
         TupleDomain<IcebergColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.of(CREATED_DATE_HANDLE, domain));
 
-        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
+        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain, ImmutableList.of(DATE_ICEBERG_SCHEMA));
         assertTrue(evalOnDate(expression, 19000L), "19000 is the inclusive lower bound, should match");
         assertTrue(evalOnDate(expression, 19050L), "19050 is inside the range, should match");
         assertTrue(evalOnDate(expression, 19100L), "19100 is the inclusive upper bound, should match");
@@ -277,7 +284,7 @@ public class TestExpressionConverter
         TupleDomain<IcebergColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.of(CREATED_DATE_HANDLE, domain));
 
-        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
+        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain, ImmutableList.of(DATE_ICEBERG_SCHEMA));
         assertTrue(evalOnDate(expression, 19000L), "19000 is an equality value, should match");
         assertTrue(evalOnDate(expression, 19001L), "19001 is an equality value, should match");
         assertTrue(evalOnDate(expression, 19101L), "19101 is above 19100, should match");
@@ -299,7 +306,7 @@ public class TestExpressionConverter
         TupleDomain<IcebergColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.of(CREATED_DATE_HANDLE, domain));
 
-        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain);
+        Expression expression = ExpressionConverter.toIcebergExpression(tupleDomain, ImmutableList.of(DATE_ICEBERG_SCHEMA));
         assertTrue(evalOnDate(expression, 19011L), "19011 is inside (19010, 19020), should match");
         assertTrue(evalOnDate(expression, 19019L), "19019 is inside (19010, 19020), should match");
         assertTrue(evalOnDate(expression, 19050L), "19050 is the equality value, should match");
@@ -310,6 +317,77 @@ public class TestExpressionConverter
     }
 
     // --- helpers ---
+
+    @Test
+    public void testColumnRequiredInEverySchema()
+    {
+        // NOT NULL constrains only later writes, so a column that is NOT NULL since CREATE TABLE is not trusted either.
+        assertNullSensitive(
+                ImmutableList.of(
+                        new Schema(0, ImmutableList.of(required(1, "c", Types.LongType.get()))),
+                        new Schema(1, ImmutableList.of(required(1, "c", Types.LongType.get()), optional(2, "d", Types.LongType.get())))),
+                "c");
+    }
+
+    @Test
+    public void testColumnRequiredInSomeSchemas()
+    {
+        Schema optionalColumn = new Schema(0, ImmutableList.of(optional(1, "c", Types.LongType.get())));
+        Schema requiredColumn = new Schema(1, ImmutableList.of(required(1, "c", Types.LongType.get())));
+        Schema absentColumn = new Schema(2, ImmutableList.of(optional(2, "d", Types.LongType.get())));
+
+        assertNullSensitive(ImmutableList.of(optionalColumn, requiredColumn), "c");
+        assertNullSensitive(ImmutableList.of(requiredColumn, optionalColumn), "c");
+        assertNullSensitive(ImmutableList.of(absentColumn, requiredColumn), "c");
+    }
+
+    @Test
+    public void testColumnNeverRequired()
+    {
+        Schema optionalColumn = new Schema(0, ImmutableList.of(optional(1, "c", Types.LongType.get())));
+        Schema absentColumn = new Schema(1, ImmutableList.of(optional(2, "d", Types.LongType.get())));
+
+        assertNotNullSensitive(ImmutableList.of(optionalColumn), "c");
+        assertNotNullSensitive(ImmutableList.of(optionalColumn, absentColumn), "c");
+        assertNotNullSensitive(ImmutableList.of(absentColumn), "c");
+    }
+
+    @Test
+    public void testNestedField()
+    {
+        Schema requiredFieldInOptionalStruct = new Schema(0, ImmutableList.of(optional(1, "s", Types.StructType.of(required(2, "x", Types.LongType.get())))));
+        Schema requiredFieldInRequiredStruct = new Schema(1, ImmutableList.of(required(1, "s", Types.StructType.of(required(2, "x", Types.LongType.get())))));
+        Schema optionalFieldInRequiredStruct = new Schema(2, ImmutableList.of(required(1, "s", Types.StructType.of(optional(2, "x", Types.LongType.get())))));
+
+        assertNullSensitive(ImmutableList.of(requiredFieldInOptionalStruct), "s.x");
+        assertNullSensitive(ImmutableList.of(requiredFieldInRequiredStruct), "s.x");
+        assertNotNullSensitive(ImmutableList.of(optionalFieldInRequiredStruct), "s.x");
+    }
+
+    @Test
+    public void testRenamedAndReplacedColumns()
+    {
+        // c is made required and then renamed to d
+        assertNullSensitive(
+                ImmutableList.of(
+                        new Schema(0, ImmutableList.of(optional(1, "c", Types.LongType.get()))),
+                        new Schema(1, ImmutableList.of(required(1, "d", Types.LongType.get())))),
+                "d");
+        // c is dropped and a new required column named c is added
+        assertNullSensitive(
+                ImmutableList.of(
+                        new Schema(0, ImmutableList.of(required(1, "c", Types.LongType.get()))),
+                        new Schema(1, ImmutableList.of(required(2, "c", Types.LongType.get())))),
+                "c");
+    }
+
+    @Test
+    public void testDomainWithoutNullPredicate()
+    {
+        List<Schema> schemas = ImmutableList.of(new Schema(0, ImmutableList.of(required(1, "c", Types.LongType.get()))));
+        assertFalse(isNullSensitiveOnRequiredField(schemas, "c", Domain.singleValue(BIGINT, 1L)));
+        assertFalse(isNullSensitiveOnRequiredField(schemas, "c", Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false)));
+    }
 
     private static List<Long> buildDateValues(int count)
     {
@@ -376,5 +454,19 @@ public class TestExpressionConverter
             return 1 + depth(((Not) expression).child());
         }
         return 1;
+    }
+
+    private static void assertNullSensitive(List<Schema> schemas, String columnName)
+    {
+        for (Domain domain : NULL_SENSITIVE_DOMAINS) {
+            assertTrue(isNullSensitiveOnRequiredField(schemas, columnName, domain), domain.toString());
+        }
+    }
+
+    private static void assertNotNullSensitive(List<Schema> schemas, String columnName)
+    {
+        for (Domain domain : NULL_SENSITIVE_DOMAINS) {
+            assertFalse(isNullSensitiveOnRequiredField(schemas, columnName, domain), domain.toString());
+        }
     }
 }
