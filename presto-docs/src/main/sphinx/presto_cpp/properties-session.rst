@@ -85,7 +85,7 @@ Native Execution only. Number of input rows to receive before starting to check 
 partial aggregation.
 
 ``native_abandon_partial_aggregation_min_pct``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
 * **Default value:** ``80``
