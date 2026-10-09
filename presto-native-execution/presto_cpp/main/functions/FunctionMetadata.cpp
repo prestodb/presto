@@ -73,6 +73,27 @@ const exec::VectorFunctionMetadata getScalarMetadata(const std::string& name) {
   VELOX_UNREACHABLE("Metadata for function {} not found", name);
 }
 
+// A function name can have both simple and vector implementations whose null
+// behavior differs, e.g. array_top_n. Returns the metadata of the
+// implementation that registered 'signature'.
+const exec::VectorFunctionMetadata getScalarMetadata(
+    const std::string& name,
+    const FunctionSignature& signature) {
+  for (const auto& [metadata, simpleSignature] :
+       exec::simpleFunctions().getFunctionSignaturesAndMetadata(name)) {
+    if (simpleSignature == &signature) {
+      return metadata;
+    }
+  }
+
+  auto vectorFunctionMetadata = exec::getVectorFunctionMetadata(name);
+  if (vectorFunctionMetadata.has_value()) {
+    return vectorFunctionMetadata.value();
+  }
+  VELOX_UNREACHABLE(
+      "Metadata for function {} not found: {}", name, signature.toString());
+}
+
 // 'scalarMetadata', when set, is used instead of looking the function up in
 // the scalar registry.  An RPC function is not registered there -- its
 // determinism and null behaviour come from AsyncRPCFunctionRegistry.
@@ -212,7 +233,8 @@ json buildScalarMetadata(
             *signature,
             isRpcFunction,
             /*aggregateSignature=*/nullptr,
-            scalarMetadata)) {
+            scalarMetadata.has_value() ? scalarMetadata
+                                       : getScalarMetadata(name, *signature))) {
       protocol::to_json(tj, functionMetadata.value());
       j.push_back(tj);
     }

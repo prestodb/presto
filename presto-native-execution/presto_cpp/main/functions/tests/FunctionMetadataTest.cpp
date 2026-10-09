@@ -16,7 +16,10 @@
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/functions/FunctionMetadata.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
+#include "velox/expression/VectorFunction.h"
 #include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
+#include "velox/functions/Macros.h"
+#include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -27,6 +30,35 @@ using namespace facebook::presto;
 using json = nlohmann::json;
 
 static const std::string kPrestoDefaultPrefix = "presto.default.";
+
+namespace {
+
+// Simple function half of test_mixed_null_behavior. Uses the default null
+// behavior.
+template <typename TExec>
+struct MixedNullBehaviorSimpleFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  void call(int64_t& result, const int64_t& input) {
+    result = input;
+  }
+};
+
+// Vector function half of test_mixed_null_behavior. Registered with
+// defaultNullBehavior(false). Publishing a function never evaluates it.
+class MixedNullBehaviorVectorFunction : public exec::VectorFunction {
+ public:
+  void apply(
+      const SelectivityVector& /*rows*/,
+      std::vector<VectorPtr>& /*args*/,
+      const TypePtr& /*outputType*/,
+      exec::EvalCtx& /*context*/,
+      VectorPtr& /*result*/) const override {
+    VELOX_UNREACHABLE();
+  }
+};
+
+} // namespace
 
 class FunctionMetadataTest : public ::testing::Test {
  protected:
@@ -68,6 +100,25 @@ class FunctionMetadataTest : public ::testing::Test {
              .returnType("bigint")
              .argumentType("double")
              .build()});
+
+    // A function name with both a simple and a vector implementation whose
+    // null behaviors differ, like array_top_n. Each signature has to be
+    // published with the null behavior of the implementation that registered
+    // it.
+    const auto mixedNullBehaviorName =
+        kPrestoDefaultPrefix + "test_mixed_null_behavior";
+    registerFunction<MixedNullBehaviorSimpleFunction, int64_t, int64_t>(
+        {mixedNullBehaviorName});
+    exec::registerVectorFunction(
+        mixedNullBehaviorName,
+        {exec::FunctionSignatureBuilder()
+             .returnType("varchar")
+             .argumentType("varchar")
+             .build()},
+        std::make_unique<MixedNullBehaviorVectorFunction>(),
+        exec::VectorFunctionMetadataBuilder()
+            .defaultNullBehavior(false)
+            .build());
   }
 
   static void TearDownTestSuite() {
@@ -177,6 +228,10 @@ TEST_F(FunctionMetadataTest, variance) {
 TEST_F(FunctionMetadataTest, rpcFunction) {
   testFunction("test_rpc_function", "TestRpcFunctions.json", 1);
   testFunction("test_rpc_function_with_defaults", "TestRpcFunctions.json", 1);
+}
+
+TEST_F(FunctionMetadataTest, mixedNullBehavior) {
+  testFunction("test_mixed_null_behavior", "TestMixedNullBehavior.json", 2);
 }
 
 TEST_F(FunctionMetadataTest, catalog) {
