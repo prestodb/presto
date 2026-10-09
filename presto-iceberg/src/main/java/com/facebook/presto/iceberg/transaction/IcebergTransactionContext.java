@@ -186,7 +186,7 @@ public class IcebergTransactionContext
 
         return txByTable.computeIfAbsent(
                 tableName,
-                k -> Transactions.newTransaction(table.name(), ((HasTableOperations) table).operations()));
+                k -> Transactions.newTransaction(table.name(), new NotNullCheckingTableOperations(tableName, ((HasTableOperations) table).operations())));
     }
 
     private class TransactionalTable

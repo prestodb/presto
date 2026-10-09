@@ -1865,6 +1865,14 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE ALTER COLUMN SET NOT NULL``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN DROP NOT NULL``
+     - Yes
+     - Yes
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2332,6 +2340,71 @@ The optional ``IF EXISTS`` clause suppresses the error if the field or any paren
 The dotted path may traverse arbitrarily nested structs, list elements (pseudo-step ``.element``,
 such as ``items.element.name``), and map values (pseudo-step ``.value``, such as ``m.value.name``).
 Dropping list elements, map keys, or map value containers directly is not supported.
+
+ALTER COLUMN SET NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports adding a ``NOT NULL`` constraint to a top-level column of a
+primitive type. No data files are read or rewritten, but the coordinator reads the manifests of
+every branch head, so the statement takes longer on a table with many branches or large manifests.
+The statement is not supported on a branch. Setting ``NOT NULL`` on a column that already has the
+constraint succeeds and does not change the schema.
+
+Example — Add a ``NOT NULL`` constraint to the ``user_id`` column::
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id SET NOT NULL;
+
+Before it changes the schema, Presto reads the ``NULL`` counts that Iceberg records in the manifests
+of every branch head. The statement fails if a data file has ``NULL`` values in the column, or has
+no ``NULL`` count for it. A data file has no ``NULL`` count for a column whose metrics mode is
+``none``, for a column past the ``metrics_max_inferred_column`` limit (100 columns by default), or
+for a column added after the file was written. For a column added with ``DEFAULT`` (Iceberg V3),
+files written before the column was added are accepted until the snapshots from before the column
+was added expire.
+
+* ``NULL`` counts do not reflect row-level deletes. After ``UPDATE`` or ``DELETE`` removes the
+  ``NULL`` values, run ``rewrite_data_files`` with the ``rewrite-all`` option before retrying. The
+  rewrite also adds ``NULL`` counts for a column added after the files were written, unless the
+  column's metrics mode is ``none`` or the column is past the ``metrics_max_inferred_column``
+  limit. ``rewrite_data_files`` rewrites only the ``main`` branch, so drop or replace any other
+  branch that holds such a file.
+* Tags are not checked, because they are read with the schema of their snapshot.
+* Moving a branch to a snapshot that can hold ``NULL`` values in a ``NOT NULL`` column fails. This
+  applies to ``rollback_to_snapshot``, ``rollback_to_timestamp``, ``set_current_snapshot``,
+  ``fast_forward``, and ``CREATE [OR REPLACE] BRANCH``. Drop the constraint first.
+* After the constraint is set, an ``INSERT``, ``UPDATE``, or ``MERGE`` that stores ``NULL`` in the
+  column fails. An ``INSERT`` that omits a column with a default writes the default, but a ``MERGE``
+  whose ``INSERT`` omits the column fails.
+* A write that read the table before another query set the constraint is checked again when it
+  commits. The commit fails if a data file it adds has ``NULL`` values in the column or has no
+  ``NULL`` count for it. A ``rollback_to_snapshot``, ``rollback_to_timestamp``, or
+  ``set_current_snapshot`` call that read the table before the constraint was set fails if its
+  target snapshot can hold ``NULL`` values in the column. ``fast_forward`` and
+  ``CREATE [OR REPLACE] BRANCH`` fail with ``Table metadata refresh is required``; retry them.
+* In an explicit transaction, if another query commits a write to the table after
+  ``SET NOT NULL``, ``COMMIT`` fails with ``Table metadata refresh is required`` and discards every
+  change in the transaction, as it does after other schema changes.
+
+.. warning::
+
+    Other engines can make a column required, or move a branch to an older snapshot, without
+    checking its data. Presto treats a required column as never ``NULL``, so queries on such a
+    column can return wrong results, and a ``DELETE`` or ``rewrite_data_files`` filter with
+    ``IS NOT NULL`` on a partition column can remove the rows that hold ``NULL``.
+
+ALTER COLUMN DROP NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports removing a ``NOT NULL`` constraint from a top-level column of any
+type. This is a metadata-only change — no data files are read or rewritten. The statement is not
+supported on a branch.
+
+Example — Remove the ``NOT NULL`` constraint from the ``user_id`` column::
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id DROP NOT NULL;
+
+The statement fails on a column that has no ``NOT NULL`` constraint, and on an Iceberg identifier
+field, which must stay ``NOT NULL``.
 
 ALTER VIEW
 ^^^^^^^^^^
