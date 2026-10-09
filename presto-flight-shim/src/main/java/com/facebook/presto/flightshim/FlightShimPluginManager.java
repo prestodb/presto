@@ -14,53 +14,40 @@
 package com.facebook.presto.flightshim;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.resolver.ArtifactResolver;
-import com.facebook.presto.block.BlockJsonSerde;
-import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockEncodingManager;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.server.PluginInstaller;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.server.PluginManagerUtil;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.type.TypeDeserializer;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import jakarta.annotation.PreDestroy;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.server.PluginManagerUtil.SPI_PACKAGES;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FlightShimPluginManager
@@ -70,16 +57,19 @@ public class FlightShimPluginManager
     private static final String SERVICES_FILE = "META-INF/services/" + Plugin.class.getName();
     private final ConnectorManager connectorManager;
     private final CatalogManager catalogManager;
-    private final Map<String, ConnectorCodecs> connectorCodecMap = new ConcurrentHashMap<>();
     private final File installedPluginsDir;
     private final List<String> plugins;
     private final ArtifactResolver resolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
     private final StaticCatalogStore staticCatalogStore;
-    private final TypeDeserializer typeDeserializer;
-    private final BlockEncodingManager blockEncodingManager;
     private final Supplier<List<PluginManagerUtil.PluginClassLoaderHandle>> cachedPluginClassLoaders;
+    private final HandleResolver handleResolver;
+    private final JsonCodec<ConnectorSplit> splitCodec;
+    private final JsonCodec<ColumnHandle> columnHandleCodec;
+    private final JsonCodec<ConnectorTableHandle> tableHandleCodec;
+    private final JsonCodec<ConnectorTableLayoutHandle> tableLayoutHandleCodec;
+    private final JsonCodec<ConnectorTransactionHandle> transactionHandleCodec;
 
     @Inject
     public FlightShimPluginManager(
@@ -88,16 +78,24 @@ public class FlightShimPluginManager
             StaticCatalogStore staticCatalogStore,
             PluginManagerConfig pluginManagerConfig,
             StaticCatalogStoreConfig catalogStoreConfig,
-            TypeDeserializer typeDeserializer,
-            BlockEncodingManager blockEncodingManager)
+            HandleResolver handleResolver,
+            JsonCodec<ConnectorSplit> splitCodec,
+            JsonCodec<ColumnHandle> columnHandleCodec,
+            JsonCodec<ConnectorTableHandle> tableHandleCodec,
+            JsonCodec<ConnectorTableLayoutHandle> tableLayoutHandleCodec,
+            JsonCodec<ConnectorTransactionHandle> transactionHandleCodec)
     {
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
         this.staticCatalogStore = requireNonNull(staticCatalogStore, "staticCatalogStore is null");
         requireNonNull(pluginManagerConfig, "pluginManagerConfig is null");
         requireNonNull(catalogStoreConfig, "catalogStoreConfig is null");
-        this.typeDeserializer = requireNonNull(typeDeserializer, "typeDeserializer is null");
-        this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        this.splitCodec = requireNonNull(splitCodec, "splitCodec is null");
+        this.columnHandleCodec = requireNonNull(columnHandleCodec, "columnHandleCodec is null");
+        this.tableHandleCodec = requireNonNull(tableHandleCodec, "tableHandleCodec is null");
+        this.tableLayoutHandleCodec = requireNonNull(tableLayoutHandleCodec, "tableLayoutHandleCodec is null");
+        this.transactionHandleCodec = requireNonNull(transactionHandleCodec, "transactionHandleCodec is null");
         this.installedPluginsDir = pluginManagerConfig.getInstalledPluginsDir();
         if (pluginManagerConfig.getPlugins() == null) {
             this.plugins = ImmutableList.of();
@@ -132,14 +130,35 @@ public class FlightShimPluginManager
         staticCatalogStore.loadCatalogs(additionalCatalogs);
     }
 
-    public ConnectorCodecs getConnectorCodecs(String connectorId)
+    public String getConnectorName(String catalogName)
     {
-        Catalog catalog = catalogManager.getCatalog(connectorId).orElseThrow(() -> new PrestoException(NOT_FOUND, "Federation catalog does not exist: " + connectorId));
-        ConnectorCodecs connectorCodecs = connectorCodecMap.get(catalog.getCatalogContext().getConnectorName());
-        if (connectorCodecs == null) {
-            throw new PrestoException(NOT_FOUND, "Federation connector not loaded: " + catalog.getCatalogContext().getConnectorName());
-        }
-        return connectorCodecs;
+        Catalog catalog = catalogManager.getCatalog(catalogName).orElseThrow(() -> new PrestoException(NOT_FOUND, "Federation catalog does not exist: " + catalogName));
+        return catalog.getCatalogContext().getConnectorName();
+    }
+
+    public ConnectorSplit decodeSplit(String connectorName, byte[] splitBytes)
+    {
+        return decodeHandle(splitCodec, splitBytes, handleResolver.getSplitClass(connectorName), connectorName);
+    }
+
+    public ConnectorTableHandle decodeTableHandle(String connectorName, byte[] tableHandleBytes)
+    {
+        return decodeHandle(tableHandleCodec, tableHandleBytes, handleResolver.getTableHandleClass(connectorName), connectorName);
+    }
+
+    public ConnectorTableLayoutHandle decodeTableLayoutHandle(String connectorName, byte[] tableLayoutHandleBytes)
+    {
+        return decodeHandle(tableLayoutHandleCodec, tableLayoutHandleBytes, handleResolver.getTableLayoutHandleClass(connectorName), connectorName);
+    }
+
+    public ColumnHandle decodeColumnHandle(String connectorName, byte[] columnHandleBytes)
+    {
+        return decodeHandle(columnHandleCodec, columnHandleBytes, handleResolver.getColumnHandleClass(connectorName), connectorName);
+    }
+
+    public ConnectorTransactionHandle decodeTransactionHandle(String connectorName, byte[] transactionHandleBytes)
+    {
+        return decodeHandle(transactionHandleCodec, transactionHandleBytes, handleResolver.getTransactionHandleClass(connectorName), connectorName);
     }
 
     @Override
@@ -148,78 +167,11 @@ public class FlightShimPluginManager
         for (ConnectorFactory factory : plugin.getConnectorFactories()) {
             log.info("Registering connector %s", factory.getName());
             connectorManager.addConnectorFactory(factory);
-            connectorCodecMap.computeIfAbsent(factory.getName(), name -> {
-                try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-                    ConnectorCodecs holder = new ConnectorCodecs(factory.getHandleResolver(), typeDeserializer, blockEncodingManager);
-                    log.debug("Finished loading connector: %s", name);
-                    return holder;
-                }
-            });
         }
     }
 
     @Override
     public void installCoordinatorPlugin(CoordinatorPlugin plugin) {}
-
-    public static class ConnectorCodecs
-    {
-        private final JsonCodec<? extends ConnectorSplit> codecSplit;
-        private final JsonCodec<? extends ColumnHandle> codecColumnHandle;
-        private final JsonCodec<? extends ConnectorTableHandle> codecTableHandle;
-        private final JsonCodec<? extends ConnectorTableLayoutHandle> codecTableLayoutHandle;
-        private final JsonCodec<? extends ConnectorTransactionHandle> codecTransactionHandle;
-
-        ConnectorCodecs(ConnectorHandleResolver resolver, TypeDeserializer typeDeserializer, BlockEncodingManager blockEncodingManager)
-        {
-            JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
-            JsonDeserializer<?> columnDeserializer = new JsonDeserializer<ColumnHandle>()
-            {
-                @Override
-                public ColumnHandle deserialize(JsonParser p, DeserializationContext ctxt)
-                        throws IOException
-                {
-                    return p.readValueAs(resolver.getColumnHandleClass());
-                }
-            };
-            BlockJsonSerde.Deserializer blockDeserializer = new BlockJsonSerde.Deserializer(blockEncodingManager);
-            provider.setJsonDeserializers(ImmutableMap.of(
-                    Type.class, typeDeserializer,
-                    ColumnHandle.class, columnDeserializer,
-                    Block.class, blockDeserializer));
-            JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(provider);
-
-            this.codecSplit = jsonCodecFactory.jsonCodec(resolver.getSplitClass());
-            this.codecColumnHandle = jsonCodecFactory.jsonCodec(resolver.getColumnHandleClass());
-            this.codecTableHandle = jsonCodecFactory.jsonCodec(resolver.getTableHandleClass());
-            this.codecTableLayoutHandle = jsonCodecFactory.jsonCodec(resolver.getTableLayoutHandleClass());
-            this.codecTransactionHandle = jsonCodecFactory.jsonCodec(resolver.getTransactionHandleClass());
-        }
-
-        JsonCodec<? extends ConnectorSplit> getCodecSplit()
-        {
-            return codecSplit;
-        }
-
-        JsonCodec<? extends ColumnHandle> getCodecColumnHandle()
-        {
-            return codecColumnHandle;
-        }
-
-        JsonCodec<? extends ConnectorTableHandle> getCodecTableHandle()
-        {
-            return codecTableHandle;
-        }
-
-        JsonCodec<? extends ConnectorTableLayoutHandle> getCodecTableLayoutHandle()
-        {
-            return codecTableLayoutHandle;
-        }
-
-        JsonCodec<? extends ConnectorTransactionHandle> getCodecTransactionHandle()
-        {
-            return codecTransactionHandle;
-        }
-    }
 
     private List<PluginManagerUtil.PluginClassLoaderHandle> createPluginClassLoaders()
     {
@@ -236,5 +188,15 @@ public class FlightShimPluginManager
         catch (Exception e) {
             throw new RuntimeException("Failed to build plugin classloaders", e);
         }
+    }
+
+    // The handle's @type selects its class, so reject handles of a connector other than the requested catalog's
+    private static <T> T decodeHandle(JsonCodec<T> codec, byte[] bytes, Class<? extends T> expectedClass, String connectorName)
+    {
+        T handle = codec.fromJson(bytes);
+        if (!expectedClass.isInstance(handle)) {
+            throw new IllegalArgumentException(format("Handle of type %s does not belong to connector %s", handle.getClass().getName(), connectorName));
+        }
+        return handle;
     }
 }

@@ -134,19 +134,19 @@ public abstract class AbstractTestFlightShimJdbcPlugins
     protected FlightShimRequest createTpchTableRequest(int partNumber, int totalParts, List<TpchColumnHandle> columnHandles)
     {
         Preconditions.checkArgument(totalParts == 1, "JDBC request must be of a single partition");
-        String split = createJdbcSplit(getConnectorId(), "tpch", TPCH_TABLE);
+        String split = createJdbcSplit(getConnectorName(), getConnectorId(), "tpch", TPCH_TABLE);
         byte[] splitBytes = split.getBytes(StandardCharsets.UTF_8);
 
         ImmutableList.Builder<Descriptor.Field> fieldBuilder = ImmutableList.builder();
         ImmutableList.Builder<byte[]> columnBuilder = ImmutableList.builder();
         for (TpchColumnHandle columnHandle : columnHandles) {
             fieldBuilder.add(new Descriptor.Field(Optional.of(columnHandle.getColumnName()), Optional.of(columnHandle.getType())));
-            columnBuilder.add(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(convertToJdbcColumnHandle(columnHandle)));
+            columnBuilder.add(withHandleType(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(convertToJdbcColumnHandle(columnHandle))));
         }
 
         JdbcTableHandle tableHandle = new JdbcTableHandle(getConnectorId(), new SchemaTableName("tpch", TPCH_TABLE), getConnectorId(), "tpch", TPCH_TABLE);
-        byte[] tableHandleBytes = TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle);
-        byte[] transactionHandleBytes = TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(new JdbcTransactionHandle());
+        byte[] tableHandleBytes = withHandleType(TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle));
+        byte[] transactionHandleBytes = withHandleType(TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(new JdbcTransactionHandle()));
 
         return new FlightShimRequest(getConnectorId(), fieldBuilder.build(), splitBytes, columnBuilder.build(), tableHandleBytes, Optional.empty(), transactionHandleBytes);
     }
@@ -154,19 +154,19 @@ public abstract class AbstractTestFlightShimJdbcPlugins
     protected FlightShimRequest createTpchTableRequestWithTupleDomain() throws Exception
     {
         JdbcColumnHandle orderKeyHandle = convertToJdbcColumnHandle(getOrderKeyColumn());
-        byte[] splitBytes = Files.readAllBytes(getResourceFile("split_tuple_domain.json").toPath());
+        byte[] splitBytes = readSplitResource("split_tuple_domain.json");
 
         ImmutableList.Builder<Descriptor.Field> fieldBuilder = ImmutableList.builder();
         List<JdbcColumnHandle> columnHandles = ImmutableList.of(orderKeyHandle);
         ImmutableList.Builder<byte[]> columnBuilder = ImmutableList.builder();
         for (JdbcColumnHandle columnHandle : columnHandles) {
             fieldBuilder.add(new Descriptor.Field(Optional.of(columnHandle.getColumnName()), Optional.of(columnHandle.getColumnType())));
-            columnBuilder.add(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(columnHandle));
+            columnBuilder.add(withHandleType(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(columnHandle)));
         }
 
         JdbcTableHandle tableHandle = new JdbcTableHandle(getConnectorId(), new SchemaTableName("tpch", TPCH_TABLE), getConnectorId(), "tpch", TPCH_TABLE);
-        byte[] tableHandleBytes = TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle);
-        byte[] transactionHandleBytes = TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(new JdbcTransactionHandle());
+        byte[] tableHandleBytes = withHandleType(TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle));
+        byte[] transactionHandleBytes = withHandleType(TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(new JdbcTransactionHandle()));
 
         return new FlightShimRequest(
                 getConnectorId(),
@@ -183,19 +183,19 @@ public abstract class AbstractTestFlightShimJdbcPlugins
     {
         // Query is: "SELECT orderkey FROM orders WHERE orderkey IN (1, 2, 3)"
         JdbcColumnHandle orderKeyHandle = convertToJdbcColumnHandle(getOrderKeyColumn());
-        byte[] splitBytes = Files.readAllBytes(getResourceFile("split_additional_predicate.json").toPath());
+        byte[] splitBytes = readSplitResource("split_additional_predicate.json");
 
         ImmutableList.Builder<Descriptor.Field> fieldBuilder = ImmutableList.builder();
         List<JdbcColumnHandle> columnHandles = ImmutableList.of(orderKeyHandle);
         ImmutableList.Builder<byte[]> columnBuilder = ImmutableList.builder();
         for (JdbcColumnHandle columnHandle : columnHandles) {
             fieldBuilder.add(new Descriptor.Field(Optional.of(columnHandle.getColumnName()), Optional.of(columnHandle.getColumnType())));
-            columnBuilder.add(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(columnHandle));
+            columnBuilder.add(withHandleType(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(columnHandle)));
         }
 
         JdbcTableHandle tableHandle = new JdbcTableHandle(getConnectorId(), new SchemaTableName("tpch", TPCH_TABLE), getConnectorId(), "tpch", TPCH_TABLE);
-        byte[] tableHandleBytes = TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle);
-        byte[] transactionHandleBytes = TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(new JdbcTransactionHandle());
+        byte[] tableHandleBytes = withHandleType(TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle));
+        byte[] transactionHandleBytes = withHandleType(TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(new JdbcTransactionHandle()));
 
         return new FlightShimRequest(
                 getConnectorId(),
@@ -205,6 +205,16 @@ public abstract class AbstractTestFlightShimJdbcPlugins
                 tableHandleBytes,
                 Optional.empty(),
                 transactionHandleBytes);
+    }
+
+    // Split resources use placeholders so each JDBC connector test can reuse them
+    private byte[] readSplitResource(String resourceName)
+            throws IOException
+    {
+        String split = new String(Files.readAllBytes(getResourceFile(resourceName).toPath()), StandardCharsets.UTF_8);
+        return split.replace("${connectorName}", getConnectorName())
+                .replace("${connectorId}", getConnectorId())
+                .getBytes(StandardCharsets.UTF_8);
     }
 
     protected static String removeDatabaseFromJdbcUrl(String jdbcUrl)
@@ -218,16 +228,17 @@ public abstract class AbstractTestFlightShimJdbcPlugins
                 "user=" + username + "&password=" + password;
     }
 
-    protected static String createJdbcSplit(String connectorId, String schemaName, String tableName)
+    protected static String createJdbcSplit(String connectorName, String connectorId, String schemaName, String tableName)
     {
         return format("{\n" +
+                "  \"@type\" : \"%s\",\n" +
                 "  \"connectorId\" : \"%s\",\n" +
                 "  \"schemaName\" : \"%s\",\n" +
                 "  \"tableName\" : \"%s\",\n" +
                 "  \"tupleDomain\" : {\n" +
                 "    \"columnDomains\" : [ ]\n" +
                 "  }\n" +
-                "}", connectorId, schemaName, tableName);
+                "}", connectorName, connectorId, schemaName, tableName);
     }
 
     static int jdbcDataType(Type type)
