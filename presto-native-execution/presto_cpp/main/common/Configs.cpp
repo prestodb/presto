@@ -191,6 +191,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kSpillerDirectoryCreateConfig, ""),
           NONE_PROP(kSpillerSpillPath),
           NUM_PROP(kShutdownOnsetSec, 10),
+          NUM_PROP(kShutdownTaskDrainMaxSec, 0),
           NUM_PROP(kSystemMemoryGb, 57),
           BOOL_PROP(kSystemMemPushbackEnabled, false),
           NUM_PROP(kSystemMemLimitGb, 60),
@@ -656,6 +657,10 @@ folly::Optional<std::string> SystemConfig::spillerSpillPath() const {
 
 int32_t SystemConfig::shutdownOnsetSec() const {
   return optionalProperty<int32_t>(kShutdownOnsetSec).value();
+}
+
+int32_t SystemConfig::shutdownTaskDrainMaxSec() const {
+  return optionalProperty<int32_t>(kShutdownTaskDrainMaxSec).value();
 }
 
 uint32_t SystemConfig::systemMemoryGb() const {
