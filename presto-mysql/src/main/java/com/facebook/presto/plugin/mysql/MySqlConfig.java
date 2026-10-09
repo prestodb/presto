@@ -69,7 +69,7 @@ public class MySqlConfig
         return datasourceManagedViewsEnabled;
     }
 
-    @Config("enable-datasource-managed-views")
+    @Config("datasource-managed-views.enabled")
     @ConfigDescription("Enable datasource-managed handling for connector views. " +
             "When disabled, Presto analyzes and processes underlying view SQL. " +
             "When enabled, Presto does not analyze the underlying view definition and treats it as datasource-managed.")

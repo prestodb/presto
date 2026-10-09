@@ -73,7 +73,7 @@ Property Name                                      Description                  
                                                    names for the connector. When disabled, names are matched
                                                    case-insensitively using lowercase normalization.
 
-``enable-datasource-managed-views``                Let MySQL resolve view definitions instead of Presto. When           ``false``
+``datasource-managed-views.enabled``               Let MySQL resolve view definitions instead of Presto. When           ``false``
                                                    enabled, the connector does not report views to Presto, so
                                                    Presto never analyzes the stored view SQL. See
                                                    :ref:`Views <mysql-views>`.
@@ -111,9 +111,9 @@ Views
 -----
 
 A MySQL view can be read in either of two modes, selected by the
-``enable-datasource-managed-views`` catalog property.
+``datasource-managed-views.enabled`` catalog property.
 
-With the default ``enable-datasource-managed-views=false``, Presto reads the
+With the default ``datasource-managed-views.enabled=false``, Presto reads the
 stored view SQL from MySQL and analyzes it itself. The view is exposed as a
 Presto view, so it is listed in ``information_schema.views``. Because Presto
 analyzes the definition, a view whose SQL uses MySQL-only syntax or functions
@@ -125,7 +125,7 @@ the following:
 
     Failed analyzing stored view 'mysql.web.recent_orders': Function ifnull not registered
 
-With ``enable-datasource-managed-views=true``, the connector reports no views
+With ``datasource-managed-views.enabled=true``, the connector reports no views
 and Presto reads each view through the normal table flow, leaving MySQL to
 resolve the view definition. Views whose SQL Presto cannot analyze become
 queryable, at the cost of Presto no longer treating them as views:
@@ -164,9 +164,9 @@ privilege(s)``.
 
 MySQL runs a ``SECURITY DEFINER`` view as its ``DEFINER``, so if the Presto
 user has no MySQL account of the same name, MySQL cannot read the view
-itself. Presto still reads it with ``enable-datasource-managed-views=false``,
+itself. Presto still reads it with ``datasource-managed-views.enabled=false``,
 because it only reads the view definition from MySQL, but not through a
-catalog with ``enable-datasource-managed-views=true`` or directly in MySQL.
+catalog with ``datasource-managed-views.enabled=true`` or directly in MySQL.
 Create the view with ``SECURITY INVOKER`` if it has to be readable that way.
 
 The property is set per catalog, so two catalogs over the same MySQL server
@@ -178,7 +178,7 @@ can use different modes:
     connection-url=jdbc:mysql://example.net:3306
     connection-user=root
     connection-password=secret
-    enable-datasource-managed-views=true
+    datasource-managed-views.enabled=true
 
 Type mapping
 ------------
@@ -429,7 +429,7 @@ DROP VIEW
 
 .. note:: ``ALTER VIEW`` and ``DROP VIEW`` require the connector to report the
  view to Presto, so they do not work when
- ``enable-datasource-managed-views=true``. See :ref:`Views <mysql-views>`.
+ ``datasource-managed-views.enabled=true``. See :ref:`Views <mysql-views>`.
 
 INSERT INTO
 ^^^^^^^^^^^

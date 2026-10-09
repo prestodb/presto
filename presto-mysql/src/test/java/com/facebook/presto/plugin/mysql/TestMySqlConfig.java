@@ -43,7 +43,7 @@ public class TestMySqlConfig
                 .put("mysql.auto-reconnect", "false")
                 .put("mysql.max-reconnects", "4")
                 .put("mysql.connection-timeout", "4s")
-                .put("enable-datasource-managed-views", "true")
+                .put("datasource-managed-views.enabled", "true")
                 .build();
 
         MySqlConfig expected = new MySqlConfig()
