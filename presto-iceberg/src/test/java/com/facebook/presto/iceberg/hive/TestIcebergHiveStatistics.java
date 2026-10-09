@@ -61,6 +61,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.UpdateStatistics;
@@ -69,7 +70,10 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -98,6 +102,7 @@ import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_D
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -190,6 +195,27 @@ public class TestIcebergHiveStatistics
         assertStatValuePresent(StatsSchema.DATA_SIZE, stats, ALL_ORDERS_COLUMNS);
         assertStatValuePresent(StatsSchema.LOW_VALUE, stats, NUMERIC_ORDERS_COLUMNS);
         assertStatValuePresent(StatsSchema.HIGH_VALUE, stats, ALL_ORDERS_COLUMNS);
+    }
+
+    @Test
+    public void testStatsWithDeleteManifest()
+            throws Exception
+    {
+        assertQuerySucceeds("CREATE TABLE statsWithDeleteManifest WITH (\"format-version\" = '2') AS SELECT * FROM orders LIMIT 10");
+        assertUpdate("DELETE FROM statsWithDeleteManifest WHERE orderkey = 0", 1);
+
+        Table icebergTable = loadTable("statsWithDeleteManifest");
+        ManifestFile deleteManifest = getOnlyElement(icebergTable.currentSnapshot().deleteManifests(icebergTable.io()));
+        Path deleteManifestPath = Paths.get(URI.create(deleteManifest.path()));
+        Path unavailableDeleteManifestPath = deleteManifestPath.resolveSibling(deleteManifestPath.getFileName() + ".unavailable");
+        Files.move(deleteManifestPath, unavailableDeleteManifestPath);
+        try {
+            MaterializedResult stats = getQueryRunner().execute("SHOW STATS FOR statsWithDeleteManifest");
+            assertStatValuePresent(StatsSchema.ROW_COUNT, stats, Collections.singleton(null));
+        }
+        finally {
+            Files.move(unavailableDeleteManifestPath, deleteManifestPath);
+        }
     }
 
     @Test
