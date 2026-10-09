@@ -146,6 +146,7 @@ public abstract class BaseSubfieldExtractionRewriter
                 metadata,
                 handle.getConnectorHandle(),
                 replacedExpression,
+                ImmutableSet.copyOf(tableScan.getAssignments().values()),
                 handle.getLayout());
 
         ConnectorTableLayout layout = pushdownFilterResult.getLayout();
@@ -181,6 +182,7 @@ public abstract class BaseSubfieldExtractionRewriter
                 metadata,
                 handle.getConnectorHandle(),
                 TRUE_CONSTANT,
+                ImmutableSet.copyOf(tableScan.getAssignments().values()),
                 handle.getLayout());
         if (pushdownFilterResult.getLayout().getPredicate().isNone()) {
             return getValuesNode(tableScan);
@@ -203,6 +205,7 @@ public abstract class BaseSubfieldExtractionRewriter
             ConnectorMetadata metadata,
             ConnectorTableHandle tableHandle,
             RowExpression filter,
+            Set<ColumnHandle> desiredColumns,
             Optional<ConnectorTableLayoutHandle> currentLayoutHandle)
     {
         checkArgument(!FALSE_CONSTANT.equals(filter), "Cannot pushdown filter that is always false");
@@ -265,10 +268,12 @@ public abstract class BaseSubfieldExtractionRewriter
                 decomposedFilter,
                 optimizedRemainingExpression,
                 constraint,
+                desiredColumns,
                 currentLayoutHandle,
                 tableHandle);
     }
 
+    // 'desiredColumns' are the table scan's output columns; 'currentLayoutHandle' is empty on the first pushdown call
     protected abstract ConnectorPushdownFilterResult getConnectorPushdownFilterResult(
             Map<String, ColumnHandle> columnHandles,
             ConnectorMetadata metadata,
@@ -277,6 +282,7 @@ public abstract class BaseSubfieldExtractionRewriter
             ExtractionResult<Subfield> decomposedFilter,
             RowExpression optimizedRemainingExpression,
             Constraint<ColumnHandle> constraint,
+            Set<ColumnHandle> desiredColumns,
             Optional<ConnectorTableLayoutHandle> currentLayoutHandle,
             ConnectorTableHandle tableHandle);
 

@@ -695,6 +695,20 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
     }
   }
 
+  // Projection-only row lineage columns must reach finalDataColumns so the
+  // reader knows their Parquet field IDs and returns stored values.
+  if (icebergLayout->requestedColumns) {
+    for (const auto& entry : *icebergLayout->requestedColumns) {
+      if (kRowLineageColumnNames.count(entry.columnIdentity.name) &&
+          columnNames.emplace(entry.columnIdentity.name).second) {
+        columnHandles.emplace_back(
+            std::dynamic_pointer_cast<
+                const velox::connector::hive::iceberg::IcebergColumnHandle>(
+                std::shared_ptr(toVeloxColumnHandle(&entry, typeParser))));
+      }
+    }
+  }
+
   auto icebergTableHandle =
       std::dynamic_pointer_cast<const protocol::iceberg::IcebergTableHandle>(
           tableHandle.connectorHandle);

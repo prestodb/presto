@@ -476,6 +476,10 @@ public class IcebergPageSourceProvider
 
         ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
         effectivePredicate.getDomains().get().forEach((columnHandle, domain) -> {
+            // Stored row lineage values exclude inherited ones, so their statistics cannot prune.
+            if (columnHandle.isRowIdColumn() || columnHandle.isLastUpdatedSequenceNumberColumn()) {
+                return;
+            }
             String baseType = columnHandle.getType().getTypeSignature().getBase();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
             if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)) {
@@ -621,10 +625,13 @@ public class IcebergPageSourceProvider
                 }
             }
 
-            // Skip the time type columns in predicate, converted on page source level
+            // Skip the time type columns in predicate, converted on page source level, and the row
+            // lineage columns, whose stored values exclude inherited ones
             ImmutableMap.Builder<IcebergColumnHandle, Domain> predicateExcludeTimeType = ImmutableMap.builder();
             effectivePredicate.getDomains().get().forEach((columnHandle, domain) -> {
-                if (!(columnHandle.getType() instanceof TimeType)) {
+                if (!(columnHandle.getType() instanceof TimeType)
+                        && !columnHandle.isRowIdColumn()
+                        && !columnHandle.isLastUpdatedSequenceNumberColumn()) {
                     predicateExcludeTimeType.put(columnHandle, domain);
                 }
             });
