@@ -178,7 +178,8 @@ public class PrestoSparkAdaptiveQueryExecution
             PlanNodeIdAllocator idAllocator,
             FragmentStatsProvider fragmentStatsProvider,
             Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector,
-            PlanCheckerProviderManager planCheckerProviderManager)
+            PlanCheckerProviderManager planCheckerProviderManager,
+            TaskInfoAggregationMode taskInfoAggregationMode)
     {
         super(
                 sparkContext,
@@ -217,7 +218,8 @@ public class PrestoSparkAdaptiveQueryExecution
                 metadata,
                 partitioningProviderManager,
                 historyBasedPlanStatisticsTracker,
-                bootstrapMetricsCollector);
+                bootstrapMetricsCollector,
+                taskInfoAggregationMode);
 
         this.fragmentStatsProvider = requireNonNull(fragmentStatsProvider, "fragmentStatsProvider is null");
         this.adaptivePlanOptimizers = requireNonNull(adaptivePlanOptimizers, "adaptivePlanOptimizers is null").getAdaptiveOptimizers();

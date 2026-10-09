@@ -1308,6 +1308,72 @@ enough splits into one partition for its serialized task update request to excee
 
 The corresponding configuration property is :ref:`admin/properties:\`\`spark.max-splits-count-per-partition\`\``.
 
+``spark_task_info_aggregation_mode``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``LEGACY``, ``INCREMENTAL``
+* **Default value:** ``LEGACY``
+
+How the driver builds the query statistics from the task infos that the tasks of the
+query report.
+
+``LEGACY`` collects every serialized task info and decodes all of them when the query
+completes. Driver memory grows with the number of tasks. When a query has more task
+infos than ``spark.max-task-infos-in-query-completed-event``, the executor task infos
+are dropped and the query completed event only has statistics for the stage that ran
+on the driver, if any.
+
+``INCREMENTAL`` decodes task infos on a background thread while the query runs, keeps
+one attempt per task, folds it into per-stage statistics and then discards it, so
+driver memory does not grow with the number of tasks and the task info count limit
+does not apply. It requires Spark 3.2 or later; on older Spark versions ``LEGACY`` is
+used. If the remaining task infos cannot be folded within
+``spark_task_info_aggregation_seal_timeout``, or task infos are dropped because of
+``spark_task_info_aggregation_max_backlog_size``, the query completed event has
+partial statistics and the ``taskInfoAggregation.partial`` runtime metric is set.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`spark.task-info-aggregation-mode\`\``.
+
+``spark_task_info_aggregation_drain_interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``duration``
+* **Default value:** ``250ms``
+
+How often ``INCREMENTAL`` task info aggregation drains the task infos received by the
+driver. Values above the configured value are capped at the configured value.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`spark.task-info-aggregation-drain-interval\`\``.
+
+``spark_task_info_aggregation_seal_timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``duration``
+* **Default value:** ``2m``
+
+Maximum time that ``INCREMENTAL`` task info aggregation waits, when the query
+completes, to fold the remaining task infos. When it is exceeded, the query completed
+event has partial statistics. Values above the configured value are capped at the
+configured value.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`spark.task-info-aggregation-seal-timeout\`\``.
+
+``spark_task_info_aggregation_max_backlog_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``data size``
+* **Default value:** ``1GB``
+
+Size limit for the compressed task infos that ``INCREMENTAL`` task info aggregation
+retains: task infos not yet decoded, and attempts of tasks that have not finished.
+When it is exceeded, the oldest task infos not yet decoded are dropped and the query
+completed event has partial statistics. Attempts of unfinished tasks and the task
+infos of the driver are not dropped, so the retained size can exceed the limit.
+Values above the configured value are capped at the configured value.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`spark.task-info-aggregation-max-backlog-size\`\``.
+
 Geometry Properties
 -------------------
 

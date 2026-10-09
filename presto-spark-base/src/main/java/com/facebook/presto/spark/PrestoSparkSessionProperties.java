@@ -16,13 +16,16 @@ package com.facebook.presto.spark;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
+import com.facebook.presto.spark.execution.TaskInfoAggregationMode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.base.Splitter;
+import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
@@ -35,6 +38,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.util.Collections.emptyList;
+import static java.util.Locale.ENGLISH;
 
 public class PrestoSparkSessionProperties
 {
@@ -63,6 +67,10 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_MAX_EXECUTOR_COUNT = "spark_max_executor_count";
     public static final String SPARK_MIN_EXECUTOR_COUNT = "spark_min_executor_count";
     public static final String SPARK_MAX_TASK_INFOS_IN_QUERY_COMPLETED_EVENT = "spark_max_task_infos_in_query_completed_event";
+    public static final String SPARK_TASK_INFO_AGGREGATION_MODE = "spark_task_info_aggregation_mode";
+    public static final String SPARK_TASK_INFO_AGGREGATION_DRAIN_INTERVAL = "spark_task_info_aggregation_drain_interval";
+    public static final String SPARK_TASK_INFO_AGGREGATION_SEAL_TIMEOUT = "spark_task_info_aggregation_seal_timeout";
+    public static final String SPARK_TASK_INFO_AGGREGATION_MAX_BACKLOG_SIZE = "spark_task_info_aggregation_max_backlog_size";
     public static final String SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION = "spark_average_input_data_size_per_partition";
     public static final String SPARK_MAX_HASH_PARTITION_COUNT = "spark_max_hash_partition_count";
     public static final String SPARK_MIN_HASH_PARTITION_COUNT = "spark_min_hash_partition_count";
@@ -228,6 +236,36 @@ public class PrestoSparkSessionProperties
                         "Maximum number of task infos to deserialize and retain when assembling the query completed event; bounds driver memory on queries with very large task counts",
                         prestoSparkConfig.getMaxTaskInfosInQueryCompletedEvent(),
                         false),
+                new PropertyMetadata<>(
+                        SPARK_TASK_INFO_AGGREGATION_MODE,
+                        "How the driver aggregates task infos: LEGACY decodes all of them when the query completes, INCREMENTAL deduplicates and folds them on a background thread while the query runs, without the task info count limit (requires Spark 3.2 or later)",
+                        VARCHAR,
+                        TaskInfoAggregationMode.class,
+                        prestoSparkConfig.getTaskInfoAggregationMode(),
+                        false,
+                        value -> TaskInfoAggregationMode.valueOf(((String) value).toUpperCase(ENGLISH)),
+                        TaskInfoAggregationMode::name),
+                cappedProperty(
+                        SPARK_TASK_INFO_AGGREGATION_DRAIN_INTERVAL,
+                        "How often incremental task info aggregation drains the task infos received by the driver; capped at the configured value",
+                        Duration.class,
+                        prestoSparkConfig.getTaskInfoAggregationDrainInterval(),
+                        Duration::valueOf,
+                        Duration::toString),
+                cappedProperty(
+                        SPARK_TASK_INFO_AGGREGATION_SEAL_TIMEOUT,
+                        "Maximum time to wait for incremental task info aggregation to fold the remaining task infos when the query completes; capped at the configured value",
+                        Duration.class,
+                        prestoSparkConfig.getTaskInfoAggregationSealTimeout(),
+                        Duration::valueOf,
+                        Duration::toString),
+                cappedProperty(
+                        SPARK_TASK_INFO_AGGREGATION_MAX_BACKLOG_SIZE,
+                        "Size limit for the compressed task infos retained by incremental task info aggregation, both undecoded and pending attempts; once exceeded, the oldest undecoded task infos are dropped and the statistics are partial. Pending attempts of unfinished tasks and driver task infos are not dropped, so the retained size can exceed it; capped at the configured value",
+                        DataSize.class,
+                        prestoSparkConfig.getTaskInfoAggregationMaxBacklogSize(),
+                        DataSize::valueOf,
+                        DataSize::toString),
                 dataSizeProperty(
                         SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION,
                         "Average input data size per partition",
@@ -313,6 +351,26 @@ public class PrestoSparkSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    // a session can only tighten these limits, not raise them above the configured value
+    private static <T extends Comparable<T>> PropertyMetadata<T> cappedProperty(
+            String name,
+            String description,
+            Class<T> type,
+            T maxValue,
+            Function<String, T> parser,
+            Function<T, String> formatter)
+    {
+        return new PropertyMetadata<>(
+                name,
+                description,
+                VARCHAR,
+                type,
+                maxValue,
+                false,
+                value -> Comparators.min(parser.apply((String) value), maxValue),
+                formatter::apply);
     }
 
     public static boolean isSparkPartitionCountAutoTuneEnabled(Session session)
@@ -428,6 +486,26 @@ public class PrestoSparkSessionProperties
     public static int getMaxTaskInfosInQueryCompletedEvent(Session session)
     {
         return session.getSystemProperty(SPARK_MAX_TASK_INFOS_IN_QUERY_COMPLETED_EVENT, Integer.class);
+    }
+
+    public static TaskInfoAggregationMode getTaskInfoAggregationMode(Session session)
+    {
+        return session.getSystemProperty(SPARK_TASK_INFO_AGGREGATION_MODE, TaskInfoAggregationMode.class);
+    }
+
+    public static Duration getTaskInfoAggregationDrainInterval(Session session)
+    {
+        return session.getSystemProperty(SPARK_TASK_INFO_AGGREGATION_DRAIN_INTERVAL, Duration.class);
+    }
+
+    public static Duration getTaskInfoAggregationSealTimeout(Session session)
+    {
+        return session.getSystemProperty(SPARK_TASK_INFO_AGGREGATION_SEAL_TIMEOUT, Duration.class);
+    }
+
+    public static DataSize getTaskInfoAggregationMaxBacklogSize(Session session)
+    {
+        return session.getSystemProperty(SPARK_TASK_INFO_AGGREGATION_MAX_BACKLOG_SIZE, DataSize.class);
     }
 
     public static DataSize getAverageInputDataSizePerPartition(Session session)

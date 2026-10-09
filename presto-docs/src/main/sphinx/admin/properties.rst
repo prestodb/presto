@@ -1956,6 +1956,63 @@ the partition count ceiling.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`max_splits_count_per_spark_partition\`\``.
 
+Presto on Spark Task Info Aggregation Properties
+------------------------------------------------
+
+These properties control how the :doc:`Presto on Spark </admin/spark>` driver builds the
+query statistics from the task infos that the tasks of the query report.
+
+``spark.task-info-aggregation-mode``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``LEGACY``, ``INCREMENTAL``
+* **Default value:** ``LEGACY``
+
+``LEGACY`` decodes all task infos when the query completes, and drops the executor task
+infos when there are more than ``spark.max-task-infos-in-query-completed-event``.
+``INCREMENTAL`` folds them into per-stage statistics on a background thread while the
+query runs, without the task info count limit; it requires Spark 3.2 or later. See the
+session property for details.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`spark_task_info_aggregation_mode\`\``.
+
+``spark.task-info-aggregation-drain-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``duration``
+* **Minimum value:** ``1ms``
+* **Default value:** ``250ms``
+
+How often ``INCREMENTAL`` task info aggregation drains the task infos received by the
+driver. It is also the maximum value of the session property.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`spark_task_info_aggregation_drain_interval\`\``.
+
+``spark.task-info-aggregation-seal-timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``duration``
+* **Default value:** ``2m``
+
+Maximum time to wait, when the query completes, for ``INCREMENTAL`` task info
+aggregation to fold the remaining task infos. It is also the maximum value of the
+session property.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`spark_task_info_aggregation_seal_timeout\`\``.
+
+``spark.task-info-aggregation-max-backlog-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``data size``
+* **Default value:** ``1GB``
+
+Size limit for the compressed task infos that ``INCREMENTAL`` task info aggregation
+retains before the oldest task infos not yet decoded are dropped. It is also the
+maximum value of the session property.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`spark_task_info_aggregation_max_backlog_size\`\``.
+
 Driver-side Metadata Sidecar Properties
 ---------------------------------------
 

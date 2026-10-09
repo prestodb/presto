@@ -121,6 +121,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -135,6 +136,9 @@ import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extra
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxTaskInfosInQueryCompletedEvent;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getTaskInfoAggregationDrainInterval;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getTaskInfoAggregationMaxBacklogSize;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getTaskInfoAggregationSealTimeout;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isStorageBasedBroadcastJoinEnabled;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG;
 import static com.facebook.presto.spark.SparkErrorCode.EXCEEDED_SPARK_DRIVER_MAX_RESULT_SIZE;
@@ -144,6 +148,7 @@ import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
 import static com.facebook.presto.spark.SparkErrorCode.UNSUPPORTED_STORAGE_TYPE;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.collectScalaIterator;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
+import static com.facebook.presto.spark.execution.TaskInfoAggregationMode.INCREMENTAL;
 import static com.facebook.presto.spark.planner.PrestoSparkRddFactory.getRDDName;
 import static com.facebook.presto.spark.util.PrestoSparkFailureUtils.toPrestoSparkFailure;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.classTag;
@@ -222,6 +227,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     private final Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector;
     // Never sent to an executor, so it does not need to be registered with the SparkContext.
     private final CollectionAccumulator<SerializedTaskInfo> driverTaskInfoCollector = new CollectionAccumulator<>();
+    private final Optional<TaskInfoAggregator<Map<PlanFragmentId, FragmentTaskAggregates>>> taskInfoAggregator;
 
     public AbstractPrestoSparkQueryExecution(
             JavaSparkContext sparkContext,
@@ -260,7 +266,8 @@ public abstract class AbstractPrestoSparkQueryExecution
             Metadata metadata,
             PartitioningProviderManager partitioningProviderManager,
             HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker,
-            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector,
+            TaskInfoAggregationMode taskInfoAggregationMode)
     {
         this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
         this.session = requireNonNull(session, "session is null");
@@ -300,6 +307,19 @@ public abstract class AbstractPrestoSparkQueryExecution
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.historyBasedPlanStatisticsTracker = requireNonNull(historyBasedPlanStatisticsTracker, "historyBasedPlanStatisticsTracker is null");
         this.bootstrapMetricsCollector = requireNonNull(bootstrapMetricsCollector, "bootstrapTimeCollector is null");
+        if (requireNonNull(taskInfoAggregationMode, "taskInfoAggregationMode is null") == INCREMENTAL) {
+            this.taskInfoAggregator = Optional.of(new TaskInfoAggregator<>(
+                    session.getQueryId(),
+                    taskInfoCollector,
+                    taskInfoCodec,
+                    new FragmentTaskAggregatesSink(),
+                    getTaskInfoAggregationDrainInterval(session),
+                    getTaskInfoAggregationSealTimeout(session),
+                    getTaskInfoAggregationMaxBacklogSize(session)));
+        }
+        else {
+            this.taskInfoAggregator = Optional.empty();
+        }
     }
 
     protected static JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> partitionBy(
@@ -344,6 +364,17 @@ public abstract class AbstractPrestoSparkQueryExecution
 
     @Override
     public List<List<Object>> execute()
+    {
+        taskInfoAggregator.ifPresent(TaskInfoAggregator::start);
+        try {
+            return executeQuery();
+        }
+        finally {
+            taskInfoAggregator.ifPresent(TaskInfoAggregator::close);
+        }
+    }
+
+    private List<List<Object>> executeQuery()
     {
         List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> rddResults;
         try {
@@ -609,7 +640,8 @@ public abstract class AbstractPrestoSparkQueryExecution
      * {@link TaskInfo}
      * @param taskInfo the {@link TaskInfo} to consider for updating the map
      */
-    private void updateTaskInfoMap(HashMap<String, TaskInfo> taskInfoMap, TaskInfo taskInfo)
+    @VisibleForTesting
+    static void updateTaskInfoMap(HashMap<String, TaskInfo> taskInfoMap, TaskInfo taskInfo)
     {
         TaskId newTaskId = taskInfo.getTaskId();
         String taskIdWithoutAttemptId = new StringBuilder()
@@ -646,7 +678,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         }
     }
 
-    protected void queryCompletedEvent(Optional<ExecutionFailureInfo> failureInfo, OptionalLong updateCount)
+    private QueryInfo createLegacyQueryInfo(Optional<ExecutionFailureInfo> failureInfo)
     {
         List<SerializedTaskInfo> serializedTaskInfos = taskInfoCollector.value();
         List<SerializedTaskInfo> driverSerializedTaskInfos = driverTaskInfoCollector.value();
@@ -658,11 +690,11 @@ public abstract class AbstractPrestoSparkQueryExecution
         // all-or-nothing: empty stats for the executor stages make it obvious that their statistics could not be
         // collected, whereas a partial set would be silently misleading.
         boolean taskInfoLimitExceeded = serializedTaskInfos.size() > maxTaskInfos;
-        long totalSerializedTaskInfoSizeInBytes = addTaskInfos(taskInfoMap, serializedTaskInfos, !taskInfoLimitExceeded);
+        long totalSerializedTaskInfoSizeInBytes = addTaskInfos(taskInfoMap, serializedTaskInfos, SerializedTaskInfo::getBytesAndClear, !taskInfoLimitExceeded);
         taskInfoCollector.reset();
         // The driver task is exempt from the limit: it is a single task, and for a write its TableFinishInfo carries
         // the output metadata of the query, such as the written partitions.
-        totalSerializedTaskInfoSizeInBytes += addTaskInfos(taskInfoMap, driverSerializedTaskInfos, true);
+        totalSerializedTaskInfoSizeInBytes += addTaskInfos(taskInfoMap, driverSerializedTaskInfos, SerializedTaskInfo::getBytesAndClear, true);
         driverTaskInfoCollector.reset();
 
         if (taskInfoLimitExceeded) {
@@ -679,23 +711,72 @@ public abstract class AbstractPrestoSparkQueryExecution
                 DataSize.succinctBytes(totalSerializedTaskInfoSizeInBytes),
                 taskInfoMap.size());
 
-        Optional<StageInfo> stageInfoOptional = getFinalFragmentedPlan().map(finalFragmentedPlan ->
-                PrestoSparkQueryExecutionFactory.createStageInfo(
-                        session.getQueryId(),
-                        finalFragmentedPlan,
-                        taskInfoMap.values().stream().collect(Collectors.toList())));
-        QueryState queryState = failureInfo.isPresent() ? FAILED : FINISHED;
+        return createQueryInfo(failureInfo, taskInfoMap.values().stream().collect(Collectors.toList()));
+    }
 
-        QueryInfo queryInfo = PrestoSparkQueryExecutionFactory.createQueryInfo(
+    private QueryInfo createIncrementalQueryInfo(TaskInfoAggregator<Map<PlanFragmentId, FragmentTaskAggregates>> aggregator, Optional<ExecutionFailureInfo> failureInfo)
+    {
+        List<SerializedTaskInfo> driverSerializedTaskInfos = driverTaskInfoCollector.value();
+        TaskInfoAggregationResult<Map<PlanFragmentId, FragmentTaskAggregates>> result = aggregator.seal(driverSerializedTaskInfos);
+        result.recordRuntimeStats(session.getRuntimeStats());
+        QueryInfo queryInfo;
+        if (result.getSinkResult().isPresent()) {
+            queryInfo = createQueryInfo(failureInfo, result.getSinkResult().get());
+        }
+        else {
+            log.warn("Task info aggregation of query %s did not complete; DROPPING ALL executor task infos and keeping %s driver task infos",
+                    session.getQueryId(),
+                    driverSerializedTaskInfos.size());
+            HashMap<String, TaskInfo> taskInfoMap = new HashMap<>();
+            // the aggregator may still be reading the driver task infos if the seal timed out, so they are not cleared
+            addTaskInfos(taskInfoMap, driverSerializedTaskInfos, SerializedTaskInfo::getBytes, true);
+            queryInfo = createQueryInfo(failureInfo, ImmutableList.copyOf(taskInfoMap.values()));
+        }
+        driverTaskInfoCollector.reset();
+        return queryInfo;
+    }
+
+    private QueryInfo createQueryInfo(Optional<ExecutionFailureInfo> failureInfo, List<TaskInfo> taskInfos)
+    {
+        Optional<StageInfo> stageInfoOptional = getFinalFragmentedPlan().map(finalFragmentedPlan ->
+                PrestoSparkQueryExecutionFactory.createStageInfo(session.getQueryId(), finalFragmentedPlan, taskInfos));
+        return PrestoSparkQueryExecutionFactory.createQueryInfo(
                 session,
                 query,
-                queryState,
+                getQueryState(failureInfo),
                 Optional.of(planAndMore),
                 sparkQueueName,
                 failureInfo,
                 queryStateTimer,
                 stageInfoOptional,
                 warningCollector);
+    }
+
+    private QueryInfo createQueryInfo(Optional<ExecutionFailureInfo> failureInfo, Map<PlanFragmentId, FragmentTaskAggregates> fragmentTaskAggregates)
+    {
+        Optional<StageInfo> stageInfoOptional = getFinalFragmentedPlan().map(finalFragmentedPlan ->
+                PrestoSparkQueryExecutionFactory.createStageInfo(session.getQueryId(), finalFragmentedPlan, fragmentTaskAggregates));
+        return PrestoSparkQueryExecutionFactory.createQueryInfo(
+                session,
+                query,
+                getQueryState(failureInfo),
+                Optional.of(planAndMore),
+                sparkQueueName,
+                failureInfo,
+                queryStateTimer,
+                stageInfoOptional,
+                warningCollector,
+                fragmentTaskAggregates);
+    }
+
+    private static QueryState getQueryState(Optional<ExecutionFailureInfo> failureInfo)
+    {
+        return failureInfo.isPresent() ? FAILED : FINISHED;
+    }
+
+    protected void queryCompletedEvent(Optional<ExecutionFailureInfo> failureInfo, OptionalLong updateCount)
+    {
+        QueryInfo queryInfo = taskInfoAggregator.isPresent() ? createIncrementalQueryInfo(taskInfoAggregator.get(), failureInfo) : createLegacyQueryInfo(failureInfo);
 
         queryMonitor.queryCompletedEvent(queryInfo);
         historyBasedPlanStatisticsTracker.updateStatistics(queryInfo);
@@ -713,14 +794,14 @@ public abstract class AbstractPrestoSparkQueryExecution
     }
 
     /**
-     * Clears the compressed buffers of the task infos to free driver memory, decodes them into the map if
+     * Reads the compressed bytes of the task infos with {@code getBytes}, decodes them into the map if
      * {@code decode} is set, and returns their total compressed size.
      */
-    private long addTaskInfos(HashMap<String, TaskInfo> taskInfoMap, List<SerializedTaskInfo> serializedTaskInfos, boolean decode)
+    private long addTaskInfos(HashMap<String, TaskInfo> taskInfoMap, List<SerializedTaskInfo> serializedTaskInfos, Function<SerializedTaskInfo, byte[]> getBytes, boolean decode)
     {
         long totalSizeInBytes = 0;
         for (SerializedTaskInfo serializedTaskInfo : serializedTaskInfos) {
-            byte[] bytes = serializedTaskInfo.getBytesAndClear();
+            byte[] bytes = getBytes.apply(serializedTaskInfo);
             totalSizeInBytes += bytes.length;
             if (decode) {
                 updateTaskInfoMap(taskInfoMap, deserializeZstdCompressed(taskInfoCodec, bytes));

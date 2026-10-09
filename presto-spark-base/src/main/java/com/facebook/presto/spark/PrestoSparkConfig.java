@@ -18,6 +18,8 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
+import com.facebook.presto.spark.execution.TaskInfoAggregationMode;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import jakarta.validation.constraints.DecimalMax;
@@ -31,6 +33,7 @@ import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class PrestoSparkConfig
@@ -63,6 +66,11 @@ public class PrestoSparkConfig
     private int maxExecutorCount = 600;
     private int minExecutorCount = 200;
     private int maxTaskInfosInQueryCompletedEvent = 100000;
+    private TaskInfoAggregationMode taskInfoAggregationMode = TaskInfoAggregationMode.LEGACY;
+    private Duration taskInfoAggregationDrainInterval = new Duration(250, MILLISECONDS);
+    private Duration taskInfoAggregationSealTimeout = new Duration(2, MINUTES);
+    private DataSize taskInfoAggregationMaxBacklogSize = new DataSize(1, GIGABYTE);
+    private boolean testingTaskInfoAggregationLockingCollectorEnabled;
     private DataSize averageInputDataSizePerPartition = new DataSize(2, GIGABYTE);
     private int maxHashPartitionCount = 4096;
     private int minHashPartitionCount = 1024;
@@ -380,6 +388,76 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setMaxTaskInfosInQueryCompletedEvent(int maxTaskInfosInQueryCompletedEvent)
     {
         this.maxTaskInfosInQueryCompletedEvent = maxTaskInfosInQueryCompletedEvent;
+        return this;
+    }
+
+    @NotNull
+    public TaskInfoAggregationMode getTaskInfoAggregationMode()
+    {
+        return taskInfoAggregationMode;
+    }
+
+    @Config("spark.task-info-aggregation-mode")
+    @ConfigDescription("How the driver aggregates task infos: LEGACY decodes all of them when the query completes, INCREMENTAL deduplicates and folds them on a background thread while the query runs, without the task info count limit (requires Spark 3.2 or later)")
+    public PrestoSparkConfig setTaskInfoAggregationMode(TaskInfoAggregationMode taskInfoAggregationMode)
+    {
+        this.taskInfoAggregationMode = taskInfoAggregationMode;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1ms")
+    public Duration getTaskInfoAggregationDrainInterval()
+    {
+        return taskInfoAggregationDrainInterval;
+    }
+
+    @Config("spark.task-info-aggregation-drain-interval")
+    @ConfigDescription("How often incremental task info aggregation drains the task infos received by the driver")
+    public PrestoSparkConfig setTaskInfoAggregationDrainInterval(Duration taskInfoAggregationDrainInterval)
+    {
+        this.taskInfoAggregationDrainInterval = taskInfoAggregationDrainInterval;
+        return this;
+    }
+
+    @NotNull
+    public Duration getTaskInfoAggregationSealTimeout()
+    {
+        return taskInfoAggregationSealTimeout;
+    }
+
+    @Config("spark.task-info-aggregation-seal-timeout")
+    @ConfigDescription("Maximum time to wait for incremental task info aggregation to fold the remaining task infos when the query completes")
+    public PrestoSparkConfig setTaskInfoAggregationSealTimeout(Duration taskInfoAggregationSealTimeout)
+    {
+        this.taskInfoAggregationSealTimeout = taskInfoAggregationSealTimeout;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getTaskInfoAggregationMaxBacklogSize()
+    {
+        return taskInfoAggregationMaxBacklogSize;
+    }
+
+    @Config("spark.task-info-aggregation-max-backlog-size")
+    @ConfigDescription("Size limit for the compressed task infos retained by incremental task info aggregation, both undecoded and pending attempts; once exceeded, the oldest undecoded task infos are dropped and the statistics are partial. Pending attempts of unfinished tasks and driver task infos are not dropped, so the retained size can exceed it")
+    public PrestoSparkConfig setTaskInfoAggregationMaxBacklogSize(DataSize taskInfoAggregationMaxBacklogSize)
+    {
+        this.taskInfoAggregationMaxBacklogSize = taskInfoAggregationMaxBacklogSize;
+        return this;
+    }
+
+    public boolean isTestingTaskInfoAggregationLockingCollectorEnabled()
+    {
+        return testingTaskInfoAggregationLockingCollectorEnabled;
+    }
+
+    @Config("spark.task-info-aggregation-locking-collector-enabled-for-testing")
+    @ConfigDescription("For testing only: collect task infos in an accumulator that can be drained atomically on Spark 2, so that INCREMENTAL task info aggregation runs on any Spark version")
+    public PrestoSparkConfig setTestingTaskInfoAggregationLockingCollectorEnabled(boolean testingTaskInfoAggregationLockingCollectorEnabled)
+    {
+        this.testingTaskInfoAggregationLockingCollectorEnabled = testingTaskInfoAggregationLockingCollectorEnabled;
         return this;
     }
 
