@@ -1308,6 +1308,19 @@ enough splits into one partition for its serialized task update request to excee
 
 The corresponding configuration property is :ref:`admin/properties:\`\`spark.max-splits-count-per-partition\`\``.
 
+``native_execution_compress_task_update_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Compress the task update request that an executor sends to its native (Velox) worker
+with zstd. This reduces executor memory for tasks with many splits, because the
+uncompressed request is never held in memory. The native worker must support
+compressed task update requests.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`native-execution-compress-task-update-enabled\`\``.
+
 Geometry Properties
 -------------------
 
