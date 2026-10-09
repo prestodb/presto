@@ -37,10 +37,14 @@ import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.types.TypeUtil;
+import org.apache.iceberg.types.Types.NestedField;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -74,7 +78,7 @@ public final class ExpressionConverter
 {
     private ExpressionConverter() {}
 
-    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain)
+    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain, Collection<Schema> schemas)
     {
         if (tupleDomain.isAll()) {
             return alwaysTrue();
@@ -93,9 +97,44 @@ public final class ExpressionConverter
                 Subfield pushedDownSubfield = getPushedDownSubfield(columnHandle);
                 columnName = pushdownColumnNameForSubfield(pushedDownSubfield);
             }
+            if (isNullSensitiveOnRequiredField(schemas, columnName, domain)) {
+                continue;
+            }
             expression = and(expression, toIcebergExpression(columnName, columnHandle.getType(), domain));
         }
         return expression;
+    }
+
+    /**
+     * Iceberg evaluates IS NULL on a required field as false and IS NOT NULL as true without reading
+     * any data, judging only the field itself and not its enclosing structs. SET NOT NULL does not rewrite
+     * data files, so a field can hold NULLs in files written while it, or an enclosing struct, was optional
+     * or absent. A domain that admits NULL, or that excludes only NULL, can be neither pushed into Iceberg
+     * nor enforced by it when the field it binds to is required in one of {@code schemas} and not
+     * required along its whole path in another. A scan of a snapshot other than the current one binds
+     * against that snapshot's schema, so a table's scans can bind against any of its schemas.
+     */
+    public static boolean isNullSensitiveOnRequiredField(Collection<Schema> schemas, String columnName, Domain domain)
+    {
+        if (!domain.isNullAllowed() && !domain.getValues().isAll()) {
+            return false;
+        }
+        return schemas.stream()
+                .map(schema -> schema.findField(columnName))
+                .filter(field -> field != null && field.isRequired())
+                .anyMatch(field -> schemas.stream().anyMatch(schema -> !isRequiredWithEnclosingStructs(schema, field.fieldId())));
+    }
+
+    private static boolean isRequiredWithEnclosingStructs(Schema schema, int fieldId)
+    {
+        NestedField field = schema.findField(fieldId);
+        if (field == null || field.isOptional()) {
+            return false;
+        }
+        if (schema.asStruct().field(fieldId) != null) {
+            return true;
+        }
+        return isRequiredWithEnclosingStructs(schema, TypeUtil.indexParents(schema.asStruct()).get(fieldId));
     }
 
     public static String pushdownColumnNameForSubfield(Subfield subfield)

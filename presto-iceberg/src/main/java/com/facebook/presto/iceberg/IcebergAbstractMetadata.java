@@ -78,6 +78,8 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.connector.EmptyConnectorCommitHandle;
 import com.facebook.presto.spi.connector.RowChangeParadigm;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
 import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpecList;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -178,6 +180,7 @@ import static com.facebook.presto.hive.MetadataUtils.getDiscretePredicates;
 import static com.facebook.presto.hive.MetadataUtils.getPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getSubfieldPredicate;
 import static com.facebook.presto.hive.MetadataUtils.isEntireColumn;
+import static com.facebook.presto.iceberg.ExpressionConverter.isNullSensitiveOnRequiredField;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_METADATA;
@@ -300,6 +303,7 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.transformValues;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
@@ -1438,16 +1442,21 @@ public abstract class IcebergAbstractMetadata
      */
     private static NestedField findTopLevelColumn(Schema schema, String columnName)
     {
+        return findTopLevelColumnIfPresent(schema, columnName)
+                .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND, format("Column '%s' does not exist", columnName)));
+    }
+
+    private static Optional<NestedField> findTopLevelColumnIfPresent(Schema schema, String columnName)
+    {
         Optional<NestedField> exactMatch = schema.columns().stream()
                 .filter(field -> field.name().equals(columnName))
                 .findFirst();
         if (exactMatch.isPresent()) {
-            return exactMatch.get();
+            return exactMatch;
         }
         return schema.columns().stream()
                 .filter(field -> field.name().equalsIgnoreCase(columnName))
-                .findFirst()
-                .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND, format("Column '%s' does not exist", columnName)));
+                .findFirst();
     }
 
     @Override
@@ -2004,7 +2013,11 @@ public abstract class IcebergAbstractMetadata
         if (branchName.isPresent()) {
             deleteFiles = deleteFiles.toBranch(branchName.get());
         }
-        deleteFiles.deleteFromRowFilter(toIcebergExpression(predicate));
+        Collection<Schema> schemas = icebergTable.schemas().values();
+        // toIcebergExpression leaves out null-sensitive domains, which would widen the set of deleted files.
+        predicate.getDomains().ifPresent(domains -> domains.forEach((column, domain) ->
+                verify(!isNullSensitiveOnRequiredField(schemas, column.getName(), domain), "metadata delete predicate on column %s cannot be evaluated by Iceberg", column.getName())));
+        deleteFiles.deleteFromRowFilter(toIcebergExpression(predicate, schemas));
         deleteFiles.commit();
 
         Map<String, String> summary = deleteFiles.apply().summary();
@@ -3078,6 +3091,62 @@ public abstract class IcebergAbstractMetadata
         }
         ColumnMetadata columnMetadataTarget = columnMetadataSource.toBuilder().setType(type).build();
         derivedColumnOperations(icebergTable, Optional.of(columnMetadataSource), columnMetadataTarget, DerivedColumnOperationType.UPDATE);
+    }
+
+    @Override
+    public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
+    {
+        if (!columnName.isPresent()) {
+            throw new PrestoException(NOT_SUPPORTED, "Iceberg does not support named constraints; only NOT NULL constraints identified by column are supported");
+        }
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have constraints dropped");
+        validateNoBranchSpecified(handle, "ALTER COLUMN DROP NOT NULL");
+        updateColumnNullability(session, handle, columnName.get(), false);
+    }
+
+    @Override
+    public void addConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, TableConstraint<String> constraint)
+    {
+        verify(constraint instanceof NotNullConstraint, "only NOT NULL constraints can be added, found %s", constraint.getClass().getSimpleName());
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have constraints added");
+        validateNoBranchSpecified(handle, "ALTER COLUMN SET NOT NULL");
+        updateColumnNullability(session, handle, getOnlyElement(constraint.getColumns()), true);
+    }
+
+    /**
+     * Marks {@code columnName} as required (NOT NULL) or optional in the Iceberg schema.
+     * <p>
+     * Only top-level columns of the table's own schema can be altered. Iceberg's metadata columns are
+     * not part of the schema but {@code _row_id} and {@code _last_updated_sequence_number} are exposed
+     * as regular column handles, so they reach the connector and are rejected here.
+     */
+    private void updateColumnNullability(ConnectorSession session, IcebergTableHandle handle, String columnName, boolean required)
+    {
+        SchemaTableName tableName = handle.getSchemaTableName();
+        String operation = required ? "set" : "drop";
+        Table icebergTable = getIcebergTable(session, tableName);
+        Optional<NestedField> field = findTopLevelColumnIfPresent(icebergTable.schema(), columnName);
+        if (!field.isPresent()) {
+            if (MetadataColumns.isMetadataColumn(columnName)) {
+                throw new PrestoException(NOT_SUPPORTED, format("Cannot %s NOT NULL on metadata column '%s'", operation, columnName));
+            }
+            throw new PrestoException(COLUMN_NOT_FOUND, format("Cannot %s NOT NULL: column '%s' does not exist in table '%s'", operation, columnName, tableName));
+        }
+        String fieldName = field.get().name();
+        UpdateSchema updateSchema = icebergTable.updateSchema();
+        if (required) {
+            // allowIncompatibleChanges is required: optional -> required is an incompatible change.
+            updateSchema.allowIncompatibleChanges().requireColumn(fieldName);
+        }
+        else {
+            if (field.get().isOptional()) {
+                throw new PrestoException(NOT_FOUND, format("Not Null constraint not found on column %s", columnName));
+            }
+            updateSchema.makeColumnOptional(fieldName);
+        }
+        updateSchema.commit();
     }
 
     protected void openCreateTableTransaction(SchemaTableName tableName, Transaction transaction)
