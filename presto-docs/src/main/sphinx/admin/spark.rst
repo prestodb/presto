@@ -67,3 +67,52 @@ When the executors run on a native (Velox) execution engine, the driver can laun
 short-lived ``presto_server`` sidecar at bootstrap to register native-only functions
 into the planner. See :ref:`Driver-side Metadata Sidecar Properties
 <admin/properties:Driver-side Metadata Sidecar Properties>` for the configuration.
+
+Executor Classpath Manifest
+---------------------------
+
+When executors run on a native (Velox) execution engine, the executor JVM only coordinates
+the native worker and never uses most of the jars in the package. Every jar the JVM opens
+keeps a copy of the jar's ZIP central directory on the heap for the life of the process, so
+a few large unused jars can cost tens of MiB of executor heap. An executor classpath manifest
+lists jars that executors leave off their classpath.
+
+To use one, set ``presto.spark.executor-classpath-manifest`` in ``config.properties`` to the
+path of the manifest. A relative path is resolved against the Presto on Spark package
+directory:
+
+.. code-block:: none
+
+    presto.spark.executor-classpath-manifest=native-executor-classpath.txt
+
+The property is not set by default, and when it is not set every executor keeps the full
+classpath. The manifest is applied only on cluster executors -- never on the driver, and
+never on a local-mode executor -- and only when ``native-execution-enabled`` is ``true`` and
+a native worker configuration is provided.
+
+The manifest has two sections, each listing one jar file name per line. ``#`` starts a
+comment:
+
+.. code-block:: none
+
+    # jars the executor's lib/ class loader leaves out
+    [lib-exclude]
+    spark-core-3.4.1-1.jar
+
+    # jars left out of every plugin directory
+    [plugin-exclude]
+    hudi-presto-bundle-0.14.0.jar
+
+Every jar that is not listed stays on the classpath, including jars added to the package
+later, and a listed jar that is not in the package is ignored. ``[plugin-exclude]`` is
+applied through :ref:`admin/properties:\`\`plugin.excluded-jars\`\``. A missing or empty
+section excludes nothing.
+
+If the manifest cannot be read or is malformed -- a line that is neither a section header nor
+a ``.jar`` file name, an unknown section, or an entry before the first section -- the executor
+keeps the full classpath and writes the reason to its standard error. The same happens if the
+manifest excludes the jar that provides the Presto on Spark service.
+
+A query that runs on the Java engine (``native_execution_enabled=false``) is refused on an
+executor whose classpath was narrowed, because the Java engine needs jars that native
+execution does not. To run such queries, keep native execution enabled or remove the setting.
