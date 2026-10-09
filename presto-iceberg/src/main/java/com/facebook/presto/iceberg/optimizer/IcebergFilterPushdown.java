@@ -43,6 +43,7 @@ import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import org.apache.iceberg.Table;
 
@@ -54,6 +55,7 @@ import java.util.Set;
 import static com.facebook.presto.hive.rule.FilterPushdownUtils.getDomainPredicate;
 import static com.facebook.presto.hive.rule.FilterPushdownUtils.getPredicateColumnNames;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
+import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitions;
@@ -165,6 +167,9 @@ public class IcebergFilterPushdown
                     partitionColumns,
                     runtimeStats);
 
+            Map<String, IcebergColumnHandle> dataColumnHandles = currentLayoutHandle.map(layout ->
+                    ((IcebergTableLayoutHandle) layout).getDataColumnHandles()).orElse(ImmutableMap.of());
+
             return new ConnectorPushdownFilterResult(
                     metadata.getTableLayout(
                             session,
@@ -179,6 +184,7 @@ public class IcebergFilterPushdown
                                     .setPartitionColumnPredicate(partitionColumnPredicate)
                                     .setPartitions(Optional.ofNullable(partitions.isEmpty() ? null : partitions))
                                     .setTable((IcebergTableHandle) tableHandle)
+                                    .setDataColumnHandles(dataColumnHandles)
                                     .build()),
                     remainingExpressions.getDynamicFilterExpression());
         }
@@ -186,7 +192,9 @@ public class IcebergFilterPushdown
         @Override
         protected boolean isPushdownFilterSupported(ConnectorSession session, TableHandle tableHandle)
         {
-            return isPushdownFilterEnabled(session);
+            IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle.getConnectorHandle();
+            return isPushdownFilterEnabled(session) &&
+                    !(icebergTableHandle.getIcebergTableName().getTableType() == CHANGELOG);
         }
     }
 

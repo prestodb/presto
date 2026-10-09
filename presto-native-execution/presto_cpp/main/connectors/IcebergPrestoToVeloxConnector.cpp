@@ -20,6 +20,7 @@
 #include <unordered_set>
 
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
+#include "velox/connectors/hive/iceberg/IcebergChangelogSplitInfo.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/connectors/hive/iceberg/IcebergFieldMetadata.h"
 #include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
@@ -100,6 +101,22 @@ velox::connector::hive::iceberg::FileContent toVeloxFileContent(
   VELOX_UNSUPPORTED("Unsupported file content: {}", fmt::underlying(content));
 }
 
+velox::connector::hive::iceberg::ChangelogOperation toVeloxChangelogOperation(
+    const presto::protocol::iceberg::ChangelogOperation operation) {
+  switch (operation) {
+    case protocol::iceberg::ChangelogOperation::INSERT:
+      return velox::connector::hive::iceberg::ChangelogOperation::kInsert;
+    case protocol::iceberg::ChangelogOperation::DELETE:
+      return velox::connector::hive::iceberg::ChangelogOperation::kDelete;
+    case protocol::iceberg::ChangelogOperation::UPDATE_BEFORE:
+      return velox::connector::hive::iceberg::ChangelogOperation::kUpdateBefore;
+    case protocol::iceberg::ChangelogOperation::UPDATE_AFTER:
+      return velox::connector::hive::iceberg::ChangelogOperation::kUpdateAfter;
+  }
+  VELOX_UNSUPPORTED(
+      "Unsupported changelog operation: {}", fmt::underlying(operation));
+}
+
 velox::dwio::common::FileFormat toVeloxFileFormat(
     const presto::protocol::iceberg::FileFormat format) {
   if (format == protocol::iceberg::FileFormat::ORC) {
@@ -167,7 +184,12 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
         columnHandles,
     const std::unordered_map<std::string, int32_t>& fieldIdsByName,
     const VeloxExprConverter& exprConverter,
-    const TypeParser& typeParser) {
+    const TypeParser& typeParser,
+    bool isChangelogQuery,
+    const std::unordered_map<
+        std::string,
+        velox::connector::hive::iceberg::IcebergColumnHandlePtr>&
+        dataColumnHandles) {
   velox::common::SubfieldFilters subfieldFilters;
   auto domains = domainPredicate.domains;
   for (const auto& domain : *domains) {
@@ -262,7 +284,9 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
       columnHandles,
       /*sampleRate=*/1.0,
       /*dbName=*/"",
-      std::move(dataColumnFieldIds));
+      std::move(dataColumnFieldIds),
+      isChangelogQuery,
+      dataColumnHandles);
 }
 
 velox::connector::hive::iceberg::IcebergPartitionSpec::Field
@@ -611,6 +635,17 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
           kPartitionDataInfoColumn,
       icebergSplit->partitionDataJson ? *icebergSplit->partitionDataJson : "");
 
+  // Convert changelog split info if present
+  std::optional<velox::connector::hive::iceberg::ChangelogSplitInfo>
+      changelogInfo = std::nullopt;
+  if (icebergSplit->changelogSplitInfo) {
+    const auto& protocolChangelogInfo = *icebergSplit->changelogSplitInfo;
+    changelogInfo = velox::connector::hive::iceberg::ChangelogSplitInfo{
+        toVeloxChangelogOperation(protocolChangelogInfo.operation),
+        protocolChangelogInfo.ordinal,
+        protocolChangelogInfo.snapshotId};
+  }
+
   return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
       icebergSplit->path,
@@ -627,7 +662,9 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       std::nullopt,
       icebergSplit->dataSequenceNumber,
       parseIdentityPartitionKeys(
-          icebergSplit->partitionSpecAsJson, icebergSplit->partitionKeys));
+          icebergSplit->partitionSpecAsJson, icebergSplit->partitionKeys),
+      std::nullopt,
+      changelogInfo);
 }
 
 std::unique_ptr<velox::connector::ColumnHandle>
@@ -718,6 +755,29 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
             icebergTableHandle->schemaName,
             icebergTableHandle->icebergTableName.tableName);
 
+  const bool isChangelogQuery =
+      icebergTableHandle->icebergTableName.tableType ==
+      protocol::iceberg::IcebergTableType::CHANGELOG;
+
+  // For changelog queries, the base table's column handles carry the field
+  // IDs and default values needed to read the underlying data files.
+  std::unordered_map<
+      std::string,
+      velox::connector::hive::iceberg::IcebergColumnHandlePtr>
+      dataColumnHandles;
+  if (isChangelogQuery) {
+    for (const auto& [name, handle] : icebergLayout->dataColumnHandles) {
+      auto icebergColumnHandle = std::dynamic_pointer_cast<
+          const velox::connector::hive::iceberg::IcebergColumnHandle>(
+          std::shared_ptr(toVeloxColumnHandle(&handle, typeParser)));
+      VELOX_CHECK_NOT_NULL(
+          icebergColumnHandle,
+          "Expected IcebergColumnHandle for changelog data column: {}",
+          name);
+      dataColumnHandles.emplace(name, std::move(icebergColumnHandle));
+    }
+  }
+
   return toIcebergTableHandle(
       icebergLayout->domainPredicate,
       icebergLayout->remainingPredicate,
@@ -727,7 +787,9 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       columnHandles,
       parseTopLevelFieldIds(icebergTableHandle->tableSchemaJson),
       exprConverter,
-      typeParser);
+      typeParser,
+      isChangelogQuery,
+      dataColumnHandles);
 }
 
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
