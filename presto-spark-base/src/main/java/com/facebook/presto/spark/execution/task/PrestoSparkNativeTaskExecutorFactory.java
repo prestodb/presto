@@ -104,6 +104,7 @@ import java.util.stream.IntStream;
 import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeTerminateWithCoreTimeout;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeExecutionReleaseTaskSourcesEnabled;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeTerminateWithCoreWhenUnresponsiveEnabled;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
@@ -317,6 +318,7 @@ public class PrestoSparkNativeTaskExecutorFactory
                 .map(descriptor -> shuffleInfoTranslator.createShuffleWriteInfo(session, descriptor));
         Optional<String> serializedShuffleWriteInfo = shuffleWriteInfo.map(shuffleInfoTranslator::createSerializedWriteInfo);
 
+        boolean releaseTaskSources = isNativeExecutionReleaseTaskSourcesEnabled(session);
         boolean terminateWithCoreWhenUnresponsive = isNativeTerminateWithCoreWhenUnresponsiveEnabled(session);
         Duration terminateWithCoreTimeout = getNativeTerminateWithCoreTimeout(session);
         try {
@@ -334,9 +336,20 @@ public class PrestoSparkNativeTaskExecutorFactory
                     fragment.getPartitioningScheme().getPartitioning()
                             .getHandle().equals(FIXED_BROADCAST_DISTRIBUTION));
 
+            if (releaseTaskSources) {
+                // task holds a copy of taskSources that will be sent to the native worker,
+                // and this frame lives until the query finishes. Dropping taskSources here is
+                // safe and releases the memory that would otherwise be retained until the query finishes
+                taskSources = null;
+            }
+
             log.info("Creating task and will wait for remote task completion");
             try {
                 TaskInfo taskInfo = task.start();
+                if (releaseTaskSources) {
+                    // the splits have been sent to the native worker; drop the task's copy too
+                    task.releaseSources();
+                }
 
                 // task creation might have failed
                 processTaskInfoForErrorsOrCompletion(taskInfo);

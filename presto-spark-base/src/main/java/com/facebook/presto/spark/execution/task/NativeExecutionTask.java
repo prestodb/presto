@@ -26,6 +26,7 @@ import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTask
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskResultFetcher;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -36,6 +37,7 @@ import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.CANCELED;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -63,7 +65,11 @@ public class NativeExecutionTask
     private final TableWriteInfo tableWriteInfo;
     private final Optional<String> shuffleWriteInfo;
     private final Optional<String> broadcastBasePath;
-    private final List<TaskSource> sources;
+    // Read only by sendUpdateRequest(). Not final so that releaseSources() can drop it once the
+    // splits have been sent to the native worker.
+    private List<TaskSource> sources;
+    // Set once start() has sent the splits to the native worker; guards releaseSources().
+    private boolean started;
     private final HttpNativeExecutionTaskInfoFetcher taskInfoFetcher;
     // Results will be fetched only if not written to shuffle.
     private final Optional<HttpNativeExecutionTaskResultFetcher> taskResultFetcher;
@@ -160,6 +166,7 @@ public class NativeExecutionTask
     public TaskInfo start()
     {
         TaskInfo taskInfo = sendUpdateRequest();
+        started = true;
 
         // We do not start taskInfo fetcher for failed tasks
         if (!ImmutableList.of(CANCELED, FAILED, ABORTED).contains(taskInfo.getTaskStatus().getState())) {
@@ -169,6 +176,23 @@ public class NativeExecutionTask
         }
 
         return taskInfo;
+    }
+
+    /**
+     * Drops this task's reference to its splits. Call only after {@link #start()} has returned:
+     * the splits have then been sent to the native worker and nothing reads them again, while
+     * this task stays alive until the query finishes.
+     */
+    void releaseSources()
+    {
+        checkState(started, "releaseSources() called before start() sent the splits for task %s", taskId);
+        sources = null;
+    }
+
+    @VisibleForTesting
+    List<TaskSource> getSources()
+    {
+        return sources;
     }
 
     /**
