@@ -743,7 +743,9 @@ Property Name                                          Description              
 
 ``iceberg.io-impl``                                    Custom FileIO implementation to use in a catalog. It must       ``org.apache.iceberg.hadoop.HadoopFileIO``
                                                        be set to enable manifest caching. This is only needed for
-                                                       Hadoop, Nessie and REST catalogs.
+                                                       Hadoop and Nessie catalogs. The REST catalog ignores this
+                                                       property and always uses Presto's PrestoRESTFileIO FileIO,
+                                                       which supports manifest caching.
 
 ``iceberg.io.manifest.cache.max-total-bytes``          Maximum size of cache size in bytes.                            ``104857600``
 
