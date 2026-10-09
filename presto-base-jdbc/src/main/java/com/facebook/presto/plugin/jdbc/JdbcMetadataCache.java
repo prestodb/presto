@@ -148,6 +148,21 @@ public class JdbcMetadataCache
         }
     }
 
+    /**
+     * Drops every cached entry for a view name. A connector that reports views as tables (so they
+     * can be read through the ordinary table flow) caches a handle and columns for them like any
+     * table, which go stale once the view is dropped, renamed or replaced. Column entries are keyed
+     * by the full handle, which the caller does not have, so they are matched by name instead.
+     */
+    public void invalidateView(ConnectorSession session, SchemaTableName viewName)
+    {
+        tableHandleCache.invalidate(new KeyAndSession<>(session, viewName));
+        columnHandlesCache.asMap().keySet().removeIf(key -> key.getKey().getSchemaTableName().equals(viewName));
+        if (delegate != null) {
+            delegate.invalidateView(session, viewName);
+        }
+    }
+
     private Optional<JdbcTableHandle> loadTableHandle(KeyAndSession<SchemaTableName> tableName)
     {
         // The returned tableHandle can be null if it does not contain the table
