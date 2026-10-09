@@ -102,6 +102,36 @@ public class TestMongoIntegrationSmokeTest
     }
 
     @Test
+    public void testPredicatePushdownOnTemporalTypes()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_temporal_predicate AS " +
+                "SELECT * FROM (VALUES " +
+                "  (1, DATE '2024-01-15', TIMESTAMP '2024-01-15 11:22:33.456', TIME '11:22:33.456')" +
+                ", (2, DATE '2024-01-16', TIMESTAMP '2024-01-16 11:22:33.456', TIME '12:22:33.456')" +
+                ", (3, DATE '2024-01-17', TIMESTAMP '2024-01-17 11:22:33.456', TIME '13:22:33.456')" +
+                ") t(id, _date, _timestamp, _time)", 3);
+
+        // equality
+        assertQuery("SELECT id FROM test_temporal_predicate WHERE _date = DATE '2024-01-15'", "VALUES 1");
+        assertQuery("SELECT id FROM test_temporal_predicate WHERE _timestamp = TIMESTAMP '2024-01-16 11:22:33.456'", "VALUES 2");
+        assertQuery("SELECT id FROM test_temporal_predicate WHERE _time = TIME '13:22:33.456'", "VALUES 3");
+
+        // ranges
+        assertQuery("SELECT id FROM test_temporal_predicate WHERE _date > DATE '2024-01-15'", "VALUES 2, 3");
+        assertQuery("SELECT id FROM test_temporal_predicate WHERE _date BETWEEN DATE '2024-01-15' AND DATE '2024-01-16'", "VALUES 1, 2");
+        assertQuery("SELECT id FROM test_temporal_predicate WHERE _timestamp < TIMESTAMP '2024-01-16 00:00:00.000'", "VALUES 1");
+
+        // IN list
+        assertQuery("SELECT id FROM test_temporal_predicate WHERE _date IN (DATE '2024-01-15', DATE '2024-01-17')", "VALUES 1, 3");
+
+        // no match
+        assertQueryReturnsEmptyResult("SELECT id FROM test_temporal_predicate WHERE _date = DATE '2024-02-01'");
+
+        assertUpdate("DROP TABLE test_temporal_predicate");
+    }
+
+    @Test
     public void testInsertWithEveryType()
             throws Exception
     {

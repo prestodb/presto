@@ -67,8 +67,12 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
 import static com.google.common.base.Preconditions.checkState;
@@ -76,6 +80,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
@@ -351,6 +356,21 @@ public class MongoSession
             }
             else {
                 return ((Slice) source).toStringUtf8();
+            }
+        }
+
+        // Temporal types are stored as BSON Date (see MongoPageSink#getObjectValue), so the
+        // filter value must be a Date as well; MongoDB never matches a number against a Date.
+        if (source instanceof Long) {
+            long value = (Long) source;
+            if (type.equals(DATE)) {
+                return new Date(DAYS.toMillis(value));
+            }
+            if (type.equals(TIME) || type.equals(TIMESTAMP)) {
+                return new Date(value);
+            }
+            if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                return new Date(unpackMillisUtc(value));
             }
         }
 
