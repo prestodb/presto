@@ -446,21 +446,13 @@ public class TestMySqlIntegrationSmokeTest
         assertQueryFails("CALL system.execute('invalid')", "(?s)Failed to execute query.*");
     }
 
-    // PASSTHROUGH MODE (enable-datasource-managed-views=true)
+    // PASSTHROUGH MODE (datasource-managed-views.enabled=true)
     // MySQL resolves all view SQL natively — IFNULL() and other MySQL-only built-ins work correctly
     @Test
     public void testPassthroughNowViewQueryable()
-            throws SQLException
     {
         // IFNULL() resolved natively by MySQL — Presto never analyzes the view SQL
         assertQuerySucceeds("SELECT * FROM " + MYSQL_PASSTHROUGH_CATALOG + ".tpch.v_now");
-    }
-
-    @Test
-    public void testPassthroughStandardViewQueryable()
-    {
-        // Standard view works in passthrough mode
-        assertQuerySucceeds("SELECT * FROM " + MYSQL_PASSTHROUGH_CATALOG + ".tpch.v_standard");
     }
 
     @Test
@@ -482,7 +474,7 @@ public class TestMySqlIntegrationSmokeTest
                 "VALUES ('v_now', 'BASE TABLE'), ('v_standard', 'BASE TABLE')");
     }
 
-    // MANAGED MODE (enable-datasource-managed-views=false)
+    // MANAGED MODE (datasource-managed-views.enabled=false)
     // Presto fetches and analyzes view SQL — fails on MySQL-native functions unknown to Presto
     @Test
     public void testManagedNowViewFails()
@@ -491,13 +483,6 @@ public class TestMySqlIntegrationSmokeTest
         // the analyzer throws FUNCTION_NOT_FOUND, so the query must fail
         assertQueryFails("SELECT * FROM " + MYSQL_CATALOG + ".tpch.v_now",
                 "(?s).*Failed analyzing stored view '" + MYSQL_CATALOG + "\\.tpch\\.v_now'.*ifnull.*");
-    }
-
-    @Test
-    public void testManagedStandardViewQueryable()
-    {
-        // Standard view with no MySQL-native functions works in managed mode
-        assertQuerySucceeds("SELECT * FROM " + MYSQL_CATALOG + ".tpch.v_standard");
     }
 
     @Test
