@@ -54,7 +54,9 @@ public class TestMySqlIntegrationMixedCaseTest
         mysqlContainer.execInContainer("mysql",
                 "-u", "root",
                 "-p" + mysqlContainer.getPassword(),
-                "-e", "CREATE DATABASE IF NOT EXISTS Mixed_Test_Database; GRANT ALL PRIVILEGES ON Mixed_Test_Database.* TO 'testuser'@'%';");
+                // SET_USER_ID lets the connection user create views with the Presto user as DEFINER
+                "-e", "CREATE DATABASE IF NOT EXISTS Mixed_Test_Database; GRANT ALL PRIVILEGES ON Mixed_Test_Database.* TO 'testuser'@'%'; " +
+                        "GRANT SET_USER_ID ON *.* TO 'testuser'@'%';");
     }
 
     @Override
@@ -192,6 +194,43 @@ public class TestMySqlIntegrationMixedCaseTest
                 "Duplicate column name 'A'");
         assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
                 "Duplicate column name 'orderkey'");
+    }
+
+    @Test
+    public void testViewsWithMixedCaseNames()
+            throws SQLException
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("mysql")
+                .setSchema("Mixed_Test_Database")
+                .build();
+        String viewsInSchema = "SELECT table_name FROM information_schema.views WHERE table_schema = 'Mixed_Test_Database'";
+
+        try {
+            // names that differ only in case are distinct views, each resolving to its own definition
+            assertUpdate(session, "CREATE VIEW Test_View AS SELECT regionkey, name FROM tpch.region");
+            assertUpdate(session, "CREATE VIEW TEST_VIEW AS SELECT nationkey FROM tpch.nation");
+            assertQuery(session, "SELECT regionkey, name FROM Test_View", "SELECT regionkey, name FROM region");
+            assertQuery(session, "SELECT nationkey FROM TEST_VIEW", "SELECT nationkey FROM nation");
+            assertQuery(session, viewsInSchema, "VALUES 'Test_View', 'TEST_VIEW'");
+
+            // replacing, renaming and dropping one view must leave the other untouched
+            assertUpdate(session, "CREATE OR REPLACE VIEW TEST_VIEW AS SELECT name FROM tpch.nation");
+            assertQuery(session, "SELECT name FROM TEST_VIEW", "SELECT name FROM nation");
+            assertQuery(session, "SELECT regionkey, name FROM Test_View", "SELECT regionkey, name FROM region");
+
+            assertUpdate(session, "ALTER VIEW Test_View RENAME TO Test_View_Renamed");
+            assertQuery(session, viewsInSchema, "VALUES 'Test_View_Renamed', 'TEST_VIEW'");
+
+            assertUpdate(session, "DROP VIEW TEST_VIEW");
+            assertQuery(session, viewsInSchema, "VALUES 'Test_View_Renamed'");
+            assertQuery(session, "SELECT regionkey, name FROM Test_View_Renamed", "SELECT regionkey, name FROM region");
+        }
+        finally {
+            for (String viewName : new String[] {"Test_View", "TEST_VIEW", "Test_View_Renamed"}) {
+                execute("DROP VIEW IF EXISTS Mixed_Test_Database.`" + viewName + "`");
+            }
+        }
     }
 
     private void execute(String sql)
