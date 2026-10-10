@@ -1613,6 +1613,85 @@ public class OrcTester
         return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize);
     }
 
+    static OrcBatchRecordReader createCustomOrcRecordReaderWithNullForOutOfBoundsTimestamp(
+            TempFile tempFile,
+            OrcEncoding orcEncoding,
+            OrcPredicate predicate,
+            List<Type> types,
+            int initialBatchSize)
+            throws IOException
+    {
+        OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+        OrcReader orcReader = createOrcReaderWithNullForOutOfBoundsTimestamp(orcDataSource, orcEncoding);
+
+        Map<Integer, Type> columnTypes = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableMap(Functions.identity(), types::get));
+
+        return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize);
+    }
+
+    // Shared by the two helpers above/below: the only thing that distinguishes them from the
+    // regular createCustomOrc*RecordReader factories is readNullForOutOfBoundsTimestamp.
+    private static OrcReader createOrcReaderWithNullForOutOfBoundsTimestamp(OrcDataSource orcDataSource, OrcEncoding orcEncoding)
+            throws IOException
+    {
+        return new OrcReader(
+                orcDataSource,
+                orcEncoding,
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource(),
+                NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
+                OrcReaderOptions.builder()
+                        .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+                        .withTinyStripeThreshold(new DataSize(1, MEGABYTE))
+                        .withMaxBlockSize(MAX_BLOCK_SIZE)
+                        .withReadNullForOutOfBoundsTimestamp(true)
+                        .build(),
+                false,
+                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
+                DwrfKeyProvider.of(ImmutableMap.of()),
+                new RuntimeStats(),
+                MODIFICATION_TIME_NOT_SET);
+    }
+
+    static OrcSelectiveRecordReader createCustomOrcSelectiveRecordReaderWithNullForOutOfBoundsTimestamp(
+            TempFile tempFile,
+            OrcEncoding orcEncoding,
+            OrcPredicate predicate,
+            List<Type> types,
+            int initialBatchSize,
+            Map<Integer, Map<Subfield, TupleDomainFilter>> filters)
+            throws IOException
+    {
+        OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+        OrcReader orcReader = createOrcReaderWithNullForOutOfBoundsTimestamp(orcDataSource, orcEncoding);
+
+        Map<Integer, Type> includedColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableMap(Functions.identity(), types::get));
+        List<Integer> outputColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableList());
+
+        return orcReader.createSelectiveRecordReader(
+                includedColumns,
+                outputColumns,
+                filters,
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                predicate,
+                0,
+                orcDataSource.getSize(),
+                HIVE_STORAGE_TIME_ZONE,
+                new TestingHiveOrcAggregatedMemoryContext(),
+                Optional.empty(),
+                initialBatchSize);
+    }
+
     static OrcReader createCustomOrcReader(
             TempFile tempFile,
             OrcEncoding orcEncoding,
