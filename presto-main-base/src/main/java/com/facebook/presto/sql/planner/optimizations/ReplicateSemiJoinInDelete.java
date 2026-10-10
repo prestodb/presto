@@ -22,9 +22,12 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.UpdateNode;
+import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.SystemSessionProperties.isBroadcastSemiJoinForDeleteEnabled;
 import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.REPLICATED;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class ReplicateSemiJoinInDelete
@@ -46,7 +49,7 @@ public class ReplicateSemiJoinInDelete
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
-        private boolean isDeleteQuery;
+        private boolean isDeleteOrUpdateQuery;
         private boolean planChanged;
 
         public boolean isPlanChanged()
@@ -73,7 +76,7 @@ public class ReplicateSemiJoinInDelete
                     node.getDistributionType(),
                     node.getDynamicFilters());
 
-            if (isDeleteQuery) {
+            if (isDeleteOrUpdateQuery) {
                 planChanged = true;
                 return rewrittenNode.withDistributionType(REPLICATED);
             }
@@ -84,17 +87,32 @@ public class ReplicateSemiJoinInDelete
         @Override
         public PlanNode visitDelete(DeleteNode node, RewriteContext<Void> context)
         {
-            // For delete queries, the TableScan node that corresponds to the table being deleted must be collocated with the Delete node,
-            // so you can't do a distributed semi-join
-            isDeleteQuery = true;
-            PlanNode rewrittenSource = context.rewrite(node.getSource());
-            return new DeleteNode(
-                    node.getSourceLocation(),
-                    node.getId(),
-                    rewrittenSource,
-                    node.getRowId(),
-                    node.getOutputVariables(),
-                    node.getInputDistribution());
+            return rewriteMutation(node, context);
+        }
+
+        @Override
+        public PlanNode visitUpdate(UpdateNode node, RewriteContext<Void> context)
+        {
+            return rewriteMutation(node, context);
+        }
+
+        private PlanNode rewriteMutation(PlanNode node, RewriteContext<Void> context)
+        {
+            // For DELETE and UPDATE, the TableScan node that corresponds to the table being changed must be
+            // collocated with the mutation node, so you can't do a distributed semi-join
+            boolean previous = isDeleteOrUpdateQuery;
+            isDeleteOrUpdateQuery = true;
+            try {
+                PlanNode source = node.getSources().stream().collect(onlyElement());
+                PlanNode rewrittenSource = context.rewrite(source);
+                if (rewrittenSource == source) {
+                    return node;
+                }
+                return node.replaceChildren(ImmutableList.of(rewrittenSource));
+            }
+            finally {
+                isDeleteOrUpdateQuery = previous;
+            }
         }
     }
 }
