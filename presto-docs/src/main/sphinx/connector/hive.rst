@@ -242,6 +242,17 @@ Property Name                                            Description            
                                                          metadata, instead of their ordinal position. Also toggleable 
                                                          through the ``hive.orc_use_column_names`` session property.
 
+``hive.read-null-for-out-of-bounds-timestamp``           Read an ORC or DWRF timestamp that falls outside the         ``false``
+                                                         supported range as ``NULL`` instead of failing the query.
+                                                         Also toggleable through the
+                                                         ``read_null_for_out_of_bounds_timestamp`` session property.
+
+                                                         Only enable this to recover data from files that would
+                                                         otherwise be unreadable. Column statistics still describe
+                                                         such a value as non-null, so statistics-based pruning can
+                                                         skip a stripe or row group that would now return ``NULL``.
+                                                         Not supported by native execution.
+
 ``hive.parquet.use-column-names``                        Enable accessing Parquet columns by name in the Parquet      ``false``
                                                          file metadata, instead of their ordinal position. Also
                                                          toggleable through the ``parquet_use_column_names``
@@ -270,6 +281,13 @@ Property Name                                            Description            
                                                          file exceeds this size during writing, the writer will
                                                          close the current file and start writing to a new file.
                                                          Zero means no limit.
+
+``read_null_for_out_of_bounds_timestamp``                Read an ORC or DWRF timestamp that falls outside the         ``false``
+                                                         supported range as ``NULL`` instead of failing the query.
+                                                         The default is set by the
+                                                         ``hive.read-null-for-out-of-bounds-timestamp``
+                                                         configuration property, which also describes caveats.
+                                                         Not supported by native execution.
 ======================================================== ============================================================ ============
 
 Avro Configuration Properties

@@ -50,6 +50,7 @@ public class TestHiveCommonClientConfig
                 .setParquetBatchReaderVerificationEnabled(false)
                 .setParquetBatchReadOptimizationEnabled(false)
                 .setReadNullMaskedParquetEncryptedValue(false)
+                .setReadNullForOutOfBoundsTimestamp(false)
                 .setCatalogName(null)
                 .setAffinitySchedulingFileSectionSize(new DataSize(256, MEGABYTE)));
     }
@@ -77,6 +78,7 @@ public class TestHiveCommonClientConfig
                 .put("hive.enable-parquet-batch-reader-verification", "true")
                 .put("hive.parquet-batch-read-optimization-enabled", "true")
                 .put("hive.read-null-masked-parquet-encrypted-value-enabled", "true")
+                .put("hive.read-null-for-out-of-bounds-timestamp", "true")
                 .put("hive.metastore.catalog.name", "catalogName")
                 .put("hive.affinity-scheduling-file-section-size", "512MB")
                 .build();
@@ -101,6 +103,7 @@ public class TestHiveCommonClientConfig
                 .setParquetBatchReaderVerificationEnabled(true)
                 .setParquetBatchReadOptimizationEnabled(true)
                 .setReadNullMaskedParquetEncryptedValue(true)
+                .setReadNullForOutOfBoundsTimestamp(true)
                 .setCatalogName("catalogName")
                 .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE));
 
