@@ -1930,7 +1930,7 @@ Presto on Spark Properties
 --------------------------
 
 These properties control how :doc:`Presto on Spark </admin/spark>` assigns table scan
-splits to Spark input partitions.
+splits to Spark input partitions and sends tasks to native workers.
 
 ``spark.max-splits-count-per-partition``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1955,6 +1955,24 @@ created rather than overfilling an existing one, so this limit takes precedence 
 the partition count ceiling.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`max_splits_count_per_spark_partition\`\``.
+
+``native-execution-release-task-sources-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Release a task's splits on the executor once they have been sent to its native (Velox)
+worker.
+
+An executor deserializes every split of a task and sends them all to the native worker in
+one task update request. Nothing on the executor reads them afterwards, but without this
+property the executor keeps them until the task finishes. On a task with many splits they,
+and the column metadata each one carries, can be the largest retained object on the
+executor heap. Enabling this property frees them as soon as the native worker has them,
+which leaves more heap for the rest of the task.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`native_execution_release_task_sources_enabled\`\``.
 
 Driver-side Metadata Sidecar Properties
 ---------------------------------------
