@@ -18,10 +18,12 @@ import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
 
 import java.util.List;
@@ -78,6 +80,11 @@ public class BytecodeGeneratorContext
     public BytecodeNode generate(RowExpression expression, Optional<Variable> outputBlockVariable, Optional<Class> lambdaInterface)
     {
         return rowExpressionCompiler.compile(expression, scope, outputBlockVariable, lambdaInterface);
+    }
+
+    public VariableReferenceExpression createTempVariableReferenceExpression(Variable variable, Type type)
+    {
+        return rowExpressionCompiler.createTempVariableReferenceExpression(variable, type);
     }
 
     public FunctionAndTypeManager getFunctionManager()

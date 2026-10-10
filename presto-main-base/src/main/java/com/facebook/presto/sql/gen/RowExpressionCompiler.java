@@ -21,6 +21,7 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -40,6 +41,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -51,6 +53,7 @@ import static com.facebook.presto.bytecode.instruction.Constant.loadFloat;
 import static com.facebook.presto.bytecode.instruction.Constant.loadInt;
 import static com.facebook.presto.bytecode.instruction.Constant.loadLong;
 import static com.facebook.presto.bytecode.instruction.Constant.loadString;
+import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
@@ -74,6 +77,9 @@ public class RowExpressionCompiler
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
     private final AtomicInteger lambdaCounter;
+    // Temp variables created by code generators, keyed by the identity of the reference handed out for each one,
+    // so that an ordinary variable is never resolved as a temp variable, whatever its name
+    private final Map<VariableReferenceExpression, Variable> tempVariables;
 
     RowExpressionCompiler(
             ClassDefinition classDefinition,
@@ -86,6 +92,21 @@ public class RowExpressionCompiler
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             AtomicInteger lambdaCounter)
     {
+        this(classDefinition, callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler, metadata, sqlFunctionProperties, sessionFunctions, compiledLambdaMap, lambdaCounter, new IdentityHashMap<>());
+    }
+
+    private RowExpressionCompiler(
+            ClassDefinition classDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            AtomicInteger lambdaCounter,
+            Map<VariableReferenceExpression, Variable> tempVariables)
+    {
         this.classDefinition = classDefinition;
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
@@ -95,6 +116,7 @@ public class RowExpressionCompiler
         this.sessionFunctions = sessionFunctions;
         this.compiledLambdaMap = new HashMap<>(compiledLambdaMap);
         this.lambdaCounter = lambdaCounter;
+        this.tempVariables = tempVariables;
     }
 
     public BytecodeNode compile(RowExpression rowExpression, Scope scope, Optional<Variable> outputBlockVariable)
@@ -118,6 +140,16 @@ public class RowExpressionCompiler
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
             FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
             BytecodeGeneratorContext generatorContext;
+            if (functionMetadata.getOperatorType().equals(Optional.of(BETWEEN))) {
+                // BETWEEN is evaluated as (value >= min AND value <= max) rather than via the operator, which returns null on any null input
+                generatorContext = new BytecodeGeneratorContext(
+                        RowExpressionCompiler.this,
+                        context.getScope(),
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        functionAndTypeManager);
+                return new BetweenCodeGenerator().generateExpression(generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
+            }
             switch (functionMetadata.getImplementationType()) {
                 case JAVA:
                     // Pre-compile lambda bytecode and update compiled lambda map
@@ -172,7 +204,8 @@ public class RowExpressionCompiler
                             sqlFunctionProperties,
                             sessionFunctions,
                             compiledLambdaMap,
-                            lambdaCounter);
+                            lambdaCounter,
+                            tempVariables);
                     // If called on null input, directly use the generated bytecode
                     if (functionMetadata.isCalledOnNullInput() || call.getArguments().isEmpty()) {
                         return newRowExpressionCompiler.compile(
@@ -306,7 +339,10 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Context context)
         {
-            BytecodeNode variableReferenceByteCode = fieldReferenceCompiler.visitVariableReference(reference, context.getScope());
+            BytecodeNode variableReferenceByteCode = tempVariables.get(reference);
+            if (variableReferenceByteCode == null) {
+                variableReferenceByteCode = fieldReferenceCompiler.visitVariableReference(reference, context.getScope());
+            }
             if (!context.getOutputBlockVariable().isPresent()) {
                 return variableReferenceByteCode;
             }
@@ -376,6 +412,18 @@ public class RowExpressionCompiler
 
             return generator.generateExpression(generatorContext, specialForm.getType(), specialForm.getArguments(), context.getOutputBlockVariable());
         }
+    }
+
+    /**
+     * Creates a reference to a temp variable of the current scope, so that a code generator can evaluate
+     * an argument once and refer to its value from multiple generated sub-expressions.
+     * Only the returned instance resolves to the temp variable.
+     */
+    VariableReferenceExpression createTempVariableReferenceExpression(Variable variable, Type type)
+    {
+        VariableReferenceExpression reference = new VariableReferenceExpression(Optional.empty(), variable.getName(), type);
+        tempVariables.put(reference, variable);
+        return reference;
     }
 
     private static class Context

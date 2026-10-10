@@ -38,12 +38,15 @@ The statement shown above is equivalent to the following statement::
 
     SELECT 3 < 2 OR 3 > 6;
 
-The presence of NULL in a ``BETWEEN`` or ``NOT BETWEEN`` statement
-will result in the statement evaluating to NULL::
+``x BETWEEN min AND max`` is evaluated as ``min <= x AND x <= max``, so
+NULLs follow the standard NULL evaluation rules applied to this equivalent
+expression::
 
     SELECT NULL BETWEEN 2 AND 4; -- null
 
     SELECT 2 BETWEEN NULL AND 6; -- null
+
+    SELECT 8 BETWEEN NULL AND 6; -- false
 
 The ``BETWEEN`` and ``NOT BETWEEN`` operators can also be used to
 evaluate string arguments::

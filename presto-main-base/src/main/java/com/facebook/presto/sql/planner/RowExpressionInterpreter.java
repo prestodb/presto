@@ -63,6 +63,8 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxSerializableObjectSize;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
@@ -219,6 +221,15 @@ public class RowExpressionInterpreter
 
             FunctionHandle functionHandle = node.getFunctionHandle();
             FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(node.getFunctionHandle());
+
+            // Special casing for between, which must not be folded to null when only one of the bounds is null
+            if (resolution.isBetweenFunction(functionHandle)) {
+                SpecialCallResult result = tryHandleBetween(node, argumentValues);
+                if (result.isChanged()) {
+                    return result.getValue();
+                }
+            }
+
             if (!functionMetadata.isCalledOnNullInput()) {
                 for (Object value : argumentValues) {
                     if (value == null) {
@@ -792,6 +803,45 @@ public class RowExpressionInterpreter
                 return changed(arrayBlockBuilder.build());
             }
             return notChanged();
+        }
+
+        private SpecialCallResult tryHandleBetween(CallExpression callExpression, List<Object> argumentValues)
+        {
+            checkArgument(callExpression.getArguments().size() == 3);
+            Object value = argumentValues.get(0);
+            Object min = argumentValues.get(1);
+            Object max = argumentValues.get(2);
+
+            if (value == null) {
+                return changed(null);
+            }
+            if (min != null && max != null) {
+                // no null bound, so evaluating the BETWEEN operator is equivalent
+                return notChanged();
+            }
+            if (hasUnresolvedValue(argumentValues)) {
+                // the result may be false rather than null, so it cannot be folded
+                return changed(call(
+                        callExpression.getSourceLocation(),
+                        callExpression.getDisplayName(),
+                        callExpression.getFunctionHandle(),
+                        callExpression.getType(),
+                        toRowExpressions(argumentValues, callExpression.getArguments())));
+            }
+
+            // BETWEEN is equivalent to (value >= min AND value <= max), so the result is false if the non-null bound is not satisfied
+            List<RowExpression> arguments = callExpression.getArguments();
+            Object withinNonNullBound;
+            if (min != null) {
+                withinNonNullBound = invokeOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(arguments.get(0).getType(), arguments.get(1).getType()), ImmutableList.of(value, min));
+            }
+            else if (max != null) {
+                withinNonNullBound = invokeOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(arguments.get(0).getType(), arguments.get(2).getType()), ImmutableList.of(value, max));
+            }
+            else {
+                withinNonNullBound = null;
+            }
+            return changed(Boolean.FALSE.equals(withinNonNullBound) ? false : null);
         }
 
         private SpecialCallResult tryHandleCast(CallExpression callExpression, List<Object> argumentValues)
