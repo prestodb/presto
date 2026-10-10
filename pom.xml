@@ -2053,11 +2053,11 @@
                 </exclusions>
             </dependency>
 
-            <!--CVE-2025-12183: Override vulnerable lz4-java version to address the security issue -->
+            <!--CVE-2026-106449, CVE-2026-106450, CVE-2026-106451, CVE-2026-106452, CVE-2026-106453: Override vulnerable lz4-java version to address the security issues -->
             <dependency>
                 <groupId>at.yawk.lz4</groupId>
                 <artifactId>lz4-java</artifactId>
-                <version>1.11.1</version>
+                <version>1.11.4</version>
             </dependency>
 
             <dependency>
