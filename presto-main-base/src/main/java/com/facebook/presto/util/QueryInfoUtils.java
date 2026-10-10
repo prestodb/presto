@@ -20,6 +20,7 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageExecutionStats;
+import com.facebook.presto.execution.StageExecutionTaskSummary;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import io.airlift.slice.XxHash64;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.lang.Long.toHexString;
@@ -107,7 +109,7 @@ public class QueryInfoUtils
                 .setWallTimeMillis(stageExecutionStats.getTotalScheduledTime().toMillis())
                 .setProcessedRows(stageExecutionStats.getRawInputPositions())
                 .setProcessedBytes(stageExecutionStats.getRawInputDataSizeInBytes())
-                .setNodes(countStageAndAddGlobalUniqueNodes(currentStageExecutionInfo.getTasks(), globalUniqueNodeIds));
+                .setNodes(countStageAndAddGlobalUniqueNodes(currentStageExecutionInfo, globalUniqueNodeIds));
 
         // Recurse into child stages to create their StageStats
         List<StageInfo> subStages = stageInfo.getSubStages();
@@ -125,8 +127,16 @@ public class QueryInfoUtils
         return builder.build();
     }
 
-    private static int countStageAndAddGlobalUniqueNodes(List<TaskInfo> tasks, Set<String> globalUniqueNodes)
+    private static int countStageAndAddGlobalUniqueNodes(StageExecutionInfo stageExecutionInfo, Set<String> globalUniqueNodes)
     {
+        Optional<StageExecutionTaskSummary> taskSummary = stageExecutionInfo.getTaskSummary();
+        if (taskSummary.isPresent()) {
+            Set<String> stageUniqueNodes = taskSummary.get().getNodeIds();
+            globalUniqueNodes.addAll(stageUniqueNodes);
+            return stageUniqueNodes.size();
+        }
+
+        List<TaskInfo> tasks = stageExecutionInfo.getTasks();
         Set<String> stageUniqueNodes = Sets.newHashSetWithExpectedSize(tasks.size());
         for (TaskInfo task : tasks) {
             String nodeId = task.getNodeId();

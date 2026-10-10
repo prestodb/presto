@@ -24,6 +24,7 @@ import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageExecutionStats;
+import com.facebook.presto.execution.StageExecutionTaskSummary;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterExtractResult;
@@ -425,14 +426,26 @@ public class PlanPrinter
                     latestAttempt.getState()));
 
             StageExecutionStats stageExecutionStats = latestAttempt.getStats();
-            List<TaskInfo> tasks = latestAttempt.getTasks();
+            Optional<StageExecutionTaskSummary> taskSummary = latestAttempt.getTaskSummary();
+            double avgPositionsPerTask;
+            double sdAmongTasks;
+            int taskCount;
+            if (taskSummary.isPresent()) {
+                avgPositionsPerTask = taskSummary.get().getProcessedInputPositionsAverage();
+                sdAmongTasks = taskSummary.get().getProcessedInputPositionsStdDev();
+                taskCount = taskSummary.get().getTaskCount();
+            }
+            else {
+                List<TaskInfo> tasks = latestAttempt.getTasks();
 
-            double avgPositionsPerTask = tasks.stream().mapToLong(task -> task.getStats().getProcessedInputPositions()).average().orElse(Double.NaN);
-            double squaredDifferences = tasks.stream().mapToDouble(task -> Math.pow(task.getStats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
-            double sdAmongTasks = Math.sqrt(squaredDifferences / tasks.size());
-
+                double average = tasks.stream().mapToLong(task -> task.getStats().getProcessedInputPositions()).average().orElse(Double.NaN);
+                double squaredDifferences = tasks.stream().mapToDouble(task -> Math.pow(task.getStats().getProcessedInputPositions() - average, 2)).sum();
+                avgPositionsPerTask = average;
+                sdAmongTasks = Math.sqrt(squaredDifferences / tasks.size());
+                taskCount = tasks.size();
+            }
             builder.append(indentString(1))
-                    .append(formattedFragmentString(stageExecutionStats, avgPositionsPerTask, sdAmongTasks, tasks.size()));
+                    .append(formattedFragmentString(stageExecutionStats, avgPositionsPerTask, sdAmongTasks, taskCount));
         }
         else {
             builder.append(format("Fragment %s [%s]%n",

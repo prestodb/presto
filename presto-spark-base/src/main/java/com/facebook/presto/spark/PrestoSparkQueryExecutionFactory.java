@@ -45,6 +45,7 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageExecutionState;
+import com.facebook.presto.execution.StageExecutionStats;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
@@ -69,10 +70,13 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
+import com.facebook.presto.spark.execution.FragmentTaskAggregates;
 import com.facebook.presto.spark.execution.PrestoSparkAdaptiveQueryExecution;
 import com.facebook.presto.spark.execution.PrestoSparkDataDefinitionExecution;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
 import com.facebook.presto.spark.execution.PrestoSparkStaticQueryExecution;
+import com.facebook.presto.spark.execution.TaskInfoAggregationMode;
+import com.facebook.presto.spark.execution.TaskMemoryStatsAccumulator;
 import com.facebook.presto.spark.execution.task.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
@@ -138,8 +142,11 @@ import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getTaskInfoAggregationMode;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isAdaptiveQueryExecutionEnabled;
 import static com.facebook.presto.spark.SparkErrorCode.MALFORMED_QUERY_FILE;
+import static com.facebook.presto.spark.execution.TaskInfoAggregator.createLockingTaskInfoCollectorForTesting;
+import static com.facebook.presto.spark.execution.TaskInfoAggregator.resolveMode;
 import static com.facebook.presto.spark.util.PrestoSparkExecutionUtils.getExecutionSettings;
 import static com.facebook.presto.spark.util.PrestoSparkFailureUtils.toPrestoSparkFailure;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
@@ -195,6 +202,7 @@ public class PrestoSparkQueryExecutionFactory
     private final TempStorageManager tempStorageManager;
     private final String storageBasedBroadcastJoinStorage;
     private final String nativeTempStorage;
+    private final boolean testingTaskInfoAggregationLockingCollectorEnabled;
     private final NodeMemoryConfig nodeMemoryConfig;
     private final FeaturesConfig featuresConfig;
     private final QueryManagerConfig queryManagerConfig;
@@ -276,6 +284,7 @@ public class PrestoSparkQueryExecutionFactory
         this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
         this.storageBasedBroadcastJoinStorage = requireNonNull(prestoSparkConfig, "prestoSparkConfig is null").getStorageBasedBroadcastJoinStorage();
         this.nativeTempStorage = requireNonNull(featuresConfig, "prestoSparkConfig is null").getSpillerTempStorage();
+        this.testingTaskInfoAggregationLockingCollectorEnabled = prestoSparkConfig.isTestingTaskInfoAggregationLockingCollectorEnabled();
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
         this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
@@ -339,6 +348,62 @@ public class PrestoSparkQueryExecutionFactory
                 peakNodeTotalMemoryInBytes,
                 session.getRuntimeStats());
 
+        return buildQueryInfo(session, query, queryState, planAndMore, sparkQueueName, failureInfo, rootStage, warningCollector, queryStats);
+    }
+
+    /**
+     * Like {@link #createQueryInfo(Session, String, QueryState, Optional, Optional, Optional, QueryStateTimer, Optional, WarningCollector)},
+     * for stages created by {@link #createStageInfo(QueryId, SubPlan, Map)}, whose tasks are not retained.
+     */
+    public static QueryInfo createQueryInfo(
+            Session session,
+            String query,
+            QueryState queryState,
+            Optional<PlanAndMore> planAndMore,
+            Optional<String> sparkQueueName,
+            Optional<ExecutionFailureInfo> failureInfo,
+            QueryStateTimer queryStateTimer,
+            Optional<StageInfo> rootStage,
+            WarningCollector warningCollector,
+            Map<PlanFragmentId, FragmentTaskAggregates> fragmentTaskAggregates)
+    {
+        checkArgument(failureInfo.isPresent() || queryState != FAILED, "unexpected query state: %s", queryState);
+
+        List<StageInfo> allStages = getAllStages(rootStage);
+        TaskMemoryStatsAccumulator taskMemoryStats = new TaskMemoryStatsAccumulator();
+        for (StageInfo stageInfo : allStages) {
+            FragmentTaskAggregates stageTaskAggregates = fragmentTaskAggregates.get(new PlanFragmentId(stageInfo.getStageId().getId()));
+            if (stageTaskAggregates != null) {
+                taskMemoryStats.merge(stageTaskAggregates.getTaskMemoryStats());
+            }
+        }
+
+        QueryStats queryStats = QueryStats.create(
+                queryStateTimer,
+                rootStage,
+                allStages,
+                taskMemoryStats.getTaskCount(),
+                taskMemoryStats.getTotalPeakUserMemoryInBytes(),
+                taskMemoryStats.getTotalPeakTotalMemoryInBytes(),
+                taskMemoryStats.getMaxPeakUserMemoryInBytes(),
+                taskMemoryStats.getMaxPeakTotalMemoryInBytes(),
+                taskMemoryStats.getMaxPeakNodeTotalMemoryInBytes(),
+                session.getRuntimeStats());
+
+        return buildQueryInfo(session, query, queryState, planAndMore, sparkQueueName, failureInfo, rootStage, warningCollector, queryStats);
+    }
+
+    private static QueryInfo buildQueryInfo(
+            Session session,
+            String query,
+            QueryState queryState,
+            Optional<PlanAndMore> planAndMore,
+            Optional<String> sparkQueueName,
+            Optional<ExecutionFailureInfo> failureInfo,
+            Optional<StageInfo> rootStage,
+            WarningCollector warningCollector,
+            QueryStats queryStats)
+    {
         Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext = Optional.empty();
         if (planAndMore.isPresent()) {
             prestoSparkExecutionContext = Optional.of(
@@ -410,7 +475,43 @@ public class PrestoSparkQueryExecutionFactory
     {
         PlanFragmentId planFragmentId = plan.getFragment().getId();
         StageId stageId = new StageId(queryId, planFragmentId.getId());
-        List<TaskInfo> taskInfos = taskInfoMap.get(planFragmentId);
+        StageExecutionInfo stageExecutionInfo = createStageExecutionInfo(stageId, taskInfoMap.get(planFragmentId));
+        return new StageInfo(
+                stageId,
+                URI.create("http://fake.invalid/stage/" + stageId),
+                Optional.of(plan.getFragment()),
+                stageExecutionInfo,
+                ImmutableList.of(),
+                plan.getChildren().stream()
+                        .map(child -> createStageInfo(queryId, child, taskInfoMap))
+                        .collect(toImmutableList()),
+                false);
+    }
+
+    /**
+     * Creates the stage infos from the aggregates of the tasks of each fragment. The stage infos carry a summary of
+     * their tasks in place of the tasks.
+     */
+    public static StageInfo createStageInfo(QueryId queryId, SubPlan plan, Map<PlanFragmentId, FragmentTaskAggregates> fragmentTaskAggregates)
+    {
+        PlanFragmentId planFragmentId = plan.getFragment().getId();
+        StageId stageId = new StageId(queryId, planFragmentId.getId());
+        FragmentTaskAggregates taskAggregates = fragmentTaskAggregates.get(planFragmentId);
+        StageExecutionInfo stageExecutionInfo = taskAggregates == null ? createStageExecutionInfo(stageId, ImmutableList.of()) : createStageExecutionInfo(stageId, taskAggregates);
+        return new StageInfo(
+                stageId,
+                URI.create("http://fake.invalid/stage/" + stageId),
+                Optional.of(plan.getFragment()),
+                stageExecutionInfo,
+                ImmutableList.of(),
+                plan.getChildren().stream()
+                        .map(child -> createStageInfo(queryId, child, fragmentTaskAggregates))
+                        .collect(toImmutableList()),
+                false);
+    }
+
+    private static StageExecutionInfo createStageExecutionInfo(StageId stageId, List<TaskInfo> taskInfos)
+    {
         long peakUserMemoryReservationInBytes = 0;
         long peakNodeTotalMemoryReservationInBytes = 0;
         for (TaskInfo taskInfo : taskInfos) {
@@ -418,7 +519,7 @@ public class PrestoSparkQueryExecutionFactory
             peakUserMemoryReservationInBytes += taskPeakUserMemoryInBytes;
             peakNodeTotalMemoryReservationInBytes = max(taskInfo.getStats().getPeakNodeTotalMemoryInBytes(), peakNodeTotalMemoryReservationInBytes);
         }
-        StageExecutionInfo stageExecutionInfo = StageExecutionInfo.create(
+        return StageExecutionInfo.create(
                 new StageExecutionId(stageId, 0),
                 // TODO: figure out a way to know what exactly stage has caused a failure
                 StageExecutionState.FINISHED,
@@ -431,16 +532,21 @@ public class PrestoSparkQueryExecutionFactory
                 peakNodeTotalMemoryReservationInBytes,
                 1,
                 1);
-        return new StageInfo(
-                stageId,
-                URI.create("http://fake.invalid/stage/" + stageId),
-                Optional.of(plan.getFragment()),
-                stageExecutionInfo,
-                ImmutableList.of(),
-                plan.getChildren().stream()
-                        .map(child -> createStageInfo(queryId, child, taskInfoMap))
-                        .collect(toImmutableList()),
-                false);
+    }
+
+    private static StageExecutionInfo createStageExecutionInfo(StageId stageId, FragmentTaskAggregates taskAggregates)
+    {
+        TaskMemoryStatsAccumulator taskMemoryStats = taskAggregates.getTaskMemoryStats();
+        StageExecutionStats stageExecutionStats = taskAggregates.getStageTaskStatsAggregator().build(
+                new StageExecutionId(stageId, 0),
+                StageExecutionState.FINISHED,
+                System.currentTimeMillis(),
+                new Distribution().snapshot(),
+                taskMemoryStats.getTotalUserMemoryReservationInBytes(),
+                taskMemoryStats.getMaxPeakNodeTotalMemoryInBytes(),
+                1,
+                1);
+        return StageExecutionInfo.createWithTaskSummary(StageExecutionState.FINISHED, stageExecutionStats, taskAggregates.getTaskSummary().build(), Optional.empty());
     }
 
     public static PrestoSparkQueryStatusInfo createPrestoSparkQueryInfo(
@@ -682,7 +788,16 @@ public class PrestoSparkQueryExecutionFactory
                 PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
                 planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector, variableAllocator, planNodeIdAllocator, sparkContext, sql);
                 JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
-                CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
+                CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
+                TaskInfoAggregationMode taskInfoAggregationMode;
+                if (testingTaskInfoAggregationLockingCollectorEnabled) {
+                    taskInfoCollector = createLockingTaskInfoCollectorForTesting();
+                    taskInfoAggregationMode = getTaskInfoAggregationMode(session);
+                }
+                else {
+                    taskInfoCollector = new CollectionAccumulator<>();
+                    taskInfoAggregationMode = resolveMode(getTaskInfoAggregationMode(session), sparkContext.version());
+                }
                 taskInfoCollector.register(sparkContext, Option.empty(), true);
                 CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector = new CollectionAccumulator<>();
                 shuffleStatsCollector.register(sparkContext, Option.empty(), false);
@@ -728,7 +843,8 @@ public class PrestoSparkQueryExecutionFactory
                             metadata,
                             partitioningProviderManager,
                             historyBasedPlanStatisticsTracker,
-                            bootstrapMetricsCollector);
+                            bootstrapMetricsCollector,
+                            taskInfoAggregationMode);
                 }
                 else {
                     return new PrestoSparkAdaptiveQueryExecution(
@@ -773,7 +889,8 @@ public class PrestoSparkQueryExecutionFactory
                             planNodeIdAllocator,
                             fragmentStatsProvider,
                             bootstrapMetricsCollector,
-                            planCheckerProviderManager);
+                            planCheckerProviderManager,
+                            taskInfoAggregationMode);
                 }
             }
         }
