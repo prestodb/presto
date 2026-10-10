@@ -764,7 +764,7 @@ JMX query to get the metrics and verify the cache usage::
 
 .. note::
 
-    Manifest file cache statistics are only available through the JMX connector when the Iceberg connector is configured with a HIVE catalog type.
+    Manifest file cache statistics are only available through the JMX connector when the Iceberg connector is configured with a HIVE or REST catalog type.
 
 .. rubric:: Presto C++ Support
 
