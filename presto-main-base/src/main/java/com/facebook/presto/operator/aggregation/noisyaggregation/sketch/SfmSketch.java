@@ -370,11 +370,14 @@ public class SfmSketch
             double p = mergeRandomizedResponseProbabilities(p1, p2);
             double normalizer = (1 - 2 * p) / ((1 - 2 * p1) * (1 - 2 * p2));
 
+            // Given the original (non-private) bits b1 and b2, the expected value of (1 - p1 - bit1) is
+            // (1 - 2 * p1) * (1 - b1), and similarly for the other sketch. The probability below is therefore,
+            // in expectation, p + (1 - 2 * p) * (b1 OR b2): randomized response with probability p applied to
+            // the OR of the non-private sketches, which keeps the merged sketch unbiased.
             for (int i = 0; i < bitmap.length(); i++) {
                 double bit1 = bitmap.getBit(i) ? 1 : 0;
                 double bit2 = other.bitmap.getBit(i) ? 1 : 0;
-                double x = 1 - 2 * p - normalizer * (1 - p1 - bit1) * (1 - p2 - bit2);
-                double probability = p + normalizer * x;
+                double probability = 1 - p - normalizer * (1 - p1 - bit1) * (1 - p2 - bit2);
                 probability = Math.min(1.0, Math.max(0.0, probability));
                 bitmap.setBit(i, randomizationStrategy.nextBoolean(probability));
             }
