@@ -1212,6 +1212,9 @@ public class TestArrayOperators
         // Test for BIGINT-optimized implementation
         assertFunction("ARRAY_DISTINCT(ARRAY [CAST(5 AS BIGINT), NULL, CAST(12 AS BIGINT), NULL])", new ArrayType(BIGINT), asList(5L, null, 12L));
         assertFunction("ARRAY_DISTINCT(ARRAY [CAST(100 AS BIGINT), NULL, CAST(100 AS BIGINT), NULL, 0, -2, 0])", new ArrayType(BIGINT), asList(100L, null, 0L, -2L));
+        // the first duplicate comes before any NULL, so NULLs are only seen after the distinct prefix
+        assertFunction("ARRAY_DISTINCT(ARRAY [CAST(7 AS BIGINT), 7, NULL, 7, NULL, NULL])", new ArrayType(BIGINT), asList(7L, null));
+        assertFunction("ARRAY_DISTINCT(ARRAY [CAST(1 AS BIGINT), 2, 1, NULL, 3, NULL, 2, NULL])", new ArrayType(BIGINT), asList(1L, 2L, null, 3L));
 
         assertFunction(
                 "ARRAY_DISTINCT(ARRAY [2.3, 2.3, 2.2])",

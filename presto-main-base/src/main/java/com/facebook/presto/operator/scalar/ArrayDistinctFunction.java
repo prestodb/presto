@@ -171,6 +171,7 @@ public final class ArrayDistinctFunction
             for (position++; position < arrayLength; position++) {
                 if (array.isNull(position)) {
                     if (!containsNull) {
+                        containsNull = true;
                         BIGINT.appendTo(array, position, distinctElementBlockBuilder);
                     }
                 }
