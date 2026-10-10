@@ -164,14 +164,19 @@ public class TDigest
             double compression,
             double min,
             double max,
-            double sum,
-            int count)
+            double sum)
     {
+        checkArgument(
+                centroidMeans.length == centroidWeights.length,
+                "centroidMeans and centroidWeights must have the same length: %s vs. %s",
+                centroidMeans.length,
+                centroidWeights.length);
+
         TDigest tDigest = new TDigest(compression);
         tDigest.setMinMax(min, max);
         tDigest.setSum(sum);
         tDigest.totalWeight = Arrays.stream(centroidWeights).sum(); // set totalWeight to sum of all centroidWeights
-        tDigest.activeCentroids = count;
+        tDigest.activeCentroids = centroidMeans.length;
         tDigest.weight = centroidWeights;
         tDigest.mean = centroidMeans;
 

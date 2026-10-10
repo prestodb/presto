@@ -402,7 +402,7 @@ public class TestTDigest
     {
         double[] means = {1.0, Double.NaN, 3.0};
         double[] weights = {1.0, 1.0, 1.0};
-        TDigest tDigest = createTDigest(means, weights, STANDARD_COMPRESSION_FACTOR, 1.0, 3.0, 6.0, 3);
+        TDigest tDigest = createTDigest(means, weights, STANDARD_COMPRESSION_FACTOR, 1.0, 3.0, 6.0);
 
         tDigest.serialize();
     }
