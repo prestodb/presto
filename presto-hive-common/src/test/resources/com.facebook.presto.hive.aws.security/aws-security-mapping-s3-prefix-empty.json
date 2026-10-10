@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "user": "alice",
+      "s3Prefix": [],
+      "iamRole": "arn:aws:iam::123456789101:role/empty_prefix_role"
+    },
+    {
+      "user": "bob",
+      "s3Prefix": null,
+      "iamRole": "arn:aws:iam::123456789101:role/null_prefix_role"
+    }
+  ]
+}
