@@ -197,6 +197,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMA
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_MATERIALIZED_VIEW;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TRANSACTION_CONFLICT_ERROR;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.validateGeospatialWrite;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getMaxSnapshotsPerRefresh;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getRefreshType;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStaleReadBehavior;
@@ -726,6 +727,7 @@ public abstract class IcebergAbstractMetadata
     protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable, List<String> insertColumnNames)
     {
         validateBranchExists(table, icebergTable);
+        validateGeospatialWrite(icebergTable);
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
@@ -1347,6 +1349,9 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        // Reject a geospatial column the table could never be written with, rather than
+        // accepting the schema change and failing every subsequent write
+        validateGeospatialWrite(column.getName(), columnType, opsFromTable(icebergTable).current().formatVersion(), getFileFormat(icebergTable));
         UpdateSchema updateSchema = icebergTable.updateSchema();
         checkNotSupported(column.getDefaultValue().isEmpty() || column.getDerivedColumnSpec().isEmpty(),
                 "A column can either have a 'default expression' or 'derived column definition' and not both.");
@@ -2804,6 +2809,7 @@ public abstract class IcebergAbstractMetadata
         SchemaTableName storageTableName = icebergTableHandle.getSchemaTableName();
         IcebergTableHandle storageTableHandle = getTableHandle(session, storageTableName);
         Table storageTable = getIcebergTable(session, storageTableName);
+        validateGeospatialWrite(storageTable);
         SchemaTableName materializedViewName = icebergTableHandle.getMaterializedViewName().get();
         MaterializedViewStatus status = getMaterializedViewStatus(session, materializedViewName, TupleDomain.all());
         boolean fullRefreshRequired = !status.isFullyMaterialized()
