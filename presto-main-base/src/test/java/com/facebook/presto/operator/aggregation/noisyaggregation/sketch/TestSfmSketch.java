@@ -345,6 +345,17 @@ public class TestSfmSketch
     }
 
     @Test
+    public void testMergedPrivateCardinalitiesAreUnbiased()
+    {
+        // Merging two private sketches should estimate the cardinality of the union without bias.
+        // A biased merge sets too many 1-bits, which is most noticeable for small epsilons.
+        // The tolerances leave a wide margin over the seed-to-seed variation of the averaged estimate.
+        assertAverageMergedPrivateCardinality(1, 0.1);
+        assertAverageMergedPrivateCardinality(2, 0.04);
+        assertAverageMergedPrivateCardinality(5, 0.02);
+    }
+
+    @Test
     public void testEnablePrivacy()
     {
         SfmSketch sketch = SfmSketch.create(4096, 24);
@@ -364,6 +375,31 @@ public class TestSfmSketch
 
         // Cardinality should remain approximately the same
         assertEquals(cardinalityAfter, cardinalityBefore, cardinalityBefore * 0.1);
+    }
+
+    private static void assertAverageMergedPrivateCardinality(double epsilon, double relativeTolerance)
+    {
+        int numberOfRuns = 10;
+        int valuesPerSketch = 10_000;
+        int unionCardinality = 2 * valuesPerSketch;
+
+        double sumOfEstimates = 0;
+        for (int run = 0; run < numberOfRuns; run++) {
+            // the two sketches hold disjoint values, so the union has 2 * valuesPerSketch distinct values
+            SfmSketch sketch = SfmSketch.create(4096, 24);
+            SfmSketch sketch2 = SfmSketch.create(4096, 24);
+            for (int i = 0; i < valuesPerSketch; i++) {
+                sketch.add(i);
+                sketch2.add(valuesPerSketch + i);
+            }
+
+            sketch.enablePrivacy(epsilon, new TestingSeededRandomizationStrategy(3L * run));
+            sketch2.enablePrivacy(epsilon, new TestingSeededRandomizationStrategy(3L * run + 1));
+            sketch.mergeWith(sketch2, new TestingSeededRandomizationStrategy(3L * run + 2));
+            sumOfEstimates += sketch.cardinality();
+        }
+
+        assertEquals(sumOfEstimates / numberOfRuns, unionCardinality, unionCardinality * relativeTolerance, "epsilon: " + epsilon);
     }
 
     private static SfmSketch createSketchWithTargetCardinality(int numberOfBuckets, int precision, double epsilon, int cardinality)
