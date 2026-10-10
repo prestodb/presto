@@ -269,6 +269,9 @@ public interface AbstractTestIpPrefix
     {
         assertInvalidFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/22', IPPREFIX '2409:4043:251a:d200::/56'])",
                 "All IPPREFIX elements must be the same IP version.");
+        // the IPv4 prefix sorts between the two IPv6 prefixes, so the first and last prefixes have the same IP version
+        assertInvalidFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '2200::/64', IPPREFIX '1.1.1.1/32', IPPREFIX '::1/128'])",
+                "All IPPREFIX elements must be the same IP version.");
     }
 
     @Test (dataProvider = "private-ip-provider")

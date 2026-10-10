@@ -234,12 +234,14 @@ public final class IpPrefixFunctions
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "ip_prefix_collapse does not support null elements");
         }
 
-        // check the first and last prefixes in the array to make sure their IP versions match.
-        Slice firstIpPrefix = IPPREFIX.getSlice(ipPrefixArray, 0);
-        boolean v4 = isIpv4(firstIpPrefix);
-        Slice lastIpPrefix = IPPREFIX.getSlice(ipPrefixArray, inputPrefixCount - 1);
-        if (isIpv4(lastIpPrefix) != v4) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "All IPPREFIX elements must be the same IP version.");
+        // Check that all prefixes have the same IP version. IPv4 prefixes are stored as IPv4-mapped IPv6 addresses,
+        // so after sorting they can sit between IPv6 prefixes (e.g. ::1/128, 1.1.1.1/32, 2200::/64), and checking
+        // only the first and last prefixes is not enough.
+        boolean v4 = isIpv4(IPPREFIX.getSlice(ipPrefixArray, 0));
+        for (int i = 1; i < inputPrefixCount; i++) {
+            if (isIpv4(IPPREFIX.getSlice(ipPrefixArray, i)) != v4) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "All IPPREFIX elements must be the same IP version.");
+            }
         }
 
         List<List<Slice>> outputIpPrefixes = new ArrayList<>();
