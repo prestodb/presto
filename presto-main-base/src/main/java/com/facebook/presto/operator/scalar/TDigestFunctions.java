@@ -35,7 +35,6 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.facebook.presto.util.Failures.checkCondition;
-import static java.lang.Math.toIntExact;
 
 public final class TDigestFunctions
 {
@@ -164,6 +163,16 @@ public final class TDigestFunctions
             @SqlType(StandardTypes.DOUBLE) double sum,
             @SqlType(StandardTypes.BIGINT) long count)
     {
+        // Each centroid is described by a mean and a weight, so both arrays must have one entry per centroid.
+        // The count of values in the digest is the sum of the centroid weights, so count does not determine
+        // the number of centroids; it is accepted so that this function stays the inverse of destructure_tdigest.
+        checkCondition(
+                centroidMeansBlock.getPositionCount() == centroidWeightsBlock.getPositionCount(),
+                INVALID_FUNCTION_ARGUMENT,
+                "centroid_means and centroid_weights must have the same number of elements, but got %s and %s",
+                centroidMeansBlock.getPositionCount(),
+                centroidWeightsBlock.getPositionCount());
+
         double[] centroidMeans = new double[centroidMeansBlock.getPositionCount()];
         for (int i = 0; i < centroidMeansBlock.getPositionCount(); i++) {
             centroidMeans[i] = DOUBLE.getDouble(centroidMeansBlock, i);
@@ -179,8 +188,7 @@ public final class TDigestFunctions
                 compression,
                 min,
                 max,
-                sum,
-                toIntExact(count));
+                sum);
 
         return tDigest.serialize();
     }

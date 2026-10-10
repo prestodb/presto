@@ -43,6 +43,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.scalar.TDigestFunctions.TDIGEST_CENTROIDS_ROW_TYPE;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -51,6 +52,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.sort;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestTDigestFunctions
         extends AbstractTestFunctions
@@ -692,6 +694,39 @@ public class TestTDigestFunctions
         // If this is true then by definition calling construct_tdigest(destructure_tdigest(...)...)
         // will work
         assertEquals(constructedSqlVarbinary, sqlVarbinary);
+    }
+
+    @Test
+    public void testConstructTDigestFromDestructuredTDigest()
+    {
+        // Once a digest holds more values than its compression allows centroids for, each centroid
+        // absorbs several values, so the count of values differs from the number of centroids
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        for (int i = 0; i < 10_000; i++) {
+            tDigest.add(i);
+        }
+        SqlVarbinary serializedTDigest = new SqlVarbinary(tDigest.serialize().getBytes());
+        assertTrue(tDigest.centroidCount() < tDigest.getSize());
+
+        String destructured = format("destructure_tdigest(%s)", toSqlString(tDigest));
+        String sql = format(
+                "construct_tdigest(%1$s.centroid_means, %1$s.centroid_weights, %1$s.compression, %1$s.min, %1$s.max, %1$s.sum, %1$s.count)",
+                destructured);
+
+        assertEquals(functionAssertions.selectSingleValue(sql, TDIGEST_DOUBLE, SqlVarbinary.class), serializedTDigest);
+    }
+
+    @Test
+    public void testConstructTDigestWithMismatchedCentroidArrays()
+    {
+        functionAssertions.assertInvalidFunction(
+                "construct_tdigest(ARRAY[1.0], ARRAY[1.0, 2.0], 1.0, 1.0, 1.0, 1.0, 10)",
+                INVALID_FUNCTION_ARGUMENT,
+                "centroid_means and centroid_weights must have the same number of elements, but got 1 and 2");
+        functionAssertions.assertInvalidFunction(
+                "construct_tdigest(ARRAY[1.0, 2.0], ARRAY[1.0], 100.0, 1.0, 2.0, 3.0, 2)",
+                INVALID_FUNCTION_ARGUMENT,
+                "centroid_means and centroid_weights must have the same number of elements, but got 2 and 1");
     }
 
     @Test
