@@ -27,6 +27,7 @@ import java.util.OptionalDouble;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
@@ -41,7 +42,7 @@ import static org.testng.Assert.assertTrue;
  */
 public class TestDeltaTableStatisticsProvider
 {
-    private static final DeltaTableStatisticsProvider PROVIDER = new DeltaTableStatisticsProvider(null);
+    private static final DeltaTableStatisticsProvider PROVIDER = new DeltaTableStatisticsProvider(null, createTestFunctionAndTypeManager());
 
     private static DeltaTable table(DeltaColumn... columns)
     {
@@ -346,6 +347,50 @@ public class TestDeltaTableStatisticsProvider
     {
         assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic(null, parseTypeSignature("bigint")),
                 OptionalDouble.empty());
+    }
+
+    @Test
+    public void testToDoubleStatisticDateString()
+    {
+        // epoch day of 2024-01-15 is 19737
+        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic("2024-01-15", parseTypeSignature("date")),
+                OptionalDouble.of(19737.0));
+        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic("invalid-date", parseTypeSignature("date")),
+                OptionalDouble.empty());
+    }
+
+    @Test
+    public void testStringRangeAggregation()
+    {
+        DeltaColumn col = regular("name", "varchar");
+        String s1 = "{\"numRecords\":3,\"minValues\":{\"name\":\"apple\"},\"maxValues\":{\"name\":\"cherry\"},\"nullCount\":{\"name\":0}}";
+        String s2 = "{\"numRecords\":4,\"minValues\":{\"name\":\"banana\"},\"maxValues\":{\"name\":\"date\"},\"nullCount\":{\"name\":0}}";
+
+        TableStatistics result = PROVIDER.computeTableStatistics(
+                Arrays.asList(entry("p0.parquet", s1, emptyMap()), entry("p1.parquet", s2, emptyMap())),
+                table(col));
+
+        ColumnStatistics cs = colStats(result, col);
+        assertTrue(cs.getStringRange().isPresent());
+        assertEquals(cs.getStringRange().get().getMin(), "apple");
+        assertEquals(cs.getStringRange().get().getMax(), "date");
+    }
+
+    @Test
+    public void testUnreliableBounds()
+    {
+        DeltaColumn id = regular("id", "bigint");
+        // File 0 has non-null rows and min/max stats
+        String s0 = "{\"numRecords\":3,\"minValues\":{\"id\":10},\"maxValues\":{\"id\":20},\"nullCount\":{\"id\":0}}";
+        // File 1 has non-null rows but missing min/max stats for "id" column
+        String s1 = "{\"numRecords\":3,\"nullCount\":{\"id\":0}}";
+
+        TableStatistics result = PROVIDER.computeTableStatistics(
+                Arrays.asList(entry("p0.parquet", s0, emptyMap()), entry("p1.parquet", s1, emptyMap())),
+                table(id));
+
+        ColumnStatistics cs = colStats(result, id);
+        assertFalse(cs.getRange().isPresent());
     }
 
     @Test

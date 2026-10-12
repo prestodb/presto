@@ -47,10 +47,16 @@ public class DeltaJsonFileStatistics
     private final Map<String, Object> maxValues;
     private final Map<String, Object> nullCount;
 
+    private static final int MAX_STATS_JSON_LENGTH = 50_000;
+
     /** Parses a stats JSON string. Returns empty on null, blank, or malformed input — never throws. */
     public static Optional<DeltaJsonFileStatistics> create(String statsJson)
     {
         if (isNullOrEmpty(statsJson) || statsJson.trim().equals("null")) {
+            return Optional.empty();
+        }
+        if (statsJson.length() > MAX_STATS_JSON_LENGTH) {
+            log.debug("Delta file statistics JSON string is too large (%d characters), skipping statistics", statsJson.length());
             return Optional.empty();
         }
         try {

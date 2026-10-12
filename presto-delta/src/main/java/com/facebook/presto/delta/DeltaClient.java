@@ -14,6 +14,8 @@
 package com.facebook.presto.delta;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -38,9 +40,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -178,10 +178,47 @@ public class DeltaClient
     }
 
     /**
-     * Returns all active file entries in the snapshot with per-file statistics parsed from
-     * {@code add.stats}. Separate from {@link #listFiles} — no predicate pushdown, stats only.
+     * Get a closeable iterator of {@link DeltaFileEntry} for the table, with optional partition pruning applied.
      */
-    public List<DeltaFileEntry> listFileEntries(ConnectorSession session, DeltaTable deltaTable)
+    public CloseableIterator<DeltaFileEntry> getFileEntries(
+            ConnectorSession session,
+            DeltaTable deltaTable,
+            TupleDomain<DeltaColumnHandle> constraint,
+            TypeManager typeManager)
+    {
+        CloseableIterator<FilteredColumnarBatch> scanFilesIter = getScanFiles(session, deltaTable);
+        CloseableIterator<Row> fileRows = DeltaExpressionUtils.iterateWithPartitionPruning(
+                scanFilesIter,
+                constraint,
+                typeManager);
+
+        return new CloseableIterator<DeltaFileEntry>()
+        {
+            @Override
+            public boolean hasNext()
+            {
+                return fileRows.hasNext();
+            }
+
+            @Override
+            public DeltaFileEntry next()
+            {
+                return toFileEntry(fileRows.next());
+            }
+
+            @Override
+            public void close()
+                    throws IOException
+            {
+                fileRows.close();
+            }
+        };
+    }
+
+    /**
+     * Get the scan files closeable iterator with per-file statistics included.
+     */
+    private CloseableIterator<FilteredColumnarBatch> getScanFiles(ConnectorSession session, DeltaTable deltaTable)
     {
         requireNonNull(deltaTable, "deltaTable is null");
         checkArgument(deltaTable.getSnapshotId().isPresent(), "Snapshot id is missing from the Delta table");
@@ -196,11 +233,6 @@ public class DeltaClient
         Engine deltaEngine = deltaEngineOpt.get();
         Table sourceTable = loadDeltaTable(deltaTable.getTableLocation(), deltaEngine);
 
-        List<DeltaFileEntry> result = new ArrayList<>();
-        // getScanFiles(engine, includeStats=true) is only on internal ScanImpl, not the public
-        // Scan interface. Cast is unavoidable in Kernel 4.0.0.
-        // TODO: remove once Kernel exposes this on the public Scan interface.
-
         Scan rawScan = sourceTable
                 .getSnapshotAsOfVersion(deltaEngine, deltaTable.getSnapshotId().get())
                 .getScanBuilder()
@@ -209,29 +241,17 @@ public class DeltaClient
             throw new PrestoException(DeltaErrorCode.DELTA_ERROR_LOADING_METADATA, format(
                     "Cannot read Delta file statistics: expected ScanImpl but got %s. "
                     + "Delta Kernel may have changed its internal API — remove the ScanImpl cast "
-                    + "in DeltaClient.listFileEntries() and use the public stats API instead.",
+                    + "in DeltaClient.getScanFiles() and use the public stats API instead.",
                     rawScan.getClass().getName()));
         }
         ScanImpl scan = (ScanImpl) rawScan;
-        try (CloseableIterator<FilteredColumnarBatch> scanBatches =
-                scan.getScanFiles(deltaEngine, true /* includeStats */)) {
-            while (scanBatches.hasNext()) {
-                FilteredColumnarBatch batch = scanBatches.next();
-                try (CloseableIterator<Row> rows = batch.getRows()) {
-                    while (rows.hasNext()) {
-                        result.add(toFileEntry(rows.next()));
-                    }
-                }
-            }
+        try {
+            return scan.getScanFiles(deltaEngine, true /* includeStats */);
         }
         catch (TableNotFoundException e) {
             throw new PrestoException(StandardErrorCode.NOT_FOUND,
                     format("Delta table not found in '%s'", deltaTable.getTableLocation()), e);
         }
-        catch (IOException e) {
-            throw new UncheckedIOException("Could not close scan file iterator", e);
-        }
-        return result;
     }
 
     /** Converts a scan-file {@link Row} to a {@link DeltaFileEntry}. Stats errors are swallowed. */

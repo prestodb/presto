@@ -15,6 +15,7 @@ package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
@@ -99,6 +100,7 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Math.round;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -122,7 +124,7 @@ public class ShowStatsRewrite
             String query,
             ViewDefinitionReferences viewDefinitionReferences)
     {
-        return (Statement) new Visitor(metadata, session, parameters, queryExplainer, warningCollector, query, viewDefinitionReferences).process(node, null);
+        return (Statement) new Visitor(metadata, session, parameters, queryExplainer, warningCollector, query, viewDefinitionReferences, accessControl).process(node, null);
     }
 
     private static class Visitor
@@ -135,8 +137,9 @@ public class ShowStatsRewrite
         private final WarningCollector warningCollector;
         private final String sqlString;
         private final ViewDefinitionReferences viewDefinitionReferences;
+        private final AccessControl accessControl;
 
-        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector, String sqlString, ViewDefinitionReferences viewDefinitionReferences)
+        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector, String sqlString, ViewDefinitionReferences viewDefinitionReferences, AccessControl accessControl)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
@@ -145,6 +148,7 @@ public class ShowStatsRewrite
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.sqlString = requireNonNull(sqlString, "sqlString is null");
             this.viewDefinitionReferences = requireNonNull(viewDefinitionReferences, "viewDefinitionReferences is null");
+            this.accessControl = requireNonNull(accessControl, "accessControl is null");
         }
 
         @Override
@@ -220,6 +224,17 @@ public class ShowStatsRewrite
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
             }
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+
+            // Require appropriate table or column read authorization before returning statistics
+            Set<Subfield> subfields = columnHandles.keySet().stream()
+                    .map(Subfield::new)
+                    .collect(toImmutableSet());
+            accessControl.checkCanSelectFromColumns(
+                    session.getRequiredTransactionId(),
+                    session.getIdentity(),
+                    session.getAccessControlContext(),
+                    createQualifiedObjectName(session, node, table.getName(), metadata),
+                    subfields);
             List<ColumnHandle> nonHiddenColumns = ImmutableList.copyOf(tableMetadata.getColumns().stream().filter(column -> !column.isHidden())
                     .map(ColumnMetadata::getName)
                     .map(columnHandles::get)
