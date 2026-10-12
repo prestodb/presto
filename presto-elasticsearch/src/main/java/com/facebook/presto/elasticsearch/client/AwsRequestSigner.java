@@ -30,7 +30,6 @@ import org.apache.hc.core5.http.io.entity.BasicHttpEntity;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.net.URIBuilder;
-import org.apache.http.HttpEntityEnclosingRequest;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,7 +45,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
-import static org.apache.http.protocol.HttpCoreContext.HTTP_TARGET_HOST;
+import static org.apache.hc.core5.http.protocol.HttpCoreContext.HTTP_TARGET_HOST;
 
 class AwsRequestSigner
         implements HttpRequestInterceptor
@@ -90,10 +89,10 @@ class AwsRequestSigner
                 .collect(toImmutableMap(Header::getName, Header::getValue));
 
         InputStream content = null;
-        if (request instanceof HttpEntityEnclosingRequest) {
-            HttpEntityEnclosingRequest enclosingRequest = (HttpEntityEnclosingRequest) request;
-            if (enclosingRequest.getEntity() != null) {
-                content = enclosingRequest.getEntity().getContent();
+        if (request instanceof HttpEntityContainer) {
+            HttpEntityContainer entityContainer = (HttpEntityContainer) request;
+            if (entityContainer.getEntity() != null) {
+                content = entityContainer.getEntity().getContent();
             }
         }
 

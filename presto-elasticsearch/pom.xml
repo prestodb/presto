@@ -149,11 +149,6 @@
             </exclusions>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpcore</artifactId>
-        </dependency>
-
         <!-- httpclient5 5.6.x needs httpcore5 5.4.1 or later; earlier pairings regress latency. -->
         <dependency>
             <groupId>org.apache.httpcomponents.core5</groupId>
