@@ -62,4 +62,15 @@ public class TestPartitionQuickStats
         HiveColumnStatistics withoutNdv = withoutDistinctValuesCount(withNdv).getColumnStatistics().get("flag");
         assertEquals(withoutNdv, createBooleanColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(2L)));
     }
+
+    @Test
+    public void testZeroInputRowsConvertsToZeroRowCount()
+    {
+        PartitionStatistics statistics = convertToPartitionStatistics(PartitionQuickStats.ZERO_INPUT_ROWS);
+
+        assertEquals(statistics.getBasicStatistics().getRowCount(), OptionalLong.of(0));
+        assertEquals(convertToPartitionStatistics(PartitionQuickStats.UNKNOWN_STATS), PartitionStatistics.empty());
+        // validatePartitionStatistics fails the query on inconsistent statistics
+        MetastoreHiveStatisticsProvider.validatePartitionStatistics(new SchemaTableName("schema", "table"), ImmutableMap.of("p1", statistics));
+    }
 }

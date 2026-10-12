@@ -39,7 +39,16 @@ import static java.util.Collections.emptyList;
 
 public class PartitionQuickStats
 {
-    public static final PartitionQuickStats EMPTY = new PartitionQuickStats("emptyPartition", emptyList(), 0, 0);
+    /**
+     * Quick stats are unavailable for this partition; converts to {@link PartitionStatistics#empty()}.
+     */
+    public static final PartitionQuickStats UNKNOWN_STATS = new PartitionQuickStats("unknownStats", emptyList(), 0, 0);
+
+    /**
+     * The partition's data files hold no rows; converts to a row count of 0.
+     */
+    public static final PartitionQuickStats ZERO_INPUT_ROWS = new PartitionQuickStats("zeroInputRows", emptyList(), 0, 0);
+
     private final String partitionId;
     private final List<ColumnQuickStats<?>> stats;
     private final int fileCount;
@@ -55,7 +64,13 @@ public class PartitionQuickStats
 
     public static PartitionStatistics convertToPartitionStatistics(PartitionQuickStats partitionQuickStats)
     {
-        if (partitionQuickStats.equals(EMPTY) || partitionQuickStats.getStats().isEmpty()) {
+        if (partitionQuickStats == ZERO_INPUT_ROWS) {
+            return new PartitionStatistics(
+                    new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0)),
+                    ImmutableMap.of());
+        }
+
+        if (partitionQuickStats.equals(UNKNOWN_STATS) || partitionQuickStats.getStats().isEmpty()) {
             return empty();
         }
 

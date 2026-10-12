@@ -15,6 +15,7 @@ package com.facebook.presto.hive.statistics;
 
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.hive.DirectoryLister;
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HadoopDirectoryLister;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -47,6 +48,8 @@ import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.mapred.InputFormat;
+import org.apache.hudi.hadoop.HoodieParquetInputFormat;
+import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -60,6 +63,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -271,6 +275,46 @@ public class TestQuickStatsProvider
         assertEquals(enabled, convertToPartitionStatistics(mockPartitionQuickStats));
         assertEquals(disabled, withoutDistinctValuesCount(enabled));
         assertEquals(enabledAgain, enabled);
+    }
+
+    /**
+     * The listing skips the hidden log files of a Hudi merge-on-read table, so no files listed does not
+     * mean no rows there. The read-optimized view reads only the listed base files.
+     */
+    @Test
+    public void testNoFilesInHudiRealtimeTableIsUnknown()
+    {
+        assertEquals(quickStatsForEmptyTable(HoodieParquetRealtimeInputFormat.class.getName()), empty());
+        assertEquals(quickStatsForEmptyTable(HoodieParquetInputFormat.class.getName()).getBasicStatistics().getRowCount(), OptionalLong.of(0));
+    }
+
+    private PartitionStatistics quickStatsForEmptyTable(String inputFormat)
+    {
+        String tableName = "hudi_" + inputFormat.substring(inputFormat.lastIndexOf('.') + 1);
+        TestingExtendedHiveMetastore hudiMetastore = new TestingExtendedHiveMetastore();
+        hudiMetastore.createTable(
+                metastoreContext,
+                new Table(
+                        Optional.of("catalogName"),
+                        TEST_SCHEMA,
+                        tableName,
+                        "owner",
+                        MANAGED_TABLE,
+                        Storage.builder()
+                                .setStorageFormat(StorageFormat.create(ParquetHiveSerDe.class.getName(), inputFormat, HiveIgnoreKeyTextOutputFormat.class.getName()))
+                                .setLocation("location")
+                                .build(),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        ImmutableMap.of(),
+                        Optional.empty(),
+                        Optional.empty()),
+                new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()),
+                ImmutableList.of());
+        // directoryListerMock lists no files
+        QuickStatsProvider provider = new QuickStatsProvider(hudiMetastore, hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+                ImmutableList.of(new ParquetQuickStatsBuilder(new FileFormatDataSourceStats(), hdfsEnvironment, hiveClientConfig)));
+        return provider.getQuickStats(SESSION, new SchemaTableName(TEST_SCHEMA, tableName), metastoreContext, UNPARTITIONED_ID.getPartitionName());
     }
 
     @Test

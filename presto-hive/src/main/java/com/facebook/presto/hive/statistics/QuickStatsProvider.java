@@ -45,6 +45,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.mapred.InputFormat;
+import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -401,17 +402,22 @@ public class QuickStatsProvider
             }
         }
 
-        PartitionQuickStats partitionQuickStats = PartitionQuickStats.EMPTY;
+        PartitionQuickStats partitionQuickStats = PartitionQuickStats.UNKNOWN_STATS;
         Stopwatch buildStopwatch = Stopwatch.createStarted();
         // Build quick stats one by one from statsBuilderStrategies. Do this until we get a non-empty PartitionQuickStats
         for (QuickStatsBuilder strategy : statsBuilderStrategies) {
             partitionQuickStats = strategy.buildQuickStats(session, metastore, table, metastoreContext, partitionId, fileList);
 
-            if (partitionQuickStats != PartitionQuickStats.EMPTY) {
+            if (partitionQuickStats != PartitionQuickStats.UNKNOWN_STATS) {
                 // Strategy successfully resolved stats, don't explore other strategies
                 // TODO : We can order the strategies based on table metadata, e.g Iceberg tables could use the IcebergQuickStatsBuilder first
                 break;
             }
+        }
+
+        // The listing skips hidden files, which include the log files of a Hudi merge-on-read table
+        if (partitionQuickStats == PartitionQuickStats.ZERO_INPUT_ROWS && inputFormat instanceof HoodieParquetRealtimeInputFormat) {
+            partitionQuickStats = PartitionQuickStats.UNKNOWN_STATS;
         }
 
         long buildMillis = buildStopwatch.elapsed(MILLISECONDS);

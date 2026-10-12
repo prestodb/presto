@@ -289,7 +289,7 @@ public class ParquetQuickStatsBuilder
         requireNonNull(files);
 
         if (!files.hasNext()) {
-            return PartitionQuickStats.EMPTY;
+            return PartitionQuickStats.ZERO_INPUT_ROWS;
         }
 
         // TODO: Consider refactoring storage and/or table format to the interface when we implement an ORC/Iceberg quick stats builder
@@ -306,7 +306,7 @@ public class ParquetQuickStatsBuilder
 
         if (!PARQUET_SERDE_CLASS_NAMES.contains(storageFormat.getSerDe())) {
             // Not a parquet table/partition
-            return PartitionQuickStats.EMPTY;
+            return PartitionQuickStats.UNKNOWN_STATS;
         }
 
         // We want to keep the number of files we use to build quick stats bounded, so that
@@ -377,8 +377,12 @@ public class ParquetQuickStatsBuilder
             throw new RuntimeException(e);
         }
 
+        if (partitionRowCount == 0) {
+            return PartitionQuickStats.ZERO_INPUT_ROWS;
+        }
         if (rolledUpColStats.isEmpty()) {
-            return PartitionQuickStats.EMPTY;
+            // Every column was skipped, e.g. because all are nested
+            return PartitionQuickStats.UNKNOWN_STATS;
         }
         return new PartitionQuickStats(partitionId, rolledUpColStats.values(), filesCount, partitionRowCount);
     }

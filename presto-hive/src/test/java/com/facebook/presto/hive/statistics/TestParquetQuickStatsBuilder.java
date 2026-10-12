@@ -15,6 +15,8 @@
 package com.facebook.presto.hive.statistics;
 
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsContext;
@@ -53,25 +55,36 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.chrono.ChronoLocalDate;
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.READ_MASKED_VALUE_ENABLED;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static com.facebook.presto.hive.parquet.ParquetTester.writeParquetFileFromPresto;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.lang.System.exit;
+import static java.nio.file.Files.createTempDirectory;
 import static java.time.LocalDate.parse;
+import static java.util.Collections.emptyIterator;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
+import static org.apache.parquet.hadoop.metadata.CompressionCodecName.GZIP;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertSame;
 
 public class TestParquetQuickStatsBuilder
 {
@@ -332,6 +345,53 @@ public class TestParquetQuickStatsBuilder
     private static OptionalLong estimateNdv(PartitionQuickStats partition, ColumnQuickStats<?> column)
     {
         return column.getDistinctValuesCount(partition.getRowCount() - column.getNullsCount());
+    }
+
+    @Test
+    public void testNoFilesIsZeroInputRows()
+    {
+        assertSame(buildQuickStats(emptyIterator()), PartitionQuickStats.ZERO_INPUT_ROWS);
+    }
+
+    /**
+     * A file written with no rows holds no rows, whether or not it has an empty row group.
+     */
+    @Test
+    public void testFilesWithNoRowsAreZeroInputRows()
+            throws Exception
+    {
+        assertSame(buildQuickStatsForFile(BIGINT, ImmutableList.of(), 0), PartitionQuickStats.ZERO_INPUT_ROWS);
+    }
+
+    /**
+     * Nested columns are skipped, so an all-nested file also has an empty roll-up, but it has rows.
+     */
+    @Test
+    public void testAllNestedColumnsStaysUnknown()
+            throws Exception
+    {
+        Type rowType = RowType.from(ImmutableList.of(RowType.field("a", BIGINT)));
+        assertSame(
+                buildQuickStatsForFile(rowType, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(2L), ImmutableList.of(3L)), 3),
+                PartitionQuickStats.UNKNOWN_STATS);
+    }
+
+    private PartitionQuickStats buildQuickStatsForFile(Type type, List<?> values, int rowCount)
+            throws Exception
+    {
+        java.nio.file.Path dir = createTempDirectory("quick-stats");
+        try {
+            writeParquetFileFromPresto(dir.resolve("data.parquet").toFile(), ImmutableList.of(type), ImmutableList.of("c"), new Iterable[] {values}, rowCount, GZIP, PARQUET_1_0);
+            return buildQuickStats(buildHiveFileInfos(dir.toUri().toString(), "", 1).iterator());
+        }
+        finally {
+            deleteRecursively(dir, ALLOW_INSECURE);
+        }
+    }
+
+    private PartitionQuickStats buildQuickStats(Iterator<HiveFileInfo> files)
+    {
+        return parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, UNPARTITIONED_ID.getPartitionName(), files);
     }
 
     public static class DelayingHdfsEnvironment
