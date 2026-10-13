@@ -71,6 +71,7 @@ import static com.facebook.presto.plugin.jdbc.QueryBuilder.quote;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.geometryReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -442,7 +443,10 @@ public class MySqlClient
         }
         JdbcIdentity identity = JdbcIdentity.from(session);
         try (Connection connection = connectionFactory.openConnection(identity)) {
-Can we use the `listRemoteViews` method here instead?
+            SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new);
+            return listRemoteViews(connection, prefix).stream()
+                    .map(remoteView -> viewName(session, prefix, remoteView.name))
+                    .collect(toImmutableList());
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
